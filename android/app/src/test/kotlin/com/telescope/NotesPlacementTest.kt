@@ -51,6 +51,15 @@ class NotesPlacementTest {
     }
 
     @Test
+    fun `a corner hole near the bottom of a sideways screen keeps the reading line halfway up`() {
+        val hole = Box(30, 950, 110, 1030)
+        val p = NotesPlacement.place(2400, 1080, NotesPlacement.lens(2400, 1080, listOf(hole), 1), margin, line)
+        assertEquals(Edge.LEFT, p.lensEdge)
+        assertEquals(540, p.readingTop)
+        assertTrue(p.column.bottom - p.readingTop >= 3 * line)  // a few lines to read ahead
+    }
+
+    @Test
     fun `upside down the reading line sits a few lines above the lens`() {
         val p = NotesPlacement.place(1080, 2400, NotesPlacement.lens(1080, 2400, emptyList(), 2), margin, line)
         assertEquals(Edge.BOTTOM, p.lensEdge)

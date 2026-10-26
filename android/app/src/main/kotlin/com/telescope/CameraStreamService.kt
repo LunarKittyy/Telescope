@@ -971,6 +971,8 @@ class CameraStreamService : Service() {
             takes_notes = true,
             notes = NotesBoard.hasNotes,
             notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
+            notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
+            notes_preview = NotesBoard.wantsScreen && !NotesBoard.shown && controller?.hasPreviewSurface() == true,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -1129,10 +1131,11 @@ class CameraStreamService : Service() {
         return ok()
     }
 
-    // Android only lets an app open a screen while one of its own is up; otherwise the app opens them next time it's
-    // on screen (MainActivity.onStart)
+    // Android only lets an app open a screen while one of its own is up; otherwise MainActivity.onStart opens them
     private fun showNotes() {
         if (!isStreaming || NotesBoard.shown || !NotesBoard.wantsScreen) return
+        // Over Preview they'd take its surface and rebuild the capture session; MainActivity opens them once it closes
+        if (controller?.hasPreviewSurface() == true) return
         val info = android.app.ActivityManager.RunningAppProcessInfo()
         android.app.ActivityManager.getMyMemoryState(info)
         if (info.importance > android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return

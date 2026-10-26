@@ -2135,7 +2135,7 @@ msgstr "Pembingkaian"
 msgid "How quickly the framing catches up when you move"
 msgstr "Seberapa cepat pembingkaian menyesuaikan saat Anda bergerak"
 
-#: telescope/plugins/framing.py:276 telescope/plugins/notes.py:160
+#: telescope/plugins/framing.py:276 telescope/plugins/notes.py:168
 msgid "Speed"
 msgstr "Kecepatan"
 
@@ -2504,156 +2504,166 @@ msgstr "Tetap mulai"
 msgid "By hand"
 msgstr ""
 
-#: telescope/plugins/notes.py:54
+#: telescope/plugins/notes.py:55
 msgid "Notes only work with a phone as the camera."
 msgstr ""
 
-#: telescope/plugins/notes.py:56
+#: telescope/plugins/notes.py:57
 msgid "Update Telescope on the phone to show notes there."
 msgstr ""
 
-#: telescope/plugins/notes.py:58
+#: telescope/plugins/notes.py:59
 msgid "These notes are too long to send to the phone."
 msgstr ""
 
-#: telescope/plugins/notes.py:60
+#: telescope/plugins/notes.py:61
 msgid "Start streaming to send the notes to the phone."
 msgstr ""
 
-#: telescope/plugins/notes.py:63
+#: telescope/plugins/notes.py:64
 msgid "Switch to the front camera to have the phone's screen facing you."
 msgstr ""
 
-#: telescope/plugins/notes.py:64
+#: telescope/plugins/notes.py:65
 msgid "Send to phone puts them on its screen right under the camera."
 msgstr ""
 
-#: telescope/plugins/notes.py:66
-msgid "Open Telescope on the phone to see the notes."
-msgstr ""
-
 #: telescope/plugins/notes.py:68
-msgid "The notes are up but the phone streams from its back camera."
+msgid "The notes were closed on the phone. Send again to show them."
 msgstr ""
 
 #: telescope/plugins/notes.py:70
-msgid "Send again to show your changes on the phone."
+msgid "The notes show up on the phone once you close its preview."
 msgstr ""
 
 #: telescope/plugins/notes.py:71
+msgid "Open Telescope on the phone to see the notes."
+msgstr ""
+
+#: telescope/plugins/notes.py:73
+msgid "The notes are up but the phone streams from its back camera."
+msgstr ""
+
+#: telescope/plugins/notes.py:75
+msgid "Send again to show your changes on the phone."
+msgstr ""
+
+#: telescope/plugins/notes.py:76
 msgid "The notes are on the phone's screen."
 msgstr ""
 
-#: telescope/plugins/notes.py:80 telescope/plugins/notes.py:110 telescope/plugins/notes.py:130 telescope/plugins/notes.py:192
+#: telescope/plugins/notes.py:85 telescope/plugins/notes.py:118 telescope/plugins/notes.py:138 telescope/plugins/notes.py:199
 msgid "Notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:81
+#: telescope/plugins/notes.py:86
 msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
 msgstr ""
 
-#: telescope/plugins/notes.py:82
+#: telescope/plugins/notes.py:87
 msgid "Without it there's no Notes card and the phone never shows notes."
 msgstr ""
 
-#: telescope/plugins/notes.py:114
+#: telescope/plugins/notes.py:122
 msgid "Your saved notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:116
+#: telescope/plugins/notes.py:124
 msgid "New notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:118
+#: telescope/plugins/notes.py:126
 msgid "Delete these notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:129
+#: telescope/plugins/notes.py:137
 msgid "Type or paste your notes. Next and Previous move one line at a time."
 msgstr ""
 
-#: telescope/plugins/notes.py:139
+#: telescope/plugins/notes.py:147
 msgid "How big the notes are on the phone"
 msgstr ""
 
-#: telescope/plugins/notes.py:142
+#: telescope/plugins/notes.py:150
 msgid "Text size"
 msgstr ""
 
-#: telescope/plugins/notes.py:152
+#: telescope/plugins/notes.py:160
 msgid "Scroll"
 msgstr ""
 
-#: telescope/plugins/notes.py:163 telescope/plugins/presets.py:153 telescope/shortcuts.py:512
+#: telescope/plugins/notes.py:171
+msgctxt "notes"
 msgid "Previous"
-msgstr "Sebelumnya"
+msgstr ""
 
-#: telescope/plugins/notes.py:164
+#: telescope/plugins/notes.py:172
 msgid "Back to the line before"
 msgstr ""
 
-#: telescope/plugins/notes.py:166 telescope/plugins/notes.py:281
+#: telescope/plugins/notes.py:174 telescope/plugins/notes.py:288
 msgid "Play"
 msgstr ""
 
-#: telescope/plugins/notes.py:168
+#: telescope/plugins/notes.py:176
 msgid "Start or pause scrolling on the phone"
 msgstr ""
 
-#: telescope/plugins/notes.py:170 telescope/plugins/presets.py:153 telescope/shortcuts.py:512
+#: telescope/plugins/notes.py:178
+msgctxt "notes"
 msgid "Next"
-msgstr "Berikutnya"
+msgstr ""
 
-#: telescope/plugins/notes.py:171
+#: telescope/plugins/notes.py:179
 msgid "On to the next line"
 msgstr ""
 
-#: telescope/plugins/notes.py:175
+#: telescope/plugins/notes.py:183
 msgid "Send to phone"
 msgstr ""
 
-#: telescope/plugins/notes.py:178
+#: telescope/plugins/notes.py:186
 msgid "Clear from phone"
 msgstr ""
 
-#: telescope/plugins/notes.py:194
+#: telescope/plugins/notes.py:201
 msgid "Send notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:195
+#: telescope/plugins/notes.py:202
 msgid "Clear notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:196
+#: telescope/plugins/notes.py:203
 msgid "Next line"
 msgstr ""
 
-#: telescope/plugins/notes.py:197
+#: telescope/plugins/notes.py:204
 msgid "Previous line"
 msgstr ""
 
-#: telescope/plugins/notes.py:198
+#: telescope/plugins/notes.py:205
 msgid "Scroll notes"
 msgstr ""
 
-#: telescope/plugins/notes.py:199
+#: telescope/plugins/notes.py:206
 msgid "playing"
 msgstr ""
 
-#: telescope/plugins/notes.py:199
+#: telescope/plugins/notes.py:206
 msgid "paused"
 msgstr ""
 
-#: telescope/plugins/notes.py:200
+#: telescope/plugins/notes.py:207
 msgid "Notes scroll speed"
 msgstr ""
 
-#: telescope/plugins/notes.py:221
+#: telescope/plugins/notes.py:228
 #, python-brace-format
 msgid "Notes {n}"
 msgstr ""
 
-#: telescope/plugins/notes.py:281
+#: telescope/plugins/notes.py:288
 msgid "Pause"
 msgstr ""
 
@@ -2774,6 +2784,14 @@ msgstr "Tanpa ini, tidak ada tombol Preset di header (preset tersimpan Anda tida
 #, python-brace-format
 msgid "Preset: {name}"
 msgstr "Preset: {name}"
+
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:512
+msgid "Next"
+msgstr "Berikutnya"
+
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:512
+msgid "Previous"
+msgstr "Sebelumnya"
 
 #: telescope/plugins/presets.py:156
 msgid "Apply a preset"

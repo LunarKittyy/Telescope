@@ -99,6 +99,8 @@
     "takes_notes": true,
     "notes": true,
     "notes_shown": true,
+    "notes_closed": true,
+    "notes_preview": true,
     "stream_width": 1920,
     "stream_height": 1080,
     "battery": 87,

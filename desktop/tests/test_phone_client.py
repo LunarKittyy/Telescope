@@ -257,6 +257,16 @@ def test_send_now_posts_json_body_with_auth_header(monkeypatch):
     assert response.read_count == 1
 
 
+def test_send_now_sends_text_as_utf8_not_escapes(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    calls = []
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen",
+                        lambda req, timeout: calls.append(req) or _Response(b"ok"))
+    client._send_now({"action": "notes", "text": "Привет"})
+    assert "Привет".encode("utf-8") in calls[0].data
+
+
 def test_send_now_swallows_transport_errors(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
     client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))

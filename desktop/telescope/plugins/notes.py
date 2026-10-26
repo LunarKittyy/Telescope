@@ -30,7 +30,7 @@ SCROLLS = (("auto", N_("Auto")), ("hand", N_("By hand")))
 
 def body_size(text: str) -> int:
     """How big the notes control is on the wire, as the phone client sends it."""
-    return len(json.dumps({"action": "notes", "text": text}).encode("utf-8"))
+    return len(json.dumps({"action": "notes", "text": text}, ensure_ascii=False).encode("utf-8"))
 
 
 def set_name(text: str) -> str:
@@ -48,7 +48,8 @@ def front_facing(state: dict) -> Optional[bool]:
 
 
 def notes_status(*, streaming: bool, phone: bool, takes_notes: Optional[bool], too_long: bool, sent: bool,
-                 shown: bool, front: Optional[bool], edited: bool) -> tuple:
+                 shown: bool, front: Optional[bool], edited: bool, closed: bool = False,
+                 preview: bool = False) -> tuple:
     """(what the card says about the notes, its status kind)."""
     if not phone:
         return tr("Notes only work with a phone as the camera."), "dim"
@@ -63,6 +64,10 @@ def notes_status(*, streaming: bool, phone: bool, takes_notes: Optional[bool], t
             return tr("Switch to the front camera to have the phone's screen facing you."), "warn"
         return tr("Send to phone puts them on its screen right under the camera."), "dim"
     if not shown:
+        if closed:
+            return tr("The notes were closed on the phone. Send again to show them."), "warn"
+        if preview:
+            return tr("The notes show up on the phone once you close its preview."), "warn"
         return tr("Open Telescope on the phone to see the notes."), "warn"
     if front is False:
         return tr("The notes are up but the phone streams from its back camera."), "warn"
@@ -91,6 +96,8 @@ class NotesPlugin(TelescopePlugin):
         self._sent_at = 0.0
         self._takes_notes: Optional[bool] = None  # None: not known yet
         self._shown = False
+        self._closed = False  # closed on the phone (Back or its close button) since they were sent
+        self._preview = False  # the phone holds them back while its Preview is open
         self._front: Optional[bool] = None
         self._source = ""  # "" for a phone, else the picked StreamSource
         self._sets = [""]
@@ -161,14 +168,14 @@ class NotesPlugin(TelescopePlugin):
         self._speed_row = control_row_widget(tr("Speed"), slider_row(self._speed_slider, self._speed_lbl), stretch=True)
         lay.addWidget(self._speed_row)
 
-        self._back_btn = QPushButton(tr("Previous"))
+        self._back_btn = QPushButton(tr("Previous", ctx="notes"))
         self._back_btn.setToolTip(tr("Back to the line before"))
         self._back_btn.clicked.connect(lambda: self._move(-1))
         self._play_btn = QPushButton(tr("Play"))
         self._play_btn.setCheckable(True)
         self._play_btn.setToolTip(tr("Start or pause scrolling on the phone"))
         self._play_btn.toggled.connect(self._on_play)
-        self._next_btn = QPushButton(tr("Next"))
+        self._next_btn = QPushButton(tr("Next", ctx="notes"))
         self._next_btn.setToolTip(tr("On to the next line"))
         self._next_btn.clicked.connect(lambda: self._move(1))
         lay.addLayout(button_row(self._back_btn, self._play_btn, self._next_btn))
@@ -302,6 +309,7 @@ class NotesPlugin(TelescopePlugin):
         self._ctrl.send(action="notes", text=text)
         self._sent_ctrl, self._sent_text, self._sent_at = self._ctrl, text, time.monotonic()
         self._shown = True  # until the phone says otherwise; it opens them right away when Telescope is on screen
+        self._closed = self._preview = False
         self._timer.start()
         QTimer.singleShot(1200, self._poll)
         self._show()
@@ -311,6 +319,7 @@ class NotesPlugin(TelescopePlugin):
             self._ctrl.send(action="notes", text="")
         self._play_btn.setChecked(False)
         self._sent_ctrl, self._sent_text, self._shown = None, "", False
+        self._closed = self._preview = False
         self._show()
 
     def _move(self, by: int):
@@ -344,7 +353,8 @@ class NotesPlugin(TelescopePlugin):
         sent = self._is_sent()
         status, kind = notes_status(
             streaming=self._ctrl is not None, phone=self._source == "", takes_notes=self._takes_notes,
-            too_long=too_long, sent=sent, shown=self._shown, front=self._front, edited=sent and text != self._sent_text)
+            too_long=too_long, sent=sent, shown=self._shown, front=self._front, edited=sent and text != self._sent_text,
+            closed=self._closed, preview=self._preview)
         self._status.setText(status)
         set_status_kind(self._status, kind)
         ready = self._sendable()
@@ -411,6 +421,8 @@ class NotesPlugin(TelescopePlugin):
         self._front = front_facing(state)
         if self._is_sent():
             self._shown = bool(state.get("notes_shown"))
+            self._closed = bool(state.get("notes_closed"))  # older phones leave these out
+            self._preview = bool(state.get("notes_preview"))
             lost = self._takes_notes and not state.get("notes")
             if lost and time.monotonic() - self._sent_at > _RESEND_AFTER_S:
                 self._ctrl.send(**self._style())

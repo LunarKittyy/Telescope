@@ -25,8 +25,8 @@ class _Ctrl:
         return self.state
 
 
-def _state(takes_notes=True, notes=False, shown=False, facing="front"):
-    state = {"cameras": [{"id": "1", "current": True, "facing": facing}], "notes": notes, "notes_shown": shown}
+def _state(takes_notes=True, notes=False, shown=False, facing="front", **more):
+    state = {"cameras": [{"id": "1", "current": True, "facing": facing}], "notes": notes, "notes_shown": shown, **more}
     if takes_notes:
         state["takes_notes"] = True
     return state
@@ -77,6 +77,13 @@ def test_the_status_says_what_stands_in_the_way_first():
     assert notes_status(**{**base, "sent": True, "shown": True}) == ("The notes are on the phone's screen.", "ok")
     assert "back camera" in notes_status(**{**base, "sent": True, "shown": True, "front": False})[0]
     assert "Send again" in notes_status(**{**base, "sent": True, "shown": True, "edited": True})[0]
+    assert "closed on the phone" in notes_status(**{**base, "sent": True, "closed": True})[0]
+    assert "preview" in notes_status(**{**base, "sent": True, "preview": True})[0]
+
+
+def test_text_in_any_script_counts_its_utf8_bytes():
+    assert body_size("Привет") == len('{"action": "notes", "text": "Привет"}'.encode("utf-8"))
+    assert body_size("नमस्ते" * 1000) < NOTES_MAX_BYTES  # 18,000 bytes, not six times that
 
 
 def test_nothing_can_be_sent_without_a_stream(card):
@@ -160,7 +167,7 @@ def test_a_browser_camera_has_no_screen_for_notes(card):
 def test_notes_too_long_for_the_phone_are_held_back(card):
     plugin, _host, _bus, _panel = card
     ctrl = _streaming(plugin)
-    plugin._editor.setPlainText("é" * (NOTES_MAX_BYTES // 6 + 10))  # each one goes as é, six bytes
+    plugin._editor.setPlainText("é" * (NOTES_MAX_BYTES // 2 + 10))  # two bytes each in UTF-8
     assert body_size(plugin._editor.toPlainText()) > NOTES_MAX_BYTES
     assert not plugin._send_btn.isEnabled()
     plugin._send()
@@ -178,6 +185,19 @@ def test_the_card_says_when_the_phone_has_them_but_not_on_screen(card):
     assert plugin._status.text() == "The notes are on the phone's screen."
     plugin._editor.setPlainText("Hello again")
     assert "Send again" in plugin._status.text()
+
+
+def test_the_card_says_when_the_notes_were_closed_or_wait_for_preview(card):
+    plugin, _host, _bus, _panel = card
+    _streaming(plugin)
+    plugin._editor.setPlainText("Hello")
+    plugin._send_btn.click()
+    plugin.on_phone_state(_state(notes=True, notes_closed=True))
+    assert "closed on the phone" in plugin._status.text()
+    plugin.on_phone_state(_state(notes=True, notes_preview=True))
+    assert "close its preview" in plugin._status.text()
+    plugin._send_btn.click()
+    assert plugin._status.text() == "The notes are on the phone's screen."
 
 
 def test_notes_the_phone_lost_are_sent_again(card, monkeypatch):

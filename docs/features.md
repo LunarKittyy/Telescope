@@ -51,7 +51,7 @@ Optional, switched on under **Optional** in the Plugins tab of Settings. Type yo
 - The card keeps a few sets of notes, named after their first line
 - On the phone the screen stays on and black behind the text while the notes are up, which is easy on the battery with an OLED screen. Back closes them until you send again and stopping the stream takes them away
 
-Android only lets an app open a screen while it's in front. With Telescope in the background the card asks you to open it on the phone and the notes appear once you do. Turned sideways in a holder, the text sits next to the lens instead of under it.
+Android only lets an app open a screen while it's in front. With Telescope in the background the card asks you to open it on the phone and the notes appear once you do. With Preview open on the phone they wait until you close it, since opening them over it would make the stream stutter. Turned sideways in a holder, the text sits next to the lens instead of under it.
 
 ## The vision download
 

@@ -1,7 +1,6 @@
 package com.telescope
 
-// Where the notes go on screen: a column right by the front camera, with the line being read as close to the lens as
-// it fits. Plain numbers in screen pixels, so it can be tested without a device.
+// Where the notes go: a column by the front camera, the line being read as near the lens as fits, in plain pixels for tests
 object NotesPlacement {
     data class Box(val left: Int, val top: Int, val right: Int, val bottom: Int) {
         val centreX: Int get() = (left + right) / 2
@@ -51,7 +50,9 @@ object NotesPlacement {
                 val near = if (edge == Edge.LEFT) maxOf(lens.right, 0) + margin else minOf(lens.left, width) - margin
                 val w = minOf(narrow, if (edge == Edge.LEFT) width - margin - near else near - margin)
                 val left = if (edge == Edge.LEFT) near else near - w
-                val reading = (lens.centreY - lineHeight / 2).coerceIn(margin, maxOf(margin, height - margin - lineHeight))
+                // A lens low on the side would leave a line or two to read below it: the reading line stops halfway down
+                val lowest = maxOf(margin, minOf(height / 2, height - margin - lineHeight))
+                val reading = (lens.centreY - lineHeight / 2).coerceIn(margin, lowest)
                 Placement(Box(left, margin, left + w, height - margin), reading, edge)
             }
         }

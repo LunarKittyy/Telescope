@@ -682,7 +682,8 @@ def plugins_page(stack, off):
     for name in off:
         plugin_loader.set_builtin_off(name, True)
     win._builtin_plugins = builtin_plugins()
-    win._plugins = [p for p in win._plugins if p.name not in off]
+    on = plugin_loader.optional_on()  # main_window registers every plugin, but Telescope only starts optional ones that are on
+    win._plugins = [p for p in win._plugins if p.name not in off and (not p.optional or p.name in on)]
     win.resize(1380, 900)
     win.open_settings()
     settings = win._settings_win

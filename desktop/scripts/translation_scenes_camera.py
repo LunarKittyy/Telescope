@@ -530,6 +530,16 @@ def notes_not_on_screen(stack):
     return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False))
 
 
+@scene("notes-closed", "states", "Notes · closed on the phone", width=CARD_WIDTH)
+def notes_closed(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_closed=True))
+
+
+@scene("notes-preview", "states", "Notes · waiting for the phone's preview to close", width=CARD_WIDTH)
+def notes_preview(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_preview=True))
+
+
 @scene("notes-sent-back-camera", "states", "Notes · on screen while streaming from the back camera", width=CARD_WIDTH)
 def notes_sent_back_camera(stack):
     return notes_card(stack, setup=lambda plugin: notes_sent(plugin, facing="back"))

@@ -76,8 +76,7 @@ object NotesLines {
         return out
     }
 
-    // tops: where each start sits, in order. by > 0 moves that many starts down from scroll, by < 0 up; mid-line,
-    // the first step up goes back to the start of the line being read.
+    // tops: each start's position; by > 0 moves that many starts down, by < 0 up, the first step up from mid-line to its start
     fun target(tops: List<Int>, scroll: Int, by: Int): Int {
         if (tops.isEmpty() || by == 0) return scroll
         if (by > 0) {

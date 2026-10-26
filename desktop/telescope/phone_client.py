@@ -203,7 +203,7 @@ class PhoneControlClient:
 
     def _send_now(self, params: dict) -> bool:
         """False when it may not have got there, so it's worth sending again."""
-        body = json.dumps(params).encode("utf-8")
+        body = json.dumps(params, ensure_ascii=False).encode("utf-8")
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         req = urllib.request.Request(f"{self.base}/control", data=body, method="POST", headers=headers)
         try:

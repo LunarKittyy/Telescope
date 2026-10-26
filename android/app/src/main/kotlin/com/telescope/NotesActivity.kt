@@ -6,10 +6,12 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Choreographer
+import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -25,8 +27,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-// The computer's notes on a black screen, the line being read right under the front camera, so whoever is on the
-// call sees you looking at them. Only drawing changes here: the stream runs in CameraStreamService as before.
+// The computer's notes on a black screen, the line being read right under the front camera; the stream runs on in the service
 class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
 
     private lateinit var root: FrameLayout
@@ -46,6 +47,7 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
     private var jump: ValueAnimator? = null
     private var jumpTo = 0f  // where a running jump ends, so a second Next goes on from there
     private var ticking = false
+    private var rotation = -1
 
     private val tick = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -54,8 +56,22 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
             lastFrameNs = frameTimeNanos
             if (state.scrolls && !touching && jump == null) {
                 scrollTo(scroll + dt.coerceAtMost(0.1f) * pixelsPerSecond())
+                // At the end there's nothing to move: new text, a size change, a drag or a jump starts it again
+                if (text.layout != null && scroll >= maxScroll()) { stopTicking(); return }
             }
             Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+
+    // A 180° turn keeps the size and, without a cutout, the insets, so only the display says the lens moved
+    private val displays = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
+        override fun onDisplayChanged(displayId: Int) {
+            val shown = currentDisplay() ?: return
+            if (displayId != shown.displayId || shown.rotation == rotation) return
+            rotation = shown.rotation
+            root.post { place() }
         }
     }
 
@@ -123,6 +139,7 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         root.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
             if (r - l != or - ol || b - t != ob - ot) root.post { place() }
         }
+        text.addOnLayoutChangeListener { _, _, t, _, b, _, ot, _, ob -> if (b - t != ob - ot) resumeTicking() }
         root.setOnTouchListener { _, e -> drag(e) }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = dismiss()
@@ -133,12 +150,15 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         super.onStart()
         NotesBoard.addListener(this)
         NotesBoard.setShown(true)
+        rotation = currentDisplay()?.rotation ?: -1
+        getSystemService(DisplayManager::class.java)?.registerDisplayListener(displays, null)
         onNotes(NotesBoard.state)
     }
 
     override fun onStop() {
         NotesBoard.setShown(false)
         NotesBoard.removeListener(this)
+        getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(displays)
         stopTicking()
         super.onStop()
     }
@@ -180,7 +200,9 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
             interpolator = DecelerateInterpolator()
             addUpdateListener { scrollTo(it.animatedValue as Float) }
             addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) { if (jump === animation) jump = null }
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (jump === animation) { jump = null; resumeTicking() }
+                }
                 override fun onAnimationCancel(animation: android.animation.Animator) { if (jump === animation) jump = null }
             })
             start()
@@ -216,12 +238,14 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         Choreographer.getInstance().removeFrameCallback(tick)
     }
 
+    private fun resumeTicking() { if (state.scrolls) startTicking() }
+
     private fun drag(e: MotionEvent): Boolean {
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> { touching = true; lastTouchY = e.y; jump?.cancel() }
             MotionEvent.ACTION_MOVE -> { scrollTo(scroll + lastTouchY - e.y); lastTouchY = e.y }
-            MotionEvent.ACTION_UP -> { touching = false; lastFrameNs = 0L; root.performClick() }
-            MotionEvent.ACTION_CANCEL -> { touching = false; lastFrameNs = 0L }
+            MotionEvent.ACTION_UP -> { touching = false; lastFrameNs = 0L; resumeTicking(); root.performClick() }
+            MotionEvent.ACTION_CANCEL -> { touching = false; lastFrameNs = 0L; resumeTicking() }
         }
         return true
     }
@@ -243,9 +267,7 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         val w = root.width
         val h = root.height
         if (w == 0 || h == 0) return
-        val rotation = if (Build.VERSION.SDK_INT >= 30) display?.rotation ?: 0
-                       else @Suppress("DEPRECATION") windowManager.defaultDisplay.rotation
-        val lens = NotesPlacement.lens(w, h, cutouts, rotation)
+        val lens = NotesPlacement.lens(w, h, cutouts, currentDisplay()?.rotation ?: 0)
         val p = NotesPlacement.place(w, h, lens, dp(MARGIN_DP), lineHeight())
         val c = p.column
         column.layoutParams = (column.layoutParams as FrameLayout.LayoutParams).apply {
@@ -265,7 +287,11 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
             gravity = Gravity.TOP or Gravity.START
         }
         root.requestLayout()
+        resumeTicking()
     }
+
+    private fun currentDisplay(): Display? =
+        if (Build.VERSION.SDK_INT >= 30) display else @Suppress("DEPRECATION") windowManager.defaultDisplay
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
