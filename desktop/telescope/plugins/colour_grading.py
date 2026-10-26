@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from PyQt6.QtCore import QSignalBlocker, Qt
 from PyQt6.QtWidgets import (
