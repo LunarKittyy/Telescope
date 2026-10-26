@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, framing, transforms, preview, stream output, background, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,8 +86,9 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "cinema": "_scope_combo", "face_exposure": "_switch",
-                "privacy_blur": "_now_btn", "photos": "_take_btn"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
+                "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
+                "qr_reader": "_notify_switch", "photos": "_take_btn"}
 
 
 def card_of(win, widget):
@@ -700,6 +701,171 @@ def preview_false_colour(stack):
     names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
     remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
     return preview_stage(stack, win)
+
+
+# ── Desk mode ────────────────────────────────────────────────────────────────
+
+SHEET = ((0.15, 0.45), (0.5, 0.42), (0.56, 0.95), (0.08, 0.97))
+
+
+@scene("desk-marking", "main", "Desk mode · marking the sheet", width=CARD_WIDTH)
+def desk_marking(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)  # with no corners yet it asks for them
+    return cards(stack, win, "desk")
+
+
+@scene("preview-desk-corners", "states", "Preview · Desk mode asking for the sheet's corners", width=PREVIEW_WIDTH)
+def preview_desk_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("desk-straightened", "main", "Desk mode · straightening a sheet, writing in black and white", width=CARD_WIDTH)
+def desk_straightened(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "cleanup": "bw"})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-stretched", "states", "Desk mode · an A4 sheet stretched by hand", width=CARD_WIDTH)
+def desk_stretched(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "shape": "a4",
+                                       "stretch": [115, 90]})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-no-corners","states", "Desk mode · switched on, the marking cancelled", width=CARD_WIDTH)
+def desk_no_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)
+    win.cancel_pick("desk")
+    return cards(stack, win, "desk")
+
+
+@scene("desk-off-picture", "states", "Desk mode · zoomed in past the sheet's corners", width=CARD_WIDTH)
+def desk_off_picture(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET]})
+    win.set_view(zoom=3.0)
+    return cards(stack, win, "desk")
+
+
+@scene("desk-refused", "states", "Desk mode · corners marked in a line, refused", width=CARD_WIDTH)
+def desk_refused(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    win.preview_overlays()._pick.points = [(0.1, 0.5), (0.4, 0.5), (0.6, 0.5), (0.9, 0.5)]
+    win.finish_pick("desk")
+    return cards(stack, win, "desk")
+
+
+@scene("desk-not-streaming", "states", "Desk mode · marking the sheet before streaming", width=CARD_WIDTH)
+def desk_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "desk")._mark()
+    return cards(stack, win, "desk")
+
+
+# ── Chroma key ───────────────────────────────────────────────────────────────
+
+@scene("chroma-key", "main", "Chroma key · a green screen swapped for a colour", width=CARD_WIDTH)
+def chroma_key_card(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-picked", "states", "Chroma key · a colour picked from the preview, no picture chosen yet",
+       width=CARD_WIDTH)
+def chroma_key_picked(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True, "screen": "picked", "picked": [160, 40, 150],
+                                             "background": "picture"})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-grey", "states", "Chroma key · a pick with hardly any colour", width=CARD_WIDTH)
+def chroma_key_grey(stack):
+    import numpy as np
+    from telescope.overlays import Pick
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "chroma_key")
+    plugin._last = np.full((36, 64, 3), 128, np.uint8)
+    plugin._picked_point(Pick("point", ((0.5, 0.5),), ((0.5, 0.5),)))
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-not-streaming", "states", "Chroma key · picking a colour before streaming", width=CARD_WIDTH)
+def chroma_key_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "chroma_key")._pick()
+    return cards(stack, win, "chroma_key")
+
+
+@scene("preview-chroma-key-pick", "states", "Preview · Chroma key asking for the screen's colour", width=PREVIEW_WIDTH)
+def preview_chroma_key_pick(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "chroma_key")._pick()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+# ── QR codes ─────────────────────────────────────────────────────────────────
+
+def qr_card(stack, found=None, reached=True):
+    """The QR codes card switched on, after reading found (a code's text) when given."""
+    from PyQt6.QtGui import QGuiApplication
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "qr_reader")
+    plugin.set_config({"on": True, "notify": False})
+    if found is not None:
+        plugin._on_found(found, None)
+        if not reached:
+            QGuiApplication.clipboard().setText("something else")
+        plugin._check()
+    return cards(stack, win, "qr_reader")
+
+
+@scene("qr-waiting", "states", "QR codes · waiting for a code", width=CARD_WIDTH)
+def qr_waiting(stack):
+    return qr_card(stack)
+
+
+@scene("qr-wifi", "main", "QR codes · a Wi-Fi password copied", width=CARD_WIDTH)
+def qr_wifi(stack):
+    return qr_card(stack, "WIFI:T:WPA;S:Cafe Luna;P:hunter22;;")
+
+
+@scene("qr-open-wifi", "states", "QR codes · a Wi-Fi network without a password", width=CARD_WIDTH)
+def qr_open_wifi(stack):
+    return qr_card(stack, "WIFI:T:nopass;S:Library;;")
+
+
+@scene("qr-link", "states", "QR codes · a link copied", width=CARD_WIDTH)
+def qr_link(stack):
+    return qr_card(stack, "https://telescope.webcam")
+
+
+@scene("qr-text", "states", "QR codes · some text copied", width=CARD_WIDTH)
+def qr_text(stack):
+    return qr_card(stack, "Table 12")
+
+
+@scene("qr-not-reached", "states", "QR codes · the clipboard didn't take it (window in the background)",
+       width=CARD_WIDTH)
+def qr_not_reached(stack):
+    return qr_card(stack, "https://telescope.webcam", reached=False)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────
