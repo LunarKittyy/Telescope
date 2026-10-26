@@ -192,6 +192,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its row. **Install updates without asking** asks before it goes on.
 
+### Several cameras in one picture
+
+<!-- due: desktop/telescope/frames.py desktop/telescope/composite.py desktop/telescope/pictures.py desktop/telescope/plugins/composite.py desktop/telescope/widgets/composite_editor.py desktop/telescope/stream.py desktop/telescope/stream_flow.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Optional** shows the One picture card. **Start from** Big and small, then drag, resize (plain, Shift to stretch, Alt to crop), zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the Telescope camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
+- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the first alone within 3 seconds. The second one is in the picture again once it's restarted. Turning off the first phone's Wi-Fi doesn't freeze the second in the picture. With an upright phone on Telescope and a landscape one on Telescope 2, moving the mic to the second leaves the picture upright on Telescope.
+
 ### Vision effects
 
 <!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy desktop/telescope/pictures.py -->

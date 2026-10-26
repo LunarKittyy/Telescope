@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
@@ -189,6 +190,11 @@ class HostStreams(Protocol):
         """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
         ...
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        """(source id, width, height) of the stream going to virtual camera slot (0 is the one apps list as Telescope),
+        or None when none does. Width and height are None until its camera has opened, and with the camera off."""
+        ...
+
     def remove_extra_cameras(self, on_done=None) -> None:
         """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
         ...
@@ -328,6 +334,50 @@ class HostVision(Protocol):
         the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
         ...
 
+@dataclass(frozen=True)
+class StreamFrame:
+    """The newest picture of one running stream, as it goes out to its virtual camera (after that stream's plugins)."""
+
+    source_id: str
+    """The stream's source: a phone's id or a StreamSource's ("" for the stream with no phone picked)."""
+    name: str
+    """What the phone picker and the stream's tile call it."""
+    frame: np.ndarray
+    """BGR, read-only and shared with the stream: never copied unless copy=True was asked for."""
+    number: int
+    """Goes up with every frame any stream sends out, so a different number is a different frame."""
+    time: float
+    """When the stream made it, in time.monotonic() seconds."""
+
+    def age(self, now: Optional[float] = None) -> float:
+        """Seconds since it was made. A stream that dropped keeps its last frame, which only gets older."""
+        return (time.monotonic() if now is None else now) - self.time
+
+
+class HostFrames(Protocol):
+    """Frames from other streams: the newest picture of every running stream, from any thread and without copying."""
+
+    def stream_frames(self, copy: bool = False) -> list:
+        """[StreamFrame] of every running stream that has sent a picture, in the order they started. A stream that
+        stops is gone from the next call; copy=True hands out frames that are yours to change."""
+        ...
+
+    def stream_frame(self, source_id: Optional[str], copy: bool = False) -> Optional[StreamFrame]:
+        """The newest StreamFrame of source_id's stream, or None while it doesn't run or hasn't sent a picture yet."""
+        ...
+
+    def frame_source(self) -> Optional[str]:
+        """From process_frame or a frame_step only: the source id of the stream the frame being worked on is from."""
+        ...
+
+    def replace_frame(self, source_id: Optional[str], frame: np.ndarray, number: int) -> bool:
+        """From any thread: frame (BGR, never changed after) goes out on source_id's virtual camera in place of that
+        stream's newest frame, the one numbered number. False, and nothing sent, once the stream has a newer frame or
+        doesn't run. For a picture that should move on while the stream it goes out on stalls; stream_frame() keeps
+        handing out the stream's own frame."""
+        ...
+
+
 class HostPreview(Protocol):
     """Drawing on the preview without it reaching the virtual camera, and asking for points and areas there
     (telescope.overlays). Nothing shows and no pick starts while the Preview plugin is off."""
@@ -447,8 +497,8 @@ class HostSensors(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostMotion,
-                   HostPreview, HostStills, HostColour, HostSensors, Protocol):
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostFrames,
+                   HostMotion, HostPreview, HostStills, HostColour, HostSensors, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -741,6 +791,9 @@ class EventBus(QObject):
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
     vcam_opened            = pyqtSignal(int, int)
     """The stream opened the virtual camera at this width and height."""
+    camera_opened          = pyqtSignal(str, int, int, int)
+    """Any stream's virtual camera opened: its source id, slot (0 is Telescope's own), width and height. vcam_opened
+    says the same for slot 0 alone."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
     cover_requested        = pyqtSignal(str, bool)

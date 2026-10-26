@@ -219,6 +219,23 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
 - Extra cameras are always the size set in **Canvas size** under Video in Settings (1920x1080 on Auto). Other shapes get black bars
 
+## Several cameras in one picture
+
+Optional (switch it on under **Optional** in the Plugins tab of Settings). It puts the streams you run into one picture for call apps that take only one camera, like your face big with the desk small in a corner, two phones side by side or a grid of up to four.
+
+- The switch on the **One picture** card turns it on and **Edit picture…** opens the editor with a live preview
+- Drag a stream to move it. Arrow keys nudge it a pixel at a time
+- The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
+- Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
+- Scroll over a stream to zoom into it and drag it with the right mouse button to pick which part shows
+- **Fit its shape** puts a stream back to its own shape with nothing cropped, stretched or zoomed
+- Each stream can get a border and rounded corners. Behind them goes a colour or a picture
+- **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there
+- Layouts can be saved under a name and picked on the card. A keyboard shortcut can switch to one and a preset brings back the picture it was saved with (without touching your saved layouts)
+- The picture goes out on the **Telescope** camera, the one call apps use, whichever stream goes there (usually the first you started). The other streams still go to their own cameras as well, for OBS scenes that use them one by one. While no stream goes to Telescope, or the one there has its camera off, the picture waits
+- It only takes over while at least two of its streams are running. A stream that drops leaves the picture after 3 seconds and is back in it once it reconnects. The others don't freeze with it, even when it's the one on Telescope
+- The picture runs at the frame rate of the stream going to Telescope. Its size is the canvas size under Video in Settings, or on Auto the size the Telescope camera opened at
+
 ## On Air sign
 
 Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **Optional** in the Plugins tab of Settings and it gets an **On Air** tab of its own.

@@ -11,6 +11,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.chroma_key import ChromaKeyPlugin
     from telescope.plugins.cinema import CinemaPlugin
     from telescope.plugins.colour_grading import ColourGradingPlugin
+    from telescope.plugins.composite import CompositePlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.desk import DeskPlugin
     from telescope.plugins.face_exposure import FaceExposurePlugin
@@ -52,6 +53,7 @@ def builtin_plugins() -> list:
         DeskPlugin(),  # optional, after the view: it straightens the picture as shown
         NameTagPlugin(),  # optional, after Background: its text mustn't be taken for the background
         NotesPlugin(),  # optional: off until switched on in Plugins
+        CompositePlugin(),  # optional, after the plugins that change each stream's own picture
         MicrophonePlugin(),
         PresetsPlugin(),
         QrReaderPlugin(),  # optional

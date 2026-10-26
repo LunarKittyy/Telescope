@@ -8,6 +8,7 @@ ColourStage.per_channel = False
 ColourStage.size = 33
 EventBus.add_phone_requested()
 EventBus.camera_on_changed(bool)
+EventBus.camera_opened(QString,int,int,int)
 EventBus.camera_switched(PyQt_PyObject)
 EventBus.camera_watched(bool)
 EventBus.cover_requested(QString,bool)
@@ -70,6 +71,10 @@ HostCamera.set_camera_on(self, on, auto=False)
 HostColour.colour_preview(self, frame)
 HostColour.colour_split(self, owner, position)
 HostColour.set_colour_stage(self, owner, stage, order=0, source_id=None)
+HostFrames.frame_source(self)
+HostFrames.replace_frame(self, source_id, frame, number)
+HostFrames.stream_frame(self, source_id, copy=False)
+HostFrames.stream_frames(self, copy=False)
 HostMotion.motion(self, owner)
 HostMotion.watch_motion(self, owner, zones, sensitivity=5)
 HostPreview.add_preview_layer(self, owner, layer)
@@ -128,6 +133,7 @@ HostStreams.start_stream(self, interactive=True)
 HostStreams.stop_all_streams(self)
 HostStreams.stop_stream(self, source_id=None)
 HostStreams.stream_count(self)
+HostStreams.stream_on_camera(self, slot=0)
 HostStreams.stream_output(self, source_id)
 HostStreams.update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id=None)
 HostView.release_view(self, owner)
@@ -242,6 +248,13 @@ StillResult.code = ''
 StillResult.error = ''
 StillResult.files
 StillResult.ok
+StreamFrame(source_id, name, frame, number, time)
+StreamFrame.age(self, now=None)
+StreamFrame.frame
+StreamFrame.name
+StreamFrame.number
+StreamFrame.source_id
+StreamFrame.time
 StreamSource.control_client(self)
 StreamSource.fps(self)
 StreamSource.id

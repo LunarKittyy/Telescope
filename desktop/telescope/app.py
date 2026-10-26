@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 from telescope import dev_profile, diagnostics, theme, vcam, vision
 from telescope.colour import ColourPipeline
 from telescope.config import load_config, save_config, saveable, take_reset_notice
+from telescope.frames import Frames
 from telescope.models import PhoneState, PhoneStateError
 from telescope.overlays import PreviewOverlays
 from telescope.phone_client import PhoneControlClient
@@ -298,6 +299,8 @@ class TelescopeWindow(QMainWindow):
         self._phones: dict = {}
         self._sources: dict[str, Source] = {}
         self._flow = StreamFlow(_FlowHost(self))  # starting, stopping and focus; its Sessions has the state
+        self._frames = Frames()  # every stream's newest frame, for plugins (HostFrames)
+        self._flow.sessions.changed = self._share_streams
         self._camera_on_shown = True  # what camera_on_changed last said, to catch a pick with another camera choice
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
 
@@ -1111,6 +1114,19 @@ class TelescopeWindow(QMainWindow):
         source = self._sessions.find(source_id)
         return vcam.slot_label(source.slot) if source is not None else ""
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        source = next((s for s in self._sessions.streams if s.slot == slot and s.session is not None), None)
+        if source is None:
+            return None
+        worker = source.session.worker
+        size = getattr(worker, "camera_size", None) if worker is not None else None
+        return (source.id or "", *(size or (None, None)))
+
+    def _on_camera_opened(self, w: int, h: int):
+        source = self._sessions.by_worker(self.sender())
+        if source is not None:
+            self._bus.camera_opened.emit(source.id or "", source.slot, w, h)
+
     def _source_by_id(self, source_id: Optional[str]) -> Source:
         return self._sources.get(source_id) or self._phone_source(source_id)
 
@@ -1159,6 +1175,7 @@ class TelescopeWindow(QMainWindow):
             signal.connect(slot)
         if source.slot == 0:
             worker.vcam_opened.connect(self._bus.vcam_opened)
+        worker.vcam_opened.connect(self._on_camera_opened)
         worker.start()
         return worker
 
@@ -1174,7 +1191,8 @@ class TelescopeWindow(QMainWindow):
     def _end_worker(self, worker: StreamWorker):
         for signal, slot in ((worker.status, self._on_worker_status),
                              (worker.reconnected, self._on_stream_reconnected),
-                             (worker.vcam_opened, self._bus.vcam_opened), *self._move_signals(worker)):
+                             (worker.vcam_opened, self._bus.vcam_opened), (worker.vcam_opened, self._on_camera_opened),
+                             *self._move_signals(worker)):
             try:
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
@@ -1212,6 +1230,7 @@ class TelescopeWindow(QMainWindow):
 
     def _refresh_tiles(self):
         """The tile row: one per stream while there's more than one."""
+        self._share_streams()  # a source's name can change while it streams
         entries = []
         for s in self._sessions.streams:
             if s.recovering:
@@ -1695,6 +1714,22 @@ class TelescopeWindow(QMainWindow):
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def stream_frames(self, copy: bool = False) -> list:
+        return self._frames.frames(copy)
+
+    def stream_frame(self, source_id: Optional[str], copy: bool = False):
+        return self._frames.frame(source_id, copy)
+
+    def frame_source(self) -> Optional[str]:
+        return self._frames.source_of_current()
+
+    def replace_frame(self, source_id: Optional[str], frame, number: int) -> bool:
+        return self._frames.replace_frame(source_id, frame, number)
+
+    def _share_streams(self):
+        self._frames.set_streams((s.id, s.name, s.session.worker) for s in self._sessions.streams
+                                 if s.session is not None)
 
     def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
         self._colour.set_stage(owner, stage, order, source_id)

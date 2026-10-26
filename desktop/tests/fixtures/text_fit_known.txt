@@ -39,6 +39,7 @@ pseudo	out of its box	By hand
 pseudo	out of its box	Change…
 pseudo	out of its box	Choose…
 pseudo	out of its box	Clear from phone
+pseudo	out of its box	Edit picture…
 pseudo	out of its box	False colour
 pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking
@@ -48,6 +49,7 @@ pseudo	out of its box	Level
 pseudo	out of its box	Manual
 pseudo	out of its box	Medium
 pseudo	out of its box	Next
+pseudo	out of its box	Not saved
 pseudo	out of its box	Notify me when a code is read
 pseudo	out of its box	Off
 pseudo	out of its box	Only on the preview. Apps never see these.
