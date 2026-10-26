@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from telescope.pinned_https import PhoneAuth
+from telescope import stills as stills_module
 from telescope.stills import StillCaps, Stills, free_path, reason_text, reserve_path, safe_name
 
 FULL = {"formats": ["jpeg", "heic", "ultrahdr", "raw"], "width": 4080, "height": 3072, "maxResWidth": 8160,
@@ -71,9 +72,9 @@ def test_reasons_are_worded_here_and_unknown_ones_keep_the_phones_english():
 class _Phone:
     """/v1/still as the phone serves it: a photo that takes a couple of polls and leaves the files given."""
 
-    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False):
+    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False, unreachable=False):
         self.files = files if files is not None else {"IMG_1.jpg": b"jpeg" * 100, "IMG_2.dng": b"dng!" * 5000}
-        self.polls, self.start, self.fail, self.missing = polls, start, fail, missing
+        self.polls, self.start, self.fail, self.missing, self.unreachable = polls, start, fail, missing, unreachable
         self.posts, self.forgotten = [], []
         phone = self
 
@@ -108,6 +109,8 @@ class _Phone:
                     self.end_headers()
                     self.wfile.write(data)
                     return
+                if phone.unreachable:
+                    return self._json({"error": "gone"}, 503)
                 phone.polls -= 1
                 done = phone.polls <= 0
                 files = [{"name": k, "size": len(v), "type": "image/jpeg"} for k, v in phone.files.items()] if done else []
@@ -222,3 +225,31 @@ def test_progress_is_reported_before_the_downloads(tmp_path, phone, monkeypatch)
                 lambda prog: order.append(f"progress {len(prog.saved)}"))
     assert done.wait(10)
     assert order == ["progress 0", "fetch", "progress 1", "fetch", "progress 2"]
+
+
+def test_a_phone_that_stops_answering_is_told_to_forget_the_photo(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LOST_AFTER_S", 0)
+    p = phone(unreachable=True)
+    result, _ = _take(Stills(), p, tmp_path)
+    assert result.code == "lost" and p.forgotten == ["abc"]
+
+
+def test_a_photo_that_never_ends_is_given_up_on_and_forgotten(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LONGEST_S", 0)
+    p = phone(polls=1000)
+    result, _ = _take(Stills(), p, tmp_path)
+    assert result.code == "timeout" and p.forgotten == ["abc"]
+
+
+def test_a_photo_stopped_on_quit_is_forgotten(tmp_path, phone):
+    p = phone(polls=1000)
+    stills, polled, done, result = Stills(), threading.Event(), threading.Event(), {}
+
+    def on_done(r):
+        result["r"] = r
+        done.set()
+    assert stills.take("phone-1", p.ctrl, {"format": "jpeg"}, tmp_path, on_done, lambda _prog: polled.set())
+    assert polled.wait(10)
+    stills.shutdown()
+    assert done.wait(10)
+    assert result["r"].code == "failed" and p.forgotten == ["abc"]

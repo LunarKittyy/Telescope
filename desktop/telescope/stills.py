@@ -275,6 +275,7 @@ class Stills:
                     return StillResult.failed(str(status.get("code") or "failed"), str(status.get("error") or ""), saved)
                 return StillResult(True, saved)
             if time.monotonic() - begun > _LONGEST_S:
+                self._forget(ctrl, sid)
                 return StillResult.failed("timeout", "", saved)
             stop.wait(_POLL_S)
         self._forget(ctrl, sid)  # stopped: Telescope is quitting
