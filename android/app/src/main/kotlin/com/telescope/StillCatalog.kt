@@ -2,6 +2,7 @@ package com.telescope
 
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraExtensionCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.params.StreamConfigurationMap
@@ -32,11 +33,14 @@ object StillCatalog {
             }
         }
 
-        val extensions = if (!physical && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching {
+        // Each maker's mode has its own JPEG sizes, often smaller than the lens's own (Night at 3840x2160)
+        val extensionSizes = if (!physical && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching {
             val ext = manager.getCameraExtensionCharacteristics(entry.id)
-            ext.supportedExtensions.filter { ext.getExtensionSupportedSizes(it, ImageFormat.JPEG).isNotEmpty() }
-                .mapNotNull { StillOptions.EXTENSIONS[it] }
-        }.getOrDefault(emptyList()) else emptyList()
+            ext.supportedExtensions.mapNotNull { type ->
+                val name = StillOptions.EXTENSIONS[type] ?: return@mapNotNull null
+                extensionSize(ext, type)?.let { name to it }
+            }.toMap()
+        }.getOrDefault(emptyMap()) else emptyMap()
 
         val exposure = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
         val maxFrame = chars.get(CameraCharacteristics.SENSOR_INFO_MAX_FRAME_DURATION) ?: Long.MAX_VALUE
@@ -47,7 +51,7 @@ object StillCatalog {
 
         StillCaps(
             jpeg = jpeg, heic = heic, ultraHdr = ultraHdr, raw = raw, maxResJpeg = maxResJpeg, maxResRaw = maxResRaw,
-            extensions = extensions,
+            extensions = extensionSizes.keys.toList(), extensionSizes = extensionSizes,
             manualSensor = entry.supportsManualSensor && exposure != null && iso != null,
             manualFocus = entry.supportsManualFocus,
             exposureMinNs = exposure?.lower ?: 0L,
@@ -59,6 +63,12 @@ object StillCatalog {
             hotPixelHq = CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY in hotPixel,
             distortion = CaptureRequest.DISTORTION_CORRECTION_MODE_OFF in distortion && distortion.size > 1,
         )
+    }.getOrNull()
+
+    // The JPEG size a maker's mode takes its photos at: the largest it lists
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
+    fun extensionSize(ext: CameraExtensionCharacteristics, type: Int): Pair<Int, Int>? = runCatching {
+        ext.getExtensionSupportedSizes(type, ImageFormat.JPEG).maxByOrNull { it.width.toLong() * it.height }?.let { it.width to it.height }
     }.getOrNull()
 
     private fun pixels(size: Pair<Int, Int>): Long = size.first.toLong() * size.second

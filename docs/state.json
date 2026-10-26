@@ -63,6 +63,20 @@
                     "hdr",
                     "bokeh"
                 ],
+                "extensionSizes": {
+                    "night": {
+                        "width": 3840,
+                        "height": 2160
+                    },
+                    "hdr": {
+                        "width": 4032,
+                        "height": 3024
+                    },
+                    "bokeh": {
+                        "width": 4032,
+                        "height": 3024
+                    }
+                },
                 "exposureMaxNs": 30000000000,
                 "bracketing": true,
                 "focusBracketing": true,

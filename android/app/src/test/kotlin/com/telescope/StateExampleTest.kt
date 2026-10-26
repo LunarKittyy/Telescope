@@ -26,6 +26,7 @@ class StateExampleTest {
             stills = StillCapability(
                 formats = listOf("jpeg", "heic", "ultrahdr", "raw"), width = 4032, height = 3024,
                 maxResWidth = 8064, maxResHeight = 6048, maxResRaw = true, extensions = listOf("night", "hdr", "bokeh"),
+                extensionSizes = mapOf("night" to StillSize(3840, 2160), "hdr" to StillSize(4032, 3024), "bokeh" to StillSize(4032, 3024)),
                 exposureMaxNs = 30_000_000_000L, bracketing = true, focusBracketing = true, noiseReductionHq = true,
                 sharpeningHq = true, hotPixelHq = true, distortionCorrection = true, burstMax = 60,
             ),

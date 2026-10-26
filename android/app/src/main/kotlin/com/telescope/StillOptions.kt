@@ -13,6 +13,7 @@ data class StillCaps(
     val maxResJpeg: Pair<Int, Int>? = null,  // the maximum resolution sensor mode's, when it's bigger (Android 12)
     val maxResRaw: Pair<Int, Int>? = null,
     val extensions: List<String> = emptyList(),  // StillOptions.EXTENSIONS names the maker offers here (Android 12)
+    val extensionSizes: Map<String, Pair<Int, Int>> = emptyMap(),  // the JPEG size each of those takes its photos at
     val manualSensor: Boolean = false,
     val manualFocus: Boolean = false,
     val exposureMinNs: Long = 0L,
@@ -33,6 +34,7 @@ data class StillCaps(
         maxResWidth = maxResJpeg?.first ?: 0, maxResHeight = maxResJpeg?.second ?: 0,
         maxResRaw = maxResRaw != null,
         extensions = extensions,
+        extensionSizes = extensions.mapNotNull { name -> extensionSizes[name]?.let { name to StillSize(it.first, it.second) } }.toMap(),
         exposureMaxNs = if (manualSensor) exposureMaxNs else 0L,
         bracketing = manualSensor,
         focusBracketing = manualFocus,
@@ -65,6 +67,8 @@ data class StillRequest(
     val filesPerShot: Int get() = (if (raw) 1 else 0) + (if (format != null) 1 else 0)
     // How long the sensor is busy, for the job's time limit
     val exposureMs: Long get() = shots.sumOf { (it.exposureNs ?: 0L) / 1_000_000L }
+    // Shot next to the stream, manual exposures leave the video out, so long ones freeze it noticeably: reported as paused
+    val pausesVideo: Boolean get() = ownSession || exposureMs >= StillOptions.PAUSE_MS
 }
 
 // Base exposure for bracketing and long exposures: what the stream runs at (set by hand, or what auto exposure picked).
@@ -83,6 +87,7 @@ object StillOptions {
     const val MAX_EV = 6.0
     const val MAX_FOCUS_STEPS = 30
     const val MAX_TIMER_S = 30
+    const val PAUSE_MS = 500L  // manual exposures adding up to this freeze the video long enough to say so
 
     sealed class Parsed {
         data class Ok(val request: StillRequest) : Parsed()
