@@ -36,7 +36,7 @@ class _Signal:
 
 # The built-in plugins whose settings are kept per phone (their device_local)
 _DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk",
-                 "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure"}
+                 "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag"}
 
 
 class _Plugin(TelescopePlugin):
@@ -4073,6 +4073,7 @@ def test_a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for(per_camera):
     ("chroma_key.ChromaKeyPlugin", {"on": True}),
     ("framing.FramingPlugin", {"on": True}),
     ("face_exposure.FaceExposurePlugin", {"on": True}),
+    ("name_tag.NameTagPlugin", {"on": True, "name": "Luna"}),
 ])
 def test_turning_a_camera_effect_on_leaves_the_other_cameras_alone(camera_env, monkeypatch, cls, on):
     import importlib

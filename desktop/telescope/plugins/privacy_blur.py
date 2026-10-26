@@ -299,9 +299,14 @@ class PrivacyBlurPlugin(TelescopePlugin):
 
     def frame_step(self):
         blur = self._blur
-        if not blur.active:
-            return None
-        return lambda frame: self._step(frame, blur)  # a stream left blurred stays blurred behind the panels
+        return lambda frame: self._behind_step(frame, blur)
+
+    def _behind_step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
+        if blur.active:
+            return self._step(frame, blur)  # a stream left blurred stays blurred behind the panels
+        if self._blur.active:
+            return blurred(frame)  # the shown camera blurs, so every camera does, all of it (nobody to tell apart here)
+        return frame
 
     def _step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
         if not blur.active or blur.covered:
