@@ -3827,3 +3827,45 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window):
+    overlays = window.preview_overlays()
+    overlays.attach()
+    got = []
+    assert overlays.start_pick("Test", "quad", got.append)
+    window._bus.device_changed.emit("phone-2")
+    assert got == [None] and overlays.picking() == ""
+
+
+def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
+    from types import SimpleNamespace
+    from telescope.view import View
+    from telescope.vision import Person
+    person = Person({"nose": (0.3, 0.3, 0.99), "left_shoulder": (0.35, 0.45, 0.99),
+                     "right_shoulder": (0.25, 0.45, 0.99)})
+    worker = object()
+    monkeypatch.setattr(window._sessions, "by_worker", lambda w: SimpleNamespace(id="phone") if w is worker else None)
+    monkeypatch.setattr(window, "focused_source_id", lambda: "phone")
+    heard = []
+    window._bus.people_tracked.connect(lambda sid, tracks, count: heard.append((sid, count)))
+    window._bus.view_changed.emit(View())
+    for _ in range(3):
+        window._on_people(worker, [person])
+    assert heard[-1] == ("phone", 1)
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda: resets.append(True))
+    window._bus.view_changed.emit(View(flip_h=True))
+    tracks, count = window.tracked_people()
+    assert count == 1 and tracks[0].id == 1 and tracks[0].centre[0] > 0.5  # mirrored, same person
+    assert resets == [True]
+    window._tracking.drop("phone")
+    assert window.tracked_people() == ([], 0)
+
+
+def test_a_lens_switch_starts_motion_over(window, monkeypatch):
+    from telescope.motion import LENS_SETTLE_S
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda settle_s=0.0: resets.append(settle_s))
+    window._bus.camera_switched.emit({"id": "2"})
+    assert resets == [LENS_SETTLE_S]

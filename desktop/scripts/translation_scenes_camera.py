@@ -1,4 +1,4 @@
-"""Scenes for camera, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,8 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "face_exposure": "_switch",
+                "privacy_blur": "_now_btn"}
 
 
 def card_of(win, widget):
@@ -457,6 +458,51 @@ def background_dialog(stack):
     return shown(stack, held[-1])
 
 
+# ── Expose for my face ───────────────────────────────────────────────────────
+
+@scene("face-exposure-picked-by-hand", "states", "Expose for my face · a point picked by hand", width=CARD_WIDTH)
+def face_exposure_picked_by_hand(stack):
+    win = ready_window(stack)
+    plugin = plugin_of(win, "face_exposure")
+    plugin._switch.setChecked(True)
+    win._bus.focus_point_picked.emit(0.3, 0.4)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-manual-focus", "states", "Expose for my face · Manual focus on the Camera card", width=CARD_WIDTH)
+def face_exposure_manual_focus(stack):
+    win = ready_window(stack)
+    win._bus.focus_mode_changed.emit("manual")
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-no-point", "states", "Expose for my face · a lens that can't meter on a point", width=CARD_WIDTH)
+def face_exposure_no_point(stack):
+    win, _source = streaming_window(stack, phone_state(lens(supportsFocusPoint=False)))
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+# ── Privacy blur ─────────────────────────────────────────────────────────────
+
+@scene("privacy-blur", "main", "Privacy blur", width=CARD_WIDTH)
+def privacy_blur(stack):
+    win = ready_window(stack)
+    plugin_of(win, "privacy_blur")._switch.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+@scene("privacy-blur-no-wait-screen", "states", "Privacy blur · Wait screen switched off", width=CARD_WIDTH)
+def privacy_blur_no_wait_screen(stack):
+    win = ready_window(stack)
+    win._bus.cover_requested.disconnect()  # nothing answers, as with Wait screen switched off
+    plugin = plugin_of(win, "privacy_blur")
+    plugin._set_mode("wait")
+    plugin._now_btn.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
 # ── Preview ──────────────────────────────────────────────────────────────────
 
 PREVIEW_WIDTH = 760
@@ -527,6 +573,59 @@ def preview_popout(stack):
     plugin._open_popout()
     stack.callback(plugin._popout.close)
     return shown(stack, plugin._popout)
+
+
+def picture(win):
+    """A plain picture on the stage, for what's drawn over one."""
+    from PyQt6.QtGui import QColor, QPixmap
+    pixmap = QPixmap(416, 234)  # inside the stage's least height, so the whole picture shows
+    pixmap.fill(QColor(78, 86, 96))
+    plugin_of(win, "preview")._preview_lbl.setPixmap(pixmap)
+
+
+def picking(stack, kind):
+    """The preview while a plugin asks for a point, an area or four corners."""
+    win, _source = streaming_window(stack)
+    picture(win)
+    overlays = win.preview_overlays()
+    win.pick_on_preview("Scene", kind, lambda _pick: None)
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("preview-pick-point", "states", "Preview · picking a point", width=PREVIEW_WIDTH)
+def preview_pick_point(stack):
+    return picking(stack, "point")
+
+
+@scene("preview-pick-area", "states", "Preview · marking an area", width=PREVIEW_WIDTH)
+def preview_pick_area(stack):
+    return picking(stack, "rect")
+
+
+@scene("preview-pick-corners", "main", "Preview · dragging four corners", width=PREVIEW_WIDTH)
+def preview_pick_corners(stack):
+    return picking(stack, "quad")
+
+
+# ── Cinema tools ─────────────────────────────────────────────────────────────
+
+@scene("cinema-tools", "main", "Cinema tools · focus peaking and a waveform", width=CARD_WIDTH)
+def cinema_tools(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "cinema").set_config({"peaking": True, "scope": "waveform"})
+    return cards(stack, win, "cinema")
+
+
+@scene("preview-false-colour", "main", "Preview · false colour and its legend", width=PREVIEW_WIDTH)
+def preview_false_colour(stack):
+    from telescope.plugins import cinema
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "cinema").set_config({"false_colour": True})
+    names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
+    remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
+    return preview_stage(stack, win)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────
