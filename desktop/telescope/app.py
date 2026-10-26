@@ -1072,6 +1072,7 @@ class TelescopeWindow(QMainWindow):
         self._flow.slot_memory = {k: v for k, v in slots.items() if isinstance(v, int)} if isinstance(slots, dict) else {}
 
         conn = self._plugin("connection")
+        self._spread_shared_settings(cfg)
         for p in self._plugins:
             if not p.name or p.device_local:
                 continue
@@ -1081,6 +1082,24 @@ class TelescopeWindow(QMainWindow):
         # Sync connection plugin profile after device profile applied.
         if conn:
             conn.sync_active_profile()
+
+    def _spread_shared_settings(self, cfg: dict):
+        """A plugin that kept one copy of its settings for the whole app and now keeps one per phone starts every
+        phone that has settings saved off with that copy, then the shared copy goes."""
+        global_pcfg = cfg.get("plugin_configs", {})
+        moved = [p.name for p in self._plugins if p.name and p.device_local and isinstance(global_pcfg.get(p.name), dict)]
+        if not moved:
+            return
+        devices = cfg.setdefault("devices", {})
+        ids = {k for k, v in devices.items() if isinstance(v, dict)} | ({cfg.get("selected_device")} - {None})
+        for name in moved:
+            section = global_pcfg.pop(name)
+            for key in ids:
+                pcfg = devices.setdefault(key, {})
+                pcfg = pcfg.setdefault("plugin_configs", {}) if isinstance(pcfg, dict) else None
+                if isinstance(pcfg, dict):
+                    pcfg.setdefault(name, dict(section))
+        save_config(cfg)
 
     def _toggle(self):
         if self._sessions.preparing:                return
