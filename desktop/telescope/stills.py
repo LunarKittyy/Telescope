@@ -74,6 +74,13 @@ class StillCaps:
     hot_pixel_hq: bool = False
     distortion: bool = False
     burst_max: int = 1
+    extension_sizes: tuple = ()  # (mode, (width, height)) pairs for the maker's modes that said their size
+
+    def size_for(self, mode: str) -> Optional[tuple]:
+        """The size a photo in this mode comes out at; a maker's mode that didn't say is taken at the plain size."""
+        if mode == "max_res" and self.max_res:
+            return self.max_res
+        return dict(self.extension_sizes).get(mode) or self.size
 
     @classmethod
     def from_state(cls, state: Optional[dict]) -> Optional["StillCaps"]:
@@ -102,11 +109,15 @@ class StillCaps:
                 return 0
 
         formats = words("formats")
+        sizes = raw.get("extensionSizes")
+        sizes = sizes if isinstance(sizes, dict) else {}
+        extension_sizes = tuple((m, _size(v, "width", "height")) for m, v in sizes.items()
+                                if isinstance(m, str) and isinstance(v, dict) and _size(v, "width", "height"))
         return cls(
             formats=formats if "jpeg" in formats else ("jpeg",) + formats,
             size=_size(raw, "width", "height"), max_res=_size(raw, "maxResWidth", "maxResHeight"),
             max_res_raw=raw.get("maxResRaw") is True, extensions=words("extensions"),
-            exposure_max_ns=number("exposureMaxNs"), bracketing=raw.get("bracketing") is True,
+            extension_sizes=extension_sizes, exposure_max_ns=number("exposureMaxNs"), bracketing=raw.get("bracketing") is True,
             focus_bracketing=raw.get("focusBracketing") is True, noise_reduction_hq=raw.get("noiseReductionHq") is True,
             sharpening_hq=raw.get("sharpeningHq") is True, hot_pixel_hq=raw.get("hotPixelHq") is True,
             distortion=raw.get("distortionCorrection") is True, burst_max=max(1, number("burstMax")),

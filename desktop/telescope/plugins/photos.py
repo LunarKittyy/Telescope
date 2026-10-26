@@ -420,4 +420,5 @@ class PhotosPlugin(TelescopePlugin):
         if caps is None:
             return {"Photos": "not available"}
         extras = [f for f in caps.formats if f != "jpeg"] + (["full resolution"] if caps.max_res else []) + list(caps.extensions)
-        return {"Photos": ", ".join(["jpeg"] + extras)}
+        sizes = [f"{m} {caps.size_for(m)[0]}x{caps.size_for(m)[1]}" for m in offered(caps, {})["modes"] if caps.size_for(m)]
+        return {"Photos": ", ".join(["jpeg"] + extras), "Photo sizes": ", ".join(sizes) or "unknown"}

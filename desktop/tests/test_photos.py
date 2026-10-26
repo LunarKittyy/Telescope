@@ -150,6 +150,12 @@ def test_the_card_shows_only_what_the_lens_has(card):
     assert plugin._format_combo.count() == 5 and plugin._mode_combo.count() == 5
 
 
+def test_diagnostics_give_each_modes_own_size(card):
+    from dataclasses import replace
+    plugin, *_ = card(replace(FULL, extensions=("night",), extension_sizes=(("night", (3840, 2160)),)))
+    assert plugin.diagnostics()["Photo sizes"] == "normal 4080x3072, max_res 8160x6144, night 3840x2160"
+
+
 def test_a_lens_switch_brings_that_lenss_options(card):
     plugin, host, bus, _ = card(FULL)
     assert plugin._mode_combo.findData("max_res") >= 0

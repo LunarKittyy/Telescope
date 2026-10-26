@@ -31,6 +31,15 @@ def test_the_current_lens_says_what_it_takes():
     assert caps.bracketing and caps.focus_bracketing and caps.distortion and caps.burst_max == 60
 
 
+def test_a_makers_mode_says_its_own_size_and_an_older_phone_falls_back_to_the_plain_one():
+    sizes = {"night": {"width": 3840, "height": 2160}, "hdr": {"width": "x"}, "bokeh": 5}
+    caps = StillCaps.from_state(_state({**FULL, "extensionSizes": sizes}))
+    assert caps.size_for("night") == (3840, 2160) and caps.size_for("hdr") == (4080, 3072)
+    assert caps.size_for("normal") == (4080, 3072) and caps.size_for("max_res") == (8160, 6144)
+    older = StillCaps.from_state(_state())
+    assert older.extension_sizes == () and older.size_for("night") == (4080, 3072)
+
+
 def test_an_older_phone_or_a_lens_without_photos_takes_none():
     assert StillCaps.from_state(_state(version=None)) is None  # a phone without /v1/still
     assert StillCaps.from_state(_state(version=0)) is None

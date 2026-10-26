@@ -154,11 +154,12 @@ ShortcutAction.repeats(_p)
 ShortcutAction.run
 ShortcutAction.summary(self, params)
 ShortcutAction.widgets = ()
-StillCaps(formats=('jpeg',), size=None, max_res=None, max_res_raw=False, extensions=(), exposure_max_ns=0, bracketing=False, focus_bracketing=False, noise_reduction_hq=False, sharpening_hq=False, hot_pixel_hq=False, distortion=False, burst_max=1)
+StillCaps(formats=('jpeg',), size=None, max_res=None, max_res_raw=False, extensions=(), exposure_max_ns=0, bracketing=False, focus_bracketing=False, noise_reduction_hq=False, sharpening_hq=False, hot_pixel_hq=False, distortion=False, burst_max=1, extension_sizes=())
 StillCaps.bracketing = False
 StillCaps.burst_max = 1
 StillCaps.distortion = False
 StillCaps.exposure_max_ns = 0
+StillCaps.extension_sizes = ()
 StillCaps.extensions = ()
 StillCaps.focus_bracketing = False
 StillCaps.formats = ('jpeg',)
@@ -168,6 +169,7 @@ StillCaps.max_res_raw = False
 StillCaps.noise_reduction_hq = False
 StillCaps.sharpening_hq = False
 StillCaps.size = None
+StillCaps.size_for(self, mode)
 StillProgress(state='waiting', shots=1, taken=0, countdown_ms=0, paused=False, saved=<factory>)
 StillProgress.countdown_ms = 0
 StillProgress.paused = False
