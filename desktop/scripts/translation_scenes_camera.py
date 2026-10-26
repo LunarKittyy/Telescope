@@ -1,4 +1,4 @@
-"""Scenes for camera, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, framing, transforms, preview, stream output, background, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,8 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "name_tag": "_name_edit"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "face_exposure": "_switch",
+                "privacy_blur": "_now_btn", "photos": "_take_btn", "name_tag": "_name_edit"}
 
 
 def card_of(win, widget):
@@ -464,6 +465,125 @@ def background_dialog(stack):
     return shown(stack, held[-1])
 
 
+# ── Expose for my face ───────────────────────────────────────────────────────
+
+@scene("face-exposure-picked-by-hand", "states", "Expose for my face · a point picked by hand", width=CARD_WIDTH)
+def face_exposure_picked_by_hand(stack):
+    win = ready_window(stack)
+    plugin = plugin_of(win, "face_exposure")
+    plugin._switch.setChecked(True)
+    win._bus.focus_point_picked.emit(0.3, 0.4)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-manual-focus", "states", "Expose for my face · Manual focus on the Camera card", width=CARD_WIDTH)
+def face_exposure_manual_focus(stack):
+    win = ready_window(stack)
+    win._bus.focus_mode_changed.emit("manual")
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-no-point", "states", "Expose for my face · a lens that can't meter on a point", width=CARD_WIDTH)
+def face_exposure_no_point(stack):
+    win, _source = streaming_window(stack, phone_state(lens(supportsFocusPoint=False)))
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+# ── Privacy blur ─────────────────────────────────────────────────────────────
+
+@scene("privacy-blur", "main", "Privacy blur", width=CARD_WIDTH)
+def privacy_blur(stack):
+    win = ready_window(stack)
+    plugin_of(win, "privacy_blur")._switch.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+@scene("privacy-blur-no-wait-screen", "states", "Privacy blur · Wait screen switched off", width=CARD_WIDTH)
+def privacy_blur_no_wait_screen(stack):
+    win = ready_window(stack)
+    win._bus.cover_requested.disconnect()  # nothing answers, as with Wait screen switched off
+    plugin = plugin_of(win, "privacy_blur")
+    plugin._set_mode("wait")
+    plugin._now_btn.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+# ── Photos ───────────────────────────────────────────────────────────────────
+
+FLAGSHIP_STILLS = {"formats": ["jpeg", "heic", "ultrahdr", "raw"], "width": 4080, "height": 3072, "maxResWidth": 8160,
+                   "maxResHeight": 6144, "maxResRaw": True, "extensions": ["night", "hdr", "bokeh"],
+                   "exposureMaxNs": 30_000_000_000, "bracketing": True, "focusBracketing": True,
+                   "noiseReductionHq": True, "sharpeningHq": True, "hotPixelHq": True, "distortionCorrection": True,
+                   "burstMax": 60}
+
+
+def photos(stack, stills=FLAGSHIP_STILLS, choices=None, then=None):
+    """The Photos card on a streaming phone whose lens takes these photos (None: a phone too old for them)."""
+    state = phone_state(lens(stills=stills) if stills else lens(), **({"stills": 1} if stills else {}))
+    win, _source = streaming_window(stack, state)
+    plugin = plugin_of(win, "photos")
+    if choices:
+        plugin.set_config({**plugin.get_config(), **choices, "folder": "/home/me/Pictures/Telescope"})
+    else:
+        plugin.set_config({**plugin.get_config(), "folder": "/home/me/Pictures/Telescope"})
+    if then is not None:
+        then(plugin)
+    return cards(stack, win, "photos")
+
+
+@scene("photos-card", "main", "Photos · a phone with every kind of photo", width=CARD_WIDTH)
+def photos_card(stack):
+    return photos(stack, choices={"format": "raw+jpeg", "shots": "bracket", "exposure_s": 0})
+
+
+@scene("photos-focus-bracket", "states", "Photos · focus bracketing in full resolution", width=CARD_WIDTH)
+def photos_focus_bracket(stack):
+    return photos(stack, choices={"mode": "max_res", "shots": "focus", "exposure_s": 4})
+
+
+@scene("photos-night", "states", "Photos · the phone's Night mode", width=CARD_WIDTH)
+def photos_night(stack):
+    return photos(stack, choices={"mode": "night", "shots": "burst"})
+
+
+@scene("photos-countdown", "states", "Photos · timer counting down", width=CARD_WIDTH)
+def photos_countdown(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, choices={"timer": 10}, then=lambda p: p._progress(StillProgress("waiting", countdown_ms=7000)))
+
+
+@scene("photos-burst", "states", "Photos · taking a burst", width=CARD_WIDTH)
+def photos_burst(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", shots=5, taken=2)))
+
+
+@scene("photos-paused", "states", "Photos · the video paused for the photo", width=CARD_WIDTH)
+def photos_paused(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", paused=True)))
+
+
+@scene("photos-saved", "states", "Photos · saved", width=CARD_WIDTH)
+def photos_saved(stack):
+    from telescope.stills import StillResult
+    files = [f"/home/me/Pictures/Telescope/IMG_20261026_142501_0{n}.jpg" for n in (1, 2, 3)]
+    return photos(stack, then=lambda p: p._done(StillResult(True, files)))
+
+
+@scene("photos-failed", "states", "Photos · the phone couldn't take it", width=CARD_WIDTH)
+def photos_failed(stack):
+    from telescope.stills import StillResult
+    return photos(stack, then=lambda p: p._done(StillResult.failed("interrupted")))
+
+
+@scene("photos-old-phone", "states", "Photos · a phone too old for photos", width=CARD_WIDTH)
+def photos_old_phone(stack):
+    return photos(stack, stills=None)
+
+
 # ── Preview ──────────────────────────────────────────────────────────────────
 
 PREVIEW_WIDTH = 760
@@ -534,6 +654,59 @@ def preview_popout(stack):
     plugin._open_popout()
     stack.callback(plugin._popout.close)
     return shown(stack, plugin._popout)
+
+
+def picture(win):
+    """A plain picture on the stage, for what's drawn over one."""
+    from PyQt6.QtGui import QColor, QPixmap
+    pixmap = QPixmap(416, 234)  # inside the stage's least height, so the whole picture shows
+    pixmap.fill(QColor(78, 86, 96))
+    plugin_of(win, "preview")._preview_lbl.setPixmap(pixmap)
+
+
+def picking(stack, kind):
+    """The preview while a plugin asks for a point, an area or four corners."""
+    win, _source = streaming_window(stack)
+    picture(win)
+    overlays = win.preview_overlays()
+    win.pick_on_preview("Scene", kind, lambda _pick: None)
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("preview-pick-point", "states", "Preview · picking a point", width=PREVIEW_WIDTH)
+def preview_pick_point(stack):
+    return picking(stack, "point")
+
+
+@scene("preview-pick-area", "states", "Preview · marking an area", width=PREVIEW_WIDTH)
+def preview_pick_area(stack):
+    return picking(stack, "rect")
+
+
+@scene("preview-pick-corners", "main", "Preview · dragging four corners", width=PREVIEW_WIDTH)
+def preview_pick_corners(stack):
+    return picking(stack, "quad")
+
+
+# ── Cinema tools ─────────────────────────────────────────────────────────────
+
+@scene("cinema-tools", "main", "Cinema tools · focus peaking and a waveform", width=CARD_WIDTH)
+def cinema_tools(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "cinema").set_config({"peaking": True, "scope": "waveform"})
+    return cards(stack, win, "cinema")
+
+
+@scene("preview-false-colour", "main", "Preview · false colour and its legend", width=PREVIEW_WIDTH)
+def preview_false_colour(stack):
+    from telescope.plugins import cinema
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "cinema").set_config({"false_colour": True})
+    names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
+    remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
+    return preview_stage(stack, win)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

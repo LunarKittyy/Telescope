@@ -110,11 +110,34 @@ def check_files(folder: Path, reserved: set):
         _fail(f"Files and {plugin_loader.MANIFEST}: {item.problem}")
         return None
     _ok(f"Files and {plugin_loader.MANIFEST}: {item.title} {item.version}".rstrip())
+    check_repo(folder, item)
     try:
         plugin_loader.digest(folder)
     except ValueError as exc:
         _note(f"Before you share it: {exc} (hidden folders like .git count once it's installed from a .zip)")
     return item
+
+
+def check_repo(folder: Path, item):
+    """The optional "repo": a valid https address, and whether the update check can follow it."""
+    from telescope import plugin_loader, plugin_updates
+    try:
+        repo = json.loads((folder / plugin_loader.MANIFEST).read_text(encoding="utf-8")).get("repo")
+    except (OSError, ValueError, AttributeError):
+        return
+    if repo is None:
+        return
+    problem = plugin_loader.repo_problem(repo)
+    if problem:
+        _fail(f"{plugin_loader.MANIFEST}: {problem} It isn't shown until it is.")
+    elif plugin_updates.github_repo(repo):
+        _ok(f"repo: {repo} (Telescope can tell people when a new release is out there)")
+        if plugin_updates.parse_version(item.version) is None:
+            _note('Give it a "version" like 1.2, so the update check can compare it with release tags like v1.3.')
+    else:
+        _ok(f"repo: {repo}")
+        _note("The update check only follows https://github.com/owner/repo addresses, so people won't hear about "
+              "new versions from this one.")
 
 
 def check_translations(folder: Path):

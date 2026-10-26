@@ -677,4 +677,66 @@ class MjpegServerTest {
             server.stop()
         }
     }
+
+    @Test
+    fun `photo routes need the token, answer status and stream a file with its length`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { writeBytes(ByteArray(100_000) { (it % 251).toByte() }) }
+        val posted = AtomicReference<Map<String, String>>()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") },
+            handleStill = { params -> posted.set(params); """{"ok":true,"id":"abc"}""" },
+            stillStatus = { id -> if (id == "abc") """{"id":"abc","state":"done"}""" else null },
+            stillFile = { id, n -> if (id == "abc" && n == 0) file to "IMG_1.dng" else null })
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(401, authPost(port, "/v1/still", null, "{}").status)
+            assertEquals(401, authGet(port, "/v1/still/file?id=abc&n=0", "wrong").status)
+
+            val started = authPost(port, "/v1/still", "secret-token", """{"action":"take","format":"jpeg","count":3}""")
+            assertEquals(200, started.status)
+            assertEquals(mapOf("action" to "take", "format" to "jpeg", "count" to "3"), posted.get())
+
+            assertEquals("""{"id":"abc","state":"done"}""", authGet(port, "/v1/still?id=abc", "secret-token").body.toString(StandardCharsets.UTF_8))
+            assertEquals(404, authGet(port, "/v1/still?id=nope", "secret-token").status)
+
+            val fetched = authGet(port, "/v1/still/file?id=abc&n=0", "secret-token")
+            assertEquals(200, fetched.status)
+            assertTrue(fetched.headers.contains("Content-Length: 100000"))
+            assertTrue(fetched.headers.contains("Content-Type: image/x-adobe-dng"))
+            assertTrue(fetched.headers.contains("filename=\"IMG_1.dng\""))
+            assertArrayEquals(file.readBytes(), fetched.body)
+            assertEquals(404, authGet(port, "/v1/still/file?id=abc&n=1", "secret-token").status)
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun `query params are read by name`() {
+        assertEquals("abc", MjpegServer.queryParam("n=2&id=abc", "id"))
+        assertEquals("2", MjpegServer.queryParam("n=2&id=abc", "n"))
+        assertEquals(null, MjpegServer.queryParam("idx=1", "id"))
+    }
+
+    @Test
+    fun `a download nobody reads any more is cut off and frees its slot`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { java.io.RandomAccessFile(this, "rw").use { it.setLength(64L shl 20) } }
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            stillFile = { _, _ -> file to "IMG_1.dng" }, fileTimeoutMs = 400)
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.receiveBufferSize = 4096
+                socket.getOutputStream().write("GET /v1/still/file?id=a&n=0 HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n".toByteArray())
+                Thread.sleep(2_000)  // reading nothing while the phone's writes fill up
+                socket.soTimeout = 5_000
+                val read = try { socket.getInputStream().readBytes().size.toLong() } catch (_: java.io.IOException) { 0L }
+                assertTrue(read < file.length(), "read $read of ${file.length()}")
+            }
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
 }
