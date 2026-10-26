@@ -19,7 +19,8 @@ Desktop  (Python, PyQt6)
 ```
 
 - **Linux:** two `v4l2loopback` devices (`/dev/video10` and `/dev/video11`). Telescope writes to `video11` and leaves `video10` free for other software like OBS
-- **Windows:** the virtual camera is a standalone DirectShow filter (UnityCapture), no OBS needed
+- **Windows 11:** Telescope's own camera, a Media Foundation media source (`desktop/virtualcamera/`) that every app can see. See [The Windows 11 camera](#the-windows-11-camera) below
+- **Windows 10:** a standalone DirectShow filter (UnityCapture), no OBS needed. Windows 11 falls back to it when its own camera can't be installed
 
 ## Repository layout
 
@@ -44,7 +45,7 @@ Desktop paths are under `desktop/telescope/` and phone files under `android/app/
 | Colours and styling | `theme.py`. Shared controls are in `widgets/common.py` |
 | Pairing and reaching the phone | `plugins/connection.py`, `pairing.py`, `phones.py` (`RouteResolver`) |
 | Receiving and decoding video | `stream.py`, `mjpeg_reader.py`, `h264_reader.py`, `udp_reader.py` |
-| The virtual camera | `vcam.py`, plus `platform/linux.py` or `platform/windows.py` |
+| The virtual camera | `vcam.py`, plus `platform/linux.py` or `platform/windows.py`. The Windows 11 camera's DLL is `desktop/virtualcamera/` |
 | The microphone | `audio.py`, `denoise.py`, `platform/virtual_mic.py`, `plugins/microphone.py` |
 | Saved settings | `config.py` |
 | Desktop wording | The `tr()` call in the code, then `python scripts/i18n.py extract`. See [translating.md](translating.md) |
@@ -56,6 +57,16 @@ Desktop paths are under `desktop/telescope/` and phone files under `android/app/
 | The Windows installer | `installer/` |
 
 Desktop tests are in `desktop/tests/` and phone unit tests in `android/app/src/test/`.
+
+## The Windows 11 camera
+
+Windows 11 added `MFCreateVirtualCamera`, which registers a camera backed by a media source DLL. Windows' Frame Server service loads that DLL and shares the camera with every app, Media Foundation and DirectShow ones alike, which UnityCapture's DirectShow filter can't do. Telescope's DLL is in `desktop/virtualcamera/` (C++, built with CMake and MSVC, its structure following Microsoft's VirtualCamera sample).
+
+- **Registering:** `regsvr32 /n /i:<count> TelescopeCamera.dll` as admin registers one COM class per camera slot (`MF_CLSIDS` in `platform/windows.py`) and calls `MFCreateVirtualCamera` for each. The cameras last across restarts and are there for every account. If Windows refuses one (camera access blocked, Frame Server switched off) the DLL removes them all again and Telescope sets up UnityCapture instead. `regsvr32 /u` removes them. `platform/windows.install_camera()` does it from the first-run checklist or Settings with the same Program Files checks as UnityCapture. The uninstaller unregisters it
+- **Frames:** Frame Server runs as Local Service in session 0 where the DLL can't see anything in the signed-in user's session. When an app starts reading a camera the DLL creates the shared memory `Global\TelescopeCamera<slot>` (a normal account can open a Global name but not create one) and writes the size and frame rate the app picked into its header. Telescope's `vcam.MFCamera` opens it, fits each frame to that size, converts it to NV12 and writes it after the header. A frame counter that's odd while a write is under way lets the DLL skip a half-written frame. The header layout is in `virtualcamera/shared_frame.h`
+- **In use:** that shared memory only exists while an app reads the camera and the DLL bumps a heartbeat for every frame it hands over. `vcam.CameraWatch` reads both to feed `camera_watched` on the bus, which Automatic streaming and the wait screen use
+- **Without Telescope:** the camera stays listed and shows a plain dark picture (the app's background colour) until frames arrive. It shows it again once no frame has come for 3 seconds
+- **Sizes:** the DLL offers NV12 at 1080p (30 and 60 fps), 720p (30 and 60), 4K, 1440p, 540p, 480p, 360p and portrait 1080x1920 and 720x1280. Windows adds YUY2 versions of those for DirectShow apps
 
 ## The phone app
 

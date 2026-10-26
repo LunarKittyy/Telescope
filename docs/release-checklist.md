@@ -42,13 +42,14 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Windows packaging
 
-<!-- due: installer/** desktop/telescope.spec desktop/resources/** desktop/unitycapture/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
+<!-- due: installer/** desktop/telescope.spec desktop/resources/** desktop/unitycapture/** desktop/virtualcamera/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
 
 `windows_pass.py` checks the rest of Windows packaging. These need a real phone:
 
 - [ ] After **Get adb**, plugging a phone in pairs it over USB.
 - [ ] After an unzipped copy updated into the installed one, Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it.
 - [ ] On a machine an older version registered the driver on, streaming works before and after **Rename** or **Reinstall for a security fix**.
+- [ ] Windows 11: after **Install driver** (or **Update** over UnityCapture) the phone's picture shows in the Windows Camera app and in OBS, Automatic streaming starts and stops with the app, and uninstalling removes the camera from both.
 
 ### Linux system setup
 

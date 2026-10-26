@@ -43,6 +43,15 @@ OBS or another app still holds the device. Close everything using the virtual ca
 **Windows: the virtual camera won't open**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
 
+**Windows 11: an app doesn't list Telescope**
+Open **Virtual camera & phone** in Settings. If the Driver row says **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
+
+**Windows 11: the camera shows a plain dark picture**
+Telescope isn't running, or it's still starting. The camera stays in every app's list even with Telescope closed and shows that dark background until Telescope sends it something. Open Telescope and the wait screen or your phone takes over.
+
+**Windows 11: keep using the older driver**
+Set the environment variable `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed, and the one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to go back.
+
 **Windows: the camera is called "Unity Video Capture"**
 An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
 
