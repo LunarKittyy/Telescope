@@ -202,9 +202,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Preview tools and picture plugins
 
-<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py -->
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
 - [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, a standing page keeps its shape (Width and Height fix what Auto gets wrong), Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
 - [ ] Chroma key with a real green screen and a real phone: Green keys it cleanly with even light, Picked keys the colour clicked on the preview, Spill takes the green off hair and skin and a picture fills the frame in a call.
 - [ ] QR codes with a real phone: a Wi-Fi code from another phone's share screen puts the password on the clipboard (Linux with the window in front and behind, where Copy has to step in, and Windows) and a printed link code reads from arm's length.

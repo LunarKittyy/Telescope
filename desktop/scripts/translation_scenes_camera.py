@@ -930,6 +930,42 @@ def preview_false_colour(stack):
     return preview_stage(stack, win)
 
 
+def level_window(stack, status):
+    """A streaming window whose phone's sensors stand at status, with nothing asked of the phone."""
+    win, _source = streaming_window(stack)
+    patch(stack, win, "want_sensors", lambda *_a, **_k: None)
+    patch(stack, win, "sensor_status", lambda source_id=None: status)
+    return win
+
+
+@scene("cinema-level", "main", "Cinema tools · the level guide on the preview", width=PREVIEW_WIDTH)
+def cinema_level(stack):
+    import time
+    from telescope.plugins import cinema
+    from telescope.sensors import SensorStatus
+    win = level_window(stack, SensorStatus("on", ("orientation",), ("orientation",)))
+    picture(win)
+    plugin = plugin_of(win, "cinema")
+    plugin.set_config({"level": True})
+    plugin._layer.level = (cinema.Level(2.4, -3.1, False, False), time.monotonic() + 3600)
+    return preview_stage(stack, win)
+
+
+def level_problem_scene(reason, title):
+    @scene(f"cinema-level-{reason.replace('_', '-')}", "main", f"Cinema tools · level, {title}", width=CARD_WIDTH)
+    def build(stack):
+        from telescope.sensors import SensorStatus
+        win = level_window(stack, SensorStatus("unavailable", reason=reason))
+        plugin_of(win, "cinema").set_config({"level": True})
+        return cards(stack, win, "cinema")
+
+
+for _reason, _title in (("not_phone", "not a phone"), ("old_phone", "an older phone app"),
+                        ("none", "no motion sensor"), ("camera", "an external camera"),
+                        ("failed", "the sensors can't be reached")):
+    level_problem_scene(_reason, _title)
+
+
 # ── Desk mode ────────────────────────────────────────────────────────────────
 
 SHEET = ((0.15, 0.45), (0.5, 0.42), (0.56, 0.95), (0.08, 0.97))

@@ -44,6 +44,7 @@ pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking
 pseudo	out of its box	Heavy
 pseudo	out of its box	Hold a QR code up to the camera.
+pseudo	out of its box	Level
 pseudo	out of its box	Manual
 pseudo	out of its box	Medium
 pseudo	out of its box	Next
