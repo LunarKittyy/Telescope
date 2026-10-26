@@ -1,5 +1,6 @@
 import json
 import threading
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -148,7 +149,7 @@ def _take(stills, phone, folder, options=None, source="phone-1"):
 def test_a_photo_is_saved_file_by_file_and_the_phone_forgets_it(tmp_path, phone):
     p = phone()
     result, progress = _take(Stills(), p, tmp_path / "Photos")
-    assert result.ok and [f.rsplit("/", 1)[-1] for f in result.files] == ["IMG_1.jpg", "IMG_2.dng"]
+    assert result.ok and [Path(f).name for f in result.files] == ["IMG_1.jpg", "IMG_2.dng"]
     assert (tmp_path / "Photos" / "IMG_2.dng").read_bytes() == b"dng!" * 5000
     assert p.posts == [{"format": "jpeg", "raw": 1, "action": "take"}]
     assert p.forgotten == ["abc"]
