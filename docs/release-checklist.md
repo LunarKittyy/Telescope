@@ -122,7 +122,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Photos
 
-<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
+<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
 
 - [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
