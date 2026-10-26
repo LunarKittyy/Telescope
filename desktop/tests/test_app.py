@@ -35,7 +35,7 @@ class _Signal:
 
 
 # The built-in plugins whose settings are kept per phone (their device_local)
-_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"}
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk"}
 
 
 class _Plugin(TelescopePlugin):
@@ -3836,6 +3836,22 @@ def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window
     assert overlays.start_pick("Test", "quad", got.append)
     window._bus.device_changed.emit("phone-2")
     assert got == [None] and overlays.picking() == ""
+
+
+def test_desk_mode_tells_the_preview_its_warp_again_after_a_restart(window):
+    from telescope.plugins.desk import DeskPlugin
+    desk = DeskPlugin()
+    desk.setup(window, window._bus)
+    desk.create_panel()
+    desk.set_config({"on": True, "corners": [[0.3, 0.1], [0.7, 0.15], [0.75, 0.9], [0.25, 0.85]]})
+    frame = np.zeros((180, 320, 3), np.uint8)
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()
+    window._bus.stream_stopped.emit()
+    desk.on_stream_stop()
+    window._bus.stream_started.emit("http://phone")
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()  # or taps, zoom and picks land beside what's shown
 
 
 def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
