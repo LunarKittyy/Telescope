@@ -18,6 +18,7 @@ LINE_ICONS = {
     "skeleton": '<circle cx="8" cy="3" r="1.6"/><path d="M8 4.6v5.2M3.5 6.8L8 6l4.5.8M8 9.8l-2.8 4.7M8 9.8l2.8 4.7"/>',
     "image": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M1.5 11l4-3.5 3 2.5 2-1.5 4 3"/>',
     "photo": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><circle cx="11" cy="5.8" r="1.2"/><path d="M1.5 12.5l4.5-5 3.5 3.5 1.8-1.6 3.2 3.1"/>',
+    "eyedropper": '<path d="M10.1 3.4a2.1 2.1 0 0 1 3 3l-1.3 1.3-3-3z"/><path d="M8 4.9l3.6 3.6"/><path d="M10.3 7.2l-5.8 5.8-2 .5.5-2 5.8-5.8"/>',
     "stabilize": '<rect x="4" y="3" width="8" height="10" rx="1.5"/><path d="M1.5 6v4M14.5 6v4"/>',
     "moon": '<path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/>',
     "lock": '<rect x="3" y="7" width="10" height="7.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
