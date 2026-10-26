@@ -124,7 +124,7 @@ def check_colour_speed():
         lut.apply(frame)
         times.append((time.perf_counter() - t0) * 1000)
     median = sorted(times)[len(times) // 2]
-    if median > 50:  # CI's Windows runner takes about 37 ms; far past that, something made it a lot slower
+    if median > 90:  # busy CI runners take 37 to 54 ms; numpy instead of OpenCV would be around 300
         raise RuntimeError(f"a 1080p 3D LUT took {median:.1f} ms on {os.cpu_count()} processors")
     return f"1080p 3D LUT: {median:.1f} ms on {os.cpu_count()} processors"
 

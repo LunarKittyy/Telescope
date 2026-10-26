@@ -9,7 +9,7 @@ from PyQt6.QtGui import QGuiApplication
 
 from telescope.overlays import PreviewOverlays
 from telescope.plugin import EventBus
-from telescope.plugins.qr_reader import QrReaderPlugin, Wifi, is_link, parse_wifi, read_code
+from telescope.plugins.qr_reader import QrReaderPlugin, Steady, Wifi, is_link, parse_wifi, plausible, read_code
 from telescope.view import View
 
 
@@ -51,6 +51,48 @@ def test_codes_are_read_from_arm_s_length_to_right_up_close(scale):
     text, corners = read_code(cv2.GaussianBlur(grey, (0, 0), 1.0), (cv2.QRCodeDetectorAruco(), cv2.QRCodeDetector()))
     assert text == "https://example.com"
     assert corners.shape == (4, 2) and 0.25 < corners[:, 0].min() < 0.45
+
+
+_QUAD = np.array([[0.4, 0.2], [0.6, 0.2], [0.6, 0.55], [0.4, 0.55]], np.float32)
+
+
+def test_a_quad_has_to_look_like_a_code():
+    assert plausible([[100, 100], [200, 100], [200, 200], [100, 200]])
+    assert plausible([[100, 100], [200, 110], [190, 190], [110, 200]])  # held at an angle
+    assert not plausible([[100, 100], [200, 100], [120, 120], [100, 200]])  # caved in
+    assert not plausible([[100, 100], [200, 200], [200, 100], [100, 200]])  # crossed over
+    assert not plausible([[100, 100], [400, 100], [400, 112], [100, 112]])  # a sliver
+    assert not plausible([[100, 100], [108, 100], [108, 108], [100, 108]])  # a speck
+    assert not plausible([[100, 100], [200, 100], [200, 200]])
+
+
+def test_one_look_at_a_stray_quad_never_counts():
+    steady = Steady(looks=3)
+    assert steady.see("", _QUAD) is None  # seen but not read
+    assert steady.see("noise", _QUAD) is None
+    assert steady.see("", None) is None
+    assert steady.see("noise", _QUAD) is None and not steady.confirmed  # a miss in between starts it over
+    assert steady.see("other", _QUAD) is None and steady.see("noise", _QUAD + 0.5) is None  # changed or jumped
+
+
+def test_a_steady_code_counts_after_a_few_looks_and_rides_out_a_miss():
+    steady = Steady(looks=3, grace=1)
+    assert steady.see("hi", _QUAD) is None and steady.pending
+    assert steady.see("hi", _QUAD + 0.01) is None
+    text, corners = steady.see("hi", _QUAD + 0.02)
+    assert text == "hi" and np.allclose(corners, _QUAD + 0.02) and not steady.pending
+    assert steady.see("", None) == ("hi", corners)  # one missed look keeps it
+    assert steady.see("hi", _QUAD)[0] == "hi"
+    assert steady.see("", None) is not None and steady.see("", None) is None  # two in a row lets it go
+
+
+def test_a_moving_code_stays_outlined():
+    steady = Steady(looks=3)
+    for i in range(12):
+        found = steady.see("hi", _QUAD + [0.04 * i, 0.0])
+        assert (found is None) == (i < 2)
+    assert np.allclose(found[1], _QUAD + [0.44, 0.0])
+    assert steady.see("hi", _QUAD - 0.3)[0] == "hi"  # a fast jump of the same code once it's confirmed
 
 
 def test_no_code_is_none():
@@ -104,7 +146,10 @@ def test_a_code_in_the_picture_goes_to_the_clipboard_once(reader, qapp):
     assert host.overlays.layers() == [plugin._layer]
     QGuiApplication.clipboard().setText("")
     assert plugin.process_frame(frame) is frame  # handed off: the frame goes on unchanged straight away
-    _wait_for(qapp, lambda: host.notified)
+    _wait_for(qapp, lambda: not plugin._busy.is_set())
+    qapp.processEvents()
+    assert plugin._layer.corners is None and plugin._steady.pending  # one look isn't enough to outline it
+    _wait_for(qapp, lambda: plugin.process_frame(frame) is frame and host.notified)
     assert QGuiApplication.clipboard().text() == "hunter22" and plugin._copy_btn.isVisibleTo(plugin._status.parentWidget())
     assert host.notified == [("QR code copied", "Copied the password for Telescope", False)]
     assert plugin._layer.corners is not None and host.refreshed
@@ -116,10 +161,24 @@ def test_a_code_in_the_picture_goes_to_the_clipboard_once(reader, qapp):
     assert QGuiApplication.clipboard().text() == "something else"  # still in view: not copied over and over
 
 
+def _read(plugin, text):
+    for _ in range(3):
+        plugin._on_found(text, _QUAD)
+
+
+def test_a_stray_quad_is_never_outlined(reader):
+    plugin, host = reader
+    plugin.set_config({"on": True})
+    for _ in range(5):
+        plugin._on_found("", _QUAD)
+        plugin._on_found("", None)
+    assert plugin._layer.corners is None and host.notified == []
+
+
 def test_notifications_can_be_switched_off(reader, qapp):
     plugin, host = reader
     plugin.set_config({"on": True, "notify": False})
-    plugin._on_found("https://example.com", None)
+    _read(plugin, "https://example.com")
     _wait_for(qapp, lambda: plugin._status.text().find("example.com") >= 0, 2)
     assert host.notified == [] and plugin._status.text().find("example.com") >= 0
     assert plugin.get_config() == {"on": True, "notify": False}
@@ -130,7 +189,7 @@ def test_switching_off_takes_the_outline_off_the_preview(reader):
     plugin.set_config({"on": True})
     plugin._switch.setChecked(False)
     assert host.overlays.layers() == []
-    plugin._on_found("https://example.com", None)
+    _read(plugin, "https://example.com")
     assert host.notified == []  # a result that comes in after switching off is dropped
 
 
@@ -153,7 +212,7 @@ def test_a_copy_wayland_ignores_says_to_click_copy(reader, qapp, monkeypatch):
     deaf = _DeafClipboard()
     monkeypatch.setattr(QGuiApplication, "clipboard", staticmethod(lambda: deaf))
     plugin.set_config({"on": True})
-    plugin._on_found("https://example.com", None)
+    _read(plugin, "https://example.com")
     _wait_for(qapp, lambda: host.notified)
     assert deaf.held == "old" and "Click Copy" in plugin._status.text()
     assert host.notified[-1][0] == "QR code found"

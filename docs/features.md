@@ -104,7 +104,7 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 
 ## QR codes
 
-Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. The code gets a green outline on the preview for a moment and a notification says what was copied (**Notify me when a code is read** turns that off).
+Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. Once the code has read steadily for a moment it gets a green outline on the preview, and a notification says what was copied (**Notify me when a code is read** turns that off).
 
 Telescope looks about three times a second at a smaller copy away from the stream itself and the picture doesn't slow down for it. The same code isn't copied again until it's been out of view for a few seconds. On Linux with Wayland a window in the background isn't allowed to change the clipboard. When that happens the card says so and **Copy** puts the code there with one click.
 
