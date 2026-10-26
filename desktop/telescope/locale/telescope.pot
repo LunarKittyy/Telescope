@@ -891,7 +891,7 @@ msgstr ""
 msgid "Extras"
 msgstr ""
 
-#: telescope/plugin.py:663
+#: telescope/plugin.py:664
 msgid "Open settings"
 msgstr ""
 
@@ -2726,7 +2726,7 @@ msgstr ""
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:244 telescope/plugins/transforms.py:167
+#: telescope/plugins/desk.py:244 telescope/plugins/transforms.py:170
 msgid "Reset"
 msgstr ""
 
@@ -2750,7 +2750,7 @@ msgstr ""
 msgid "Shape"
 msgstr ""
 
-#: telescope/plugins/desk.py:257
+#: telescope/plugins/desk.py:257 telescope/plugins/transforms.py:248 telescope/plugins/transforms.py:279
 msgid "Width"
 msgstr ""
 
@@ -2758,7 +2758,7 @@ msgstr ""
 msgid "Stretch the sheet sideways if it still looks squashed"
 msgstr ""
 
-#: telescope/plugins/desk.py:258
+#: telescope/plugins/desk.py:258 telescope/plugins/transforms.py:250 telescope/plugins/transforms.py:281
 msgid "Height"
 msgstr ""
 
@@ -5790,152 +5790,170 @@ msgstr ""
 msgid "{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS."
 msgstr ""
 
-#: telescope/plugins/transforms.py:56
+#: telescope/plugins/transforms.py:57
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr ""
 
-#: telescope/plugins/transforms.py:61
+#: telescope/plugins/transforms.py:62
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr ""
 
-#: telescope/plugins/transforms.py:62 telescope/plugins/transforms.py:68
+#: telescope/plugins/transforms.py:63 telescope/plugins/transforms.py:69
 msgid "the telephoto"
 msgstr ""
 
-#: telescope/plugins/transforms.py:63
+#: telescope/plugins/transforms.py:64
 msgid "the main camera"
 msgstr ""
 
-#: telescope/plugins/transforms.py:66
+#: telescope/plugins/transforms.py:67
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr ""
 
-#: telescope/plugins/transforms.py:71
+#: telescope/plugins/transforms.py:72
 msgid "It can wobble for a moment while it switches."
 msgstr ""
 
-#: telescope/plugins/transforms.py:130 telescope/plugins/transforms.py:169 telescope/plugins/transforms.py:246
+#: telescope/plugins/transforms.py:131 telescope/plugins/transforms.py:172 telescope/plugins/transforms.py:266
 msgid "Transforms"
 msgstr ""
 
-#: telescope/plugins/transforms.py:131
-msgid "Zoom, pan, flip and rotate the picture."
+#: telescope/plugins/transforms.py:132
+msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr ""
 
-#: telescope/plugins/transforms.py:134
+#: telescope/plugins/transforms.py:135
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr ""
 
-#: telescope/plugins/transforms.py:167
-msgid "Clear flip, rotation, zoom and pan back to defaults"
+#: telescope/plugins/transforms.py:170
+msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
 msgstr ""
 
-#: telescope/plugins/transforms.py:173
+#: telescope/plugins/transforms.py:176
 msgid "Mirror"
 msgstr ""
 
-#: telescope/plugins/transforms.py:174
+#: telescope/plugins/transforms.py:177
 msgid "Upside down"
 msgstr ""
 
-#: telescope/plugins/transforms.py:179
+#: telescope/plugins/transforms.py:182
 msgid "Flip"
 msgstr ""
 
-#: telescope/plugins/transforms.py:196 telescope/plugins/transforms.py:250
+#: telescope/plugins/transforms.py:199 telescope/plugins/transforms.py:270
 msgid "Rotation"
 msgstr ""
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:379
+#: telescope/plugins/transforms.py:208 telescope/plugins/transforms.py:407
 #, python-brace-format
 msgid "{n}×"
 msgstr ""
 
-#: telescope/plugins/transforms.py:207 telescope/plugins/transforms.py:251 telescope/widgets/composite_editor.py:639
+#: telescope/plugins/transforms.py:210 telescope/plugins/transforms.py:271 telescope/widgets/composite_editor.py:639
 msgid "Zoom"
 msgstr ""
 
 #. H and V for horizontal and vertical, in the narrow Pan readout
-#: telescope/plugins/transforms.py:234 telescope/plugins/transforms.py:465
+#: telescope/plugins/transforms.py:237 telescope/plugins/transforms.py:501
 #, python-brace-format
 msgid ""
 "H {x}\n"
 "V {y}"
 msgstr ""
 
-#: telescope/plugins/transforms.py:235 telescope/widgets/composite_editor.py:37 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:238 telescope/widgets/composite_editor.py:37 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr ""
 
 #: telescope/plugins/transforms.py:248
+msgid "Stretch or squish the picture sideways"
+msgstr ""
+
+#: telescope/plugins/transforms.py:250
+msgid "Stretch or squish the picture up and down"
+msgstr ""
+
+#: telescope/plugins/transforms.py:268
 msgid "Flip horizontal"
 msgstr ""
 
-#: telescope/plugins/transforms.py:249
+#: telescope/plugins/transforms.py:269
 msgid "Flip vertical"
 msgstr ""
 
-#: telescope/plugins/transforms.py:253
+#: telescope/plugins/transforms.py:273
 msgid "Pan left/right"
 msgstr ""
 
-#: telescope/plugins/transforms.py:256
+#: telescope/plugins/transforms.py:276
 msgid "Pan up/down"
 msgstr ""
 
-#: telescope/plugins/transforms.py:259
+#: telescope/plugins/transforms.py:283
 msgid "Reset transforms"
 msgstr ""
 
-#: telescope/plugins/transforms.py:261
+#: telescope/plugins/transforms.py:285
 msgctxt "search"
 msgid "mirror"
 msgstr ""
 
-#: telescope/plugins/transforms.py:262
+#: telescope/plugins/transforms.py:286
 msgctxt "search"
 msgid "mirror upside down"
 msgstr ""
 
-#: telescope/plugins/transforms.py:263
+#: telescope/plugins/transforms.py:287
 msgctxt "search"
 msgid "rotate turn"
 msgstr ""
 
-#: telescope/plugins/transforms.py:264
+#: telescope/plugins/transforms.py:288
 msgctxt "search"
 msgid "crop framing"
 msgstr ""
 
-#: telescope/plugins/transforms.py:265 telescope/plugins/transforms.py:266
+#: telescope/plugins/transforms.py:289 telescope/plugins/transforms.py:290
 msgctxt "search"
 msgid "framing move"
 msgstr ""
 
-#: telescope/plugins/transforms.py:331
+#: telescope/plugins/transforms.py:291
+msgctxt "search"
+msgid "stretch squish aspect wide"
+msgstr ""
+
+#: telescope/plugins/transforms.py:292
+msgctxt "search"
+msgid "stretch squish aspect tall"
+msgstr ""
+
+#: telescope/plugins/transforms.py:359
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr ""
 
-#: telescope/plugins/transforms.py:332
+#: telescope/plugins/transforms.py:360
 msgid "Zoomed on this computer"
 msgstr ""
 
-#: telescope/plugins/transforms.py:334
+#: telescope/plugins/transforms.py:362
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr ""
 
-#: telescope/plugins/transforms.py:336
+#: telescope/plugins/transforms.py:364
 msgid "Zoomed on the phone's sensor"
 msgstr ""
 
-#: telescope/plugins/transforms.py:342
+#: telescope/plugins/transforms.py:370
 msgid "Dots mark where the phone switches to another lens"
 msgstr ""
 
-#: telescope/plugins/transforms.py:344
+#: telescope/plugins/transforms.py:372
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr ""

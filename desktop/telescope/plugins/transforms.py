@@ -30,6 +30,7 @@ from telescope.i18n import N_, number, percent, tr
 _ROTATION_SEGMENTS = (("None", "0°"), ("90 CW", "90°"), ("180", "180°"), ("90 CCW", "270°"))
 
 _PAN_SNAP = 0.02  # a preview drag sticks at the centre within this much of the frame, on each axis
+_STRETCH_RANGE = (50, 200)  # Width and Height, in percent of the picture's own shape
 _LENS_SETTLE_S = 2.0  # how long the phone gets to take a new ratio before the dot says it didn't
 
 
@@ -128,7 +129,7 @@ class _LensDot(QWidget):
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     title = N_("Transforms")
-    about = N_("Zoom, pan, flip and rotate the picture.")
+    about = N_("Zoom, pan, flip, rotate and stretch the picture.")
     category = "camera"
     icon = "crop"
     when_off = N_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.")
@@ -144,6 +145,8 @@ class TransformsPlugin(TelescopePlugin):
         self.zoom     = 1.0
         self.pan_x    = 0.0
         self.pan_y    = 0.0
+        self.stretch_x = 1.0
+        self.stretch_y = 1.0
         self._ctrl = None
         self._status = ViewStatus()  # how the zoom is shared with the phone (view_status)
         self._taken_by = ""  # what moves zoom and pan instead of this card ("" = nobody)
@@ -164,7 +167,7 @@ class TransformsPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        self._reset_btn = card_action(tr("Reset"), "reset", tr("Clear flip, rotation, zoom and pan back to defaults"))
+        self._reset_btn = card_action(tr("Reset"), "reset", tr("Clear flip, rotation, zoom, pan and stretch back to defaults"))
         self._reset_btn.clicked.connect(self._reset_all)
         add_card_header(lay, tr("Transforms"), "crop", action=self._reset_btn, hue="transforms")
         dim_until_paired(card, self._bus)
@@ -240,7 +243,24 @@ class TransformsPlugin(TelescopePlugin):
         self._pan_y_slider.set_enabled(False)
         self._show_pan()
 
+        # ── Stretch ───────────────────────────────────────────────────────────
+        self._stretch_x_slider, self._stretch_x_lbl = self._stretch_row(
+            lay, tr("Width"), tr("Stretch or squish the picture sideways"))
+        self._stretch_y_slider, self._stretch_y_lbl = self._stretch_row(
+            lay, tr("Height"), tr("Stretch or squish the picture up and down"))
+
         return card
+
+    def _stretch_row(self, lay, label: str, tip: str) -> tuple:
+        slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        slider.setRange(*_STRETCH_RANGE)
+        slider.setValue(100)
+        slider.set_default(100)
+        slider.setToolTip(tip)
+        readout = value_label(percent(100))
+        slider.valueChanged.connect(self._on_stretch_changed)
+        lay.addLayout(_row(label, slider_row(slider, readout), stretch=True))
+        return slider, readout
 
     def create_actions(self) -> list:
         g = tr("Transforms")
@@ -256,6 +276,10 @@ class TransformsPlugin(TelescopePlugin):
             slider_action("transforms.pan_y", tr("Pan up/down"), g, self._pan_y_slider.slider(), scale=0.5,
                           suffix="%", step=10.0, readout=self._pan_y_lbl, signed=True,
                           widgets=(self._pan_pad,), ready_widget=self._pan_pad),
+            slider_action("transforms.stretch_x", tr("Width"), g, self._stretch_x_slider, suffix="%", step=10.0,
+                          readout=self._stretch_x_lbl),
+            slider_action("transforms.stretch_y", tr("Height"), g, self._stretch_y_slider, suffix="%", step=10.0,
+                          readout=self._stretch_y_lbl),
             button_action("transforms.reset", tr("Reset transforms"), g, self._reset_btn),
         ]
         keywords = {"transforms.flip_horizontal": tr("mirror", ctx="search"),
@@ -263,7 +287,9 @@ class TransformsPlugin(TelescopePlugin):
                     "transforms.rotation": tr("rotate turn", ctx="search"),
                     "transforms.zoom": tr("crop framing", ctx="search"),
                     "transforms.pan_x": tr("framing move", ctx="search"),
-                    "transforms.pan_y": tr("framing move", ctx="search")}
+                    "transforms.pan_y": tr("framing move", ctx="search"),
+                    "transforms.stretch_x": tr("stretch squish aspect wide", ctx="search"),
+                    "transforms.stretch_y": tr("stretch squish aspect tall", ctx="search")}
         for action in actions:
             action.keywords = keywords.get(action.id, "")
         return actions
@@ -278,6 +304,8 @@ class TransformsPlugin(TelescopePlugin):
         self._pan_x_slider.reset()
         self._pan_y_slider.reset()
         self._on_pan_changed(0.0)
+        self._stretch_x_slider.setValue(100)
+        self._stretch_y_slider.setValue(100)
 
     # ── Which lens the phone is on ────────────────────────────────────────────
 
@@ -382,6 +410,14 @@ class TransformsPlugin(TelescopePlugin):
             self.pan_x = self.pan_y = 0.0
         self._framing_changed()
 
+    def _on_stretch_changed(self, _val: int):
+        self.stretch_x = self._stretch_x_slider.value() / 100.0
+        self.stretch_y = self._stretch_y_slider.value() / 100.0
+        self._stretch_x_lbl.setText(percent(self._stretch_x_slider.value()))
+        self._stretch_y_lbl.setText(percent(self._stretch_y_slider.value()))
+        self._host.set_view(stretch_x=self.stretch_x, stretch_y=self.stretch_y)
+        self._host.schedule_save()
+
     def _on_pan_changed(self, _val: float):
         self.pan_x = self._pan_x_slider.get_value()
         self.pan_y = self._pan_y_slider.get_value()
@@ -399,7 +435,7 @@ class TransformsPlugin(TelescopePlugin):
         # Where the drag alone would put the pan; what's shown sticks at the centre near it (_PAN_SNAP), and
         # dragging on past that lets go without a jump, since this keeps counting underneath.
         raw_x, raw_y = self._raw_pan or (self.pan_x, self.pan_y)
-        t = (self.zoom, raw_x, raw_y, self.flip_h, self.flip_v, self.rotation)
+        t = (self.zoom, raw_x, raw_y, self.flip_h, self.flip_v, self.rotation, self.stretch_x, self.stretch_y)
         x0, y0 = shown_to_view(0.5, 0.5, *t)
         x1, y1 = shown_to_view(0.5 + du, 0.5 + dv, *t)
         raw_x = pan_for(window_centre(self.zoom, raw_x) - (x1 - x0), self.zoom)
@@ -424,7 +460,7 @@ class TransformsPlugin(TelescopePlugin):
         if new == old:
             return
         # Where the point sits inside the window stays the same, so it stays under the mouse.
-        t = (self.flip_h, self.flip_v, self.rotation)
+        t = (self.flip_h, self.flip_v, self.rotation, self.stretch_x, self.stretch_y)
         px, py = shown_to_view(u, v, self.zoom, self.pan_x, self.pan_y, *t)
         (x0, w), (y0, h) = window(self.zoom, self.pan_x), window(self.zoom, self.pan_y)
         zoom = new / 100.0
@@ -475,6 +511,8 @@ class TransformsPlugin(TelescopePlugin):
             "zoom":      self._zoom_slider.value() / 100.0,
             "pan_x":     self.pan_x,  # finer than the sliders: dragging the preview sets it directly
             "pan_y":     self.pan_y,
+            "stretch_x": self._stretch_x_slider.value() / 100.0,
+            "stretch_y": self._stretch_y_slider.value() / 100.0,
         }
 
     def set_config(self, cfg: dict):
@@ -490,5 +528,9 @@ class TransformsPlugin(TelescopePlugin):
         self.pan_x = _number(cfg.get("pan_x", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
         self.pan_y = _number(cfg.get("pan_y", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
         self._framing_changed()
-        # Unchanged widgets don't fire, so the window's view hears flip and rotation here too
-        self._host.set_view(flip_h=self.flip_h, flip_v=self.flip_v, rotation=self.rotation)
+        lo, hi = (n / 100.0 for n in _STRETCH_RANGE)
+        self._stretch_x_slider.setValue(round(_number(cfg.get("stretch_x", 1.0), 1.0, lo, hi) * 100))
+        self._stretch_y_slider.setValue(round(_number(cfg.get("stretch_y", 1.0), 1.0, lo, hi) * 100))
+        # Unchanged widgets don't fire, so the window's view hears flip, rotation and stretch here too
+        self._host.set_view(flip_h=self.flip_h, flip_v=self.flip_v, rotation=self.rotation,
+                            stretch_x=self.stretch_x, stretch_y=self.stretch_y)

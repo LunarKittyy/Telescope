@@ -225,6 +225,8 @@ def test_config_round_trip_updates_widgets(transforms_plugin):
         "zoom": 3.0,
         "pan_x": 0.4,
         "pan_y": -0.6,
+        "stretch_x": 1.5,
+        "stretch_y": 0.75,
     }
 
     plugin.set_config(cfg)
@@ -285,6 +287,88 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
     plugin._bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.75, 0.5)]
 
+
+
+# ── Stretch ──────────────────────────────────────────────────────────────────
+
+from telescope.view import apply_stretch, shown_to_view, view_to_shown  # noqa: E402
+
+
+def test_no_stretch_is_zero_copy():
+    frame = _grid()
+    assert apply_stretch(frame, 1.0, 1.0) is frame
+
+
+def test_a_squish_leaves_black_bars_and_a_stretch_crops():
+    frame = np.full((90, 160, 3), 255, np.uint8)
+    frame[:, :80] = 100  # left half grey, right half white
+    out = apply_stretch(frame, 0.5, 2.0)
+    assert out.shape == frame.shape
+    assert out[:, :38].max() == 0 and out[:, 122:].max() == 0  # squished sideways: black either side
+    assert out[45, 60, 0] == 100 and out[45, 100, 0] == 255  # the middle is still the picture, halved
+    assert out[0, 42:118].min() > 0 and out[-1, 42:118].min() > 0  # stretched up and down: no bars there
+
+
+@pytest.mark.parametrize("stretch", [(1.0, 1.0), (1.5, 1.0), (1.0, 0.6), (0.5, 2.0), (2.0, 0.5)])
+@pytest.mark.parametrize("rotation", [None, cv2.ROTATE_90_CLOCKWISE])
+@pytest.mark.parametrize("zoom,pan", [(1.0, (0, 0)), (2.0, (0.2, -0.1))])
+def test_inverse_map_undoes_a_stretch(stretch, rotation, zoom, pan):
+    """A marked spot through the real crop, rotation and stretch, then the shown spot mapped back."""
+    w, h = 160, 90
+    src = (84, 47)
+    frame = np.zeros((h, w, 3), np.uint8)
+    frame[src[1] - 1:src[1] + 2, src[0] - 1:src[0] + 2] = 255
+    out = apply_stretch(_transform_frame(_apply_zoom(frame, zoom, *pan), True, False, rotation), *stretch)
+    ys, xs = np.nonzero(out[:, :, 0] > 20)
+    oh, ow = out.shape[:2]
+    u, v = (xs.mean() + 0.5) / ow, (ys.mean() + 0.5) / oh
+    x, y = inverse_map(u, v, w, h, zoom, pan[0], pan[1], True, False, rotation, *stretch)
+    assert abs(x * w - (src[0] + 0.5)) < 1.5
+    assert abs(y * h - (src[1] + 0.5)) < 1.5
+
+
+@pytest.mark.parametrize("stretch", [(1.5, 1.0), (0.5, 2.0)])
+def test_shown_and_view_points_round_trip_through_a_stretch(stretch):
+    t = (2.0, 0.3, -0.5, True, False, cv2.ROTATE_90_COUNTERCLOCKWISE, *stretch)
+    for u, v in ((0.1, 0.2), (0.5, 0.5), (0.9, 0.7)):
+        assert view_to_shown(*shown_to_view(u, v, *t), *t) == pytest.approx((u, v))
+    assert shown_to_view(0.5, 0.5, *t) == pytest.approx(shown_to_view(0.5, 0.5, *t[:6]))  # the centre stays put
+
+
+def test_the_view_stretches_the_picture_as_shown(transforms_plugin):
+    plugin, host, _panel = transforms_plugin
+    plugin._rot_combo.setCurrentText("90 CW")
+    plugin._stretch_x_slider.setValue(150)
+    plugin._stretch_y_slider.setValue(80)
+    assert host.vc.view.stretch_x == pytest.approx(1.5) and host.vc.view.stretch_y == pytest.approx(0.8)
+    expected = apply_stretch(cv2.rotate(_grid(), cv2.ROTATE_90_CLOCKWISE), 1.5, 0.8)
+    assert np.array_equal(host.vc.process_frame(_grid()), expected)
+    assert np.array_equal(host.vc.frame_step()(_grid()), expected)
+    assert plugin._stretch_x_lbl.text() == "150%"
+
+
+def test_a_picked_point_lands_on_the_phone_frame_through_a_stretch(transforms_plugin):
+    plugin, host, _panel = transforms_plugin
+    seen = []
+    plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
+    host.vc.process_frame(np.zeros((90, 160, 3), np.uint8))
+    plugin._stretch_x_slider.setValue(200)
+    plugin._stretch_y_slider.setValue(50)
+    plugin._bus.focus_point_picked.emit(0.25, 0.6)
+    assert seen == [(0.375, 0.7)]
+
+
+def test_stretch_saves_loads_and_resets(transforms_plugin):
+    plugin, host, _panel = transforms_plugin
+    plugin.set_config({"stretch_x": 1.25, "stretch_y": 0.7})
+    assert plugin.get_config()["stretch_x"] == pytest.approx(1.25)
+    assert plugin.get_config()["stretch_y"] == pytest.approx(0.7)
+    assert host.vc.view.stretch_y == pytest.approx(0.7)
+    plugin.set_config({"stretch_x": "junk", "stretch_y": 9})
+    assert (plugin.stretch_x, plugin.stretch_y) == (1.0, 2.0)
+    plugin._reset_btn.click()
+    assert (host.vc.view.stretch_x, host.vc.view.stretch_y) == (1.0, 1.0)
+    assert plugin.get_config()["stretch_x"] == 1.0
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
