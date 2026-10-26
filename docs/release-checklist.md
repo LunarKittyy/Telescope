@@ -122,7 +122,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Microphone
 
-<!-- due: desktop/telescope/audio.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice -->
+<!-- due: desktop/telescope/audio.py desktop/telescope/denoise.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice pyrnnoise -->
 
 - [ ] Linux (PipeWire): switching it on while streaming makes "Telescope Microphone" appear, a call records the phone and switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift and unplugging and replugging recovers.
 - [ ] Windows: without VB-Cable the card offers Install VB-Cable. It asks first (naming VB-Audio), opens VB-Audio's setup through UAC and after a restart and an off/on apps record from CABLE Output.
@@ -130,6 +130,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Permission: the first request makes the phone's Get set up card show Microphone and allowing it there starts the audio within a few seconds without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
 - [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
+- [ ] Noise reduction, on Linux and Windows: with a fan going and some typing a call recording loses both while speech still sounds natural and switching it mid-sentence doesn't click.
 
 ### Starting, stopping and the camera button
 

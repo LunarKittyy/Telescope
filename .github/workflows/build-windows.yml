@@ -65,7 +65,7 @@ jobs:
         working-directory: desktop
         run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
 
-      - name: Install aiortc
+      - name: Install aiortc and pyrnnoise
         working-directory: desktop
         run: pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
 
@@ -123,6 +123,8 @@ jobs:
             }
             # Without it Auto framing and Background have no pack to download
             if (-not (Test-Path "$($lib.FullName)/telescope/vision_pack.json")) { $missing += "telescope/vision_pack.json" }
+            # The microphone's noise reduction, loaded by path rather than imported
+            if (-not (Test-Path "$($lib.FullName)/pyrnnoise/rnnoise.dll")) { $missing += "pyrnnoise/rnnoise.dll" }
           }
           # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
           if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }

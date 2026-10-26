@@ -26,7 +26,7 @@ msgstr "Ponsel menjadi panas dan menurunkan frame rate ke {fps} fps untuk saat i
 msgid "Lost the phone - reconnecting"
 msgstr "Koneksi ke ponsel terputus - menghubungkan ulang"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:107 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -84,7 +84,7 @@ msgstr "Pengaturan Anda tidak dapat dibaca"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope dimulai dengan pengaturan default, jadi ponsel yang tersanding perlu disandingkan lagi."
 
-#: telescope/app.py:574 telescope/app.py:575 telescope/widgets/settings_window.py:137
+#: telescope/app.py:574 telescope/app.py:575 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr "Pengaturan"
 
@@ -118,7 +118,7 @@ msgstr "Mulai"
 msgid "Stop streaming"
 msgstr "Hentikan streaming"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:674 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
@@ -323,41 +323,41 @@ msgstr "Aplikasi ini mulai streaming dengan sendirinya saat diperlukan."
 msgid "Right-click the tray icon to quit."
 msgstr "Klik kanan ikon baki sistem untuk keluar."
 
-#: telescope/audio.py:457
+#: telescope/audio.py:463
 msgid "Can't reach the phone's microphone."
 msgstr "Tidak dapat menjangkau mikrofon ponsel."
 
-#: telescope/audio.py:470 telescope/audio.py:479
+#: telescope/audio.py:476 telescope/audio.py:485
 msgid "The phone's microphone stopped."
 msgstr "Mikrofon ponsel berhenti."
 
-#: telescope/audio.py:505
+#: telescope/audio.py:511
 #, python-brace-format
 msgid "Couldn't open the virtual microphone: {error}"
 msgstr "Tidak dapat membuka mikrofon virtual: {error}"
 
-#: telescope/audio.py:516
+#: telescope/audio.py:522
 msgid "The virtual microphone stopped taking audio."
 msgstr "Mikrofon virtual berhenti menerima audio."
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
-#: telescope/audio.py:629
+#: telescope/audio.py:673
 msgid "No microphone"
 msgstr "Tidak ada mikrofon"
 
-#: telescope/audio.py:631
+#: telescope/audio.py:675
 msgid "Allow the microphone in Telescope on the phone"
 msgstr "Izinkan mikrofon di Telescope pada ponsel"
 
-#: telescope/audio.py:632
+#: telescope/audio.py:676
 msgid "Open Telescope on the phone once, then try again"
 msgstr "Buka Telescope di ponsel sekali, lalu coba lagi"
 
-#: telescope/audio.py:633
+#: telescope/audio.py:677
 msgid "The phone's microphone is in use"
 msgstr "Mikrofon ponsel sedang digunakan"
 
-#: telescope/audio.py:642
+#: telescope/audio.py:686
 #, python-brace-format
 msgid "The phone refused the microphone (HTTP {code})."
 msgstr "Ponsel menolak mikrofon (HTTP {code})."
@@ -370,18 +370,27 @@ msgstr "Menunggu browser. Pindai kode di kartu Kamera browser dan ketuk Mulai."
 msgid "This computer couldn't set up the video connection."
 msgstr "Komputer ini tidak dapat menyiapkan koneksi video."
 
+#: telescope/denoise.py:87
+msgid "The pyrnnoise package isn't installed."
+msgstr ""
+
+#: telescope/denoise.py:88
+#, python-brace-format
+msgid "Couldn't load RNNoise: {error}"
+msgstr ""
+
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:137
+#: telescope/i18n.py:139
 msgid ", "
 msgstr ", "
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:139
+#: telescope/i18n.py:141
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr "{items} dan {last}"
 
-#: telescope/i18n.py:159
+#: telescope/i18n.py:161
 #, python-brace-format
 msgctxt "percentage"
 msgid "{n}%"
@@ -645,7 +654,7 @@ msgstr "Berhasil menghapus {paths}"
 msgid "The sound server didn't answer (pactl list failed)."
 msgstr "Server suara tidak merespons (pactl list gagal)."
 
-#: telescope/platform/virtual_mic.py:109 telescope/platform/virtual_mic.py:122 telescope/plugins/microphone.py:484
+#: telescope/platform/virtual_mic.py:109 telescope/platform/virtual_mic.py:122 telescope/plugins/microphone.py:512
 #, python-brace-format
 msgid "Couldn't create the virtual microphone: {error}"
 msgstr "Tidak dapat membuat mikrofon virtual: {error}"
@@ -1061,7 +1070,7 @@ msgstr "{n} terhubung"
 msgid "Waiting for a browser"
 msgstr "Menunggu browser"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:1000
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1260,7 +1269,7 @@ msgstr "Kunci level hitam"
 msgid "Torch"
 msgstr "Lampu senter"
 
-#: telescope/plugins/camera_control.py:309 telescope/plugins/camera_control.py:362
+#: telescope/plugins/camera_control.py:309 telescope/plugins/camera_control.py:362 telescope/plugins/microphone.py:270
 msgid "Noise reduction"
 msgstr "Pengurangan noise"
 
@@ -1422,7 +1431,7 @@ msgstr "Ponsel sedang streaming ke komputer lain."
 msgid "Stop it there or on the phone, then try again."
 msgstr "Hentikan di sana atau pada ponsel, lalu coba lagi."
 
-#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:231
+#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:232
 msgid "Checking…"
 msgstr "Memeriksa…"
 
@@ -1788,7 +1797,7 @@ msgstr "Streaming via USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Streaming via Wi-Fi"
 
-#: telescope/plugins/connection.py:872 telescope/plugins/microphone.py:501
+#: telescope/plugins/connection.py:872 telescope/plugins/microphone.py:529
 msgid "Connecting…"
 msgstr "Menghubungkan…"
 
@@ -2184,11 +2193,11 @@ msgstr "Buka persiapan lagi"
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "Memerlukan VB-Audio Virtual Cable, kabel audio virtual gratis dari VB-Audio."
 
-#: telescope/plugins/microphone.py:130 telescope/plugins/microphone.py:538
+#: telescope/plugins/microphone.py:130 telescope/plugins/microphone.py:567
 msgid "Install VB-Cable"
 msgstr "Instal VB-Cable"
 
-#: telescope/plugins/microphone.py:163 telescope/plugins/microphone.py:227 telescope/plugins/microphone.py:359 telescope/plugins/setup.py:387
+#: telescope/plugins/microphone.py:163 telescope/plugins/microphone.py:229 telescope/plugins/microphone.py:387 telescope/plugins/setup.py:387
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -2200,142 +2209,146 @@ msgstr "Menggunakan mikrofon ponsel di komputer ini."
 msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
 msgstr "Tanpanya, kartu Mikrofon atau opsi Bisukan tidak akan ada di menu baki sistem dan Telescope tidak membuat mikrofon virtual."
 
-#: telescope/plugins/microphone.py:212 telescope/plugins/microphone.py:331 telescope/plugins/microphone.py:361 telescope/plugins/microphone.py:362
+#: telescope/plugins/microphone.py:214 telescope/plugins/microphone.py:359 telescope/plugins/microphone.py:389 telescope/plugins/microphone.py:390
 msgid "Mute"
 msgstr "Bisukan"
 
-#: telescope/plugins/microphone.py:215
+#: telescope/plugins/microphone.py:217
 msgid "Mute microphone"
 msgstr "Bisukan mikrofon"
 
-#: telescope/plugins/microphone.py:234 telescope/plugins/microphone.py:364 telescope/plugins/microphone.py:434
+#: telescope/plugins/microphone.py:236 telescope/plugins/microphone.py:392 telescope/plugins/microphone.py:462
 msgid "Phone mic"
 msgstr "Mikrofon ponsel"
 
-#: telescope/plugins/microphone.py:252 telescope/plugins/microphone.py:365
+#: telescope/plugins/microphone.py:254 telescope/plugins/microphone.py:393
 msgid "Gain"
 msgstr "Gain"
 
-#: telescope/plugins/microphone.py:255
+#: telescope/plugins/microphone.py:257
 msgid "Evens out quiet and loud speech."
 msgstr "Menyeimbangkan suara pelan dan keras."
 
-#: telescope/plugins/microphone.py:257
+#: telescope/plugins/microphone.py:259
 msgid "Auto level"
 msgstr "Level otomatis"
 
-#: telescope/plugins/microphone.py:281
+#: telescope/plugins/microphone.py:276
+msgid "Takes out typing, fans and room hiss."
+msgstr ""
+
+#: telescope/plugins/microphone.py:300
 #, python-brace-format
 msgid "On for {name}. Turning it on here turns it off there."
 msgstr "Aktif untuk {name}. Mengaktifkannya di sini akan menonaktifkannya di sana."
 
-#: telescope/plugins/microphone.py:331 telescope/plugins/microphone.py:362
+#: telescope/plugins/microphone.py:359 telescope/plugins/microphone.py:390
 msgid "Unmute"
 msgstr "Nyalakan suara"
 
-#: telescope/plugins/microphone.py:334
+#: telescope/plugins/microphone.py:362
 msgid "Apps hear the mic again."
 msgstr "Aplikasi dapat mendengar mikrofon kembali."
 
-#: telescope/plugins/microphone.py:335
+#: telescope/plugins/microphone.py:363
 msgid "Apps hear silence, but the microphone stays connected."
 msgstr "Aplikasi tidak mendengar suara apa pun, tetapi mikrofon tetap terhubung."
 
-#: telescope/plugins/microphone.py:348
+#: telescope/plugins/microphone.py:376
 msgid "Muted"
 msgstr "Dibisukan"
 
-#: telescope/plugins/microphone.py:361
+#: telescope/plugins/microphone.py:389
 msgid "muted"
 msgstr "dibisukan"
 
-#: telescope/plugins/microphone.py:361
+#: telescope/plugins/microphone.py:389
 msgid "unmuted"
 msgstr "suara aktif"
 
-#: telescope/plugins/microphone.py:362
+#: telescope/plugins/microphone.py:390
 msgid "Mute or unmute"
 msgstr "Bisukan atau nyalakan suara"
 
-#: telescope/plugins/microphone.py:363
+#: telescope/plugins/microphone.py:391
 msgid "Switch while held (push to talk while muted)"
 msgstr "Beralih saat ditahan (push to talk saat dibisukan)"
 
-#: telescope/plugins/microphone.py:368
+#: telescope/plugins/microphone.py:396
 msgctxt "search"
 msgid "push to talk silence"
 msgstr "bisukan senyap push to talk silence"
 
-#: telescope/plugins/microphone.py:369
+#: telescope/plugins/microphone.py:397
 msgctxt "search"
 msgid "volume loudness"
 msgstr "volume kelantangan kekerasan volume loudness"
 
-#: telescope/plugins/microphone.py:399
+#: telescope/plugins/microphone.py:427
 msgid "Starts with the stream."
 msgstr "Dimulai bersama stream."
 
-#: telescope/plugins/microphone.py:434
+#: telescope/plugins/microphone.py:462
 msgid "Browser mic"
 msgstr "Mikrofon browser"
 
-#: telescope/plugins/microphone.py:435
+#: telescope/plugins/microphone.py:463
 msgid "Phone microphone"
 msgstr "Mikrofon ponsel"
 
-#: telescope/plugins/microphone.py:435
+#: telescope/plugins/microphone.py:463
 msgid "Browser microphone"
 msgstr "Mikrofon browser"
 
-#: telescope/plugins/microphone.py:437
+#: telescope/plugins/microphone.py:465
 #, python-brace-format
 msgid "Use the phone's microphone on this computer while streaming. Apps list it as “{name}”."
 msgstr "Gunakan mikrofon ponsel di komputer ini saat streaming. Aplikasi akan mencantumkannya sebagai “{name}”."
 
-#: telescope/plugins/microphone.py:439
+#: telescope/plugins/microphone.py:467
 #, python-brace-format
 msgid "Use the browser's microphone on this computer while streaming. Apps list it as “{name}”."
 msgstr "Gunakan mikrofon browser di komputer ini saat streaming. Aplikasi akan mencantumkannya sebagai “{name}”."
 
-#: telescope/plugins/microphone.py:442
+#: telescope/plugins/microphone.py:470
 msgid "Makes the phone mic louder or quieter for other apps. The range is in Advanced."
 msgstr "Membuat mikrofon ponsel lebih keras atau lebih pelan untuk aplikasi lain. Rentang pengaturannya ada di Pengaturan lanjutan."
 
-#: telescope/plugins/microphone.py:443
+#: telescope/plugins/microphone.py:471
 msgid "Makes the browser mic louder or quieter for other apps. The range is in Advanced."
 msgstr "Membuat mikrofon browser lebih keras atau lebih pelan untuk aplikasi lain. Rentang pengaturannya ada di Pengaturan lanjutan."
 
-#: telescope/plugins/microphone.py:476
+#: telescope/plugins/microphone.py:504
 msgid "Setting up…"
 msgstr "Menyiapkan…"
 
-#: telescope/plugins/microphone.py:540
+#: telescope/plugins/microphone.py:569
 msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 msgstr "Mikrofon ponsel memerlukan VB-Audio Virtual Cable di Windows."
 
-#: telescope/plugins/microphone.py:543
+#: telescope/plugins/microphone.py:572
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable dibuat oleh VB-Audio, bukan Telescope. Telescope dapat mengunduhnya dari vb-audio.com dan membuka penginstal milik VB-Audio sendiri, yang meminta akses admin. Mulai ulang komputer setelah selesai."
 
-#: telescope/plugins/microphone.py:546
+#: telescope/plugins/microphone.py:575
 #, python-brace-format
 msgid "<a href=\"{url}\">Donate or read more</a>"
 msgstr "<a href=\"{url}\">Berdonasi atau baca selengkapnya</a>"
 
-#: telescope/plugins/microphone.py:548
+#: telescope/plugins/microphone.py:577
 msgid "Download and install"
 msgstr "Unduh dan instal"
 
-#: telescope/plugins/microphone.py:557
+#: telescope/plugins/microphone.py:586
 msgid "Downloading VB-Cable from vb-audio.com…"
 msgstr "Mengunduh VB-Cable dari vb-audio.com…"
 
-#: telescope/plugins/microphone.py:565
+#: telescope/plugins/microphone.py:594
 #, python-brace-format
 msgid "Couldn't install VB-Cable: {error}"
 msgstr "Gagal menginstal VB-Cable: {error}"
 
-#: telescope/plugins/microphone.py:575
+#: telescope/plugins/microphone.py:604
 msgid "Get VB-Cable"
 msgstr "Dapatkan VB-Cable"
 
@@ -3737,7 +3750,7 @@ msgstr "Saat tidak ada aplikasi memakai kamera, meskipun saya yang memulainya"
 msgid "{n} min"
 msgstr "{n} mnt"
 
-#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1007
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1076
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} dtk"
@@ -4238,105 +4251,105 @@ msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "portabel biarkan salinan ini di tempatnya folder zip langsung windows portable keep this copy where it is zip folder in place windows"
 
-#: telescope/plugins/updates.py:99 telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:100 telescope/plugins/updates.py:138
 msgid "Update and restart"
 msgstr "Perbarui dan mulai ulang"
 
-#: telescope/plugins/updates.py:102
+#: telescope/plugins/updates.py:103
 msgid "What's new"
 msgstr "Yang baru"
 
-#: telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:138
 msgid "Open download page"
 msgstr "Buka halaman unduhan"
 
-#: telescope/plugins/updates.py:143
+#: telescope/plugins/updates.py:144
 msgid "Updates"
 msgstr "Pembaruan"
 
-#: telescope/plugins/updates.py:144
+#: telescope/plugins/updates.py:145
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Memeriksa versi baru Telescope dan menginstalnya."
 
-#: telescope/plugins/updates.py:187
+#: telescope/plugins/updates.py:188
 msgid "Update"
 msgstr "Perbarui"
 
-#: telescope/plugins/updates.py:209
+#: telescope/plugins/updates.py:210
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} tersedia"
 
-#: telescope/plugins/updates.py:224
+#: telescope/plugins/updates.py:225
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Mengunduh {percent}%…"
 
-#: telescope/plugins/updates.py:225 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
+#: telescope/plugins/updates.py:226 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
 msgid "Downloading…"
 msgstr "Mengunduh…"
 
-#: telescope/plugins/updates.py:227
+#: telescope/plugins/updates.py:228
 msgid "Installing…"
 msgstr "Menginstal…"
 
-#: telescope/plugins/updates.py:229
+#: telescope/plugins/updates.py:230
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Diperbarui. Telescope dimulai ulang saat streaming dihentikan."
 
-#: telescope/plugins/updates.py:236
+#: telescope/plugins/updates.py:237
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} tersedia."
 
-#: telescope/plugins/updates.py:238
+#: telescope/plugins/updates.py:239
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "Pembaruan juga menginstalnya untuk pengguna Anda, dengan entri menu Mulai, dan menghapus salinan hasil ekstrak ini. Pengaturan dan ponsel tetap tersimpan."
 
-#: telescope/plugins/updates.py:243
+#: telescope/plugins/updates.py:244
 msgid "Stop streaming to update."
 msgstr "Hentikan streaming untuk memperbarui."
 
-#: telescope/plugins/updates.py:248
+#: telescope/plugins/updates.py:249
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version} tidak dapat dimulai setelah diperbarui, sehingga pembaruan ditahan. Ingin coba lagi?"
 
-#: telescope/plugins/updates.py:252
+#: telescope/plugins/updates.py:253
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "Ini adalah salinan kode sumber, sehingga tidak dapat memperbarui sendiri."
 
-#: telescope/plugins/updates.py:254
+#: telescope/plugins/updates.py:255
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Build nightly terbaru adalah {version}."
 
-#: telescope/plugins/updates.py:256
+#: telescope/plugins/updates.py:257
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Build stabil terbaru adalah {version}."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no nightly release yet."
 msgstr "Belum ada rilis nightly."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no stable release yet."
 msgstr "Belum ada rilis stabil."
 
-#: telescope/plugins/updates.py:261
+#: telescope/plugins/updates.py:262
 msgid "You have the latest version."
 msgstr "Anda menggunakan versi terbaru."
 
-#: telescope/plugins/updates.py:345
+#: telescope/plugins/updates.py:346
 msgid "Couldn't check for updates."
 msgstr "Tidak dapat memeriksa pembaruan."
 
-#: telescope/plugins/updates.py:417
+#: telescope/plugins/updates.py:418
 msgid "The update failed."
 msgstr "Pembaruan gagal."
 
-#: telescope/plugins/updates.py:466
+#: telescope/plugins/updates.py:467
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Diperbarui. Tutup dan buka kembali Telescope untuk menyelesaikan."
 
@@ -4680,12 +4693,12 @@ msgstr "Mulai lagi jika sudah siap."
 msgid "The camera didn't turn back on"
 msgstr "Kamera tidak menyala kembali"
 
-#: telescope/splash.py:50
+#: telescope/splash.py:52
 msgid "Starting Telescope…"
 msgstr "Memulai Telescope…"
 
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
-#: telescope/splash.py:52
+#: telescope/splash.py:54
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Ini bisa memakan waktu satu menit selagi Windows menjalankan pemindaian keamanan."
 
@@ -4893,27 +4906,27 @@ msgstr "Diciutkan. Tekan Spasi atau Enter untuk memperluas."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Diperluas. Tekan Spasi atau Enter untuk menciutkan."
 
-#: telescope/widgets/common.py:1013
+#: telescope/widgets/common.py:1082
 #, python-brace-format
 msgid "{q}%: High"
 msgstr "{q}%: Tinggi"
 
-#: telescope/widgets/common.py:1014
+#: telescope/widgets/common.py:1083
 #, python-brace-format
 msgid "{q}%: Balanced"
 msgstr "{q}%: Seimbang"
 
-#: telescope/widgets/common.py:1015
+#: telescope/widgets/common.py:1084
 #, python-brace-format
 msgid "{q}%: Low"
 msgstr "{q}%: Rendah"
 
-#: telescope/widgets/common.py:1016
+#: telescope/widgets/common.py:1085
 #, python-brace-format
 msgid "{q}%: Very low"
 msgstr "{q}%: Sangat rendah"
 
-#: telescope/widgets/common.py:1141
+#: telescope/widgets/common.py:1219
 msgid "Double-click to reset"
 msgstr "Klik dua kali untuk mereset"
 
@@ -5248,23 +5261,23 @@ msgstr "Telescope tidak dapat memulai instans baru. Tutup dan buka kembali untuk
 msgid "Tab"
 msgstr "Tab"
 
-#: telescope/widgets/settings_window.py:151 telescope/widgets/settings_window.py:152
+#: telescope/widgets/settings_window.py:154 telescope/widgets/settings_window.py:155
 msgid "Search settings"
 msgstr "Cari di pengaturan"
 
-#: telescope/widgets/settings_window.py:162
+#: telescope/widgets/settings_window.py:165
 msgid "Settings tabs"
 msgstr "Tab pengaturan"
 
-#: telescope/widgets/settings_window.py:192
+#: telescope/widgets/settings_window.py:198
 msgid "Nothing matches every word. These match some of them."
 msgstr "Tidak ada yang cocok dengan semua kata. Hasil berikut cocok dengan beberapa kata di antaranya."
 
-#: telescope/widgets/settings_window.py:196 telescope/widgets/settings_window.py:287
+#: telescope/widgets/settings_window.py:202 telescope/widgets/settings_window.py:293
 msgid "Search results"
 msgstr "Hasil pencarian"
 
-#: telescope/widgets/settings_window.py:285
+#: telescope/widgets/settings_window.py:291
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Tidak ada yang cocok dengan “{text}”. Coba gunakan lebih sedikit kata, atau sebutkan fungsinya (resolusi, mikrofon, startup)."
