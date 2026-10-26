@@ -10,8 +10,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/state, POST /v1/control;
-// all require bearer token. Opening a video route tells the service which codec to run.
+// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/audio, GET /v1/sensors, GET /v1/state,
+// POST /v1/control, and photos on /v1/still and /v1/still/file; all require bearer token. Opening a video route tells
+// the service which codec to run.
 class MjpegServer(
     val port: Int,
     val getCamerasJson: () -> String,
@@ -31,6 +32,8 @@ class MjpegServer(
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
     val startAudio: () -> MicProblem? = { MicProblem.NO_MIC },
     val stopAudio: () -> Unit = {},
+    // What /v1/sensors streams; null answers it 404 like a phone from before it.
+    val sensors: SensorFeed? = null,
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
     // TLS in the app (PhoneTls); plain sockets only in tests.
@@ -38,6 +41,18 @@ class MjpegServer(
     // A viewer sent nothing for this long is dropped: with nothing to write it would never notice the computer left.
     private val viewerGiveUpMs: Long = VIEWER_GIVE_UP_MS,
     private val onWifiViewersChanged: (Boolean) -> Unit = {},
+    // A sensor stream whose writes have been stuck this long has lost its computer: the sensors stop
+    private val sensorStallMs: Long = SENSOR_STALL_MS,
+    // And so has one whose computer sent no request at all for this long (it asks /v1/sensors/alive meanwhile)
+    private val sensorAliveMs: Long = SENSOR_ALIVE_MS,
+    // POST /v1/still: start a photo (or forget one); the JSON answer
+    val handleStill: (Map<String, String>) -> String = { """{"ok":false,"error":"no photos"}""" },
+    // GET /v1/still?id=: how that photo is getting on, as JSON; null for an id it doesn't know
+    val stillStatus: (String) -> String? = { null },
+    // GET /v1/still/file?id=&n=: the file and the name to send it as; null when there's no such file
+    val stillFile: (String, Int) -> Pair<java.io.File, String>? = { _, _ -> null },
+    // A file download that makes no progress for this long is cut off
+    private val fileTimeoutMs: Int = FILE_TIMEOUT_MS,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -51,6 +66,8 @@ class MjpegServer(
     private var lastLinkSampleMs = 0L
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
     private val audioLock = Any()
+    private val sensorClients = CopyOnWriteArrayList<SensorClient>()
+    private val lastSeenByToken = java.util.concurrent.ConcurrentHashMap<String, Long>()  // token: its last authorized request
     private val running = AtomicBoolean(false)
     private val wifiViewers = mutableSetOf<Socket>()
 
@@ -59,6 +76,15 @@ class MjpegServer(
         val was = wifiViewers.isNotEmpty()
         if (watching) wifiViewers.add(socket) else wifiViewers.remove(socket)
         if (was != wifiViewers.isNotEmpty()) onWifiViewersChanged(wifiViewers.isNotEmpty())
+    }
+
+    // A photo is being taken: a long exposure or a paused video sends no frames, which mustn't count as a viewer gone
+    @Volatile private var holding = false
+    @Volatile private var heldUntilMs = 0L
+
+    fun holdViewers(on: Boolean) {
+        if (holding && !on) heldUntilMs = System.currentTimeMillis()
+        holding = on
     }
 
     // Updated on every authorized request; feeds battery-saving watchdog.
@@ -193,6 +219,8 @@ class MjpegServer(
             audioClients.forEach { it.close() }
             audioClients.clear()
         }
+        sensorClients.forEach { it.close() }
+        sensorClients.clear()
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -222,7 +250,7 @@ class MjpegServer(
                     if (!HttpWire.isJsonBody(request)) {
                         HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return
                     }
-                    val body = HttpWire.readBody(socket, request) ?: return  // already responded on error
+                    val body = HttpWire.readBody(socket, request, HttpWire.MAX_CONTROL_BODY_BYTES) ?: return  // already responded on error
                     val params = HttpWire.parseJsonParams(body)
                     if (params == null) {
                         HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request")
@@ -305,6 +333,62 @@ class MjpegServer(
                         }
                     } finally { streamSlots.release() }
                 }
+                "/v1/sensors/alive" -> {
+                    if (sensors == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    HttpWire.sendJson(socket.getOutputStream(), "{\"ok\":true}")
+                }
+                "/v1/sensors" -> {
+                    val feed = sensors
+                    if (feed == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    if (!takeStreamSlot()) return
+                    try {
+                        val handle = feed.start(SensorKinds.asked(request.query))
+                        try {
+                            if (handle.kinds.isEmpty()) {
+                                HttpWire.sendError(socket.getOutputStream(), 409, "This phone has none of those sensors", "sensors_none")
+                                return
+                            }
+                            val client = SensorClient(socket, request, feed, handle.kinds)
+                            sensorClients.add(client)
+                            // Stopped meanwhile: stop() may have gone through the list before this one was in it
+                            if (!running.get()) client.close()
+                            client.stream()
+                            sensorClients.remove(client)
+                        } finally { feed.stop(handle) }
+                    } finally { streamSlots.release() }
+                }
+                "/v1/still" -> {
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    when (request.method) {
+                        "GET" -> {
+                            val status = queryParam(request.query, "id")?.let(stillStatus)
+                            if (status == null) HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
+                            else HttpWire.sendJson(socket.getOutputStream(), status)
+                        }
+                        "POST" -> {
+                            if (!HttpWire.isJsonBody(request)) { HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                            val body = HttpWire.readBody(socket, request) ?: return
+                            val params = HttpWire.parseJsonParams(body)
+                            if (params == null) HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request")
+                            else HttpWire.sendJson(socket.getOutputStream(), handleStill(params))
+                        }
+                        else -> HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed")
+                    }
+                }
+                "/v1/still/file" -> {
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    val id = queryParam(request.query, "id")
+                    val n = queryParam(request.query, "n")?.toIntOrNull()
+                    val found = if (id != null && n != null) stillFile(id, n) else null
+                    if (found == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (!takeStreamSlot()) return
+                    try { sendFile(socket, found.first, found.second) } finally { streamSlots.release() }
+                }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
         } catch (_: SocketTimeoutException) {
@@ -319,7 +403,10 @@ class MjpegServer(
 
     private fun isAuthorized(request: HttpWire.Request): Boolean {
         val ok = HttpWire.bearerMatchesAny(tokens(), request)
-        if (ok) lastAuthorizedRequestAtMs = System.currentTimeMillis()
+        if (ok) {
+            lastAuthorizedRequestAtMs = System.currentTimeMillis()
+            HttpWire.bearerToken(request)?.let { lastSeenByToken[it] = lastAuthorizedRequestAtMs }
+        }
         return ok
     }
 
@@ -335,11 +422,43 @@ class MjpegServer(
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 
+    // A photo, which can be 50 MB and more: streamed in TLS-record-sized pieces with its length up front
+    private fun sendFile(socket: Socket, file: java.io.File, name: String) {
+        socket.soTimeout = fileTimeoutMs
+        val out = socket.getOutputStream()
+        // A write blocked on a computer that went away never times out on its own, so the socket is closed instead
+        val lastWrite = java.util.concurrent.atomic.AtomicLong(System.nanoTime())
+        val guard = fileGuards.scheduleWithFixedDelay({
+            if (System.nanoTime() - lastWrite.get() > fileTimeoutMs * 1_000_000L) try { socket.close() } catch (_: Exception) {}
+        }, fileTimeoutMs / 2L, fileTimeoutMs / 2L, TimeUnit.MILLISECONDS)
+        try { sendFileBody(file, name, out) { lastWrite.set(System.nanoTime()) } } finally { guard.cancel(false) }
+    }
+
+    private fun sendFileBody(file: java.io.File, name: String, out: java.io.OutputStream, wrote: () -> Unit) {
+        file.inputStream().use { input ->
+            val length = file.length()
+            out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${StillJobs.type(name)}\r\nContent-Length: $length\r\n" +
+                "Content-Disposition: attachment; filename=\"$name\"\r\nCache-Control: no-store\r\n" +
+                "Connection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
+            val buf = ByteArray(WRITE_CHUNK)
+            var left = length
+            while (left > 0) {
+                val n = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                if (n <= 0) break
+                out.write(buf, 0, n)
+                wrote()
+                left -= n
+            }
+            out.flush()
+        }
+    }
+
     // Checked again while a viewer streams, so removing its computer on the phone cuts off video and mic it already has
     private fun stillPaired(request: HttpWire.Request): Boolean = HttpWire.bearerMatchesAny(tokens(), request)
 
     // Also checked by the senders: a viewer whose write is blocked on a dead link never polls, and closing unblocks it
-    private fun givenUp(lastWriteAtMs: Long): Boolean = System.currentTimeMillis() - lastWriteAtMs >= viewerGiveUpMs
+    private fun givenUp(lastWriteAtMs: Long): Boolean =
+        !holding && System.currentTimeMillis() - maxOf(lastWriteAtMs, heldUntilMs) >= viewerGiveUpMs
 
     // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
     // computer's ACK, which Windows delays by up to 200 ms.
@@ -355,7 +474,16 @@ class MjpegServer(
             part.removePrefix("port=").takeIf { part.startsWith("port=") }?.toIntOrNull()?.takeIf { it in 1..65535 }
         }
 
+        // name=value from a query string, or null
+        fun queryParam(query: String, name: String): String? = query.split('&').firstNotNullOfOrNull { part ->
+            part.removePrefix("$name=").takeIf { part.startsWith("$name=") }
+        }
+
         private const val MAX_CONCURRENT_STREAMS = 16
+        const val FILE_TIMEOUT_MS = 30_000
+        private val fileGuards = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->
+            Thread(r, "still-file-guard").apply { isDaemon = true }
+        }
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
         const val ACCEPT_RETRY_MS = 200L
@@ -365,6 +493,14 @@ class MjpegServer(
         // About 100 ms of video once the kernel doubles it: enough for Wi-Fi's round trips, little to hide in.
         fun dynamicSendBuffer(bps: Double): Int = (bps / 8 * 0.05).toInt().coerceIn(8 * 1024, 640 * 1024)
         const val UNLIMITED_SEND_BUFFER = 1 shl 20    // back from Dynamic; the kernel caps it at its own maximum
+        const val SENSOR_TICK_MS = 33L          // about 30 lines a second at most
+        const val SENSOR_LIGHT_EVERY_MS = 500L
+        const val SENSOR_HEARTBEAT_MS = 1_000L  // a line even when nothing changed, so a computer that's gone shows up as a failed write
+        const val SENSOR_STALL_MS = 5_000L
+        const val SENSOR_ALIVE_MS = 15_000L
+        // A few seconds of lines: a computer that vanished without closing (Wi-Fi gone, laptop asleep) stops taking
+        // them and the writes get stuck soon after, instead of filling a big buffer for minutes
+        const val SENSOR_SEND_BUFFER = 8 * 1024
     }
 
     inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
@@ -475,6 +611,67 @@ class MjpegServer(
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+        }
+
+        fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+    }
+
+    // Writes the newest readings of the kinds it started, only the ones that changed, until the computer goes away.
+    inner class SensorClient(private val socket: Socket, private val request: HttpWire.Request,
+                             private val feed: SensorFeed, private val kinds: Set<String>) {
+        private val alive = AtomicBoolean(true)
+        @Volatile private var writingSinceMs = 0L  // 0 while not in a write
+
+        fun stream() {
+            try {
+                val out = openStream(socket)
+                try { socket.sendBufferSize = SENSOR_SEND_BUFFER } catch (_: Exception) {}
+                thread(name = "sensor-watch", isDaemon = true) { watch() }
+                write(out, "HTTP/1.1 200 OK\r\nContent-Type: ${SensorWire.CONTENT_TYPE}\r\n" +
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds, sensorAliveMs))
+                val token = HttpWire.bearerToken(request)
+                val sent = mutableMapOf<String, Long>()
+                var lightAt = 0L
+                var lastWrite = System.currentTimeMillis()
+                while (alive.get() && stillPaired(request)) {
+                    Thread.sleep(SENSOR_TICK_MS)
+                    val now = System.currentTimeMillis()
+                    // A computer that vanished without closing sends no keepalive: noticed even while the lines still fit
+                    if (now - (token?.let { lastSeenByToken[it] } ?: 0L) >= sensorAliveMs) {
+                        runCatching { android.util.Log.i("MjpegServer", "No keepalive from a computer, stopping its sensors") }
+                        break
+                    }
+                    val fresh = feed.latest().filter { (kind, value) ->
+                        kind in kinds && sent[kind] != value.seq &&
+                            (kind != SensorKinds.LIGHT || now - lightAt >= SENSOR_LIGHT_EVERY_MS)
+                    }
+                    if (fresh.isEmpty() && now - lastWrite < SENSOR_HEARTBEAT_MS) continue
+                    fresh.forEach { (kind, value) -> sent[kind] = value.seq }
+                    if (SensorKinds.LIGHT in fresh) lightAt = now
+                    write(out, SensorWire.line(now, fresh))
+                    lastWrite = now
+                }
+            } catch (_: Exception) {}
+            finally { close() }
+        }
+
+        private fun write(out: java.io.OutputStream, text: String) {
+            writingSinceMs = System.currentTimeMillis()
+            out.write(text.toByteArray(Charsets.UTF_8))
+            out.flush()
+            writingSinceMs = 0L
+        }
+
+        // Closing the socket is the only way to get a stuck write back
+        private fun watch() {
+            while (alive.get()) {
+                try { Thread.sleep(minOf(500L, sensorStallMs / 4)) } catch (_: InterruptedException) { return }
+                val since = writingSinceMs
+                if (since != 0L && System.currentTimeMillis() - since >= sensorStallMs) {
+                    close()
+                    runCatching { android.util.Log.i("MjpegServer", "A computer stopped taking sensor readings, stopping them") }
+                }
+            }
         }
 
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }

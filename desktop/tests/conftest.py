@@ -79,3 +79,10 @@ def _no_locked_camera(monkeypatch):
     """Whatever the real virtual camera is doing on this machine stays out of the tests."""
     import telescope.vcam as vcam
     monkeypatch.setattr(vcam, "locked_size", lambda *_: None)
+
+
+@pytest.fixture(autouse=True)
+def _on_air_sign_stays_local(monkeypatch):
+    """A window that runs the On Air sign listens on a free localhost port, not on the network at 8768."""
+    from telescope.on_air import OnAirServer
+    monkeypatch.setattr(OnAirServer.__init__, "__defaults__", (0, "127.0.0.1"))

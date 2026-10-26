@@ -14,6 +14,12 @@ UnityCapture (desktop/unitycapture/)
     License: MIT (see desktop/unitycapture/LICENSE).
     Source: https://github.com/schellingb/UnityCapture
 
+Windows 11 camera (virtualcamera\TelescopeCamera.dll, source in desktop/virtualcamera/)
+    Telescope's own code, under Telescope's license. Its structure follows
+    Microsoft's VirtualCamera sample.
+    Sample: Copyright (c) Microsoft Corporation. License: MIT.
+    Source: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
+
 Android SDK Platform Tools (not included)
     On Windows, adb.exe is downloaded from Google when you ask for it (Get adb), and kept in
     %LOCALAPPDATA%\Telescope\platform-tools with Google's NOTICE.txt.

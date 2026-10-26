@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QLabel, QMenu, QToolButton, QWidget
 import telescope.app as app_module
 import telescope.single_instance as instance_module
 import telescope.sources as sources_module
-from telescope import theme
+from telescope import packets, theme
 from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.session import StreamSession
 
@@ -35,7 +35,8 @@ class _Signal:
 
 
 # The built-in plugins whose settings are kept per phone (their device_local)
-_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"}
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk",
+                 "colour_grading"}
 
 
 class _Plugin(TelescopePlugin):
@@ -188,6 +189,20 @@ def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
     assert window._plugins == [plugin]
     assert window._plugin_defaults == {"transforms": {"zoom": 1}}
     assert window._panels["left"] == [plugin.panel]
+
+
+def test_a_finished_vision_download_makes_vision_look_for_the_pack_again(window):
+    from telescope import vision
+    from telescope.widgets import vision_download
+    states = []
+    window._bus.vision_state_changed.connect(states.append)
+    window._vision._state = vision.MISSING
+    window._vision._there = lambda: True
+    vision_download.shared().finished.emit("it broke")
+    assert window._vision.state() == vision.MISSING
+    vision_download.shared().finished.emit("")
+    assert window._vision.state() == vision.OFF
+    assert states == [vision.OFF]
 
 
 @pytest.fixture(autouse=True)
@@ -948,6 +963,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
             self.status = _Signal()
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
             self.started = False
             workers.append(self)
 
@@ -979,7 +995,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["auth"] == "tok"
     frame = np.zeros((2, 2, 3), np.uint8)
     steps = workers[0].kwargs["frame_pipeline"]
-    assert len(steps) == len(window._plugins) + 1  # the window's view, then every fake (each has a process_frame)
+    assert len(steps) == len(window._plugins) + 2  # the window's view, every fake (each has a process_frame), colour
     assert all(step(frame) is frame for step in steps)
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
@@ -1008,9 +1024,27 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
     for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
         window.register_plugin(plugin)
     frame = np.zeros((1, 1, 3), np.uint8)
-    assert len(window._flow.pipeline()) == 4  # the window's view first
+    assert len(window._flow.pipeline()) == 5  # the window's view first, its colour pipeline last
     steps = window._flow.pipeline(live=False)
-    assert len(steps) == 2 and steps[1](steps[0](frame))[0, 0, 0] == 1
+    assert len(steps) == 3 and steps[2](steps[1](steps[0](frame)))[0, 0, 0] == 1
+
+
+def test_colour_stages_go_on_after_the_plugins(window):
+    from telescope.colour import ColourPipeline, ColourStage
+
+    class Brighten(_Plugin):
+        def process_frame(self, frame):
+            return frame + 100
+
+    window.register_plugin(Brighten("brighten"))
+    window._colour = ColourPipeline(window._frame_source_id, bake_inline=True)
+    window.set_colour_stage("grade", ColourStage(lambda x: x * 0.5, per_channel=True))
+    window.colour_split("grade", 0.5)
+    frame = np.zeros((4, 4, 3), np.uint8)
+    for step in window._flow.pipeline():
+        frame = step(frame)
+    assert abs(int(frame[0, 3, 0]) - 50) <= 1  # brightened first, then halved
+    assert window.colour_preview(frame)[0, 0, 0] == 100  # before the colour step on the preview's left
 
 
 def test_wake_progress_updates_status_while_waking(window):
@@ -1047,6 +1081,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
             self.status = _Signal()
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
 
         def start(self):
             pass
@@ -1077,6 +1112,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
             self.status.connect(window._on_worker_status)
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
             self.reconnected.connect(window._on_stream_reconnected)
             self.vcam_opened.connect(window._bus.vcam_opened)
             self.stop_requested = False
@@ -1525,7 +1561,7 @@ def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
     monkeypatch.setattr(
         app_module, "StreamWorker",
         lambda **kwargs: built.append(kwargs) or SimpleNamespace(
-            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(), start=lambda: None,
+            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(), start=lambda: None, packets=packets.Tap(),
         ),
     )
     monkeypatch.setattr(
@@ -2499,6 +2535,7 @@ def camera_env(window, monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs, self.auth = kwargs, kwargs["auth"]
             self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+            self.packets = packets.Tap()
             self.started = self.stopped = False
             workers.append(self)
 
@@ -2580,6 +2617,25 @@ def test_start_mic_only_opens_the_phone_with_its_camera_off(camera_env):
     window._flow.stop()
     assert window.is_camera_on() and changes == [False, True]  # the next stream starts with the camera on
     assert window._start_btn.text() == "Start streaming"
+
+
+def test_the_shown_streams_phone_state_tells_the_sensors_what_it_has(camera_env):
+    window, *_rest = camera_env
+    changes = []
+    window._bus.sensors_changed.connect(changes.append)
+    window.want_sensors("test", ["orientation"])
+    assert window.sensor_status().state == "off"  # nothing streams
+    window._flow.start()
+    pid = window.focused_source_id()
+    assert window.sensor_status().state == "starting"
+    window._apply_state(window._session.id, {**_VALID_STATE, "sensors": ["orientation", "light"]})
+    assert window.sensor_status(pid).kinds == ("orientation", "light")
+    window._apply_state(window._session.id, _VALID_STATE)  # an older phone
+    assert (window.sensor_status().state, window.sensor_status().reason) == ("unavailable", "old_phone")
+    assert pid in changes
+    window._flow.stop()
+    assert window.sensor_status().state == "off" and window.sensor_reading() is None
+    window.want_sensors("test", [])
 
 
 def test_a_restart_keeps_the_camera_off(camera_env):
@@ -3827,3 +3883,142 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed(window, monkeypatch):
+    phone = SimpleNamespace(open_reader=None, session=None)
+    monkeypatch.setattr(window, "_active_source", lambda: phone)
+    monkeypatch.setattr(window, "plugin_config", lambda name: {"format": "mjpeg"} if name == "stream_output" else None)
+    assert "Heavy" in window.packets_problem()
+    monkeypatch.setattr(window, "plugin_config", lambda name: {"format": "h264"})
+    assert window.packets_problem() == ""
+    phone.session = SimpleNamespace(url="https://phone/v1/video.mjpeg")
+    assert "Heavy" in window.packets_problem()  # what streams counts, not what's picked for next time
+    phone.session = SimpleNamespace(url="https://phone/v1/video.udp")
+    assert window.packets_problem() == ""
+    browser = SimpleNamespace(open_reader=lambda: None, session=None)
+    monkeypatch.setattr(window, "_active_source", lambda: browser)
+    assert window.packets_problem() != ""
+
+
+def test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe(window):
+    sent = []
+    worker = SimpleNamespace(packets=packets.Tap())
+    session = SimpleNamespace(url="https://phone/v1/video.h264", worker=worker,
+                              client=SimpleNamespace(send=lambda **p: sent.append(p)))
+    window._sessions.focus = SimpleNamespace(session=session)
+    window.change_packets("fun", lambda: lambda unit: [])
+    assert worker.packets.step is not None and sent == [{"action": "keyframe"}]
+    window.change_packets("fun", None)
+    assert worker.packets.step is None
+    assert sent == [{"action": "keyframe"}] * 2
+    window.change_packets("fun", None)
+    assert sent == [{"action": "keyframe"}] * 2
+    window._sessions.focus = None
+
+
+def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window):
+    overlays = window.preview_overlays()
+    overlays.attach()
+    got = []
+    assert overlays.start_pick("Test", "quad", got.append)
+    window._bus.device_changed.emit("phone-2")
+    assert got == [None] and overlays.picking() == ""
+
+
+def test_desk_mode_tells_the_preview_its_warp_again_after_a_restart(window):
+    from telescope.plugins.desk import DeskPlugin
+    desk = DeskPlugin()
+    desk.setup(window, window._bus)
+    desk.create_panel()
+    desk.set_config({"on": True, "corners": [[0.3, 0.1], [0.7, 0.15], [0.75, 0.9], [0.25, 0.85]]})
+    frame = np.zeros((180, 320, 3), np.uint8)
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()
+    window._bus.stream_stopped.emit()
+    desk.on_stream_stop()
+    window._bus.stream_started.emit("http://phone")
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()  # or taps, zoom and picks land beside what's shown
+
+
+def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
+    from types import SimpleNamespace
+    from telescope.view import View
+    from telescope.vision import Person
+    person = Person({"nose": (0.3, 0.3, 0.99), "left_shoulder": (0.35, 0.45, 0.99),
+                     "right_shoulder": (0.25, 0.45, 0.99)})
+    worker = object()
+    monkeypatch.setattr(window._sessions, "by_worker", lambda w: SimpleNamespace(id="phone") if w is worker else None)
+    monkeypatch.setattr(window, "focused_source_id", lambda: "phone")
+    heard = []
+    window._bus.people_tracked.connect(lambda sid, tracks, count: heard.append((sid, count)))
+    window._bus.view_changed.emit(View())
+    for _ in range(3):
+        window._on_people(worker, [person])
+    assert heard[-1] == ("phone", 1)
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda: resets.append(True))
+    window._bus.view_changed.emit(View(flip_h=True))
+    tracks, count = window.tracked_people()
+    assert count == 1 and tracks[0].id == 1 and tracks[0].centre[0] > 0.5  # mirrored, same person
+    assert resets == [True]
+    window._tracking.drop("phone")
+    assert window.tracked_people() == ([], 0)
+
+
+def test_a_lens_switch_starts_motion_over(window, monkeypatch):
+    from telescope.motion import LENS_SETTLE_S
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda settle_s=0.0: resets.append(settle_s))
+    window._bus.camera_switched.emit({"id": "2"})
+    assert resets == [LENS_SETTLE_S]
+
+
+def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, monkeypatch):
+    from telescope.stills import StillProgress, StillResult
+    held = []
+    worker = SimpleNamespace(hold_for_photo=lambda: held.append(True))
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=worker)
+    sid = window._phone.id
+    assert window.still_caps() is None and not window.take_still({}, "/tmp", lambda r: None)  # nothing said yet
+    window._last_states[sid] = {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]}
+    assert window.still_caps().formats == ("jpeg",)
+
+    taken = {}
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress, alive:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress, alive=alive) or True)
+    busy, saved, done = [], [], []
+    window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
+    window._bus.still_saved.connect(lambda s, files: saved.append(files))
+    assert window.take_still({"format": "jpeg"}, "/tmp", done.append)
+    assert taken["source"] == sid and busy == [True]
+    taken["on_progress"](StillProgress("capturing"))
+    QCoreApplication.processEvents()
+    assert held == [True]  # the stream doesn't count as dropped while the phone takes it
+    taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
+    QCoreApplication.processEvents()
+    assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+    # A restart gives the phone a new session: the photo on the old one counts as interrupted
+    assert taken["alive"]()
+    window._phone.session = StreamSession(source=window._phone, id=2, url="url", client=object(), worker=worker)
+    assert not taken["alive"]()
+
+    # The next photo already started there when the last one's end reaches the Qt thread: still busy
+    monkeypatch.setattr(window._stills, "busy", lambda source: True)
+    taken["on_done"](StillResult(True, []))
+    QCoreApplication.processEvents()
+    assert busy[-1] is True
+
+
+def test_photo_options_follow_a_lens_switch(window):
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=None)
+    full = {"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000}
+    window._last_states[window._phone.id] = {"stills": 1, "cameras": [
+        {"id": "1", "current": True, "stills": full},
+        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]}
+    assert window.still_caps().max_res == (8000, 6000)
+    seen = []
+    window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
+    window._bus.camera_switched.emit({"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})  # as /v1/state lists it
+    assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening

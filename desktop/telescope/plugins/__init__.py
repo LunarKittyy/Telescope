@@ -8,13 +8,26 @@ def builtin_plugins() -> list:
     from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
+    from telescope.plugins.chroma_key import ChromaKeyPlugin
+    from telescope.plugins.cinema import CinemaPlugin
+    from telescope.plugins.colour_grading import ColourGradingPlugin
+    from telescope.plugins.composite import CompositePlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.desk import DeskPlugin
+    from telescope.plugins.face_exposure import FaceExposurePlugin
     from telescope.plugins.framing import FramingPlugin
+    from telescope.plugins.fun_pack import FunPackPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.plugins.name_tag import NameTagPlugin
+    from telescope.plugins.notes import NotesPlugin
+    from telescope.plugins.on_air import OnAirPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
+    from telescope.plugins.photos import PhotosPlugin
     from telescope.plugins.presets import PresetsPlugin
+    from telescope.plugins.privacy_blur import PrivacyBlurPlugin
     from telescope.plugins.preview import PreviewPlugin
+    from telescope.plugins.qr_reader import QrReaderPlugin
     from telescope.plugins.setup import SetupPlugin
     from telescope.plugins.shortcuts import ShortcutsPlugin
     from telescope.plugins.startup import StartupPlugin
@@ -28,17 +41,30 @@ def builtin_plugins() -> list:
         ConnectionPlugin(),
         CameraControlPlugin(),
         BrowserCameraPlugin(),  # after Camera: its card takes that place while it's picked
+        CinemaPlugin(),  # optional, under Camera: what it shows is for judging the camera's settings
+        FaceExposurePlugin(),  # optional, after Camera: it moves the point Tap a point picks
         BackgroundPlugin(),  # optional: off until switched on in Plugins
+        ChromaKeyPlugin(),  # optional, next to Background: both swap what's behind you
+        FunPackPlugin(),  # optional, after Background: its effects work on the picture with the background done
+        PrivacyBlurPlugin(),  # optional, after Background: it blurs what Background puts together
+        PhotosPlugin(),  # optional
+        ColourGradingPlugin(),  # optional: off until switched on in Plugins
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
+        DeskPlugin(),  # optional, after the view: it straightens the picture as shown
+        NameTagPlugin(),  # optional, after Background: its text mustn't be taken for the background
+        NotesPlugin(),  # optional: off until switched on in Plugins
+        CompositePlugin(),  # optional, after the plugins that change each stream's own picture
         MicrophonePlugin(),
         PresetsPlugin(),
+        QrReaderPlugin(),  # optional
         PreviewPlugin(),
         OnboardingPlugin(),  # after Preview: the stage starts out making room for the checklist
         MonitoringPlugin(),
         UpdatesPlugin(),
         WaitScreenPlugin(),
+        OnAirPlugin(),  # optional: off until switched on in Plugins
         ShortcutsPlugin(),
         StartupPlugin(),
     ]

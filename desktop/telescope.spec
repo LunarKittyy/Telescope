@@ -12,7 +12,8 @@
 #     Widgets, Svg) and their plugins, not all of PyQt6.
 #   - No UPX: compressed DLLs have to be unpacked again on every load, and virus scanners look harder at them.
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
-#     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
+#     DirectShow COM filter (UnityCapture), so no DLLs need bundling. The Windows 11 camera's DLL
+#     (virtualcamera/) is built with CMake and copied next to the exe by build-windows.yml, not by this spec.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
 #   - Windows checks every program file it hasn't seen before when it first loads, and that takes seconds per file
 #     (minutes for the first start after an install). So the bundle holds as few files as it can: zeroconf runs as

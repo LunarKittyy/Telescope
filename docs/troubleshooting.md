@@ -43,6 +43,15 @@ OBS or another app still holds the device. Close everything using the virtual ca
 **Windows: the virtual camera won't open**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
 
+**Windows 11: an app doesn't list Telescope**
+Open **Virtual camera & phone** in Settings. If the Driver row says **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
+
+**Windows 11: the camera shows a plain dark picture**
+Telescope isn't running, or it's still starting. The camera stays in every app's list even with Telescope closed and shows that dark background until Telescope sends it something. Open Telescope and the wait screen or your phone takes over.
+
+**Windows 11: keep using the older driver**
+Set the environment variable `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed, and the one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to go back.
+
 **Windows: the camera is called "Unity Video Capture"**
 An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
 
@@ -128,7 +137,7 @@ Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at
 Where it goes:
 - **Libraries, about 130 MB**: Qt draws the window, OpenCV and NumPy handle the pictures, FFmpeg decodes the video. They're loaded once and don't grow.
 - **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
-- **The vision models, about 150 MB**: only while Background or Auto framing is on. About 10 seconds after you switch both off most of it is given back, and restarting Telescope frees the rest.
+- **The vision models, about 150 MB**: only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back, and restarting Telescope frees the rest.
 - **Telescope itself, about 50 MB**: its code, settings and the wait screen.
 
 Task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share), so your numbers may not match these.
@@ -180,10 +189,10 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 **A card or menu entry is gone**
 That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Turn all back on**, then click **Restart now**.
 
-**Auto framing or Background asks for a one-time download**
+**A plugin that finds people asks for a one-time download**
 The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.
 
-**Auto framing or Background says MediaPipe didn't load**
+**A plugin that finds people says MediaPipe didn't load**
 The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
 
 ## Updates

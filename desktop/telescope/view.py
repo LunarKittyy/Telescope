@@ -257,6 +257,18 @@ def unstretch(u: float, v: float, stretch_x: float = 1.0, stretch_y: float = 1.0
     return 0.5 + (u - 0.5) / stretch_x, 0.5 + (v - 0.5) / stretch_y
 
 
+def to_full(view: View, u: float, v: float) -> tuple:
+    """A point in the frame as shown with view to the main lens's whole picture (before zoom, pan, flip, rotation and stretch)."""
+    return shown_to_view(u, v, view.zoom, view.pan_x, view.pan_y, view.flip_h, view.flip_v, view.rotation,
+                         view.stretch_x, view.stretch_y)
+
+
+def to_shown(view: View, x: float, y: float) -> tuple:
+    """The reverse of to_full: where a point of the whole picture lands in the frame as shown with view."""
+    return view_to_shown(x, y, view.zoom, view.pan_x, view.pan_y, view.flip_h, view.flip_v, view.rotation,
+                         view.stretch_x, view.stretch_y)
+
+
 def pan_for(centre: float, zoom: float) -> float:
     """The pan that puts the window's centre at `centre` (0..1 of the full view), clamped to -1..1."""
     slack = 1.0 - 1.0 / max(zoom, 1.0)
