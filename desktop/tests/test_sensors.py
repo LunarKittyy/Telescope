@@ -3,6 +3,7 @@
 import io
 import json
 import queue
+import sys
 import threading
 import time
 import urllib.error
@@ -265,7 +266,8 @@ def test_it_tells_the_phone_it_is_still_there(hub):
     assert len(auth.pings) <= pings + 1  # stops with the stream
 
 
-@pytest.mark.parametrize("windows", [False, True])
+@pytest.mark.parametrize("windows", [
+    pytest.param(False, marks=pytest.mark.skipif(sys.platform == "win32", reason="Windows needs the handle closed")), True])
 def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows):
     monkeypatch.setattr("telescope.sensors._WINDOWS", windows)  # Windows closes the handle too, which works here as well
     # A real HTTP response blocked in readline(): closing it would wait for the read's lock
