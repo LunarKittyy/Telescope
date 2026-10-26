@@ -7,7 +7,7 @@ import pytest
 
 from telescope import composite, vcam
 from telescope.composite import Compositor, Layout, Tile
-from telescope.plugin import StreamFrame
+from telescope.plugin import EventBus, StreamFrame
 
 
 def _solid(colour, size=(1080, 1920)) -> np.ndarray:
@@ -405,20 +405,11 @@ class _Host:
         self.saves += 1
 
 
-class _Bus:
-    class _Signal:
-        def connect(self, _slot):
-            pass
-
-    def __getattr__(self, _name):
-        return self._Signal()
-
-
 @pytest.fixture
 def plugin(qapp):
     from telescope.plugins.composite import CompositePlugin
     p = CompositePlugin()
-    p.setup(_Host(), _Bus())
+    p.setup(_Host(), EventBus())
     p.card = p.create_panel()
     p.on_stream_start("u", None)
     yield p
@@ -465,6 +456,22 @@ def test_the_picture_goes_out_on_the_telescope_camera_at_its_size(plugin):
     plugin._host.on_camera = ("b", 320, 180)
     plugin._on_camera_opened("b", 0, 320, 180)
     assert plugin.size() == (320, 180) and plugin.process_frame(frame).shape == (180, 320, 3)
+
+
+def test_the_clock_rests_while_no_stream_goes_to_the_telescope_camera(plugin, monkeypatch):
+    drawn = []
+    monkeypatch.setattr(plugin, "draw_stalled", lambda now=None: drawn.append(now) or False)
+    plugin._host.on_camera = None
+    plugin.on_stream_stop()
+    _two_streams(plugin)  # switched on
+    time.sleep(0.2)
+    assert drawn == []
+    plugin._host.on_camera = ("a", 160, 90)
+    plugin._on_camera_opened("a", 0, 160, 90)
+    deadline = time.monotonic() + 2
+    while not drawn and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert drawn  # a stream to keep moving: it ticks again
 
 
 def test_while_the_telescope_stream_stalls_the_others_keep_moving(plugin):
@@ -545,7 +552,7 @@ def test_settings_and_presets_bring_the_picture_back(plugin, qapp):
     plugin.save_layout("Two")
     saved = plugin.get_config()
     other = CompositePlugin()
-    other.setup(_Host(), _Bus())
+    other.setup(_Host(), EventBus())
     other.card = other.create_panel()
     other.set_config(saved)
     assert other.get_config() == saved and other._switch.isChecked()

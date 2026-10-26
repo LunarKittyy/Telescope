@@ -332,6 +332,42 @@ def test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_lat
     assert order == ["transforms", "added", "added_too", "preview"]
 
 
+def test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in():
+    order = []
+
+    class Step(TelescopePlugin):
+        def __init__(self, name, stage):
+            self.name, self.frame_stage = name, stage
+
+        def process_frame(self, frame):
+            order.append(self.name)
+            return frame
+
+    class Host:
+        def plugins(self):
+            return [Step("tag", "overlay"), Step("grade", "colour"), Step("odd", "nowhere"), Step("blur", "privacy"),
+                    Step("key", "background"), Step("view", "view"), Step("more", "effects")]
+
+    frame = np.zeros((2, 2, 3), np.uint8)
+    for step in StreamFlow(Host()).pipeline():
+        frame = step(frame)
+    assert order == ["view", "key", "odd", "more", "grade", "blur", "tag"]  # an unknown stage counts as effects
+
+
+def test_the_built_in_plugins_frame_order_is_the_one_written_down():
+    from telescope.colour import ColourPipeline
+    from telescope.plugin import frame_stage_index
+    from telescope.plugins import builtin_plugins
+    from telescope.view_controller import ViewController
+    classes = [ViewController, *(type(p) for p in builtin_plugins()), ColourPipeline]
+    steps = [cls for cls in classes if cls.process_frame is not TelescopePlugin.process_frame]
+    for cls in steps:
+        assert "frame_stage" in vars(cls), f"{cls.__name__} says which frame stage it's in"
+    assert [cls.name for cls in sorted(steps, key=frame_stage_index)] == [
+        "view", "desk", "qr_reader", "background", "chroma_key", "fun_pack", "colour", "privacy_blur", "name_tag",
+        "composite", "wait_screen", "preview"]
+
+
 def test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe(setup):
     flow, host, sources, log = setup
     host.packet_makers = {"fun": lambda: lambda unit: []}

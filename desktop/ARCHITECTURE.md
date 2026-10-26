@@ -28,6 +28,8 @@ The short version of how the desktop app is split up and which rules keep it tha
 
 **Don't count on registration order.** While one plugin is in `setup()` the ones after it don't exist yet. Emit anything others follow again from `on_plugins_ready()`.
 
+**A frame's path is written down.** Each plugin that changes frames names its `frame_stage` from `FRAME_STAGES` in `plugin.py` (view, geometry, reading, background, effects, colour, privacy, overlay, combine, cover, final) and the frames go through the stages in that order. Pick the stage by what has to come before and after, never by moving a plugin in the list in `plugins/__init__.py`, which only orders plugins within a stage. `tests/test_stream_flow.py` writes the built-in order down.
+
 **Cards fold without plugins knowing.** The window folds cards from what the helpers in `widgets/common.py` built. Don't list card titles in `collapse.py` and don't call fold code from a plugin. Build the card completely inside `create_panel()`.
 
 **Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that keep running. Signals about a stream carry its source id, so a card about the shown stream compares it with `host.focused_source_id()`.
@@ -48,7 +50,7 @@ Everything a plugin can use is listed in `tests/plugin_api.txt` and `tests/test_
 
 ## Shared pieces
 
-Plugins still don't depend on each other. Something two of them need becomes a host service built together with the first plugin that needs it, as the view (`view.py`, `HostView`), the vision service (`vision.py`, `HostVision`), calm people tracking (`people.py`) motion zones (`motion.py`, `HostMotion`), the preview overlays with their picks (`overlays.py` and `scopes.py`, `HostPreview`), the colour pipeline (`colour.py`, `HostColour`) the phone's sensors (`sensors.py`, `HostSensors`) and frames from other streams (`frames.py`, `HostFrames`) were. Planned and not built yet: a `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry (`host.service(name)`) for added plugins to share with each other.
+Plugins still don't depend on each other. Something two of them need becomes a host service built together with the first plugin that needs it, as the view (`view.py`, `HostView`), the vision service (`vision.py`, `HostVision`), calm people tracking (`people.py`), motion zones (`motion.py`, `HostMotion`), the preview overlays with their picks (`overlays.py` and `scopes.py`, `HostPreview`), the colour pipeline (`colour.py`, `HostColour`), the phone's sensors (`sensors.py`, `HostSensors`), photos on the phone (`stills.py`, `HostStills`), the stream's H.264 before decoding (`packets.py`, `HostPackets`) and frames from other streams (`frames.py`, `HostFrames`) were. Planned and not built yet: a `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry (`host.service(name)`) for added plugins to share with each other.
 
 ## What's checked automatically
 

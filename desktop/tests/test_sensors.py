@@ -10,6 +10,7 @@ import urllib.error
 
 import pytest
 
+from telescope.pinned_https import _InterruptibleResponse
 from telescope.sensors import SensorHub, SensorReading, apply_line
 
 ALL = ["orientation", "accelerometer", "gyroscope", "magnetometer", "gravity", "rotation", "light"]
@@ -266,9 +267,10 @@ def test_it_tells_the_phone_it_is_still_there(hub):
     assert len(auth.pings) <= pings + 1  # stops with the stream
 
 
-@pytest.mark.parametrize("windows", [
-    pytest.param(False, marks=pytest.mark.skipif(sys.platform == "win32", reason="Windows needs the handle closed")), True])
-def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows):
+@pytest.mark.parametrize("windows,pinned", [
+    pytest.param(False, False, marks=pytest.mark.skipif(sys.platform == "win32", reason="Windows needs the handle closed")),
+    (True, False), (False, True)])
+def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows, pinned):
     monkeypatch.setattr("telescope.sensors._WINDOWS", windows)  # Windows closes the handle too, which works here as well
     # A real HTTP response blocked in readline(): closing it would wait for the read's lock
     import http.client
@@ -291,6 +293,8 @@ def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows
             if req.full_url.endswith("/alive"):
                 return super().open(req, timeout)
             conn = http.client.HTTPConnection("127.0.0.1", server.getsockname()[1], timeout=30)
+            if pinned:  # a paired phone's response, which stop() ends with its own abort()
+                conn.response_class = _InterruptibleResponse
             conn.request("GET", "/v1/sensors?kinds=orientation")
             resp = conn.getresponse()
             with self.lock:
@@ -298,7 +302,8 @@ def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows
             return resp
 
     hub.want("level", ["orientation"])
-    hub.follow("phone", "http://127.0.0.1/v1", RealAuth(), state={"sensors": ALL})
+    auth_used = RealAuth()
+    hub.follow("phone", "http://127.0.0.1/v1", auth_used, state={"sensors": ALL})
     assert wait_for(lambda: hub.status().state == "on")
     reader = hub._reader
     time.sleep(0.1)  # in readline() now, waiting for a line that never comes
@@ -306,6 +311,8 @@ def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows
     hub.want("level", [])
     assert time.monotonic() - started < 0.3
     assert wait_for(lambda: not reader._thread.is_alive(), timeout=2.0)
+    if pinned:
+        assert isinstance(auth_used.opened[0][1], _InterruptibleResponse)
     for conn in held:
         conn.close()
     server.close()

@@ -114,6 +114,8 @@ class PhotosPlugin(TelescopePlugin):
     name = "photos"
     title = N_("Photos")
     about = N_("Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them.")
+    category = "camera"
+    icon = "photo"
     when_off = N_("Without it there's no Photos card and no Take photo shortcut.")
     optional = True
     panel_region = "right"
@@ -137,7 +139,7 @@ class PhotosPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Photos"), "camera", hue="camera")
+        add_card_header(lay, tr("Photos"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus, phone_only=True)
 
         self._take_btn = action_button(tr("Take photo"), "primary")
@@ -334,10 +336,7 @@ class PhotosPlugin(TelescopePlugin):
     # ── Taking one ────────────────────────────────────────────────────────
 
     def _rotation(self) -> int:
-        try:
-            return _PHONE_ROTATION.get(self._host.view().rotation, 0)
-        except Exception:
-            return 0
+        return _PHONE_ROTATION.get(self._host.view().rotation, 0)
 
     def _take(self):
         caps = self._host.still_caps()

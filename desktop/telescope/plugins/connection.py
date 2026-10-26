@@ -414,7 +414,7 @@ class PhonesDialog(PlacedDialog):
         phones_lay = card_layout(phones_card)
         self._add_btn = card_action(tr("Add phone"), "plus", tr("Pair another phone"))
         self._add_btn.clicked.connect(plugin.open_add_phone)
-        add_card_header(phones_lay, tr("Phones"), "phone", action=self._add_btn, hue="connection")
+        add_card_header(phones_lay, tr("Phones"), "phone", action=self._add_btn, hue=ConnectionPlugin.category)
         self._scroll = _PhoneRows()
         phones_lay.addWidget(self._scroll)
         self._rows: dict = {}  # id -> its strip
@@ -424,7 +424,7 @@ class PhonesDialog(PlacedDialog):
 
         computer_card = create_card()
         computer_lay = card_layout(computer_card)
-        add_card_header(computer_lay, tr("This computer"), "monitor", hue="connection")
+        add_card_header(computer_lay, tr("This computer"), "monitor", hue=ConnectionPlugin.category)
         rename_computer = QPushButton(tr("Change name"))
         rename_computer.setToolTip(tr("The name your phones show for this computer"))
         rename_computer.clicked.connect(self._rename_computer)
@@ -541,6 +541,9 @@ class ConnectionPlugin(TelescopePlugin):
     name = "connection"
     title = N_("Phones and connection")
     about = N_("Pairing phones, picking one and connecting to it over Wi-Fi or USB.")
+    category = "streaming"
+    icon = "connection"
+    pinned = True
     required = True
 
     def setup(self, host, bus):
@@ -679,7 +682,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._add_btn = card_action(tr("Add phone"), "plus", tr("Pair a phone over Wi-Fi or USB"))
         self._add_btn.clicked.connect(self.open_add_phone)
-        header = add_card_header(lay, tr("Connection"), "connection", action=self._add_btn, hue="connection")
+        header = add_card_header(lay, tr("Connection"), self.icon, action=self._add_btn, hue=self.category)
         self._guide_btn = card_action("", "help", tr("Open or close the setup guide: the virtual camera, the phone app "
                                                      "and pairing"))
         self._guide_btn.setAccessibleName(tr("Setup guide"))
@@ -803,7 +806,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
         self._phone_combo.setObjectName("phone_picker")
         phone_icon = QLabel(self._phone_combo)
-        phone_icon.setPixmap(line_icon("phone", theme.hue("connection")).pixmap(14, 14))
+        phone_icon.setPixmap(line_icon("phone", theme.hue(self.category)).pixmap(14, 14))
         phone_icon.setFixedSize(14, 14)
         phone_icon.move(11, (ui_px(34) - 14) // 2)
         phone_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

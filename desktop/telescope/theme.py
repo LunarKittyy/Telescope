@@ -33,16 +33,17 @@ FILL          = "#6a58cf"   # filled/primary buttons, selected segments; white t
 FILL_HOVER    = "#7867dc"
 FILL_PRESS    = "#5b4bb8"
 
-# Each plugin card's own colour (icon, sliders, readouts), pastels about as light as ACCENT; selections stay FILL.
+# Each plugin group's colour (telescope.plugin.PLUGIN_CATEGORIES), on its cards' icons, sliders and readouts and on its
+# tiles in the Plugins tab; pastels about as light as ACCENT, and selections stay FILL.
 PLUGIN_HUES = {
-    "connection": "#8cc4f2",  # sky
-    "stream":     "#aa9cf5",  # lavender, the app's own
-    "transforms": "#f2b48c",  # peach
-    "mic":        "#e8d08a",  # butter
-    "camera":     "#7fd3c4",  # mint
-    "phone":      "#f2a0bf",  # rose
-    "vision":     "#bcd98c",  # pistachio, the optional plugins that find people in the picture
-    "grade":      "#e6a6e0",  # orchid, Colour grading
+    "camera":    "#7fd3c4",  # mint
+    "look":      "#e6a6e0",  # orchid
+    "vision":    "#bcd98c",  # pistachio
+    "preview":   "#f2b48c",  # peach
+    "on_screen": "#f2a0bf",  # rose
+    "sound":     "#e8d08a",  # butter
+    "streaming": "#8cc4f2",  # sky
+    "extras":    "#b9bdcc",  # grey, so the app's own lavender stays for buttons and selections
 }
 _own_hues = True
 
@@ -65,7 +66,7 @@ def plugin_hues_on() -> bool:
 
 
 def hue(name: str) -> str:
-    """The colour the card called `name` uses: ACCENT for an unknown name or with plugin colours off."""
+    """The colour of the plugin group called `name`: ACCENT for an unknown name or with plugin colours off."""
     return PLUGIN_HUES.get(name, ACCENT) if _own_hues else ACCENT
 
 OK            = "#5fc98c"
@@ -404,6 +405,33 @@ QFrame#setting_row {{
     border-radius: 9px;
 }}
 QFrame#setting_row QLabel {{ background: transparent; }}
+/* The Plugins tab: tiles are cards of their own, the groups around them are flat */
+QFrame#setting_row[tile="true"] {{
+    background-color: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 12px;
+}}
+QFrame#setting_row[tile="true"]:hover {{ border-color: {BORDER_STRONG}; }}
+QFrame#setting_row[tile="true"] QLabel#setting_name {{ font-weight: 600; }}
+QFrame#setting_row[tile="true"][off="true"] QLabel#setting_name {{ color: {TEXT_DIM}; }}
+QFrame#card[flat="true"] {{ background: transparent; border: none; border-radius: 0; }}
+QLabel#plugin_badge {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    color: {TEXT_DIM};
+    font-size: 8.25pt;
+    padding: 1px 7px;
+}}
+QLabel#plugin_badge[kind="restart"] {{ color: {WARN}; border-color: #5a4a2e; background-color: #251f17; }}
+QLabel#plugin_badge[kind="lock"] {{ color: {ACCENT_SOFT}; }}
+QFrame#plugins_footer {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER_STRONG};
+    border-radius: 12px;
+}}
+QFrame#plugins_footer QLabel {{ background: transparent; }}
+QLabel#footer_count {{ color: {TEXT}; font-weight: 600; }}
 QLabel#setting_sub {{ color: {TEXT_FAINT}; }}
 QLabel[sub="true"] {{ font-size: 8.75pt; }}
 QLabel#version_note {{ color: {TEXT_FAINT}; font-size: 9pt; }}

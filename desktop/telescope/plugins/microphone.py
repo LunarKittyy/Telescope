@@ -162,6 +162,8 @@ class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
     title = N_("Microphone")
     about = N_("Using the phone's microphone on this computer.")
+    category = "sound"
+    icon = "mic"
     when_off = N_("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a "
                   "virtual microphone.")
     device_local = True
@@ -226,7 +228,7 @@ class MicrophonePlugin(TelescopePlugin):
         head_lay.setSpacing(10)
         head_lay.addWidget(self._mute_btn)
         head_lay.addWidget(self._toggle)
-        add_card_header(lay, tr("Microphone"), "mic", action=head_right, hue="mic")
+        add_card_header(lay, tr("Microphone"), self.icon, action=head_right, hue=self.category)
         dim_until_paired(card, self._bus)
         self._meter = LevelMeter()
         self._readout = value_label()

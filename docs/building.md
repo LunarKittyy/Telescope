@@ -36,7 +36,10 @@ The second install handles the video dependency whose declared version range con
 ```bash
 python -m pytest -q              # tests (add -n auto to run them in parallel, as CI does)
 python scripts/smoke_check.py    # packaging smoke checks
+python scripts/bench_frames.py   # what each plugin costs a frame
 ```
+
+`bench_frames.py` builds the window offscreen with every plugin and runs synthetic 1080p frames through the real frame path: each plugin idle and at its heaviest settings, a session with several on, the stream worker, the preview, Several cameras in one picture and decoding. It prints each one's time per frame, its share of a 30 and a 60 fps frame and how much memory it allocates. `--profile` lists the costliest calls under each row and `--only fun_pack` keeps to one plugin. The vision model is swapped for a stand-in that costs nothing, which leaves only what Telescope's own code adds (Copy diagnostics has the real model's times).
 
 For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. Those launchers create their own environment for running the app; they don't install the test dependencies or activate it in your terminal. Linux still needs the [virtual camera setup](setup.md) for a real stream.
 

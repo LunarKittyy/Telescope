@@ -151,6 +151,9 @@ class BrowserCameraPlugin(TelescopePlugin):
     name = "browser_camera"
     title = N_("Browser camera")
     about = N_("Streaming from any device's web browser, by scanning a code.")
+    category = "streaming"
+    icon = "wifi"
+    pinned = True  # takes Camera's place while it's picked
     when_off = N_("Without it Browser camera isn't in the phone picker and its card is gone too.")
     panel_region = "right"  # where the Camera card is, which hides while this streams
 
@@ -211,7 +214,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._new_link_btn = card_action(tr("New link"), "reset", tr("Make a new code; the old one stops working"))
         self._new_link_btn.clicked.connect(self.new_link)
-        add_card_header(lay, tr("Browser camera"), "qr", action=self._new_link_btn, hue="connection")
+        add_card_header(lay, tr("Browser camera"), self.icon, action=self._new_link_btn, hue=self.category)
 
         self._status_lbl = ElidingLabel("")
         lay.addLayout(control_row(tr("Browser"), self._status_lbl, stretch=True))

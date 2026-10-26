@@ -66,6 +66,7 @@ class Installed:
     author: str = ""
     description: str = ""
     repo: str = ""  # its source's https address, "" when it gives none or one that isn't valid
+    category: str = ""  # the Plugins tab group it asks for, an id from plugin.PLUGIN_CATEGORIES ("" for Extras)
     api: int = 0
     class_name: str = ""
     digest: str = ""
@@ -304,6 +305,7 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool, dev: bool = Fals
     plugin.version = _text(manifest.get("version"))
     plugin.author = _text(manifest.get("author"))
     plugin.description = _text(manifest.get("description"))
+    plugin.category = _text(manifest.get("category"))
     plugin.repo = "" if repo_problem(manifest.get("repo")) else (manifest.get("repo") or "")
     api = manifest.get("api")
     plugin.api = api if isinstance(api, int) and not isinstance(api, bool) else 0

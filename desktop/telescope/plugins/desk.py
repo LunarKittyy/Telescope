@@ -199,6 +199,9 @@ class DeskPlugin(TelescopePlugin):
     name = "desk"
     title = N_("Desk and document mode")
     about = N_("Straightens a sheet of paper you mark on the preview and can make the writing on it stand out.")
+    category = "camera"
+    icon = "pencil"
+    frame_stage = "geometry"
     when_off = N_("Without it there's no Desk mode card and the picture stays the way the camera sees it.")
     optional = True
     in_presets = True
@@ -224,7 +227,7 @@ class DeskPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Straighten the sheet you marked"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Desk mode"), "crop", action=self._switch)
+        add_card_header(lay, tr("Desk mode"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._mark_btn = QPushButton(tr("Mark the sheet"))
@@ -331,7 +334,7 @@ class DeskPlugin(TelescopePlugin):
                                           hint=tr("Drag the corners onto the sheet's corners, then press Enter.")):
             self._status.setText(tr("Start streaming to mark the sheet on the preview."))
             self._status.setVisible(True)
-            set_status_kind(self._status, "warn")
+            set_status_kind(self._status, "status_warn")
 
     def _picked(self, pick):
         if pick is None:
@@ -367,16 +370,16 @@ class DeskPlugin(TelescopePlugin):
             readout.setText(f"{value}%")
         self._reset_btn.setVisible(not fill and self._settings.stretch != (100, 100))
         if self._picking:
-            text, kind = tr("Drag the corners on the preview onto the sheet's corners."), ""
+            text, kind = tr("Drag the corners on the preview onto the sheet's corners."), "dim"
         elif self._refused:
             text, kind = tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with "
-                            "one on each of its corners."), "warn"
+                            "one on each of its corners."), "status_warn"
         elif self._settings.on and self._settings.corners is None:
-            text, kind = tr("Mark the sheet's corners to straighten it."), "warn"
+            text, kind = tr("Mark the sheet's corners to straighten it."), "status_warn"
         elif self._settings.on and self._off_picture():
-            text, kind = tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "warn"
+            text, kind = tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn"
         else:
-            text, kind = "", ""
+            text, kind = "", "dim"
         self._status.setText(text)
         self._status.setVisible(bool(text))
         set_status_kind(self._status, kind)

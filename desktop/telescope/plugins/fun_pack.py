@@ -9,11 +9,13 @@ from PyQt6.QtWidgets import QButtonGroup, QComboBox, QPushButton, QWidget
 from telescope import fun_effects, vision
 from telescope.fun_effects import Clones, Look
 from telescope.h264_mosh import Mosh, Mosher
+from telescope.config import clamped_int
 from telescope.i18n import N_, tr
+from telescope.pictures import soften
 from telescope.plugin import TelescopePlugin
 from telescope.pose import BONES
 from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action, slider_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header, button_row, card_layout, control_row_widget,
     create_card, dim_until_paired, segmented_row, slider_row, value_label, wrapped_note,
@@ -46,13 +48,6 @@ _PLATE = ("clones", "cloak", "stick")  # effects that use the empty room
 _EDGES = ("clones", "cloak")
 _COUNTDOWN_S = 3
 _FACE = ("eye", "ear", "nose")
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
 
 
 def stick_figure(people: list, map_point, aspect: float) -> tuple:
@@ -92,9 +87,13 @@ class FunPackPlugin(TelescopePlugin):
     name = "fun_pack"
     title = N_("Fun pack")
     about = N_("Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh.")
+    category = "look"
+    icon = "sparkle"
+    frame_stage = "effects"
     when_off = N_("Without it there's no Fun pack card and the picture has no effects.")
     optional = True
     in_presets = True
+    device_local = True  # an effect on one camera stays on that camera
     panel_region = "right"
 
     def setup(self, host, bus):
@@ -133,7 +132,7 @@ class FunPackPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Fun pack"), "sparkle", hue="vision")
+        add_card_header(lay, tr("Fun pack"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._combo = NoScrollComboBox()
@@ -296,10 +295,9 @@ class FunPackPlugin(TelescopePlugin):
         if self._effect() != "stick":
             return
         view = self._host.view()
-        flips = (view.flip_h, view.flip_v, view.rotation)
 
         def map_point(x, y):
-            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *flips), view.zoom, view.pan_x, view.pan_y, *flips)
+            return upright_to_shown(view, x, y)
         self._lines, self._heads = stick_figure(self._people, map_point, self._host.view_aspect() or 16 / 9)
         self._apply(show=False)
 
@@ -329,6 +327,14 @@ class FunPackPlugin(TelescopePlugin):
         if effect != "stick":
             self._people, self._lines, self._heads = [], (), ()
         self._show()
+
+    def shutdown(self):
+        if self._mosh_on:
+            self._mosh_on = False
+            self._host.change_packets(self.name, None)
+        if self._wants_people:
+            self._wants_people = False
+            self._host.want_people(self.name, False)
 
     def _show(self):
         if not hasattr(self, "_combo"):
@@ -392,7 +398,7 @@ class FunPackPlugin(TelescopePlugin):
             self._relay.taken.emit("plate", frame.copy())
             return
         mask = fun_effects.person(frame, look, fun_effects.PlateMask())
-        clones = None if mask is None else Clones.add(look.clones, frame, fun_effects.soften(mask, look.edges))
+        clones = None if mask is None else Clones.add(look.clones, frame, soften(mask, look.edges))
         self._relay.taken.emit("clone", clones)
 
     def frame_step(self):
@@ -412,7 +418,7 @@ class FunPackPlugin(TelescopePlugin):
     def set_config(self, cfg: dict):
         effect = cfg.get("effect") if cfg.get("effect") in dict(EFFECTS) else "off"
         for key, (slider, _readout, _row) in self._sliders.items():
-            slider.setValue(_clamp(cfg.get(key), slider.default(), slider.minimum(), slider.maximum()))
+            slider.setValue(clamped_int(cfg.get(key), slider.default(), slider.minimum(), slider.maximum()))
         self._dir_btns["across" if cfg.get("across") is True else "down"].setChecked(True)
         self._combo.blockSignals(True)
         self._combo.setCurrentIndex(self._combo.findData(effect))

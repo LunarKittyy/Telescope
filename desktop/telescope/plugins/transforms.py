@@ -2,7 +2,7 @@ import math
 import time
 from typing import Optional
 
-from PyQt6.QtCore import QEvent, QRectF, Qt, QTimer
+from PyQt6.QtCore import QEvent, QRectF, QSignalBlocker, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QButtonGroup, QHBoxLayout, QLabel, QWidget,
@@ -130,6 +130,9 @@ class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     title = N_("Transforms")
     about = N_("Zoom, pan, flip, rotate and stretch the picture.")
+    category = "camera"
+    icon = "crop"
+    pinned = True
     when_off = N_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.")
     in_presets = True
     device_local = True
@@ -167,7 +170,7 @@ class TransformsPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._reset_btn = card_action(tr("Reset"), "reset", tr("Clear flip, rotation, zoom, pan and stretch back to defaults"))
         self._reset_btn.clicked.connect(self._reset_all)
-        add_card_header(lay, tr("Transforms"), "crop", action=self._reset_btn, hue="transforms")
+        add_card_header(lay, tr("Transforms"), self.icon, action=self._reset_btn, hue=self.category)
         dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────
@@ -527,8 +530,13 @@ class TransformsPlugin(TelescopePlugin):
         self.pan_y = _number(cfg.get("pan_y", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
         self._framing_changed()
         lo, hi = (n / 100.0 for n in _STRETCH_RANGE)
-        self._stretch_x_slider.setValue(round(_number(cfg.get("stretch_x", 1.0), 1.0, lo, hi) * 100))
-        self._stretch_y_slider.setValue(round(_number(cfg.get("stretch_y", 1.0), 1.0, lo, hi) * 100))
+        for slider, key in ((self._stretch_x_slider, "stretch_x"), (self._stretch_y_slider, "stretch_y")):
+            with QSignalBlocker(slider):  # both at once below, not one at a time with the other still the old one's
+                slider.setValue(round(_number(cfg.get(key, 1.0), 1.0, lo, hi) * 100))
+        self.stretch_x = self._stretch_x_slider.value() / 100.0
+        self.stretch_y = self._stretch_y_slider.value() / 100.0
+        self._stretch_x_lbl.setText(percent(self._stretch_x_slider.value()))
+        self._stretch_y_lbl.setText(percent(self._stretch_y_slider.value()))
         # Unchanged widgets don't fire, so the window's view hears flip, rotation and stretch here too
         self._host.set_view(flip_h=self.flip_h, flip_v=self.flip_v, rotation=self.rotation,
                             stretch_x=self.stretch_x, stretch_y=self.stretch_y)

@@ -36,7 +36,7 @@ class _Signal:
 
 # The built-in plugins whose settings are kept per phone (their device_local)
 _DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk",
-                 "colour_grading"}
+                 "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag"}
 
 
 class _Plugin(TelescopePlugin):
@@ -3789,7 +3789,7 @@ def test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings(
     assert heard == [("config", "first"), ("config", "second"), ("ready", "first"), ("ready", "second")]
 
 
-def test_the_built_in_plugins_keep_per_phone_settings_where_they_always_did():
+def test_these_built_in_plugins_keep_their_settings_per_phone():
     from telescope.plugins import builtin_plugins
     assert {p.name for p in builtin_plugins() if p.device_local} == _DEVICE_LOCAL
 
@@ -4022,3 +4022,173 @@ def test_photo_options_follow_a_lens_switch(window):
     window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
     window._bus.camera_switched.emit({"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})  # as /v1/state lists it
     assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening
+
+
+# ── Settings that belong to one camera ────────────────────────────────────────
+
+def _through(steps, frame):
+    for step in steps:
+        frame = step(frame)
+    return frame
+
+
+def _picture():
+    frame = np.zeros((90, 160, 3), np.uint8)
+    frame[:, :, 0] = np.linspace(0, 255, 160, dtype=np.uint8)[None]
+    frame[:, :, 2] = np.linspace(255, 0, 90, dtype=np.uint8)[:, None]
+    return frame
+
+
+@pytest.fixture
+def per_camera(camera_env, monkeypatch):
+    from telescope.plugins.colour_grading import ColourGradingPlugin
+    from telescope.plugins.fun_pack import FunPackPlugin
+    from telescope.plugins.presets import PresetsPlugin
+    window, _conn, _mic, _clients, workers, _changes = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    fun, grade, presets = FunPackPlugin(), ColourGradingPlugin(), PresetsPlugin()
+    for plugin in (fun, grade, presets):
+        window.register_plugin(plugin)
+    yield window, fun, grade, presets, workers
+    window._flow.stop_all()
+
+
+def test_a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for(per_camera):
+    window, fun, _grade, _presets, workers = per_camera
+    window._flow.start()
+    fun._combo.setCurrentIndex(fun._combo.findData("game_boy"))
+    window.add_stream("B")
+    frame = _picture()
+    assert fun.get_config()["effect"] == "off" and np.array_equal(fun.process_frame(frame.copy()), frame)
+    assert not np.array_equal(_through(workers[0].pipelines[-1], frame.copy()), frame)  # still on behind the panels
+    window.focus_stream("Phone")
+    assert fun.get_config()["effect"] == "game_boy"
+    assert np.array_equal(_through(workers[1].pipelines[-1], frame.copy()), frame)
+    window.focus_stream("B")
+    assert fun.get_config()["effect"] == "off"
+
+
+@pytest.mark.parametrize("cls, on", [
+    ("background.BackgroundPlugin", {"mode": "blur"}),
+    ("chroma_key.ChromaKeyPlugin", {"on": True}),
+    ("framing.FramingPlugin", {"on": True}),
+    ("face_exposure.FaceExposurePlugin", {"on": True}),
+    ("name_tag.NameTagPlugin", {"on": True, "name": "Luna"}),
+])
+def test_turning_a_camera_effect_on_leaves_the_other_cameras_alone(camera_env, monkeypatch, cls, on):
+    import importlib
+    module, name = cls.split(".")
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    monkeypatch.setattr(window, "want_people", lambda _owner, _on: None)  # no vision download here
+    plugin = getattr(importlib.import_module(f"telescope.plugins.{module}"), name)()
+    window.register_plugin(plugin)
+    off = plugin.get_config()
+    window._flow.start()
+    plugin.set_config({**off, **on})
+    window.add_stream("B")
+    assert plugin.get_config() == off
+    window.focus_stream("Phone")
+    assert plugin.get_config() == {**off, **on}
+    plugin.set_config(off)  # Auto framing's timer would outlive the window
+    window._flow.stop_all()
+
+
+def test_auto_framing_on_one_camera_doesnt_zoom_the_next_one_out(camera_env, monkeypatch):
+    from telescope.plugins.framing import FramingPlugin
+    from telescope.plugins.transforms import TransformsPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    monkeypatch.setattr(window, "want_people", lambda _owner, _on: None)
+    view, framing = TransformsPlugin(), FramingPlugin()
+    for plugin in (view, framing):
+        window.register_plugin(plugin)
+    window._flow.start()
+    window.add_stream("B")
+    view._zoom_slider.setValue(200)  # the desk camera, zoomed in by hand
+    window.focus_stream("Phone")
+    framing._switch.setChecked(True)
+    window.steer_view(framing.title, 1.5, 0.0, 0.0)  # framing someone on the face camera
+    window.focus_stream("B")
+    assert not framing.get_config()["on"] and window.view().zoom == 2.0
+    window._flow.stop_all()
+
+
+def test_settings_once_kept_for_the_whole_app_go_to_every_phone(window, config_home):
+    fun = _Plugin("fun_pack")
+    fun.device_local = True
+    window.register_plugin(fun)
+    cfg = config_home.load_config()
+    cfg["plugin_configs"]["fun_pack"] = {"effect": "vhs"}
+    cfg["devices"] = {"Phone": {"plugin_configs": {"transforms": {"zoom": 2}}},
+                      "B": {"plugin_configs": {"fun_pack": {"effect": "crt"}}}}
+    cfg["selected_device"] = "Phone"
+    config_home.save_config(cfg)
+    window.apply_saved_config()
+    assert fun.config == {"effect": "vhs"}
+    saved = config_home.load_config()
+    assert "fun_pack" not in saved["plugin_configs"]
+    assert saved["devices"]["Phone"]["plugin_configs"] == {"transforms": {"zoom": 2}, "fun_pack": {"effect": "vhs"}}
+    assert saved["devices"]["B"]["plugin_configs"] == {"fun_pack": {"effect": "crt"}}  # its own already
+
+
+# ── Presets with several cameras ──────────────────────────────────────────────
+
+def test_a_preset_saved_with_two_cameras_streaming_is_the_shown_ones(per_camera, config_home):
+    window, fun, grade, presets, workers = per_camera
+    window._flow.start()
+    window.add_stream("B")
+    fun._combo.setCurrentIndex(fun._combo.findData("vhs"))
+    grade.set_config({"temperature": 40})
+    presets.save("Retro")
+    window.focus_stream("Phone")
+    assert presets.names() == []  # presets are per phone
+    assert fun.get_config()["effect"] == "off" and grade.get_config()["temperature"] == 0
+    window.focus_stream("B")
+    fun._combo.setCurrentIndex(fun._combo.findData("off"))
+    grade.set_config({})
+    presets.apply("Retro")
+    assert fun.get_config()["effect"] == "vhs"
+    assert grade.get_config()["temperature"] == 40
+
+
+def test_a_preset_applied_on_one_camera_leaves_the_others_alone(per_camera, config_home):
+    window, fun, grade, presets, workers = per_camera
+    window._flow.start()
+    presets.save("Plain")
+    fun._combo.setCurrentIndex(fun._combo.findData("crt"))
+    presets.save("Telly")
+    window.add_stream("B")
+    window.focus_stream("Phone")
+    presets.apply("Plain")
+    frame = _picture()
+    assert fun.get_config()["effect"] == "off"
+    assert np.array_equal(_through(workers[1].pipelines[-1], frame.copy()), frame)  # B: nothing on
+    window.focus_stream("B")
+    assert fun.get_config()["effect"] == "off" and presets.names() == []
+    window.focus_stream("Phone")
+    presets.apply("Telly")
+    window.save_now()
+    devices = config_home.load_config()["devices"]
+    assert devices["Phone"]["plugin_configs"]["fun_pack"]["effect"] == "crt"
+    assert devices["B"]["plugin_configs"]["fun_pack"]["effect"] == "off"
+
+
+def test_a_preset_from_before_per_camera_effects_applies_to_the_shown_camera(per_camera, config_home):
+    window, fun, grade, presets, _workers = per_camera
+    cfg = config_home.load_config()
+    cfg["plugin_configs"]["fun_pack"] = {"effect": "vhs"}  # one copy for every phone, as it was saved before
+    cfg["devices"] = {"Phone": {"plugin_configs": {"presets": {"presets": [
+        {"name": "Old", "fun_pack": {"effect": "ascii"}, "colour_grading": {"tint": 30}}]}}}}
+    cfg["selected_device"] = "Phone"
+    config_home.save_config(cfg)
+    window.apply_saved_config()
+    assert fun.get_config()["effect"] == "vhs" and presets.names() == ["Old"]
+    window._flow.start()
+    window.add_stream("B")
+    assert fun.get_config()["effect"] == "off"  # a phone with nothing saved starts plain
+    window.focus_stream("Phone")
+    presets.apply("Old")
+    assert fun.get_config()["effect"] == "ascii" and grade.get_config()["tint"] == 30
+    window.focus_stream("B")
+    assert fun.get_config()["effect"] == "off" and grade.get_config()["tint"] == 0

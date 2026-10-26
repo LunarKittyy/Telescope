@@ -19,6 +19,8 @@ LINE_ICONS = {
     "sparkle": '<path d="M8 1.5l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z"/>',
     "skeleton": '<circle cx="8" cy="3" r="1.6"/><path d="M8 4.6v5.2M3.5 6.8L8 6l4.5.8M8 9.8l-2.8 4.7M8 9.8l2.8 4.7"/>',
     "image": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M1.5 11l4-3.5 3 2.5 2-1.5 4 3"/>',
+    "photo": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><circle cx="11" cy="5.8" r="1.2"/><path d="M1.5 11l3.8-3.8 3.5 3.5 1.9-1.7 3.8 2.4"/>',
+    "eyedropper": '<path d="M9.5 4.5a2 2 0 1 1 2 2z"/><path d="M7.9 4.7l3.4 3.4"/><path d="M8.4 6.4l-5.2 5.2-.9 2.1 2.1-.9 5.2-5.2"/>',
     "stabilize": '<rect x="4" y="3" width="8" height="10" rx="1.5"/><path d="M1.5 6v4M14.5 6v4"/>',
     "moon": '<path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/>',
     "lock": '<rect x="3" y="7" width="10" height="7.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',

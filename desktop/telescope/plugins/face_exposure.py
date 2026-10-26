@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QSizePolicy, QWidget
 from telescope import people
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import (
     Switch, action_button, add_card_header, card_layout, create_card, dim_until_paired, wrapped_note,
 )
@@ -65,11 +65,14 @@ class FaceExposurePlugin(TelescopePlugin):
     name = "face_exposure"
     title = N_("Expose for my face")
     about = N_("Moves the phone's metering point to your face to keep you well lit whatever's behind you.")
+    category = "vision"
+    icon = "sun"
     when_off = N_("Without it there's no Expose for my face card and the phone meters the point you tap or the "
                   "whole picture.")
     optional = True
     needs_vision = True
     in_presets = True
+    device_local = True  # metering on your face only makes sense on a camera that sees it
     panel_region = "right"
 
     def setup(self, host, bus):
@@ -99,7 +102,7 @@ class FaceExposurePlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Meter the exposure on your face"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Expose for my face"), "sun", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Expose for my face"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus, phone_only=True)
         self._manual_note = wrapped_note("")
         lay.addWidget(self._manual_note)
@@ -217,9 +220,7 @@ class FaceExposurePlugin(TelescopePlugin):
 
     def _shown(self, face: tuple) -> Optional[tuple]:
         """face, from the picture at zoom 1, in the picture as shown now; None when it's outside it."""
-        view = self._host.view()
-        turn = (view.flip_h, view.flip_v, view.rotation)
-        u, v = view_to_shown(*shown_to_view(*face, 1.0, 0.0, 0.0, *turn), view.zoom, view.pan_x, view.pan_y, *turn)
+        u, v = upright_to_shown(self._host.view(), *face)
         return (u, v) if 0.0 <= u <= 1.0 and 0.0 <= v <= 1.0 else None
 
     def shutdown(self):

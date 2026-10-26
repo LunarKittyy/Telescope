@@ -188,7 +188,7 @@ class AdvancedSettings(QWidget):
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = self._vc_card = create_card(self)
         vc_lay = card_layout(vc_card)
-        add_card_header(vc_lay, tr("Virtual camera"), "video", hue="stream")
+        add_card_header(vc_lay, tr("Virtual camera"), "video", hue=SetupPlugin.category)
         keywords(vc_card, tr("obs zoom teams discord webcam driver output device loopback", ctx="search"))
         if IS_LINUX:
             chk_btn    = QPushButton(tr("Check"))
@@ -273,7 +273,7 @@ class AdvancedSettings(QWidget):
         video_card = create_card(self)
         self._advanced_content = video_card
         video_lay = card_layout(video_card)
-        add_card_header(video_lay, tr("Video"), "chip", hue="stream")
+        add_card_header(video_lay, tr("Video"), "chip", hue=SetupPlugin.category)
         keywords(video_card, tr("picture quality image stream camera output", ctx="search"))
         # Which card it is isn't looked up until Settings opens (_look_for_graphics_card): it loads PyAV, which is slow
         self._hw_looked = False
@@ -385,7 +385,7 @@ class AdvancedSettings(QWidget):
         # ── Microphone ────────────────────────────────────────────────────────
         mic_card = create_card(self)
         mic_lay = card_layout(mic_card)
-        add_card_header(mic_lay, tr("Microphone"), "mic", hue="mic")
+        add_card_header(mic_lay, tr("Microphone"), "mic", hue="sound")
         keywords(mic_card, tr("audio sound voice input volume", ctx="search"))
         self._max_gain_btns = {db: SegmentButton(f"+{db} dB") for db in MAX_GAIN_CHOICES}
         self._max_gain_grp = QButtonGroup(mic_card)
@@ -410,7 +410,7 @@ class AdvancedSettings(QWidget):
         # ── Phone app ─────────────────────────────────────────────────────────
         apk_card = create_card(self)
         apk_lay = card_layout(apk_card)
-        add_card_header(apk_lay, tr("Phone app"), "phone", hue="phone")
+        add_card_header(apk_lay, tr("Phone app"), "phone", hue=SetupPlugin.category)
         keywords(apk_card, tr("android install apk usb", ctx="search"))
         _apk = bundled_apk_path()
         self._apk_btn = action_button(tr("Install over USB") if _apk else tr("Choose APK..."))
@@ -428,7 +428,7 @@ class AdvancedSettings(QWidget):
         # ── Look ────────────────────────────────────────────────────────────
         look_card = create_card(self)
         look_lay = card_layout(look_card)
-        add_card_header(look_lay, tr("Look"), "sliders")
+        add_card_header(look_lay, tr("Look"), "sliders", hue=SetupPlugin.category)
         keywords(look_card, tr("appearance theme colors colours interface", ctx="search"))
         self._hues_own, self._hues_purple = SegmentButton(tr("Colourful")), SegmentButton(tr("Monochrome"))
         self._hues_grp = QButtonGroup(look_card)
@@ -481,7 +481,7 @@ class AdvancedSettings(QWidget):
 
         about_card = create_card(self)
         about_lay = card_layout(about_card)
-        add_card_header(about_lay, tr("About"), "help")
+        add_card_header(about_lay, tr("About"), "help", hue=SetupPlugin.category)
         keywords(about_card, tr("info version help support credits", ctx="search"))
         # Translators: keep the <a href="{url}"> link and the name LunarKittyy as they are
         by_lbl = QLabel(tr('Made by <a href="{url}">LunarKittyy</a>', url=AUTHOR_URL))
@@ -913,6 +913,8 @@ class SetupPlugin(TelescopePlugin):
     name = "setup"
     title = N_("Advanced settings")
     about = N_("The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab.")
+    category = "streaming"
+    icon = "chip"
     required = True
 
     def setup(self, host, bus):

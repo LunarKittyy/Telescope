@@ -176,6 +176,9 @@ class QrReaderPlugin(TelescopePlugin):
     name = "qr_reader"
     title = N_("QR code reader")
     about = N_("Copies a QR code you hold up to the camera, or the password from a Wi-Fi code.")
+    category = "preview"
+    icon = "qr"
+    frame_stage = "reading"
     when_off = N_("Without it there's no QR code card and codes in the picture are left alone.")
     optional = True
     panel_region = "left"
@@ -205,7 +208,7 @@ class QrReaderPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Look for QR codes in the picture"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("QR codes"), "qr", action=self._switch)
+        add_card_header(lay, tr("QR codes"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._status = wrapped_note("")
         self._copy_btn = QPushButton(tr("Copy"))
@@ -244,7 +247,7 @@ class QrReaderPlugin(TelescopePlugin):
     def _show(self, text: str, kind: str = ""):
         self._status.setText(text)
         self._status.setVisible(bool(text))
-        set_status_kind(self._status, kind)
+        set_status_kind(self._status, f"status_{kind}" if kind else "dim")
 
     # ── Codes (UI thread) ─────────────────────────────────────────────────
 

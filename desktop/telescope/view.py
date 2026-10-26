@@ -269,6 +269,12 @@ def to_shown(view: View, x: float, y: float) -> tuple:
                          view.stretch_x, view.stretch_y)
 
 
+def upright_to_shown(view: View, x: float, y: float) -> tuple:
+    """A point in the picture as shown at zoom 1 and no stretch (where Person's points are) to where it lands in the
+    frame as shown with view now."""
+    return to_shown(view, *shown_to_view(x, y, 1.0, 0.0, 0.0, view.flip_h, view.flip_v, view.rotation))
+
+
 def pan_for(centre: float, zoom: float) -> float:
     """The pan that puts the window's centre at `centre` (0..1 of the full view), clamped to -1..1."""
     slack = 1.0 - 1.0 / max(zoom, 1.0)

@@ -46,3 +46,15 @@ def test_the_pieces_the_window_drives_dont_import_it(name):
 
 def test_sessions_needs_no_qt():
     assert not any(m.startswith("PyQt6") for m in _imports(ROOT / "session.py"))
+
+
+
+def test_status_kinds_are_ones_the_theme_styles():
+    # A kind the stylesheet doesn't know leaves the text unstyled, as "warn" did for Notes, Desk, Chroma key and QR reader
+    from telescope import theme
+    styled = set(re.findall(r"QLabel#(\w+)", theme.QSS))
+    used = {}
+    for path in ROOT.rglob("*.py"):
+        for kind in re.findall(r'set_status_kind\([^,()]+,\s*"(\w+)"', path.read_text(encoding="utf-8")):
+            used.setdefault(kind, path.name)
+    assert used and {k: f for k, f in used.items() if k not in styled} == {}

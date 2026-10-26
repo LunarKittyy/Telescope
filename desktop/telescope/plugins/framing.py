@@ -219,10 +219,13 @@ class FramingPlugin(TelescopePlugin):
     name = "framing"
     title = N_("Auto framing")
     about = N_("Zooms and pans to keep you in the picture as you move.")
+    category = "vision"
+    icon = "framing"
     when_off = N_("Without it there's no Auto framing card and the zoom stays where you put it.")
     optional = True
     needs_vision = True
     in_presets = True  # a preset can be a scene: framing on for talking, off with the zoom parked on something
+    device_local = True  # framing the camera on you shouldn't zoom the desk camera out
     panel_region = "left"
 
     def setup(self, host, bus):
@@ -254,7 +257,7 @@ class FramingPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Follow you with the zoom and pan"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Auto framing"), "framing", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Auto framing"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._framing_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._framing_slider.setRange(0, (len(FRAMINGS) - 1) * _FRAMING_STEPS)

@@ -138,6 +138,9 @@ class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
     title = N_("Stream output")
     about = N_("The resolution, frame rate and format of the stream.")
+    category = "streaming"
+    icon = "stream"
+    pinned = True
     when_off = N_("Without it there's no Stream output card and streams use whatever size and format the phone "
                   "picks.")
     in_presets = True
@@ -174,7 +177,7 @@ class StreamOutputPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Stream output"), "stream", hue="stream")
+        add_card_header(lay, tr("Stream output"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Resolution, frame rate and shape, as three tiles ────────────────
