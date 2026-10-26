@@ -18,6 +18,7 @@ pseudo	out of its box	45[ °Ç ~]
 pseudo	out of its box	Add phone
 pseudo	out of its box	Auto
 pseudo	out of its box	Black level lock
+pseudo	out of its box	Blur the others
 pseudo	out of its box	False colour
 pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking

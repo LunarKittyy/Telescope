@@ -146,6 +146,13 @@ def test_ping_says_which_other_computer_the_phone_streams_to(monkeypatch, client
     assert client.ping().streaming_for is None
 
 
+def test_ping_says_whether_the_phone_runs_dynamic_over_udp(monkeypatch, client):
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, json.dumps({"udpDynamic": True}).encode()))
+    assert client.ping().udp_dynamic is True
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, json.dumps({"streaming": True}).encode()))
+    assert client.ping().udp_dynamic is False  # an older phone
+
+
 def test_transport_and_auth_failures_are_distinguished(monkeypatch, client):
     _stub_urlopen(monkeypatch, lambda _req: _http_error(401))
     assert client.start() == SessionResult(ok=False, error="not_paired")

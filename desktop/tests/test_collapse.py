@@ -509,3 +509,24 @@ def test_a_fold_is_remembered_in_any_language(qapp, tmp_path, monkeypatch):
         assert not rows["Ljus 0"].isVisibleTo(card) and rows["loose"].isVisibleTo(card)
     finally:
         i18n.load("en")
+
+
+def test_a_row_that_grows_once_folding_is_installed_gets_its_new_height(qapp, shown):
+    from telescope.widgets.lens_panel import LensPanel
+    card = create_card()
+    lay = card_layout(card)
+    add_card_header(lay, "Camera", "camera")
+    lenses = LensPanel()
+    lay.addWidget(lenses)
+    add_section_heading(lay, "Light", "sun")
+    lay.addWidget(QLabel("row"))
+    Collapsing().install(card, "p")
+    rail = QWidget()
+    rail_lay = QVBoxLayout(rail)
+    rail_lay.addWidget(card)
+    rail_lay.addStretch(1)  # like the rail, so the card is only as tall as it asks to be
+    shown(rail)
+    QTest.qWait(50)
+    lenses.load([{"id": str(i), "label": f"Back {i}mm"} for i in range(5)])
+    QTest.qWait(50)
+    assert lenses.height() == lenses.heightForWidth(lenses.width()) > 0

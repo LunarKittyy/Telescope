@@ -61,11 +61,18 @@ jobs:
           python-version: '3.14'
           cache: pip
 
+      # The Windows 11 camera's media source (desktop/virtualcamera), which the app installs from its own folder
+      - name: Build the Windows 11 camera
+        working-directory: desktop
+        run: |
+          cmake -S virtualcamera -B virtualcamera/build -A x64
+          cmake --build virtualcamera/build --config Release
+
       - name: Install dependencies and PyInstaller
         working-directory: desktop
         run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
 
-      - name: Install aiortc
+      - name: Install aiortc and pyrnnoise
         working-directory: desktop
         run: pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
 
@@ -102,6 +109,8 @@ jobs:
           Copy-Item -Recurse desktop/dist/TelescopeDesktop/* bundle/
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
+          New-Item -ItemType Directory -Path bundle/virtualcamera | Out-Null
+          Copy-Item desktop/virtualcamera/build/Release/TelescopeCamera.dll bundle/virtualcamera/
 
       - name: Verify release bundle
         shell: pwsh
@@ -109,7 +118,8 @@ jobs:
           $required = @(
             "bundle/TelescopeDesktop.exe",
             "bundle/THIRD_PARTY_NOTICES.txt",
-            "bundle/unitycapture"
+            "bundle/unitycapture",
+            "bundle/virtualcamera/TelescopeCamera.dll"
           )
           $missing = @($required | Where-Object { -not (Test-Path $_) })
           # The app's libraries, and the Qt plugins it can't start or draw without (tests run from source,
@@ -123,6 +133,13 @@ jobs:
             }
             # Without it Auto framing and Background have no pack to download
             if (-not (Test-Path "$($lib.FullName)/telescope/vision_pack.json")) { $missing += "telescope/vision_pack.json" }
+            # The microphone's noise reduction, loaded by path rather than imported
+            $rnnoise = "$($lib.FullName)/pyrnnoise/rnnoise.dll"
+            if (-not (Test-Path $rnnoise)) { $missing += "pyrnnoise/rnnoise.dll" }
+            else {
+              python -c "import sys; sys.path.insert(0, 'desktop'); from telescope import denoise; sys.exit(denoise.open_library([sys.argv[1]])[1] is not None)" $rnnoise
+              if ($LASTEXITCODE) { $missing += "a pyrnnoise/rnnoise.dll that loads" }
+            }
           }
           # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
           if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }

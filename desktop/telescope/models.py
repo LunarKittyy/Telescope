@@ -86,6 +86,7 @@ class CameraCapabilities:
     supports_flash: bool
     hw_level: str
     supports_focus_point: bool = False
+    supports_meter_point: bool = False  # newer phone apps only: meter_point works (AE regions)
     zoom_ratio_max: float = 1.0   # newer phone apps only: how far the lens zooms itself (CONTROL_ZOOM_RATIO)
     crop_zoom_max: float = 1.0    # ... and crops on top of that (SCALER_CROP_REGION)
     freeform_crop: bool = False   # ... and whether that crop can sit off-centre
@@ -119,6 +120,7 @@ class CameraCapabilities:
             supports_flash=_require_bool(raw, "supportsFlash", w),
             hw_level=_require_str(raw, "hwLevel", w),
             supports_focus_point=raw.get("supportsFocusPoint", False) is True,  # newer phone apps only
+            supports_meter_point=raw.get("supportsMeterPoint", False) is True,
             zoom_ratio_max=_optional_number(raw, "zoomRatioMax") or 1.0,
             crop_zoom_max=_optional_number(raw, "cropZoomMax") or 1.0,
             freeform_crop=raw.get("freeformCrop", False) is True,

@@ -146,12 +146,15 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_wb         = False
         self._manual_focus      = False
         self._point_focus       = False
+        self._published_focus: Optional[str] = None  # what focus_mode_changed last said
         self._lens_id: Optional[str] = None
         self._pending_lens: Optional[str] = None  # a preset's lens, applied while idle, for the next stream
         self._last_state: Optional[dict] = None  # the stream's latest state, for its lenses and ranges
         self._config_in: dict = {}  # what set_config() was last given, before the sliders' ranges clamped it
         self._behind = StreamsBehind()  # each stream the panels moved away from: its last state and focus point
+        self._meter_ok = False  # the lens takes meter_point
         bus.focus_point.connect(self._on_focus_point)
+        bus.meter_point.connect(self._on_meter_point)
         self._focus_max_diopters: float = 10.0
         self._ae_comp_step: float = 0.167
         self._torch_on: bool = False
@@ -260,6 +263,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_grp.addButton(self._rb_focus_manual)
         self._rb_focus_auto.setChecked(True)
         self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
+        self._focus_grp.buttonToggled.connect(lambda _b, _on: self._publish_focus_mode())
         lay.addWidget(_row_widget(
             tr("Focus"), segmented_row(self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual),
             stretch=True))
@@ -383,6 +387,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._ctrl = ctrl
         self._lens_panel.set_placeholder(tr("Loading lenses..."))
         self._push_settings_to_phone()
+        self._publish_focus_mode(again=True)
 
     def on_focus_gained(self, stream_url: str, ctrl):
         kept = self._behind.take(self._host, ctrl)
@@ -436,7 +441,7 @@ class CameraControlPlugin(TelescopePlugin):
     def _leave_stream(self):
         self._last_state = None
         self._ctrl = None
-        self._set_point_available(False)
+        self._set_point_available(False, meter=False)
         if self._point_focus:  # the point was for that session; the next one starts continuous
             self._point_focus = False
             self._rb_focus_auto.setChecked(True)
@@ -459,7 +464,8 @@ class CameraControlPlugin(TelescopePlugin):
         cam = self._lens_panel.select_id(lens) if lens and cur and lens != cur.get("id") else None
         if cam and self._ctrl:
             self._on_lens_selected(cam)
-            self._set_point_available(cam.get("supportsFocusPoint", False) is True)
+            self._set_point_available(cam.get("supportsFocusPoint", False) is True,
+                                      meter=cam.get("supportsMeterPoint", False) is True)
             self._push_settings_to_phone()
             return  # the widgets already hold the preset; the phone's next state comes from the new lens
         if cur:
@@ -482,7 +488,8 @@ class CameraControlPlugin(TelescopePlugin):
                 cur.get("supportsFlash", False),
                 cur.get("hasOis", True),
             )
-            self._set_point_available(cur.get("supportsFocusPoint", False) is True)
+            self._set_point_available(cur.get("supportsFocusPoint", False) is True,
+                                      meter=cur.get("supportsMeterPoint", False) is True)
 
         self._rb_exp_auto.setChecked(not view.manual_exposure)
         self._rb_exp_manual.setChecked(view.manual_exposure)
@@ -704,7 +711,9 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="ois", value="1" if checked else "0")
         self._host.schedule_save()
 
-    def _set_point_available(self, available: bool):
+    def _set_point_available(self, available: bool, meter: Optional[bool] = None):
+        if meter is not None:
+            self._meter_ok = meter
         self._rb_focus_point.setEnabled(available)
         self._rb_focus_point.setToolTip(tr("Click the preview to focus there") if available else
                                         tr("This lens can't focus on a point") if self._ctrl else "")
@@ -712,6 +721,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._point_focus = False
             self._rb_focus_auto.setChecked(True)
         self._bus.focus_point_available.emit(available and self._ctrl is not None)
+        self._bus.meter_point_available.emit(self._meter_ok and self._ctrl is not None)
 
     def _on_focus_point(self, x: float, y: float):
         """A point in the phone's frame, picked on the preview (or the centre, from the Point button)."""
@@ -720,13 +730,31 @@ class CameraControlPlugin(TelescopePlugin):
         self._ctrl.send(action="focus_point", x=round(x, 4), y=round(y, 4))
         self._show_point_focus()
 
+    def _on_meter_point(self, x: float, y: float):
+        """A point in the phone's frame to meter on, leaving focus and the Focus buttons as they are."""
+        if self._ctrl and self._meter_ok:
+            self._ctrl.send(action="meter_point", x=round(x, 4), y=round(y, 4))
+
     def _show_point_focus(self):
         self._point_focus, self._manual_focus = True, False
         self._rb_focus_point.setChecked(True)
         self._focus_slider.setEnabled(False)
         self._sync_manual_control_visibility()
 
+    def _focus_mode(self) -> str:
+        return "point" if self._rb_focus_point.isChecked() else "manual" if self._rb_focus_manual.isChecked() else "auto"
+
+    def _publish_focus_mode(self, again: bool = False):
+        mode = self._focus_mode()
+        if again or mode != self._published_focus:
+            self._published_focus = mode
+            self._bus.focus_mode_changed.emit(mode)
+
+    def on_plugins_ready(self):
+        self._publish_focus_mode(again=True)
+
     def _on_focus_mode(self):
+        self._bus.focus_mode_picked.emit(self._focus_mode())
         if self._rb_focus_point.isChecked():
             if not self._point_focus:
                 self._bus.focus_point_picked.emit(0.5, 0.5)  # the middle of what the preview shows

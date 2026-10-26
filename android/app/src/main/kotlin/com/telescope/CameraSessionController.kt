@@ -104,6 +104,8 @@ class CameraSessionController(
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
     // Set in "point" mode: x, y and size in the stream frame; mapped onto the sensor per request, through the zoom.
     @Volatile private var focusPoint: FloatArray? = null
+    // Set by meter_point: like focusPoint, but only metering goes there and focus stays as it is
+    @Volatile private var meterPoint: FloatArray? = null
     @Volatile private var zoom = ZoomRequest()
     @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
@@ -382,12 +384,22 @@ class CameraSessionController(
         return capped
     }
 
+    /** The bitrate Dynamic set, or 0 when it's off. */
+    val dynamicBitrate: Int get() = if (requestedBitrate == H264Stream.DYNAMIC) dynamic?.bitrate ?: 0 else 0
+
+    /** Whether Dynamic found where the link fills up lately (DynamicBitrate.full). */
+    val dynamicFull: Boolean get() = requestedBitrate == H264Stream.DYNAMIC && dynamic?.full == true
+
     /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
      *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
-        d.update(sample)?.let { encoder?.setBitrate(it) }
+        d.update(sample)?.let {
+            android.util.Log.i(TAG, "Dynamic: ${it / 1000} kbps (queue ${sample.queueMs} ms, on the way ${sample.routerMs} ms, " +
+                "lost ${"%.1f".format(sample.loss * 100)}%, through ${sample.sentBytes * 8 / 250} kbps)")
+            encoder?.setBitrate(it)
+        }
         // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
         // rebuilt here
         val camera = currentCamera
@@ -424,7 +436,7 @@ class CameraSessionController(
         // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
         post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
     }
-    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; post { applyExposure() } }
+    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; meterPoint = null; post { applyExposure() } }
     fun setZoom(z: ZoomRequest)             { zoom = z;                         post { applyExposure() } }
 
     // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
@@ -434,8 +446,18 @@ class CameraSessionController(
         if (cam.activeArray == null) return false
         if (cam.maxAfRegions <= 0 || CaptureRequest.CONTROL_AF_MODE_AUTO !in cam.afModes) return false
         focusPoint = floatArrayOf(x, y, size)
+        meterPoint = null
         currentFocusMode = "point"
         post { triggerFocus() }
+        return true
+    }
+
+    // Meters on a point while exposure is automatic and leaves focus alone; false without AE regions or an active array
+    fun setMeterPoint(x: Float, y: Float, size: Float): Boolean {
+        val cam = currentCamera ?: return false
+        if (cam.activeArray == null || cam.maxAeRegions <= 0) return false
+        meterPoint = floatArrayOf(x, y, size)
+        post { applyExposure() }
         return true
     }
 
@@ -461,14 +483,26 @@ class CameraSessionController(
     private fun applyFocusRegion(builder: CaptureRequest.Builder): Boolean {
         val point = focusPoint ?: return false
         val cam = currentCamera ?: return false
-        val area = zoomCrop(cam) ?: cam.activeArray ?: return false
-        val region = CameraRequestSelection.meteringRect(point[0], point[1], point[2], area, streamWidth, streamHeight)
-        val rect = MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
+        val rect = meteringRect(point, cam) ?: return false
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(rect))
         if (cam.maxAeRegions > 0 && currentIso == null) builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
         return true
+    }
+
+    private fun applyMeterRegion(builder: CaptureRequest.Builder) {
+        val point = meterPoint ?: return
+        val cam = currentCamera ?: return
+        if (cam.maxAeRegions <= 0 || currentIso != null) return
+        builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(meteringRect(point, cam) ?: return))
+    }
+
+    // point: x, y and size in the stream frame, mapped onto the sensor through the zoom
+    private fun meteringRect(point: FloatArray, cam: CameraEntry): MeteringRectangle? {
+        val area = zoomCrop(cam) ?: cam.activeArray ?: return null
+        val region = CameraRequestSelection.meteringRect(point[0], point[1], point[2], area, streamWidth, streamHeight)
+        return MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
     }
     fun setFocusDistance(d: Float)          { currentFocusDistance = d;         post { applyExposure() } }
     fun setNrMode(m: Int)                   { currentNrMode = m;                post { applyExposure() } }
@@ -1032,6 +1066,7 @@ class CameraSessionController(
                 set(CaptureRequest.CONTROL_AF_MODE,
                     CameraRequestSelection.pickAfMode(cam?.afModes ?: emptySet(), wantContinuousVideo = true))
             }
+            applyMeterRegion(this)
 
             set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
@@ -1117,6 +1152,7 @@ class CameraSessionController(
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
+        meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
         if (cameraOff) return  // the lens it opens with when the camera comes back on
