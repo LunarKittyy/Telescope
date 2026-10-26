@@ -77,6 +77,7 @@ class ViewController(TelescopePlugin):
         self._handover: Optional[_Handover] = None  # Written by Qt thread; read and marked arrived by worker thread.
         self._last_thumb = None  # worker thread: the last frame, small, while something steers
         bus.focus_point_picked.connect(self._on_point_picked)
+        bus.meter_point_picked.connect(self._on_meter_picked)
         bus.camera_switched.connect(self._on_camera_caps)
 
     # ── What the window offers plugins (HostView) ─────────────────────────
@@ -281,10 +282,15 @@ class ViewController(TelescopePlugin):
     # ── The preview ───────────────────────────────────────────────────────
 
     def _on_point_picked(self, u: float, v: float):
+        self._bus.focus_point.emit(*self._in_phone_frame(u, v))
+
+    def _on_meter_picked(self, u: float, v: float):
+        self._bus.meter_point.emit(*self._in_phone_frame(u, v))
+
+    def _in_phone_frame(self, u: float, v: float) -> tuple:
         w, h = self._frame_size
         view = self.view
-        self._bus.focus_point.emit(*inverse_map(u, v, w, h, *self._desktop_crop,
-                                                view.flip_h, view.flip_v, view.rotation))
+        return inverse_map(u, v, w, h, *self._desktop_crop, view.flip_h, view.flip_v, view.rotation)
 
     def _emit_lens_boxes(self, moved: bool):
         caps, view = self._zoom_caps if self._ctrl else None, self.view

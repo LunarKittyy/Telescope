@@ -915,6 +915,7 @@ class CameraStreamService : Service() {
                     .map { CameraSize(it.width, it.height) } else null,
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
+                supportsMeterPoint = e.maxAeRegions > 0 && e.activeArray != null,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
@@ -1060,6 +1061,14 @@ class CameraStreamService : Service() {
                     val y = params["y"].finite() ?: return err("bad y")
                     val size = params["size"].finite() ?: 0.1f
                     if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
+                    ok()
+                }
+                "meter_point" -> {
+                    // like focus_point, but only exposure is metered there and focus is left alone
+                    val x = params["x"].finite() ?: return err("bad x")
+                    val y = params["y"].finite() ?: return err("bad y")
+                    val size = params["size"].finite() ?: 0.1f
+                    if (!ctrl.setMeterPoint(x, y, size)) return err("this lens can't meter on a point")
                     ok()
                 }
                 "zoom" -> {
