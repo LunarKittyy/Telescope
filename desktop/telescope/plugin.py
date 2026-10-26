@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.stills import StillCaps
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -320,7 +321,29 @@ class HostVision(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
+class HostStills(Protocol):
+    """Full-quality photos taken on the phone (telescope.stills), not frames of the video: for the Photos card, or any
+    plugin wanting a burst, without depending on the Photos plugin."""
+
+    def still_caps(self, source_id: Optional[str] = None) -> Optional["StillCaps"]:
+        """What the lens the shown stream (or source_id's) is on can take, or None when it can't take photos (an
+        older phone, a Browser camera, not streaming)."""
+        ...
+
+    def take_still(self, options: dict, folder: str, on_done: Callable, on_progress: Optional[Callable] = None,
+                   source_id: Optional[str] = None) -> bool:
+        """Take a photo on the shown stream's phone (or source_id's) with the /v1/still options in docs/protocol.md
+        and save it in folder. on_done(StillResult) and on_progress(StillProgress) come on the GUI thread. False when
+        it can't start: no photos there, or one is already being taken."""
+        ...
+
+    def still_busy(self, source_id: Optional[str] = None) -> bool:
+        """Whether a photo is being taken on the shown stream's phone (or source_id's)."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostStills,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -616,6 +639,10 @@ class EventBus(QObject):
     """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
     forget_source_requested = pyqtSignal(str)
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
+    still_busy_changed     = pyqtSignal(str, bool)
+    """A photo started or finished on a stream's phone (its source id), whichever plugin asked for it."""
+    still_saved            = pyqtSignal(str, list)
+    """Photos were saved from a stream's phone (its source id, [file paths]), whichever plugin asked for them."""
     stream_behind          = pyqtSignal(str, bool)
     """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
     Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught

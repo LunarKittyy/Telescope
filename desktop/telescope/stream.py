@@ -178,6 +178,7 @@ class StreamWorker(QThread):
         self._settle_since: Optional[float] = time.monotonic()
         self._settle_flowing: Optional[float] = None
         self._settle_last_frame = 0.0
+        self._photo_until = 0.0  # until then frames stopping is the phone taking a photo, not a dropped stream
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -208,6 +209,12 @@ class StreamWorker(QThread):
         with self._settle_lock:
             self._settle_since = time.monotonic()
             self._settle_flowing = None
+
+    def hold_for_photo(self, seconds: float = 3.0):
+        """The phone is taking a photo, which can pause its video: for seconds from now a stream that stops is
+        reconnected quietly instead of being reported as dropped. Called again to extend it."""
+        self._photo_until = time.monotonic() + seconds
+        self.settle()
 
     def _count_arrived(self, frames: int):
         self._frames_arrived += frames
@@ -332,7 +339,10 @@ class StreamWorker(QThread):
         return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
-        self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
+        if time.monotonic() < self._photo_until:
+            self.status.emit("info", tr("The video is paused while the phone takes a photo"))
+        else:
+            self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
         while not stop_event.is_set() and not self._stop_flag:
             for _ in range(DROP_RETRY_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:

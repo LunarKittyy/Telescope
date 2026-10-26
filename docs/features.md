@@ -41,6 +41,18 @@ Optional and it shares the vision download. **Blur** blurs everything behind you
 
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
+## Photos
+
+Optional. Switch it on under **Optional** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
+
+- **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
+- **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
+- **Shots** can be a burst of up to 60, an exposure bracket for HDR merging or a focus bracket from near to far for focus stacking
+- **Exposure** takes a long exposure up to what the sensor allows (30 s or more on some phones) at the video's ISO
+- There's a 3 or 10 second **Timer**, best quality noise reduction and sharpening, and distortion correction can be turned on or off where the phone allows it
+
+Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](#keyboard-shortcuts), even with Telescope in the background, and a photo taken that way pops up a notification once it's saved.
+
 ## The vision download
 
 Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.

@@ -193,6 +193,21 @@ def test_reconnect_stops_without_opening_when_cancelled(monkeypatch):
     assert worker._reconnect_cap(stop) is None
 
 
+def test_frames_stopping_for_a_photo_reconnect_quietly(monkeypatch):
+    captures = iter([_Capture([(True, np.zeros((1, 1, 3), dtype=np.uint8))]) for _ in range(2)])
+    worker = stream.StreamWorker("url", None, None, 30)
+    monkeypatch.setattr(stream, "DROP_RETRY_DELAY", 0)
+    monkeypatch.setattr(worker, "_open_cap", lambda: next(captures))
+    said = []
+    worker.status.connect(lambda kind, _msg: said.append(kind))
+
+    worker.hold_for_photo(5)
+    assert worker._reconnect_cap(threading.Event()) is not None
+    worker._photo_until = 0  # the hold ran out: a stop is a dropped stream again
+    assert worker._reconnect_cap(threading.Event()) is not None
+    assert said == ["info", "reconnecting"]
+
+
 def test_stream_reader_resizes_and_runs_pipeline_keeping_bgr():
     # The virtual camera takes BGR, so the decoder's order goes through untouched.
     raw = np.tile(np.array([[[1, 2, 3]]], dtype=np.uint8), (2, 2, 1))

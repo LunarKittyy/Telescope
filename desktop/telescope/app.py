@@ -25,6 +25,7 @@ from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlug
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
+from telescope.stills import StillCaps, Stills
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
 from telescope.view_controller import ViewController
@@ -225,6 +226,7 @@ class TelescopeWindow(QMainWindow):
     _sig_extras_removed = pyqtSignal(bool, str)
     _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
     _sig_vision_state = pyqtSignal(str)
+    _sig_still = pyqtSignal(object, object)  # a callback and its value, from a photo's thread
 
     def __init__(self):
         super().__init__()
@@ -236,6 +238,9 @@ class TelescopeWindow(QMainWindow):
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._stills  = Stills()  # full-quality photos on the phone (HostStills)
+        self._last_states: dict = {}  # source id: the newest whole /v1/state from its phone, for still_caps
+        self._sig_still.connect(lambda callback, value: callback(value))
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
         self._view.setup(self, self._bus, self._vision)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
@@ -939,6 +944,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s failed to shut down", p.name)
         self._vision.shutdown()
+        self._stills.shutdown()
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
@@ -1525,6 +1531,8 @@ class TelescopeWindow(QMainWindow):
                 self._sessions.held_states[source.id] = (source, session_id, state)
             else:
                 self._flow.move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
+        if "cameras" in state:
+            self._last_states[source.id] = state
         # Plugins get the dict as sent; PhoneState above only checks it
         if source is self._sessions.focus:
             self._bus.phone_state_updated.emit(state)
@@ -1648,6 +1656,45 @@ class TelescopeWindow(QMainWindow):
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def _still_source(self, source_id: Optional[str]) -> Optional[Source]:
+        source = self._sessions.find(self.focused_source_id() if source_id is None else source_id)
+        return source if source is not None and source.session is not None else None
+
+    def still_caps(self, source_id: Optional[str] = None) -> Optional[StillCaps]:
+        source = self._still_source(source_id)
+        return StillCaps.from_state(self._last_states.get(source.id)) if source is not None else None
+
+    def still_busy(self, source_id: Optional[str] = None) -> bool:
+        source = self._still_source(source_id)
+        return source is not None and self._stills.busy(source.id)
+
+    def take_still(self, options: dict, folder: str, on_done: Callable, on_progress: Optional[Callable] = None,
+                   source_id: Optional[str] = None) -> bool:
+        source = self._still_source(source_id)
+        if source is None or self.still_caps(source.id) is None:
+            return False
+        sid, session = source.id, source.session
+
+        def progress(p):
+            # The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
+            if p.state == "capturing" and session.worker is not None:
+                session.worker.hold_for_photo()
+            if on_progress is not None:
+                on_progress(p)
+
+        def done(result):
+            self._bus.still_busy_changed.emit(sid or "", False)
+            if result.files:
+                self._bus.still_saved.emit(sid or "", list(result.files))
+            on_done(result)
+
+        started = self._stills.take(sid, session.client, options, folder,
+                                    on_done=lambda r: self._sig_still.emit(done, r),
+                                    on_progress=lambda p: self._sig_still.emit(progress, p))
+        if started:
+            self._bus.still_busy_changed.emit(sid or "", True)
+        return started
 
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)

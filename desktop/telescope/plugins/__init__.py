@@ -13,6 +13,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
+    from telescope.plugins.photos import PhotosPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
     from telescope.plugins.setup import SetupPlugin
@@ -29,6 +30,7 @@ def builtin_plugins() -> list:
         CameraControlPlugin(),
         BrowserCameraPlugin(),  # after Camera: its card takes that place while it's picked
         BackgroundPlugin(),  # optional: off until switched on in Plugins
+        PhotosPlugin(),  # optional
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows

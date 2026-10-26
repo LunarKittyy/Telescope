@@ -3827,3 +3827,29 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, monkeypatch):
+    from telescope.stills import StillProgress, StillResult
+    held = []
+    worker = SimpleNamespace(hold_for_photo=lambda: held.append(True))
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=worker)
+    sid = window._phone.id
+    assert window.still_caps() is None and not window.take_still({}, "/tmp", lambda r: None)  # nothing said yet
+    window._last_states[sid] = {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]}
+    assert window.still_caps().formats == ("jpeg",)
+
+    taken = {}
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress) or True)
+    busy, saved, done = [], [], []
+    window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
+    window._bus.still_saved.connect(lambda s, files: saved.append(files))
+    assert window.take_still({"format": "jpeg"}, "/tmp", done.append)
+    assert taken["source"] == sid and busy == [True]
+    taken["on_progress"](StillProgress("capturing"))
+    QCoreApplication.processEvents()
+    assert held == [True]  # the stream doesn't count as dropped while the phone takes it
+    taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
+    QCoreApplication.processEvents()
+    assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok

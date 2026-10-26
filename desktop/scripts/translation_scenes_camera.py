@@ -1,4 +1,4 @@
-"""Scenes for camera, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, framing, transforms, preview, stream output, background, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "browser_camera": "_card", "photos": "_take_btn"}
 
 
 def card_of(win, widget):
@@ -455,6 +455,80 @@ def background_dialog(stack):
     win = ready_window(stack)
     plugin_of(win, "background")._choose_picture()
     return shown(stack, held[-1])
+
+
+# ── Photos ───────────────────────────────────────────────────────────────────
+
+FLAGSHIP_STILLS = {"formats": ["jpeg", "heic", "ultrahdr", "raw"], "width": 4080, "height": 3072, "maxResWidth": 8160,
+                   "maxResHeight": 6144, "maxResRaw": True, "extensions": ["night", "hdr", "bokeh"],
+                   "exposureMaxNs": 30_000_000_000, "bracketing": True, "focusBracketing": True,
+                   "noiseReductionHq": True, "sharpeningHq": True, "hotPixelHq": True, "distortionCorrection": True,
+                   "burstMax": 60}
+
+
+def photos(stack, stills=FLAGSHIP_STILLS, choices=None, then=None):
+    """The Photos card on a streaming phone whose lens takes these photos (None: a phone too old for them)."""
+    state = phone_state(lens(stills=stills) if stills else lens(), **({"stills": 1} if stills else {}))
+    win, _source = streaming_window(stack, state)
+    plugin = plugin_of(win, "photos")
+    if choices:
+        plugin.set_config({**plugin.get_config(), **choices, "folder": "/home/me/Pictures/Telescope"})
+    else:
+        plugin.set_config({**plugin.get_config(), "folder": "/home/me/Pictures/Telescope"})
+    if then is not None:
+        then(plugin)
+    return cards(stack, win, "photos")
+
+
+@scene("photos-card", "main", "Photos · a phone with every kind of photo", width=CARD_WIDTH)
+def photos_card(stack):
+    return photos(stack, choices={"format": "raw+jpeg", "shots": "bracket", "exposure_s": 0})
+
+
+@scene("photos-focus-bracket", "states", "Photos · focus bracketing in full resolution", width=CARD_WIDTH)
+def photos_focus_bracket(stack):
+    return photos(stack, choices={"mode": "max_res", "shots": "focus", "exposure_s": 4})
+
+
+@scene("photos-night", "states", "Photos · the phone's Night mode", width=CARD_WIDTH)
+def photos_night(stack):
+    return photos(stack, choices={"mode": "night", "shots": "burst"})
+
+
+@scene("photos-countdown", "states", "Photos · timer counting down", width=CARD_WIDTH)
+def photos_countdown(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, choices={"timer": 10}, then=lambda p: p._progress(StillProgress("waiting", countdown_ms=7000)))
+
+
+@scene("photos-burst", "states", "Photos · taking a burst", width=CARD_WIDTH)
+def photos_burst(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", shots=5, taken=2)))
+
+
+@scene("photos-paused", "states", "Photos · the video paused for the photo", width=CARD_WIDTH)
+def photos_paused(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", paused=True)))
+
+
+@scene("photos-saved", "states", "Photos · saved", width=CARD_WIDTH)
+def photos_saved(stack):
+    from telescope.stills import StillResult
+    files = [f"/home/me/Pictures/Telescope/IMG_20261026_142501_0{n}.jpg" for n in (1, 2, 3)]
+    return photos(stack, then=lambda p: p._done(StillResult(True, files)))
+
+
+@scene("photos-failed", "states", "Photos · the phone couldn't take it", width=CARD_WIDTH)
+def photos_failed(stack):
+    from telescope.stills import StillResult
+    return photos(stack, then=lambda p: p._done(StillResult.failed("interrupted")))
+
+
+@scene("photos-old-phone", "states", "Photos · a phone too old for photos", width=CARD_WIDTH)
+def photos_old_phone(stack):
+    return photos(stack, stills=None)
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────
