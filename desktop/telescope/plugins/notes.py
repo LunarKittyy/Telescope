@@ -54,26 +54,26 @@ def notes_status(*, streaming: bool, phone: bool, takes_notes: Optional[bool], t
     if not phone:
         return tr("Notes only work with a phone as the camera."), "dim"
     if takes_notes is False:
-        return tr("Update Telescope on the phone to show notes there."), "warn"
+        return tr("Update Telescope on the phone to show notes there."), "status_warn"
     if too_long:
-        return tr("These notes are too long to send to the phone."), "err"
+        return tr("These notes are too long to send to the phone."), "status_err"
     if not streaming:
         return tr("Start streaming to send the notes to the phone."), "dim"
     if not sent:
         if front is False:
-            return tr("Switch to the front camera to have the phone's screen facing you."), "warn"
+            return tr("Switch to the front camera to have the phone's screen facing you."), "status_warn"
         return tr("Send to phone puts them on its screen right under the camera."), "dim"
     if not shown:
         if closed:
-            return tr("The notes were closed on the phone. Send again to show them."), "warn"
+            return tr("The notes were closed on the phone. Send again to show them."), "status_warn"
         if preview:
-            return tr("The notes show up on the phone once you close its preview."), "warn"
-        return tr("Open Telescope on the phone to see the notes."), "warn"
+            return tr("The notes show up on the phone once you close its preview."), "status_warn"
+        return tr("Open Telescope on the phone to see the notes."), "status_warn"
     if front is False:
-        return tr("The notes are up but the phone streams from its back camera."), "warn"
+        return tr("The notes are up but the phone streams from its back camera."), "status_warn"
     if edited:
-        return tr("Send again to show your changes on the phone."), "ok"
-    return tr("The notes are on the phone's screen."), "ok"
+        return tr("Send again to show your changes on the phone."), "status_ok"
+    return tr("The notes are on the phone's screen."), "status_ok"
 
 
 class _Signals(QObject):

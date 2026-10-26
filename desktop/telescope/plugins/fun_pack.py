@@ -13,7 +13,7 @@ from telescope.i18n import N_, tr
 from telescope.plugin import TelescopePlugin
 from telescope.pose import BONES
 from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action, slider_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header, button_row, card_layout, control_row_widget,
     create_card, dim_until_paired, segmented_row, slider_row, value_label, wrapped_note,
@@ -298,10 +298,9 @@ class FunPackPlugin(TelescopePlugin):
         if self._effect() != "stick":
             return
         view = self._host.view()
-        flips = (view.flip_h, view.flip_v, view.rotation)
 
         def map_point(x, y):
-            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *flips), view.zoom, view.pan_x, view.pan_y, *flips)
+            return upright_to_shown(view, x, y)
         self._lines, self._heads = stick_figure(self._people, map_point, self._host.view_aspect() or 16 / 9)
         self._apply(show=False)
 
@@ -331,6 +330,14 @@ class FunPackPlugin(TelescopePlugin):
         if effect != "stick":
             self._people, self._lines, self._heads = [], (), ()
         self._show()
+
+    def shutdown(self):
+        if self._mosh_on:
+            self._mosh_on = False
+            self._host.change_packets(self.name, None)
+        if self._wants_people:
+            self._wants_people = False
+            self._host.want_people(self.name, False)
 
     def _show(self):
         if not hasattr(self, "_combo"):

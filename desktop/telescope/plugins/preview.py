@@ -11,7 +11,7 @@ from telescope.widgets.line_icons import line_icon
 from telescope import pose, theme, vision
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 from telescope.i18n import N_, tr
 
@@ -775,11 +775,9 @@ class PreviewPlugin(TelescopePlugin):
         lines = []
         if self._people:
             view = self._host.view()
-            flips = (view.flip_h, view.flip_v, view.rotation)
 
             def map_point(x, y):
-                return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *flips), view.zoom, view.pan_x,
-                                     view.pan_y, *flips, view.stretch_x, view.stretch_y)
+                return upright_to_shown(view, x, y)
             lines = skeleton(self._people, map_point, self._host.view_aspect() or 16 / 9)
         for lbl in self._labels():
             lbl.set_skeleton(lines)

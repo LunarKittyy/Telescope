@@ -246,7 +246,7 @@ class QrReaderPlugin(TelescopePlugin):
     def _show(self, text: str, kind: str = ""):
         self._status.setText(text)
         self._status.setVisible(bool(text))
-        set_status_kind(self._status, kind)
+        set_status_kind(self._status, f"status_{kind}" if kind else "dim")
 
     # ── Codes (UI thread) ─────────────────────────────────────────────────
 

@@ -333,7 +333,7 @@ class DeskPlugin(TelescopePlugin):
                                           hint=tr("Drag the corners onto the sheet's corners, then press Enter.")):
             self._status.setText(tr("Start streaming to mark the sheet on the preview."))
             self._status.setVisible(True)
-            set_status_kind(self._status, "warn")
+            set_status_kind(self._status, "status_warn")
 
     def _picked(self, pick):
         if pick is None:
@@ -369,16 +369,16 @@ class DeskPlugin(TelescopePlugin):
             readout.setText(f"{value}%")
         self._reset_btn.setVisible(not fill and self._settings.stretch != (100, 100))
         if self._picking:
-            text, kind = tr("Drag the corners on the preview onto the sheet's corners."), ""
+            text, kind = tr("Drag the corners on the preview onto the sheet's corners."), "dim"
         elif self._refused:
             text, kind = tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with "
-                            "one on each of its corners."), "warn"
+                            "one on each of its corners."), "status_warn"
         elif self._settings.on and self._settings.corners is None:
-            text, kind = tr("Mark the sheet's corners to straighten it."), "warn"
+            text, kind = tr("Mark the sheet's corners to straighten it."), "status_warn"
         elif self._settings.on and self._off_picture():
-            text, kind = tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "warn"
+            text, kind = tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn"
         else:
-            text, kind = "", ""
+            text, kind = "", "dim"
         self._status.setText(text)
         self._status.setVisible(bool(text))
         set_status_kind(self._status, kind)

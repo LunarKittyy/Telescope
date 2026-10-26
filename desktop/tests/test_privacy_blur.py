@@ -58,6 +58,8 @@ def test_boxes_follow_the_view_and_fade_at_the_edges():
     assert box == pytest.approx((0.3, 0.3, 0.7, 0.7))
     mirrored = shown_box((0.1, 0.0, 0.3, 1.0), View(flip_h=True))
     assert mirrored == pytest.approx((0.1, 0.0, 0.3, 1.0))  # people are already found in the mirrored picture
+    narrower = shown_box((0.4, 0.4, 0.6, 0.6), View(stretch_x=0.5))
+    assert narrower == pytest.approx((0.45, 0.4, 0.55, 0.6))  # Transforms' Width squeezes them with the picture
     mask = boxes_mask([(0.5, 0.0, 1.0, 1.0)], 640, 360)
     assert mask[10, 5] < 0.05 and mask[10, -5] > 0.95 and 0.2 < mask[10, 20] < 0.8
 
@@ -66,6 +68,7 @@ class _Host:
     def __init__(self):
         self.wanted, self.mask = set(), None
         self.shown, self.tracked = "phone", {}
+        self.shown_view = View()
 
     def tracked_people(self, source_id=None):
         return self.tracked.get(source_id, ([], 0))
@@ -74,7 +77,7 @@ class _Host:
         return True
 
     def view(self):
-        return View()
+        return self.shown_view
 
     def want_people(self, owner, on):
         (self.wanted.add if on else self.wanted.discard)(owner)
@@ -187,6 +190,16 @@ def test_a_stream_left_blurred_stays_blurred_behind_the_panels(card):
     step = plugin.frame_step()
     see([you], seconds=OFF_S + 1)
     assert not _sharp(step(_frame()), 450, 560)
+
+
+def test_a_stream_behind_the_panels_keeps_its_own_view(card):
+    plugin, host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you, other])
+    step = plugin.frame_step()
+    before = step(_frame())
+    host.shown_view = View(zoom=3.0, flip_h=True)  # the panels moved to another phone with its own view
+    assert np.array_equal(step(_frame()), before)
 
 
 def test_blur_now_with_only_you_found_blurs_all_but_you(card):

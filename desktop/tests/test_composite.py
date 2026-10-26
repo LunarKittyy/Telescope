@@ -467,6 +467,22 @@ def test_the_picture_goes_out_on_the_telescope_camera_at_its_size(plugin):
     assert plugin.size() == (320, 180) and plugin.process_frame(frame).shape == (180, 320, 3)
 
 
+def test_the_clock_rests_while_no_stream_goes_to_the_telescope_camera(plugin, monkeypatch):
+    drawn = []
+    monkeypatch.setattr(plugin, "draw_stalled", lambda now=None: drawn.append(now) or False)
+    plugin._host.on_camera = None
+    plugin.on_stream_stop()
+    _two_streams(plugin)  # switched on
+    time.sleep(0.2)
+    assert drawn == []
+    plugin._host.on_camera = ("a", 160, 90)
+    plugin._on_camera_opened("a", 0, 160, 90)
+    deadline = time.monotonic() + 2
+    while not drawn and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert drawn  # a stream to keep moving: it ticks again
+
+
 def test_while_the_telescope_stream_stalls_the_others_keep_moving(plugin):
     _two_streams(plugin)
     host = plugin._host

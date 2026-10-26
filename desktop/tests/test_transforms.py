@@ -370,6 +370,16 @@ def test_stretch_saves_loads_and_resets(transforms_plugin):
     assert (host.vc.view.stretch_x, host.vc.view.stretch_y) == (1.0, 1.0)
     assert plugin.get_config()["stretch_x"] == 1.0
 
+
+def test_loading_a_stretch_sets_the_view_once(transforms_plugin):
+    plugin, host, _panel = transforms_plugin
+    calls = []
+    set_view = host.set_view
+    host.set_view = lambda **changes: calls.append(changes) or set_view(**changes)
+    plugin.set_config({"stretch_x": 1.25, "stretch_y": 0.7})  # every phone switch, Transforms being per phone
+    stretched = [c for c in calls if "stretch_x" in c or "stretch_y" in c]
+    assert stretched == [{"flip_h": False, "flip_v": False, "rotation": None, "stretch_x": 1.25, "stretch_y": 0.7}]
+
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
 from telescope.plugins.transforms import lens_note  # noqa: E402
