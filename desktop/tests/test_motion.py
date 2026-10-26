@@ -136,7 +136,28 @@ def test_coming_back_after_a_gap_starts_the_background_over(watched):
     assert events == [] and m.moving("s", "trap") == []
 
 
-def test_a_lens_switch_is_a_cut_not_motion(watched):
+def test_a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours(watched):
+    m, events, feed = watched
+    for i in range(5):
+        feed(_scene(square_x=100), i * 0.1)
+    m.reset(motion.LENS_SETTLE_S, now=0.45)
+    feed(_scene(square_x=100), 0.5)  # the old lens's last frames
+    for i in range(6, 30):
+        feed(_scene(square_x=400, size=120), i * 0.1)  # the tele lens: same colours, everything bigger and moved
+    assert events == [] and m.moving("s", "trap") == []
+
+
+def test_someone_filling_most_of_the_picture_still_counts(watched):
+    m, _events, feed = watched
+    for i in range(5):
+        feed(_scene(), i * 0.1)
+    close = _scene()
+    close[60:, 40:600] = 230  # right up to the lens: about 80% of the picture, the top corners still the room
+    feed(close, 0.5)
+    assert m.moving("s", "trap") == [0, 1]
+
+
+def test_everything_changing_at_once_is_a_cut_not_motion(watched):
     _m, events, feed = watched
     for i in range(5):
         feed(_scene(brightness=60), i * 0.1)

@@ -16,7 +16,9 @@ EVERY_S = 0.1  # how often a stream's frames are looked at
 ADAPT_S = 2.0  # the background takes in changes with this time constant (light drifting, something left behind)
 HOLD_S = 1.0  # a zone counts as moving for this long after it last moved, so a pause in a walk isn't two events
 GAP_S = 1.0  # frames this far apart (the panels came back to a stream, it stalled) start the background over
-CUT = 0.75  # this share of the whole picture changing at once is a cut (another lens, a zoom), not motion
+CUT = 0.6  # every part of the picture changing this much at once is a cut (a zoom, a lens picked on the phone)
+CUT_GRID = 4  # the parts: a grid this many across and down, so someone filling most of the picture still counts
+LENS_SETTLE_S = 1.5  # after a lens switch the background follows the picture this long, till the new lens is in
 SENSITIVITY_DEFAULT = 5
 # At sensitivity 1 and 10: how many grey levels a pixel has to change by, and what share of a zone has to change
 _LEVELS = (40, 12)
@@ -88,7 +90,7 @@ class Detector:
         # The median ratio, so a dark coat filling part of the picture doesn't count as the room getting darker
         lit = float(np.median(frame[::2, ::2] / np.maximum(background[::2, ::2], 1.0)))
         diff = cv2.absdiff(frame, background * lit)
-        if np.count_nonzero(diff > _LEVELS[0]) > CUT * diff.size:
+        if is_cut(diff):
             self._background, self._at = frame, now
             return None
         a = 1.0 - math.exp(-max(now - self._at, 0.0) / ADAPT_S)
@@ -98,6 +100,20 @@ class Detector:
 
     def reset(self):
         self._background = None
+
+
+def is_cut(diff: np.ndarray) -> bool:
+    """Whether every cell of a CUT_GRID grid has more than CUT of its pixels changed by a lot."""
+    h, w = diff.shape[:2]
+    if h < CUT_GRID or w < CUT_GRID:
+        return np.count_nonzero(diff > _LEVELS[0]) > CUT * diff.size
+    changed = diff > _LEVELS[0]
+    for r in range(CUT_GRID):
+        for c in range(CUT_GRID):
+            cell = changed[r * h // CUT_GRID:(r + 1) * h // CUT_GRID, c * w // CUT_GRID:(c + 1) * w // CUT_GRID]
+            if np.count_nonzero(cell) <= CUT * cell.size:
+                return False
+    return True
 
 
 def moving_zones(change: np.ndarray, zones: tuple, level: float, share: float) -> set:
@@ -148,6 +164,7 @@ class Motion:
         self._streams: dict = {}
         self._lock = threading.Lock()
         self._ms: list = []
+        self._quiet_until = float("-inf")  # time.monotonic() until which frames only take over the background
 
     def watch(self, owner: str, zones, sensitivity: int = SENSITIVITY_DEFAULT):
         """Look for motion in zones for owner, or stop with no zones. Each call starts owner over (nothing moving)."""
@@ -165,9 +182,13 @@ class Motion:
                     sv.detector.reset()  # nobody watched: the background is from long ago
         self._watches = watches
 
-    def reset(self):
-        """Every stream's background starts over (the picture turned, so everything is somewhere else)."""
+    def reset(self, settle_s: float = 0.0, now: Optional[float] = None):
+        """Every stream's background starts over (the picture turned, so everything is somewhere else), and keeps
+        following the picture for settle_s (another lens: its first frames are still on their way)."""
+        now = time.monotonic() if now is None else now
         with self._lock:
+            if settle_s > 0:
+                self._quiet_until = max(self._quiet_until, now + settle_s)
             for sv in self._streams.values():
                 sv.detector.reset()
 
@@ -194,7 +215,7 @@ class Motion:
             sv = self._streams.setdefault(key, _Stream())
         if now - sv.at < EVERY_S:
             return
-        if now - sv.at > GAP_S:
+        if now - sv.at > GAP_S or now < self._quiet_until:
             sv.detector.reset()
         sv.at = now
         t0 = time.perf_counter()

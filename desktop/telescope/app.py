@@ -29,7 +29,7 @@ from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
 from telescope.view import shown_to_view, view_to_shown
 from telescope.view_controller import ViewController
-from telescope.motion import Motion
+from telescope.motion import LENS_SETTLE_S, Motion
 from telescope.people import PeopleTracking
 from telescope.vision import Vision
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
@@ -252,6 +252,7 @@ class TelescopeWindow(QMainWindow):
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
         self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
+        self._bus.camera_switched.connect(lambda _cam: self._motion.reset(LENS_SETTLE_S))  # another lens isn't motion
         # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""

@@ -83,7 +83,7 @@ class FaceExposurePlugin(TelescopePlugin):
         self._moving = False  # the point being picked is ours
         bus.people_tracked.connect(self._on_tracked)
         bus.focus_point_picked.connect(self._on_point_picked)
-        bus.focus_mode_picked.connect(lambda _mode: self._on_point_picked())
+        bus.focus_mode_picked.connect(self._on_mode_picked)
         bus.focus_mode_changed.connect(self._on_focus_mode)
         bus.focus_point_available.connect(self._on_available)
 
@@ -159,6 +159,13 @@ class FaceExposurePlugin(TelescopePlugin):
     def _on_point_picked(self, *_point):
         if self._on and not self._moving:
             self._manual, self._forced = True, False
+            self._show()
+
+    def _on_mode_picked(self, mode: str):
+        if mode != "manual":
+            self._on_point_picked()
+        elif self._on and not self._moving:
+            self._manual, self._camera_manual, self._forced = False, True, False  # held by Manual, not by a point
             self._show()
 
     def _on_focus_mode(self, mode: str):
