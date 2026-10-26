@@ -48,7 +48,10 @@ def catalog():
             if problems:
                 raise ValueError("\n".join(problems))
             rows = [[e.msgid, e.plural, e.ctx, e.comments, e.locations, e.flags] for e in entries]
-            review.atomic_write(cached, json.dumps(rows, ensure_ascii=False).encode("utf-8"))
+            try:
+                review.atomic_write(cached, json.dumps(rows, ensure_ascii=False).encode("utf-8"))
+            except OSError:  # another worker is writing or reading the same file (Windows won't replace an open one)
+                pass
         _catalog_rows.clear()
         _catalog_rows[current] = rows
     entries = {}

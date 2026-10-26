@@ -14,9 +14,7 @@ from PyQt6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import v4l2_module_installed
-from telescope.platform.windows import (
-    download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir, unitycapture_downloaded,
-)
+from telescope.platform.windows import camera_installed, install_camera
 from telescope.plugin import TelescopePlugin
 from telescope.version import release_asset_url
 from telescope.widgets.common import (
@@ -233,7 +231,7 @@ class OnboardingPlugin(TelescopePlugin):
         signals = self._signals
 
         def work():
-            ready = v4l2_module_installed() if IS_LINUX else uc_is_registered()
+            ready = v4l2_module_installed() if IS_LINUX else camera_installed()
             signals.vcam.emit(ready, "")
         threading.Thread(target=work, daemon=True).start()
 
@@ -249,12 +247,8 @@ class OnboardingPlugin(TelescopePlugin):
 
         def work():
             try:
-                ok, msg = True, ""
-                if not unitycapture_downloaded(unitycapture_dir()):
-                    ok, msg = download_unitycapture()
-                if ok:
-                    ok, msg = register_unitycapture()
-                ready = ok and uc_is_registered()
+                ok, msg = install_camera()
+                ready = ok and camera_installed()
             except Exception as exc:  # always report back, or the step stays on "Installing…" with its button off
                 logger.exception("Virtual camera install failed")
                 ready, ok, msg = False, False, str(exc)

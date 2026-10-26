@@ -166,14 +166,17 @@ begin
   Result := '''' + Value + '''';
 end;
 
-// The virtual camera the app installs for every account (desktop/telescope/platform/windows.py)
+// The virtual camera the app installs for every account (desktop/telescope/platform/windows.py): UnityCapture, or on
+// Windows 11 its own (desktop/virtualcamera)
 function CameraInstalled(): Boolean;
 begin
   Result := DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
-            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}');
+            DirExists(ExpandConstant('{commonpf64}\Telescope\VirtualCamera')) or
+            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}') or
+            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{D1063481-2B46-4750-8A9D-85F69573355A}');
 end;
 
-// As admin: unregister the camera and delete Program Files\Telescope (Camera), and this copy's firewall rules
+// As admin: unregister the cameras and delete Program Files\Telescope (Camera), and this copy's firewall rules
 procedure RunAsAdmin(Camera: Boolean);
 var
   Script: String;
@@ -184,8 +187,8 @@ begin
     // Files a camera app still has open go at the next restart, the way setups replace locked files
     Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
       '$rs = Join-Path $env:windir ''Sysnative\regsvr32.exe''; if (-not (Test-Path -LiteralPath $rs)) { $rs = Join-Path $env:windir ''System32\regsvr32.exe'' }; ' +
-      'foreach ($n in ''UnityCaptureFilter64.dll'', ''UnityCaptureFilter32.dll'') { ' +
-      '$d = Join-Path (Join-Path $uc ''UnityCapture'') $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
+      'foreach ($n in ''UnityCapture\UnityCaptureFilter64.dll'', ''UnityCapture\UnityCaptureFilter32.dll'', ''VirtualCamera\TelescopeCamera.dll'') { ' +
+      '$d = Join-Path $uc $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
       'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ' +
       'if (Test-Path -LiteralPath $uc) { ' +
       '$k = ''HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager''; $p = @(); ' +
