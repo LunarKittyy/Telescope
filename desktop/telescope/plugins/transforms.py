@@ -132,6 +132,7 @@ class TransformsPlugin(TelescopePlugin):
     about = N_("Zoom, pan, flip, rotate and stretch the picture.")
     category = "camera"
     icon = "crop"
+    pinned = True
     when_off = N_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.")
     in_presets = True
     device_local = True
@@ -169,7 +170,7 @@ class TransformsPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._reset_btn = card_action(tr("Reset"), "reset", tr("Clear flip, rotation, zoom, pan and stretch back to defaults"))
         self._reset_btn.clicked.connect(self._reset_all)
-        add_card_header(lay, tr("Transforms"), "crop", action=self._reset_btn, hue="transforms")
+        add_card_header(lay, tr("Transforms"), self.icon, action=self._reset_btn, hue=self.category)
         dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────

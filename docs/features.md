@@ -27,7 +27,7 @@ Zooming crops from the full sensor first and hops to the telephoto lens once you
 
 ## Auto framing
 
-Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **People and vision** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
+Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **People** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
 
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
@@ -52,6 +52,8 @@ Optional. It hides other people who walk into the picture, in one of three ways 
 
 **Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
 
+With several cameras streaming it watches the one shown in the panels, and whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred stays blurred.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
 ## Fun pack
@@ -70,7 +72,7 @@ The empty room isn't saved and needs taking again after the phone moves. Switchi
 
 ## Chroma key
 
-Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Camera and picture** in the Plugins tab of Settings.
+Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Look** in the Plugins tab of Settings.
 
 - **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't quite the usual green or with uneven light
 - **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
@@ -91,7 +93,7 @@ Peaking colour and sensitivity and how big the scope is are under Video in Setti
 
 ## Desk and document mode
 
-Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Camera and picture** in the Plugins tab of Settings.
+Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Camera** in the Plugins tab of Settings.
 
 - **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
 - The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
@@ -110,7 +112,7 @@ Telescope looks about three times a second at a smaller copy away from the strea
 
 ## Photos
 
-Optional. Switch it on under **Camera and picture** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
+Optional. Switch it on under **Camera** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
 
 - **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
 - **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
@@ -152,7 +154,7 @@ It only works on 64-bit Intel and AMD computers for now.
 
 ## Name tag
 
-Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card.
+Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card. With several cameras each one has its own tag (or none), so the desk camera doesn't have to show your name too.
 
 - **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
 - **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
@@ -163,7 +165,7 @@ Optional. It puts your name and pronouns in a corner of the picture, with a smal
 
 ## Presets
 
-The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. Auto framing, Background and Colour grading are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
+The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. The optional picture plugins (Auto framing, Background, Fun pack, Colour grading and the others) are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
 
 ## Resolution and FPS
 
@@ -229,6 +231,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 - The first time Telescope adds those cameras and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all
+- Picture effects belong to the camera you set them on. Turning on a Fun pack look, Background, Chroma key, Auto framing, Expose for my face or a Name tag for one stream leaves the others as they were, just like Transforms, Desk mode and Colour grading always did
 - A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes
 - Only one stream has the mic at a time (the first to start). To move it, click another tile and turn on **Phone mic**
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
@@ -278,7 +281,7 @@ Optional. It lets the people you live with know you're on a call without you hav
 - A new IP address from the router breaks nothing, since the phone announces itself on the network
 - On a slow Wi-Fi stream the note tells you when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
 - The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
-- Camera, output, transform and alert settings are saved per phone. Connection settings and the canvas are shared
+- Camera, output, transform and alert settings are saved per phone and so are picture effects like Background or the Fun pack. Connection settings and the canvas are shared
 
 ## Privacy
 

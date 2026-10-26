@@ -396,7 +396,7 @@ class CinemaPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Cinema tools"), "focus", hue="camera")
+        add_card_header(lay, tr("Cinema tools"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
         self._peaking_switch = Switch(tr("Focus peaking"))
         self._peaking_switch.setToolTip(tr("Outline what's sharp"))
@@ -429,7 +429,7 @@ class CinemaPlugin(TelescopePlugin):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Cinema tools"), "focus", hue="camera")
+        add_card_header(lay, tr("Cinema tools"), self.icon, hue=self.category)
         keywords(card, tr("focus peaking zebras false colour color scopes waveform parade vectorscope histogram "
                           "exposure monitor", ctx="search"))
         outer.addWidget(card)

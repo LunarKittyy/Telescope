@@ -33,7 +33,7 @@ _NUDGE_PX = 1  # arrow keys move the picked stream this many pixels of the pictu
 _ZOOM_STEP = 1.1
 _SIDE_W = 384
 _LABEL_W = 72
-_HUE = "stream"
+_HUE = "streaming"  # Several cameras in one picture's group
 _MODES = {"move": N_("Move"), "scale": N_("Scale"), "stretch": N_("Stretch"), "crop": N_("Crop"), "pan": N_("Pan")}
 
 

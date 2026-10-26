@@ -24,7 +24,7 @@ from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
 from telescope import plugin_loader
-from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlugin
+from telescope.plugin import PLUGIN_CATEGORIES, UNCHANGED, EventBus, SettingsSection, TelescopePlugin
 from telescope.sensors import SensorHub
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
@@ -406,7 +406,7 @@ class TelescopeWindow(QMainWindow):
             if panel:
                 self._collapse.install(panel, plugin.name or type(plugin).__name__)
                 region = plugin.panel_region if plugin.panel_region in self._panels else "left"
-                self._panels[region].append(panel)
+                self._place_panel(region, panel, plugin)
                 # Forced: the mode hasn't changed, but the panel set has.
                 self._refresh_layout(force=True)
             header_widget = plugin.create_header_widget()
@@ -432,6 +432,20 @@ class TelescopeWindow(QMainWindow):
             self._shortcut_actions.extend(plugin.create_actions())
         except Exception:
             logging.exception("Plugin %s couldn't list its shortcut actions", plugin.name)
+
+    def _place_panel(self, region: str, panel, plugin: TelescopePlugin):
+        """Pinned cards at the top of a side column, then the others by group, each group in the order registered; the
+        stage's column keeps the order registered."""
+        panels = self._panels[region]
+        if region == "center":
+            panels.append(panel)
+            return
+        groups = [cid for cid, _name in PLUGIN_CATEGORIES]
+        group = groups.index(plugin.category) if plugin.category in groups else len(groups)
+        key = (0, 0) if plugin.pinned else (1, group)
+        self._panel_order[id(panel)] = key
+        at = next((i for i, p in enumerate(panels) if self._panel_order.get(id(p), (1, len(groups))) > key), len(panels))
+        panels.insert(at, panel)
 
     def _take_out(self, plugin: TelescopePlugin, panel, header_widget, tray: list):
         """Undo what register_plugin did for a plugin that failed part way (what it connected to the bus stays)."""
@@ -577,6 +591,7 @@ class TelescopeWindow(QMainWindow):
     def _build_ui(self):
         # Regions allow rearrangement on resize without plugin awareness.
         self._panels: dict[str, list[QWidget]] = {"left": [], "center": [], "right": []}
+        self._panel_order: dict = {}  # id(panel): (pinned or not, group), how _place_panel sorts the side columns
         self._layout_mode: Optional[str] = None
 
         root = QWidget()
@@ -1072,6 +1087,7 @@ class TelescopeWindow(QMainWindow):
         self._flow.slot_memory = {k: v for k, v in slots.items() if isinstance(v, int)} if isinstance(slots, dict) else {}
 
         conn = self._plugin("connection")
+        self._spread_shared_settings(cfg)
         for p in self._plugins:
             if not p.name or p.device_local:
                 continue
@@ -1081,6 +1097,24 @@ class TelescopeWindow(QMainWindow):
         # Sync connection plugin profile after device profile applied.
         if conn:
             conn.sync_active_profile()
+
+    def _spread_shared_settings(self, cfg: dict):
+        """A plugin that kept one copy of its settings for the whole app and now keeps one per phone starts every
+        phone that has settings saved off with that copy, then the shared copy goes."""
+        global_pcfg = cfg.get("plugin_configs", {})
+        moved = [p.name for p in self._plugins if p.name and p.device_local and isinstance(global_pcfg.get(p.name), dict)]
+        if not moved:
+            return
+        devices = cfg.setdefault("devices", {})
+        ids = {k for k, v in devices.items() if isinstance(v, dict)} | ({cfg.get("selected_device")} - {None})
+        for name in moved:
+            section = global_pcfg.pop(name)
+            for key in ids:
+                pcfg = devices.setdefault(key, {})
+                pcfg = pcfg.setdefault("plugin_configs", {}) if isinstance(pcfg, dict) else None
+                if isinstance(pcfg, dict):
+                    pcfg.setdefault(name, dict(section))
+        save_config(cfg)
 
     def _toggle(self):
         if self._sessions.preparing:                return

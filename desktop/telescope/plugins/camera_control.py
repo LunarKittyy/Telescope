@@ -135,6 +135,7 @@ class CameraControlPlugin(TelescopePlugin):
     about = N_("Exposure, white balance, focus, lenses and the phone camera's other settings.")
     category = "camera"
     icon = "camera"
+    pinned = True
     when_off = N_("Without it there's no Camera card and the phone uses its own automatic settings.")
     in_presets = True
     device_local = True
@@ -169,7 +170,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._cam_info_lbl.setObjectName("card_note")
         self._cam_info_lbl.setVisible(False)
         self._cam_info_row = self._cam_info_lbl
-        add_card_header(lay, tr("Camera"), "camera", hue="camera", action=self._cam_info_lbl)
+        add_card_header(lay, tr("Camera"), self.icon, hue=self.category, action=self._cam_info_lbl)
         dim_until_paired(card, self._bus, phone_only=True)
 
         self._lens_panel = LensPanel()

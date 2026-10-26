@@ -117,7 +117,7 @@ class NotesPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Notes"), "notes", hue="phone")
+        add_card_header(lay, tr("Notes"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._set_combo = NoScrollComboBox()

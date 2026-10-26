@@ -33,15 +33,16 @@ ALL, ON, OFF = "all", "on", "off"
 """What the filter above the tiles shows: every plugin, the ones switched on, or the ones switched off."""
 
 CATEGORY_LOOK = {
-    "camera": ("camera", "camera"),
-    "preview": ("eye", "transforms"),
-    "vision": ("skeleton", "vision"),
-    "on_screen": ("image", "stream"),
-    "sound": ("mic", "mic"),
-    "streaming": ("stream", "connection"),
-    "extras": ("plug", ""),
+    "camera": "camera",
+    "look": "colour",
+    "vision": "skeleton",
+    "preview": "eye",
+    "on_screen": "image",
+    "sound": "mic",
+    "streaming": "stream",
+    "extras": "plug",
 }
-"""Each group's (icon, hue in theme.PLUGIN_HUES), which its tiles' icons take too."""
+"""Each group's icon on its heading; its colour is theme.hue(group id), which its tiles take too."""
 
 TILE_MIN = 230
 """The narrowest a tile gets before the grid drops to fewer columns."""
@@ -383,7 +384,7 @@ class PluginsPanel(QWidget):
 
     def _group(self, cid: str, name: str, tiles: list):
         """A group of tiles under its heading, which carries the group's buttons."""
-        icon, hue = CATEGORY_LOOK.get(cid, ("plug", ""))
+        icon, hue = CATEGORY_LOOK.get(cid, "plug"), self._hue(cid)
         frame = QFrame()
         frame.setObjectName("card")  # what the settings search lists it as; flat, the tiles are the cards
         frame.setProperty("flat", True)
@@ -491,7 +492,7 @@ class PluginsPanel(QWidget):
         return tile, box, controls
 
     def _hue(self, cid: str) -> str:
-        return CATEGORY_LOOK.get(cid, ("plug", ""))[1]
+        return cid if cid in CATEGORY_LOOK else "extras"
 
     def _builtin_tile(self, plugin, on: bool, cid: str) -> QWidget:
         title, about = tr(plugin.title or plugin.name), tr(plugin.about)

@@ -716,7 +716,7 @@ class ShortcutsSection(QWidget):
         keys_lay = card_layout(keys_card)
         self._add_btn = card_action(tr("Add"), "plus", tr("Pick a control and the key for it"))
         self._add_btn.clicked.connect(lambda: self._plugin.add_binding(parent=self))
-        add_card_header(keys_lay, tr("Shortcuts"), "keyboard", action=self._add_btn)
+        add_card_header(keys_lay, tr("Shortcuts"), ShortcutsPlugin.icon, action=self._add_btn, hue=ShortcutsPlugin.category)
         keywords(keys_card, tr("hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove", ctx="search"))
         self._rows_lay = QVBoxLayout()
         self._rows_lay.setSpacing(8)
@@ -728,7 +728,7 @@ class ShortcutsSection(QWidget):
 
         global_card = create_card()
         global_lay = card_layout(global_card)
-        add_card_header(global_lay, tr("Everywhere"), "monitor")
+        add_card_header(global_lay, tr("Everywhere"), "monitor", hue=ShortcutsPlugin.category)
         keywords(global_card, tr("global system wide hotkeys background other apps", ctx="search"))
         self._system_btn = QPushButton(tr("Open"))
         self._system_btn.setToolTip(tr("Where your desktop lets you change the keys of global shortcuts"))

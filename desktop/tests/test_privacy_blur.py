@@ -184,7 +184,6 @@ def test_the_wait_screen_is_asked_for_and_the_picture_blurred_until_it_answers(c
 
 def test_a_stream_left_blurred_stays_blurred_behind_the_panels(card):
     plugin, _host, _bus, see, you, other = card
-    assert plugin.frame_step() is None
     plugin._switch.setChecked(True)
     see([you, other])
     step = plugin.frame_step()
@@ -200,6 +199,20 @@ def test_a_stream_behind_the_panels_keeps_its_own_view(card):
     before = step(_frame())
     host.shown_view = View(zoom=3.0, flip_h=True)  # the panels moved to another phone with its own view
     assert np.array_equal(step(_frame()), before)
+
+
+def test_a_stream_behind_the_panels_blurs_whenever_the_shown_one_does(card):
+    plugin, _host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you])
+    behind = plugin.frame_step()  # left while it was just you
+    frame = _frame()
+    assert np.array_equal(behind(frame.copy()), frame)
+    see([you, other])  # someone walks in on the shown camera
+    out = behind(frame.copy())
+    assert not _sharp(out, 100, 220) and not _sharp(out, 450, 560)  # all of it: nobody to tell apart there
+    see([you], seconds=OFF_S + 1)
+    assert np.array_equal(behind(frame.copy()), frame)
 
 
 def test_blur_now_with_only_you_found_blurs_all_but_you(card):

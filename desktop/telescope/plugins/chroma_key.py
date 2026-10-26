@@ -145,11 +145,12 @@ class ChromaKeyPlugin(TelescopePlugin):
     name = "chroma_key"
     title = N_("Chroma key")
     about = N_("Swaps a green or blue screen behind you for a colour or a picture, with no download.")
-    category = "camera"
+    category = "look"
     icon = "eyedropper"
     when_off = N_("Without it there's no Chroma key card and a green screen stays green.")
     optional = True
     in_presets = True
+    device_local = True  # the screen behind you is only in that camera's picture
     panel_region = "right"
 
     def setup(self, host, bus):
@@ -174,7 +175,7 @@ class ChromaKeyPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Swap the screen behind you"))
         self._switch.toggled.connect(self._changed)
-        add_card_header(lay, tr("Chroma key"), "image", action=self._switch)
+        add_card_header(lay, tr("Chroma key"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._screen_btns = {}
