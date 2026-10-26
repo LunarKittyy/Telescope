@@ -175,5 +175,5 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/preview.py -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
-- [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
+- [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, a standing page keeps its shape (Width and Height fix what Auto gets wrong), Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
 - [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.

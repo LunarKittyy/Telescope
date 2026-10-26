@@ -796,7 +796,7 @@ msgstr "Complementos"
 msgid "Updates & About"
 msgstr "Actualizaciones y Acerca de"
 
-#: telescope/plugin.py:493
+#: telescope/plugin.py:494
 msgid "Open settings"
 msgstr "Abrir configuración"
 
@@ -1126,7 +1126,7 @@ msgstr "La cámara del navegador no está disponible"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Escanea el código en la tarjeta Cámara del navegador con el dispositivo que quieras usar. Comenzará a transmitir en cuanto se conecte."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:190 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:235 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1205,7 +1205,8 @@ msgctxt "camera section"
 msgid "Light"
 msgstr "Iluminación"
 
-#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/desk.py:23 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "Auto"
 
@@ -1742,7 +1743,7 @@ msgstr "Ya puedes iniciar la transmisión."
 msgid "Paired with {name}"
 msgstr "Vinculado con {name}"
 
-#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:188
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:233
 msgid "Done"
 msgstr "Listo"
 
@@ -2183,84 +2184,126 @@ msgstr ""
 msgid "Black and white"
 msgstr ""
 
-#: telescope/plugins/desk.py:155 telescope/plugins/desk.py:220 telescope/plugins/desk.py:233
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "A4"
+msgstr ""
+
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "Letter"
+msgstr ""
+
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "Square"
+msgstr ""
+
+#: telescope/plugins/desk.py:24
+msgid "Fill the picture"
+msgstr ""
+
+#: telescope/plugins/desk.py:200 telescope/plugins/desk.py:287
 msgid "Desk and document mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:156
+#: telescope/plugins/desk.py:201
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
 msgstr ""
 
-#: telescope/plugins/desk.py:157
+#: telescope/plugins/desk.py:202
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
 msgstr ""
 
-#: telescope/plugins/desk.py:180
+#: telescope/plugins/desk.py:225
 msgid "Straighten the sheet you marked"
 msgstr ""
 
-#: telescope/plugins/desk.py:182 telescope/plugins/desk.py:235
+#: telescope/plugins/desk.py:227 telescope/plugins/desk.py:289
 msgid "Desk mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:185 telescope/plugins/desk.py:236 telescope/plugins/desk.py:302
+#: telescope/plugins/desk.py:230 telescope/plugins/desk.py:290 telescope/plugins/desk.py:363
 msgid "Mark the sheet"
 msgstr ""
 
-#: telescope/plugins/desk.py:186
+#: telescope/plugins/desk.py:231
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:202
+#: telescope/plugins/desk.py:242 telescope/plugins/transforms.py:165
+msgid "Reset"
+msgstr "Restablecer"
+
+#: telescope/plugins/desk.py:242
+msgid "Put the width and height back to 100%"
+msgstr ""
+
+#: telescope/plugins/desk.py:247
 msgid "Make the writing on the sheet stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:207
+#: telescope/plugins/desk.py:249
 msgid "Writing"
 msgstr ""
 
-#: telescope/plugins/desk.py:221
-msgctxt "search"
-msgid "document paper sheet whiteboard homework perspective straighten keystone scan"
+#: telescope/plugins/desk.py:250
+msgid "Auto works the shape out from the corners"
 msgstr ""
 
-#: telescope/plugins/desk.py:223
-msgid "Keep the sheet's shape"
+#: telescope/plugins/desk.py:252 telescope/plugins/stream_output.py:181
+msgid "Shape"
+msgstr "Forma"
+
+#: telescope/plugins/desk.py:255
+msgid "Width"
 msgstr ""
 
-#: telescope/plugins/desk.py:224
-msgid "Off stretches the sheet to fill the whole picture"
+#: telescope/plugins/desk.py:255
+msgid "Stretch the sheet sideways if it still looks squashed"
 msgstr ""
 
-#: telescope/plugins/desk.py:237
+#: telescope/plugins/desk.py:256
+msgid "Height"
+msgstr ""
+
+#: telescope/plugins/desk.py:256
+msgid "Stretch the sheet up and down if it still looks squashed"
+msgstr ""
+
+#: telescope/plugins/desk.py:291
 msgid "Make the writing stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:270
+#: telescope/plugins/desk.py:292
+msgid "Sheet shape"
+msgstr ""
+
+#: telescope/plugins/desk.py:331
 msgid "Drag the corners onto the sheet's corners, then press Enter."
 msgstr ""
 
-#: telescope/plugins/desk.py:271
+#: telescope/plugins/desk.py:332
 msgid "Start streaming to mark the sheet on the preview."
 msgstr ""
 
-#: telescope/plugins/desk.py:302
+#: telescope/plugins/desk.py:363
 msgid "Mark the sheet again"
 msgstr ""
 
-#: telescope/plugins/desk.py:304
+#: telescope/plugins/desk.py:370
 msgid "Drag the corners on the preview onto the sheet's corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:306
+#: telescope/plugins/desk.py:372
 msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:309
+#: telescope/plugins/desk.py:375
 msgid "Mark the sheet's corners to straighten it."
 msgstr ""
 
-#: telescope/plugins/desk.py:311
+#: telescope/plugins/desk.py:377
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
 msgstr ""
 
@@ -4153,10 +4196,6 @@ msgstr "La resolución, velocidad de fotogramas y formato de la transmisión."
 msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
 msgstr "Sin ella, no hay tarjeta Salida de transmisión y las transmisiones usan el tamaño y formato que elija el teléfono."
 
-#: telescope/plugins/stream_output.py:181
-msgid "Shape"
-msgstr "Forma"
-
 #: telescope/plugins/stream_output.py:197
 msgid "The phone's capture rate and the virtual camera's. Lower saves data and battery."
 msgstr "La velocidad de captura del teléfono y la de la cámara virtual. Un valor más bajo ahorra datos y batería."
@@ -4305,10 +4344,6 @@ msgstr "Aplica zoom y panorámica, voltea y rota la foto."
 #: telescope/plugins/transforms.py:132
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Sin este complemento no habrá tarjeta Transformaciones y la foto saldrá exactamente como la envía el teléfono."
-
-#: telescope/plugins/transforms.py:165
-msgid "Reset"
-msgstr "Restablecer"
 
 #: telescope/plugins/transforms.py:165
 msgid "Clear flip, rotation, zoom and pan back to defaults"

@@ -612,7 +612,15 @@ def desk_straightened(stack):
     return cards(stack, win, "desk")
 
 
-@scene("desk-no-corners", "states", "Desk mode · switched on, the marking cancelled", width=CARD_WIDTH)
+@scene("desk-stretched", "states", "Desk mode · an A4 sheet stretched by hand", width=CARD_WIDTH)
+def desk_stretched(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "shape": "a4",
+                                       "stretch": [115, 90]})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-no-corners","states", "Desk mode · switched on, the marking cancelled", width=CARD_WIDTH)
 def desk_no_corners(stack):
     win, _source = streaming_window(stack)
     picture(win)
