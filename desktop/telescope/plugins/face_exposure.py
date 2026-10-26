@@ -1,4 +1,4 @@
-"""Expose for my face: moves the phone's metering point (the one Tap a point uses) to your face, calmly."""
+"""Expose for my face: moves the phone's metering point (Tap a point's, or a meter-only one) to your face, calmly."""
 import math
 import time
 from typing import Optional
@@ -79,13 +79,16 @@ class FaceExposurePlugin(TelescopePlugin):
         self._manual = False  # a point was picked by hand, which wins until the plugin is switched off and on again
         self._camera_manual = False  # the Camera card is on Manual focus, which a point would undo
         self._forced = False  # Follow my face was clicked, so a point goes out even then
-        self._available = False  # the lens can meter on a point, and a stream is there to send it to
+        self._focus_ok = False  # the lens can focus (and meter) on a point, and a stream is there to send it to
+        self._meter_ok = False  # the lens can meter on a point without focusing there
         self._moving = False  # the point being picked is ours
         bus.people_tracked.connect(self._on_tracked)
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.focus_mode_picked.connect(self._on_mode_picked)
         bus.focus_mode_changed.connect(self._on_focus_mode)
-        bus.focus_point_available.connect(self._on_available)
+        bus.focus_point_available.connect(self._on_focus_available)
+        bus.meter_point_available.connect(self._on_meter_available)
+        bus.camera_switched.connect(lambda _cam: self._meter.reset())  # the phone forgets the point on another lens
 
     # ── Card ──────────────────────────────────────────────────────────────
 
@@ -146,13 +149,24 @@ class FaceExposurePlugin(TelescopePlugin):
         self._manual_note.setVisible(held)
         self._follow_btn.setVisible(held)
         problem = ""
-        if self._on and not self._available and self._host.is_streaming():
+        if self._on and not self._how() and self._host.is_streaming():
             problem = tr("This lens can't meter on a point.")
         self._status.refresh(self._on, problem)
 
-    def _on_available(self, available: bool):
-        self._available = available
-        if not available:
+    def _how(self) -> str:
+        """How the point goes to the phone: "focus" (it also focuses there), "meter" (only exposure) or "" (it can't)."""
+        return "focus" if self._focus_ok else "meter" if self._meter_ok else ""
+
+    def _on_focus_available(self, available: bool):
+        self._set_available(available, self._meter_ok)
+
+    def _on_meter_available(self, available: bool):
+        self._set_available(self._focus_ok, available)
+
+    def _set_available(self, focus: bool, meter: bool):
+        was = self._how()
+        self._focus_ok, self._meter_ok = focus, meter
+        if self._how() != was:
             self._meter.reset()  # the phone forgot the point (another lens, or the stream ended)
         self._show()
 
@@ -181,7 +195,8 @@ class FaceExposurePlugin(TelescopePlugin):
     # ── Following (Qt thread) ─────────────────────────────────────────────
 
     def _on_tracked(self, source_id: str, tracks: list, _count: int):
-        if not self._on or self._held() or not self._available:
+        how = self._how()
+        if not self._on or self._held() or not how:
             return
         if source_id != (self._host.focused_source_id() or ""):
             return
@@ -191,6 +206,8 @@ class FaceExposurePlugin(TelescopePlugin):
         shown = self._shown(point) if point is not None else None
         if point is not None and shown is None:
             self._meter.point = None  # outside the picture as shown: tried again once you're back in it
+        elif shown is not None and how == "meter":
+            self._bus.meter_point_picked.emit(*shown)
         elif shown is not None:
             self._moving = True
             try:

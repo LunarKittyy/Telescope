@@ -578,6 +578,14 @@ class EventBus(QObject):
     """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
     focus_point_available  = pyqtSignal(bool)
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
+    meter_point_picked     = pyqtSignal(float, float)
+    """A point to meter exposure on and leave focus alone, 0..1 in the frame as shown, for a lens that can meter on a
+    point but not focus on one."""
+    meter_point            = pyqtSignal(float, float)
+    """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
+    meter_point_available  = pyqtSignal(bool)
+    """Whether the current lens can meter on a point (and a stream is running to send it to); said right after
+    focus_point_available."""
     focus_mode_picked      = pyqtSignal(str)
     """A focus mode was picked by hand on the Camera card: "auto", "point" or "manual"."""
     focus_mode_changed     = pyqtSignal(str)

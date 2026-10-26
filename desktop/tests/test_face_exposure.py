@@ -183,6 +183,25 @@ def test_nothing_is_sent_while_the_lens_cant_meter_on_a_point(card):
     assert picked == [] and "can't meter" in plugin._status.text()
 
 
+def test_a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone(card):
+    plugin, _host, bus, picked, see = card
+    metered = []
+    bus.meter_point_picked.connect(lambda x, y: metered.append((x, y)))
+    plugin._switch.setChecked(True)
+    bus.focus_point_available.emit(False)  # a fixed-focus front camera
+    bus.meter_point_available.emit(True)
+    see((0.4, 0.3))
+    assert picked == [] and metered == [pytest.approx((0.4, 0.3))]
+    assert "can't meter" not in plugin._status.text()
+    bus.focus_point_available.emit(False)  # the phone's next state says the same: the point isn't sent again
+    bus.meter_point_available.emit(True)
+    see((0.4, 0.3), seconds=3)
+    assert len(metered) == 1
+    bus.camera_switched.emit({})  # another lens forgets the point
+    see((0.4, 0.3))
+    assert len(metered) == 2
+
+
 def test_manual_focus_on_the_camera_card_is_left_alone_until_follow_my_face(card):
     plugin, _host, bus, picked, see = card
     bus.focus_mode_changed.emit("manual")  # restored from the saved settings
