@@ -77,6 +77,9 @@ class UdpLink {
         const val LOSS_DATAGRAMS = 50  // loss counts once this many were sent: at low bitrates one lost in 8 isn't 12%
         const val GAP_MS = 500L        // no report for this long: nothing gets through, like a stall over TCP
         const val LATELY_MS = 2_000L   // lossLately is over this long
+        const val PEAK_MS = 5_000L     // peakBps is the fastest the video came in over this long...
+        const val PEAK_QUEUE_MS = 20L  // ...while every frame that came in meanwhile queued at least this long on the way
+        const val PEAK_SPAN_MS = 250L  // over at least this long, so a report that came late doesn't read as a burst
         private const val U32 = 0xFFFFFFFFL
         private const val KEEP = 120  // frames whose send time is kept, for the reports about them
     }
@@ -102,6 +105,11 @@ class UdpLink {
     private val batches = ArrayDeque<LongArray>()  // (when, sent, got) per loss share, for lossLately
     private var batchLoss = 0.0  // the last loss share, which samples carry until the next one (or LATELY_MS)
     private var batchLossMs = Long.MIN_VALUE / 2
+    private var peakBytes = 0L
+    private var peakClockMs = 0L
+    private var peakQueueMs = Long.MAX_VALUE  // the shortest a newly whole frame's trip took past the quickest, meanwhile
+    private var tripFrame = -1
+    private val peaks = ArrayDeque<DoubleArray>()  // (when, bps), falling: its first is the fastest lately
 
     /** Whether this desktop sends reports at all (an older one doesn't). */
     @Volatile var reporting = false
@@ -125,11 +133,26 @@ class UdpLink {
             bytes += (r.bytes - prev.bytes) and U32
             clockMs += (r.clockMs - prev.clockMs) and U32
             gaveUp += (r.gaveUp - prev.gaveUp) and 0xFFFF
+            peakBytes += (r.bytes - prev.bytes) and U32
+            peakClockMs += (r.clockMs - prev.clockMs) and U32
         }
         last = r
         reporting = true
         fresh = true
         lastReportMs = nowMs
+        trip(r, nowMs)
+        if (peakClockMs >= PEAK_SPAN_MS) {
+            // Only a stretch whose frames all queued on the way went as fast as the link goes; otherwise it has room
+            if (peakQueueMs != Long.MAX_VALUE && peakQueueMs >= PEAK_QUEUE_MS) {
+                val bps = peakBytes * 8_000.0 / peakClockMs
+                while (peaks.isNotEmpty() && peaks.last()[1] <= bps) peaks.removeLast()
+                peaks.addLast(doubleArrayOf(nowMs.toDouble(), bps))
+            }
+            peakBytes = 0; peakClockMs = 0; peakQueueMs = Long.MAX_VALUE
+        }
+    }
+
+    private fun trip(r: UdpReport, nowMs: Long) {
         val at = sentAt[r.frame] ?: return
         val trip = nowMs - at - r.sinceMs
         if (trip < 0) return
@@ -137,6 +160,15 @@ class UdpLink {
         trips.addLast(longArrayOf(nowMs, trip))
         while (nowMs - trips.first()[0] > FLOOR_MS) trips.removeFirst()
         extraMs = minOf(extraMs, trip - trips.first()[1])
+        if (r.frame != tripFrame) peakQueueMs = minOf(peakQueueMs, trip - trips.first()[1])  // a frame reported again says nothing new
+        tripFrame = r.frame
+    }
+
+    /** The fastest video came in lately while it queued on the way: a burst that filled the link shows its speed. 0 = not known. */
+    @Synchronized
+    fun peakBps(nowMs: Long): Double {
+        while (peaks.isNotEmpty() && nowMs - peaks.first()[0] > PEAK_MS) peaks.removeFirst()
+        return peaks.firstOrNull()?.get(1) ?: 0.0
     }
 
     /** How the link did since the last take (waitingMs: the head of the phone's queue), or null with no new report. */
@@ -398,6 +430,9 @@ class UdpVideoClient(
     /** How the link to this desktop did since the last call, for Dynamic; null while it sends no reports. */
     fun takeLink(): UdpLink.Take? = link.take(nowMs(), frames.peek()?.let { nowMs() - it.atMs } ?: 0L)
 
+    /** The fastest video reached this desktop lately while it queued on the way (UdpLink.peakBps), 0 when not known. */
+    fun peakBps(): Double = link.peakBps(nowMs())
+
     /** Dynamic keeps the send buffer short (bytes, 0 = the default) like H264Client's, so a full link shows as a queue. */
     fun limitBuffer(bytes: Int) {
         if (bytes == sendBuffer || (bytes > 0 && sendBuffer > 0 && bytes in sendBuffer * 4 / 5..sendBuffer * 5 / 4)) return
@@ -416,9 +451,17 @@ class UdpVideoClient(
         const val PACE = 2.5             // Dynamic sends this many times as fast as the video comes...
         const val PACE_MIN_BPS = 2_000_000  // ...but never slower than this
         const val PACE_BURST = 16 * 1024 // and lets this much go at once
+        // Once Dynamic found the wall, only a little faster than the link went (UdpLink.peakBps): 2.5 times a big
+        // keyframe overflows a router that buffers 100 ms, and the loss then cuts the bitrate to about half the link
+        const val PACE_OVER_LINK = 1.1
+        const val PACE_FLOOR = 1.2       // yet always this much faster than the video
         // Dynamic's bitrate too: a still scene that starts moving spends its whole budget at once
-        fun paceFor(encodedBps: Double, dynamicBps: Int = 0): Int =
-            maxOf(PACE_MIN_BPS.toDouble(), maxOf(encodedBps, dynamicBps.toDouble()) * PACE).toInt()
+        fun paceFor(encodedBps: Double, dynamicBps: Int = 0, peakBps: Double = 0.0): Int {
+            val video = maxOf(encodedBps, dynamicBps.toDouble())
+            val pace = maxOf(PACE_MIN_BPS.toDouble(), video * PACE)
+            if (peakBps <= 0) return pace.toInt()
+            return minOf(pace, maxOf(video * PACE_FLOOR, peakBps * PACE_OVER_LINK)).toInt()
+        }
         const val QUEUE = 8              // frames waiting to go out; more and the link (or the phone) is stuck
         const val KEEP_FRAMES = 90       // about three seconds at 30 fps for a NACK to ask for again
         const val KEEPALIVE_MS = 1000L

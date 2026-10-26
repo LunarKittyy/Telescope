@@ -73,6 +73,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
 
     private var target = bitrate.toDouble()
     private var capacity = 0.0          // what got through when the link last filled up; 0 = not known
+    /** Whether the link has filled up at all: UDP then paces near the speed it last went at (UdpVideoClient.paceFor). */
+    @Volatile var full = false
+        private set
     private var capacityAtMs = 0L
     private var lastCutMs = Long.MIN_VALUE / 2
     private var lastStepMs = Long.MIN_VALUE / 2
@@ -157,6 +160,7 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
             // Where the wall is: what got through on a slower link, or after a dip, about where the output ran into it.
             capacity = if (slower) sent else maxOf(sent, target * usage * 0.9)
             capacityAtMs = s.nowMs
+            full = true
             lastCutMs = s.nowMs
             climbs = 0
             if (probing) probeMs = minOf(PROBE_MAX_MS, probeMs * 3 / 2)

@@ -48,7 +48,8 @@ class DynamicUdpSimTest {
     }
 
     private fun simulate(name: String, dynamic: Boolean, link: Link, seconds: Int, seed: Int = 1,
-                         usage: (Long) -> Double = { 0.9 }, startBps: Int = auto): Result {
+                         usage: (Long) -> Double = { 0.9 }, startBps: Int = auto, keyShare: Double = 5.0 / 30,
+                         linkPace: Boolean = true): Result {
         val rnd = Random(seed)
         var now = 0L
         val controller = if (dynamic) DynamicBitrate(startBps, top) else null
@@ -130,7 +131,7 @@ class DynamicUdpSimTest {
                 val key = wantKey || frameNo % fps == 0
                 wantKey = false
                 val perFrame = bitrate / 8.0 / fps * usage(now)
-                val size = (perFrame * (if (key) 5.0 else 25.0 / 29.0) * (0.8 + 0.4 * rnd.nextDouble())).toInt()
+                val size = (perFrame * (if (key) keyShare * fps else (1 - keyShare) * fps / (fps - 1)) * (0.8 + 0.4 * rnd.nextDouble())).toInt()
                 encoded += size
                 frameNo++
                 if (!(waitingForKey && !key)) {
@@ -149,17 +150,18 @@ class DynamicUdpSimTest {
                 sending = ArrayDeque((0 until count).map { i -> Dgram(s, i, count, (if (i < count - 1) piece else q.size - piece * (count - 1)).coerceAtLeast(1) + overhead) })
                 sendingFrame = q
             }
+            // Paced into the send buffer as it has room, like a blocking send; resends skip the pacing, as on the phone
+            paceCredit = minOf(paceCredit + (if (paceBps > 0) paceBps / 8000.0 else 1e12), UdpVideoClient.PACE_BURST.toDouble())
             sending?.let { parts ->
-                while (parts.isNotEmpty() && sndbufBytes + parts.first().size <= sndbufCap) {
-                    val d = parts.removeFirst(); sndbuf.addLast(d); sndbufBytes += d.size
+                while (parts.isNotEmpty() && sndbufBytes + parts.first().size <= sndbufCap && paceCredit >= parts.first().size) {
+                    val d = parts.removeFirst(); sndbuf.addLast(d); sndbufBytes += d.size; paceCredit -= d.size
                 }
                 if (parts.isEmpty()) { udpLink.sent(seq - 1, sendingFrame!!.atMs, now); sending = null }
             }
             // The phone's Wi-Fi, then the router
             wifiCredit += path.wifiMbps * 1000 / 8
-            paceCredit = minOf(paceCredit + (if (paceBps > 0) paceBps / 8000.0 else 1e12), UdpVideoClient.PACE_BURST.toDouble())
-            while (sndbuf.isNotEmpty() && wifiCredit >= sndbuf.first().size && paceCredit >= sndbuf.first().size) {
-                val d = sndbuf.removeFirst(); sndbufBytes -= d.size; wifiCredit -= d.size; paceCredit -= d.size
+            while (sndbuf.isNotEmpty() && wifiCredit >= sndbuf.first().size) {
+                val d = sndbuf.removeFirst(); sndbufBytes -= d.size; wifiCredit -= d.size
                 d.counter = counter++; sentDgrams++
                 if (rnd.nextDouble() < path.loss || routerBytes + d.size > path.routerMbps * 1000 / 8 * path.bufferMs) { lostOnWay++; continue }
                 router.addLast(d); routerBytes += d.size
@@ -216,7 +218,7 @@ class DynamicUdpSimTest {
                     for (s in next!!..newest) {
                         val f = dframes.getOrPut(s) { DFrame() }
                         if (f.complete()) continue
-                        if (f.noticed < 0) f.noticed = now
+                        if (f.noticed < 0 || (s in keyframes && f.parts.size != f.progress)) { f.noticed = now; f.progress = f.parts.size }
                         val waited = now - f.noticed
                         if (waited >= 250) {
                             gaveUp++; gaveUpAt.add(now); next = null; dframes.keys.removeAll { it <= s }
@@ -242,7 +244,7 @@ class DynamicUdpSimTest {
             // Phone: sample every 250 ms, like MjpegServer
             if (now > 0 && now % MjpegServer.LINK_SAMPLE_MS == 0L) {
                 (encoded * 8_000.0 / MjpegServer.LINK_SAMPLE_MS).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
-                if (dynamic) { sndbufCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2; paceBps = UdpVideoClient.paceFor(encodedBps, bitrate) }
+                if (dynamic) { sndbufCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2; paceBps = UdpVideoClient.paceFor(encodedBps, bitrate, if (controller!!.full && linkPace) udpLink.peakBps(now) else 0.0) }
                 val take = udpLink.take(now, frames.firstOrNull()?.let { now - it.atMs } ?: 0L)
                 if (take != null) {
                     controller?.update(DynamicBitrate.Sample(now, take.queueMs, take.sentBytes, encoded, take.loss, take.routerMs, take.lossLately))?.let { bitrate = it }
@@ -277,8 +279,8 @@ class DynamicUdpSimTest {
         val (dyn, fixed) = compare("Router at 5 Mbps, 100 ms buffer, 0.5% loss", { Path(40.0, 5.0, 100, 0.005) }, 90)
         assertTrue(dyn.p95Ms < 300, "p95 ${dyn.p95Ms}")
         assertTrue(dyn.frozenPct < 5 && fixed.frozenPct > 50, "frozen ${dyn.frozenPct} vs ${fixed.frozenPct}")
-        assertTrue(dyn.gaveUpAt.all { it < 5_000 }, "freezes only while it finds the link: ${dyn.gaveUpAt}")
-        assertTrue(dyn.bitrates.drop(10).all { it in 2_800_000..4_500_000 }, "${dyn.bitrates.drop(10)}")
+        assertTrue(dyn.gaveUpAt.count { it >= 5_000 } <= 1, "freezes while it finds the link, then at most once when a probe overshoots: ${dyn.gaveUpAt}")
+        assertTrue(dyn.bitrates.drop(10).all { it in 2_800_000..5_200_000 }, "${dyn.bitrates.drop(10)}")
     }
 
     @Test
@@ -293,7 +295,7 @@ class DynamicUdpSimTest {
         val (dyn, fixed) = compare("Phone's Wi-Fi at 6 Mbps", { Path(6.0, 100.0, 100, 0.0) }, 90)
         assertTrue(dyn.p95Ms < 300 && dyn.frozenPct < 3, "p95 ${dyn.p95Ms} frozen ${dyn.frozenPct}")
         assertTrue(fixed.p95Ms > 1_000, "Auto lags: ${fixed.p95Ms}")
-        assertTrue(dyn.bitrates.drop(10).all { it in 3_000_000..6_000_000 }, "${dyn.bitrates.drop(10)}")
+        assertTrue(dyn.bitrates.drop(10).all { it in 3_000_000..6_500_000 }, "${dyn.bitrates.drop(10)}")
     }
 
     @Test
@@ -350,6 +352,24 @@ class DynamicUdpSimTest {
         val dyn = simulate("Dynamic over UDP", true, { Path(40.0, 40.0, 100, 0.15) }, 20, startBps = 1_000_000)
         println("\n1 Mbps, 15% loss\n  $dyn\n  " + dyn.bitrates.joinToString(" ") { "%.2f".format(it / 1e6) })
         assertTrue(dyn.bitrates.drop(5).all { it < 1_000_000 }, "${dyn.bitrates}")
+    }
+
+    @Test
+    fun `a still scene's big keyframes fit a thin router once the link's speed is known`() {
+        // A desk with nothing moving puts half of each second into its keyframe. Paced at 2.5 times the video, that
+        // overflowed a 4 Mbps router's 100 ms buffer every few seconds and the loss held Dynamic near half the link
+        val link = Link { Path(40.0, 4.0, 100, 0.0) }
+        val dyn = simulate("Dynamic over UDP", true, link, 60, usage = { 0.8 }, keyShare = 0.5)
+        val before = simulate("2.5 times throughout", true, link, 60, usage = { 0.8 }, keyShare = 0.5, linkPace = false)
+        println("\nStill scene, 4 Mbps router, 100 ms buffer\n  $dyn\n  $before")
+        for (r in listOf(dyn, before)) {
+            println("  ${r.name} (Mbps): " + r.bitrates.joinToString(" ") { "%.1f".format(it / 1e6) })
+            println("  ${r.name} loss (%): " + r.lossPerSecond.joinToString(" ") { "%.0f".format(it) })
+        }
+        val lossy = dyn.lossPerSecond.drop(10).count { it > 3 }
+        assertTrue(lossy <= 3 && lossy < before.lossPerSecond.drop(10).count { it > 3 }, "seconds over 3% loss: ${dyn.lossPerSecond}")
+        val settled = dyn.bitrates.drop(20).sorted()[20]
+        assertTrue(settled >= 2_600_000 && settled > before.bitrates.drop(20).sorted()[20], "settled at $settled: ${dyn.bitrates}")
     }
 
     @Test

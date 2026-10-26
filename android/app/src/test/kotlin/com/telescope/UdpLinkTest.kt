@@ -85,6 +85,26 @@ class UdpLinkTest {
     }
 
     @Test
+    fun `the link's speed is what came in while every frame queued on the way`() {
+        val link = UdpLink()
+        var bytes = 0L
+        fun frame(n: Int, tripMs: Long, kb: Int = 50) {  // a report every 100 ms of the desktop's clock, on frame n
+            bytes += kb * 1000L
+            val now = 1_000L + 100 * n
+            link.sent(n, now - tripMs, now - tripMs)
+            link.report(report(10L * n, 10L * n, bytes, 100L * n, n), now)
+        }
+        frame(0, 20, kb = 0)  // the quickest trip
+        for (n in 1..3) frame(n, 20)
+        assertEquals(0.0, link.peakBps(1_300))  // no queue: the link may well go faster
+        for (n in 4..6) frame(n, 80)
+        assertEquals(4_000_000.0, link.peakBps(1_600), 1.0)  // 150 KB in 300 ms while queued
+        for (n in 7..9) frame(n, if (n == 8) 80 else 20, kb = 100)  // one frame late (waiting on a resend, say)
+        assertEquals(4_000_000.0, link.peakBps(1_900), 1.0)
+        assertEquals(0.0, link.peakBps(1_600 + UdpLink.PEAK_MS + 1))
+    }
+
+    @Test
     fun `frames waiting on the phone are a queue too`() {
         val link = UdpLink()
         link.report(report(0, 0), 0)

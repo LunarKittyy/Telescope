@@ -115,6 +115,15 @@ class UdpVideoTest {
     }
 
     @Test
+    fun `once the link's speed is known pacing stays a little over it`() {
+        // 3 Mbps video on a 4 Mbps link: 2.5 times would overflow a short router buffer with each keyframe
+        assertEquals((4_000_000 * UdpVideoClient.PACE_OVER_LINK).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 4_000_000.0))
+        // never slower than a little over the video, nor faster than without it
+        assertEquals((3_000_000 * UdpVideoClient.PACE_FLOOR).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 1_000_000.0))
+        assertEquals((3_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 50_000_000.0))
+    }
+
+    @Test
     fun `a desktop that sends no feedback loses its session`() {
         Session(timeoutMs = 100L).use { session ->
             session.runner.join(1000)
