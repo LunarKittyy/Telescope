@@ -94,6 +94,7 @@ class FunPackPlugin(TelescopePlugin):
     about = N_("Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh.")
     category = "look"
     icon = "sparkle"
+    frame_stage = "effects"
     when_off = N_("Without it there's no Fun pack card and the picture has no effects.")
     optional = True
     in_presets = True

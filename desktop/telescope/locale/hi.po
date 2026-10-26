@@ -115,7 +115,7 @@ msgid "Stop"
 msgstr "रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:673 telescope/app.py:2160 telescope/app.py:2176 telescope/plugins/shortcuts.py:154 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:673 telescope/app.py:2179 telescope/app.py:2195 telescope/plugins/shortcuts.py:154 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "शुरू"
 
@@ -123,7 +123,7 @@ msgstr "शुरू"
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: telescope/app.py:720 telescope/app.py:1513 telescope/app.py:1578 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/sources.py:179 telescope/stream.py:459 telescope/stream_flow.py:156
+#: telescope/app.py:720 telescope/app.py:1532 telescope/app.py:1597 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/sources.py:179 telescope/stream.py:459 telescope/stream_flow.py:156
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -143,196 +143,196 @@ msgstr "Telescope - सेव नहीं हो सका"
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
-#: telescope/app.py:1262
+#: telescope/app.py:1281
 msgid "Reconnecting"
 msgstr "फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:1264
+#: telescope/app.py:1283
 msgid "Live"
 msgstr "लाइव"
 
-#: telescope/app.py:1266
+#: telescope/app.py:1285
 msgid "Connecting"
 msgstr "कनेक्ट हो रहा है"
 
-#: telescope/app.py:1270
+#: telescope/app.py:1289
 msgid "Starting"
 msgstr "शुरू हो रहा है"
 
-#: telescope/app.py:1274
+#: telescope/app.py:1293
 msgid "Waiting"
 msgstr "इंतज़ार में"
 
-#: telescope/app.py:1320
+#: telescope/app.py:1339
 msgid "Setting up more virtual cameras…"
 msgstr "और वर्चुअल कैमरे सेट किए जा रहे हैं…"
 
-#: telescope/app.py:1344 telescope/plugins/setup.py:721
+#: telescope/app.py:1363 telescope/plugins/setup.py:721
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
-#: telescope/app.py:1344
+#: telescope/app.py:1363
 msgid "There are none to remove"
 msgstr "हटाने के लिए कुछ नहीं है"
 
-#: telescope/app.py:1372
+#: telescope/app.py:1391
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr "{first} से {last}"
 
-#: telescope/app.py:1374
+#: telescope/app.py:1393
 msgid "Set up more virtual cameras"
 msgstr "और वर्चुअल कैमरे सेट करें"
 
-#: telescope/app.py:1375
+#: telescope/app.py:1394
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr "एक साथ कई कैमरे स्ट्रीम करने के लिए, Telescope और वर्चुअल कैमरे जोड़ता है ({names})."
 
-#: telescope/app.py:1376
+#: telescope/app.py:1395
 msgid "This asks for your password."
 msgstr "यह आपका पासवर्ड मांगेगा."
 
-#: telescope/app.py:1376 telescope/plugins/setup.py:723
+#: telescope/app.py:1395 telescope/plugins/setup.py:723
 msgid "Windows asks for permission."
 msgstr "Windows अनुमति मांगता है."
 
-#: telescope/app.py:1393
+#: telescope/app.py:1412
 msgid "Couldn't add more virtual cameras"
 msgstr "और वर्चुअल कैमरे नहीं जोड़े जा सके"
 
-#: telescope/app.py:1411
+#: telescope/app.py:1430
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr "सिर्फ़ एक फ़ोन ही अपना कैमरा बंद कर सकता है और अपना माइक स्ट्रीम करना जारी रख सकता है."
 
-#: telescope/app.py:1413
+#: telescope/app.py:1432
 msgid "Only while one camera streams."
 msgstr "सिर्फ़ तब जब एक कैमरा स्ट्रीम होता है."
 
-#: telescope/app.py:1415
+#: telescope/app.py:1434
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr "पहले फ़ोन का माइक चालू करें. कैमरा बंद होने पर, सिर्फ़ माइक ही स्ट्रीम होता है."
 
-#: telescope/app.py:1417
+#: telescope/app.py:1436
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr "स्ट्रीमिंग के दौरान कैमरा बंद करने के लिए फ़ोन पर Telescope अपडेट करें."
 
-#: telescope/app.py:1469
+#: telescope/app.py:1488
 msgid "Turning the phone's camera on…"
 msgstr "फ़ोन का कैमरा चालू किया जा रहा है…"
 
-#: telescope/app.py:1477
+#: telescope/app.py:1496
 msgid "Streaming the mic, camera off"
 msgstr "माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1502
+#: telescope/app.py:1521
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है"
 
-#: telescope/app.py:1502
+#: telescope/app.py:1521
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: कैमरा और माइक स्ट्रीम हो रहे हैं"
 
-#: telescope/app.py:1503
+#: telescope/app.py:1522
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है, माइक म्यूट"
 
-#: telescope/app.py:1505
+#: telescope/app.py:1524
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद (म्यूट)"
 
-#: telescope/app.py:1506
+#: telescope/app.py:1525
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1530
+#: telescope/app.py:1549
 msgid "Stop all but one camera first, then apply again"
 msgstr "पहले एक कैमरे को छोड़कर बाकी सब रोकें, फिर लागू करें"
 
-#: telescope/app.py:1542
+#: telescope/app.py:1561
 msgid "Reloading v4l2loopback…"
 msgstr "v4l2loopback दोबारा लोड किया जा रहा है…"
 
-#: telescope/app.py:1560
+#: telescope/app.py:1579
 msgid "Restarting stream…"
 msgstr "स्ट्रीम रीस्टार्ट हो रही है…"
 
-#: telescope/app.py:1574
+#: telescope/app.py:1593
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "लूपबैक दोबारा लोड हुआ: {message}"
 
-#: telescope/app.py:1574
+#: telescope/app.py:1593
 msgid "Canvas updated"
 msgstr "कैनवस अपडेट हुआ"
 
-#: telescope/app.py:1578
+#: telescope/app.py:1597
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "दोबारा लोड होना विफल रहा: {message}"
 
-#: telescope/app.py:1585 telescope/plugins/setup.py:989
+#: telescope/app.py:1604 telescope/plugins/setup.py:989
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
-#: telescope/app.py:1608
+#: telescope/app.py:1627
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
-#: telescope/app.py:1638 telescope/plugins/preview.py:592
+#: telescope/app.py:1657 telescope/plugins/preview.py:592
 msgid "Show"
 msgstr "दिखाएं"
 
-#: telescope/app.py:1639
+#: telescope/app.py:1658
 msgid "Quit"
 msgstr "बंद करें"
 
-#: telescope/app.py:1678
+#: telescope/app.py:1697
 msgid "Telescope didn't answer in time."
 msgstr "Telescope ने समय पर जवाब नहीं दिया."
 
-#: telescope/app.py:1685
+#: telescope/app.py:1704
 msgid "This Telescope has no shortcuts."
 msgstr "इस Telescope में कोई शॉर्टकट नहीं हैं."
 
-#: telescope/app.py:1688 telescope/plugins/shortcuts.py:382
+#: telescope/app.py:1707 telescope/plugins/shortcuts.py:382
 msgid "That failed; Copy diagnostics has the details."
 msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:1750
+#: telescope/app.py:1769
 msgid "Only a phone's stream has the video this needs."
 msgstr ""
 
-#: telescope/app.py:1754
+#: telescope/app.py:1773
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr ""
 
-#: telescope/app.py:2159
+#: telescope/app.py:2178
 msgid "The stream stopped unexpectedly"
 msgstr "स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:2159 telescope/app.py:2175
+#: telescope/app.py:2178 telescope/app.py:2194
 msgid "Copy diagnostics has the details."
 msgstr "विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:2174
+#: telescope/app.py:2193
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name} से स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:2253
+#: telescope/app.py:2272
 msgid "Telescope is still running"
 msgstr "Telescope अभी भी चल रहा है"
 
-#: telescope/app.py:2254
+#: telescope/app.py:2273
 msgid "Streaming continues in the background."
 msgstr "स्ट्रीमिंग बैकग्राउंड में जारी रहती है."
 
-#: telescope/app.py:2255
+#: telescope/app.py:2274
 msgid "It starts streaming by itself when it needs to."
 msgstr "ज़रूरत पड़ने पर यह अपने आप स्ट्रीमिंग शुरू कर देता है."
 
-#: telescope/app.py:2256
+#: telescope/app.py:2275
 msgid "Right-click the tray icon to quit."
 msgstr "बंद करने के लिए सिस्टम ट्रे आइकन पर राइट-क्लिक करें."
 
@@ -894,7 +894,7 @@ msgstr ""
 msgid "Extras"
 msgstr ""
 
-#: telescope/plugin.py:668
+#: telescope/plugin.py:695
 msgid "Open settings"
 msgstr "सेटिंग्स खोलें"
 
@@ -1013,11 +1013,11 @@ msgstr "यह प्लगइन्स फ़ोल्डर में को�
 msgid "Off"
 msgstr "बंद"
 
-#: telescope/plugins/background.py:20 telescope/plugins/background.py:130
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:132
 msgid "Blur"
 msgstr "ब्लर"
 
-#: telescope/plugins/background.py:20 telescope/plugins/background.py:142 telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:231 telescope/widgets/composite_editor.py:483 telescope/widgets/composite_editor.py:746
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:144 telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:233 telescope/widgets/composite_editor.py:483 telescope/widgets/composite_editor.py:746
 msgid "Picture"
 msgstr "तस्वीर"
 
@@ -1025,7 +1025,7 @@ msgstr "तस्वीर"
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "तस्वीरें (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: telescope/plugins/background.py:89 telescope/plugins/background.py:111 telescope/plugins/background.py:122 telescope/plugins/background.py:162 telescope/plugins/background.py:164 telescope/widgets/composite_editor.py:728
+#: telescope/plugins/background.py:89 telescope/plugins/background.py:113 telescope/plugins/background.py:124 telescope/plugins/background.py:164 telescope/plugins/background.py:166 telescope/widgets/composite_editor.py:728
 msgid "Background"
 msgstr "बैकग्राउंड"
 
@@ -1033,43 +1033,43 @@ msgstr "बैकग्राउंड"
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "आपके पीछे के बैकग्राउंड को ब्लर करता है या इसे किसी तस्वीर से बदलता है."
 
-#: telescope/plugins/background.py:93
+#: telescope/plugins/background.py:94
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "इसके बिना कोई बैकग्राउंड कार्ड नहीं होगा और बैकग्राउंड वैसा ही रहेगा जैसा कैमरा देखता है."
 
-#: telescope/plugins/background.py:133 telescope/plugins/chroma_key.py:216 telescope/plugins/chroma_key.py:222
+#: telescope/plugins/background.py:135 telescope/plugins/chroma_key.py:218 telescope/plugins/chroma_key.py:224
 msgid "Choose…"
 msgstr "चुनें…"
 
-#: telescope/plugins/background.py:134 telescope/plugins/chroma_key.py:223
+#: telescope/plugins/background.py:136 telescope/plugins/chroma_key.py:225
 msgid "Pick the picture that goes behind you"
 msgstr "वह तस्वीर चुनें जो आपके पीछे दिखाई देगी"
 
-#: telescope/plugins/background.py:136 telescope/plugins/background.py:200 telescope/plugins/chroma_key.py:225 telescope/plugins/chroma_key.py:331
+#: telescope/plugins/background.py:138 telescope/plugins/background.py:202 telescope/plugins/chroma_key.py:227 telescope/plugins/chroma_key.py:333
 msgid "No picture yet"
 msgstr "अभी कोई तस्वीर नहीं है"
 
-#: telescope/plugins/background.py:149 telescope/plugins/chroma_key.py:194 telescope/plugins/fun_pack.py:172
+#: telescope/plugins/background.py:151 telescope/plugins/chroma_key.py:196 telescope/plugins/fun_pack.py:174
 msgid "How soft the edge around you is"
 msgstr "आपके चारों ओर का किनारा कितना सॉफ़्ट है"
 
-#: telescope/plugins/background.py:152 telescope/plugins/chroma_key.py:194 telescope/plugins/fun_pack.py:172
+#: telescope/plugins/background.py:154 telescope/plugins/chroma_key.py:196 telescope/plugins/fun_pack.py:174
 msgid "Edges"
 msgstr "किनारे"
 
-#: telescope/plugins/background.py:165
+#: telescope/plugins/background.py:167
 msgid "Background blur"
 msgstr "बैकग्राउंड ब्लर"
 
-#: telescope/plugins/background.py:189 telescope/plugins/chroma_key.py:319
+#: telescope/plugins/background.py:191 telescope/plugins/chroma_key.py:321
 msgid "Choose a picture"
 msgstr "तस्वीर चुनें"
 
-#: telescope/plugins/background.py:199 telescope/plugins/chroma_key.py:330
+#: telescope/plugins/background.py:201 telescope/plugins/chroma_key.py:332
 msgid "Telescope can't open that picture."
 msgstr "Telescope उस तस्वीर को नहीं खोल सकता."
 
-#: telescope/plugins/background.py:226 telescope/plugins/chroma_key.py:348
+#: telescope/plugins/background.py:228 telescope/plugins/chroma_key.py:350
 msgid "Choose a picture to put behind you."
 msgstr "अपने पीछे लगाने के लिए एक तस्वीर चुनें."
 
@@ -1140,7 +1140,7 @@ msgstr "कोड इस कंप्यूटर के किस पते प
 msgid "Address"
 msgstr "पता"
 
-#: telescope/plugins/browser_camera.py:253 telescope/plugins/on_air.py:425 telescope/plugins/qr_reader.py:213 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
+#: telescope/plugins/browser_camera.py:253 telescope/plugins/on_air.py:425 telescope/plugins/qr_reader.py:214 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
 msgid "Copy"
 msgstr "कॉपी करें"
 
@@ -1224,7 +1224,7 @@ msgstr "ब्राउज़र कैमरा उपलब्ध नहीं
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "इस्तेमाल करने के लिए डिवाइस से ब्राउज़र कैमरा कार्ड पर दिया कोड स्कैन करें. कनेक्ट होते ही यह स्ट्रीमिंग शुरू कर देता है."
 
-#: telescope/plugins/browser_camera.py:577 telescope/plugins/colour_grading.py:427 telescope/plugins/connection.py:221 telescope/plugins/desk.py:237 telescope/plugins/shortcuts.py:855 telescope/widgets/plugins_panel.py:62
+#: telescope/plugins/browser_camera.py:577 telescope/plugins/colour_grading.py:427 telescope/plugins/connection.py:221 telescope/plugins/desk.py:238 telescope/plugins/shortcuts.py:855 telescope/widgets/plugins_panel.py:62
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -1316,7 +1316,7 @@ msgstr "एक्सपोज़र"
 msgid "Shutter"
 msgstr "शटर स्पीड"
 
-#: telescope/plugins/camera_control.py:221 telescope/plugins/fun_pack.py:174
+#: telescope/plugins/camera_control.py:221 telescope/plugins/fun_pack.py:176
 msgid "Brightness"
 msgstr "ब्राइटनेस"
 
@@ -1530,11 +1530,11 @@ msgstr ""
 msgid "Picked"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:219 telescope/widgets/composite_editor.py:649 telescope/widgets/composite_editor.py:732
+#: telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:221 telescope/widgets/composite_editor.py:649 telescope/widgets/composite_editor.py:732
 msgid "Colour"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:146 telescope/plugins/chroma_key.py:177 telescope/plugins/chroma_key.py:240 telescope/plugins/chroma_key.py:242
+#: telescope/plugins/chroma_key.py:146 telescope/plugins/chroma_key.py:179 telescope/plugins/chroma_key.py:242 telescope/plugins/chroma_key.py:244
 msgid "Chroma key"
 msgstr ""
 
@@ -1542,71 +1542,71 @@ msgstr ""
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:150
+#: telescope/plugins/chroma_key.py:151
 msgid "Without it there's no Chroma key card and a green screen stays green."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:175
+#: telescope/plugins/chroma_key.py:177
 msgid "Swap the screen behind you"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:188
+#: telescope/plugins/chroma_key.py:190
 msgid "Pick the screen's colour from the preview"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:189
+#: telescope/plugins/chroma_key.py:191
 msgid "Screen"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:193
+#: telescope/plugins/chroma_key.py:195
 msgid "Tolerance"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:193
+#: telescope/plugins/chroma_key.py:195
 msgid "Higher takes out more shades of the screen"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:195
+#: telescope/plugins/chroma_key.py:197
 msgid "Spill"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:195
+#: telescope/plugins/chroma_key.py:197
 msgid "Takes the screen's colour out of your edges and skin"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:214
+#: telescope/plugins/chroma_key.py:216
 msgid "Behind you"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:217
+#: telescope/plugins/chroma_key.py:219
 msgid "Pick the colour that goes behind you"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:243
+#: telescope/plugins/chroma_key.py:245
 msgid "Chroma key screen"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:244
+#: telescope/plugins/chroma_key.py:246
 msgid "Chroma key tolerance"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:276
+#: telescope/plugins/chroma_key.py:278
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:277
+#: telescope/plugins/chroma_key.py:279
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:294
+#: telescope/plugins/chroma_key.py:296
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:312
+#: telescope/plugins/chroma_key.py:314
 msgid "Colour behind you"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:343
+#: telescope/plugins/chroma_key.py:345
 msgid "The colour picked from the preview. Click to pick again."
 msgstr ""
 
@@ -2027,57 +2027,57 @@ msgstr ""
 msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
 msgstr ""
 
-#: telescope/plugins/composite.py:38
+#: telescope/plugins/composite.py:39
 msgid "Without it there's no One picture card and each stream only goes to its own camera."
 msgstr ""
 
-#: telescope/plugins/composite.py:258
+#: telescope/plugins/composite.py:259
 msgid "Send the streams out as one picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:260 telescope/plugins/composite.py:277 telescope/plugins/composite.py:279
+#: telescope/plugins/composite.py:261 telescope/plugins/composite.py:278 telescope/plugins/composite.py:280
 msgid "One picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:264 telescope/widgets/composite_editor.py:508
+#: telescope/plugins/composite.py:265 telescope/widgets/composite_editor.py:508
 msgid "Not saved"
 msgstr ""
 
-#: telescope/plugins/composite.py:265
+#: telescope/plugins/composite.py:266
 msgid "A layout you saved in the editor"
 msgstr ""
 
-#: telescope/plugins/composite.py:267 telescope/widgets/composite_editor.py:504 telescope/widgets/composite_editor.py:509
+#: telescope/plugins/composite.py:268 telescope/widgets/composite_editor.py:504 telescope/widgets/composite_editor.py:509
 msgid "Layout"
 msgstr ""
 
-#: telescope/plugins/composite.py:268
+#: telescope/plugins/composite.py:269
 msgid "Edit picture…"
 msgstr ""
 
-#: telescope/plugins/composite.py:280
+#: telescope/plugins/composite.py:281
 msgid "Picture layout"
 msgstr ""
 
-#: telescope/plugins/composite.py:315
+#: telescope/plugins/composite.py:316
 msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
 msgstr ""
 
-#: telescope/plugins/composite.py:317
+#: telescope/plugins/composite.py:318
 msgid "It takes over once two of its streams are running."
 msgstr ""
 
-#: telescope/plugins/composite.py:319
+#: telescope/plugins/composite.py:320
 #, python-brace-format
 msgid "It goes out on {camera}, and no stream goes there now."
 msgstr ""
 
-#: telescope/plugins/composite.py:321
+#: telescope/plugins/composite.py:322
 #, python-brace-format
 msgid "It goes out on {camera} once the stream there sends a picture."
 msgstr ""
 
-#: telescope/plugins/composite.py:323
+#: telescope/plugins/composite.py:324
 #, python-brace-format
 msgid "Goes out on {camera}."
 msgstr ""
@@ -2260,7 +2260,7 @@ msgstr "अब आप स्ट्रीमिंग शुरू कर सक�
 msgid "Paired with {name}"
 msgstr "{name} के साथ पेयर किया गया"
 
-#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:235
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:236
 msgid "Done"
 msgstr "हो गया"
 
@@ -2339,7 +2339,7 @@ msgstr "हटाएं"
 msgid "Rename phone"
 msgstr "फ़ोन का नाम बदलें"
 
-#: telescope/plugins/connection.py:492 telescope/plugins/name_tag.py:68
+#: telescope/plugins/connection.py:492 telescope/plugins/name_tag.py:70
 msgid "Name"
 msgstr "नाम"
 
@@ -2715,7 +2715,7 @@ msgstr ""
 msgid "Fill the picture"
 msgstr ""
 
-#: telescope/plugins/desk.py:200 telescope/plugins/desk.py:289
+#: telescope/plugins/desk.py:200 telescope/plugins/desk.py:290
 msgid "Desk and document mode"
 msgstr ""
 
@@ -2723,103 +2723,103 @@ msgstr ""
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
 msgstr ""
 
-#: telescope/plugins/desk.py:204
+#: telescope/plugins/desk.py:205
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
 msgstr ""
 
-#: telescope/plugins/desk.py:227
+#: telescope/plugins/desk.py:228
 msgid "Straighten the sheet you marked"
 msgstr ""
 
-#: telescope/plugins/desk.py:229 telescope/plugins/desk.py:291
+#: telescope/plugins/desk.py:230 telescope/plugins/desk.py:292
 msgid "Desk mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:232 telescope/plugins/desk.py:292 telescope/plugins/desk.py:365
+#: telescope/plugins/desk.py:233 telescope/plugins/desk.py:293 telescope/plugins/desk.py:366
 msgid "Mark the sheet"
 msgstr ""
 
-#: telescope/plugins/desk.py:233
+#: telescope/plugins/desk.py:234
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:244 telescope/plugins/transforms.py:171
+#: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171
 msgid "Reset"
 msgstr "रीसेट करें"
 
-#: telescope/plugins/desk.py:244
+#: telescope/plugins/desk.py:245
 msgid "Put the width and height back to 100%"
 msgstr ""
 
-#: telescope/plugins/desk.py:249
+#: telescope/plugins/desk.py:250
 msgid "Make the writing on the sheet stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:251
+#: telescope/plugins/desk.py:252
 msgid "Writing"
 msgstr ""
 
-#: telescope/plugins/desk.py:252
+#: telescope/plugins/desk.py:253
 msgid "Auto works the shape out from the corners"
 msgstr ""
 
-#: telescope/plugins/desk.py:254 telescope/plugins/stream_output.py:184
+#: telescope/plugins/desk.py:255 telescope/plugins/stream_output.py:184
 msgid "Shape"
 msgstr "आकार"
 
-#: telescope/plugins/desk.py:257 telescope/plugins/transforms.py:249 telescope/plugins/transforms.py:280
+#: telescope/plugins/desk.py:258 telescope/plugins/transforms.py:249 telescope/plugins/transforms.py:280
 msgid "Width"
 msgstr ""
 
-#: telescope/plugins/desk.py:257
+#: telescope/plugins/desk.py:258
 msgid "Stretch the sheet sideways if it still looks squashed"
 msgstr ""
 
-#: telescope/plugins/desk.py:258 telescope/plugins/transforms.py:251 telescope/plugins/transforms.py:282
+#: telescope/plugins/desk.py:259 telescope/plugins/transforms.py:251 telescope/plugins/transforms.py:282
 msgid "Height"
 msgstr ""
 
-#: telescope/plugins/desk.py:258
+#: telescope/plugins/desk.py:259
 msgid "Stretch the sheet up and down if it still looks squashed"
 msgstr ""
 
-#: telescope/plugins/desk.py:293
+#: telescope/plugins/desk.py:294
 msgid "Make the writing stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:294
+#: telescope/plugins/desk.py:295
 msgid "Sheet shape"
 msgstr ""
 
-#: telescope/plugins/desk.py:333
+#: telescope/plugins/desk.py:334
 msgid "Drag the corners onto the sheet's corners, then press Enter."
 msgstr ""
 
-#: telescope/plugins/desk.py:334
+#: telescope/plugins/desk.py:335
 msgid "Start streaming to mark the sheet on the preview."
 msgstr ""
 
-#: telescope/plugins/desk.py:365
+#: telescope/plugins/desk.py:366
 msgid "Mark the sheet again"
 msgstr ""
 
-#: telescope/plugins/desk.py:372
+#: telescope/plugins/desk.py:373
 msgid "Drag the corners on the preview onto the sheet's corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:374
+#: telescope/plugins/desk.py:375
 msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:377
+#: telescope/plugins/desk.py:378
 msgid "Mark the sheet's corners to straighten it."
 msgstr ""
 
-#: telescope/plugins/desk.py:379
+#: telescope/plugins/desk.py:380
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:104 telescope/plugins/face_exposure.py:118 telescope/plugins/face_exposure.py:119
+#: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:105 telescope/plugins/face_exposure.py:119 telescope/plugins/face_exposure.py:120
 msgid "Expose for my face"
 msgstr ""
 
@@ -2831,27 +2831,27 @@ msgstr ""
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:102
+#: telescope/plugins/face_exposure.py:103
 msgid "Meter the exposure on your face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:108
+#: telescope/plugins/face_exposure.py:109
 msgid "Follow my face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:109
+#: telescope/plugins/face_exposure.py:110
 msgid "Go back to metering on your face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:149
+#: telescope/plugins/face_exposure.py:150
 msgid "The phone meters on the point you picked by hand."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:150
+#: telescope/plugins/face_exposure.py:151
 msgid "Focus is on Manual in the Camera card."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:155
+#: telescope/plugins/face_exposure.py:156
 msgid "This lens can't meter on a point."
 msgstr ""
 
@@ -2948,7 +2948,7 @@ msgstr "कदम"
 msgid "Roam"
 msgstr "घूमना"
 
-#: telescope/plugins/framing.py:220 telescope/plugins/framing.py:259 telescope/plugins/framing.py:299 telescope/plugins/framing.py:301
+#: telescope/plugins/framing.py:220 telescope/plugins/framing.py:260 telescope/plugins/framing.py:300 telescope/plugins/framing.py:302
 msgid "Auto framing"
 msgstr "ऑटो फ़्रेमिंग"
 
@@ -2960,47 +2960,47 @@ msgstr "आपके हिलने-डुलने पर आपको तस�
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "इसके बिना कोई ऑटो फ़्रेमिंग कार्ड नहीं होता और ज़ूम वहीं रहता है जहां आपने सेट किया है."
 
-#: telescope/plugins/framing.py:257
+#: telescope/plugins/framing.py:258
 msgid "Follow you with the zoom and pan"
 msgstr "ज़ूम और पैन से आपको फ़ॉलो करें"
 
-#: telescope/plugins/framing.py:265
+#: telescope/plugins/framing.py:266
 msgid "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you"
 msgstr "तस्वीर में आपका कितना हिस्सा दिखे: सिर्फ़ आपका सिर, छाती तक, कमर तक या पूरा शरीर"
 
-#: telescope/plugins/framing.py:269
+#: telescope/plugins/framing.py:270
 msgid "Framing"
 msgstr "फ़्रेमिंग"
 
-#: telescope/plugins/framing.py:275
+#: telescope/plugins/framing.py:276
 msgid "How quickly the framing catches up when you move"
 msgstr "हिलने-डुलने पर फ़्रेमिंग कितनी तेज़ी से आपको फ़ॉलो करती है"
 
-#: telescope/plugins/framing.py:278 telescope/plugins/notes.py:170
+#: telescope/plugins/framing.py:279 telescope/plugins/notes.py:170
 msgid "Speed"
 msgstr "स्पीड"
 
-#: telescope/plugins/framing.py:283
+#: telescope/plugins/framing.py:284
 msgid "What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around"
 msgstr "फ़्रेमिंग द्वारा फ़ॉलो किए जाने से पहले आप क्या कर सकते हैं: हिलना-डुलना, कुर्सी में सरकना, झुकना, एक कदम बढ़ाना या घूमना"
 
-#: telescope/plugins/framing.py:287
+#: telescope/plugins/framing.py:288
 msgid "Room to move"
 msgstr "हिलने की गुंजाइश"
 
-#: telescope/plugins/framing.py:289
+#: telescope/plugins/framing.py:290
 msgid "Widen for something in your hand"
 msgstr "हाथ में मौजूद किसी चीज़ के लिए फ़्रेम चौड़ा करें"
 
-#: telescope/plugins/framing.py:302
+#: telescope/plugins/framing.py:303
 msgid "Auto framing: how much of you"
 msgstr "ऑटो फ़्रेमिंग: आपका कितना हिस्सा दिखे"
 
-#: telescope/plugins/framing.py:303
+#: telescope/plugins/framing.py:304
 msgid "Auto framing speed"
 msgstr "ऑटो फ़्रेमिंग स्पीड"
 
-#: telescope/plugins/framing.py:337
+#: telescope/plugins/framing.py:338
 msgid "Something else is moving the zoom and pan."
 msgstr "कोई अन्य चीज़ ज़ूम और पैन को नियंत्रित कर रही है."
 
@@ -3072,7 +3072,7 @@ msgstr ""
 msgid "Move around and the picture smears instead of refreshing."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:93 telescope/plugins/fun_pack.py:138 telescope/plugins/fun_pack.py:207
+#: telescope/plugins/fun_pack.py:93 telescope/plugins/fun_pack.py:140 telescope/plugins/fun_pack.py:209
 msgid "Fun pack"
 msgstr ""
 
@@ -3080,117 +3080,117 @@ msgstr ""
 msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:97
+#: telescope/plugins/fun_pack.py:98
 msgid "Without it there's no Fun pack card and the picture has no effects."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:148
+#: telescope/plugins/fun_pack.py:150
 msgid "Effect"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:152 telescope/plugins/fun_pack.py:210 telescope/plugins/fun_pack.py:347
+#: telescope/plugins/fun_pack.py:154 telescope/plugins/fun_pack.py:212 telescope/plugins/fun_pack.py:349
 msgid "Take the empty room"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:153
+#: telescope/plugins/fun_pack.py:155
 msgid "Step out of the picture: it's taken after a short countdown"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:155 telescope/plugins/fun_pack.py:211 telescope/plugins/fun_pack.py:349
+#: telescope/plugins/fun_pack.py:157 telescope/plugins/fun_pack.py:213 telescope/plugins/fun_pack.py:351
 msgid "Add a clone"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:156
+#: telescope/plugins/fun_pack.py:158
 msgid "Get in place: you're copied after a short countdown"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:158
+#: telescope/plugins/fun_pack.py:160
 msgid "Clear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:160
+#: telescope/plugins/fun_pack.py:162
 msgid "Clean up"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:161
+#: telescope/plugins/fun_pack.py:163
 msgid "Let the next keyframe through so the picture comes back"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:173
+#: telescope/plugins/fun_pack.py:175
 msgid "Trails"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:173
+#: telescope/plugins/fun_pack.py:175
 msgid "How long the light trails last"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:174
+#: telescope/plugins/fun_pack.py:176
 msgid "How bright a light has to be to paint"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:175
+#: telescope/plugins/fun_pack.py:177
 msgid "Spread"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:175
+#: telescope/plugins/fun_pack.py:177
 msgid "Frames between one end of the picture and the other"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:176
+#: telescope/plugins/fun_pack.py:178
 msgid "Smear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:176
+#: telescope/plugins/fun_pack.py:178
 msgid "Plays each frame's motion this many extra times"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:190
+#: telescope/plugins/fun_pack.py:192
 msgid "Down"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:190
+#: telescope/plugins/fun_pack.py:192
 msgid "Across"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:196
+#: telescope/plugins/fun_pack.py:198
 msgid "Direction"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:209
+#: telescope/plugins/fun_pack.py:211
 msgid "Fun pack effect"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:212
+#: telescope/plugins/fun_pack.py:214
 msgid "Clean up the datamosh"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:213
+#: telescope/plugins/fun_pack.py:215
 msgid "Datamosh smear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:259
+#: telescope/plugins/fun_pack.py:261
 msgid "Take the empty room first, so you can be cut out."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:345
+#: telescope/plugins/fun_pack.py:347
 #, python-brace-format
 msgid "Taking it in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:346
+#: telescope/plugins/fun_pack.py:348
 msgid "Take the empty room again"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:348
+#: telescope/plugins/fun_pack.py:350
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:366
+#: telescope/plugins/fun_pack.py:368
 msgid "The picture changed, so take the empty room again."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:368
+#: telescope/plugins/fun_pack.py:370
 msgid "Take the empty room first."
 msgstr ""
 
@@ -3568,7 +3568,7 @@ msgstr ""
 msgid "Top right"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:42 telescope/plugins/name_tag.py:64 telescope/plugins/name_tag.py:99 telescope/plugins/name_tag.py:99
+#: telescope/plugins/name_tag.py:42 telescope/plugins/name_tag.py:66 telescope/plugins/name_tag.py:101 telescope/plugins/name_tag.py:101
 msgid "Name tag"
 msgstr ""
 
@@ -3576,44 +3576,44 @@ msgstr ""
 msgid "Puts your name and pronouns in the corner of the picture."
 msgstr ""
 
-#: telescope/plugins/name_tag.py:46
+#: telescope/plugins/name_tag.py:47
 msgid "Without it there's no Name tag card and nothing is drawn on the picture."
 msgstr ""
 
-#: telescope/plugins/name_tag.py:62
+#: telescope/plugins/name_tag.py:64
 msgid "Show the name tag on the picture"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:65
+#: telescope/plugins/name_tag.py:67
 msgctxt "search"
 msgid "lower third caption title label overlay text name pronouns role"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:69
+#: telescope/plugins/name_tag.py:71
 msgid "Shown next to your name, like she/her or they/them"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:70
+#: telescope/plugins/name_tag.py:72
 msgid "Pronouns"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:71
+#: telescope/plugins/name_tag.py:73
 msgid "A smaller line under your name, like your role. Leave it empty for none"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:72
+#: telescope/plugins/name_tag.py:74
 msgid "Second line"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:74
+#: telescope/plugins/name_tag.py:76
 msgid "Style"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:76
+#: telescope/plugins/name_tag.py:78
 msgid "Position"
 msgstr ""
 
-#: telescope/plugins/name_tag.py:78
+#: telescope/plugins/name_tag.py:80
 msgid "Size"
 msgstr ""
 
@@ -4441,7 +4441,7 @@ msgstr "प्रीव्यू"
 msgid "The live picture in the middle of the window, and the camera on/off button under it."
 msgstr "विंडो के बीच में लाइव तस्वीर, और उसके नीचे कैमरा चालू/बंद करने का बटन."
 
-#: telescope/plugins/preview.py:415
+#: telescope/plugins/preview.py:416
 msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
 msgstr "इसके बिना विंडो में तस्वीर नहीं दिखती, लेकिन वर्चुअल कैमरा इस्तेमाल करने वाले ऐप को यह मिलती रहती है."
 
@@ -4515,7 +4515,7 @@ msgstr ""
 msgid "Show the wait screen"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:122 telescope/plugins/privacy_blur.py:156 telescope/plugins/privacy_blur.py:178
+#: telescope/plugins/privacy_blur.py:122 telescope/plugins/privacy_blur.py:157 telescope/plugins/privacy_blur.py:179
 msgid "Privacy blur"
 msgstr ""
 
@@ -4523,39 +4523,39 @@ msgstr ""
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:126
+#: telescope/plugins/privacy_blur.py:127
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:154
+#: telescope/plugins/privacy_blur.py:155
 msgid "Blur automatically when a second person shows up"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:164
+#: telescope/plugins/privacy_blur.py:165
 msgid "What happens while someone else is in the picture"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:167 telescope/plugins/privacy_blur.py:180
+#: telescope/plugins/privacy_blur.py:168 telescope/plugins/privacy_blur.py:181
 msgid "Blur now"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:169
+#: telescope/plugins/privacy_blur.py:170
 msgid "Blur by hand until you click again"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:181
+#: telescope/plugins/privacy_blur.py:182
 msgid "Privacy blur when someone walks in"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:182
+#: telescope/plugins/privacy_blur.py:183
 msgid "Privacy blur: what happens"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:288
+#: telescope/plugins/privacy_blur.py:289
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:177 telescope/plugins/qr_reader.py:234
+#: telescope/plugins/qr_reader.py:177 telescope/plugins/qr_reader.py:235
 msgid "QR code reader"
 msgstr ""
 
@@ -4563,66 +4563,66 @@ msgstr ""
 msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:181
+#: telescope/plugins/qr_reader.py:182
 msgid "Without it there's no QR code card and codes in the picture are left alone."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:208
+#: telescope/plugins/qr_reader.py:209
 msgid "Look for QR codes in the picture"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:210
+#: telescope/plugins/qr_reader.py:211
 msgid "QR codes"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:214
+#: telescope/plugins/qr_reader.py:215
 msgid "Put the last code on the clipboard again"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:226
+#: telescope/plugins/qr_reader.py:227
 msgid "Notify me when a code is read"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:230 telescope/plugins/qr_reader.py:243
+#: telescope/plugins/qr_reader.py:231 telescope/plugins/qr_reader.py:244
 msgid "Hold a QR code up to the camera."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:234
+#: telescope/plugins/qr_reader.py:235
 msgid "Read QR codes"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:283
+#: telescope/plugins/qr_reader.py:284
 msgid "Found a code. Click Copy to put it on the clipboard."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:286
+#: telescope/plugins/qr_reader.py:287
 msgid "QR code copied"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:288
+#: telescope/plugins/qr_reader.py:289
 msgid "QR code found"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:288
+#: telescope/plugins/qr_reader.py:289
 msgid "Click Copy on the QR codes card to put it on the clipboard."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:300
+#: telescope/plugins/qr_reader.py:301
 #, python-brace-format
 msgid "Copied the password for {network}"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:303
+#: telescope/plugins/qr_reader.py:304
 #, python-brace-format
 msgid "Copied the name of {network}, which has no password"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:306
+#: telescope/plugins/qr_reader.py:307
 #, python-brace-format
 msgid "Copied {link}"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:307
+#: telescope/plugins/qr_reader.py:308
 msgid "Copied the code's text"
 msgstr ""
 
@@ -6150,7 +6150,7 @@ msgstr "अपडेट विफल रहा."
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "अपडेट हो गया. पूरा करने के लिए Telescope को बंद करके फिर से खोलें."
 
-#: telescope/plugins/wait_screen.py:46 telescope/plugins/wait_screen.py:292
+#: telescope/plugins/wait_screen.py:46 telescope/plugins/wait_screen.py:293
 msgid "Wait screen"
 msgstr "वेट स्क्रीन"
 
@@ -6158,50 +6158,50 @@ msgstr "वेट स्क्रीन"
 msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "जब कुछ भी स्ट्रीम नहीं हो रहा हो, तब ऐप्स को वर्चुअल कैमरे पर दिखने वाली तस्वीर."
 
-#: telescope/plugins/wait_screen.py:50
+#: telescope/plugins/wait_screen.py:51
 msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "इसके बिना सेटिंग्स में 'वेट स्क्रीन' नहीं होगी और स्ट्रीम के बीच ऐप्स को काली तस्वीर दिख सकती है या कुछ भी नहीं."
 
-#: telescope/plugins/wait_screen.py:293
+#: telescope/plugins/wait_screen.py:294
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "वेट स्क्रीन निष्क्रिय स्टैंडबाय प्लेसहोल्डर तस्वीर इमेज गिफ काली स्क्रीन फ़्रोज़न स्ट्रीम नहीं हो रहा मिरर पलटें कस्टम बैकग्राउंड लोगो idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 
-#: telescope/plugins/wait_screen.py:295
+#: telescope/plugins/wait_screen.py:296
 msgid "What video calls see while the phone isn't streaming."
 msgstr "जब फ़ोन स्ट्रीम नहीं कर रहा हो, तब वीडियो कॉल में दिखने वाली तस्वीर."
 
-#: telescope/plugins/wait_screen.py:304
+#: telescope/plugins/wait_screen.py:305
 msgid "Choose image…"
 msgstr "इमेज चुनें…"
 
-#: telescope/plugins/wait_screen.py:306
+#: telescope/plugins/wait_screen.py:307
 msgid "Use default"
 msgstr "डिफ़ॉल्ट इस्तेमाल करें"
 
-#: telescope/plugins/wait_screen.py:309
+#: telescope/plugins/wait_screen.py:310
 msgid "Mirror it, for apps that flip the camera"
 msgstr "इसे मिरर करें, उन ऐप्स के लिए जो कैमरे को पलट देते हैं"
 
-#: telescope/plugins/wait_screen.py:344
+#: telescope/plugins/wait_screen.py:345
 #, python-brace-format
 msgid "Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
 msgstr "{size} पर दिखाया जाता है, जिस साइज़ पर स्ट्रीम कैमरे को खोलती है. स्थिर इमेज और GIFs काम करते हैं; पारदर्शी हिस्सों में डार्क बैकग्राउंड दिखता है."
 
-#: telescope/plugins/wait_screen.py:347
+#: telescope/plugins/wait_screen.py:348
 #, python-brace-format
 msgid "Couldn't use that image: {problem}. Keeping the current wait screen."
 msgstr "उस इमेज का इस्तेमाल नहीं किया जा सका: {problem}. मौजूदा वेट स्क्रीन को बनाए रखा जा रहा है."
 
-#: telescope/plugins/wait_screen.py:350
+#: telescope/plugins/wait_screen.py:351
 msgid "Couldn't read that image, so the default screen is showing. Choose another one."
 msgstr "उस इमेज को पढ़ा नहीं जा सका, इसलिए डिफ़ॉल्ट स्क्रीन दिखाई जा रही है. कोई दूसरी इमेज चुनें."
 
-#: telescope/plugins/wait_screen.py:357
+#: telescope/plugins/wait_screen.py:358
 msgid "Choose a wait screen"
 msgstr "वेट स्क्रीन चुनें"
 
-#: telescope/plugins/wait_screen.py:358
+#: telescope/plugins/wait_screen.py:359
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "इमेज ({formats})"

@@ -47,6 +47,7 @@ class WaitScreenPlugin(TelescopePlugin):
     about = N_("The picture apps see on the virtual camera while nothing is streaming.")
     category = "on_screen"
     icon = "moon"
+    frame_stage = "cover"
     when_off = N_("Without it Wait screen isn't in Settings and between streams apps might see a black picture "
                   "or nothing at all.")
 

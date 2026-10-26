@@ -35,6 +35,7 @@ class CompositePlugin(TelescopePlugin):
     about = N_("Puts the streams you run side by side or one inside another, out on one virtual camera.")
     category = "streaming"
     icon = "layout"
+    frame_stage = "combine"
     when_off = N_("Without it there's no One picture card and each stream only goes to its own camera.")
     optional = True
     in_presets = True  # a preset can be a scene: "face big, desk small" for talking, side by side for a demo
