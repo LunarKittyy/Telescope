@@ -126,11 +126,21 @@ def test_picking_on_the_preview_keys_that_colour(chroma):
     assert plugin.process_frame(frame)[5, 5].tolist() == list(plugin.get_config()["colour"])
 
 
-def test_a_pick_reads_the_colour_from_what_the_preview_showed(chroma):
+def test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview(chroma):
     plugin, host = chroma()
-    plugin.process_frame(np.full((36, 64, 3), 128, np.uint8))  # before the picture got moved around: grey there
+    frame = np.full((36, 64, 3), 128, np.uint8)
+    frame[:, :20] = (160, 40, 150)  # the screen, where the click lands once mapped back past Desk mode's warp
+    plugin.process_frame(frame)
+    shown = np.full((20, 40, 3), 255, np.uint8)  # on the preview Desk's Black and white turned it all white
+    plugin._pick()
+    host.picks[-1][2](Pick("point", ((0.2, 0.5),), ((0.2, 0.5),), shown, ((0.9, 0.5),)))
+    assert plugin.get_config()["picked"] == [160, 40, 150]
+
+
+def test_without_a_frame_yet_a_pick_reads_the_preview(chroma):
+    plugin, host = chroma()
     shown = np.full((20, 40, 3), 128, np.uint8)
-    shown[:, 30:] = (160, 40, 150)  # on the preview the screen sits on the right
+    shown[:, 30:] = (160, 40, 150)
     plugin._pick()
     host.picks[-1][2](Pick("point", ((0.2, 0.5),), ((0.2, 0.5),), shown, ((0.9, 0.5),)))
     assert plugin.get_config()["picked"] == [160, 40, 150]
