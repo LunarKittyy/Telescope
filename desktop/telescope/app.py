@@ -1684,7 +1684,8 @@ class TelescopeWindow(QMainWindow):
                 on_progress(p)
 
         def done(result):
-            self._bus.still_busy_changed.emit(sid or "", False)
+            # Another photo may have started there before this reached the Qt thread
+            self._bus.still_busy_changed.emit(sid or "", self._stills.busy(sid))
             if result.files:
                 self._bus.still_saved.emit(sid or "", list(result.files))
             on_done(result)

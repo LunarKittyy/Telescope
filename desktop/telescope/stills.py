@@ -137,7 +137,7 @@ class StillResult:
 
 
 def free_path(folder: Path, name: str) -> Path:
-    """folder/name, or name with (2), (3) and so on before its extension when that's taken."""
+    """folder/name, or name with (2), (3) and so on before its extension when that's taken (see reserve_path)."""
     stem, dot, ext = name.rpartition(".")
     if not dot:
         stem, ext = name, ""
@@ -146,6 +146,18 @@ def free_path(folder: Path, name: str) -> Path:
         path = folder / (f"{stem} ({n}).{ext}" if ext else f"{stem} ({n})")
         n += 1
     return path
+
+
+def reserve_path(folder: Path, name: str) -> Path:
+    """A free name for name in folder, taken by creating it empty so another photo saving at the same time can't."""
+    for _ in range(1000):
+        path = free_path(folder, name)
+        try:
+            with open(path, "xb"):
+                return path
+        except FileExistsError:
+            continue  # someone else took it between looking and creating
+    raise OSError(f"no free name for {name}")
 
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9_.()-]")
@@ -192,6 +204,7 @@ class Stills:
         return True
 
     def shutdown(self):
+        """Stop every photo; each tells its phone to forget it on the way out."""
         with self._lock:
             for stop in self._busy.values():
                 stop.set()
@@ -234,22 +247,28 @@ class Stills:
                 heard = time.monotonic()
             except Exception as exc:
                 if time.monotonic() - heard > _LOST_AFTER_S:
+                    self._forget(ctrl, sid)  # in case it's only this computer's link that's gone
                     return StillResult.failed("lost", str(exc), saved)
                 stop.wait(_POLL_S)
                 continue
             files = [f for f in status.get("files") or () if isinstance(f, dict)]
+            state = str(status.get("state") or "")
+
+            def report():
+                if on_progress is not None:
+                    on_progress(StillProgress(
+                        state=state, shots=int(status.get("shots") or 1), taken=int(status.get("taken") or 0),
+                        countdown_ms=int(status.get("countdown_ms") or 0), paused=bool(status.get("paused")),
+                        saved=list(saved)))
+            report()  # before the downloads, which can take a while for a batch of RAW files
             while fetched < len(files) and not stop.is_set():
                 path = self._fetch(ctrl, sid, fetched, files[fetched], folder)
                 if path is None:
+                    self._forget(ctrl, sid)
                     return StillResult.failed("save", "", saved)
                 saved.append(str(path))
                 fetched += 1
-            state = str(status.get("state") or "")
-            if on_progress is not None:
-                on_progress(StillProgress(
-                    state=state, shots=int(status.get("shots") or 1), taken=int(status.get("taken") or 0),
-                    countdown_ms=int(status.get("countdown_ms") or 0), paused=bool(status.get("paused")),
-                    saved=list(saved)))
+                report()
             if state in ("done", "failed") and fetched >= len(files):
                 self._forget(ctrl, sid)
                 if state == "failed":
@@ -258,13 +277,18 @@ class Stills:
             if time.monotonic() - begun > _LONGEST_S:
                 return StillResult.failed("timeout", "", saved)
             stop.wait(_POLL_S)
+        self._forget(ctrl, sid)  # stopped: Telescope is quitting
         return StillResult.failed("failed", "", saved)
 
     def _fetch(self, ctrl, sid: str, n: int, info: dict, folder: Path) -> Optional[Path]:
         """File n of the photo into folder under the phone's name (made free), or None when it couldn't be saved."""
         name = safe_name(str(info.get("name") or ""), n)
         req = urllib.request.Request(f"{ctrl.base}/still/file?id={sid}&n={n}", headers=ctrl.auth.headers())
-        path = free_path(folder, name)
+        try:
+            path = reserve_path(folder, name)
+        except OSError as exc:
+            logger.warning("Couldn't save photo %s: %s", name, exc)
+            return None
         part = path.with_name(path.name + ".part")
         try:
             with ctrl.auth.open(req, timeout=_FILE_TIMEOUT_S) as r, open(part, "wb") as out:
@@ -277,10 +301,11 @@ class Stills:
             return path
         except Exception as exc:
             logger.warning("Couldn't save photo %s: %s", name, exc)
-            try:
-                part.unlink()
-            except OSError:
-                pass
+            for leftover in (part, path):
+                try:
+                    leftover.unlink()
+                except OSError:
+                    pass
             return None
 
     def _forget(self, ctrl, sid: str):

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from telescope.pinned_https import PhoneAuth
-from telescope.stills import StillCaps, Stills, free_path, reason_text, safe_name
+from telescope.stills import StillCaps, Stills, free_path, reason_text, reserve_path, safe_name
 
 FULL = {"formats": ["jpeg", "heic", "ultrahdr", "raw"], "width": 4080, "height": 3072, "maxResWidth": 8160,
         "maxResHeight": 6144, "maxResRaw": True, "extensions": ["night", "hdr"], "exposureMaxNs": 30_000_000_000,
@@ -196,3 +196,29 @@ def test_a_folder_that_cant_be_made_fails_cleanly(tmp_path, phone):
     blocker.write_text("not a folder")
     result, _ = _take(Stills(), phone(), blocker / "Photos")
     assert not result.ok and result.code == "save"
+
+
+def test_reserving_a_name_takes_it_for_this_photo(tmp_path):
+    first = reserve_path(tmp_path, "IMG_1.jpg")
+    second = reserve_path(tmp_path, "IMG_1.jpg")
+    assert first.name == "IMG_1.jpg" and second.name == "IMG_1 (2).jpg" and first.exists() and second.exists()
+
+
+def test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo(tmp_path, phone, monkeypatch):
+    p = phone()
+    monkeypatch.setattr(Stills, "_fetch", lambda *_a: None)
+    result, _ = _take(Stills(), p, tmp_path)
+    assert result.code == "save" and p.forgotten == ["abc"]
+
+
+def test_progress_is_reported_before_the_downloads(tmp_path, phone, monkeypatch):
+    p = phone(polls=1)
+    order = []
+    real = Stills._fetch
+    monkeypatch.setattr(Stills, "_fetch", lambda self, *a: order.append("fetch") or real(self, *a))
+    stills = Stills()
+    done = threading.Event()
+    stills.take("phone-1", p.ctrl, {"format": "jpeg"}, tmp_path, lambda r: done.set(),
+                lambda prog: order.append(f"progress {len(prog.saved)}"))
+    assert done.wait(10)
+    assert order == ["progress 0", "fetch", "progress 1", "fetch", "progress 2"]

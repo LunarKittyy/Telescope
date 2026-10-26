@@ -3853,3 +3853,9 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
     QCoreApplication.processEvents()
     assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+
+    # The next photo already started there when the last one's end reaches the Qt thread: still busy
+    monkeypatch.setattr(window._stills, "busy", lambda source: True)
+    taken["on_done"](StillResult(True, []))
+    QCoreApplication.processEvents()
+    assert busy[-1] is True
