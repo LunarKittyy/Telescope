@@ -17,7 +17,7 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
 
     private val manager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager?
     private val lock = Any()
-    private val users = mutableMapOf<Int, Int>()  // sensor type: how many started kinds need it
+    private val use = SensorUse(::register, ::unregister)
     private val readings = mutableMapOf<Int, SensorValue>()
     private var seq = 0L
     private var thread: HandlerThread? = null
@@ -29,7 +29,7 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
             var values = event.values.copyOf()
             if (type == Sensor.TYPE_GAME_ROTATION_VECTOR) values = quaternion(values)
             synchronized(lock) {
-                if (type !in users) return  // one last event after it was let go
+                if (!use.inUse(type)) return  // one last event after it was let go
                 if (type == Sensor.TYPE_ACCELEROMETER) {
                     val prev = smoothedAccel
                     smoothedAccel = if (prev == null) values.copyOf() else FloatArray(3) { prev[it] + 0.25f * (values[it] - prev[it]) }
@@ -64,39 +64,41 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
         return if (has(type)) listOf(type) else emptyList()
     }
 
-    override fun start(kinds: Set<String>): Set<String> {
+    override fun start(kinds: Set<String>): SensorHandle {
         val started = kinds.filter { needs(it).isNotEmpty() }.toSet()
-        synchronized(lock) {
-            for (type in started.flatMap(::needs)) {
-                val count = users[type] ?: 0
-                users[type] = count + 1
-                if (count == 0) register(type)
-            }
-        }
-        return started
+        synchronized(lock) { return SensorHandle(started, use.add(started.flatMap(::needs))) }
     }
 
-    override fun stop(kinds: Set<String>) {
-        synchronized(lock) {
-            for (type in kinds.flatMap(::needs)) {
-                val count = users[type] ?: continue
-                if (count > 1) { users[type] = count - 1; continue }
-                users.remove(type)
-                readings.remove(type)
-                if (type == Sensor.TYPE_ACCELEROMETER) smoothedAccel = null
-                manager?.getDefaultSensor(type)?.let { manager.unregisterListener(listener, it) }
-            }
-            if (users.isEmpty()) {
-                thread?.quitSafely()
-                thread = null
-            }
+    override fun stop(handle: SensorHandle) {
+        synchronized(lock) { forget(use.remove(handle.kinds.flatMap(::needs), handle.generation)) }
+    }
+
+    // The stream ended: every sensor off, whatever a desktop's connection still has to say about it
+    fun stopAll() {
+        synchronized(lock) { forget(use.removeAll()) }
+    }
+
+    private fun forget(types: List<Int>) {
+        for (type in types) {
+            readings.remove(type)
+            if (type == Sensor.TYPE_ACCELEROMETER) smoothedAccel = null
+        }
+        if (use.idle()) {
+            thread?.quitSafely()
+            thread = null
         }
     }
 
     private fun register(type: Int) {
         val sensor = manager?.getDefaultSensor(type) ?: return
         val looper = (thread ?: HandlerThread("sensors").also { it.start(); thread = it }).looper
-        manager.registerListener(listener, sensor, if (type == Sensor.TYPE_LIGHT) LIGHT_US else MOTION_US, Handler(looper))
+        // Batched where the phone can: events may wait a little and come together, which lets the chip sleep between
+        val (period, latency) = if (type == Sensor.TYPE_LIGHT) LIGHT_US to LIGHT_LATENCY_US else MOTION_US to MOTION_LATENCY_US
+        manager.registerListener(listener, sensor, period, latency, Handler(looper))
+    }
+
+    private fun unregister(type: Int) {
+        manager?.getDefaultSensor(type)?.let { manager.unregisterListener(listener, it) }
     }
 
     override fun latest(): Map<String, SensorValue> = synchronized(lock) {
@@ -119,6 +121,8 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
     companion object {
         const val MOTION_US = 33_333   // about 30 a second
         const val LIGHT_US = 500_000   // light only reports changes anyway; the stream sends it twice a second at most
+        const val MOTION_LATENCY_US = 100_000  // a tenth of a second late at most, which the desktop's smoothing hides
+        const val LIGHT_LATENCY_US = 1_000_000
 
         // Some phones leave the game rotation vector's w out; it's the one that makes the quaternion unit length
         fun quaternion(v: FloatArray): FloatArray {

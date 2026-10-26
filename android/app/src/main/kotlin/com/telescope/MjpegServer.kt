@@ -36,6 +36,8 @@ class MjpegServer(
     // A viewer sent nothing for this long is dropped: with nothing to write it would never notice the computer left.
     private val viewerGiveUpMs: Long = VIEWER_GIVE_UP_MS,
     private val onWifiViewersChanged: (Boolean) -> Unit = {},
+    // A sensor stream whose writes have been stuck this long has lost its computer: the sensors stop
+    private val sensorStallMs: Long = SENSOR_STALL_MS,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -297,19 +299,19 @@ class MjpegServer(
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     if (!takeStreamSlot()) return
                     try {
-                        val started = feed.start(SensorKinds.asked(request.query))
+                        val handle = feed.start(SensorKinds.asked(request.query))
                         try {
-                            if (started.isEmpty()) {
+                            if (handle.kinds.isEmpty()) {
                                 HttpWire.sendError(socket.getOutputStream(), 409, "This phone has none of those sensors", "sensors_none")
                                 return
                             }
-                            val client = SensorClient(socket, request, feed, started)
+                            val client = SensorClient(socket, request, feed, handle.kinds)
                             sensorClients.add(client)
                             // Stopped meanwhile: stop() may have gone through the list before this one was in it
                             if (!running.get()) client.close()
                             client.stream()
                             sensorClients.remove(client)
-                        } finally { feed.stop(started) }
+                        } finally { feed.stop(handle) }
                     } finally { streamSlots.release() }
                 }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
@@ -375,6 +377,10 @@ class MjpegServer(
         const val SENSOR_TICK_MS = 33L          // about 30 lines a second at most
         const val SENSOR_LIGHT_EVERY_MS = 500L
         const val SENSOR_HEARTBEAT_MS = 1_000L  // a line even when nothing changed, so a computer that's gone shows up as a failed write
+        const val SENSOR_STALL_MS = 5_000L
+        // A few seconds of lines: a computer that vanished without closing (Wi-Fi gone, laptop asleep) stops taking
+        // them and the writes get stuck soon after, instead of filling a big buffer for minutes
+        const val SENSOR_SEND_BUFFER = 8 * 1024
     }
 
     inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
@@ -494,13 +500,15 @@ class MjpegServer(
     inner class SensorClient(private val socket: Socket, private val request: HttpWire.Request,
                              private val feed: SensorFeed, private val kinds: Set<String>) {
         private val alive = AtomicBoolean(true)
+        @Volatile private var writingSinceMs = 0L  // 0 while not in a write
 
         fun stream() {
             try {
                 val out = openStream(socket)
-                out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${SensorWire.CONTENT_TYPE}\r\n" +
-                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds)).toByteArray(Charsets.UTF_8))
-                out.flush()
+                try { socket.sendBufferSize = SENSOR_SEND_BUFFER } catch (_: Exception) {}
+                thread(name = "sensor-watch", isDaemon = true) { watch() }
+                write(out, "HTTP/1.1 200 OK\r\nContent-Type: ${SensorWire.CONTENT_TYPE}\r\n" +
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds))
                 val sent = mutableMapOf<String, Long>()
                 var lightAt = 0L
                 var lastWrite = System.currentTimeMillis()
@@ -514,12 +522,30 @@ class MjpegServer(
                     if (fresh.isEmpty() && now - lastWrite < SENSOR_HEARTBEAT_MS) continue
                     fresh.forEach { (kind, value) -> sent[kind] = value.seq }
                     if (SensorKinds.LIGHT in fresh) lightAt = now
-                    out.write(SensorWire.line(now, fresh).toByteArray(Charsets.UTF_8))
-                    out.flush()
+                    write(out, SensorWire.line(now, fresh))
                     lastWrite = now
                 }
             } catch (_: Exception) {}
-            finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+            finally { close() }
+        }
+
+        private fun write(out: java.io.OutputStream, text: String) {
+            writingSinceMs = System.currentTimeMillis()
+            out.write(text.toByteArray(Charsets.UTF_8))
+            out.flush()
+            writingSinceMs = 0L
+        }
+
+        // Closing the socket is the only way to get a stuck write back
+        private fun watch() {
+            while (alive.get()) {
+                try { Thread.sleep(minOf(500L, sensorStallMs / 4)) } catch (_: InterruptedException) { return }
+                val since = writingSinceMs
+                if (since != 0L && System.currentTimeMillis() - since >= sensorStallMs) {
+                    close()
+                    runCatching { android.util.Log.i("MjpegServer", "A computer stopped taking sensor readings, stopping them") }
+                }
+            }
         }
 
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }

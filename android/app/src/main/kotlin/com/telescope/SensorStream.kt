@@ -29,12 +29,50 @@ object SensorKinds {
 // What /v1/sensors streams from: PhoneSensors in the app, a fake in tests.
 interface SensorFeed {
     fun available(): List<String>
-    // Starts what kinds needs (counted per desktop) and returns the kinds it started; stop() takes that same set.
-    fun start(kinds: Set<String>): Set<String>
-    fun stop(kinds: Set<String>)
+    // Starts what kinds needs (counted per desktop); the handle says which kinds it started and goes back to stop()
+    fun start(kinds: Set<String>): SensorHandle
+    fun stop(handle: SensorHandle)
     // The newest reading of each started kind; seq goes up with every new one.
     fun latest(): Map<String, SensorValue>
 }
+
+// Which sensor types are on, and for how many started kinds: a type is registered with the first kind that needs it and
+// unregistered with the last, so nothing reads a sensor no desktop asked for. The caller holds a lock around it.
+class SensorUse(private val register: (Int) -> Unit, private val unregister: (Int) -> Unit) {
+    private val users = mutableMapOf<Int, Int>()
+    private var generation = 0  // goes up with each removeAll()
+
+    fun inUse(type: Int): Boolean = type in users
+    fun idle(): Boolean = users.isEmpty()
+
+    // Returns the generation to hand back to remove()
+    fun add(types: List<Int>): Int {
+        for (type in types) {
+            val count = users[type] ?: 0
+            users[type] = count + 1
+            if (count == 0) register(type)
+        }
+        return generation
+    }
+
+    // The types let go of; nothing when removeAll() came since add()
+    fun remove(types: List<Int>, generation: Int): List<Int> {
+        if (generation != this.generation) return emptyList()
+        return types.filter { type ->
+            val count = users[type] ?: return@filter false
+            if (count > 1) { users[type] = count - 1; false } else { users.remove(type); unregister(type); true }
+        }
+    }
+
+    fun removeAll(): List<Int> {
+        generation++
+        return users.keys.toList().also { all -> users.clear(); all.forEach(unregister) }
+    }
+}
+
+// One desktop's use of the sensors. generation ties it to the stream it began in, so a connection that only lets go
+// after the stream ended (and everything was stopped) can't stop what a newer one started.
+class SensorHandle(val kinds: Set<String>, val generation: Int)
 
 // For orientation: values are roll (NaN when the camera points straight up or down) and pitch, camera the streaming lens.
 class SensorValue(val seq: Long, val values: FloatArray, val camera: String? = null)

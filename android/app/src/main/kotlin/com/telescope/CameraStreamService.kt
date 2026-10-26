@@ -480,11 +480,12 @@ class CameraStreamService : Service() {
     @Volatile private var controller: CameraSessionController? = null
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
-    private val sensors by lazy {
+    private val sensorsMade = lazy {
         PhoneSensors(this) {
             controller?.getCurrentCamera()?.let { PhoneSensors.Lens(it.id, it.facing, it.sensorOrientation) }
         }
     }
+    private val sensors by sensorsMade
     @Volatile private var micForeground = false
     // In the foreground on its own; false while running under WaitingService.
     private var inForeground = false
@@ -1135,6 +1136,7 @@ class CameraStreamService : Service() {
         setState(StreamState.Stopping, op)
         controller?.stop()
         server?.stop()
+        if (sensorsMade.isInitialized()) sensors.stopAll()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         releaseWifiLocks()

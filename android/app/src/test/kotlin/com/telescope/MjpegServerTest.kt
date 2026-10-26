@@ -586,20 +586,22 @@ class MjpegServerTest {
     }
 
     // A feed that counts what's started and hands out a new reading of each kind on every latest()
-    private class FakeFeed(private val has: List<String>) : SensorFeed {
+    private class FakeFeed(private val has: List<String>, private val width: Int = 1) : SensorFeed {
         val running = java.util.concurrent.ConcurrentHashMap<String, Int>()
         private var seq = 0L
         override fun available() = has
-        override fun start(kinds: Set<String>): Set<String> {
+        override fun start(kinds: Set<String>): SensorHandle {
             val started = kinds.intersect(has.toSet())
             started.forEach { running.merge(it, 1, Int::plus) }
-            return started
+            return SensorHandle(started, 0)
         }
-        override fun stop(kinds: Set<String>) { kinds.forEach { k -> running.computeIfPresent(k) { _, n -> if (n > 1) n - 1 else null } } }
+        override fun stop(handle: SensorHandle) {
+            handle.kinds.forEach { k -> running.computeIfPresent(k) { _, n -> if (n > 1) n - 1 else null } }
+        }
         @Synchronized override fun latest(): Map<String, SensorValue> {
             seq++
             return running.keys.associateWith { if (it == SensorKinds.ORIENTATION) SensorValue(seq, floatArrayOf(1.5f, -2f), "0")
-                                                 else SensorValue(seq, floatArrayOf(seq.toFloat())) }
+                                                 else SensorValue(seq, FloatArray(width) { seq.toFloat() }) }
         }
     }
 
@@ -686,6 +688,32 @@ class MjpegServerTest {
             val deadline = System.currentTimeMillis() + 5_000
             while (feed.running.isNotEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
             assertTrue(feed.running.isEmpty())
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a computer that stops reading without closing loses its sensors`() {
+        // Wide readings fill the socket buffers in moments, like seconds of normal ones would
+        val feed = FakeFeed(listOf(SensorKinds.GRAVITY), width = 2_000)
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = feed,
+            sensorStallMs = 800L)
+        server.start()
+        try {
+            val socket = Socket()
+            socket.receiveBufferSize = 4 * 1024
+            socket.connect(java.net.InetSocketAddress("127.0.0.1", actualPort(server)))
+            socket.getOutputStream().write("GET /v1/sensors HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                .toByteArray(StandardCharsets.ISO_8859_1))
+            val deadline = System.currentTimeMillis() + 2_000
+            while (feed.running.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
+            assertEquals(1, feed.running[SensorKinds.GRAVITY])
+            // Never reads again and never closes, like a laptop that went to sleep
+            val gone = System.currentTimeMillis() + 15_000
+            while (feed.running.isNotEmpty() && System.currentTimeMillis() < gone) Thread.sleep(50)
+            assertTrue(feed.running.isEmpty(), "the sensors should stop once the writes are stuck")
+            socket.close()
         } finally {
             server.stop()
         }
