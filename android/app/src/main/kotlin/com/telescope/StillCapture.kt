@@ -117,10 +117,13 @@ class StillCapture(
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private val writer = Executors.newSingleThreadExecutor { r -> Thread(r, "still-writer").apply { isDaemon = true } }
     private var current: Run? = null      // camera thread only
+    private var waiting: Waiting? = null  // a photo on its timer, camera thread only
     private var kept: Outputs? = null     // camera thread only
     private val refused = HashSet<String>()  // output sets this lens and stream configuration wouldn't take
     private val writes = AtomicInteger()      // pictures handed to the writer and not written yet
     @Volatile private var stopped = false
+
+    private class Waiting(val id: String, val cameraId: String, val go: Runnable)
 
     private fun handler(): Handler? = controller.stillHandler()
 
@@ -128,8 +131,26 @@ class StillCapture(
     fun start(id: String, request: StillRequest, caps: StillCaps, cameraId: String) {
         onBusy(true)
         val h = handler()
-        if (h == null || !h.postDelayed({ begin(id, request, caps, cameraId) }, request.timerMs)) {
+        lateinit var go: Runnable
+        go = Runnable {
+            if (waiting?.go === go) waiting = null
+            begin(id, request, caps, cameraId)
+        }
+        if (h == null || !h.post { waiting = Waiting(id, cameraId, go) } || !h.postDelayed(go, request.timerMs)) {
+            h?.removeCallbacks(go)
             jobs.fail(id, "camera_off", "The camera isn't running")
+            onBusy(false)
+        }
+    }
+
+    // From any thread, once the controller was asked for another lens: a photo on its timer for the old lens fails now
+    fun lensChanged() {
+        handler()?.post {
+            val w = waiting ?: return@post
+            if (controller.stillCamera()?.id == w.cameraId) return@post
+            waiting = null
+            handler()?.removeCallbacks(w.go)
+            jobs.fail(w.id, "interrupted", "The lens changed before the photo")
             onBusy(false)
         }
     }
@@ -142,6 +163,8 @@ class StillCapture(
     }
 
     private fun release() {
+        waiting?.let { w -> handler()?.removeCallbacks(w.go); jobs.fail(w.id, "stopped", "The stream stopped"); onBusy(false) }
+        waiting = null
         current?.let { end(it, "stopped", "The stream stopped", restore = false) }
         kept?.close()
         kept = null

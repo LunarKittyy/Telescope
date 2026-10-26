@@ -636,6 +636,7 @@ class CameraStreamService : Service() {
         val size = ctrl.getAskedSize()
         val (w, h) = fitSize(entry, size.width, size.height)
         ctrl.switchTo(entry)
+        stills?.lensChanged()
         if (w != size.width || h != size.height) ctrl.switchResolution(w, h)
     }
 
