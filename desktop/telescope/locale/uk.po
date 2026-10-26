@@ -1113,7 +1113,7 @@ msgstr "На яку з адрес цього комп'ютера вказує к
 msgid "Address"
 msgstr "Адреса"
 
-#: telescope/plugins/browser_camera.py:250 telescope/plugins/on_air.py:423 telescope/plugins/qr_reader.py:154 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
+#: telescope/plugins/browser_camera.py:250 telescope/plugins/on_air.py:423 telescope/plugins/qr_reader.py:211 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
 msgid "Copy"
 msgstr "Копіювати"
 
@@ -4533,74 +4533,74 @@ msgstr ""
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:121 telescope/plugins/qr_reader.py:175
+#: telescope/plugins/qr_reader.py:177 telescope/plugins/qr_reader.py:232
 msgid "QR code reader"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:122
+#: telescope/plugins/qr_reader.py:178
 msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:123
+#: telescope/plugins/qr_reader.py:179
 msgid "Without it there's no QR code card and codes in the picture are left alone."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:149
+#: telescope/plugins/qr_reader.py:206
 msgid "Look for QR codes in the picture"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:151
+#: telescope/plugins/qr_reader.py:208
 msgid "QR codes"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:155
+#: telescope/plugins/qr_reader.py:212
 msgid "Put the last code on the clipboard again"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:167
+#: telescope/plugins/qr_reader.py:224
 msgid "Notify me when a code is read"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:171 telescope/plugins/qr_reader.py:183
+#: telescope/plugins/qr_reader.py:228 telescope/plugins/qr_reader.py:241
 msgid "Hold a QR code up to the camera."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:175
+#: telescope/plugins/qr_reader.py:232
 msgid "Read QR codes"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:218
+#: telescope/plugins/qr_reader.py:281
 msgid "Found a code. Click Copy to put it on the clipboard."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:221
+#: telescope/plugins/qr_reader.py:284
 msgid "QR code copied"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:223
+#: telescope/plugins/qr_reader.py:286
 msgid "QR code found"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:223
+#: telescope/plugins/qr_reader.py:286
 msgid "Click Copy on the QR codes card to put it on the clipboard."
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:235
+#: telescope/plugins/qr_reader.py:298
 #, python-brace-format
 msgid "Copied the password for {network}"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:238
+#: telescope/plugins/qr_reader.py:301
 #, python-brace-format
 msgid "Copied the name of {network}, which has no password"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:241
+#: telescope/plugins/qr_reader.py:304
 #, python-brace-format
 msgid "Copied {link}"
 msgstr ""
 
-#: telescope/plugins/qr_reader.py:242
+#: telescope/plugins/qr_reader.py:305
 msgid "Copied the code's text"
 msgstr ""
 
