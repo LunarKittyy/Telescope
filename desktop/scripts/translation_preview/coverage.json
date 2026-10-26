@@ -934,6 +934,7 @@
     "[\"\", \"This translation is a first draft and some texts might read a bit oddly.\"]",
     "[\"\", \"This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again.\"]",
     "[\"\", \"This version\"]",
+    "[\"\", \"Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners.\"]",
     "[\"\", \"Throughput\"]",
     "[\"\", \"Timed out\"]",
     "[\"\", \"Tint G–M\"]",
@@ -5172,6 +5173,19 @@
       "[\"\", \"Off\"]",
       "[\"\", \"Part of the sheet is outside the picture. Zoom out or mark it again.\"]",
       "[\"\", \"Straighten the sheet you marked\"]",
+      "[\"\", \"Writing\"]"
+    ],
+    "desk-refused": [
+      "[\"\", \"Black and white\"]",
+      "[\"\", \"Contrast\"]",
+      "[\"\", \"Desk mode\"]",
+      "[\"\", \"Drag the four corners of the sheet into place on the preview\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"Make the writing on the sheet stand out\"]",
+      "[\"\", \"Mark the sheet\"]",
+      "[\"\", \"Off\"]",
+      "[\"\", \"Straighten the sheet you marked\"]",
+      "[\"\", \"Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners.\"]",
       "[\"\", \"Writing\"]"
     ],
     "desk-not-streaming": [
@@ -35436,6 +35450,7 @@
     "desk-straightened": 444,
     "desk-no-corners": 444,
     "desk-off-picture": 444,
+    "desk-refused": 444,
     "desk-not-streaming": 444,
     "chroma-key": 444,
     "chroma-key-picked": 444,
@@ -35934,5 +35949,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1326
+  "total": 1327
 }

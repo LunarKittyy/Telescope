@@ -85,6 +85,14 @@ def _clamp(point: tuple) -> tuple:
     return min(max(point[0], 0.0), 1.0), min(max(point[1], 0.0), 1.0)
 
 
+def _nudge(d: float, lo: float, hi: float) -> float:
+    """A move of d along one axis of shapes whose corners span lo..hi there, cut short only where it would push a
+    corner further off the frame. A shape already reaching past an edge doesn't jump back."""
+    if d < 0:
+        return max(d, min(0.0, -lo))
+    return min(d, max(0.0, 1.0 - hi))
+
+
 def _inside(point: tuple, polygon: list) -> bool:
     """Whether point is inside polygon (ray casting)."""
     x, y = point
@@ -234,16 +242,20 @@ class PreviewOverlays(QObject):
 
     def set_warp(self, owner: str, matrix):
         """Any thread: owner's plugin moves the whole picture after the view, by matrix (a 3 x 3 homography from the
-        frame as shown with the view to what the preview shows, both 0..1), or stops with None."""
-        if matrix is None:
+        frame as shown with the view to what the preview shows, both 0..1), or stops with None. A matrix that can't be
+        undone (it squashes the picture flat) counts as None."""
+        inverse = None
+        if matrix is not None:
+            matrix = np.asarray(matrix, np.float64)
+            try:
+                inverse = np.linalg.inv(matrix)
+            except np.linalg.LinAlgError:
+                logger.warning("%s gave the preview a warp that can't be undone; ignoring it", owner)
+        if inverse is None or not np.isfinite(inverse).all():
             if self._warp is not None and self._warp[0] == owner:
                 self._warp = None
             return
-        matrix = np.asarray(matrix, np.float64)
-        self._warp = (owner, matrix, np.linalg.inv(matrix))
-
-    def end_warps(self):
-        self._warp = None
+        self._warp = (owner, matrix, inverse)
 
     def warping(self) -> bool:
         return self._warp is not None
@@ -385,8 +397,9 @@ class PreviewOverlays(QObject):
         elif pick.drag == "all":
             # Moved as far as all four corners stay on the picture, so the shape never gets squashed at an edge
             shown = self._shown_points()
-            du = min(max(u - pick.grab_at[0], -min(p[0] for p in shown)), 1.0 - max(p[0] for p in shown))
-            dv = min(max(v - pick.grab_at[1], -min(p[1] for p in shown)), 1.0 - max(p[1] for p in shown))
+            us, vs = [p[0] for p in shown], [p[1] for p in shown]
+            du = _nudge(u - pick.grab_at[0], min(us), max(us))
+            dv = _nudge(v - pick.grab_at[1], min(vs), max(vs))
             view = self._view()
             pick.points = [to_full(view, pu + du, pv + dv) for pu, pv in shown]
             pick.grab_at = (pick.grab_at[0] + du, pick.grab_at[1] + dv)
