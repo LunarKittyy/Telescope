@@ -123,7 +123,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Photos
 
-<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
+<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
 
 - [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
@@ -194,7 +194,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Vision effects
 
-<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
+<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy desktop/telescope/pictures.py -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
 - [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
@@ -202,10 +202,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Preview tools and picture plugins
 
-<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py -->
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
 - [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
+- [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, a standing page keeps its shape (Width and Height fix what Auto gets wrong), Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
+- [ ] Chroma key with a real green screen and a real phone: Green keys it cleanly with even light, Picked keys the colour clicked on the preview, Spill takes the green off hair and skin and a picture fills the frame in a call.
+- [ ] QR codes with a real phone: a Wi-Fi code from another phone's share screen puts the password on the clipboard (Linux with the window in front and behind, where Copy has to step in, and Windows) and a printed link code reads from arm's length.
 - [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.
 
 ### Name tag

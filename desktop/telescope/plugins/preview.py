@@ -277,14 +277,15 @@ class FrameLabel(QLabel):
         rect = self.frame_rect()
         if rect is None and self._placeholder_icon is not None and self.text():
             self._paint_placeholder_icon()
-        if rect is not None and self._skeleton:
+        warped = self._overlays is not None and self._overlays.warping()  # drawn where the picture no longer is
+        if rect is not None and self._skeleton and not warped:
             self._paint_skeleton(rect)
         if rect is not None and self._overlays is not None:
             p = QPainter(self)
             p.setClipRect(rect)
             self._overlays.paint(p, rect)
             p.end()
-        if rect is None or not self._boxes or self._boxes_opacity <= 0.0:
+        if rect is None or not self._boxes or self._boxes_opacity <= 0.0 or warped:
             return
         p = QPainter(self)
         p.setClipRect(rect)
@@ -698,9 +699,24 @@ class PreviewPlugin(TelescopePlugin):
 
     def _wire(self, lbl: FrameLabel):
         lbl.set_overlays(self._overlays)
-        lbl.picked.connect(self._bus.focus_point_picked.emit)
-        lbl.dragged.connect(self._bus.view_dragged.emit)
-        lbl.scrolled.connect(self._bus.view_scrolled.emit)
+        lbl.picked.connect(self._on_picked)
+        lbl.dragged.connect(self._on_dragged)
+        lbl.scrolled.connect(lambda factor, u, v: self._bus.view_scrolled.emit(factor, *self._unwarp(u, v)))
+
+    def _unwarp(self, u: float, v: float) -> tuple:
+        """A point on the preview back to the frame as shown with the view, past a plugin's warp (Desk mode)."""
+        x, y = self._overlays.unwarp(u, v)
+        return min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)
+
+    def _on_picked(self, u: float, v: float):
+        self._bus.focus_point_picked.emit(*self._unwarp(u, v))
+
+    def _on_dragged(self, du: float, dv: float):
+        if not self._overlays.warping():
+            self._bus.view_dragged.emit(du, dv)
+            return
+        (x0, y0), (x1, y1) = self._overlays.unwarp(0.5, 0.5), self._overlays.unwarp(0.5 + du, 0.5 + dv)
+        self._bus.view_dragged.emit(x1 - x0, y1 - y0)
 
     def _labels(self):
         return [self._preview_lbl] + ([self._popout._lbl] if self._popout is not None else [])
