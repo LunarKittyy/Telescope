@@ -1,30 +1,58 @@
-"""The Plugins tab of Settings: every plugin, built in or added, with a switch for each one that can be off."""
+"""The Plugins tab of Settings: every plugin, built in or added, as a tile with its switch, grouped by what it's for."""
 
 import html
 import logging
 from pathlib import Path
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QRect, QSignalBlocker, QSize, Qt, QUrl
+from PyQt6.QtGui import QColor, QDesktopServices, QTextLayout
 from PyQt6.QtWidgets import (
-    QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton,
+    QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from telescope import plugin_loader
+from telescope import plugin_loader, theme
+from telescope.plugin import PLUGIN_CATEGORIES
 from telescope.widgets import vision_download
+from telescope.widgets.line_icons import LINE_ICONS, line_icon
 from telescope.widgets.plugin_updater import AUTO, CHECK, PluginUpdater
 from telescope.widgets.common import (
-    Switch,
-    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, wrapped_note,
+    FlowLayout, SegmentButton, Switch, WrapLabel,
+    card_action, create_vector_icon, icon_button, segmented_row, set_ui_role, ui_px, wrapped_note,
 )
 from telescope.widgets.controls import setting_row
 from telescope.widgets.settings_search import keywords
-from telescope.i18n import tr
+from telescope.i18n import tr, trn
 
 logger = logging.getLogger(__name__)
 
 DOCS_URL = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md"
+
+ALL, ON, OFF = "all", "on", "off"
+"""What the filter above the tiles shows: every plugin, the ones switched on, or the ones switched off."""
+
+CATEGORY_LOOK = {
+    "camera": ("camera", "camera"),
+    "preview": ("eye", "transforms"),
+    "vision": ("skeleton", "vision"),
+    "on_screen": ("image", "stream"),
+    "sound": ("mic", "mic"),
+    "streaming": ("stream", "connection"),
+    "extras": ("plug", ""),
+}
+"""Each group's (icon, hue in theme.PLUGIN_HUES), which its tiles' icons take too."""
+
+TILE_MIN = 230
+"""The narrowest a tile gets before the grid drops to fewer columns."""
+COLUMNS_MAX = 3
+ABOUT_LINES = 2
+"""How many lines of its description a tile shows; the rest is in its tooltip."""
+
+
+def category_of(value: str) -> str:
+    """The group a plugin goes in: its category if the Plugins tab has that one, else Extras."""
+    return value if value in dict(PLUGIN_CATEGORIES) else "extras"
 
 
 def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
@@ -36,12 +64,137 @@ def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
     return box.clickedButton() is yes_btn
 
 
+def _icon(name: str, color: str):
+    return line_icon(name, color) if name in LINE_ICONS else create_vector_icon(name, color)
+
+
+def _chip(icon_name: str, hue: str, lit: bool = True, size: int = 28) -> QLabel:
+    """An icon on a tinted square, as on a card's header; a plugin that's off gets a grey one."""
+    chip = QLabel()
+    chip.setFixedSize(size, size)
+    chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    color = theme.hue(hue) if lit else theme.TEXT_FAINT
+    tint = QColor(color)
+    tint.setAlphaF(0.14 if lit else 0.10)
+    chip.setStyleSheet(f"background: {tint.name(QColor.NameFormat.HexArgb)}; border-radius: {size // 3}px;")
+    chip.setPixmap(_icon(icon_name, color).pixmap(16, 16))
+    return chip
+
+
+class _Clamped(QLabel):
+    """A description cut to ABOUT_LINES lines, ending in … when it's longer (the whole of it is the tooltip then)."""
+
+    def __init__(self, text: str):
+        super().__init__()
+        self._full = text
+        self.setObjectName("setting_sub")
+        self.setProperty("sub", True)
+        self.setWordWrap(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        super().setText(text)
+
+    def full_text(self) -> str:
+        return self._full
+
+    def ensure_height(self):
+        self.ensurePolished()
+        self.setFixedHeight(self.fontMetrics().lineSpacing() * ABOUT_LINES + 2)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self):
+        width = self.contentsRect().width()
+        if width <= 1:
+            return
+        fm = self.fontMetrics()
+        layout = QTextLayout(self._full, self.font())
+        layout.beginLayout()
+        starts = []
+        while True:
+            line = layout.createLine()
+            if not line.isValid():
+                break
+            line.setLineWidth(width)
+            starts.append(line.textStart())
+        layout.endLayout()
+        if len(starts) <= ABOUT_LINES:
+            shown = self._full
+        else:
+            cut = starts[ABOUT_LINES - 1]
+            shown = self._full[:cut] + fm.elidedText(self._full[cut:], Qt.TextElideMode.ElideRight, width)
+        if shown != self.text():
+            super().setText(shown)
+        tip = self._full if shown != self._full else ""
+        if self.toolTip() != tip:
+            self.setToolTip(tip)
+
+
+class _TileGrid(QLayout):
+    """Tiles in equal columns (three when there's room, else two, one only when very narrow), all as tall as the
+    tallest. Hidden tiles leave no gap."""
+
+    def __init__(self, parent=None, spacing: int = 10):
+        super().__init__(parent)
+        self._items: list = []
+        self._spacing = spacing
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, item):        self._items.append(item)
+    def count(self):                return len(self._items)
+    def itemAt(self, i):            return self._items[i] if 0 <= i < len(self._items) else None
+    def takeAt(self, i):            return self._items.pop(i) if 0 <= i < len(self._items) else None
+    def expandingDirections(self):  return Qt.Orientation(0)
+    def hasHeightForWidth(self):    return True
+    def heightForWidth(self, width): return self._place(QRect(0, 0, width, 0), apply=False)
+    def sizeHint(self):             return self.minimumSize()
+
+    def minimumSize(self):
+        return QSize(ui_px(TILE_MIN) // 2, 0)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._place(rect, apply=True)
+
+    def columns(self, width: int) -> int:
+        fit = (width + self._spacing) // (ui_px(TILE_MIN) + self._spacing)
+        return max(1 if width < ui_px(TILE_MIN) * 2 - ui_px(60) else 2, min(COLUMNS_MAX, fit))
+
+    def _place(self, rect: QRect, apply: bool) -> int:
+        shown = [item for item in self._items if not item.isEmpty()]
+        if not shown or rect.width() <= 0:
+            return 0
+        per_row = self.columns(rect.width())
+        width = (rect.width() - (per_row - 1) * self._spacing) // per_row
+        height = max(max(i.heightForWidth(width) if i.hasHeightForWidth() else i.sizeHint().height(),
+                         i.minimumSize().height()) for i in shown)
+        if apply:
+            for index, item in enumerate(shown):
+                row, col = divmod(index, per_row)
+                item.setGeometry(QRect(rect.x() + col * (width + self._spacing),
+                                       rect.y() + row * (height + self._spacing), width, height))
+        rows = -(-len(shown) // per_row)
+        return rows * height + (rows - 1) * self._spacing
+
+
+class _SearchField(QLineEdit):
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape and self.text():
+            self.clear()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+
 class PluginsPanel(QWidget):
     def __init__(self, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
                  is_streaming: Callable[[], bool] = lambda: False, download=None,
                  updater: Optional[PluginUpdater] = None):
         """builtins: every built-in plugin object; running: the names of the plugins running now; problems: why each
-        added plugin that's on didn't start this time; restart() starts Telescope again, False if it couldn't."""
+        added plugin that's on didn't start this time; restart() starts Telescope again, False if it couldn't.
+        self.footer is the restart bar to keep under the tab's scrolling page (SettingsSection.footer)."""
         super().__init__()
         self._builtins = list(builtins)
         self._reserved = {p.name for p in builtins}
@@ -54,33 +207,80 @@ class PluginsPanel(QWidget):
         self._download.finished.connect(self._on_download_done)
         self._updater = updater or PluginUpdater(self._reserved, parent=self)
         self._updater.changed.connect(self.refresh)
+        self._filter = ALL
+        self._tiles: list = []
+        self._groups: list = []
+        self._pending: set = set()
         self.setAcceptDrops(True)
+        keywords(self, tr("plugins extensions addons add ons modules features turn off on disable enable install zip",
+                          ctx="search"))
         body = QVBoxLayout(self)
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(14)
-        body.addWidget(wrapped_note(tr("Switch parts of Telescope on or off. A change takes effect the next time "
-                                       "Telescope starts, and settings are kept either way.")))
+        intro = QHBoxLayout()
+        intro.setSpacing(12)
+        intro.addWidget(wrapped_note(tr("Switch parts of Telescope on or off. A change takes effect the next time "
+                                        "Telescope starts, and settings are kept either way.")), 1)
+        self._all_on_btn = card_action(tr("Turn all back on"), "reset", tr("Switch every built-in plugin back on"))
+        self._all_on_btn.clicked.connect(self._all_on)
+        intro.addWidget(self._all_on_btn, 0, Qt.AlignmentFlag.AlignTop)
+        body.addLayout(intro)
         self._keep_at = 0
         self._watching = None
 
-        self._restart_bar = QFrame()
-        self._restart_bar.setObjectName("setting_row")
-        bar = QHBoxLayout(self._restart_bar)
-        bar.setContentsMargins(12, 8, 8, 8)
-        bar.setSpacing(12)
-        self._restart_note = wrapped_note(tr("Restart Telescope to apply your changes."), "status_warn")
-        bar.addWidget(self._restart_note, 1)
-        self._restart_btn = QPushButton(tr("Restart now"))
-        set_ui_role(self._restart_btn, "primary")
-        self._restart_btn.clicked.connect(self._restart_now)
-        bar.addWidget(self._restart_btn)
-        body.addWidget(self._restart_bar)
+        tools = QHBoxLayout()
+        tools.setSpacing(10)
+        self._search = _SearchField()
+        self._search.setPlaceholderText(tr("Search plugins"))
+        self._search.setAccessibleName(tr("Search plugins"))
+        self._search.setClearButtonEnabled(True)
+        self._search.addAction(line_icon("search", theme.TEXT_DIM), QLineEdit.ActionPosition.LeadingPosition)
+        self._search.textChanged.connect(lambda _text: self._apply_filter())
+        tools.addWidget(self._search, 1)
+        self._filter_btns = {}
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        for value, text in ((ALL, tr("All", ctx="plugins")), (ON, tr("On", ctx="plugins")),
+                            (OFF, tr("Off", ctx="plugins"))):
+            btn = SegmentButton(text)
+            btn.setAccessibleName(tr("Show: {which}", which=text))
+            btn.setChecked(value == ALL)
+            btn.clicked.connect(lambda _=False, v=value: self._set_filter(v))
+            group.addButton(btn)
+            self._filter_btns[value] = btn
+        tools.addLayout(segmented_row(*self._filter_btns.values(), fill=False))
+        for btn in self._filter_btns.values():
+            btn.setFixedWidth(max(ui_px(56), btn.minimumSizeHint().width()))
+        body.addLayout(tools)
+
         self._list = QWidget()
         self._rows = QVBoxLayout(self._list)
         self._rows.setContentsMargins(0, 0, 0, 0)
-        self._rows.setSpacing(body.spacing())
+        self._rows.setSpacing(22)
         body.addWidget(self._list)
 
+        self._empty = QWidget()
+        empty = QVBoxLayout(self._empty)
+        empty.setContentsMargins(0, 24, 0, 24)
+        empty.setSpacing(10)
+        self._empty_note = QLabel()
+        self._empty_note.setObjectName("dim")
+        self._empty_note.setWordWrap(True)
+        self._empty_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty.addWidget(self._empty_note)
+        self._show_all_btn = card_action(tr("Show all plugins"), "reset")
+        self._show_all_btn.clicked.connect(self.show_all)
+        empty.addWidget(self._show_all_btn, 0, Qt.AlignmentFlag.AlignHCenter)
+        self._empty.hide()
+        body.addWidget(self._empty)
+
+        self._added_box = QWidget()
+        added = QVBoxLayout(self._added_box)
+        added.setContentsMargins(0, 0, 0, 0)
+        added.setSpacing(8)
+        self._added_rows = QVBoxLayout()
+        self._added_rows.setSpacing(8)
+        added.addLayout(self._added_rows)
         self._folder_btn = QPushButton(tr("Open plugins folder"))
         self._folder_btn.clicked.connect(self._open_folder)
         help_btn = QPushButton(tr("How plugins work"))
@@ -90,7 +290,24 @@ class PluginsPanel(QWidget):
         links.addWidget(help_btn)
         links.addWidget(self._folder_btn)
         links.addStretch(1)
-        body.addLayout(links)
+        added.addLayout(links)
+        body.addWidget(self._added_box)
+
+        self.footer = QFrame()
+        self.footer.setObjectName("plugins_footer")
+        bar = QHBoxLayout(self.footer)
+        bar.setContentsMargins(16, 10, 10, 10)
+        bar.setSpacing(12)
+        self._footer_note = QLabel()
+        self._footer_note.setObjectName("footer_count")
+        self._footer_note.setWordWrap(True)
+        bar.addWidget(self._footer_note, 1)
+        self._restart_btn = QPushButton(tr("Restart now"))
+        set_ui_role(self._restart_btn, "primary")
+        self._restart_btn.setToolTip(tr("Start Telescope again to apply your changes"))
+        self._restart_btn.clicked.connect(self._restart_now)
+        bar.addWidget(self._restart_btn)
+        self.footer.hide()  # hidden on purpose, so the window placing it doesn't show it before there's a change
         self.refresh()
 
     # ── The list ──────────────────────────────────────────────────────────
@@ -110,130 +327,187 @@ class PluginsPanel(QWidget):
             self._watching.verticalScrollBar().setValue(self._keep_at)
             self._keep_at = 0
 
-    def refresh(self):
-        area = self._scroll()
-        if area is not None:
-            self._keep_at = area.verticalScrollBar().value()  # stay where the person was once the rows are back
-        while self._rows.count():
-            item = self._rows.takeAt(0)
+    @staticmethod
+    def _clear(layout):
+        while layout.count():
+            item = layout.takeAt(0)
             if item.widget() is not None:
                 item.widget().hide()  # deleteLater waits for the event loop, and until then it'd paint under the new one
                 item.widget().deleteLater()
-        self._restart_rows = 0
+            elif item.layout() is not None:
+                PluginsPanel._clear(item.layout())
+
+    def refresh(self):
+        area = self._scroll()
+        if area is not None:
+            self._keep_at = area.verticalScrollBar().value()  # stay where the person was once the tiles are back
+        self._clear(self._rows)
+        self._clear(self._added_rows)
+        self._tiles, self._groups, self._pending = [], [], set()
+        self._progress_note = None
         off = self._read(plugin_loader.builtin_off, set())
         on = self._read(plugin_loader.optional_on, set())
         self._installed = self._read(lambda: plugin_loader.find_installed(self._reserved), [])
 
-        self._all_on_btn = card_action(tr("Turn all back on"), "reset", tr("Switch every built-in plugin back on"))
-        self._all_on_btn.clicked.connect(self._all_on)
         self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required and not p.optional))
-        rows = self._card(tr("Built in"), "plug", self._all_on_btn)
+        tiles = {cid: [] for cid, _name in PLUGIN_CATEGORIES}
         for plugin in self._builtins:
-            if not plugin.required and not plugin.optional:
-                rows.addWidget(self._builtin_row(plugin, plugin.name not in off))
-        optional = [p for p in self._builtins if p.optional]
-        if optional:
-            dl = self._download
-            self._remove_pack_btn = card_action(tr("Remove download"), "trash",
-                                                tr("Delete the download the plugins here use. Switching one on gets "
-                                                   "it again."))
-            self._remove_pack_btn.clicked.connect(self._remove_pack)
-            rows = self._card(tr("Optional"), "download", self._remove_pack_btn)
-            self._remove_pack_btn.setVisible(dl.ready() and not dl.running() and not any(
-                p.needs_vision and (p.name in on or p.name in self._running) for p in optional))
-            self._progress_note = None
-            for plugin in optional:
-                rows.addWidget(self._optional_row(plugin, plugin.name in on))
-        self._add_btn = card_action(tr("Install"), "plus", tr("Pick a plugin's .zip file. You can also drop one "
-                                                              "onto this window."))
-        self._add_btn.clicked.connect(self._add_zip)
-        rows = self._card(tr("Added"), "download", self._add_btn)
-        if not self._installed:
-            rows.addWidget(wrapped_note(tr(
-                "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or "
-                "drop it onto this window. Added plugins start out switched off.")))
+            cid = category_of(plugin.category)
+            if plugin.optional:
+                tile = self._optional_tile(plugin, plugin.name in on, cid)
+            else:
+                tile = self._builtin_tile(plugin, plugin.required or plugin.name not in off, cid)
+            tiles[cid].append(tile)
         for item in self._installed:
-            rows.addWidget(self._added_row(item))
-        if any(not i.dev for i in self._installed):
-            rows.addWidget(self._update_check_row())
-            rows.addWidget(self._auto_update_row())
-        rows = self._card(tr("Always on"), "lock")
-        for plugin in self._builtins:
-            if plugin.required:
-                rows.addWidget(self._builtin_row(plugin, True))
+            cid = category_of(item.category)
+            tiles[cid].append(self._dev_tile(item, cid) if item.dev else self._added_tile(item, cid))
+        vision = [category_of(p.category) for p in self._builtins if p.optional and p.needs_vision]
+        self._vision_group = "vision" if "vision" in vision else (vision[0] if vision else "")
+        self._remove_pack_btn = None
+        for cid, name in PLUGIN_CATEGORIES:
+            if tiles[cid]:
+                self._group(cid, tr(name), sorted(tiles[cid], key=lambda t: t.sort_key))
+        self._fill_added()
 
-        wanted = {p.name for p in self._builtins
-                  if p.required or (p.name in on if p.optional else p.name not in off)}
-        wanted |= {i.name for i in self._installed if i.enabled and not i.problem}
-        known = self._reserved | {i.name for i in self._installed} | set(self._problems)
-        # Rows that wait on a restart carry the button; the bar is for a change no row shows, like a removed plugin.
-        self._restart_bar.setVisible(wanted != (self._running & known) and not self._restart_rows)
+        installed = {i.name for i in self._installed}
+        self._pending |= {n for n in self._running if n not in self._reserved and n not in installed}  # removed
+        n = len(self._pending)
+        self._footer_note.setText(trn("Restart to apply {n} change", "Restart to apply {n} changes", n, n=n))
+        if self.footer.parentWidget() is not None:  # a widget with no parent would come up as a window of its own
+            self.footer.setVisible(bool(n))
+        self._apply_filter()
 
-    def _card(self, title: str, icon: str, action: QWidget = None) -> QVBoxLayout:
-        """A card in the list, returning the layout its rows go in."""
-        card = create_card()
-        lay = card_layout(card)
-        add_card_header(lay, title, icon, action=action)
-        keywords(card, tr("plugins extensions addons add ons modules features turn off on disable enable install zip",
-                          ctx="search"))
-        self._rows.addWidget(card)
-        return lay
+    def pending_changes(self) -> int:
+        """How many switches, installs and removals wait for Telescope to start again."""
+        return len(self._pending)
 
-    def _row(self, title: str, on: bool, about: str, note: str = "", note_kind: str = "dim",
-             locked: bool = False, tooltip: str = "", rich_about: bool = False, rich_note: bool = False) -> tuple:
-        """A plugin as a strip: its name and what it does, its switch on the right (none when locked), and a line
-        under it about what happens next. Returns the strip, the switch (None when locked) and the strip's controls."""
-        box = None
+    def _group(self, cid: str, name: str, tiles: list):
+        """A group of tiles under its heading, which carries the group's buttons."""
+        icon, hue = CATEGORY_LOOK.get(cid, ("plug", ""))
+        frame = QFrame()
+        frame.setObjectName("card")  # what the settings search lists it as; flat, the tiles are the cards
+        frame.setProperty("flat", True)
+        keywords(frame, tr("plugins extensions addons add ons modules features turn off on disable enable install zip",
+                           ctx="search"))
+        lay = QVBoxLayout(frame)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        head = QHBoxLayout()
+        head.setSpacing(10)
+        head.addWidget(_chip(icon, hue, size=26))
+        title = QLabel(name)
+        title.setObjectName("card_title")
+        head.addWidget(title)
+        count = QLabel()
+        count.setObjectName("card_subtitle")
+        head.addWidget(count)
+        head.addStretch(1)
+        if cid == self._vision_group:  # the vision download's own controls, where the plugins that use it are
+            self._vision_head(head)
+        lay.addLayout(head)
+        if cid == self._vision_group:
+            status = self._vision_status()
+            if status:
+                lay.addWidget(wrapped_note(status))
+        holder = QWidget()
+        grid = _TileGrid(holder, spacing=10)
+        for tile in tiles:
+            grid.addWidget(tile)
+        lay.addWidget(holder)
+        self._rows.addWidget(frame)
+        self._groups.append((frame, tiles, count))
+
+    def _tile(self, title: str, about: str, icon: str, hue: str, on: bool, *, locked: bool = False,
+              tooltip: str = "", note: str = "", note_kind: str = "dim", badges: tuple = (), byline: str = "",
+              rich_note: bool = False, pending: str = "") -> tuple:
+        """A plugin as a tile: its icon, name and switch on top, what it does under them, then anything it has to say
+        and its badges. A locked switch stays on. pending: its name when it waits on a restart. Returns the tile, its
+        switch and the layout of the controls next to the switch."""
+        tile = QFrame()
+        tile.setObjectName("setting_row")  # the settings search finds and lights it up like any setting
+        tile.setProperty("tile", True)
+        tile.setProperty("off", not on)
+        tile.sort_key = title.casefold()
+        tile.on = on
+        tile.haystack = f"{title} {about}".casefold()
+        outer = QVBoxLayout(tile)
+        outer.setContentsMargins(12, 10, 12, 12)
+        outer.setSpacing(6)
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        top.addWidget(_chip(icon, hue, lit=on), 0, Qt.AlignmentFlag.AlignTop)
+        name = QLabel(title)
+        name.setObjectName("setting_name")
+        name.setWordWrap(True)
+        name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        top.addWidget(name, 1)
         controls = QHBoxLayout()
-        controls.setSpacing(8)
-        if not locked:
-            box = Switch()
-            box.setChecked(on)
-            box.setAccessibleName(title)
-            box.setToolTip(tooltip)
-            controls.addWidget(box)
-        extra = None
+        controls.setSpacing(6)
+        box = Switch()
+        box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        box.setChecked(on)
+        box.setAccessibleName(title)
+        if locked:
+            box.setEnabled(False)
+            box.setProperty("locked", True)
+        box.setToolTip(tooltip)
+        controls.addWidget(box)
+        top.addLayout(controls)
+        outer.addLayout(top)
+        line = _Clamped(about)
+        line.ensure_height()
+        outer.addWidget(line)
+        if byline:
+            by = WrapLabel(byline)
+            by.setObjectName("setting_sub")
+            by.setProperty("sub", True)
+            by.setTextFormat(Qt.TextFormat.RichText)
+            by.setOpenExternalLinks(True)
+            outer.addWidget(by)
+        tile.note = None
         if note:
-            label = wrapped_note(note, {"dim": "setting_sub", "restart": "status_warn"}.get(note_kind, note_kind))
+            label = wrapped_note(note, {"dim": "setting_sub"}.get(note_kind, note_kind))
             label.setProperty("sub", True)
-            extra = label
-        if note_kind == "restart":  # the button right where the change was made, not only at the top of the tab
-            extra = QHBoxLayout()
-            extra.setSpacing(8)
-            extra.addWidget(label, 1)
-            restart = card_action(tr("Restart now"), "reset", tr("Start Telescope again to apply your changes"))
-            restart.setObjectName("row_restart")
-            restart.clicked.connect(self._restart_now)
-            extra.addWidget(restart, 0, Qt.AlignmentFlag.AlignVCenter)
-            self._restart_rows += 1
-        strip, line = setting_row(title, about, controls, extra)
-        strip.setToolTip(tooltip if locked else "")
-        for text, rich in ((line, rich_about), (label if note else None, rich_note)):
-            if rich and text is not None:  # HTML the caller escaped, with links that open in the browser
-                text.setTextFormat(Qt.TextFormat.RichText)
-                text.setOpenExternalLinks(True)
-                text._fit()
-        return strip, box, controls
+            if rich_note:  # HTML the caller escaped, with links that open in the browser
+                label.setTextFormat(Qt.TextFormat.RichText)
+                label.setOpenExternalLinks(True)
+            outer.addWidget(label)
+            tile.note = label
+        outer.addStretch(1)
+        if pending:
+            self._pending.add(pending)
+            badges = (*badges, (tr("Waits for a restart"), "restart"))
+        if badges:
+            holder = QWidget()
+            flow = FlowLayout(holder, spacing=4)
+            for text, kind in badges:
+                badge = QLabel(text)
+                badge.setObjectName("plugin_badge")
+                badge.setProperty("kind", kind)
+                flow.addWidget(badge)
+            outer.addWidget(holder)
+        tile.setToolTip(tooltip if locked else "")
+        self._tiles.append(tile)
+        return tile, box, controls
 
-    def _builtin_row(self, plugin, on: bool) -> QWidget:
-        title = tr(plugin.title or plugin.name)
+    def _hue(self, cid: str) -> str:
+        return CATEGORY_LOOK.get(cid, ("plug", ""))[1]
+
+    def _builtin_tile(self, plugin, on: bool, cid: str) -> QWidget:
+        title, about = tr(plugin.title or plugin.name), tr(plugin.about)
         if plugin.required:
-            row, _box, _top = self._row(title, True, tr(plugin.about), locked=True,
-                                        tooltip=tr("Telescope can't work without this one, so it can't be switched "
-                                                   "off"))
-            return row
-        note, kind = "", "dim"
-        if on and plugin.name not in self._running:
-            note, kind = tr("It comes back after Telescope restarts."), "restart"
-        elif not on and plugin.name in self._running:
-            note, kind = tr("It goes away after Telescope restarts."), "restart"
-        elif not on and plugin.when_off:
-            note = tr(plugin.when_off)
-        row, box, _top = self._row(title, on, tr(plugin.about), note, kind)
+            tile, _box, _controls = self._tile(
+                title, about, plugin.icon, self._hue(cid), True, locked=True,
+                tooltip=tr("Telescope can't work without this one, so it can't be switched off"),
+                badges=((tr("Required"), "lock"),))
+            return tile
+        pending = plugin.name if on != (plugin.name in self._running) else ""
+        tile, box, _controls = self._tile(title, about, plugin.icon, self._hue(cid), on, pending=pending,
+                                          tooltip=tr(plugin.when_off) if plugin.when_off and on else "")
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_builtin(p, checked, b))
-        return row
+        return tile
 
-    def _optional_row(self, plugin, on: bool) -> QWidget:
+    def _optional_tile(self, plugin, on: bool, cid: str) -> QWidget:
         """An optional built-in plugin: off until switched on, which first downloads what it needs."""
         title, dl = tr(plugin.title or plugin.name), self._download
         needs = plugin.needs_vision and not dl.ready()
@@ -249,18 +523,35 @@ class PluginsPanel(QWidget):
         elif on and needs:
             note, kind = tr("Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get "
                             "it.", mb=dl.size_mb()), "status_warn"
-        elif on and plugin.name not in self._running:
-            note, kind = tr("It starts after Telescope restarts."), "restart"
-        elif not on and plugin.name in self._running:
-            note, kind = tr("It goes away after Telescope restarts."), "restart"
-        elif needs:
-            note = tr("Switching it on downloads about {mb} MB first.", mb=dl.size_mb())
-        row, box, _controls = self._row(title, on, tr(plugin.about), note, kind)
+        badges = ((tr("Needs the vision download"), "vision"),) if plugin.needs_vision else ()
+        pending = plugin.name if on != (plugin.name in self._running) and not needs else ""
+        tile, box, _controls = self._tile(title, tr(plugin.about), plugin.icon, self._hue(cid), on, note=note,
+                                          note_kind=kind, badges=badges, pending=pending)
         if downloading:
-            self._progress_note = next((lbl for lbl in row.findChildren(QLabel) if lbl.text() == note), None)
+            self._progress_note = tile.note
         box.setEnabled(not (needs and not dl.available()) and not (dl.running() and dl.waiting == plugin.name))
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_optional(p, checked, b))
-        return row
+        return tile
+
+    def _vision_head(self, head: QHBoxLayout):
+        """The vision download's button on its group's heading."""
+        dl = self._download
+        self._remove_pack_btn = card_action(tr("Remove download"), "trash",
+                                            tr("Delete the download the plugins here use. Switching one on gets it "
+                                               "again."))
+        self._remove_pack_btn.clicked.connect(self._remove_pack)
+        on = self._read(plugin_loader.optional_on, set())
+        self._remove_pack_btn.setVisible(dl.ready() and not dl.running() and not any(
+            p.needs_vision and (p.name in on or p.name in self._running) for p in self._builtins if p.optional))
+        head.addWidget(self._remove_pack_btn)
+
+    def _vision_status(self) -> str:
+        dl = self._download
+        if dl.ready() or dl.running():
+            return ""
+        if not dl.available():
+            return tr("There's no vision download for this computer yet.")
+        return tr("Switching one of these on downloads about {mb} MB first, once for all of them.", mb=dl.size_mb())
 
     def _switch_optional(self, plugin, on: bool, box: QCheckBox):
         title, dl = tr(plugin.title or plugin.name), self._download
@@ -296,21 +587,21 @@ class PluginsPanel(QWidget):
             QMessageBox.warning(self, tr("Couldn't remove it"), tr("Telescope couldn't delete it: {error}", error=exc))
         self.refresh()
 
-    def _added_row(self, item) -> QWidget:
+    def _added_tile(self, item, cid: str) -> QWidget:
         title = f"{item.title} {item.version}".strip()
-        about = item.description + (" " + tr("By {author}.", author=item.author) if item.author else "")
-        note, kind = "", "dim"
-        if item.dev:
-            return self._dev_row(item, title, about)
-        if item.repo:  # the address without https://, as a link
-            shown = html.escape(item.repo.split("://", 1)[1].rstrip("/"), quote=False)
-            about = (html.escape(item.description, quote=False)
-                     + (" " + tr("By {author}.", author=html.escape(item.author, quote=False)) if item.author else "")
-                     + f' <a href="{html.escape(item.repo)}">{shown}</a>').lstrip()
+        byline = ""
+        if item.author or item.repo:
+            parts = [tr("By {author}.", author=html.escape(item.author, quote=False))] if item.author else []
+            if item.repo:  # the address without https://, as a link
+                shown = html.escape(item.repo.split("://", 1)[1].rstrip("/"), quote=False)
+                parts.append(f'<a href="{html.escape(item.repo)}">{shown}</a>')
+            byline = " ".join(parts)
+        note, kind, pending = "", "dim", ""
         release = self._updater.newer(item)
         if item.name in self._updater.updated and item.enabled and not item.changed:
             note, kind = tr("Updated to {version} automatically. The new version runs after Telescope restarts.",
-                            version=self._updater.updated[item.name]), "restart"
+                            version=self._updater.updated[item.name]), "dim"
+            pending = item.name
         elif item.problem:
             note, kind = item.problem, "status_err"
         elif item.changed:
@@ -318,28 +609,88 @@ class PluginsPanel(QWidget):
                             "if you trust this version."), "status_warn"
         elif item.name in self._problems and item.enabled:
             note, kind = tr("It didn't start ({problem}).", problem=self._problems[item.name].rstrip('.')), "status_err"
-        elif item.enabled and item.name not in self._running:
-            note, kind = tr("It starts after Telescope restarts."), "restart"
-        elif not item.enabled and item.name in self._running:
-            note, kind = tr("It goes away after Telescope restarts."), "restart"
+            pending = item.name  # a restart tries it again
+        elif item.enabled != (item.name in self._running):
+            pending = item.name
         linked = not note and release is not None
         if linked:
             # Translators: keep the <a href="{url}"> link
             note, kind = tr('Version {version} is out. <a href="{url}">Download it from its release page</a> and '
                             'install it here to replace this one.', version=html.escape(release.tag, quote=False),
                             url=html.escape(release.page, quote=True)), "status_warn"
-        row, box, controls = self._row(title, item.enabled, about, note, kind, rich_about=bool(item.repo),
-                                       rich_note=linked)
+        tile, box, controls = self._tile(title, item.description, "plug", self._hue(cid), item.enabled, note=note,
+                                         note_kind=kind, badges=((tr("Added"), "added"),), byline=byline,
+                                         rich_note=linked, pending=pending)
+        tile.haystack += f" {item.author}".casefold()
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
         remove = icon_button("trash", tr("Remove {plugin}", plugin=item.title), tr("Remove"))
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))
         controls.insertWidget(0, remove)
-        return row
+        return tile
+
+    def _dev_tile(self, item, cid: str) -> QWidget:
+        """A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove."""
+        if item.problem or item.name in self._problems:
+            note, kind = tr("It didn't start ({problem}).",
+                            problem=(item.problem or self._problems[item.name]).rstrip('.')), "status_err"
+        else:
+            note, kind = tr("Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one "
+                            "of its files.", folder=item.folder), "dim"
+        tile, _box, _controls = self._tile(f"{item.title} {item.version}".strip(), item.description, "plug",
+                                           self._hue(cid), True, locked=True, note=note, note_kind=kind,
+                                           tooltip=tr("dev_desktop.py --plugin loads this one, so it's always on"),
+                                           badges=((tr("Being written"), "added"),))
+        return tile
+
+    def _fill_added(self):
+        """Installing plugins and keeping them up to date, under the groups."""
+        frame = QFrame()
+        frame.setObjectName("card")
+        frame.setProperty("flat", True)
+        keywords(frame, tr("plugins extensions addons add ons modules features turn off on disable enable install zip",
+                           ctx="search"))
+        lay = QVBoxLayout(frame)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+        head = QHBoxLayout()
+        head.setSpacing(10)
+        head.addWidget(_chip("download", "", size=26))
+        title = QLabel(tr("Added plugins"))
+        title.setObjectName("card_title")
+        head.addWidget(title)
+        head.addStretch(1)
+        self._add_btn = card_action(tr("Install"), "plus", tr("Pick a plugin's .zip file. You can also drop one "
+                                                              "onto this window."))
+        self._add_btn.clicked.connect(self._add_zip)
+        head.addWidget(self._add_btn)
+        lay.addLayout(head)
+        if not self._installed:
+            lay.addWidget(wrapped_note(tr(
+                "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or "
+                "drop it onto this window. Added plugins start out switched off.")))
+        else:
+            lay.addWidget(wrapped_note(tr("Plugins you add are listed with the others, marked Added.")))
+        if any(not i.dev for i in self._installed):
+            lay.addWidget(self._update_check_row())
+            lay.addWidget(self._auto_update_row())
+        self._added_rows.addWidget(frame)
+
+    def _row(self, title: str, on: bool, about: str, note: str = "", note_kind: str = "dim") -> tuple:
+        """A setting as a strip: its name and what it does, its switch on the right and a note under it."""
+        box = Switch()
+        box.setChecked(on)
+        box.setAccessibleName(title)
+        extra = None
+        if note:
+            extra = wrapped_note(note, {"dim": "setting_sub"}.get(note_kind, note_kind))
+            extra.setProperty("sub", True)
+        strip, _line = setting_row(title, about, box, extra)
+        return strip, box
 
     def _update_check_row(self) -> QWidget:
         on = self._read(self._updater.checking, True)
-        row, box, _controls = self._row(
+        row, box = self._row(
             tr("Check for updates"), on,
             tr("Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them "
                "here. Nothing gets downloaded."))
@@ -350,7 +701,7 @@ class PluginsPanel(QWidget):
         """The switch that installs updates without asking: red, and it asks before it goes on."""
         checking = self._read(self._updater.checking, True)
         on = checking and self._read(self._updater.auto, False)
-        row, box, _controls = self._row(
+        row, box = self._row(
             tr("Install updates without asking"), on,
             tr("Installs new versions of the plugins you switched on and switches them on again."),
             tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they "
@@ -378,17 +729,50 @@ class PluginsPanel(QWidget):
         if on:
             self._updater.maybe_check()
 
-    def _dev_row(self, item, title: str, about: str) -> QWidget:
-        """A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove."""
-        if item.problem or item.name in self._problems:
-            note, kind = tr("It didn't start ({problem}).",
-                            problem=(item.problem or self._problems[item.name]).rstrip('.')), "status_err"
-        else:
-            note, kind = tr("Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one "
-                            "of its files.", folder=item.folder), "dim"
-        row, _box, _top = self._row(title, True, about, note, kind, locked=True,
-                                    tooltip=tr("dev_desktop.py --plugin loads this one, so it's always on"))
-        return row
+    # ── Finding one ───────────────────────────────────────────────────────
+
+    def _set_filter(self, value: str):
+        self._filter = value
+        for key, btn in self._filter_btns.items():
+            with QSignalBlocker(btn):
+                btn.setChecked(key == value)
+        self._apply_filter()
+
+    def show_all(self):
+        """Clear the search and the filter."""
+        with QSignalBlocker(self._search):
+            self._search.clear()
+        self._set_filter(ALL)
+
+    def shown_tiles(self) -> list:
+        """The names of the tiles the search and the filter leave, group by group, in order."""
+        return [t.findChild(QLabel, "setting_name").text() for _f, tiles, _c in self._groups for t in tiles
+                if not t.isHidden()]
+
+    def _apply_filter(self):
+        query = self._search.text().strip()
+        words = query.casefold().split()
+        any_shown = False
+        for frame, tiles, count in self._groups:
+            shown = 0
+            for tile in tiles:
+                fits = all(w in tile.haystack for w in words) and (self._filter == ALL or tile.on == (self._filter == ON))
+                tile.setHidden(not fits)
+                shown += fits
+            frame.setHidden(not shown)
+            any_shown |= bool(shown)
+            # Translators: next to a group's name on the Plugins tab, how many of its plugins are switched on
+            count.setText(tr("{on} of {total} on", on=sum(t.on for t in tiles), total=len(tiles)))
+        narrowed = bool(words) or self._filter != ALL
+        self._added_box.setHidden(narrowed)
+        self._empty.setHidden(any_shown)
+        if not any_shown:
+            if words:
+                self._empty_note.setText(tr("No plugins match “{text}”.", text=query))
+            elif self._filter == OFF:
+                self._empty_note.setText(tr("Every plugin is switched on."))
+            else:
+                self._empty_note.setText(tr("No plugin is switched on."))
 
     # ── Switching ─────────────────────────────────────────────────────────
 
@@ -498,12 +882,12 @@ class PluginsPanel(QWidget):
         elif replace:
             QMessageBox.information(self, tr("Replaced"),
                                     tr("{plugin} {version} is in place but switched off for now. To use it, switch it "
-                                       "on again under Added and restart Telescope.",
+                                       "on again and restart Telescope.",
                                        plugin=item.title, version=item.version))
         else:
             QMessageBox.information(self, tr("Installed"),
-                                    tr("{plugin} is installed but switched off for now. To use it, switch it on under "
-                                       "Added and restart Telescope.", plugin=item.title))
+                                    tr("{plugin} is installed but switched off for now. To use it, switch it on and "
+                                       "restart Telescope.", plugin=item.title))
 
     def _open_folder(self):
         try:

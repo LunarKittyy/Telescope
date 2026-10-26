@@ -76,8 +76,8 @@ FINDS = [
     ("push to talk", "Shortcuts", 3),
     ("keybinding", "Shortcuts", 2),
     ("global shortcuts", "Desktop shortcut settings", 3),
-    ("install plugin", "Added", 2),
-    ("extensions", "Added", 4),
+    ("install plugin", "Added plugins", 2),
+    ("extensions", "Added plugins", 4),
     ("apk", "Telescope.apk", 1),
     ("install the phone app", "Telescope.apk", 2),
     # asked as a question

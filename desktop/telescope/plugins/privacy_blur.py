@@ -121,6 +121,8 @@ class PrivacyBlurPlugin(TelescopePlugin):
     name = "privacy_blur"
     title = N_("Privacy blur")
     about = N_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in.")
+    category = "vision"
+    icon = "eye_off"
     when_off = N_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.")
     optional = True
     in_presets = True

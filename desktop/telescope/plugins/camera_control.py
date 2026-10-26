@@ -133,6 +133,8 @@ class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
     title = N_("Camera")
     about = N_("Exposure, white balance, focus, lenses and the phone camera's other settings.")
+    category = "camera"
+    icon = "camera"
     when_off = N_("Without it there's no Camera card and the phone uses its own automatic settings.")
     in_presets = True
     device_local = True

@@ -26,7 +26,7 @@ Zooming crops from the full sensor first and hops to the telephoto lens once you
 
 ## Auto framing
 
-Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **Optional** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
+Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **People and vision** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
 
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
@@ -55,7 +55,7 @@ Background and Auto framing work less while nothing in the picture moves. **Powe
 
 ## Chroma key
 
-Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Optional** in the Plugins tab of Settings.
+Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Camera and picture** in the Plugins tab of Settings.
 
 - **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't quite the usual green or with uneven light
 - **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
@@ -64,7 +64,7 @@ Optional, for anyone with a green or blue screen. It swaps the screen behind you
 
 ## Cinema tools
 
-Optional, for judging focus and exposure while you set ISO, shutter and focus by hand. Switch it on under **Optional** in the Plugins tab of Settings. Everything it draws stays on the preview and apps using the virtual camera never get any of it.
+Optional, for judging focus and exposure while you set ISO, shutter and focus by hand. Switch it on under **Preview tools** in the Plugins tab of Settings. Everything it draws stays on the preview and apps using the virtual camera never get any of it.
 
 - **Focus peaking** outlines what's sharp in red (or green, blue or white). Turn the focus until the outline sits on the thing you care about
 - **Zebras** stripe the parts of the picture that are about to clip to white. They start at 95% brightness and **Zebras from** under Video in Settings moves that between 70 and 100%
@@ -75,7 +75,7 @@ Peaking colour and sensitivity and how big the scope is are under Video in Setti
 
 ## Desk and document mode
 
-Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Optional** in the Plugins tab of Settings.
+Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Camera and picture** in the Plugins tab of Settings.
 
 - **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
 - The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
@@ -94,7 +94,7 @@ Telescope looks about three times a second at a smaller copy away from the strea
 
 ## Photos
 
-Optional. Switch it on under **Optional** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
+Optional. Switch it on under **Camera and picture** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
 
 - **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
 - **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
@@ -106,7 +106,7 @@ Photos go to the folder under **Save in** (a Telescope folder in your Pictures b
 
 ## The vision download
 
-Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People and vision heading on the Plugins tab deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
@@ -185,7 +185,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 ## On Air sign
 
-Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **Optional** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
+Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **Streaming and devices** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
 
 - **On air when** decides what counts. By default it's an app using the virtual camera, even while it only sees the wait screen. It can also count Telescope's mic being live (streaming and not muted), the mic alone or any stream at all
 - It waits a second before going on air and six before going off again, because apps like to close and reopen the camera when you change their settings

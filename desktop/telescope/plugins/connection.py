@@ -541,6 +541,8 @@ class ConnectionPlugin(TelescopePlugin):
     name = "connection"
     title = N_("Phones and connection")
     about = N_("Pairing phones, picking one and connecting to it over Wi-Fi or USB.")
+    category = "streaming"
+    icon = "connection"
     required = True
 
     def setup(self, host, bus):

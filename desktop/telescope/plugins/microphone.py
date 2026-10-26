@@ -162,6 +162,8 @@ class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
     title = N_("Microphone")
     about = N_("Using the phone's microphone on this computer.")
+    category = "sound"
+    icon = "mic"
     when_off = N_("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a "
                   "virtual microphone.")
     device_local = True

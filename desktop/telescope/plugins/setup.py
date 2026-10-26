@@ -913,6 +913,8 @@ class SetupPlugin(TelescopePlugin):
     name = "setup"
     title = N_("Advanced settings")
     about = N_("The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab.")
+    category = "streaming"
+    icon = "chip"
     required = True
 
     def setup(self, host, bus):

@@ -65,6 +65,8 @@ class FaceExposurePlugin(TelescopePlugin):
     name = "face_exposure"
     title = N_("Expose for my face")
     about = N_("Moves the phone's metering point to your face to keep you well lit whatever's behind you.")
+    category = "vision"
+    icon = "sun"
     when_off = N_("Without it there's no Expose for my face card and the phone meters the point you tap or the "
                   "whole picture.")
     optional = True

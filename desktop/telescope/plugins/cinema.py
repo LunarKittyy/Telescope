@@ -235,6 +235,8 @@ class CinemaPlugin(TelescopePlugin):
     name = "cinema"
     title = N_("Cinema tools")
     about = N_("Focus peaking, zebras, false colour and scopes on the preview, for judging focus and exposure.")
+    category = "preview"
+    icon = "focus"
     when_off = N_("Without it there's no Cinema tools card and the preview shows just the picture.")
     optional = True
     panel_region = "right"

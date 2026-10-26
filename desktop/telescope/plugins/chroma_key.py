@@ -145,6 +145,8 @@ class ChromaKeyPlugin(TelescopePlugin):
     name = "chroma_key"
     title = N_("Chroma key")
     about = N_("Swaps a green or blue screen behind you for a colour or a picture, with no download.")
+    category = "camera"
+    icon = "image"
     when_off = N_("Without it there's no Chroma key card and a green screen stays green.")
     optional = True
     in_presets = True

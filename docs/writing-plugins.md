@@ -59,6 +59,7 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
 - `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
 - `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
+- `category` is optional and says which group of the Plugins tab your plugin is listed in: `camera` (Camera and picture), `preview` (Preview tools), `vision` (People and vision), `on_screen` (On screen), `sound` (Sound) or `streaming` (Streaming and devices). Without one, or with a name Telescope doesn't know, it goes under Extras.
 - `repo` is an optional `https://` link to where your plugin's source lives, like `"repo": "https://github.com/you/your_plugin"` (the example has none). The Plugins tab shows it next to the author. When it's a GitHub repo Telescope can also tell people about new versions, see [Sharing it](#sharing-it). Anything that isn't a plain `https://` address is left out and `check_plugin.py` points it out.
 
 ## __init__.py

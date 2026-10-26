@@ -143,6 +143,8 @@ class UpdatesPlugin(TelescopePlugin):
     name = "updates"
     title = N_("Updates")
     about = N_("Checking for new versions of Telescope and installing them.")
+    category = "extras"
+    icon = "update"
     required = True
     header_side = "right"
 

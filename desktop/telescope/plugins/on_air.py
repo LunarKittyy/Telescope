@@ -55,6 +55,8 @@ class OnAirPlugin(TelescopePlugin):
     title = N_("On Air sign")
     about = N_("Shows the people around you that you're on a call, on another device's screen or through a smart "
                "home light.")
+    category = "streaming"
+    icon = "bell"
     when_off = N_("Without it there's no On Air tab in Settings and no sign or webhook.")
     optional = True
     header_side = "right"

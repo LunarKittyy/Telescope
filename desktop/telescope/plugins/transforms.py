@@ -129,6 +129,8 @@ class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     title = N_("Transforms")
     about = N_("Zoom, pan, flip and rotate the picture.")
+    category = "camera"
+    icon = "crop"
     when_off = N_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.")
     in_presets = True
     device_local = True

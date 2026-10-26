@@ -653,6 +653,38 @@ def plugins_restart_bar(stack):
     return plugins_scene(stack, before=before, after=after)
 
 
+@scene("plugins-search", "settings", "Plugins · searching for one")
+def plugins_search(stack):
+    win, settings, panel = plugins_context(stack)
+    panel._search.setText("blur")
+    return settings
+
+
+@scene("plugins-search-empty", "settings", "Plugins · a search nothing matches")
+def plugins_search_empty(stack):
+    win, settings, panel = plugins_context(stack)
+    panel._search.setText("xylophone")
+    return settings
+
+
+@scene("plugins-filter-off-empty", "settings", "Plugins · showing the ones off when every one is on")
+def plugins_filter_off_empty(stack):
+    win, settings, panel = plugins_context(stack)
+    panel._set_filter("off")
+    return settings
+
+
+@scene("plugins-filter-on-empty", "settings", "Plugins · showing the ones on when none is")
+def plugins_filter_on_empty(stack):
+    from telescope.widgets.plugins_panel import PluginsPanel
+    from scripts.translation_scenes_camera import on_its_own
+    win, settings, panel = plugins_context(stack)
+    optional = [p for p in win._builtin_plugins if p.optional]
+    alone = PluginsPanel(optional, set(), {}, lambda: False, lambda: False, download=panel._download)
+    alone._set_filter("on")
+    return on_its_own(stack, alone)
+
+
 def optional_page(stack, download, framing_on=False, progress=None):
     def before():
         if framing_on:

@@ -515,7 +515,7 @@ class TelescopeWindow(QMainWindow):
         panel = PluginsPanel(self._builtin_plugins, {p.name for p in self._plugins}, self._plugin_problems,
                              self.restart_app, self.is_streaming, updater=self._plugin_updater)
         off = len(self.plugins_off())
-        sections.append(SettingsSection("plugins", panel, on_show=panel.refresh,
+        sections.append(SettingsSection("plugins", panel, on_show=panel.refresh, footer=panel.footer,
                                         tab_title=tr("Plugins ({n} off)", n=off) if off else ""))
         # Not modal: it would block every other Telescope window, which can still come up over it
         return SettingsWindow(sections, self)

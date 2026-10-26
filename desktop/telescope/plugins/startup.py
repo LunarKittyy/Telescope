@@ -67,6 +67,8 @@ class StartupPlugin(TelescopePlugin):
     name = "startup"
     title = N_("Start and stop by itself")
     about = N_("Opening Telescope when you sign in, and Automatic streaming.")
+    category = "streaming"
+    icon = "bolt"
     when_off = N_("Without it Automatic streaming stops and both it and the sign-in option leave Settings. "
                   "Telescope still opens at sign-in if it did before.")
 

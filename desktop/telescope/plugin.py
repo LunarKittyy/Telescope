@@ -29,6 +29,18 @@ SETTINGS_TABS = (
 """The tabs of the settings window, in order: (id, name). A SettingsSection names one by id; a tab nobody puts anything
 in isn't shown. An id that isn't here makes a tab of its own, between Keyboard shortcuts and Plugins."""
 
+PLUGIN_CATEGORIES = (
+    ("camera", N_("Camera and picture")),
+    ("preview", N_("Preview tools")),
+    ("vision", N_("People and vision")),
+    ("on_screen", N_("On screen")),
+    ("sound", N_("Sound")),
+    ("streaming", N_("Streaming and devices")),
+    ("extras", N_("Extras")),
+)
+"""The groups of the Plugins tab, in order: (id, name). TelescopePlugin.category names one by id; an id that isn't
+here goes under Extras."""
+
 
 @dataclass
 class SettingsSection:
@@ -46,6 +58,8 @@ class SettingsSection:
     """The name of the tab, for one that isn't in SETTINGS_TABS (or to replace the usual one)."""
     keywords: str = ""
     """Extra words the search finds everything in this section by (what people might call it)."""
+    footer: Optional[QWidget] = None
+    """A bar kept at the bottom of the tab under the scrolling page, always in reach. It shows and hides itself."""
 
 
 class HostSettings(Protocol):
@@ -484,6 +498,10 @@ class TelescopePlugin:
     """A built-in one that's off until someone switches it on in Plugins, since it asks more of the computer."""
     needs_vision: bool = False
     """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
+    category: str = "extras"
+    """Which group of the Plugins tab it's listed in: an id from PLUGIN_CATEGORIES."""
+    icon: str = "plug"
+    """Its icon on the Plugins tab: a name from widgets/line_icons.py or the icons in widgets/common.py."""
 
     in_presets: bool = False
     """Presets save its get_config() and bring it back through apply_preset(), in the order plugins are registered."""

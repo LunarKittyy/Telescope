@@ -80,6 +80,8 @@ class OnboardingPlugin(TelescopePlugin):
     name = "onboarding"
     title = N_("Setup guide")
     about = N_("The step by step checklist shown until the first stream works.")
+    category = "extras"
+    icon = "check"
     when_off = N_("Without it the setup checklist never shows, not even when nothing is set up yet.")
     panel_region = "center"
 
