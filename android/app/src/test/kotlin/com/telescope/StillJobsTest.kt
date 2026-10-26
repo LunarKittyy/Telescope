@@ -150,18 +150,47 @@ class StillJobsTest {
     }
 
     @Test
-    fun `finished requests past the size limit go, oldest first`() {
+    fun `fetched requests past the size limit go, oldest first`() {
         val jobs = jobs()
-        val big = (StillJobs.MAX_BYTES / 2 + 1).toInt()
-        val first = jobs.start(1, 0)!!.also { id -> java.io.RandomAccessFile(jobs.newFile(id, "dng")!!, "rw").use { it.setLength(big.toLong()) } }
-        // newFile's part file is renamed by fileDone
-        jobs.fileDone(first, dir.listFiles()!!.single { it.name.endsWith(".part") })
-        jobs.finish(first)
-        val second = jobs.start(1, 0)!!
-        java.io.RandomAccessFile(jobs.newFile(second, "dng")!!, "rw").use { it.setLength(big.toLong()) }
-        jobs.fileDone(second, dir.listFiles()!!.single { it.name.endsWith(".part") })
-        jobs.finish(second)
+        val big = StillJobs.MAX_BYTES / 2 + 1
+        val first = bigRequest(jobs, big)
+        assertNotNull(jobs.file(first, 0))
+        val second = bigRequest(jobs, big)
+        assertNotNull(jobs.file(second, 0))
+        val third = bigRequest(jobs, 1)
         assertNull(jobs.status(first))
+        assertNotNull(jobs.status(second))
+        assertNotNull(jobs.status(third))
+    }
+
+    private fun bigRequest(jobs: StillJobs, bytes: Long): String {
+        val id = jobs.start(1, 0)!!
+        val part = jobs.newFile(id, "dng")!!
+        java.io.RandomAccessFile(part, "rw").use { it.setLength(bytes) }
+        jobs.fileDone(id, part)
+        jobs.finish(id)
+        return id
+    }
+
+    @Test
+    fun `a finished request over the size limit stays until it's fetched and another one finishes`() {
+        val jobs = jobs()
+        val huge = bigRequest(jobs, StillJobs.MAX_BYTES + 1)
+        assertNotNull(jobs.status(huge))
+        assertNotNull(jobs.file(huge, 0))
+        // Fetched, but still the newest
+        assertNotNull(jobs.status(huge))
+        val next = bigRequest(jobs, 1)
+        assertNull(jobs.status(huge))
+        assertNotNull(jobs.status(next))
+    }
+
+    @Test
+    fun `requests not fetched yet don't count towards the size limit`() {
+        val jobs = jobs()
+        val first = bigRequest(jobs, StillJobs.MAX_BYTES + 1)
+        val second = bigRequest(jobs, 1)
+        assertNotNull(jobs.status(first))
         assertNotNull(jobs.status(second))
     }
 }

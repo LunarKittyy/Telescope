@@ -365,11 +365,11 @@ class MjpegServer(
         socket.soTimeout = fileTimeoutMs
         val out = socket.getOutputStream()
         // A write blocked on a computer that went away never times out on its own, so the socket is closed instead
-        val lastWrite = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+        val lastWrite = java.util.concurrent.atomic.AtomicLong(System.nanoTime())
         val guard = fileGuards.scheduleWithFixedDelay({
-            if (System.currentTimeMillis() - lastWrite.get() > fileTimeoutMs) try { socket.close() } catch (_: Exception) {}
+            if (System.nanoTime() - lastWrite.get() > fileTimeoutMs * 1_000_000L) try { socket.close() } catch (_: Exception) {}
         }, fileTimeoutMs / 2L, fileTimeoutMs / 2L, TimeUnit.MILLISECONDS)
-        try { sendFileBody(file, name, out) { lastWrite.set(System.currentTimeMillis()) } } finally { guard.cancel(false) }
+        try { sendFileBody(file, name, out) { lastWrite.set(System.nanoTime()) } } finally { guard.cancel(false) }
     }
 
     private fun sendFileBody(file: java.io.File, name: String, out: java.io.OutputStream, wrote: () -> Unit) {
