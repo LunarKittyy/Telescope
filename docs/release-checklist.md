@@ -131,6 +131,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
 - [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
 
+### Phone sensors
+
+<!-- due: desktop/telescope/sensors.py android/app/src/main/kotlin/com/telescope/PhoneSensors.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt -->
+
+- [ ] With a plugin using the phone's sensors, tilting the phone shows on the desktop within a moment with the back and the front camera, held upright and in landscape both ways round. Switching to another phone's stream moves the sensors there and an older phone app is reported as one.
+- [ ] The phone's sensors stop once nothing uses them or the stream ends (the `sensors` thread goes away in `adb shell top -H -p $(adb shell pidof com.telescope)`), and the video doesn't stutter while they run.
+
 ### Starting, stopping and the camera button
 
 <!-- due: desktop/telescope/plugins/startup.py desktop/telescope/plugins/wait_screen.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/plugins/microphone.py -->
