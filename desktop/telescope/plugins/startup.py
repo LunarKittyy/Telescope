@@ -315,6 +315,9 @@ class StartupPlugin(TelescopePlugin):
         self._starting_own = self._started_own = False
         self._idle_stop.stop()
 
+    def shutdown(self):
+        self._idle_stop.stop()
+
     # ── Config ────────────────────────────────────────────────────────────
 
     def diagnostics(self) -> dict:

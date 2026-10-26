@@ -132,6 +132,7 @@ class StreamWorker(QThread):
         self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
         self._handover_lock = threading.Lock()
         self._handover_busy = False  # a hand_over() is trying its URL
+        self._handover_thread: Optional[threading.Thread] = None
         self._handover_ready = None  # (reader, url, taken event): its reader, healthy and waiting to take over
         self.parked        = False  # the virtual camera is let go (the wait screen takes it) until set_parked(False)
         self._vcam_free    = threading.Event()  # set while this worker doesn't hold the virtual camera
@@ -267,8 +268,16 @@ class StreamWorker(QThread):
             if self._handover_busy:
                 return False
             self._handover_busy = True
-        threading.Thread(target=self._try_handover, args=(url,), daemon=True, name="stream-handover").start()
+        self._handover_thread = threading.Thread(target=self._try_handover, args=(url,), daemon=True,
+                                                 name="stream-handover")
+        self._handover_thread.start()
         return True
+
+    def join_handover(self, timeout: float = HANDOVER_TAKE_S + 1):
+        """After a stop: wait for a hand_over() thread to end. It holds this worker, and the last holder of a QThread
+        destroys it, which has to be the GUI thread."""
+        if self._handover_thread is not None:
+            self._handover_thread.join(timeout)
 
     def _try_handover(self, url: str):
         reader = self._new_reader(url)
@@ -453,6 +462,7 @@ class StreamWorker(QThread):
             logger.exception("Stream worker crashed")
             self.status.emit("error", tr("Stream error: {error}", error=exc))
         finally:
+            self.join_handover()
             if vcam.IS_LINUX:
                 from telescope.platform.linux import release_freed_memory
                 release_freed_memory()

@@ -40,7 +40,7 @@ from telescope.widgets.common import (
     Switch,
     ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, PlacedDialog, control_row,
     control_row_widget, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
-    add_card_header, card_action, card_layout, create_card, icon_button,
+    add_card_header, call_later, card_action, card_layout, create_card, icon_button,
 )
 from telescope.widgets.controls import setting_row
 from telescope.i18n import N_, tr
@@ -1010,7 +1010,7 @@ class BindingEditor(PlacedDialog):
         if action_id and self._params().get("mode") != "hold":
             QGuiApplication.clipboard().setText(command_text(action_command(action_id, self._params())))
             self._copy_btn.setText(tr("Copied"))
-            QTimer.singleShot(1500, lambda: self._copy_btn.setText(tr("Copy command")))
+            call_later(1500, self._copy_btn, lambda: self._copy_btn.setText(tr("Copy command")))
 
     def binding(self) -> dict:
         return {"id": self._binding["id"], "keys": self._keys(), "action": self._action_combo.currentData(),

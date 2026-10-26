@@ -1,9 +1,12 @@
 import atexit
+import gc
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -52,6 +55,126 @@ def qapp():
     from telescope.theme import apply_theme
     apply_theme(app)
     yield app
+
+
+# How long a test's threads get to finish after its teardown asked them to stop.
+THREAD_GRACE_S = 5.0
+# Process-wide pools that idle between uses and live as long as the app does.
+_PROCESS_THREADS = ("colour-lut", "browser-rtc", "asyncio_")
+
+_callback_errors = []
+
+
+def _record_callback_error(exc_type, exc, tb):
+    """Without a hook, PyQt aborts the whole process on an exception in a slot or timer, and the run loses a worker."""
+    _callback_errors.append(exc)
+    sys.__excepthook__(exc_type, exc, tb)
+
+
+def pytest_configure(config):
+    sys.excepthook = _record_callback_error
+    # Python's own collection runs in whichever thread allocates, and destroying a widget off the GUI thread crashes
+    # Qt; the fixture below collects on the GUI thread instead, between tests
+    gc.disable()
+
+
+@pytest.fixture(autouse=True)
+def _nothing_outlives_its_test(qapp):
+    """Leaves Qt as each test found it: whatever a test leaves running fires into a later one and crashes Qt there."""
+    from PyQt6 import sip
+    from PyQt6.QtCore import QEvent, QTimer
+    from PyQt6.QtWidgets import QApplication
+    import telescope.theme as theme
+    gc.collect()  # the last test's fixture values, let go of after its teardown
+    gc.freeze()  # so the check below only looks at what this test makes
+    threads = set(threading.enumerate())
+    windows = set(QApplication.topLevelWidgets())
+    app_state = qapp.styleSheet(), qapp.font(), qapp.palette(), theme._own_hues
+    _callback_errors.clear()
+    yield
+    for window in QApplication.topLevelWidgets():
+        if window not in windows:
+            window.deleteLater()
+    for _ in range(3):  # a destructor can schedule more deletions
+        qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        qapp.processEvents()
+        gc.collect()
+    deadline = time.monotonic() + THREAD_GRACE_S
+    for thread in set(threading.enumerate()) - threads:
+        if not thread.name.startswith(_PROCESS_THREADS):
+            thread.join(max(0.0, deadline - time.monotonic()))
+    running = sorted(t.name for t in set(threading.enumerate()) - threads if not t.name.startswith(_PROCESS_THREADS))
+    timers = [o for o in gc.get_objects() if isinstance(o, QTimer) and not sip.isdeleted(o) and o.isActive()]
+    for timer in timers:
+        timer.stop()
+    if qapp.styleSheet() != app_state[0]:
+        qapp.setStyleSheet(app_state[0])
+    if qapp.font() != app_state[1]:
+        qapp.setFont(app_state[1])
+    if qapp.palette() != app_state[2]:
+        qapp.setPalette(app_state[2])
+    theme._own_hues = app_state[3]
+    problems = [f"threads still running: {', '.join(running)}"] if running else []
+    if timers:
+        problems.append("timers still running: " + ", ".join(
+            f"{type(t.parent()).__name__ if t.parent() else 'unparented'} every {t.interval()} ms" for t in timers))
+    problems += [f"{type(e).__name__} in a Qt callback: {e}" for e in _callback_errors]
+    if problems:
+        pytest.fail("Left behind by this test: " + "; ".join(problems), pytrace=False)
+
+
+@pytest.fixture(autouse=True)
+def _visions_shut_down(monkeypatch):
+    """Every Vision a test makes is shut down after it, as the window does when it quits, so its threads end."""
+    from telescope.vision import Vision
+    made = []
+    init = Vision.__init__
+
+    def tracked(self, *args, **kwargs):
+        init(self, *args, **kwargs)
+        made.append(self)
+
+    monkeypatch.setattr(Vision, "__init__", tracked)
+    yield
+    for vision in made:
+        vision.shutdown()
+
+
+class Timing:
+    """Times code against a piece of reference frame work run alongside it, so a slow or busy runner slows both."""
+
+    def __init__(self):
+        import numpy as np
+        self._frame = np.random.default_rng(0).integers(0, 255, (1080, 1920, 3), np.uint8)
+
+    def _reference(self):
+        import cv2
+        cv2.resize(self._frame, (960, 540), interpolation=cv2.INTER_AREA).copy()
+
+    def relative(self, fn, runs: int = 10) -> float:
+        """How many reference pieces fn takes, best run against best run: a run the scheduler interrupted counts for
+        neither."""
+        import cv2
+        threads = cv2.getNumThreads()
+        cv2.setNumThreads(1)  # so the ratio doesn't depend on how many cores the runner has
+        try:
+            fn()  # warm caches and lazily made buffers
+            best_fn = best_ref = float("inf")
+            for _ in range(runs):
+                start = time.perf_counter()
+                self._reference()
+                best_ref = min(best_ref, time.perf_counter() - start)
+                start = time.perf_counter()
+                fn()
+                best_fn = min(best_fn, time.perf_counter() - start)
+        finally:
+            cv2.setNumThreads(threads)
+        return best_fn / best_ref
+
+
+@pytest.fixture
+def timing():
+    return Timing()
 
 
 @pytest.fixture

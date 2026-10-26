@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 from telescope import theme
 from telescope.plugin import SETTINGS_TABS
 from telescope.widgets import settings_search
-from telescope.widgets.common import PlacedDialog, elided, ui_px, wrapped_note
+from telescope.widgets.common import PlacedDialog, call_later, elided, ui_px, wrapped_note
 from telescope.widgets.controls import SCREEN_MARGIN
 from telescope.widgets.line_icons import line_icon
 from telescope.i18n import tr
@@ -359,7 +359,7 @@ class SettingsWindow(PlacedDialog):
         self._unflash()
         self._flashed = node
         self._mark(node, True)
-        QTimer.singleShot(_FLASH_MS, lambda: self._unflash(node))
+        call_later(_FLASH_MS, self, lambda: self._unflash(node))
 
     def _unflash(self, only=None):
         node = self._flashed

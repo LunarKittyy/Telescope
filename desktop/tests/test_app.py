@@ -168,12 +168,13 @@ def window(qapp, config_home, monkeypatch):
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_state_fetch",
                         lambda self, session_id: win.state_fetches.append(session_id))
     yield win
-    # A dropped stream's timers would fire into a window that's gone, in a later test's event loop.
+    # What quitting does: a stream left running keeps its timers going into a later test's event loop.
+    win._tray = None  # some tests swap in a stand-in
+    win._shut_down()
     for source in (*win._phones.values(), *win._sources.values()):
         source.end_recovery()
     # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
-    win._tray = None
     # Destroy it now: windows left alive get restyled by a later apply_theme(), after their tests
     # swapped attributes out from under them, and that crashes Qt.
     win.deleteLater()
@@ -1430,11 +1431,11 @@ def test_resolution_pending_shows_warn_color_until_confirmed(window):
 def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypatch):
     fired = {}
 
-    def fake_single_shot(ms, fn):
+    def fake_call_later(ms, owner, fn):
         fired["ms"] = ms
         fn()
 
-    monkeypatch.setattr(app_module.QTimer, "singleShot", staticmethod(fake_single_shot))
+    monkeypatch.setattr(app_module, "call_later", fake_call_later)
 
     window._on_resolution_pending(1280, 720)
     window._phone.pending_resolution_timer.timeout.emit()

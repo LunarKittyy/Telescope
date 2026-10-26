@@ -110,6 +110,10 @@ class NotesPlugin(TelescopePlugin):
         self._timer = QTimer()
         self._timer.setInterval(_POLL_MS)
         self._timer.timeout.connect(self._poll)
+        self._first_poll = QTimer()  # soon after sending, to show quickly whether the phone took them
+        self._first_poll.setSingleShot(True)
+        self._first_poll.setInterval(1200)
+        self._first_poll.timeout.connect(self._poll)
         bus.source_selected.connect(self._on_source)
         bus.camera_switched.connect(self._on_lens)
 
@@ -314,7 +318,7 @@ class NotesPlugin(TelescopePlugin):
         self._shown = True  # until the phone says otherwise; it opens them right away when Telescope is on screen
         self._closed = self._preview = False
         self._timer.start()
-        QTimer.singleShot(1200, self._poll)
+        self._first_poll.start()
         self._show()
 
     def _clear(self):
@@ -381,7 +385,7 @@ class NotesPlugin(TelescopePlugin):
             self._play_btn.setChecked(False)
         self._ctrl = None
         self._takes_notes, self._front, self._shown = None, None, False
-        self._timer.stop()
+        self._stop_polling()
         self._show()
 
     def on_focus_gained(self, stream_url: str, ctrl):
@@ -393,7 +397,7 @@ class NotesPlugin(TelescopePlugin):
     def on_focus_lost(self):
         self._ctrl = None
         self._takes_notes, self._front = None, None
-        self._timer.stop()
+        self._stop_polling()
         self._show()
 
     def on_phone_state(self, state: dict):
@@ -402,7 +406,7 @@ class NotesPlugin(TelescopePlugin):
     def _poll(self):
         ctrl = self._ctrl
         if ctrl is None:
-            self._timer.stop()
+            self._stop_polling()
             return
         if self._takes_notes is not None and self._sent_ctrl is not ctrl:
             return  # nothing to follow until notes are sent
@@ -433,8 +437,12 @@ class NotesPlugin(TelescopePlugin):
                 self._sent_at = time.monotonic()
         self._show()
 
-    def shutdown(self):
+    def _stop_polling(self):
         self._timer.stop()
+        self._first_poll.stop()
+
+    def shutdown(self):
+        self._stop_polling()
 
     # ── Config ────────────────────────────────────────────────────────────
 

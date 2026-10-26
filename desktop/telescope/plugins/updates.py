@@ -181,7 +181,10 @@ class UpdatesPlugin(TelescopePlugin):
         self._timer = QTimer()
         self._timer.timeout.connect(self._maybe_auto_check)
         self._timer.start(_TICK_MS)
-        QTimer.singleShot(_FIRST_CHECK_MS, self._maybe_auto_check)
+        self._first_check = QTimer()
+        self._first_check.setSingleShot(True)
+        self._first_check.timeout.connect(self._maybe_auto_check)
+        self._first_check.start(_FIRST_CHECK_MS)
 
     # ── UI ────────────────────────────────────────────────────────────────
 
@@ -480,6 +483,7 @@ class UpdatesPlugin(TelescopePlugin):
     def shutdown(self):
         self._cancel.set()
         self._timer.stop()
+        self._first_check.stop()
 
     # ── Config ────────────────────────────────────────────────────────────
 

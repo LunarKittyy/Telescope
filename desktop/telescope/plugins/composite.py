@@ -377,5 +377,7 @@ class CompositePlugin(TelescopePlugin):
     def shutdown(self):
         self._shut = True
         self._clock_wake.set()
+        if self._clock is not None:
+            self._clock.join(1)  # so no picture goes out after quitting
         if self._editor is not None:
             self._editor.close()
