@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
@@ -7,7 +8,10 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.colour import ColourStage
     from telescope.overlays import PreviewLayer, PreviewOverlays
+    from telescope.sensors import SensorReading, SensorStatus
+    from telescope.stills import StillCaps
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -186,6 +190,11 @@ class HostStreams(Protocol):
         """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
         ...
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        """(source id, width, height) of the stream going to virtual camera slot (0 is the one apps list as Telescope),
+        or None when none does. Width and height are None until its camera has opened, and with the camera off."""
+        ...
+
     def remove_extra_cameras(self, on_done=None) -> None:
         """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
         ...
@@ -325,6 +334,67 @@ class HostVision(Protocol):
         the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
         ...
 
+class HostPackets(Protocol):
+    """The shown stream's H.264 before it's decoded, for effects that change the video itself (datamosh). Only a
+    phone's Light stream has it: Heavy is a picture at a time, with no keyframes to work with."""
+
+    def packets_problem(self) -> str:
+        """Why the shown stream's packets can't be changed (Heavy, a browser), or "" when they can, or will once it
+        streams; it can change with stream_transport_changed, source_selected and the stream starting."""
+        ...
+
+    def change_packets(self, owner: str, make_step: Optional[Callable[[], Callable[[bytes], list]]]) -> None:
+        """While set, the shown stream's access units (Annex-B bytes, one frame each) go through a step from
+        make_step(), on the stream's thread, before they're decoded: step(unit) returns the ones to decode in its place
+        ([] drops it). Each stream it's put on gets a fresh step, starting with the stream's SPS and PPS and at a keyframe, and it moves with the panels.
+        None takes it off, and the phone is asked for a keyframe so the picture recovers. Nothing extra runs while nobody has one."""
+        ...
+
+
+@dataclass(frozen=True)
+class StreamFrame:
+    """The newest picture of one running stream, as it goes out to its virtual camera (after that stream's plugins)."""
+
+    source_id: str
+    """The stream's source: a phone's id or a StreamSource's ("" for the stream with no phone picked)."""
+    name: str
+    """What the phone picker and the stream's tile call it."""
+    frame: np.ndarray
+    """BGR, read-only and shared with the stream: never copied unless copy=True was asked for."""
+    number: int
+    """Goes up with every frame any stream sends out, so a different number is a different frame."""
+    time: float
+    """When the stream made it, in time.monotonic() seconds."""
+
+    def age(self, now: Optional[float] = None) -> float:
+        """Seconds since it was made. A stream that dropped keeps its last frame, which only gets older."""
+        return (time.monotonic() if now is None else now) - self.time
+
+
+class HostFrames(Protocol):
+    """Frames from other streams: the newest picture of every running stream, from any thread and without copying."""
+
+    def stream_frames(self, copy: bool = False) -> list:
+        """[StreamFrame] of every running stream that has sent a picture, in the order they started. A stream that
+        stops is gone from the next call; copy=True hands out frames that are yours to change."""
+        ...
+
+    def stream_frame(self, source_id: Optional[str], copy: bool = False) -> Optional[StreamFrame]:
+        """The newest StreamFrame of source_id's stream, or None while it doesn't run or hasn't sent a picture yet."""
+        ...
+
+    def frame_source(self) -> Optional[str]:
+        """From process_frame or a frame_step only: the source id of the stream the frame being worked on is from."""
+        ...
+
+    def replace_frame(self, source_id: Optional[str], frame: np.ndarray, number: int) -> bool:
+        """From any thread: frame (BGR, never changed after) goes out on source_id's virtual camera in place of that
+        stream's newest frame, the one numbered number. False, and nothing sent, once the stream has a newer frame or
+        doesn't run. For a picture that should move on while the stream it goes out on stalls; stream_frame() keeps
+        handing out the stream's own frame."""
+        ...
+
+
 class HostPreview(Protocol):
     """Drawing on the preview without it reaching the virtual camera, and asking for points and areas there
     (telescope.overlays). Nothing shows and no pick starts while the Preview plugin is off."""
@@ -368,6 +438,28 @@ class HostPreview(Protocol):
         ...
 
 
+class HostColour(Protocol):
+    """The colour pipeline: every plugin's colour changes baked into one LUT per stream (telescope.colour), applied
+    after the plugins' frame steps and before the plugins that see the final frame."""
+
+    def set_colour_stage(self, owner: str, stage: Optional["ColourStage"], order: int = 0,
+                         source_id: Optional[str] = None) -> None:
+        """Put owner's telescope.colour.ColourStage in the pipeline, in place of its last one; None takes it out. Lower
+        order runs first (a grade is 0, so evening phones out would go below it). source_id: only that stream, shown
+        or not. Without it the stage is the shown stream's, and a stream the panels leave keeps the one it had."""
+        ...
+
+    def colour_split(self, owner: str, position: Optional[float]) -> None:
+        """Show the shown stream without its colour stages left of position (0..1 of the width), on the preview only;
+        None ends it."""
+        ...
+
+    def colour_preview(self, frame: np.ndarray) -> np.ndarray:
+        """From the process_frame of a plugin that sees the final frame: frame (or a smaller copy of it) as the preview
+        shows it, with a colour_split drawn in. A new array when it draws anything; frame itself is never changed."""
+        ...
+
+
 class HostMotion(Protocol):
     """Something moving in parts of the shown stream's picture (telescope.motion): no download, plain OpenCV."""
 
@@ -381,8 +473,50 @@ class HostMotion(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostMotion,
-                   HostPreview, Protocol):
+class HostStills(Protocol):
+    """Full-quality photos taken on the phone (telescope.stills), not frames of the video: for the Photos card, or any
+    plugin wanting a burst, without depending on the Photos plugin."""
+
+    def still_caps(self, source_id: Optional[str] = None) -> Optional["StillCaps"]:
+        """What the lens the shown stream (or source_id's) is on can take, or None when it can't take photos (an
+        older phone, a Browser camera, not streaming)."""
+        ...
+
+    def take_still(self, options: dict, folder: str, on_done: Callable, on_progress: Optional[Callable] = None,
+                   source_id: Optional[str] = None) -> bool:
+        """Take a photo on the shown stream's phone (or source_id's) with the /v1/still options in docs/protocol.md
+        and save it in folder. on_done(StillResult) and on_progress(StillProgress) come on the GUI thread. False when
+        it can't start: no photos there, or one is already being taken."""
+        ...
+
+    def still_busy(self, source_id: Optional[str] = None) -> bool:
+        """Whether a photo is being taken on the shown stream's phone (or source_id's)."""
+        ...
+
+
+class HostSensors(Protocol):
+    """The shown stream's phone's motion and light sensors (telescope.sensors): only streamed while something wants
+    them, and only from the phone the panels show."""
+
+    def want_sensors(self, owner: str, kinds) -> None:
+        """Ask for these kinds (telescope.sensors.KINDS) under owner's name, replacing what owner asked for before; an
+        empty list lets go. The phone streams what anyone wants, and stops once nobody does."""
+        ...
+
+    def sensor_status(self, source_id: Optional[str] = None) -> "SensorStatus":
+        """Where the sensors of source_id's stream (default: the shown one) stand: off, starting, on or unavailable
+        with the reason. Another stream's are always off. sensors_changed says when it changes."""
+        ...
+
+    def sensor_reading(self, source_id: Optional[str] = None) -> Optional["SensorReading"]:
+        """The newest readings from source_id's phone (default: the shown stream's), None while there are none. Safe
+        from any thread."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostFrames,
+                   HostMotion, HostPreview, HostStills, HostColour, HostSensors, HostPackets,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -659,7 +793,10 @@ class EventBus(QObject):
     """Motion in a watch_motion owner's zones started or stopped: the stream's source id, the owner and the indexes of
     the zones something moves in now."""
     vision_state_changed   = pyqtSignal(str)
-    """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
+    """host.vision_state() changed (MediaPipe loading, ready, missing or failed; off again after the download)."""
+    sensors_changed        = pyqtSignal(str)
+    """A stream's phone sensors (its source id) sent new readings, up to 30 times a second, or host.sensor_status()
+    changed. Only while something wants them."""
     view_status            = pyqtSignal(object)
     """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)
@@ -672,6 +809,9 @@ class EventBus(QObject):
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
     vcam_opened            = pyqtSignal(int, int)
     """The stream opened the virtual camera at this width and height."""
+    camera_opened          = pyqtSignal(str, int, int, int)
+    """Any stream's virtual camera opened: its source id, slot (0 is Telescope's own), width and height. vcam_opened
+    says the same for slot 0 alone."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
     cover_requested        = pyqtSignal(str, bool)
@@ -704,6 +844,10 @@ class EventBus(QObject):
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
     preview_pick_changed   = pyqtSignal(str)
     """A pick on the preview started (who asked: host.pick_on_preview's owner) or ended ("")."""
+    still_busy_changed     = pyqtSignal(str, bool)
+    """A photo started or finished on a stream's phone (its source id), whichever plugin asked for it."""
+    still_saved            = pyqtSignal(str, list)
+    """Photos were saved from a stream's phone (its source id, [file paths]), whichever plugin asked for them."""
     stream_behind          = pyqtSignal(str, bool)
     """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
     Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught

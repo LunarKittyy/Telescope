@@ -76,7 +76,7 @@ def drifted_settings(settings: dict, state: dict) -> list:
 class PhoneControlClient:
     """Sends authenticated camera-control requests via queued background worker; coalesces requests by action."""
 
-    _NON_COALESCING = frozenset({"camera"})
+    _NON_COALESCING = frozenset({"camera", "notes_scroll"})  # each Next or Previous counts
     # What a phone that restarted its stream has forgotten, and gets again from resend_settings()
     _SETTINGS = frozenset({
         "auto", "iso", "shutter", "wb_auto", "wb_gains", "ois", "focus_mode", "focus_distance", "ae_comp", "nr_mode",
@@ -203,7 +203,7 @@ class PhoneControlClient:
 
     def _send_now(self, params: dict) -> bool:
         """False when it may not have got there, so it's worth sending again."""
-        body = json.dumps(params).encode("utf-8")
+        body = json.dumps(params, ensure_ascii=False).encode("utf-8")
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         req = urllib.request.Request(f"{self.base}/control", data=body, method="POST", headers=headers)
         try:

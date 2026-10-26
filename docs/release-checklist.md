@@ -97,7 +97,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Streaming
 
-<!-- due: desktop/telescope/stream.py desktop/telescope/stream_flow.py desktop/telescope/sources.py desktop/telescope/h264_reader.py desktop/telescope/mjpeg_reader.py desktop/telescope/udp_reader.py desktop/telescope/jpeg_guard.py desktop/telescope/pyav_vaapi.py desktop/telescope/widgets/vaapi_setup.py desktop/telescope/plugins/stream_output.py desktop/telescope/plugins/transforms.py desktop/telescope/plugins/monitoring.py desktop/telescope/diagnostics.py android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt ; packages: av numpy opencv-python-headless pyee -->
+<!-- due: desktop/telescope/stream.py desktop/telescope/stream_flow.py desktop/telescope/sources.py desktop/telescope/h264_reader.py desktop/telescope/mjpeg_reader.py desktop/telescope/udp_reader.py desktop/telescope/packets.py desktop/telescope/h264_mosh.py desktop/telescope/jpeg_guard.py desktop/telescope/pyav_vaapi.py desktop/telescope/widgets/vaapi_setup.py desktop/telescope/plugins/stream_output.py desktop/telescope/plugins/transforms.py desktop/telescope/plugins/monitoring.py desktop/telescope/diagnostics.py android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt ; packages: av numpy opencv-python-headless pyee -->
 
 - [ ] H.264 on a real phone: a fresh phone starts on Light and switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers and changing resolution or lens mid-stream keeps working.
 - [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy automatically, with no banner.
@@ -121,6 +121,16 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto and Auto returns to continuous. The pop-out works the same.
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 
+### Photos
+
+<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
+
+- [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
+- [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
+- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
+- [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+
 ### Microphone
 
 <!-- due: desktop/telescope/audio.py desktop/telescope/denoise.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice pyrnnoise -->
@@ -132,6 +142,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
 - [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
 - [ ] Noise reduction, on Linux and Windows: with a fan going and some typing a call recording loses both while speech still sounds natural and switching it mid-sentence doesn't click.
+
+### Phone sensors
+
+<!-- due: desktop/telescope/sensors.py android/app/src/main/kotlin/com/telescope/PhoneSensors.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt -->
+
+- [ ] With a plugin using the phone's sensors, tilting the phone shows on the desktop within a moment with the back and the front camera, held upright and in landscape both ways round. Switching to another phone's stream moves the sensors there and an older phone app is reported as one.
+- [ ] The phone's sensors stop once nothing uses them or the stream ends (the `sensors` thread goes away in `adb shell top -H -p $(adb shell pidof com.telescope)`), and the video doesn't stutter while they run.
 
 ### Starting, stopping and the camera button
 
@@ -157,6 +174,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
 - [ ] Windows: the firewall prompt (or a rule) lets port 8767 through and picking a phone again stops the server.
 
+### On Air sign
+
+<!-- due: desktop/telescope/on_air.py desktop/telescope/plugins/on_air.py desktop/telescope/browser_server.py desktop/telescope/web/** ; packages: cryptography -->
+
+- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
+- [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
+
 ### Settings, keyboard and folding
 
 <!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py desktop/telescope/plugin_updates.py desktop/telescope/widgets/plugin_updater.py ; packages: jeepney -->
@@ -167,20 +192,51 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its row. **Install updates without asking** asks before it goes on.
 
+### Several cameras in one picture
+
+<!-- due: desktop/telescope/frames.py desktop/telescope/composite.py desktop/telescope/pictures.py desktop/telescope/plugins/composite.py desktop/telescope/widgets/composite_editor.py desktop/telescope/stream.py desktop/telescope/stream_flow.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Optional** shows the One picture card. **Start from** Big and small, then drag, resize (plain, Shift to stretch, Alt to crop), zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the Telescope camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
+- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the first alone within 3 seconds. The second one is in the picture again once it's restarted. Turning off the first phone's Wi-Fi doesn't freeze the second in the picture. With an upright phone on Telescope and a landscape one on Telescope 2, moving the mic to the second leaves the picture upright on Telescope.
+
 ### Vision effects
 
-<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy desktop/telescope/pictures.py -->
+<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/plugins/fun_pack.py desktop/telescope/fun_effects.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy desktop/telescope/pictures.py -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+- [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch, and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second, and on Heavy the card says it needs Light.
 - [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
 - [ ] Privacy blur with a real phone: a second person walking in gets blurred within a second, you stay sharp, and it stops a few seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
 
 ### Preview tools and picture plugins
 
-<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py -->
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
 - [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, a standing page keeps its shape (Width and Height fix what Auto gets wrong), Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
 - [ ] Chroma key with a real green screen and a real phone: Green keys it cleanly with even light, Picked keys the colour clicked on the preview, Spill takes the green off hair and skin and a picture fills the frame in a call.
 - [ ] QR codes with a real phone: a Wi-Fi code from another phone's share screen puts the password on the clipboard (Linux with the window in front and behind, where Copy has to step in, and Windows) and a printed link code reads from arm's length.
 - [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.
+
+### Name tag
+
+<!-- due: desktop/telescope/name_tag.py desktop/telescope/plugins/name_tag.py -->
+
+- [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
+- [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
+
+### Colour grading
+
+<!-- due: desktop/telescope/colour.py desktop/telescope/grade.py desktop/telescope/plugins/colour_grading.py desktop/telescope/widgets/colour_wheel.py desktop/telescope/widgets/curve_editor.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on in **Optional**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
+
+### Notes next to the lens
+
+<!-- due: desktop/telescope/plugins/notes.py android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt -->
+
+- [ ] Switch Notes on under **Optional**, stream from the front camera and send a few lines. They open on the phone right under the camera (on a notch, a punch hole and a phone without either), Play scrolls them, Next and Previous step a line and a shortcut or presenter clicker bound to Next works. Turn the phone sideways and the text moves beside the lens. The stream doesn't stutter while they scroll.
+- [ ] With Telescope in the background on the phone the card asks you to open it and opening it shows the notes. Back closes them until you send again, and stopping the stream takes them away.
