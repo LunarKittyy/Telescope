@@ -9,6 +9,7 @@ here: the window passes on_change and turns it into the bus's sensors_changed.
 import json
 import logging
 import socket
+import sys
 import threading
 import time
 import urllib.error
@@ -26,6 +27,7 @@ _VECTORS = ("accelerometer", "gyroscope", "magnetometer", "gravity", "rotation")
 _RETRY_S = 2.0
 _FAIL_AFTER_S = 6.0  # trying to reach the sensors for this long before saying it can't
 _READ_TIMEOUT_S = 5.0  # the phone sends a line at least every second
+_WINDOWS = sys.platform == "win32"
 _ALIVE_DEFAULT_MS = 15_000  # how long the phone waits for a request before it stops, when its hello doesn't say
 _MAX_LINE = 64 * 1024
 
@@ -82,6 +84,23 @@ class SensorStatus:
 def _socket_of(resp):
     """The socket under an http.client response, or None."""
     return getattr(getattr(getattr(resp, "fp", None), "raw", None), "_sock", None)
+
+
+def _wake(resp):
+    """Ends a read blocked on resp's socket, from another thread, without touching the response's own lock."""
+    sock = _socket_of(resp)
+    if sock is None:
+        return
+    try:
+        sock.shutdown(socket.SHUT_RDWR)  # enough on Linux
+    except (OSError, ValueError):
+        pass
+    if _WINDOWS:
+        # Windows only wakes a blocked recv when the handle closes; detached first, so nothing closes it again later
+        try:
+            socket.socket(fileno=sock.detach()).close()
+        except (OSError, ValueError):
+            pass
 
 
 def _close_quietly(resp):
@@ -144,12 +163,7 @@ class _Reader:
         resp = self._response
         if resp is None:
             return
-        sock = _socket_of(resp)
-        if sock is not None:
-            try:
-                sock.shutdown(socket.SHUT_RDWR)  # wakes the readline at once
-            except (OSError, ValueError):
-                pass
+        _wake(resp)
         threading.Thread(target=_close_quietly, args=(resp,), name="phone-sensors-close", daemon=True).start()
 
     @property

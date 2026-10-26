@@ -265,7 +265,9 @@ def test_it_tells_the_phone_it_is_still_there(hub):
     assert len(auth.pings) <= pings + 1  # stops with the stream
 
 
-def test_letting_go_never_waits_for_a_read_in_progress(hub):
+@pytest.mark.parametrize("windows", [False, True])
+def test_letting_go_never_waits_for_a_read_in_progress(hub, monkeypatch, windows):
+    monkeypatch.setattr("telescope.sensors._WINDOWS", windows)  # Windows closes the handle too, which works here as well
     # A real HTTP response blocked in readline(): closing it would wait for the read's lock
     import http.client
     import socket as socket_module
