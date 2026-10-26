@@ -35,7 +35,7 @@ class _Signal:
 
 
 # The built-in plugins whose settings are kept per phone (their device_local)
-_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone",
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk",
                  "colour_grading"}
 
 
@@ -3876,6 +3876,22 @@ def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window
     assert got == [None] and overlays.picking() == ""
 
 
+def test_desk_mode_tells_the_preview_its_warp_again_after_a_restart(window):
+    from telescope.plugins.desk import DeskPlugin
+    desk = DeskPlugin()
+    desk.setup(window, window._bus)
+    desk.create_panel()
+    desk.set_config({"on": True, "corners": [[0.3, 0.1], [0.7, 0.15], [0.75, 0.9], [0.25, 0.85]]})
+    frame = np.zeros((180, 320, 3), np.uint8)
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()
+    window._bus.stream_stopped.emit()
+    desk.on_stream_stop()
+    window._bus.stream_started.emit("http://phone")
+    desk.process_frame(frame)
+    assert window.preview_overlays().warping()  # or taps, zoom and picks land beside what's shown
+
+
 def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
     from types import SimpleNamespace
     from telescope.view import View
@@ -3920,8 +3936,8 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     assert window.still_caps().formats == ("jpeg",)
 
     taken = {}
-    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress:
-                        taken.update(source=source, on_done=on_done, on_progress=on_progress) or True)
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress, alive:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress, alive=alive) or True)
     busy, saved, done = [], [], []
     window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
     window._bus.still_saved.connect(lambda s, files: saved.append(files))
@@ -3933,6 +3949,10 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
     QCoreApplication.processEvents()
     assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+    # A restart gives the phone a new session: the photo on the old one counts as interrupted
+    assert taken["alive"]()
+    window._phone.session = StreamSession(source=window._phone, id=2, url="url", client=object(), worker=worker)
+    assert not taken["alive"]()
 
     # The next photo already started there when the last one's end reaches the Qt thread: still busy
     monkeypatch.setattr(window._stills, "busy", lambda source: True)

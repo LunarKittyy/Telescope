@@ -150,13 +150,14 @@ def phone():
         p.close()
 
 
-def _take(stills, phone, folder, options=None, source="phone-1"):
+def _take(stills, phone, folder, options=None, source="phone-1", alive=None):
     done, progress, result = threading.Event(), [], {}
 
     def on_done(r):
         result["r"] = r
         done.set()
-    assert stills.take(source, phone.ctrl, options or {"format": "jpeg", "raw": 1}, folder, on_done, progress.append)
+    assert stills.take(source, phone.ctrl, options or {"format": "jpeg", "raw": 1}, folder, on_done, progress.append,
+                       alive=alive)
     assert done.wait(10)
     return result["r"], progress
 
@@ -272,3 +273,43 @@ def test_a_photo_stopped_on_quit_is_forgotten(tmp_path, phone):
     stills.shutdown()
     assert done.wait(10)
     assert result["r"].code == "failed" and p.forgotten == ["abc"]
+
+
+def test_a_photo_that_stops_moving_on_the_phone_is_given_up_on_and_forgotten(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_STALL_S", 0.5)
+    p = phone(polls=1000)  # says capturing, 1 of 2 taken, for ever
+    result, progress = _take(Stills(), p, tmp_path)
+    assert result.code == "timeout" and "too long" in result.error and p.forgotten == ["abc"]
+    assert progress and progress[-1].state == "capturing"
+
+
+def test_a_long_exposure_gets_its_exposure_on_top_of_the_stall_time():
+    assert stills_module.exposure_seconds({"format": "jpeg"}) == 0
+    assert stills_module.exposure_seconds({"exposure_ns": 30_000_000_000}) == 30
+    assert stills_module.exposure_seconds({"exposure_ns": 2_000_000_000, "count": 2, "bracket_ev": "-1,0,1"}) == 12
+    assert stills_module.exposure_seconds({"exposure_ns": "x"}) == 0
+
+
+def test_a_photo_whose_stream_restarts_ends_as_interrupted_at_once(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LOST_AFTER_S", 60)
+    p = phone(polls=1000)
+    stills, polled, done, result = Stills(), threading.Event(), threading.Event(), {}
+    streaming = {"on": True}
+
+    def on_done(r):
+        result["r"] = r
+        done.set()
+    assert stills.take("phone-1", p.ctrl, {"format": "heic"}, tmp_path, on_done, lambda _prog: polled.set(),
+                       alive=lambda: streaming["on"])
+    assert polled.wait(10)
+    streaming["on"] = False
+    p.unreachable = True  # the old stream's server went with it
+    assert done.wait(5)
+    assert result["r"].code == "interrupted" and "interrupted" in result["r"].error
+
+
+def test_a_restart_while_the_phone_cant_be_reached_is_still_interrupted_not_lost(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LOST_AFTER_S", 0)
+    p = phone(unreachable=True)
+    result, _ = _take(Stills(), p, tmp_path, alive=lambda: False)
+    assert result.code == "interrupted"

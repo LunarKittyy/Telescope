@@ -19,7 +19,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         }
     }
 
-    private class Job(val id: String, val shots: Int, val startedAt: Long, var shootAt: Long) {
+    private class Job(val id: String, val shots: Int, val startedAt: Long, var shootAt: Long, val deadline: Long) {
         var state = "waiting"
         var taken = 0
         var paused = false
@@ -35,15 +35,25 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     private val jobs = LinkedHashMap<String, Job>()
     private val random = SecureRandom()
 
-    // A new request, or null while another one is still shooting
+    // A new request, or null while another one is still shooting; limitMs after its timer it fails however the camera is doing (0 = never)
     @Synchronized
-    fun start(shots: Int, timerMs: Long): String? {
+    fun start(shots: Int, timerMs: Long, limitMs: Long = 0L): String? {
+        expireOverdue()
         if (jobs.values.any { it.endedAt == 0L }) return null
         sweep()
         val id = ByteArray(8).also(random::nextBytes).joinToString("") { "%02x".format(it) }
         val now = clock()
-        jobs[id] = Job(id, shots, now, now + timerMs)
+        jobs[id] = Job(id, shots, now, now + timerMs, if (limitMs > 0L) now + timerMs + limitMs else 0L)
         return id
+    }
+
+    // The request still shooting past its time limit fails with timeout (a camera thread stuck in the phone's camera
+    // service can't end it); its id, or null when nothing was overdue
+    @Synchronized
+    fun expireOverdue(): String? {
+        val job = jobs.values.firstOrNull { it.endedAt == 0L && it.deadline != 0L && clock() >= it.deadline } ?: return null
+        fail(job.id, "timeout", "The phone's camera stopped answering")
+        return job.id
     }
 
     @Synchronized
@@ -95,10 +105,14 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
 
     // The request still shooting, if any
     @Synchronized
-    fun active(): String? = jobs.values.firstOrNull { it.endedAt == 0L }?.id
+    fun active(): String? {
+        expireOverdue()
+        return jobs.values.firstOrNull { it.endedAt == 0L }?.id
+    }
 
     @Synchronized
     fun status(id: String): StillStatus? {
+        expireOverdue()
         sweep()
         val job = jobs[id] ?: return null
         return StillStatus(

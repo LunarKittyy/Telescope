@@ -79,6 +79,7 @@ HostPreview.pick_on_preview(self, owner, kind, on_done, start=None, hint='')
 HostPreview.preview_overlays(self)
 HostPreview.refresh_preview(self)
 HostPreview.remove_preview_layer(self, owner)
+HostPreview.set_preview_warp(self, owner, matrix)
 HostSensors.sensor_reading(self, source_id=None)
 HostSensors.sensor_status(self, source_id=None)
 HostSensors.want_sensors(self, owner, kinds)
@@ -163,8 +164,9 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
-Pick(kind, shown, full, picture=None)
+Pick(kind, shown, full, picture=None, in_picture=())
 Pick.full
+Pick.in_picture = ()
 Pick.kind
 Pick.picture = None
 Pick.shown
