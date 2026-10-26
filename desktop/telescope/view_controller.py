@@ -1,4 +1,4 @@
-"""The window's view of the shown stream: it crops, flips and rotates frames and tells the phone its share of the zoom."""
+"""The window's view of the shown stream: it crops, flips, rotates and stretches frames and tells the phone its share of the zoom."""
 import time
 from dataclasses import asdict, replace
 from typing import Optional
@@ -8,7 +8,7 @@ import numpy as np
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.view import (
-    PhoneZoom, PhoneZoomCaps, View, ViewStatus, apply_zoom, inverse_map, lens_boxes, pan_for, phone_window, rest_within,
+    PhoneZoom, PhoneZoomCaps, View, ViewStatus, apply_stretch, apply_zoom, inverse_map, lens_boxes, pan_for, phone_window, rest_within,
     share_shift, shown_to_view, split_zoom, transform_frame, view_to_shown, window_centre,
 )
 
@@ -137,7 +137,8 @@ class ViewController(TelescopePlugin):
             if motion:
                 self._motion.feed(frame, *upright)
         frame = apply_zoom(frame, *self._crop_for(frame))
-        return transform_frame(frame, view.flip_h, view.flip_v, view.rotation)
+        frame = transform_frame(frame, view.flip_h, view.flip_v, view.rotation)
+        return apply_stretch(frame, view.stretch_x, view.stretch_y)
 
     def _crop_for(self, frame: np.ndarray) -> tuple:
         """The desktop's share for this frame: while a new phone share is on its way, the old one's until the
@@ -172,7 +173,8 @@ class ViewController(TelescopePlugin):
 
     def frame_step(self):
         crop, view = self._desktop_crop, self.view
-        return lambda frame: transform_frame(apply_zoom(frame, *crop), view.flip_h, view.flip_v, view.rotation)
+        return lambda frame: apply_stretch(transform_frame(apply_zoom(frame, *crop), view.flip_h, view.flip_v,
+                                                           view.rotation), view.stretch_x, view.stretch_y)
 
     # ── The phone's share of the zoom ─────────────────────────────────────
 
@@ -290,9 +292,10 @@ class ViewController(TelescopePlugin):
     def _in_phone_frame(self, u: float, v: float) -> tuple:
         w, h = self._frame_size
         view = self.view
-        return inverse_map(u, v, w, h, *self._desktop_crop, view.flip_h, view.flip_v, view.rotation)
+        return inverse_map(u, v, w, h, *self._desktop_crop, view.flip_h, view.flip_v, view.rotation,
+                           view.stretch_x, view.stretch_y)
 
     def _emit_lens_boxes(self, moved: bool):
         caps, view = self._zoom_caps if self._ctrl else None, self.view
         self._bus.lens_boxes.emit(lens_boxes(caps, view.zoom, view.pan_x, view.pan_y, view.flip_h, view.flip_v,
-                                             view.rotation), moved)
+                                             view.rotation, view.stretch_x, view.stretch_y), moved)
