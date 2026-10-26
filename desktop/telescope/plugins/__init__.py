@@ -18,6 +18,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.name_tag import NameTagPlugin
+    from telescope.plugins.notes import NotesPlugin
     from telescope.plugins.on_air import OnAirPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.photos import PhotosPlugin
@@ -50,6 +51,7 @@ def builtin_plugins() -> list:
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
         DeskPlugin(),  # optional, after the view: it straightens the picture as shown
         NameTagPlugin(),  # optional, after Background: its text mustn't be taken for the background
+        NotesPlugin(),  # optional: off until switched on in Plugins
         MicrophonePlugin(),
         PresetsPlugin(),
         QrReaderPlugin(),  # optional

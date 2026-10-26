@@ -239,7 +239,7 @@ class MjpegServer(
                     if (!HttpWire.isJsonBody(request)) {
                         HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return
                     }
-                    val body = HttpWire.readBody(socket, request) ?: return  // already responded on error
+                    val body = HttpWire.readBody(socket, request, HttpWire.MAX_CONTROL_BODY_BYTES) ?: return  // already responded on error
                     val params = HttpWire.parseJsonParams(body)
                     if (params == null) {
                         HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request")

@@ -65,6 +65,15 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Telescope" />
 
+        <!-- The computer's notes next to the front camera; turns with the phone, since it may sit sideways in a holder -->
+        <activity
+            android:name=".NotesActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullUser"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:theme="@style/Theme.Telescope" />
+
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             android:screenOrientation="portrait"

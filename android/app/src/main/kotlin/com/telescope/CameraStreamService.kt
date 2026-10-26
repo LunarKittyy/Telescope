@@ -560,6 +560,7 @@ class CameraStreamService : Service() {
             if (streamingSinceMs == 0L) streamingSinceMs = System.currentTimeMillis()
             rememberSelection()
             mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
+            mainHandler.post(::showNotes)  // notes that came while Recovering or while Preview had the surface
         }
         android.util.Log.i(
             TAG,
@@ -989,6 +990,11 @@ class CameraStreamService : Service() {
             camera_error_code = if (controller?.cameraError != null) "camera_in_use" else null,
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
+            takes_notes = true,
+            notes = NotesBoard.hasNotes,
+            notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
+            notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
+            notes_preview = NotesBoard.wantsScreen && !NotesBoard.shown && controller?.hasPreviewSurface() == true,
             stills = 1,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
@@ -1000,6 +1006,7 @@ class CameraStreamService : Service() {
     }
 
     private fun handleControlCommand(params: Map<String, String>): String {
+        NotesCommand.parse(params)?.let { return notesControl(it) }
         val ctrl = controller ?: return err("camera not ready")
         return try {
             when (params["action"]) {
@@ -1148,6 +1155,26 @@ class CameraStreamService : Service() {
         } catch (e: Exception) { err(e.message ?: "exception") }
     }
 
+    // Notes don't touch the camera, so they work with it off too
+    private fun notesControl(command: NotesCommand): String {
+        if (command is NotesCommand.Refused) return err(command.error)
+        if (NotesBoard.apply(command)) mainHandler.post { showNotes() }
+        return ok()
+    }
+
+    // Runs on new text and on every return to Streaming (Preview closing ends in one too); MainActivity.onStart covers the app coming to the front
+    private fun showNotes() {
+        val info = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(info)
+        val inFront = info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        if (!NotesBoard.opensNow(isStreaming, controller?.hasPreviewSurface() == true, inFront)) return
+        try {
+            startActivity(NotesActivity.intent(this))
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Couldn't open the notes", e)
+        }
+    }
+
     // POST /v1/still: {"action": "take", ...StillOptions} starts a photo, {"action": "forget", "id"} deletes its files
     private fun handleStill(params: Map<String, String>): String {
         fun answer(started: StillStarted) = Json.encodeToString(StillStarted.serializer(), started)
@@ -1187,6 +1214,7 @@ class CameraStreamService : Service() {
         releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
+        NotesBoard.clear()
         streamingSinceMs = 0L
         viewer = null
         setState(StreamState.Idle, op)

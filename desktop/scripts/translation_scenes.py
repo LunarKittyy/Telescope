@@ -727,7 +727,7 @@ AREAS = (
     ("camera", "Camera, video and framing", ("plugins/camera_control.py", "plugins/framing.py", "plugins/transforms.py",
                                              "plugins/preview.py", "plugins/stream_output.py", "plugins/background.py",
                                              "plugins/colour_grading.py", "colour.py", "plugins/photos.py", "stills.py",
-                                             "plugins/presets.py", "plugins/wait_screen.py", "plugins/browser_camera.py",
+                                             "plugins/presets.py", "plugins/wait_screen.py", "plugins/browser_camera.py", "plugins/notes.py",
                                              "browser_server.py")),
     ("audio", "Microphone and shortcuts", ("plugins/microphone.py", "audio.py", "plugins/shortcuts.py", "shortcuts.py")),
     ("updates", "Updates, startup and monitoring", ("plugins/updates.py", "updates.py", "plugins/startup.py",

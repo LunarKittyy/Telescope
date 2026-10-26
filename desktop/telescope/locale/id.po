@@ -1259,7 +1259,7 @@ msgid "Light"
 msgstr "Pencahayaan"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/desk.py:23 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:654
+#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/desk.py:23 telescope/plugins/notes.py:28 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "Otomatis"
 
@@ -2844,7 +2844,7 @@ msgstr "Pembingkaian"
 msgid "How quickly the framing catches up when you move"
 msgstr "Seberapa cepat pembingkaian menyesuaikan saat Anda bergerak"
 
-#: telescope/plugins/framing.py:276
+#: telescope/plugins/framing.py:276 telescope/plugins/notes.py:168
 msgid "Speed"
 msgstr "Kecepatan"
 
@@ -3293,6 +3293,173 @@ msgstr ""
 
 #: telescope/plugins/name_tag.py:76
 msgid "Size"
+msgstr ""
+
+#: telescope/plugins/notes.py:28
+msgid "By hand"
+msgstr ""
+
+#: telescope/plugins/notes.py:55
+msgid "Notes only work with a phone as the camera."
+msgstr ""
+
+#: telescope/plugins/notes.py:57
+msgid "Update Telescope on the phone to show notes there."
+msgstr ""
+
+#: telescope/plugins/notes.py:59
+msgid "These notes are too long to send to the phone."
+msgstr ""
+
+#: telescope/plugins/notes.py:61
+msgid "Start streaming to send the notes to the phone."
+msgstr ""
+
+#: telescope/plugins/notes.py:64
+msgid "Switch to the front camera to have the phone's screen facing you."
+msgstr ""
+
+#: telescope/plugins/notes.py:65
+msgid "Send to phone puts them on its screen right under the camera."
+msgstr ""
+
+#: telescope/plugins/notes.py:68
+msgid "The notes were closed on the phone. Send again to show them."
+msgstr ""
+
+#: telescope/plugins/notes.py:70
+msgid "The notes show up on the phone once you close its preview."
+msgstr ""
+
+#: telescope/plugins/notes.py:71
+msgid "Open Telescope on the phone to see the notes."
+msgstr ""
+
+#: telescope/plugins/notes.py:73
+msgid "The notes are up but the phone streams from its back camera."
+msgstr ""
+
+#: telescope/plugins/notes.py:75
+msgid "Send again to show your changes on the phone."
+msgstr ""
+
+#: telescope/plugins/notes.py:76
+msgid "The notes are on the phone's screen."
+msgstr ""
+
+#: telescope/plugins/notes.py:85 telescope/plugins/notes.py:118 telescope/plugins/notes.py:138 telescope/plugins/notes.py:199
+msgid "Notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:86
+msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
+msgstr ""
+
+#: telescope/plugins/notes.py:87
+msgid "Without it there's no Notes card and the phone never shows notes."
+msgstr ""
+
+#: telescope/plugins/notes.py:122
+msgid "Your saved notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:124
+msgid "New notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:126
+msgid "Delete these notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:137
+msgid "Type or paste your notes. Next and Previous move one line at a time."
+msgstr ""
+
+#: telescope/plugins/notes.py:147
+msgid "How big the notes are on the phone"
+msgstr ""
+
+#: telescope/plugins/notes.py:150
+msgid "Text size"
+msgstr ""
+
+#: telescope/plugins/notes.py:160
+msgid "Scroll"
+msgstr ""
+
+#: telescope/plugins/notes.py:171
+msgctxt "notes"
+msgid "Previous"
+msgstr ""
+
+#: telescope/plugins/notes.py:172
+msgid "Back to the line before"
+msgstr ""
+
+#: telescope/plugins/notes.py:174 telescope/plugins/notes.py:288
+msgid "Play"
+msgstr ""
+
+#: telescope/plugins/notes.py:176
+msgid "Start or pause scrolling on the phone"
+msgstr ""
+
+#: telescope/plugins/notes.py:178
+msgctxt "notes"
+msgid "Next"
+msgstr ""
+
+#: telescope/plugins/notes.py:179
+msgid "On to the next line"
+msgstr ""
+
+#: telescope/plugins/notes.py:183
+msgid "Send to phone"
+msgstr ""
+
+#: telescope/plugins/notes.py:186
+msgid "Clear from phone"
+msgstr ""
+
+#: telescope/plugins/notes.py:201
+msgid "Send notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:202
+msgid "Clear notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:203
+msgid "Next line"
+msgstr ""
+
+#: telescope/plugins/notes.py:204
+msgid "Previous line"
+msgstr ""
+
+#: telescope/plugins/notes.py:205
+msgid "Scroll notes"
+msgstr ""
+
+#: telescope/plugins/notes.py:206
+msgid "playing"
+msgstr ""
+
+#: telescope/plugins/notes.py:206
+msgid "paused"
+msgstr ""
+
+#: telescope/plugins/notes.py:207
+msgid "Notes scroll speed"
+msgstr ""
+
+#: telescope/plugins/notes.py:228
+#, python-brace-format
+msgid "Notes {n}"
+msgstr ""
+
+#: telescope/plugins/notes.py:288
+msgid "Pause"
 msgstr ""
 
 #: telescope/plugins/on_air.py:36

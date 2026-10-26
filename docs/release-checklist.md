@@ -217,3 +217,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on in **Optional**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
 - [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
 - [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
+
+### Notes next to the lens
+
+<!-- due: desktop/telescope/plugins/notes.py android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt -->
+
+- [ ] Switch Notes on under **Optional**, stream from the front camera and send a few lines. They open on the phone right under the camera (on a notch, a punch hole and a phone without either), Play scrolls them, Next and Previous step a line and a shortcut or presenter clicker bound to Next works. Turn the phone sideways and the text moves beside the lens. The stream doesn't stutter while they scroll.
+- [ ] With Telescope in the background on the phone the card asks you to open it and opening it shows the notes. Back closes them until you send again, and stopping the stream takes them away.

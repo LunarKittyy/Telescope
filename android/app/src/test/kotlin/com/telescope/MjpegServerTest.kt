@@ -208,8 +208,23 @@ class MjpegServerTest {
         server.start()
         try {
             val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
-                "Content-Type: application/json\r\nContent-Length: 4097\r\n\r\n"
+                "Content-Type: application/json\r\nContent-Length: ${HttpWire.MAX_CONTROL_BODY_BYTES + 1}\r\n\r\n"
             assertEquals(413, request(actualPort(server), raw).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control takes notes longer than other requests may be`() {
+        val got = AtomicReference<Map<String, String>>()
+        val server = MjpegServer(0, { "{}" }, { got.set(it); "{\"ok\":true}" }, "127.0.0.1", tokens = { listOf("secret-token") })
+        server.start()
+        try {
+            val text = "Say hello to everyone. ".repeat(1_000)  // about 23 KB, past the 4 KB other bodies get
+            val body = "{\"action\":\"notes\",\"text\":\"$text\"}"
+            assertEquals(200, authPost(actualPort(server), "/v1/control", "secret-token", body).status)
+            assertEquals(text, got.get()["text"])
         } finally {
             server.stop()
         }

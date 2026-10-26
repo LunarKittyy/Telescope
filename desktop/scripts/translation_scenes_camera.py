@@ -89,7 +89,7 @@ CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "
                 "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
                 "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
                 "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit",
-                "colour_grading": "_switch"}
+                "colour_grading": "_switch", "notes": "_editor"}
 
 
 def card_of(win, widget):
@@ -702,6 +702,107 @@ def colour_grading_replace_dialog(stack):
     win = ready_window(stack)
     plugin_of(win, "colour_grading")._may_replace("Telescope grade.cube")
     return shown(stack, held[-1])
+
+
+# ── Notes ────────────────────────────────────────────────────────────────────
+
+NOTES_TEXT = "Welcome everyone\nWhat we shipped this week\nQuestions"
+
+
+def notes_card(stack, streaming=True, setup=None, **state):
+    """The Notes card with a few lines typed, streaming from a phone whose state has these notes fields."""
+    if streaming:
+        win, _source = streaming_window(stack, phone_state(lens(facing=state.pop("facing", "front")),
+                                                           takes_notes=True, **state))
+    else:
+        win = ready_window(stack)
+    plugin = plugin_of(win, "notes")
+    plugin._editor.setPlainText(NOTES_TEXT)
+    if setup is not None:
+        setup(plugin)
+    return cards(stack, win, "notes")
+
+
+def notes_sent(plugin, shown=True, **state):
+    plugin._send_btn.click()
+    plugin.on_phone_state(phone_state(lens(facing=state.pop("facing", "front")), takes_notes=True, notes=True,
+                                      notes_shown=shown, **state))
+
+
+@scene("notes-ready", "main", "Notes · ready to send", width=CARD_WIDTH)
+def notes_ready(stack):
+    return notes_card(stack)
+
+
+@scene("notes-by-hand", "states", "Notes · scrolled by hand", width=CARD_WIDTH)
+def notes_by_hand(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._set_scroll("hand"))
+
+
+@scene("notes-not-streaming", "states", "Notes · not streaming", width=CARD_WIDTH)
+def notes_not_streaming(stack):
+    return notes_card(stack, streaming=False)
+
+
+@scene("notes-older-phone", "states", "Notes · the phone app is too old", width=CARD_WIDTH)
+def notes_older_phone(stack):
+    return notes_card(stack, setup=lambda plugin: plugin.on_phone_state(phone_state()))
+
+
+@scene("notes-back-camera", "states", "Notes · streaming from the back camera", width=CARD_WIDTH)
+def notes_back_camera(stack):
+    return notes_card(stack, facing="back")
+
+
+@scene("notes-too-long", "states", "Notes · too long for the phone", width=CARD_WIDTH)
+def notes_too_long(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._editor.setPlainText("Welcome everyone " * 4000))
+
+
+@scene("notes-on-screen", "states", "Notes · on the phone's screen", width=CARD_WIDTH)
+def notes_on_screen(stack):
+    return notes_card(stack, setup=notes_sent)
+
+
+@scene("notes-playing", "states", "Notes · scrolling on the phone", width=CARD_WIDTH)
+def notes_playing(stack):
+    def setup(plugin):
+        notes_sent(plugin)
+        plugin._play_btn.setChecked(True)
+    return notes_card(stack, setup=setup)
+
+
+@scene("notes-not-on-screen", "states", "Notes · Telescope isn't open on the phone", width=CARD_WIDTH)
+def notes_not_on_screen(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False))
+
+
+@scene("notes-closed", "states", "Notes · closed on the phone", width=CARD_WIDTH)
+def notes_closed(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_closed=True))
+
+
+@scene("notes-preview", "states", "Notes · waiting for the phone's preview to close", width=CARD_WIDTH)
+def notes_preview(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_preview=True))
+
+
+@scene("notes-sent-back-camera", "states", "Notes · on screen while streaming from the back camera", width=CARD_WIDTH)
+def notes_sent_back_camera(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, facing="back"))
+
+
+@scene("notes-edited", "states", "Notes · changed since they were sent", width=CARD_WIDTH)
+def notes_edited(stack):
+    def setup(plugin):
+        notes_sent(plugin)
+        plugin._editor.setPlainText(NOTES_TEXT + "\nThanks for coming")
+    return notes_card(stack, setup=setup)
+
+
+@scene("notes-browser-camera", "states", "Notes · Browser camera picked", width=CARD_WIDTH)
+def notes_browser_camera(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._on_source("browser"))
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────
