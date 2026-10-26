@@ -144,7 +144,7 @@ class _FlowHost:
         self.bus = win._bus
 
     def plugins(self) -> list:
-        # The view first (it crops before the plugins see a frame), the colour pipeline after them
+        # The view and the colour pipeline run as plugins in their frame stages (FRAME_STAGES)
         return [self._win._view] + self._win._plugins + [self._win._colour]
 
     def plugin(self, name: str):

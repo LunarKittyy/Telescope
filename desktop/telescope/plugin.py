@@ -45,6 +45,30 @@ PLUGIN_CATEGORIES = (
 here goes under Extras."""
 
 
+FRAME_STAGES = (
+    ("view", "the window's zoom, pan, flip, rotation and stretch"),
+    ("geometry", "moving the whole picture after the view (Desk mode)"),
+    ("reading", "looking at the clean picture without changing it (QR codes)"),
+    ("background", "what's behind you (Background, Chroma key)"),
+    ("effects", "changing the picture (Fun pack), and where a plugin goes that doesn't say"),
+    ("colour", "the colour pipeline: every grade baked into one LUT per stream"),
+    ("privacy", "hiding things, after anything that could bring them back (Privacy blur)"),
+    ("overlay", "drawn on top, never graded or blurred (Name tag)"),
+    ("combine", "several streams put into one picture"),
+    ("cover", "the wait screen in place of the picture"),
+    ("final", "seeing what apps get and handing it back unchanged (Preview)"),
+)
+"""The stages a frame goes through, in order: (id, what belongs there). TelescopePlugin.frame_stage names one; plugins in
+the same stage run in the order they're registered."""
+
+
+def frame_stage_index(plugin) -> int:
+    """Where plugin's process_frame runs among the others: its frame_stage's place in FRAME_STAGES."""
+    ids = [sid for sid, _what in FRAME_STAGES]
+    stage = "final" if getattr(plugin, "sees_final_frame", False) else getattr(plugin, "frame_stage", "effects")
+    return ids.index(stage) if stage in ids else ids.index("effects")
+
+
 @dataclass
 class SettingsSection:
     """A block of controls for the settings window (usually a card from create_card)."""
@@ -623,9 +647,12 @@ class TelescopePlugin:
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
     panels move to its stream; False: one copy for the whole app."""
 
+    frame_stage: str = "effects"
+    """Where its process_frame runs: an id from FRAME_STAGES. The stages keep the frame order from depending on the
+    order plugins are registered in or shown."""
     sees_final_frame: bool = False
-    """Its process_frame runs after every other plugin's, so it sees the frame the virtual camera gets (the preview).
-    It has to hand the frame back unchanged."""
+    """The same as frame_stage = "final": its process_frame runs after every other plugin's, so it sees the frame the
+    virtual camera gets (the preview). It has to hand the frame back unchanged."""
     follows_focus: bool = True
     """With several streams, hear about the one the panels show (False: the first one, like the mic)."""
 

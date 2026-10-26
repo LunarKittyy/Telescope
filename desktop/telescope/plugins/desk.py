@@ -201,6 +201,7 @@ class DeskPlugin(TelescopePlugin):
     about = N_("Straightens a sheet of paper you mark on the preview and can make the writing on it stand out.")
     category = "camera"
     icon = "pencil"
+    frame_stage = "geometry"
     when_off = N_("Without it there's no Desk mode card and the picture stays the way the camera sees it.")
     optional = True
     in_presets = True

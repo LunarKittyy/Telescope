@@ -90,6 +90,7 @@ class BackgroundPlugin(TelescopePlugin):
     about = N_("Blurs the background behind you or swaps it for a picture.")
     category = "vision"
     icon = "image"
+    frame_stage = "background"
     when_off = N_("Without it there's no Background card and the background stays as the camera sees it.")
     optional = True
     needs_vision = True

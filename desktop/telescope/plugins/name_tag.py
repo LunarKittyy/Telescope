@@ -43,6 +43,7 @@ class NameTagPlugin(TelescopePlugin):
     about = N_("Puts your name and pronouns in the corner of the picture.")
     category = "on_screen"
     icon = "bookmark"
+    frame_stage = "overlay"
     when_off = N_("Without it there's no Name tag card and nothing is drawn on the picture.")
     optional = True
     in_presets = True  # a preset can be a scene: the tag for a talk, none for a chat
