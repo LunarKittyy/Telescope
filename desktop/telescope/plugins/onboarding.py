@@ -114,7 +114,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._close_btn = card_action("", "close", tr("Close the setup guide"))
         self._close_btn.setAccessibleName(tr("Close the setup guide"))
         self._close_btn.clicked.connect(lambda: self._set_asked(False))
-        add_card_header(lay, tr("Get set up"), "check", action=self._close_btn)
+        add_card_header(lay, tr("Get set up"), self.icon, action=self._close_btn, hue=self.category)
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 4, 0, 0)

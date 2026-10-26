@@ -227,7 +227,7 @@ class DeskPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Straighten the sheet you marked"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Desk mode"), "crop", action=self._switch)
+        add_card_header(lay, tr("Desk mode"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._mark_btn = QPushButton(tr("Mark the sheet"))

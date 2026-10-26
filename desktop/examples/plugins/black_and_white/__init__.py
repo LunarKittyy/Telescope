@@ -27,7 +27,7 @@ class BlackAndWhitePlugin(TelescopePlugin):
     def create_panel(self):
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Black and white", "camera")
+        add_card_header(lay, "Black and white", self.icon, hue=self.category)
         self._box = QCheckBox("Black and white picture")
         self._box.setChecked(self._on)
         self._box.toggled.connect(self._switch)

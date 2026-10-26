@@ -1,5 +1,6 @@
 """Switching plugins on and off: what the window loads, what it says, and the Plugins tab."""
 
+import ast
 import json
 import sys
 
@@ -526,7 +527,7 @@ def _group_names(panel) -> list:
 
 def test_tiles_are_grouped_by_category_and_sorted_by_name(qapp, plugins, answers):
     panel = PluginsPanel(_grouped(), set(), {}, lambda: True)
-    assert _group_names(panel) == ["Camera and picture", "Sound", "Extras"]  # empty groups aren't shown
+    assert _group_names(panel) == ["Camera", "Sound", "Extras"]  # empty groups aren't shown
     assert panel.shown_tiles() == ["Alpha", "Zoom tool", "Echo", "Camera", "Connection", "Lost", "Presets"]
 
 
@@ -616,3 +617,48 @@ def test_every_built_in_plugin_picks_its_category_and_icon():
         own = vars(type(plugin))
         assert own.get("category") in dict(PLUGIN_CATEGORIES), f"{plugin.name} needs a category"  # not Extras by default
         assert own.get("icon") in LINE_ICONS or own.get("icon") in _ICON_SVG, f"{plugin.name} needs an icon"
+
+
+def _card_headers():
+    """(file, class, method, call) for every add_card_header in the built-in plugins."""
+    from pathlib import Path
+    for path in sorted(Path(dialog_module.__file__).parents[1].joinpath("plugins").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+            for method in (n for n in cls.body if isinstance(n, ast.FunctionDef)):
+                for call in ast.walk(method):
+                    if isinstance(call, ast.Call) and getattr(call.func, "id", "") == "add_card_header":
+                        yield path.name, cls.name, method.name, call
+
+
+def test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon():
+    from telescope.plugin import PLUGIN_CATEGORIES
+    groups = {cid for cid, _name in PLUGIN_CATEGORIES}
+    found = 0
+    for file, cls, method, call in _card_headers():
+        hue = next((k.value for k in call.keywords if k.arg == "hue"), None)
+        where = f"{file} {cls}.{method}"
+        assert hue is not None, f"{where}: a card without hue= is the app's purple instead of its group's colour"
+        literal = hue.value if isinstance(hue, ast.Constant) else None
+        assert literal in groups if literal is not None else getattr(hue, "attr", "") == "category", where
+        if method == "create_panel":
+            found += 1
+            assert getattr(hue, "attr", "") == "category" and getattr(call.args[2], "attr", "") == "icon", \
+                f"{where}: the window's card has the same icon and colour as the plugin's tile"
+    assert found > 15
+
+
+def test_side_columns_put_the_pinned_cards_first_then_sort_by_group(window):
+    from PyQt6.QtWidgets import QWidget
+    from telescope.plugin import TelescopePlugin
+
+    def card(name, category, pinned=False, region="right"):
+        cls = type(name, (TelescopePlugin,), {"name": name, "category": category, "pinned": pinned,
+                                              "panel_region": region, "create_panel": lambda self: QWidget()})
+        window.register_plugin(cls())
+
+    for name, category, pinned in (("fun", "look", False), ("photos", "camera", False), ("tag", "on_screen", False),
+                                   ("camera", "camera", True), ("grade", "look", False), ("odd", "nowhere", False)):
+        card(name, category, pinned)
+    keys = [window._panel_order[id(panel)] for panel in window._panels["right"]]
+    assert keys == [(0, 0), (1, 0), (1, 1), (1, 1), (1, 4), (1, 8)]

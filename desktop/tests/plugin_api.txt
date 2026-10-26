@@ -300,6 +300,7 @@ TelescopePlugin.on_stream_starting(self)
 TelescopePlugin.on_stream_stop(self)
 TelescopePlugin.optional = False
 TelescopePlugin.panel_region = 'left'
+TelescopePlugin.pinned = False
 TelescopePlugin.process_frame(self, frame)
 TelescopePlugin.required = False
 TelescopePlugin.sees_final_frame = False

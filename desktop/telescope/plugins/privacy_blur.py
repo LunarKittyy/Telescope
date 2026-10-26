@@ -154,7 +154,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Blur automatically when a second person shows up"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Privacy blur"), "eye_off", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Privacy blur"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._mode_combo = NoScrollComboBox()
         self._mode_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -302,9 +302,14 @@ class PrivacyBlurPlugin(TelescopePlugin):
 
     def frame_step(self):
         blur = self._blur
-        if not blur.active:
-            return None
-        return lambda frame: self._step(frame, blur)  # a stream left blurred stays blurred behind the panels
+        return lambda frame: self._behind_step(frame, blur)
+
+    def _behind_step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
+        if blur.active:
+            return self._step(frame, blur)  # a stream left blurred stays blurred behind the panels
+        if self._blur.active:
+            return blurred(frame)  # the shown camera blurs, so every camera does, all of it (nobody to tell apart here)
+        return frame
 
     def _step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
         if not blur.active or blur.covered:

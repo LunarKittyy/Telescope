@@ -47,6 +47,7 @@ class NameTagPlugin(TelescopePlugin):
     when_off = N_("Without it there's no Name tag card and nothing is drawn on the picture.")
     optional = True
     in_presets = True  # a preset can be a scene: the tag for a talk, none for a chat
+    device_local = True  # each camera has its own tag, or none (the desk camera usually doesn't want one)
     panel_region = "right"
 
     def setup(self, host, bus):
@@ -62,7 +63,7 @@ class NameTagPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Show the name tag on the picture"))
         self._switch.toggled.connect(self._changed)
-        add_card_header(lay, tr("Name tag"), "bookmark", action=self._switch)
+        add_card_header(lay, tr("Name tag"), self.icon, action=self._switch, hue=self.category)
         keywords(card, tr("lower third caption title label overlay text name pronouns role", ctx="search"))
 
         self._name_edit = self._edit()

@@ -68,7 +68,7 @@ class StartupPlugin(TelescopePlugin):
     title = N_("Start and stop by itself")
     about = N_("Opening Telescope when you sign in, and Automatic streaming.")
     category = "streaming"
-    icon = "bolt"
+    icon = "monitor"
     when_off = N_("Without it Automatic streaming stops and both it and the sign-in option leave Settings. "
                   "Telescope still opens at sign-in if it did before.")
 
@@ -357,7 +357,7 @@ class SignInSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Startup"), "monitor")
+        add_card_header(lay, tr("Startup"), StartupPlugin.icon, hue=StartupPlugin.category)
         keywords(card, tr("login boot autostart run on startup tray minimized", ctx="search"))
         self._box = Switch()
         self._box.toggled.connect(plugin.set_open_at_sign_in)
@@ -387,7 +387,7 @@ class AutomaticStreamingSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Automatic streaming"), "bolt")
+        add_card_header(lay, tr("Automatic streaming"), "bolt", hue=StartupPlugin.category)
         keywords(card, tr("auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free",
                           ctx="search"))
 

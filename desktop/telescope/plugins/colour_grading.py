@@ -96,7 +96,7 @@ class ColourGradingPlugin(TelescopePlugin):
     name = "colour_grading"
     title = N_("Colour grading")
     about = N_("Colour wheels, curves and LUT files for the look of the picture.")
-    category = "camera"
+    category = "look"
     icon = "colour"
     when_off = N_("Without it there's no Colour grading card and the picture keeps the camera's colours.")
     optional = True
@@ -124,7 +124,7 @@ class ColourGradingPlugin(TelescopePlugin):
         self._switch.setToolTip(tr("Switch the grade off to see the camera's own colours"))
         self._switch.setAccessibleName(tr("Colour grading"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Colour grading"), "colour", action=self._switch, hue="grade")
+        add_card_header(lay, tr("Colour grading"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._compare = Switch("")
