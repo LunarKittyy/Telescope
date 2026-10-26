@@ -379,7 +379,7 @@ class OnAirSection(QWidget):
 
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("On Air sign"), "bell")
+        add_card_header(lay, tr("On Air sign"), OnAirPlugin.icon, hue=OnAirPlugin.category)
         lay.addWidget(wrapped_note(tr("Lets the people around you know you're on a call. Show it on a tablet by "
                                       "the door, switch a smart light with the webhook, or both.")))
         self._state_lbl = ElidingLabel("")
@@ -399,7 +399,7 @@ class OnAirSection(QWidget):
         lay = card_layout(card)
         self._new_link_btn = card_action(tr("New link"), "reset", tr("Make a new link; the old one stops working"))
         self._new_link_btn.clicked.connect(plugin.new_link)
-        add_card_header(lay, tr("Sign on another device"), "qr", action=self._new_link_btn)
+        add_card_header(lay, tr("Sign on another device"), "qr", action=self._new_link_btn, hue=OnAirPlugin.category)
         keywords(card, tr("tablet phone screen page link qr code", ctx="search"))
         self._page_switch = Switch(tr("Show the sign on a web page"))
         self._page_switch.toggled.connect(plugin.set_page)
@@ -437,7 +437,7 @@ class OnAirSection(QWidget):
 
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Webhook"), "plug")
+        add_card_header(lay, tr("Webhook"), "plug", hue=OnAirPlugin.category)
         keywords(card, tr("smart home light home assistant url http request automation", ctx="search"))
         lay.addWidget(wrapped_note(tr("Sends a request each time you go on or off air, for a smart home hub or "
                                       "anything else that takes one.")))

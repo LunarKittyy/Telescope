@@ -88,7 +88,7 @@ class BackgroundPlugin(TelescopePlugin):
     name = "background"
     title = N_("Background")
     about = N_("Blurs the background behind you or swaps it for a picture.")
-    category = "vision"
+    category = "look"
     icon = "image"
     when_off = N_("Without it there's no Background card and the background stays as the camera sees it.")
     optional = True
@@ -108,7 +108,7 @@ class BackgroundPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Background"), "image", hue="vision")
+        add_card_header(lay, tr("Background"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._mode_btns = {}

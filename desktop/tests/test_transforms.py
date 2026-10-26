@@ -81,13 +81,13 @@ def test_auto_framing_visibly_disables_the_zoom_handle_and_value(transforms_plug
                                              QStyle.SubControl.SC_SliderHandle, slider)
         return slider.grab().toImage().pixelColor(rect.center())
 
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     assert host.vc.take_view("Auto framing")
     assert not plugin._zoom_slider.isEnabled() and not plugin._zoom_val_lbl.isEnabled()
     assert handle_color() == QColor(theme.TEXT_DISABLED)
     host.vc.release_view("Auto framing")
     assert plugin._zoom_slider.isEnabled() and plugin._zoom_val_lbl.isEnabled()
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     panel.close()
 
 

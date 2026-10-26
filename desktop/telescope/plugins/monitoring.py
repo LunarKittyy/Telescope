@@ -55,7 +55,7 @@ class MonitoringPlugin(TelescopePlugin):
     title = N_("Monitoring")
     about = N_("The phone's battery and temperature, with warnings when they get low or high.")
     category = "streaming"
-    icon = "battery"
+    icon = "phone"
     when_off = N_("Without it there's no Phone card and nothing warns you about a low battery or a hot phone.")
     device_local = True
     panel_region = "right"  # the phone's own health, beside its camera
@@ -83,7 +83,7 @@ class MonitoringPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Phone"), "phone", hue="phone")
+        add_card_header(lay, tr("Phone"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Live readings ─────────────────────────────────────────────────────

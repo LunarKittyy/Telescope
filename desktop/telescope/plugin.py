@@ -33,16 +33,17 @@ SETTINGS_TABS = (
 in isn't shown. An id that isn't here makes a tab of its own, between Keyboard shortcuts and Plugins."""
 
 PLUGIN_CATEGORIES = (
-    ("camera", N_("Camera and picture")),
+    ("camera", N_("Camera")),
+    ("look", N_("Look")),
+    ("vision", N_("People")),
     ("preview", N_("Preview tools")),
-    ("vision", N_("People and vision")),
     ("on_screen", N_("On screen")),
     ("sound", N_("Sound")),
     ("streaming", N_("Streaming and devices")),
     ("extras", N_("Extras")),
 )
-"""The groups of the Plugins tab, in order: (id, name). TelescopePlugin.category names one by id; an id that isn't
-here goes under Extras."""
+"""The plugin groups, in order: (id, name). TelescopePlugin.category names one by id; an id that isn't here goes under
+Extras. A group has its colour in theme.PLUGIN_HUES, and the cards in each column of the window are sorted by group."""
 
 
 @dataclass
@@ -612,9 +613,12 @@ class TelescopePlugin:
     needs_vision: bool = False
     """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
     category: str = "extras"
-    """Which group of the Plugins tab it's listed in: an id from PLUGIN_CATEGORIES."""
+    """Its group: an id from PLUGIN_CATEGORIES. Its tile is listed under it and its cards take its colour
+    (hue=self.category in add_card_header)."""
     icon: str = "plug"
-    """Its icon on the Plugins tab: a name from widgets/line_icons.py or the icons in widgets/common.py."""
+    """Its icon on the Plugins tab and its card's header: a name from widgets/line_icons.py or widgets/common.py."""
+    pinned: bool = False
+    """Its card stays at the top of its column, above the groups, as the essential ones do (Connection, Camera)."""
 
     in_presets: bool = False
     """Presets save its get_config() and bring it back through apply_preset(), in the order plugins are registered."""
@@ -659,7 +663,7 @@ class TelescopePlugin:
 
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr(self.title or self.name), "plug")
+        add_card_header(lay, tr(self.title or self.name), self.icon, hue=self.category)
         button = QToolButton(card)
         button.setText(tr("Open settings"))
         button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
