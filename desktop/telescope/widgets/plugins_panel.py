@@ -8,8 +8,8 @@ from typing import Callable, Optional
 from PyQt6.QtCore import QRect, QSignalBlocker, QSize, Qt, QUrl
 from PyQt6.QtGui import QColor, QDesktopServices, QTextLayout
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QPushButton,
-    QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
+    QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox,
+    QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from telescope import plugin_loader, theme
@@ -342,6 +342,9 @@ class PluginsPanel(QWidget):
         area = self._scroll()
         if area is not None:
             self._keep_at = area.verticalScrollBar().value()  # stay where the person was once the tiles are back
+        focused = QApplication.focusWidget()
+        if focused is not None and self.isAncestorOf(focused):
+            self.setFocus()  # a hidden switch hands focus to the next button down, and the page scrolls after it
         self._clear(self._rows)
         self._clear(self._added_rows)
         self._tiles, self._groups, self._pending = [], [], set()
