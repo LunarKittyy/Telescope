@@ -57,6 +57,21 @@ def test_the_layer_tints_its_copy_and_only_analyses_with_a_scope():
     assert layer._scope[0] == "waveform" and not layer._scope[1].isNull()
 
 
+def test_the_tools_judge_the_picture_before_any_of_them_paints():
+    layer = CinemaLayer()
+    wall = _grey(250)  # a plain bright wall: zebras all over, nothing sharp
+    layer.look = Look(zebras=True, peaking=True, peaking_colour="green")
+    out = layer.tint(wall.copy())
+    green = np.all(out == (60, 255, 60), axis=2)
+    assert green.mean() < 0.01  # the zebras' stripes aren't edges to peak on
+    assert (out == 0).all(axis=2).mean() > 0.3
+    clipped = _grey(255)
+    layer.look = Look(zebras=True, false_colour=True)
+    out = layer.tint(clipped.copy())
+    assert (out == 0).all(axis=2).mean() > 0.3  # still striped under false colour's red
+    assert (out == _colour_for(100)).all(axis=2).mean() > 0.3
+
+
 class _Host:
     def __init__(self):
         self.overlays = PreviewOverlays(View)

@@ -64,9 +64,9 @@ def _false_colour_lut() -> np.ndarray:
 _FALSE_LUT = _false_colour_lut()
 
 
-def false_colour(frame: np.ndarray) -> np.ndarray:
-    """The frame with each pixel coloured by how bright it is (FALSE_COLOURS)."""
-    y = scopes.luma(frame)
+def false_colour(frame: np.ndarray, luma: Optional[np.ndarray] = None) -> np.ndarray:
+    """The frame with each pixel coloured by how bright it is (FALSE_COLOURS); luma when it's worked out already."""
+    y = scopes.luma(frame) if luma is None else luma
     return cv2.LUT(cv2.merge((y, y, y)), _FALSE_LUT)
 
 
@@ -83,16 +83,10 @@ def peaking_mask(frame: np.ndarray, sensitivity: int) -> np.ndarray:
     return cv2.addWeighted(gx, 0.5, gy, 0.5, 0) > peaking_threshold(sensitivity) // 2
 
 
-def peaking(frame: np.ndarray, colour: tuple, sensitivity: int) -> np.ndarray:
-    """Sharp edges painted over in colour, in place."""
-    frame[peaking_mask(frame, sensitivity)] = colour
-    return frame
-
-
 _stripes: dict = {}
 
 
-def zebra_mask(frame: np.ndarray, level: int, phase: int = 0) -> np.ndarray:
+def zebra_mask(frame: np.ndarray, level: int, phase: int = 0, luma: Optional[np.ndarray] = None) -> np.ndarray:
     """Diagonal stripes where luma is at level % or more, as a bool array; phase moves them along."""
     h, w = frame.shape[:2]
     if (h, w) not in _stripes:
@@ -101,7 +95,8 @@ def zebra_mask(frame: np.ndarray, level: int, phase: int = 0) -> np.ndarray:
         _stripes[(h, w)] = ((xs + ys) // (_ZEBRA_PERIOD // 2)) % 2 == 0
     phase %= _ZEBRA_PERIOD
     stripes = _stripes[(h, w)][:, phase:phase + w]
-    return (scopes.luma(frame) >= round(level / 100 * 255)) & stripes
+    y = scopes.luma(frame) if luma is None else luma
+    return (y >= round(level / 100 * 255)) & stripes
 
 
 @dataclass(frozen=True)
@@ -136,14 +131,21 @@ class CinemaLayer(PreviewLayer):
 
     def tint(self, frame: np.ndarray) -> np.ndarray:
         look = self.look
-        if look.false_colour:
-            frame = false_colour(frame)
+        # Every tool judges the picture as it came in, then they all paint: one tool's paint isn't another's edge
+        luma = scopes.luma(frame) if look.false_colour or look.zebras else None
+        zebras = peaks = None
         if look.zebras:
             self._phase = (self._phase + 1) % _ZEBRA_PERIOD
-            frame[zebra_mask(frame, look.zebra_level, self._phase)] = 0
+            zebras = zebra_mask(frame, look.zebra_level, self._phase, luma)
         if look.peaking:
-            colour = next((c for key, _n, c in PEAKING_COLOURS if key == look.peaking_colour), PEAKING_COLOURS[0][2])
-            peaking(frame, colour, look.peaking_level)
+            peaks = peaking_mask(frame, look.peaking_level)
+        if look.false_colour:
+            frame = false_colour(frame, luma)
+        if zebras is not None:
+            frame[zebras] = 0
+        if peaks is not None:
+            frame[peaks] = next((c for key, _n, c in PEAKING_COLOURS if key == look.peaking_colour),
+                                PEAKING_COLOURS[0][2])
         return frame
 
     def analyse(self, frame: np.ndarray) -> bool:

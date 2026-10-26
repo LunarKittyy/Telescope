@@ -129,6 +129,16 @@ def test_dragging_inside_a_quad_moves_all_of_it_and_outside_is_left_to_the_previ
     assert _flat(got[0].shown) == pytest.approx([0.3, 0.25, 0.9, 0.25, 0.9, 0.85, 0.3, 0.85])
 
 
+def test_dragging_a_quad_to_the_edge_stops_it_there_whole(overlays):
+    got = _picker(overlays, "quad")
+    assert overlays.press(0.5, 0.5, SIZE)
+    overlays.move(1.5, 0.9, SIZE)  # far past the corner of the picture
+    overlays.move(1.6, 0.95, SIZE)
+    overlays.release(1.6, 0.95)
+    overlays.finish_pick("Test")
+    assert _flat(got[0].shown) == pytest.approx([0.4, 0.4, 1.0, 0.4, 1.0, 1.0, 0.4, 1.0])  # moved, not squashed
+
+
 def test_quad_corners_stay_on_the_picture_when_the_view_moves(overlays):
     start = ((0.1, 0.1), (0.9, 0.1), (0.9, 0.9), (0.1, 0.9))
     got = _picker(overlays, "quad", start=start)
@@ -243,6 +253,16 @@ def test_no_analysis_while_no_layer_wants_it(overlays):
     overlays.add_layer("plain", _Tint(1))
     overlays.tint(np.zeros((4, 4, 3), np.uint8))
     assert overlays._thread is None
+
+
+def test_a_pick_carries_the_picture_shown_before_any_tint(overlays):
+    overlays.add_layer("red", _Tint(255))
+    got = _picker(overlays, "point")
+    overlays.tint(np.full((4, 4, 3), 7, np.uint8))
+    overlays.press(0.5, 0.5, SIZE)
+    overlays.release(0.5, 0.5)
+    assert got[0].picture is not None and (got[0].picture == 7).all()
+    assert overlays._picture is None  # nothing kept once it's over
 
 
 def test_a_pick_result_is_frozen(overlays):

@@ -135,9 +135,10 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
-Pick(kind, shown, full)
+Pick(kind, shown, full, picture=None)
 Pick.full
 Pick.kind
+Pick.picture = None
 Pick.shown
 PreviewLayer.analyse(self, frame)
 PreviewLayer.analyse_fps = 0.0

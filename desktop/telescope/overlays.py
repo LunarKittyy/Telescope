@@ -6,7 +6,7 @@ and passes it the mouse and keys while a pick runs. Without a preview, layers ju
 import logging
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 import numpy as np
@@ -35,8 +35,9 @@ class PreviewLayer:
     """How many times a second analyse() wants a frame; 0 for never. Read each frame, so it can change."""
 
     def tint(self, frame: np.ndarray) -> np.ndarray:
-        """Stream thread: the preview's own copy of the frame as shown, already scaled to the preview's size. Return it
-        changed (in place is fine) to colour the picture. Runs for each frame the preview shows, so keep it cheap."""
+        """UI thread: the preview's own copy of the frame as shown, already scaled to the preview's size (never above
+        the stream's). Return it changed (in place is fine) to colour the picture. Runs for each frame the preview
+        shows, so keep it cheap."""
         return frame
 
     def analyse(self, frame: np.ndarray) -> bool:
@@ -61,6 +62,9 @@ class Pick:
     full: tuple
     """The same points in the main lens's whole picture, before zoom, pan, flip and rotation: they stay on the same
     spot when the view changes (telescope.view.to_shown brings them back)."""
+    picture: Optional[np.ndarray] = field(default=None, compare=False, repr=False)
+    """The picture the preview showed when the pick ended (BGR, the preview's size, before any layer's tint), for
+    reading colours where shown points: it's what was clicked on, after every plugin. None without one."""
 
 
 @dataclass
@@ -71,7 +75,7 @@ class _PickState:
     hint: str
     points: list  # in the whole picture (to_full), so they stay put while the view moves
     drag: object = None  # the corner being dragged, "all" for the whole quad, "rect" while drawing one, or None
-    grab_at: tuple = (0.0, 0.0)  # where a drag of the whole quad started, in the whole picture
+    grab_at: tuple = (0.0, 0.0)  # where a drag of the whole quad is now, in the frame as shown
 
 
 def _clamp(point: tuple) -> tuple:
@@ -103,6 +107,7 @@ class PreviewOverlays(QObject):
         self._failing: set = set()  # owners whose tint or analyse failed, so it's logged once
         self._surfaces = 0
         self._pick: Optional[_PickState] = None
+        self._picture: Optional[np.ndarray] = None  # the last frame the preview showed, while a pick runs
         self._analysed.connect(self.changed)
         self._cond = threading.Condition()
         self._pending: Optional[np.ndarray] = None
@@ -144,8 +149,10 @@ class PreviewOverlays(QObject):
             self.cancel_pick()
 
     def tint(self, frame: np.ndarray) -> np.ndarray:
-        """Stream thread: the preview's copy of a frame through every layer's tint(), and handed to analyse() when one
+        """UI thread: the preview's copy of a frame through every layer's tint(), and handed to analyse() when one
         wants it. A layer that fails leaves the frame as it was."""
+        if self._pick is not None:
+            self._picture = frame.copy()
         layers = self._sorted
         if not layers:
             return frame
@@ -236,6 +243,7 @@ class PreviewOverlays(QObject):
                 lo, hi = _QUAD_INSET, 1.0 - _QUAD_INSET
                 points = [to_full(view, u, v) for u, v in ((lo, lo), (hi, lo), (hi, hi), (lo, hi))]
         self._pick = _PickState(owner, kind, on_done, hint, points)
+        self._picture = None
         self.pick_changed.emit(owner)
         self.changed.emit()
         return True
@@ -264,6 +272,7 @@ class PreviewOverlays(QObject):
 
     def _end(self, result: Optional[Pick]):
         pick, self._pick = self._pick, None
+        self._picture = None
         self.pick_changed.emit("")
         self.changed.emit()
         try:
@@ -282,7 +291,7 @@ class PreviewOverlays(QObject):
             shown = [(min(u0, u1), min(v0, v1)), (max(u0, u1), max(v0, v1))]
         else:
             shown = [to_shown(view, *p) for p in full]
-        return Pick(pick.kind, tuple(_clamp(p) for p in shown), tuple(_clamp(p) for p in full))
+        return Pick(pick.kind, tuple(_clamp(p) for p in shown), tuple(_clamp(p) for p in full), self._picture)
 
     def _shown_points(self) -> list:
         view = self._view()
@@ -317,7 +326,7 @@ class PreviewOverlays(QObject):
             pick.drag = corner
             return True
         if _inside((u, v), self._shown_points()):
-            pick.drag, pick.grab_at = "all", full
+            pick.drag, pick.grab_at = "all", (u, v)
             return True
         return False
 
@@ -330,9 +339,13 @@ class PreviewOverlays(QObject):
         if pick.drag == "rect":
             pick.points[1] = full
         elif pick.drag == "all":
-            dx, dy = full[0] - pick.grab_at[0], full[1] - pick.grab_at[1]
-            pick.points = [(x + dx, y + dy) for x, y in pick.points]
-            pick.grab_at = full
+            # Moved as far as all four corners stay on the picture, so the shape never gets squashed at an edge
+            shown = self._shown_points()
+            du = min(max(u - pick.grab_at[0], -min(p[0] for p in shown)), 1.0 - max(p[0] for p in shown))
+            dv = min(max(v - pick.grab_at[1], -min(p[1] for p in shown)), 1.0 - max(p[1] for p in shown))
+            view = self._view()
+            pick.points = [to_full(view, pu + du, pv + dv) for pu, pv in shown]
+            pick.grab_at = (pick.grab_at[0] + du, pick.grab_at[1] + dv)
         else:
             pick.points[pick.drag] = full
         self.changed.emit()

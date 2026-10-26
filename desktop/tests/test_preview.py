@@ -412,13 +412,23 @@ def test_layers_tint_the_preview_copy_and_not_the_frame_apps_get(qapp):
 
     plugin, _host, _panel = _plugin(qapp)
     plugin._host.preview_overlays().add_layer("red", Red())
-    sent = []
+    sent, shown = [], []
     plugin._sig.frame.disconnect()
     plugin._sig.frame.connect(lambda frame, _gen: sent.append(frame))
     frame = np.zeros((36, 64, 3), np.uint8)
     out = plugin.process_frame(frame)
     assert out is frame and not frame.any()
-    assert sent and (sent[0] == (0, 0, 255)).all()
+    assert sent and not sent[0].any()  # the stream thread only scales: tinting would hold up the output
+    plugin._streaming = True
+    plugin._show_frame = shown.append
+    plugin._on_frame(sent[0], plugin._stream_gen)
+    assert (shown[0] == (0, 0, 255)).all() and not frame.any()
+
+
+def test_the_preview_copy_is_never_scaled_above_the_stream():
+    from telescope.plugins.preview import _fit_within
+    assert _fit_within(np.zeros((36, 64, 3), np.uint8), (1920, 1080)).shape == (36, 64, 3)
+    assert _fit_within(np.zeros((1080, 1920, 3), np.uint8), (960, 960)).shape == (540, 960, 3)
 
 
 def test_the_wheel_over_the_frame_zooms_around_the_mouse(qapp):

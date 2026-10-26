@@ -58,11 +58,12 @@ def skeleton(people, map_point, aspect: float) -> list:
 
 
 def _fit_within(frame: np.ndarray, size) -> np.ndarray:
-    """frame scaled to fit inside size (w, h), keeping its shape; always a new array, since it crosses threads."""
+    """frame scaled down to fit inside size (w, h), keeping its shape (never up); always a new array, since it crosses
+    threads."""
     h, w = frame.shape[:2]
     if size is None:
         return frame.copy()
-    scale = min(size[0] / w, size[1] / h)
+    scale = min(size[0] / w, size[1] / h, 1.0)  # never bigger than the stream: the UI thread scales the pixmap up
     new_w, new_h = max(1, round(w * scale)), max(1, round(h * scale))
     if (new_w, new_h) == (w, h):
         return frame.copy()
@@ -793,7 +794,7 @@ class PreviewPlugin(TelescopePlugin):
             else:
                 h, w = frame.shape[:2]
                 size = self._card_size or (min(w, self._CARD_MAX_W), h)
-            self._sig.frame.emit(self._overlays.tint(_fit_within(frame, size)), self._stream_gen)
+            self._sig.frame.emit(_fit_within(frame, size), self._stream_gen)
         except Exception:
             self._busy = False
             raise
@@ -806,7 +807,7 @@ class PreviewPlugin(TelescopePlugin):
             if stream_gen is not None and stream_gen != self._stream_gen:
                 return  # the panels have moved on to another stream since
             if self._streaming and self._host.is_camera_on():  # a frame from just before the camera went off
-                self._show_frame(frame)
+                self._show_frame(self._overlays.tint(frame))  # here, not in process_frame: it adds no lag to the output
         finally:
             self._busy = False
 

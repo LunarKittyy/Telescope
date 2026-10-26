@@ -242,6 +242,8 @@ class TelescopeWindow(QMainWindow):
         self._overlays = PreviewOverlays(lambda: self._view.view)  # drawn on the preview only (HostPreview)
         self._overlays.pick_changed.connect(self._bus.preview_pick_changed)
         self._bus.stream_stopped.connect(lambda: self._overlays.cancel_pick())
+        # A pick belongs to the stream it started on: its points mean nothing on another phone's picture
+        self._bus.device_changed.connect(lambda _id: self._overlays.cancel_pick())
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.

@@ -3827,3 +3827,12 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window):
+    overlays = window.preview_overlays()
+    overlays.attach()
+    got = []
+    assert overlays.start_pick("Test", "quad", got.append)
+    window._bus.device_changed.emit("phone-2")
+    assert got == [None] and overlays.picking() == ""
