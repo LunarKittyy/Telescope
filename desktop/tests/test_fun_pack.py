@@ -243,6 +243,20 @@ def test_the_stick_figure_asks_for_people_and_follows_them(card):
     assert host.people["fun_pack"] is False
 
 
+def test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops(card):
+    plugin, host, bus, _panel = card()
+    asked = []
+
+    def want_people(owner, on):  # the real one loads MediaPipe and emits its new state before returning
+        asked.append(on)
+        bus.vision_state_changed.emit("loading")
+        bus.stream_stopped.emit()
+    host.want_people = want_people
+    _pick(plugin, "stick")
+    bus.stream_stopped.emit()
+    assert asked == [True]
+
+
 def test_the_empty_room_and_a_clone_are_taken_from_the_next_frame(card, qapp):
     plugin, host, _bus, _panel = card()
     _pick(plugin, "clones")

@@ -2224,7 +2224,7 @@ msgid "A stick figure takes your place."
 msgstr ""
 
 #: telescope/plugins/fun_pack.py:43
-msgid "Move around: the picture smears instead of refreshing."
+msgid "Move around and the picture smears instead of refreshing."
 msgstr ""
 
 #: telescope/plugins/fun_pack.py:93 telescope/plugins/fun_pack.py:131 telescope/plugins/fun_pack.py:198
@@ -2243,7 +2243,7 @@ msgstr ""
 msgid "Effect"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:143 telescope/plugins/fun_pack.py:201 telescope/plugins/fun_pack.py:303
+#: telescope/plugins/fun_pack.py:143 telescope/plugins/fun_pack.py:201 telescope/plugins/fun_pack.py:306
 msgid "Take the empty room"
 msgstr ""
 
@@ -2251,7 +2251,7 @@ msgstr ""
 msgid "Step out of the picture: it's taken after a short countdown"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:146 telescope/plugins/fun_pack.py:202 telescope/plugins/fun_pack.py:305
+#: telescope/plugins/fun_pack.py:146 telescope/plugins/fun_pack.py:202 telescope/plugins/fun_pack.py:308
 msgid "Add a clone"
 msgstr ""
 
@@ -2327,21 +2327,21 @@ msgstr ""
 msgid "Take the empty room first, so you can be cut out."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:301
+#: telescope/plugins/fun_pack.py:304
 #, python-brace-format
 msgid "Taking it in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:302
+#: telescope/plugins/fun_pack.py:305
 msgid "Take the empty room again"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:304
+#: telescope/plugins/fun_pack.py:307
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:322
+#: telescope/plugins/fun_pack.py:325
 msgid "Take the empty room first."
 msgstr ""
 

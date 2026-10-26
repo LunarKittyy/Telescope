@@ -30,6 +30,11 @@ def fake_worker_class():
         vcam_opened = pyqtSignal(int, int)
         last_arrival_fps = 0.0
 
+        def __init__(self, *args, **kwargs):
+            from telescope import packets
+            super().__init__(*args, **kwargs)
+            self.packets = packets.Tap()
+
         def request_stop(self):
             pass
 

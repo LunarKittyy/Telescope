@@ -40,7 +40,7 @@ HINTS = {
     "light": N_("Move a torch or a phone screen around in the dark."),
     "slit": N_("Each band of the picture runs a little behind the one before."),
     "stick": N_("A stick figure takes your place."),
-    "mosh": N_("Move around: the picture smears instead of refreshing."),
+    "mosh": N_("Move around and the picture smears instead of refreshing."),
 }
 _PLATE = ("clones", "cloak", "stick")  # effects that use the empty room
 _EDGES = ("clones", "cloak")
@@ -110,6 +110,7 @@ class FunPackPlugin(TelescopePlugin):
         self._reset = 0
         self._countdown, self._counting = 0, ""
         self._mosh_on = False
+        self._wants_people = False
         self._problem = ""
         self._relay = _Relay()
         self._relay.taken.connect(self._on_taken)
@@ -118,9 +119,8 @@ class FunPackPlugin(TelescopePlugin):
         self._timer.timeout.connect(self._tick)
         bus.people_seen.connect(self._on_people)
         bus.view_changed.connect(lambda _view: self._map_people())
-        for signal in (bus.stream_transport_changed, bus.stream_stopped, bus.vision_state_changed):
-            signal.connect(lambda *_a: self._refresh())
-        for signal in (bus.stream_started, bus.source_selected, bus.device_changed):
+        for signal in (bus.stream_transport_changed, bus.stream_stopped, bus.stream_started, bus.source_selected,
+                       bus.device_changed):
             signal.connect(lambda *_a: self._refresh())
 
     # ── Card ──────────────────────────────────────────────────────────────
@@ -284,7 +284,9 @@ class FunPackPlugin(TelescopePlugin):
         if mosh != self._mosh_on:
             self._mosh_on = mosh
             self._host.change_packets(self.name, (lambda: Mosher(lambda: self._mosh)) if mosh else None)
-        self._host.want_people(self.name, effect == "stick")
+        if (effect == "stick") != self._wants_people:  # only on a change: asking loads MediaPipe, which signals back here
+            self._wants_people = effect == "stick"
+            self._host.want_people(self.name, self._wants_people)
         if effect != "stick":
             self._people, self._lines, self._heads = [], (), ()
         self._show()
@@ -293,7 +295,8 @@ class FunPackPlugin(TelescopePlugin):
         if not hasattr(self, "_combo"):
             return
         effect = self._effect()
-        hint = HINTS.get(effect, "")
+        unavailable = effect == "mosh" and bool(self._host.packets_problem())
+        hint = "" if unavailable else HINTS.get(effect, "")
         self._hint.setText(tr(hint) if hint else "")
         self._hint.setVisible(bool(hint))
         self._plate_row.setVisible(effect in _PLATE)
@@ -307,13 +310,13 @@ class FunPackPlugin(TelescopePlugin):
         self._clone_btn.setEnabled(not self._counting and not full)
         self._plate_btn.setEnabled(not self._counting)
         self._clone_btn.setVisible(effect == "clones")
-        self._clean_btn.setVisible(effect == "mosh")
+        self._clean_btn.setVisible(effect == "mosh" and not unavailable)
         self._clear_btn.setVisible(effect in ("clones", "light"))
         self._clear_btn.setEnabled(effect != "clones" or self._clones is not None)
-        self._buttons.setVisible(effect in ("clones", "light", "mosh"))
+        self._buttons.setVisible(effect in ("clones", "light") or effect == "mosh" and not unavailable)
         for key, effects in (("edges", _EDGES), ("fade", ("light",)), ("brightness", ("light",)),
                              ("spread", ("slit",)), ("smear", ("mosh",))):
-            self._sliders[key][2].setVisible(effect in effects)
+            self._sliders[key][2].setVisible(effect in effects and not unavailable)
         self._dir_row.setVisible(effect == "slit")
         problem = ""
         if effect == "mosh":

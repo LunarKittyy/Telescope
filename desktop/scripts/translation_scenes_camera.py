@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "fun_pack": "_combo", "browser_camera": "_card"}
 
 
 def card_of(win, widget):
@@ -455,6 +455,80 @@ def background_dialog(stack):
     win = ready_window(stack)
     plugin_of(win, "background")._choose_picture()
     return shown(stack, held[-1])
+
+
+# ── Fun pack ─────────────────────────────────────────────────────────────────
+
+def fun_pack_card(stack, effect, setup=None, problem=""):
+    win = ready_window(stack)
+    patch(stack, win, "packets_problem", lambda: problem)
+    patch(stack, win, "want_people", lambda *_a: None)  # nothing loads MediaPipe for the picture
+    patch(stack, win, "vision_state", lambda: "missing")
+    plugin = plugin_of(win, "fun_pack")
+    plugin._combo.setCurrentIndex(plugin._combo.findData(effect))
+    if setup is not None:
+        setup(plugin)
+    plugin._show()
+    return cards(stack, win, "fun_pack")
+
+
+@scene("fun-pack-clones", "main", "Fun pack · clone party", width=CARD_WIDTH)
+def fun_pack_clones(stack):
+    return fun_pack_card(stack, "clones")
+
+
+@scene("fun-pack-clone-countdown", "states", "Fun pack · counting down to a clone, empty room taken", width=CARD_WIDTH)
+def fun_pack_clone_countdown(stack):
+    import numpy as np
+
+    def counting(plugin):
+        plugin._plate = np.zeros((4, 4, 3), np.uint8)
+        plugin._counting, plugin._countdown = "clone", 3
+    return fun_pack_card(stack, "clones", counting)
+
+
+@scene("fun-pack-clone-failed", "states", "Fun pack · a clone with nothing to cut it out", width=CARD_WIDTH)
+def fun_pack_clone_failed(stack):
+    return fun_pack_card(stack, "clones", lambda plugin: plugin._on_taken("clone", None))
+
+
+@scene("fun-pack-cloak", "states", "Fun pack · cloak counting down to the empty room", width=CARD_WIDTH)
+def fun_pack_cloak(stack):
+    def counting(plugin):
+        plugin._counting, plugin._countdown = "plate", 2
+    return fun_pack_card(stack, "cloak", counting)
+
+
+@scene("fun-pack-light", "states", "Fun pack · light painting", width=CARD_WIDTH)
+def fun_pack_light(stack):
+    return fun_pack_card(stack, "light")
+
+
+@scene("fun-pack-slit", "states", "Fun pack · slit-scan", width=CARD_WIDTH)
+def fun_pack_slit(stack):
+    return fun_pack_card(stack, "slit")
+
+
+@scene("fun-pack-stick", "states", "Fun pack · stick figure without the vision download", width=CARD_WIDTH)
+def fun_pack_stick(stack):
+    return fun_pack_card(stack, "stick")
+
+
+@scene("fun-pack-mosh", "states", "Fun pack · datamosh", width=CARD_WIDTH)
+def fun_pack_mosh(stack):
+    return fun_pack_card(stack, "mosh")
+
+
+@scene("fun-pack-mosh-heavy", "states", "Fun pack · datamosh on Heavy", width=CARD_WIDTH)
+def fun_pack_mosh_heavy(stack):
+    from telescope.i18n import tr
+    return fun_pack_card(stack, "mosh", problem=tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with."))
+
+
+@scene("fun-pack-mosh-browser", "states", "Fun pack · datamosh with Browser camera", width=CARD_WIDTH)
+def fun_pack_mosh_browser(stack):
+    from telescope.i18n import tr
+    return fun_pack_card(stack, "mosh", problem=tr("Only a phone's stream has the video this needs."))
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────
