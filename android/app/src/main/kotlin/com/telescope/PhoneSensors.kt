@@ -43,7 +43,11 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
 
     private fun has(type: Int): Boolean = manager?.getDefaultSensor(type) != null
 
-    override fun available(): List<String> = SensorKinds.ALL.filter { needs(it).isNotEmpty() }
+    override fun available(): List<String> = SensorKinds.ALL.filter(::offered)
+
+    // Orientation only while the streaming camera is one of the phone's own: an external one's mounting isn't known
+    private fun offered(kind: String): Boolean = needs(kind).isNotEmpty() &&
+        (kind != SensorKinds.ORIENTATION || lens()?.facing.let { it == LensLabel.BACK || it == LensLabel.FRONT })
 
     // The sensor types a kind runs on here, empty when this phone doesn't have it.
     private fun needs(kind: String): List<Int> = kindTypes[kind].orEmpty()
@@ -65,7 +69,7 @@ class PhoneSensors(context: Context, private val lens: () -> Lens?) : SensorFeed
     }
 
     override fun start(kinds: Set<String>): SensorHandle {
-        val started = kinds.filter { needs(it).isNotEmpty() }.toSet()
+        val started = kinds.filter(::offered).toSet()
         synchronized(lock) { return SensorHandle(started, use.add(started.flatMap(::needs))) }
     }
 

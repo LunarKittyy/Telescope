@@ -38,6 +38,8 @@ class MjpegServer(
     private val onWifiViewersChanged: (Boolean) -> Unit = {},
     // A sensor stream whose writes have been stuck this long has lost its computer: the sensors stop
     private val sensorStallMs: Long = SENSOR_STALL_MS,
+    // And so has one whose computer sent no request at all for this long (it asks /v1/sensors/alive meanwhile)
+    private val sensorAliveMs: Long = SENSOR_ALIVE_MS,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -52,6 +54,7 @@ class MjpegServer(
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
     private val audioLock = Any()
     private val sensorClients = CopyOnWriteArrayList<SensorClient>()
+    private val lastSeenByToken = java.util.concurrent.ConcurrentHashMap<String, Long>()  // token: its last authorized request
     private val running = AtomicBoolean(false)
     private val wifiViewers = mutableSetOf<Socket>()
 
@@ -292,6 +295,12 @@ class MjpegServer(
                         }
                     } finally { streamSlots.release() }
                 }
+                "/v1/sensors/alive" -> {
+                    if (sensors == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    HttpWire.sendJson(socket.getOutputStream(), "{\"ok\":true}")
+                }
                 "/v1/sensors" -> {
                     val feed = sensors
                     if (feed == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
@@ -328,7 +337,10 @@ class MjpegServer(
 
     private fun isAuthorized(request: HttpWire.Request): Boolean {
         val ok = HttpWire.bearerMatchesAny(tokens(), request)
-        if (ok) lastAuthorizedRequestAtMs = System.currentTimeMillis()
+        if (ok) {
+            lastAuthorizedRequestAtMs = System.currentTimeMillis()
+            HttpWire.bearerToken(request)?.let { lastSeenByToken[it] = lastAuthorizedRequestAtMs }
+        }
         return ok
     }
 
@@ -378,6 +390,7 @@ class MjpegServer(
         const val SENSOR_LIGHT_EVERY_MS = 500L
         const val SENSOR_HEARTBEAT_MS = 1_000L  // a line even when nothing changed, so a computer that's gone shows up as a failed write
         const val SENSOR_STALL_MS = 5_000L
+        const val SENSOR_ALIVE_MS = 15_000L
         // A few seconds of lines: a computer that vanished without closing (Wi-Fi gone, laptop asleep) stops taking
         // them and the writes get stuck soon after, instead of filling a big buffer for minutes
         const val SENSOR_SEND_BUFFER = 8 * 1024
@@ -508,13 +521,19 @@ class MjpegServer(
                 try { socket.sendBufferSize = SENSOR_SEND_BUFFER } catch (_: Exception) {}
                 thread(name = "sensor-watch", isDaemon = true) { watch() }
                 write(out, "HTTP/1.1 200 OK\r\nContent-Type: ${SensorWire.CONTENT_TYPE}\r\n" +
-                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds))
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds, sensorAliveMs))
+                val token = HttpWire.bearerToken(request)
                 val sent = mutableMapOf<String, Long>()
                 var lightAt = 0L
                 var lastWrite = System.currentTimeMillis()
                 while (alive.get() && stillPaired(request)) {
                     Thread.sleep(SENSOR_TICK_MS)
                     val now = System.currentTimeMillis()
+                    // A computer that vanished without closing sends no keepalive: noticed even while the lines still fit
+                    if (now - (token?.let { lastSeenByToken[it] } ?: 0L) >= sensorAliveMs) {
+                        runCatching { android.util.Log.i("MjpegServer", "No keepalive from a computer, stopping its sensors") }
+                        break
+                    }
                     val fresh = feed.latest().filter { (kind, value) ->
                         kind in kinds && sent[kind] != value.seq &&
                             (kind != SensorKinds.LIGHT || now - lightAt >= SENSOR_LIGHT_EVERY_MS)

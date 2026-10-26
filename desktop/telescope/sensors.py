@@ -8,6 +8,7 @@ here: the window passes on_change and turns it into the bus's sensors_changed.
 
 import json
 import logging
+import socket
 import threading
 import time
 import urllib.error
@@ -25,11 +26,13 @@ _VECTORS = ("accelerometer", "gyroscope", "magnetometer", "gravity", "rotation")
 _RETRY_S = 2.0
 _FAIL_AFTER_S = 6.0  # trying to reach the sensors for this long before saying it can't
 _READ_TIMEOUT_S = 5.0  # the phone sends a line at least every second
+_ALIVE_DEFAULT_MS = 15_000  # how long the phone waits for a request before it stops, when its hello doesn't say
 _MAX_LINE = 64 * 1024
 
-REASONS = ("not_phone", "old_phone", "none", "failed")
+REASONS = ("not_phone", "old_phone", "none", "camera", "failed")
 """Why sensors are unavailable: the stream isn't from a phone, the phone's app is from before sensors, the phone has none
-of the kinds wanted, or it can't be reached. A plugin words them itself, where it shows them."""
+of the kinds wanted, only orientation was wanted and the camera streaming is an external one (or still starting), or it
+can't be reached. A plugin words them itself, where it shows them."""
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,8 @@ class SensorReading:
     """Degrees the camera looks above the horizon (below is negative)."""
     camera: str = ""
     """The phone's id of the camera roll and pitch are for: a reading from before a camera switch says the old one."""
+    orientation_at: float = 0.0
+    """time.monotonic() when roll and pitch last came in (at also moves for other kinds)."""
     accelerometer: Optional[tuple] = None
     """m/s², (x, y, z)."""
     gyroscope: Optional[tuple] = None
@@ -74,6 +79,18 @@ class SensorStatus:
     """With "unavailable": why, one of REASONS."""
 
 
+def _socket_of(resp):
+    """The socket under an http.client response, or None."""
+    return getattr(getattr(getattr(resp, "fp", None), "raw", None), "_sock", None)
+
+
+def _close_quietly(resp):
+    try:
+        resp.close()
+    except Exception:
+        pass
+
+
 def _number(value) -> Optional[float]:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
@@ -86,6 +103,7 @@ def apply_line(reading: SensorReading, line: dict, now: float) -> SensorReading:
         changes["roll"] = _number(orientation.get("roll"))
         changes["pitch"] = _number(orientation.get("pitch"))
         changes["camera"] = str(orientation.get("camera") or "")
+        changes["orientation_at"] = now
     for kind in _VECTORS:
         values = line.get(kind)
         if isinstance(values, list) and values:
@@ -121,13 +139,18 @@ class _Reader:
         self._thread.start()
 
     def stop(self):
+        """Any thread, without waiting: closing the response itself would wait for the readline() holding its lock."""
         self._stop.set()
         resp = self._response
-        if resp is not None:
+        if resp is None:
+            return
+        sock = _socket_of(resp)
+        if sock is not None:
             try:
-                resp.close()
-            except Exception:
+                sock.shutdown(socket.SHUT_RDWR)  # wakes the readline at once
+            except (OSError, ValueError):
                 pass
+        threading.Thread(target=_close_quietly, args=(resp,), name="phone-sensors-close", daemon=True).start()
 
     @property
     def stopped(self) -> bool:
@@ -162,6 +185,7 @@ class _Reader:
             return "failed"
         self._response = resp
         got_through = False
+        alive_stop = threading.Event()
         try:
             while not self._stop.is_set():
                 raw = resp.readline(_MAX_LINE)
@@ -175,18 +199,30 @@ class _Reader:
                     continue
                 got_through = True
                 if "sensors" in line:
+                    alive_ms = line.get("alive_ms")
+                    alive_ms = alive_ms if isinstance(alive_ms, int) and alive_ms > 0 else _ALIVE_DEFAULT_MS
+                    threading.Thread(target=self._keep_alive, args=(alive_ms / 3000, alive_stop), name="phone-sensors-alive",
+                                     daemon=True).start()
                     self._hub._reader_hello(self, line.get("sensors"))
                 else:
                     self._hub._reader_line(self, line)
         except Exception:
             pass
         finally:
+            alive_stop.set()
             self._response = None
-            try:
-                resp.close()
-            except Exception:
-                pass
+            _close_quietly(resp)
         return None if got_through else "failed"
+
+    def _keep_alive(self, every_s: float, done: threading.Event):
+        """Tells the phone this computer is still here: it stops the sensors of one that went quiet."""
+        url = self.url.split("?", 1)[0] + "/alive"
+        while not done.wait(every_s) and not self._stop.is_set():
+            try:
+                with self.auth.open(urllib.request.Request(url, headers=self.auth.headers()), timeout=4) as r:
+                    r.read(256)
+            except Exception:
+                pass  # the stream itself notices a phone that's gone
 
 
 class SensorHub:
@@ -297,7 +333,9 @@ class SensorHub:
             else:
                 kinds = tuple(k for k in KINDS if k in wanted and k in target.offered)
                 if wanted and not kinds:
-                    state, reason = "unavailable", "none"
+                    # Orientation needs one of the phone's own cameras streaming, not just its motion sensors
+                    camera = "orientation" in wanted and any(k in target.offered for k in ("gravity", "accelerometer"))
+                    state, reason = "unavailable", ("camera" if camera else "none")
                 else:
                     state, reason = ("starting" if kinds else "off"), ""
             reader = self._reader

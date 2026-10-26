@@ -120,8 +120,9 @@ object SensorWire {
     const val CONTENT_TYPE = "application/x-ndjson"
     const val VERSION = 1
 
-    fun hello(kinds: Collection<String>): String =
-        "{\"version\":$VERSION,\"sensors\":[${kinds.joinToString(",") { "\"$it\"" }}]}\n"
+    // aliveMs: the stream ends when the computer made no request for this long
+    fun hello(kinds: Collection<String>, aliveMs: Long): String =
+        "{\"version\":$VERSION,\"sensors\":[${kinds.joinToString(",") { "\"$it\"" }}],\"alive_ms\":$aliveMs}\n"
 
     // t: the phone's clock in ms. values: kind to reading, orientation as roll (NaN = null) and pitch.
     fun line(tMs: Long, values: Map<String, SensorValue>): String {
