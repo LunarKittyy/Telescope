@@ -4501,56 +4501,56 @@ msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Starta med telefonens kamera avstängd och strömma bara mikrofonen."
 
 #. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
-#: telescope/plugins/privacy_blur.py:25
+#: telescope/plugins/privacy_blur.py:26
 msgid "Blur the others"
 msgstr ""
 
 #. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
-#: telescope/plugins/privacy_blur.py:25
+#: telescope/plugins/privacy_blur.py:26
 msgid "Blur all but me"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:26
+#: telescope/plugins/privacy_blur.py:27
 msgid "Show the wait screen"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:120 telescope/plugins/privacy_blur.py:156 telescope/plugins/privacy_blur.py:178
+#: telescope/plugins/privacy_blur.py:121 telescope/plugins/privacy_blur.py:157 telescope/plugins/privacy_blur.py:179
 msgid "Privacy blur"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:121
+#: telescope/plugins/privacy_blur.py:122
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:125
+#: telescope/plugins/privacy_blur.py:126
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:154
+#: telescope/plugins/privacy_blur.py:155
 msgid "Blur automatically when a second person shows up"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:164
+#: telescope/plugins/privacy_blur.py:165
 msgid "What happens while someone else is in the picture"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:167 telescope/plugins/privacy_blur.py:180
+#: telescope/plugins/privacy_blur.py:168 telescope/plugins/privacy_blur.py:181
 msgid "Blur now"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:169
+#: telescope/plugins/privacy_blur.py:170
 msgid "Blur by hand until you click again"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:181
+#: telescope/plugins/privacy_blur.py:182
 msgid "Privacy blur when someone walks in"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:182
+#: telescope/plugins/privacy_blur.py:183
 msgid "Privacy blur: what happens"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:288
+#: telescope/plugins/privacy_blur.py:289
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr ""
 
