@@ -716,7 +716,7 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
 
 # ── Dragging and scrolling the preview, lens boxes ───────────────────────────
 
-from telescope.view import lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent  # noqa: E402
+from telescope.view import lens_boxes, pan_for, zoom_detent  # noqa: E402
 
 _ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
 

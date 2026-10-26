@@ -23,7 +23,6 @@ from telescope.widgets.common import (
 from telescope.i18n import N_, tr
 
 _PICTURES = N_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)")
-_HANDLES = ("tl", "t", "tr", "r", "br", "b", "bl", "l")
 _HANDLE_PX = 9  # how far from a handle a click still grabs it
 _CORNER_PX = 10  # a corner handle's size
 _STAGE_PAD = 14  # room around the picture inside the dark stage, so handles on its edge aren't cut off
