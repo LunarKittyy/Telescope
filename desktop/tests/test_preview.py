@@ -392,6 +392,18 @@ def test_a_pick_takes_the_mouse_from_focusing_and_panning(qapp):
     assert lbl.cursor().shape() == Qt.CursorShape.OpenHandCursor  # back to panning once it's done
 
 
+def test_a_click_on_a_warped_picture_focuses_where_it_came_from(qapp):
+    plugin, lbl = _framed(qapp)
+    picked = []
+    plugin._bus.focus_point_picked.connect(lambda u, v: picked.append((u, v)))
+    plugin._bus.focus_point_available.emit(True)
+    plugin._host.preview_overlays().set_warp("Desk", [[2, 0, 0], [0, 2, 0], [0, 0, 1]])  # zoomed in twice by a plugin
+    _mouse(lbl, QEvent.Type.MouseButtonPress, 100, 150)
+    _mouse(lbl, QEvent.Type.MouseButtonRelease, 100, 150)
+    assert picked == [(0.125, 0.25)]
+    assert lbl._overlays.warping()  # and the lens outlines and skeleton stay hidden meanwhile
+
+
 def test_a_pick_shows_a_hidden_preview(qapp):
     plugin, lbl = _framed(qapp)
     plugin._toggle()

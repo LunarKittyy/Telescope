@@ -193,4 +193,44 @@ class StillJobsTest {
         assertNotNull(jobs.status(first))
         assertNotNull(jobs.status(second))
     }
+
+    @Test
+    fun `a photo nobody ends fails with timeout once its time limit after the timer is up`() {
+        val jobs = jobs()
+        val id = jobs.start(1, 3_000, 20_000)!!
+        jobs.capturing(id, paused = true)
+        now += 22_999
+        assertNull(jobs.expireOverdue())
+        assertEquals("capturing", jobs.status(id)!!.state)
+        now += 1
+        val status = jobs.status(id)!!
+        assertEquals("failed", status.state)
+        assertEquals("timeout", status.code)
+        assertFalse(status.paused)
+        // Another photo can start straight away
+        assertNull(jobs.active())
+        assertNotNull(jobs.start(1, 0, 20_000))
+    }
+
+    @Test
+    fun `expiring says which photo ran out, once`() {
+        val jobs = jobs()
+        val id = jobs.start(1, 0, 1_000)!!
+        now += 1_000
+        assertEquals(id, jobs.expireOverdue())
+        assertNull(jobs.expireOverdue())
+    }
+
+    @Test
+    fun `a photo that ended in time isn't touched by its limit, and no limit means none`() {
+        val jobs = jobs()
+        val done = jobs.start(1, 0, 1_000)!!
+        jobs.finish(done)
+        now += 5_000
+        assertEquals("done", jobs.status(done)!!.state)
+        val open = jobs.start(1, 0)!!
+        now += 60 * 60_000L
+        assertNull(jobs.expireOverdue())
+        assertEquals(open, jobs.active())
+    }
 }
