@@ -1,4 +1,4 @@
-"""Scenes for camera, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "browser_camera": "_card", "cinema": "_scope_combo"}
 
 
 def card_of(win, widget):
@@ -527,6 +527,59 @@ def preview_popout(stack):
     plugin._open_popout()
     stack.callback(plugin._popout.close)
     return shown(stack, plugin._popout)
+
+
+def picture(win):
+    """A plain picture on the stage, for what's drawn over one."""
+    from PyQt6.QtGui import QColor, QPixmap
+    pixmap = QPixmap(416, 234)  # inside the stage's least height, so the whole picture shows
+    pixmap.fill(QColor(78, 86, 96))
+    plugin_of(win, "preview")._preview_lbl.setPixmap(pixmap)
+
+
+def picking(stack, kind):
+    """The preview while a plugin asks for a point, an area or four corners."""
+    win, _source = streaming_window(stack)
+    picture(win)
+    overlays = win.preview_overlays()
+    win.pick_on_preview("Scene", kind, lambda _pick: None)
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("preview-pick-point", "states", "Preview · picking a point", width=PREVIEW_WIDTH)
+def preview_pick_point(stack):
+    return picking(stack, "point")
+
+
+@scene("preview-pick-area", "states", "Preview · marking an area", width=PREVIEW_WIDTH)
+def preview_pick_area(stack):
+    return picking(stack, "rect")
+
+
+@scene("preview-pick-corners", "main", "Preview · dragging four corners", width=PREVIEW_WIDTH)
+def preview_pick_corners(stack):
+    return picking(stack, "quad")
+
+
+# ── Cinema tools ─────────────────────────────────────────────────────────────
+
+@scene("cinema-tools", "main", "Cinema tools · focus peaking and a waveform", width=CARD_WIDTH)
+def cinema_tools(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "cinema").set_config({"peaking": True, "scope": "waveform"})
+    return cards(stack, win, "cinema")
+
+
+@scene("preview-false-colour", "main", "Preview · false colour and its legend", width=PREVIEW_WIDTH)
+def preview_false_colour(stack):
+    from telescope.plugins import cinema
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "cinema").set_config({"false_colour": True})
+    names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
+    remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
+    return preview_stage(stack, win)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

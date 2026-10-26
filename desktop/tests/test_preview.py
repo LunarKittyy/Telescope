@@ -4,6 +4,7 @@ from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope import vision
+from telescope.overlays import PreviewOverlays
 from telescope.plugin import EventBus
 from telescope.view import View
 from telescope.vision import Person
@@ -55,6 +56,11 @@ class _Host(QWidget):
 
     def focused_source_id(self):
         return "phone"
+
+    def preview_overlays(self):
+        if not hasattr(self, "_overlays"):
+            self._overlays = PreviewOverlays(lambda: self.shown)
+        return self._overlays
 
     def schedule_save(self):
         pass
@@ -365,6 +371,54 @@ def test_dragging_the_preview_pans_instead_of_focusing(qapp):
     _mouse(lbl, QEvent.Type.MouseButtonPress, 100, 150)
     _mouse(lbl, QEvent.Type.MouseButtonRelease, 101, 150)
     assert picked == [(0.25, 0.5)]  # a click still focuses, where it was pressed
+
+
+def test_a_pick_takes_the_mouse_from_focusing_and_panning(qapp):
+    from PyQt6.QtCore import Qt
+    plugin, lbl = _framed(qapp)
+    overlays = plugin._host.preview_overlays()
+    picked, dragged, got = [], [], []
+    plugin._bus.focus_point_picked.connect(lambda u, v: picked.append((u, v)))
+    plugin._bus.view_dragged.connect(lambda du, dv: dragged.append((du, dv)))
+    plugin._bus.focus_point_available.emit(True)
+    plugin._bus.view_pannable.emit(True)
+    assert overlays.start_pick("Test", "rect", got.append)
+    assert lbl.cursor().shape() == Qt.CursorShape.CrossCursor
+    _mouse(lbl, QEvent.Type.MouseButtonPress, 100, 100)
+    _mouse(lbl, QEvent.Type.MouseMove, 200, 150)
+    _mouse(lbl, QEvent.Type.MouseButtonRelease, 200, 150)
+    assert picked == [] and dragged == []
+    assert [c for p in got[0].shown for c in p] == pytest.approx([0.25, 0.25, 0.5, 0.5])
+    assert lbl.cursor().shape() == Qt.CursorShape.OpenHandCursor  # back to panning once it's done
+
+
+def test_a_pick_shows_a_hidden_preview(qapp):
+    plugin, lbl = _framed(qapp)
+    plugin._toggle()
+    assert not plugin._active
+    overlays = plugin._host.preview_overlays()
+    overlays.pick_changed.connect(plugin._bus.preview_pick_changed)  # as the window does
+    overlays.start_pick("Test", "point", lambda _pick: None)
+    assert plugin._active
+
+
+def test_layers_tint_the_preview_copy_and_not_the_frame_apps_get(qapp):
+    from telescope.overlays import PreviewLayer
+
+    class Red(PreviewLayer):
+        def tint(self, frame):
+            frame[:] = (0, 0, 255)
+            return frame
+
+    plugin, _host, _panel = _plugin(qapp)
+    plugin._host.preview_overlays().add_layer("red", Red())
+    sent = []
+    plugin._sig.frame.disconnect()
+    plugin._sig.frame.connect(lambda frame, _gen: sent.append(frame))
+    frame = np.zeros((36, 64, 3), np.uint8)
+    out = plugin.process_frame(frame)
+    assert out is frame and not frame.any()
+    assert sent and (sent[0] == (0, 0, 255)).all()
 
 
 def test_the_wheel_over_the_frame_zooms_around_the_mouse(qapp):

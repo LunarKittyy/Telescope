@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 from telescope import dev_profile, diagnostics, theme, vcam
 from telescope.config import load_config, save_config, saveable, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
+from telescope.overlays import PreviewOverlays
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
@@ -238,6 +239,9 @@ class TelescopeWindow(QMainWindow):
         self._sig_vision_state.connect(self._bus.vision_state_changed)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
         self._view.setup(self, self._bus, self._vision)
+        self._overlays = PreviewOverlays(lambda: self._view.view)  # drawn on the preview only (HostPreview)
+        self._overlays.pick_changed.connect(self._bus.preview_pick_changed)
+        self._bus.stream_stopped.connect(lambda: self._overlays.cancel_pick())
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
@@ -939,6 +943,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s failed to shut down", p.name)
         self._vision.shutdown()
+        self._overlays.shutdown()
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
@@ -1648,6 +1653,27 @@ class TelescopeWindow(QMainWindow):
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def add_preview_layer(self, owner: str, layer):
+        self._overlays.add_layer(owner, layer)
+
+    def remove_preview_layer(self, owner: str):
+        self._overlays.remove_layer(owner)
+
+    def refresh_preview(self):
+        self._overlays.refresh()
+
+    def pick_on_preview(self, owner: str, kind: str, on_done: Callable, start=None, hint: str = "") -> bool:
+        return self.is_streaming() and self._overlays.start_pick(owner, kind, on_done, start, hint)
+
+    def finish_pick(self, owner: str) -> bool:
+        return self._overlays.finish_pick(owner)
+
+    def cancel_pick(self, owner: str):
+        self._overlays.cancel_pick(owner)
+
+    def preview_overlays(self):
+        return self._overlays
 
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)
