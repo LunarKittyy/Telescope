@@ -27,6 +27,9 @@ class _Host(QWidget):
     def open_settings(self, tab=""):
         self.settings_tabs.append(tab)
 
+    def is_restarting(self):
+        return False
+
     def is_streaming(self):
         return self.streaming
 

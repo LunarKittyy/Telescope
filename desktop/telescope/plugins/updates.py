@@ -449,8 +449,8 @@ class UpdatesPlugin(TelescopePlugin):
         self._restart_into(result.relaunch)
 
     def _on_stream_stopped(self):
-        restarting = getattr(self._host, "is_restarting", lambda: False)()
-        if self._phase == "restart_pending" and self._relaunch_argv and not restarting and not self._host.is_streaming():
+        if (self._phase == "restart_pending" and self._relaunch_argv and not self._host.is_restarting()
+                and not self._host.is_streaming()):
             argv, self._relaunch_argv = self._relaunch_argv, None  # once: quitting stops again and re-emits this
             self._phase = "installing"
             QTimer.singleShot(0, lambda: self._restart_into(argv))  # after the stop that emitted this has finished

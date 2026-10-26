@@ -334,10 +334,7 @@ class PhotosPlugin(TelescopePlugin):
     # ── Taking one ────────────────────────────────────────────────────────
 
     def _rotation(self) -> int:
-        try:
-            return _PHONE_ROTATION.get(self._host.view().rotation, 0)
-        except Exception:
-            return 0
+        return _PHONE_ROTATION.get(self._host.view().rotation, 0)
 
     def _take(self):
         caps = self._host.still_caps()
