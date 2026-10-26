@@ -106,6 +106,20 @@ def test_non_coalescing_actions_preserve_order(recording_server, make_client):
     ]
 
 
+def test_every_next_or_previous_reaches_the_phone(recording_server, make_client):
+    client = make_client()
+    recording_server.reply.clear()
+    client.send(action="camera", id="hold")
+    _wait_for_requests(recording_server, 1)
+    client.send(action="notes_scroll", by=1)
+    client.send(action="notes_scroll", by=1)
+    client.send(action="notes_scroll", by=-1)
+    recording_server.reply.set()
+
+    _wait_for_requests(recording_server, 4)
+    assert [r.get("by") for r in recording_server.received[1:]] == [1, 1, -1]
+
+
 def test_requests_carry_bearer_token(recording_server, make_client):
     client = make_client("secret-tok")
 
@@ -241,6 +255,16 @@ def test_send_now_posts_json_body_with_auth_header(monkeypatch):
     assert req.get_header("Content-type") == "application/json"
     assert json.loads(req.data) == {"action": "camera", "id": "wide angle"}
     assert response.read_count == 1
+
+
+def test_send_now_sends_text_as_utf8_not_escapes(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    calls = []
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen",
+                        lambda req, timeout: calls.append(req) or _Response(b"ok"))
+    client._send_now({"action": "notes", "text": "Привет"})
+    assert "Привет".encode("utf-8") in calls[0].data
 
 
 def test_send_now_swallows_transport_errors(monkeypatch):

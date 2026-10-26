@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 object HttpWire {
     const val MAX_HEADER_BYTES = 16 * 1024
     const val MAX_BODY_BYTES = 4 * 1024
+    const val MAX_CONTROL_BODY_BYTES = 64 * 1024  // /v1/control carries the notes, read only after the token check
     // The whole request, not each read: a peer trickling a byte at a time still gets cut off.
     const val REQUEST_DEADLINE_MS = 5_000
     private const val BEARER_PREFIX = "Bearer "
@@ -93,14 +94,14 @@ object HttpWire {
         return true
     }
 
-    // Reads Content-Length bytes bounded by MAX_BODY_BYTES; null on error (response already sent)
-    fun readBody(socket: Socket, request: Request): ByteArray? {
+    // Reads Content-Length bytes bounded by maxBytes; null on error (response already sent)
+    fun readBody(socket: Socket, request: Request, maxBytes: Int = MAX_BODY_BYTES): ByteArray? {
         val length = request.headers["content-length"]?.toIntOrNull()
         if (length == null || length < 0) {
             sendError(socket.getOutputStream(), 400, "Bad Request")
             return null
         }
-        if (length > MAX_BODY_BYTES) {
+        if (length > maxBytes) {
             sendError(socket.getOutputStream(), 413, "Payload Too Large")
             return null
         }

@@ -36,11 +36,67 @@ data class CameraCapability(
     val supportedSizes: List<CameraSize> = emptyList(),
     val h264Sizes: List<CameraSize>? = null,  // the supportedSizes the H.264 encoder takes; null = no encoder, or not said
     val supportsFocusPoint: Boolean = false,
+    val supportsMeterPoint: Boolean = false,  // meter_point works: AE regions, whether or not the lens can focus on a point
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,
     val lensZooms: List<Float> = emptyList(),
     val maxFps: Int = 0,  // the fastest AE target FPS range this camera lists; 0 = none listed
+    val stills: StillCapability? = null,  // what POST /v1/still can take with this lens; null = no photos here
+)
+
+// A lens's photo options; the desktop only offers these
+@Serializable
+data class StillCapability(
+    val formats: List<String>,  // "jpeg" always, then "heic", "ultrahdr" and "raw" where the lens has them
+    val width: Int,  // the largest JPEG
+    val height: Int,
+    val maxResWidth: Int = 0,  // the maximum resolution sensor mode's JPEG; 0 = no such mode
+    val maxResHeight: Int = 0,
+    val maxResRaw: Boolean = false,  // RAW in that mode too
+    val extensions: List<String> = emptyList(),  // the maker's "night", "hdr", "bokeh" and "auto" modes
+    val extensionSizes: Map<String, StillSize> = emptyMap(),  // the JPEG size each of those modes takes its photos at
+    val exposureMaxNs: Long = 0L,  // long exposures up to this; 0 = no manual exposure
+    val bracketing: Boolean = false,  // exposure bracketing
+    val focusBracketing: Boolean = false,
+    val noiseReductionHq: Boolean = false,
+    val sharpeningHq: Boolean = false,
+    val hotPixelHq: Boolean = false,
+    val distortionCorrection: Boolean = false,  // takes distortion 0 and 1
+    val burstMax: Int = 1,  // the most pictures one request takes, bursts and brackets together
+)
+
+@Serializable
+data class StillSize(val width: Int, val height: Int)
+
+// GET /v1/still?id=<id>: how a photo request is getting on
+@Serializable
+data class StillStatus(
+    val id: String,
+    val state: String,  // "waiting" (the timer), "capturing", "done" or "failed"
+    val shots: Int,  // pictures asked for
+    val taken: Int = 0,
+    val files: List<StillFile> = emptyList(),  // the ones ready to fetch, in the order they were taken
+    val countdown_ms: Long = 0L,  // while waiting: how long until it shoots
+    val paused: Boolean = false,  // the video gets no frames while it shoots (its own camera session, or a long exposure)
+    val error: String? = null,  // English, for desktops that don't read code
+    val code: String? = null,
+)
+
+@Serializable
+data class StillFile(
+    val name: String,  // IMG_20261026_142501_01.dng
+    val size: Long,
+    val type: String,  // its MIME type
+)
+
+// POST /v1/still answer
+@Serializable
+data class StillStarted(
+    val ok: Boolean,
+    val id: String? = null,
+    val error: String? = null,
+    val code: String? = null,  // "unsupported", "bad_option", "not_ready", "busy", "camera_off"
 )
 
 @Serializable
@@ -91,6 +147,12 @@ data class V1State(
     val camera_error_code: String? = null,  // "camera_in_use"; the desktop words it itself, in its own language
     val camera_taken: Boolean = false,  // another app on the phone has the camera; it opens again once that lets go
     val camera_toggle: Boolean = false,  // takes camera_on and starts with the camera off; set by every phone that can
+    val takes_notes: Boolean = false,  // takes the notes controls; set by every phone that can
+    val notes: Boolean = false,  // holds notes from the computer
+    val notes_shown: Boolean = false,  // and they're on the screen right now
+    val notes_closed: Boolean = false,  // closed on the phone; they stay off its screen until new text comes
+    val notes_preview: Boolean = false,  // held back while Preview is open, and shown once it closes
+    val stills: Int = 0,  // the /v1/still version this phone takes; 0 = none (an older phone)
     val sensors: List<String>? = null,  // the SensorKinds /v1/sensors streams here, even when empty; null = no /v1/sensors
     val stream_width: Int,
     val stream_height: Int,

@@ -57,6 +57,9 @@ class _Host(QWidget):
     def focused_source_id(self):
         return "phone"
 
+    def colour_preview(self, frame):
+        return frame
+
     def preview_overlays(self):
         if not hasattr(self, "_overlays"):
             self._overlays = PreviewOverlays(lambda: self.shown)

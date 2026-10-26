@@ -794,7 +794,8 @@ class PreviewPlugin(TelescopePlugin):
             else:
                 h, w = frame.shape[:2]
                 size = self._card_size or (min(w, self._CARD_MAX_W), h)
-            self._sig.frame.emit(_fit_within(frame, size), self._stream_gen)
+            # The colour pipeline draws its before and after split in (preview only)
+            self._sig.frame.emit(self._host.colour_preview(_fit_within(frame, size)), self._stream_gen)
         except Exception:
             self._busy = False
             raise
