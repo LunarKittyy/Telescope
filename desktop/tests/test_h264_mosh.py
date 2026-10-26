@@ -117,3 +117,25 @@ def test_escaping_round_trips():
     raw = bytes([0, 0, 1, 0, 0, 0, 0, 0, 3, 5, 0, 0, 2])
     assert h264_mosh._unescape(h264_mosh._escape(raw)) == raw
     assert b"\x00\x00\x01" not in h264_mosh._escape(raw)
+
+
+def _split(unit):
+    """(SPS and PPS, the rest) of an access unit: the phone sends the first only as config, not with each keyframe."""
+    nals = [(unit[s] & 31, b"\x00\x00\x00\x01" + unit[s:e]) for s, e in h264_mosh._nals(unit)]
+    return b"".join(n for t, n in nals if t in (7, 8)), b"".join(n for t, n in nals if t not in (7, 8))
+
+
+def test_a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect():
+    from telescope import h264_reader, packets
+    units = _units(60, gop=10, profile="baseline")
+    config = _split(units[0])[0]
+    body = [_split(u)[1] for u in units]
+    settings = Mosh()
+    tap = packets.Tap()
+    tap.set({"fun_pack": lambda: Mosher(lambda: settings)})
+
+    def run(us):
+        dec = h264_reader.Decoder(tap)
+        return sum(dec.feed((config if i == 0 else b"") + u + _AUD)[1] for i, u in enumerate(us))
+    assert run(body[:25]) >= 20
+    assert run(body[30:60]) >= 25  # the step from before had seen a frame and would drop this keyframe

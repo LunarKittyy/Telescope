@@ -134,3 +134,29 @@ def test_the_stream_worker_gives_its_tap_to_light_readers_only():
     assert worker._new_reader("https://phone/v1/video.h264").tap is worker.packets
     assert worker._new_reader("https://phone/v1/video.udp").tap is worker.packets
     assert not hasattr(worker._new_reader("https://phone/v1/video.mjpeg"), "tap")
+
+
+def test_restart_gives_every_owner_a_fresh_step():
+    made = []
+
+    def make():
+        made.append(1)
+        return lambda u: [u]
+    tap = packets.Tap()
+    tap.restart()
+    assert tap.step is None and not made
+    tap.set({"fun": make})
+    before = tap.step
+    tap.restart()
+    assert len(made) == 2 and tap.step is not before
+    tap.set({})
+    tap.restart()
+    assert tap.step is None and len(made) == 2
+
+
+def test_a_new_decoder_starts_its_steps_afresh():
+    made = []
+    tap = _tap(lambda: made.append(1) or (lambda u: [u]))
+    new_decoder(tap)
+    new_decoder(tap)
+    assert len(made) == 3

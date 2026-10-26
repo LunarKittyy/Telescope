@@ -244,6 +244,8 @@ class Decoder:
     def __init__(self, tap=None):
         self.hardware: Optional[str] = None
         self.tap = tap
+        if tap is not None:
+            tap.restart()  # steps carry state from the decoder before, which would hold this one's keyframes back
         self._codec = None
         self._headers = {}
         self._header_tail = b""
@@ -282,6 +284,9 @@ class Decoder:
             logger.warning("Hardware decoding (%s) failed; decoding in software from now on", self.hardware, exc_info=True)
             self.hardware = None
             self._codec = _software_codec()
+            if self.tap is not None:
+                self.tap.restart()  # the old steps have already seen this data
+                self._step = step = self.tap.step
             # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
             setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
             return _decode_counted(self._codec, setup + data, to_bgr=self._to_bgr, step=step)

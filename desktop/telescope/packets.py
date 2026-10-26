@@ -4,6 +4,7 @@ A decoder only looks at Tap.step, which stays None while nobody changes that str
 """
 
 import logging
+import threading
 from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
@@ -18,15 +19,27 @@ class Tap:
     def __init__(self):
         self.step: Optional[Callable[[bytes], list]] = None
         self._steps: dict = {}  # owner: its step on this stream
+        self._makers: dict = {}  # owner: make_step, for restart()
+        self._lock = threading.Lock()
 
     def set(self, makers: dict) -> bool:
         """The steps from {owner: make_step}: an owner new here gets a fresh one from make_step(), one already on keeps
         its own, and {} takes them all off. True if any came on or off: a new step needs a keyframe to start from (the
         stream's parameters come with it), and the picture needs one to recover from a step that came off."""
-        changed = makers.keys() != self._steps.keys()
-        self._steps = {owner: self._steps.get(owner) or guarded(owner, make()) for owner, make in makers.items()}
-        self.step = chain(list(self._steps.values())) if self._steps else None
+        with self._lock:
+            changed = makers.keys() != self._steps.keys()
+            self._makers = dict(makers)
+            self._steps = {owner: self._steps.get(owner) or guarded(owner, make()) for owner, make in makers.items()}
+            self.step = chain(list(self._steps.values())) if self._steps else None
         return changed
+
+    def restart(self):
+        """Fresh steps from each owner's make_step, for a new decoder: a step's state belongs to the decoder it fed."""
+        with self._lock:
+            if not self._makers:
+                return
+            self._steps = {owner: guarded(owner, make()) for owner, make in self._makers.items()}
+            self.step = chain(list(self._steps.values()))
 
 
 def guarded(name: str, step: Callable[[bytes], list]) -> Callable[[bytes], list]:
