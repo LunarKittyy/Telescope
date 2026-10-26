@@ -335,6 +335,7 @@ class HostVision(Protocol):
         the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
         ...
 
+
 class HostPackets(Protocol):
     """The shown stream's H.264 before it's decoded, for effects that change the video itself (datamosh). Only a
     phone's Light stream has it: Heavy is a picture at a time, with no keyframes to work with."""

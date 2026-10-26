@@ -265,7 +265,6 @@ class TelescopeWindow(QMainWindow):
         self._bus.stream_stopped.connect(lambda: self._sync_sensors())
         self._bus.stream_connected.connect(lambda _id: self._sync_sensors())  # maybe on another route now
         self._stills  = Stills()  # full-quality photos on the phone (HostStills)
-        self._last_states: dict = {}  # source id: the newest whole /v1/state from its phone, for still_caps
         self._sig_still.connect(lambda callback, value: callback(value))
         self._tracking = PeopleTracking()  # people_seen made steady (HostVision.tracked_people)
         self._motion = Motion(on_change=self._sig_motion.emit)  # (HostMotion)
@@ -1129,7 +1128,7 @@ class TelescopeWindow(QMainWindow):
         if source is None:
             return None
         worker = source.session.worker
-        size = getattr(worker, "camera_size", None) if worker is not None else None
+        size = worker.camera_size if worker is not None else None
         return (source.id or "", *(size or (None, None)))
 
     def _on_camera_opened(self, w: int, h: int):
@@ -1598,8 +1597,7 @@ class TelescopeWindow(QMainWindow):
                 self._sessions.held_states[source.id] = (source, session_id, state)
             else:
                 self._flow.move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
-        if "cameras" in state:
-            self._last_states[source.id] = state
+        self._stills.note_state(source.id, state)
         # Plugins get the dict as sent; PhoneState above only checks it
         if source is self._sessions.focus:
             self._sync_sensors(state)
@@ -1799,19 +1797,12 @@ class TelescopeWindow(QMainWindow):
 
     def still_caps(self, source_id: Optional[str] = None) -> Optional[StillCaps]:
         source = self._still_source(source_id)
-        return StillCaps.from_state(self._last_states.get(source.id)) if source is not None else None
+        return self._stills.caps(source.id) if source is not None else None
 
     def _note_lens(self, cam: dict):
-        """The panels' stream moved to another lens: its stored state says so, so still_caps describes that lens."""
         source = self._sessions.focus
-        state = self._last_states.get(source.id) if source is not None else None
-        if not isinstance(state, dict) or not isinstance(cam, dict) or "id" not in cam:
-            return
-        cameras = [({**c, **cam, "current": True} if c.get("id") == cam["id"] else dict(c, current=False))
-                   if isinstance(c, dict) else c for c in state.get("cameras") or ()]
-        if not any(isinstance(c, dict) and c.get("current") for c in cameras):
-            cameras.append({**cam, "current": True})
-        self._last_states[source.id] = dict(state, cameras=cameras)
+        if source is not None:
+            self._stills.note_lens(source.id, cam)
 
     def still_busy(self, source_id: Optional[str] = None) -> bool:
         source = self._still_source(source_id)

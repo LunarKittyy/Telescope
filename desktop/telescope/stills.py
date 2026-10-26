@@ -200,6 +200,27 @@ class Stills:
     def __init__(self):
         self._busy: dict = {}  # source id: the stop event of the photo being taken there
         self._lock = threading.Lock()
+        self._states: dict = {}  # source id: the newest whole /v1/state from its phone, for caps (GUI thread)
+
+    def note_state(self, source_id: Optional[str], state: dict):
+        """A phone's /v1/state; only a whole one (with its cameras) says what its lenses can take."""
+        if "cameras" in state:
+            self._states[source_id] = state
+
+    def note_lens(self, source_id: Optional[str], cam: dict):
+        """source_id's stream moved to another lens: its stored state says so, so caps describes that lens."""
+        state = self._states.get(source_id)
+        if not isinstance(state, dict) or not isinstance(cam, dict) or "id" not in cam:
+            return
+        cameras = [({**c, **cam, "current": True} if c.get("id") == cam["id"] else dict(c, current=False))
+                   if isinstance(c, dict) else c for c in state.get("cameras") or ()]
+        if not any(isinstance(c, dict) and c.get("current") for c in cameras):
+            cameras.append({**cam, "current": True})
+        self._states[source_id] = dict(state, cameras=cameras)
+
+    def caps(self, source_id: Optional[str]) -> Optional[StillCaps]:
+        """What the lens source_id's phone is on can take, from its last state; None when it can't take photos."""
+        return StillCaps.from_state(self._states.get(source_id))
 
     def busy(self, source_id: Optional[str]) -> bool:
         with self._lock:
