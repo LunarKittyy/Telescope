@@ -40,10 +40,13 @@ def _can_seal() -> bool:
 HEADER = struct.Struct(">IHHB")  # frame, index, count, flags
 FLAG_KEY = 1
 TO_DESKTOP, TO_PHONE = 1, 2
-NACK, KEYFRAME, HELLO = 1, 2, 3
+NACK, KEYFRAME, HELLO, REPORT = 1, 2, 3, 4
+REPORT_BODY = struct.Struct(">BIIIIIHH")  # what got through, for the phone's Dynamic (see report())
 WINDOW = 4096  # replay window, in datagrams
 HELLO_S = 0.5  # keeps the desktop's firewall open for the phone's datagrams
-FIRST_FRAME_S = 3.0  # nothing decodable by then: the datagrams don't get here, use TCP
+REPORT_S = 0.1
+FIRST_FRAME_S = 3.0  # no datagram by then: they don't get here (usually a firewall), use TCP
+FIRST_DECODE_S = 10.0  # datagrams arrive but no frame decodes by then (a link too thin for a keyframe): TCP too
 NACK_AFTER_S = 0.015  # a frame behind newer ones this long is missing pieces...
 NACK_AGAIN_S = 0.05  # ...asked for again this often...
 GIVE_UP_S = 0.25  # ...and given up on after this: freeze until a keyframe
@@ -61,6 +64,11 @@ class Seal:
         self._counter = 0
         self._highest = -1
         self._seen: set = set()
+
+    @property
+    def highest(self) -> int:
+        """The highest counter opened so far, -1 before any."""
+        return self._highest
 
     def _nonce(self, n: int) -> bytes:
         return bytes([self._direction, 0, 0, 0]) + struct.pack(">q", n)
@@ -86,6 +94,13 @@ class Seal:
             if len(self._seen) > 2 * WINDOW:
                 self._seen = {s for s in self._seen if s > n - WINDOW}
         return plain
+
+
+def report(received: int, highest: int, frames: "Reassembler", now: float) -> bytes:
+    """What got through so far, for the phone's Dynamic: counts that only grow (wrapping at 32 bits), so a lost report costs nothing."""
+    since = 0xFFFF if frames.whole < 0 else min(0xFFFF, max(0, int((now - frames.whole_at) * 1000)))
+    return REPORT_BODY.pack(REPORT, received & 0xFFFFFFFF, max(0, highest) & 0xFFFFFFFF, frames.bytes & 0xFFFFFFFF,
+                            int(now * 1000) & 0xFFFFFFFF, frames.whole & 0xFFFFFFFF, since, frames.dropped & 0xFFFF)
 
 
 class _Frame:
@@ -121,8 +136,11 @@ class Reassembler:
         self.next: Optional[int] = None  # the next frame to hand on; None while waiting for a keyframe
         self.newest = -1
         self.dropped = 0  # frames given up on
+        self.bytes = 0  # video taken, each piece once
+        self.whole = -1  # the newest frame that's whole...
+        self.whole_at = 0.0  # ...and when it became whole
 
-    def add(self, plain: bytes):
+    def add(self, plain: bytes, now: float = 0.0):
         if len(plain) < HEADER.size:
             return
         seq, idx, count, flags = HEADER.unpack_from(plain)
@@ -140,8 +158,12 @@ class Reassembler:
                 self.next = None
             f = self.frames[seq] = _Frame()
         f.count, f.key = count, bool(flags & FLAG_KEY)
+        if idx not in f.parts:
+            self.bytes += len(plain) - HEADER.size
         f.parts[idx] = plain[HEADER.size:]
         self.newest = max(self.newest, seq)
+        if seq > self.whole and f.complete():
+            self.whole, self.whole_at = seq, now
 
     def take(self) -> Optional[tuple]:
         """(frame bytes, how many frames it stands for) for the next whole frame in order, else None."""
@@ -225,6 +247,8 @@ class UdpH264Reader:
         self._opened_at = 0.0
         self._decoded_any = False
         self._last_hello = 0.0
+        self._last_report = 0.0
+        self._received = 0  # datagrams taken
         self._last_key_ask = 0.0
         self.fell_back = False
 
@@ -272,6 +296,7 @@ class UdpH264Reader:
         self._seal_in, self._seal_out = Seal(key, TO_DESKTOP), Seal(key, TO_PHONE)
         self._codec = h264_reader.new_decoder()
         self._frames = Reassembler()
+        self._received = 0
         self._opened_at = time.monotonic()
         self._decoded_any = False
         self._hello(force=True)
@@ -302,14 +327,16 @@ class UdpH264Reader:
         try:
             while True:
                 now = time.monotonic()
-                if not self._decoded_any and now - self._opened_at > FIRST_FRAME_S:
+                waited = now - self._opened_at
+                if not self._decoded_any and waited > (FIRST_DECODE_S if self._received else FIRST_FRAME_S):
                     _UDP_FAILED.add(self._phone[0])  # likely a firewall: don't wait for it again
                     if self._fall_back():
                         return self.read()
                     return False, None
-                if now > deadline:  # the phone stopped sending: the session's over
+                if now > deadline and self._decoded_any:  # the phone stopped sending: the session's over
                     return False, None
                 self._hello()
+                self._report(now)
                 ready, _, _ = select.select([self._sock], [], [], 0.005)
                 if ready:
                     self._receive()
@@ -339,7 +366,9 @@ class UdpH264Reader:
                 continue
             plain = self._seal_in.open(datagram)
             if plain is not None:
-                self._frames.add(plain)
+                self._phone = addr  # the phone's port as a NAT on the way sees it, like the phone does for ours
+                self._received += 1
+                self._frames.add(plain, time.monotonic())
 
     def _chase(self, now: float):
         nacks, want_key = self._frames.chase(now)
@@ -355,6 +384,11 @@ class UdpH264Reader:
         if force or now - self._last_hello >= HELLO_S:
             self._last_hello = now
             self._send(bytes([HELLO]))
+
+    def _report(self, now: float):
+        if now - self._last_report >= REPORT_S:
+            self._last_report = now
+            self._send(report(self._received, self._seal_in.highest, self._frames, now))
 
     def _send(self, plain: bytes):
         try:

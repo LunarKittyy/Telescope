@@ -93,6 +93,15 @@ aiortc (https://pypi.org/project/aiortc/)
     - pyOpenSSL (https://pypi.org/project/pyOpenSSL/), Apache 2.0
     - dnspython (https://pypi.org/project/dnspython/), ISC
 
+pyrnnoise (https://pypi.org/project/pyrnnoise/)
+    Brings RNNoise for the Microphone card's noise reduction. Copyright (c)
+    Zhendong Peng. License: Apache 2.0. Installed from
+    desktop/requirements-nodeps.txt; Telescope only uses the library it ships.
+    Its wheels bundle RNNoise (https://gitlab.xiph.org/xiph/rnnoise),
+    BSD 3-Clause: Copyright (c) 2007-2017, 2024 Jean-Marc Valin, (c) 2023
+    Amazon, (c) 2017 Mozilla, (c) 2005-2017 Xiph.Org Foundation, (c) 2003-2004
+    Mark Borgerding.
+
 truststore (https://pypi.org/project/truststore/)
     Checks the certificates of Telescope's own downloads (updates, adb,
     VB-Cable) with the system's certificate store. Copyright (c) 2022 Seth

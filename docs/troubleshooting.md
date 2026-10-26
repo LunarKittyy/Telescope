@@ -111,7 +111,7 @@ The update moved an unzipped copy to the installed one and Windows treats it as 
 Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
 
 **Light freezes for a moment now and then over Wi-Fi**
-A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental).
+A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental). It works with Dynamic too, which then lowers the bitrate once more packets start going missing than the resends can cover.
 
 **FPS stays at 30 with 60 picked**
 Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.

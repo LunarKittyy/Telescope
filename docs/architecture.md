@@ -46,7 +46,7 @@ Desktop paths are under `desktop/telescope/` and phone files under `android/app/
 | Pairing and reaching the phone | `plugins/connection.py`, `pairing.py`, `phones.py` (`RouteResolver`) |
 | Receiving and decoding video | `stream.py`, `mjpeg_reader.py`, `h264_reader.py`, `udp_reader.py` |
 | The virtual camera | `vcam.py`, plus `platform/linux.py` or `platform/windows.py`. The Windows 11 camera's DLL is `desktop/virtualcamera/` |
-| The microphone | `audio.py`, `platform/virtual_mic.py`, `plugins/microphone.py` |
+| The microphone | `audio.py`, `denoise.py`, `platform/virtual_mic.py`, `plugins/microphone.py` |
 | Saved settings | `config.py` |
 | Desktop wording | The `tr()` call in the code, then `python scripts/i18n.py extract`. See [translating.md](translating.md) |
 | Messages between the apps | `kotlin/com/telescope/Protocol.kt` and `phone_client.py`, written up in [protocol.md](protocol.md) |
