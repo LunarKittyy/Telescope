@@ -716,7 +716,7 @@ AREAS = (
     ("camera", "Camera, video and framing", ("plugins/camera_control.py", "plugins/framing.py", "plugins/transforms.py",
                                              "plugins/preview.py", "plugins/stream_output.py", "plugins/background.py",
                                              "plugins/presets.py", "plugins/wait_screen.py", "plugins/browser_camera.py",
-                                             "browser_server.py")),
+                                             "browser_server.py", "plugins/composite.py", "widgets/composite_editor.py")),
     ("audio", "Microphone and shortcuts", ("plugins/microphone.py", "audio.py", "plugins/shortcuts.py", "shortcuts.py")),
     ("updates", "Updates, startup and monitoring", ("plugins/updates.py", "updates.py", "plugins/startup.py",
                                                     "plugins/monitoring.py", "splash.py", "i18n.py")),

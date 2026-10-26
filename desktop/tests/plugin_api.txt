@@ -50,6 +50,9 @@ HostCamera.can_turn_camera_off(self)
 HostCamera.is_camera_off_auto(self)
 HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
+HostFrames.frame_source(self)
+HostFrames.stream_frame(self, source_id, copy=False)
+HostFrames.stream_frames(self, copy=False)
 HostSettings.apply_preset(self, name, cfg)
 HostSettings.device_config(self, source_id, plugin_name)
 HostSettings.forget_device_settings(self, name)
@@ -149,6 +152,13 @@ ShortcutAction.repeats(_p)
 ShortcutAction.run
 ShortcutAction.summary(self, params)
 ShortcutAction.widgets = ()
+StreamFrame(source_id, name, frame, number, time)
+StreamFrame.age(self, now=None)
+StreamFrame.frame
+StreamFrame.name
+StreamFrame.number
+StreamFrame.source_id
+StreamFrame.time
 StreamSource.control_client(self)
 StreamSource.fps(self)
 StreamSource.id

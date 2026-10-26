@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import dev_profile, diagnostics, theme, vcam
 from telescope.config import load_config, save_config, saveable, take_reset_notice
+from telescope.frames import Frames
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -264,6 +265,8 @@ class TelescopeWindow(QMainWindow):
         self._phones: dict = {}
         self._sources: dict[str, Source] = {}
         self._flow = StreamFlow(_FlowHost(self))  # starting, stopping and focus; its Sessions has the state
+        self._frames = Frames()  # every stream's newest frame, for plugins (HostFrames)
+        self._flow.sessions.changed = self._share_streams
         self._camera_on_shown = True  # what camera_on_changed last said, to catch a pick with another camera choice
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
 
@@ -1168,6 +1171,7 @@ class TelescopeWindow(QMainWindow):
 
     def _refresh_tiles(self):
         """The tile row: one per stream while there's more than one."""
+        self._share_streams()  # a source's name can change while it streams
         entries = []
         for s in self._sessions.streams:
             if s.recovering:
@@ -1648,6 +1652,19 @@ class TelescopeWindow(QMainWindow):
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def stream_frames(self, copy: bool = False) -> list:
+        return self._frames.frames(copy)
+
+    def stream_frame(self, source_id: Optional[str], copy: bool = False):
+        return self._frames.frame(source_id, copy)
+
+    def frame_source(self) -> Optional[str]:
+        return self._frames.source_of_current()
+
+    def _share_streams(self):
+        self._frames.set_streams((s.id, s.name, s.session.worker) for s in self._sessions.streams
+                                 if s.session is not None)
 
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)

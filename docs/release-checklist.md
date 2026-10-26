@@ -164,8 +164,15 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home and inspect labels with a screen reader.
 - [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 
+### Several cameras in one picture
+
+<!-- due: desktop/telescope/frames.py desktop/telescope/composite.py desktop/telescope/pictures.py desktop/telescope/plugins/composite.py desktop/telescope/widgets/composite_editor.py desktop/telescope/stream.py desktop/telescope/stream_flow.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Optional** shows the One picture card. **Start from** Big and small, then drag, resize, zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the main camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
+- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the main phone alone within 3 seconds. The second one is in the picture again once it's restarted.
+
 ### Vision effects
 
-<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
+<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/pictures.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.

@@ -29,6 +29,9 @@ HANDOVER_TAKE_S = 5.0  # how long a ready one waits for the reader to take it (a
 # JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
 MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 
+# Every frame a stream sends out gets the next number, across all streams, so a number never comes round again.
+_frame_numbers = itertools.count(1)
+
 # A plugin step that fails this many frames in a row is skipped until the next stream.
 STEP_FAILS_BEFORE_SKIP = 30
 
@@ -158,6 +161,7 @@ class StreamWorker(QThread):
         self._vcam_free.set()
         # The newest processed frame (BGR, as the decoders give it and the plugins work on it).
         self._latest       = None
+        self._published    = None  # (_latest, its number, time.monotonic() when it was made), swapped in whole
         self._to_cam: Optional[Callable] = None  # the camera's own format from BGR, set by _open_vcam (None: BGR)
         self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
         self._seq          = itertools.count(1)
@@ -187,6 +191,10 @@ class StreamWorker(QThread):
     def latest_frame(self):
         """The newest frame sent out (BGR), or None before the first; for a thumbnail."""
         return self._latest
+
+    def published(self) -> Optional[tuple]:
+        """(frame, number, time) of the newest frame sent out, from any thread; the frame is never changed after."""
+        return self._published
 
     def set_pipeline(self, frame_pipeline: list):
         """Swap the plugin steps from the next frame on (the panels moved to another stream, or back)."""
@@ -419,6 +427,7 @@ class StreamWorker(QThread):
             here = vision.current_frame.set((self, seq))  # the plugins' person_mask() knows which stream this is
             try:
                 self._latest = self._prepare(raw)
+                self._published = (self._latest, next(_frame_numbers), time.monotonic())
             except Exception:
                 logger.exception("Frame processing failed; dropping this frame")
                 return

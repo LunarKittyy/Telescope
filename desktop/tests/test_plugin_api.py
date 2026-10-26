@@ -15,8 +15,8 @@ FROZEN = Path(__file__).with_name("plugin_api.txt")
 
 # What docs/writing-plugins.md and plugin.py offer to plugins; anything else in Telescope can change freely
 _PROTOCOLS = (plugin.HostSettings, plugin.HostStreams, plugin.HostCamera, plugin.HostSources, plugin.HostShell,
-              plugin.HostView, plugin.HostVision, plugin.StreamSource)
-_CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection,
+              plugin.HostView, plugin.HostVision, plugin.HostFrames, plugin.StreamSource)
+_CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection, plugin.StreamFrame,
             banner.Issue, banner.BannerAction, shortcuts.Param,
             shortcuts.ShortcutAction)
 _FUNCTIONS = (banner.copy_action, shortcuts.button_action, shortcuts.slider_action, shortcuts.log_slider_action,

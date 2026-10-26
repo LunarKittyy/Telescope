@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "browser_camera": "_card", "composite": "_combo"}
 
 
 def card_of(win, widget):
@@ -908,3 +908,94 @@ def plugins_switched_off(stack):
         if not plugin.required and not plugin.optional:
             plugin_loader.set_builtin_off(plugin.name, True)
     return on_its_own(stack, PluginsPanel(builtins, set(), {}, lambda: False, lambda: False))
+
+
+# ── Several cameras in one picture ───────────────────────────────────────────
+
+def test_pattern(w, h, hue):
+    """A soft colour sweep standing in for a stream's picture."""
+    import cv2
+    import numpy as np
+    hsv = np.empty((h, w, 3), np.uint8)
+    hsv[..., 0] = (np.linspace(0, 60, w, dtype=np.uint8)[None, :] + hue) % 180
+    hsv[..., 1], hsv[..., 2] = 120, 170
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+
+def picture_streams(stack, win, streams):
+    """win running streams [(id, name)] with a picture each, the first the main one."""
+    import time
+    from telescope.plugin import StreamFrame
+    frames = [StreamFrame(sid, name, test_pattern(640, 360, 40 * i), i + 1, time.monotonic() + 3600)
+              for i, (sid, name) in enumerate(streams)]
+    patch(stack, win, "stream_frames", lambda copy=False: list(frames))
+    patch(stack, win, "main_stream", lambda: streams[0] if streams else None)
+    patch(stack, win, "stream_output", lambda sid: "Phone Camera" if streams and sid == streams[0][0] else "")
+    patch(stack, win, "is_streaming_from", lambda sid: any(sid == s for s, _name in streams))
+    plugin = plugin_of(win, "composite")
+    plugin._follow_main()
+    if streams:
+        plugin._main_frame = (frames[0].frame, time.monotonic() + 3600)
+    return plugin
+
+
+TWO_STREAMS = [("phone:a", "Pixel 8"), ("phone:b", "Desk phone")]
+
+
+def picture_card(stack, streams, tiles, on=True, saved=False):
+    """The One picture card with streams running and the others of tiles laid out big and small too."""
+    from telescope import composite
+    win = ready_window(stack)
+    plugin = picture_streams(stack, win, streams)
+    if tiles:
+        plugin.set_layout(composite.Layout(tiles=composite.big_and_small([(sid, name, 16 / 9) for sid, name in tiles],
+                                                                         16 / 9)))
+    if saved:
+        plugin.save_layout("Face big, desk small")
+    plugin._switch.setChecked(on)
+    return cards(stack, win, "composite")
+
+
+@scene("composite-live", "main", "One picture · going out", width=CARD_WIDTH)
+def composite_live(stack):
+    return picture_card(stack, TWO_STREAMS, tiles=TWO_STREAMS, saved=True)
+
+
+@scene("composite-waiting", "states", "One picture · waiting for a second stream", width=CARD_WIDTH)
+def composite_waiting(stack):
+    return picture_card(stack, TWO_STREAMS[:1], tiles=TWO_STREAMS)
+
+
+@scene("composite-empty", "states", "One picture · nothing in it yet", width=CARD_WIDTH)
+def composite_empty(stack):
+    return picture_card(stack, TWO_STREAMS, tiles=())
+
+
+def picture_editor(stack, streams, layout_of, picked=True):
+    from telescope.widgets.composite_editor import CompositeEditor
+    win = ready_window(stack)
+    plugin = picture_streams(stack, win, streams)
+    plugin.set_layout(layout_of(plugin))
+    editor = CompositeEditor(plugin, win)
+    stack.callback(editor.deleteLater)
+    editor.view.select(len(plugin.layout().tiles) - 1 if picked else -1)
+    editor.reload()
+    editor.show()
+    editor.view.refresh()
+    stack.callback(editor.close)
+    return editor
+
+
+@scene("composite-editor", "main", "One picture · Edit picture")
+def composite_editor(stack):
+    from telescope import composite
+    return picture_editor(stack, TWO_STREAMS + [("browser:c", "Laptop")],
+                          lambda p: composite.Layout(tiles=composite.big_and_small(p.streams(), 16 / 9)))
+
+
+@scene("composite-editor-alone", "states", "One picture · Edit picture with one stream, one that stopped, none picked")
+def composite_editor_alone(stack):
+    from telescope import composite
+    return picture_editor(stack, TWO_STREAMS[:1], lambda p: composite.Layout(tiles=(
+        composite.Tile("phone:a", "Pixel 8"), composite.Tile("phone:b", "Desk phone", 0.62, 0.6, 0.33, 0.33))),
+        picked=False)

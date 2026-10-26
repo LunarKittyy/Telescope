@@ -8,6 +8,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
+    from telescope.plugins.composite import CompositePlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
@@ -32,6 +33,7 @@ def builtin_plugins() -> list:
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
+        CompositePlugin(),  # optional, after the plugins that change each stream's own picture
         MicrophonePlugin(),
         PresetsPlugin(),
         PreviewPlugin(),

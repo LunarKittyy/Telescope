@@ -8,323 +8,323 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Telescope-Draft: yes\n"
 
-#: telescope/app.py:47
+#: telescope/app.py:48
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "La cámara del teléfono está produciendo menos fotogramas de los solicitados. La luz tenue la hace más lenta."
 
-#: telescope/app.py:48
+#: telescope/app.py:49
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Dinámico redujo la velocidad de fotogramas a {fps} fps para adaptarse a una conexión lenta."
 
-#: telescope/app.py:49
+#: telescope/app.py:50
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr "El teléfono se calentó y redujo la velocidad de fotogramas a {fps} fps por ahora."
 
-#: telescope/app.py:119
+#: telescope/app.py:120
 msgid "Lost the phone - reconnecting"
 msgstr "Se perdió la conexión con el teléfono - reconectando"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:107 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:160 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Reintentar"
 
-#: telescope/app.py:231
+#: telescope/app.py:232
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: telescope/app.py:432
+#: telescope/app.py:435
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} no se inició"
 msgstr[1] "{plugins} no se iniciaron"
 
-#: telescope/app.py:433
+#: telescope/app.py:436
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} complemento no se inició"
 msgstr[1] "{n} complementos no se iniciaron"
 
-#: telescope/app.py:434
+#: telescope/app.py:437
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope funciona sin él. La pestaña Complementos en Configuración indica qué salió mal."
 msgstr[1] "Telescope funciona sin ellos. La pestaña Complementos en Configuración indica qué salió mal."
 
-#: telescope/app.py:436 telescope/app.py:464
+#: telescope/app.py:439 telescope/app.py:467
 msgid "Plugins…"
 msgstr "Complementos…"
 
-#: telescope/app.py:460
+#: telescope/app.py:463
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} está desactivado"
 msgstr[1] "{plugins} están desactivados"
 
-#: telescope/app.py:461
+#: telescope/app.py:464
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Desactivaste esto en Complementos. Para recuperarlo, abre Complementos en Configuración y actívalo."
 msgstr[1] "Desactivaste estos en Complementos. Para recuperarlos, abre Complementos en Configuración y actívalos."
 
-#: telescope/app.py:493
+#: telescope/app.py:496
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Complementos ({n} desactivados)"
 
-#: telescope/app.py:520
+#: telescope/app.py:523
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Hay una copia del archivo anterior en {path}."
 
-#: telescope/app.py:522
+#: telescope/app.py:525
 msgid "Your settings couldn't be read"
 msgstr "No se pudo leer tu configuración"
 
-#: telescope/app.py:523
+#: telescope/app.py:526
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope se inició con sus valores predeterminados, por lo que los teléfonos vinculados deben vincularse de nuevo."
 
-#: telescope/app.py:574 telescope/app.py:575 telescope/widgets/settings_window.py:137
+#: telescope/app.py:577 telescope/app.py:578 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr "Configuración"
 
-#: telescope/app.py:584
+#: telescope/app.py:587
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "Transmite otra cámara al mismo tiempo, a una cámara virtual propia"
 
-#: telescope/app.py:585
+#: telescope/app.py:588
 msgid "Add camera"
 msgstr "Agregar cámara"
 
-#: telescope/app.py:590 telescope/app.py:610 telescope/plugins/onboarding.py:135
+#: telescope/app.py:593 telescope/app.py:613 telescope/plugins/onboarding.py:135
 msgid "Start streaming"
 msgstr "Iniciar transmisión"
 
-#: telescope/app.py:605
+#: telescope/app.py:608
 msgid "Start mic only"
 msgstr "Iniciar solo micrófono"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/plugins/shortcuts.py:152
+#: telescope/app.py:611 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr "Detener"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:611 telescope/app.py:1889 telescope/app.py:1905 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "Iniciar"
 
-#: telescope/app.py:610
+#: telescope/app.py:613
 msgid "Stop streaming"
 msgstr "Detener transmisión"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:658 telescope/app.py:1429 telescope/app.py:1494 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:457 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "No está transmitiendo"
 
-#: telescope/app.py:661 telescope/plugins/stream_output.py:296
+#: telescope/app.py:664 telescope/plugins/stream_output.py:296
 msgid "FPS"
 msgstr "FPS"
 
-#: telescope/app.py:665
+#: telescope/app.py:668
 msgid "Throughput"
 msgstr "Transferencia"
 
-#: telescope/app.py:818
+#: telescope/app.py:821
 msgid "Telescope - Save failed"
 msgstr "Telescope - Error al guardar"
 
-#: telescope/app.py:819
+#: telescope/app.py:822
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "No se pudo guardar la configuración. Revisa el espacio en disco y los permisos."
 
-#: telescope/app.py:1174
+#: telescope/app.py:1178
 msgid "Reconnecting"
 msgstr "Reconectando"
 
-#: telescope/app.py:1176
+#: telescope/app.py:1180
 msgid "Live"
 msgstr "En vivo"
 
-#: telescope/app.py:1178
+#: telescope/app.py:1182
 msgid "Connecting"
 msgstr "Conectando"
 
-#: telescope/app.py:1182
+#: telescope/app.py:1186
 msgid "Starting"
 msgstr "Iniciando"
 
-#: telescope/app.py:1186
+#: telescope/app.py:1190
 msgid "Waiting"
 msgstr "Esperando"
 
-#: telescope/app.py:1232
+#: telescope/app.py:1236
 msgid "Setting up more virtual cameras…"
 msgstr "Configurando más cámaras virtuales…"
 
-#: telescope/app.py:1256 telescope/plugins/setup.py:720
+#: telescope/app.py:1260 telescope/plugins/setup.py:720
 msgid "Stop the streams going to them first"
 msgstr "Detén primero las transmisiones que van hacia ellas"
 
-#: telescope/app.py:1256
+#: telescope/app.py:1260
 msgid "There are none to remove"
 msgstr "No hay ninguna para quitar"
 
-#: telescope/app.py:1284
+#: telescope/app.py:1288
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr "{first} a {last}"
 
-#: telescope/app.py:1286
+#: telescope/app.py:1290
 msgid "Set up more virtual cameras"
 msgstr "Configurar más cámaras virtuales"
 
-#: telescope/app.py:1287
+#: telescope/app.py:1291
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr "Para transmitir varias cámaras a la vez, Telescope agrega más cámaras virtuales ({names})."
 
-#: telescope/app.py:1288
+#: telescope/app.py:1292
 msgid "This asks for your password."
 msgstr "Esto solicitará tu contraseña."
 
-#: telescope/app.py:1288 telescope/plugins/setup.py:722
+#: telescope/app.py:1292 telescope/plugins/setup.py:722
 msgid "Windows asks for permission."
 msgstr "Windows solicitará permiso."
 
-#: telescope/app.py:1305
+#: telescope/app.py:1309
 msgid "Couldn't add more virtual cameras"
 msgstr "No se pudieron agregar más cámaras virtuales"
 
-#: telescope/app.py:1323
+#: telescope/app.py:1327
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr "Solo un teléfono puede desactivar su cámara y seguir transmitiendo su micrófono."
 
-#: telescope/app.py:1325
+#: telescope/app.py:1329
 msgid "Only while one camera streams."
 msgstr "Solo mientras una cámara transmite."
 
-#: telescope/app.py:1327
+#: telescope/app.py:1331
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr "Activa primero el micrófono del teléfono. Con la cámara desactivada, el micrófono es lo único que transmite."
 
-#: telescope/app.py:1329
+#: telescope/app.py:1333
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr "Actualiza Telescope en el teléfono para poder desactivar su cámara mientras transmite."
 
-#: telescope/app.py:1381
+#: telescope/app.py:1385
 msgid "Turning the phone's camera on…"
 msgstr "Activando la cámara del teléfono…"
 
-#: telescope/app.py:1389
+#: telescope/app.py:1393
 msgid "Streaming the mic, camera off"
 msgstr "Transmitiendo el micrófono, cámara desactivada"
 
-#: telescope/app.py:1414
+#: telescope/app.py:1418
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: transmitiendo la cámara"
 
-#: telescope/app.py:1414
+#: telescope/app.py:1418
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: transmitiendo la cámara y el micrófono"
 
-#: telescope/app.py:1415
+#: telescope/app.py:1419
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: transmitiendo la cámara, micrófono silenciado"
 
-#: telescope/app.py:1417
+#: telescope/app.py:1421
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: transmitiendo el micrófono, cámara desactivada (silenciado)"
 
-#: telescope/app.py:1418
+#: telescope/app.py:1422
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: transmitiendo el micrófono, cámara desactivada"
 
-#: telescope/app.py:1442
+#: telescope/app.py:1446
 msgid "Stop all but one camera first, then apply again"
 msgstr "Detén todas las cámaras excepto una primero, luego aplica de nuevo"
 
-#: telescope/app.py:1454
+#: telescope/app.py:1458
 msgid "Reloading v4l2loopback…"
 msgstr "Recargando v4l2loopback…"
 
-#: telescope/app.py:1472
+#: telescope/app.py:1476
 msgid "Restarting stream…"
 msgstr "Reiniciando transmisión…"
 
-#: telescope/app.py:1486
+#: telescope/app.py:1490
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback recargado: {message}"
 
-#: telescope/app.py:1486
+#: telescope/app.py:1490
 msgid "Canvas updated"
 msgstr "Lienzo actualizado"
 
-#: telescope/app.py:1490
+#: telescope/app.py:1494
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Error al recargar: {message}"
 
-#: telescope/app.py:1497 telescope/plugins/setup.py:975
+#: telescope/app.py:1501 telescope/plugins/setup.py:975
 msgid "Resize the virtual camera"
 msgstr "Cambiar tamaño de la cámara virtual"
 
-#: telescope/app.py:1520
+#: telescope/app.py:1524
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "El teléfono envió datos que esta versión no puede leer. Actualiza ambas apps a la misma versión."
 
-#: telescope/app.py:1547 telescope/plugins/preview.py:519
+#: telescope/app.py:1551 telescope/plugins/preview.py:519
 msgid "Show"
 msgstr "Mostrar"
 
-#: telescope/app.py:1548
+#: telescope/app.py:1552
 msgid "Quit"
 msgstr "Salir"
 
-#: telescope/app.py:1587
+#: telescope/app.py:1591
 msgid "Telescope didn't answer in time."
 msgstr "Telescope no respondió a tiempo."
 
-#: telescope/app.py:1594
+#: telescope/app.py:1598
 msgid "This Telescope has no shortcuts."
 msgstr "Este Telescope no tiene atajos."
 
-#: telescope/app.py:1597 telescope/plugins/shortcuts.py:380
+#: telescope/app.py:1601 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Eso falló; Copiar diagnóstico tiene los detalles."
 
-#: telescope/app.py:1871
+#: telescope/app.py:1888
 msgid "The stream stopped unexpectedly"
 msgstr "La transmisión se detuvo de forma inesperada"
 
-#: telescope/app.py:1871 telescope/app.py:1887
+#: telescope/app.py:1888 telescope/app.py:1904
 msgid "Copy diagnostics has the details."
 msgstr "Copiar diagnóstico tiene los detalles."
 
-#: telescope/app.py:1886
+#: telescope/app.py:1903
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "La transmisión de {name} se detuvo de forma inesperada"
 
-#: telescope/app.py:1965
+#: telescope/app.py:1982
 msgid "Telescope is still running"
 msgstr "Telescope todavía se está ejecutando"
 
-#: telescope/app.py:1966
+#: telescope/app.py:1983
 msgid "Streaming continues in the background."
 msgstr "La transmisión continúa en segundo plano."
 
-#: telescope/app.py:1967
+#: telescope/app.py:1984
 msgid "It starts streaming by itself when it needs to."
 msgstr "Comienza a transmitir automáticamente cuando es necesario."
 
-#: telescope/app.py:1968
+#: telescope/app.py:1985
 msgid "Right-click the tray icon to quit."
 msgstr "Haz clic derecho en el icono de la bandeja del sistema para salir."
 
@@ -376,17 +376,17 @@ msgid "This computer couldn't set up the video connection."
 msgstr "Esta computadora no pudo configurar la conexión de video."
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:137
+#: telescope/i18n.py:139
 msgid ", "
 msgstr ", "
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:139
+#: telescope/i18n.py:141
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr "{items} y {last}"
 
-#: telescope/i18n.py:159
+#: telescope/i18n.py:161
 #, python-brace-format
 msgctxt "percentage"
 msgid "{n}%"
@@ -752,39 +752,39 @@ msgstr "Falló el registro (¿se canceló o se denegó?)"
 msgid "Timed out"
 msgstr "Se agotó el tiempo de espera"
 
-#: telescope/plugin.py:18
+#: telescope/plugin.py:19
 msgid "General"
 msgstr "General"
 
-#: telescope/plugin.py:19 telescope/plugins/shortcuts.py:180
+#: telescope/plugin.py:20 telescope/plugins/shortcuts.py:180
 msgid "Streaming"
 msgstr "Transmisión"
 
-#: telescope/plugin.py:20 telescope/plugins/setup.py:275
+#: telescope/plugin.py:21 telescope/plugins/setup.py:275
 msgid "Video"
 msgstr "Video"
 
-#: telescope/plugin.py:21
+#: telescope/plugin.py:22
 msgid "Audio"
 msgstr "Audio"
 
-#: telescope/plugin.py:22
+#: telescope/plugin.py:23
 msgid "Virtual camera & phone"
 msgstr "Cámara virtual y teléfono"
 
-#: telescope/plugin.py:23 telescope/plugins/shortcuts.py:121
+#: telescope/plugin.py:24 telescope/plugins/shortcuts.py:121
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
-#: telescope/plugin.py:24
+#: telescope/plugin.py:25
 msgid "Plugins"
 msgstr "Complementos"
 
-#: telescope/plugin.py:25
+#: telescope/plugin.py:26
 msgid "Updates & About"
 msgstr "Actualizaciones y Acerca de"
 
-#: telescope/plugin.py:449
+#: telescope/plugin.py:488
 msgid "Open settings"
 msgstr "Abrir configuración"
 
@@ -898,67 +898,67 @@ msgid "That isn't a folder in the plugins folder."
 msgstr "Esa no es una carpeta dentro de la carpeta de complementos."
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/framing.py:40
+#: telescope/plugins/background.py:20 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/framing.py:40
 msgid "Off"
 msgstr "Desactivado"
 
-#: telescope/plugins/background.py:19 telescope/plugins/background.py:147
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:128
 msgid "Blur"
 msgstr "Desenfoque"
 
-#: telescope/plugins/background.py:19 telescope/plugins/background.py:159
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:140
 msgid "Picture"
 msgstr "Foto"
 
-#: telescope/plugins/background.py:20
+#: telescope/plugins/background.py:21 telescope/widgets/composite_editor.py:22
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Fotos (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: telescope/plugins/background.py:108 telescope/plugins/background.py:128 telescope/plugins/background.py:139 telescope/plugins/background.py:179 telescope/plugins/background.py:181
+#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162 telescope/widgets/composite_editor.py:579
 msgid "Background"
 msgstr "Fondo"
 
-#: telescope/plugins/background.py:109
+#: telescope/plugins/background.py:90
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "Desenfoca el fondo detrás de ti o lo cambia por una foto."
 
-#: telescope/plugins/background.py:110
+#: telescope/plugins/background.py:91
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "Sin él no hay tarjeta Fondo y el fondo se mantiene como lo ve la cámara."
 
-#: telescope/plugins/background.py:150
+#: telescope/plugins/background.py:131
 msgid "Choose…"
 msgstr "Elegir…"
 
-#: telescope/plugins/background.py:151
+#: telescope/plugins/background.py:132
 msgid "Pick the picture that goes behind you"
 msgstr "Elige la foto que va detrás de ti"
 
-#: telescope/plugins/background.py:153 telescope/plugins/background.py:217
+#: telescope/plugins/background.py:134 telescope/plugins/background.py:198
 msgid "No picture yet"
 msgstr "Aún no hay foto"
 
-#: telescope/plugins/background.py:166
+#: telescope/plugins/background.py:147
 msgid "How soft the edge around you is"
 msgstr "Qué tan suave es el borde alrededor de ti"
 
-#: telescope/plugins/background.py:169
+#: telescope/plugins/background.py:150
 msgid "Edges"
 msgstr "Bordes"
 
-#: telescope/plugins/background.py:182
+#: telescope/plugins/background.py:163
 msgid "Background blur"
 msgstr "Desenfoque de fondo"
 
-#: telescope/plugins/background.py:206
+#: telescope/plugins/background.py:187
 msgid "Choose a picture"
 msgstr "Elegir una foto"
 
-#: telescope/plugins/background.py:216
+#: telescope/plugins/background.py:197
 msgid "Telescope can't open that picture."
 msgstr "Telescope no puede abrir esa foto."
 
-#: telescope/plugins/background.py:243
+#: telescope/plugins/background.py:224
 msgid "Choose a picture to put behind you."
 msgstr "Elige una foto para colocar detrás de ti."
 
@@ -1066,7 +1066,7 @@ msgstr "{n} conectados"
 msgid "Waiting for a browser"
 msgstr "Esperando un navegador"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:1000
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1410,6 +1410,63 @@ msgstr "Haz clic en la vista previa para enfocar allí"
 msgid "This lens can't focus on a point"
 msgstr "Este lente no puede enfocar en un punto"
 
+#: telescope/plugins/composite.py:28
+msgid "Several cameras in one picture"
+msgstr ""
+
+#: telescope/plugins/composite.py:29
+msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
+msgstr ""
+
+#: telescope/plugins/composite.py:30
+msgid "Without it there's no One picture card and each stream only goes to its own camera."
+msgstr ""
+
+#: telescope/plugins/composite.py:203
+msgid "Send the streams out as one picture"
+msgstr ""
+
+#: telescope/plugins/composite.py:205 telescope/plugins/composite.py:220 telescope/plugins/composite.py:222
+msgid "One picture"
+msgstr ""
+
+#: telescope/plugins/composite.py:207 telescope/widgets/composite_editor.py:341
+msgid "Not saved"
+msgstr ""
+
+#: telescope/plugins/composite.py:208
+msgid "A layout you saved in the editor"
+msgstr ""
+
+#: telescope/plugins/composite.py:210 telescope/widgets/composite_editor.py:339
+msgid "Layout"
+msgstr ""
+
+#: telescope/plugins/composite.py:211
+msgid "Edit picture…"
+msgstr ""
+
+#: telescope/plugins/composite.py:223
+msgid "Picture layout"
+msgstr ""
+
+#: telescope/plugins/composite.py:249
+msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
+msgstr ""
+
+#: telescope/plugins/composite.py:251
+msgid "It takes over once two of its streams are running."
+msgstr ""
+
+#: telescope/plugins/composite.py:253
+#, python-brace-format
+msgid "Goes out on {camera}."
+msgstr ""
+
+#: telescope/plugins/composite.py:253 telescope/plugins/transforms.py:63
+msgid "the main camera"
+msgstr "la cámara principal"
+
 #: telescope/plugins/connection.py:80
 msgid "Computer"
 msgstr "Computadora"
@@ -1427,7 +1484,7 @@ msgstr "El teléfono está transmitiendo a otra computadora."
 msgid "Stop it there or on the phone, then try again."
 msgstr "Detenla allí o en el teléfono, luego intenta de nuevo."
 
-#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:231
+#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:232
 msgid "Checking…"
 msgstr "Verificando…"
 
@@ -1632,7 +1689,7 @@ msgstr "Cómo lo llaman tus teléfonos"
 msgid "Change this computer's name"
 msgstr "Cambiar el nombre de esta computadora"
 
-#: telescope/plugins/connection.py:438 telescope/widgets/vaapi_setup.py:111
+#: telescope/plugins/connection.py:438 telescope/widgets/composite_editor.py:322 telescope/widgets/vaapi_setup.py:111
 msgid "Close"
 msgstr "Cerrar"
 
@@ -2655,7 +2712,7 @@ msgstr "Las configuraciones guardadas de cámara, salida, transformación, encua
 msgid "Save current as…"
 msgstr "Guardar actual como…"
 
-#: telescope/plugins/presets.py:186
+#: telescope/plugins/presets.py:186 telescope/widgets/composite_editor.py:348
 msgid "Delete"
 msgstr "Eliminar"
 
@@ -2677,7 +2734,7 @@ msgstr "Ya existe un preajuste llamado \"{name}\". ¿Quieres reemplazarlo?"
 msgid "Save preset"
 msgstr "Guardar preajuste"
 
-#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221
+#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221 telescope/widgets/composite_editor.py:374 telescope/widgets/composite_editor.py:391
 msgid "Name:"
 msgstr "Nombre:"
 
@@ -2716,7 +2773,7 @@ msgstr ""
 "\n"
 "Iniciar solo micrófono transmite el micrófono del teléfono con la cámara desactivada."
 
-#: telescope/plugins/preview.py:23 telescope/stream.py:474
+#: telescope/plugins/preview.py:23 telescope/stream.py:483
 msgid "Waiting for the first frame…"
 msgstr "Esperando el primer fotograma…"
 
@@ -3742,7 +3799,7 @@ msgstr "Cuando ninguna app use la cámara, incluso si la inicié yo"
 msgid "{n} min"
 msgstr "{n} min"
 
-#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1007
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1076
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} s"
@@ -4036,10 +4093,6 @@ msgstr "La panorámica fue más allá de lo que {tele} puede ver, así que está
 msgid "the telephoto"
 msgstr "el teleobjetivo"
 
-#: telescope/plugins/transforms.py:63
-msgid "the main camera"
-msgstr "la cámara principal"
-
 #: telescope/plugins/transforms.py:66
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
@@ -4090,7 +4143,7 @@ msgstr "Rotación"
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249
+#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:470
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -4243,105 +4296,105 @@ msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "portable portatil mantener esta copia donde esta carpeta zip en su lugar windows keep this copy where it is folder in place"
 
-#: telescope/plugins/updates.py:99 telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:100 telescope/plugins/updates.py:138
 msgid "Update and restart"
 msgstr "Actualizar y reiniciar"
 
-#: telescope/plugins/updates.py:102
+#: telescope/plugins/updates.py:103
 msgid "What's new"
 msgstr "Novedades"
 
-#: telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:138
 msgid "Open download page"
 msgstr "Abrir página de descarga"
 
-#: telescope/plugins/updates.py:143
+#: telescope/plugins/updates.py:144
 msgid "Updates"
 msgstr "Actualizaciones"
 
-#: telescope/plugins/updates.py:144
+#: telescope/plugins/updates.py:145
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Busca nuevas versiones de Telescope y las instala."
 
-#: telescope/plugins/updates.py:187
+#: telescope/plugins/updates.py:188
 msgid "Update"
 msgstr "Actualizar"
 
-#: telescope/plugins/updates.py:209
+#: telescope/plugins/updates.py:210
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} está disponible"
 
-#: telescope/plugins/updates.py:224
+#: telescope/plugins/updates.py:225
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Descargando {percent} %…"
 
-#: telescope/plugins/updates.py:225 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
+#: telescope/plugins/updates.py:226 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
 msgid "Downloading…"
 msgstr "Descargando…"
 
-#: telescope/plugins/updates.py:227
+#: telescope/plugins/updates.py:228
 msgid "Installing…"
 msgstr "Instalando…"
 
-#: telescope/plugins/updates.py:229
+#: telescope/plugins/updates.py:230
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Actualizado. Telescope se reiniciará cuando detengas la transmisión."
 
-#: telescope/plugins/updates.py:236
+#: telescope/plugins/updates.py:237
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} está disponible."
 
-#: telescope/plugins/updates.py:238
+#: telescope/plugins/updates.py:239
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "Al actualizar también se instala para tu usuario, con una entrada en el menú Inicio, y se quita esta copia descomprimida. La configuración y los teléfonos se conservan."
 
-#: telescope/plugins/updates.py:243
+#: telescope/plugins/updates.py:244
 msgid "Stop streaming to update."
 msgstr "Detén la transmisión para actualizar."
 
-#: telescope/plugins/updates.py:248
+#: telescope/plugins/updates.py:249
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version} no se inició después de actualizar, así que se conservó la versión anterior. ¿Quieres intentar de nuevo?"
 
-#: telescope/plugins/updates.py:252
+#: telescope/plugins/updates.py:253
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "Esta es una copia del código fuente, por lo que no se actualiza sola."
 
-#: telescope/plugins/updates.py:254
+#: telescope/plugins/updates.py:255
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "La última compilación nightly es {version}."
 
-#: telescope/plugins/updates.py:256
+#: telescope/plugins/updates.py:257
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "La última compilación estable es {version}."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no nightly release yet."
 msgstr "Aún no hay una versión nightly disponible."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no stable release yet."
 msgstr "Aún no hay una versión disponible en el canal estable."
 
-#: telescope/plugins/updates.py:261
+#: telescope/plugins/updates.py:262
 msgid "You have the latest version."
 msgstr "Tienes la última versión."
 
-#: telescope/plugins/updates.py:345
+#: telescope/plugins/updates.py:346
 msgid "Couldn't check for updates."
 msgstr "No se pudieron buscar actualizaciones."
 
-#: telescope/plugins/updates.py:417
+#: telescope/plugins/updates.py:418
 msgid "The update failed."
 msgstr "Falló la actualización."
 
-#: telescope/plugins/updates.py:466
+#: telescope/plugins/updates.py:467
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Actualizado. Cierra y vuelve a abrir Telescope para terminar."
 
@@ -4687,52 +4740,52 @@ msgstr "Inicia de nuevo cuando estés listo."
 msgid "The camera didn't turn back on"
 msgstr "La cámara no volvió a activarse"
 
-#: telescope/splash.py:50
+#: telescope/splash.py:52
 msgid "Starting Telescope…"
 msgstr "Iniciando Telescope…"
 
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
-#: telescope/splash.py:52
+#: telescope/splash.py:54
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Puede tardar un minuto mientras Windows hace un análisis de seguridad."
 
-#: telescope/stream.py:335
+#: telescope/stream.py:343
 msgid "Stream dropped - reconnecting"
 msgstr "Se interrumpió la transmisión - reconectando"
 
-#: telescope/stream.py:389
+#: telescope/stream.py:397
 msgid "Stream reconnected"
 msgstr "Transmisión reconectada"
 
-#: telescope/stream.py:443
+#: telescope/stream.py:452
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Error de transmisión: {error}"
 
-#: telescope/stream.py:453
+#: telescope/stream.py:462
 msgid "Getting ready… The first start after installing can take a minute."
 msgstr "Preparando… El primer inicio tras la instalación puede tardar un minuto."
 
-#: telescope/stream.py:455 telescope/stream_flow.py:189
+#: telescope/stream.py:464 telescope/stream_flow.py:189
 msgid "Connecting..."
 msgstr "Conectando..."
 
-#: telescope/stream.py:455
+#: telescope/stream.py:464
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Conectando a {url}..."
 
-#: telescope/stream.py:464
+#: telescope/stream.py:473
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "No se puede conectar con la transmisión del teléfono. Reintentando en {seconds} s…"
 
-#: telescope/stream.py:534
+#: telescope/stream.py:543
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Transmitiendo {size} a {fps} fps a {camera}"
 
-#: telescope/stream.py:585
+#: telescope/stream.py:594
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Error de la cámara virtual: {error}"
@@ -4900,29 +4953,165 @@ msgstr "Contraído. Presiona Espacio o Enter para expandir."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Expandido. Presiona Espacio o Enter para contraer."
 
-#: telescope/widgets/common.py:1013
+#: telescope/widgets/common.py:1082
 #, python-brace-format
 msgid "{q}%: High"
 msgstr "{q} %: Alta"
 
-#: telescope/widgets/common.py:1014
+#: telescope/widgets/common.py:1083
 #, python-brace-format
 msgid "{q}%: Balanced"
 msgstr "{q} %: Equilibrada"
 
-#: telescope/widgets/common.py:1015
+#: telescope/widgets/common.py:1084
 #, python-brace-format
 msgid "{q}%: Low"
 msgstr "{q} %: Baja"
 
-#: telescope/widgets/common.py:1016
+#: telescope/widgets/common.py:1085
 #, python-brace-format
 msgid "{q}%: Very low"
 msgstr "{q} %: Muy baja"
 
-#: telescope/widgets/common.py:1141
+#: telescope/widgets/common.py:1219
 msgid "Double-click to reset"
 msgstr "Doble clic para restablecer"
+
+#: telescope/widgets/composite_editor.py:51
+msgid "Picture preview"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:132
+#, python-brace-format
+msgid "{name} isn't streaming"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:294 telescope/widgets/composite_editor.py:297
+msgid "Edit picture"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:297
+msgid "Drag a stream to move it and its corners to resize it. Shift keeps its shape and Alt stops it snapping."
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:344
+msgid "Save as…"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:346
+msgid "Rename…"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:352
+msgid "Side by side"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:352
+msgid "Big and small"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:353
+msgid "Grid"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:355
+msgid "Start again with the running streams laid out like this"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:368 telescope/widgets/composite_editor.py:370
+#, python-brace-format
+msgid "Layout {n}"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:374
+msgid "Save layout"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:380
+msgid "Replace layout"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:381
+#, python-brace-format
+msgid "There's already a layout called \"{name}\". Replace it?"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:391
+msgid "Rename layout"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:413
+msgid "Streams"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:417
+msgid "Start two or more streams to put them together. The + next to Stop adds one."
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:434
+#, python-brace-format
+msgid "{name} (not streaming)"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:456
+msgid "Picked stream"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:466
+msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:476
+msgid "Border"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:477
+msgid "Border colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:479
+msgid "Colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:485
+msgid "Corners"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:486
+msgid "Fit its shape"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:487
+msgid "Make the box the stream's own shape, so none of it is cut off"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:489
+msgid "Send back"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:491
+msgid "Bring forward"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:495
+msgid "Click a stream in the picture to change it."
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:580
+msgid "Background colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:582
+msgid "Picture…"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:584
+msgid "No picture"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:593
+msgid "Background picture"
+msgstr ""
 
 #: telescope/widgets/controls.py:292
 msgid "Drag to move the view. Double-click to centre it."
@@ -5255,23 +5444,23 @@ msgstr "Telescope no pudo iniciar una nueva instancia. Ciérralo y vuelve a abri
 msgid "Tab"
 msgstr "Pestaña"
 
-#: telescope/widgets/settings_window.py:151 telescope/widgets/settings_window.py:152
+#: telescope/widgets/settings_window.py:154 telescope/widgets/settings_window.py:155
 msgid "Search settings"
 msgstr "Buscar en configuración"
 
-#: telescope/widgets/settings_window.py:162
+#: telescope/widgets/settings_window.py:165
 msgid "Settings tabs"
 msgstr "Pestañas de configuración"
 
-#: telescope/widgets/settings_window.py:192
+#: telescope/widgets/settings_window.py:198
 msgid "Nothing matches every word. These match some of them."
 msgstr "Ningún resultado coincide con todas las palabras. Estos coinciden con algunas de ellas."
 
-#: telescope/widgets/settings_window.py:196 telescope/widgets/settings_window.py:287
+#: telescope/widgets/settings_window.py:202 telescope/widgets/settings_window.py:293
 msgid "Search results"
 msgstr "Resultados de búsqueda"
 
-#: telescope/widgets/settings_window.py:285
+#: telescope/widgets/settings_window.py:291
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "No hay coincidencias para \"{text}\". Intenta con menos palabras o describe lo que hace (resolución, micrófono, inicio)."
