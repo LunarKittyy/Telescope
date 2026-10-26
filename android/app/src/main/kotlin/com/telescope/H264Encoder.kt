@@ -138,10 +138,11 @@ class H264Encoder(
                 try { mc.release() } catch (_: Exception) {}
                 continue
             }
+            var surface: Surface? = null
             try {
                 mc.setCallback(callback, Handler(thread.looper))
                 mc.configure(format(width, height, fps, bitrate, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                val surface = mc.createInputSurface()
+                surface = mc.createInputSurface()
                 profile = attempt.profile
                 intraRefresh = Extra.INTRA_REFRESH in attempt.extras
                 mc.start()
@@ -150,6 +151,7 @@ class H264Encoder(
             } catch (e: Exception) {
                 failure = e
                 try { mc.release() } catch (_: Exception) {}
+                surface?.release()
             }
         }
         if (opened == null) {
@@ -244,6 +246,7 @@ class H264Encoder(
         released = true
         try { codec.stop() } catch (_: Exception) {}
         try { codec.release() } catch (_: Exception) {}
+        try { inputSurface.release() } catch (_: Exception) {}  // createInputSurface's Surface isn't freed with the codec
         thread.quitSafely()
     }
 }

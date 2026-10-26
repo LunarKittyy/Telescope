@@ -330,3 +330,87 @@ def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env,
     window.set_camera_on(True)
     assert 1 not in wait._idle and extras[1].stops > stops  # the camera has it back
     wait.shutdown()
+
+
+
+def _covered(plugin, frame):
+    """What the stream sends once the wait screen's frames for it are made (on their thread)."""
+    import time
+    plugin.process_frame(frame)
+    for _ in range(500):
+        if not plugin._cover_loading:
+            break
+        time.sleep(0.01)
+    return plugin.process_frame(frame)
+
+
+def test_it_stands_in_for_the_streams_picture_when_asked(env):
+    import numpy as np
+    plugin, _host, bus, _screen = env
+    answers = []
+    bus.stream_covered.connect(answers.append)
+    frame = np.zeros((180, 320, 3), np.uint8)
+    assert plugin.process_frame(frame) is frame and plugin.frame_step() is None
+    bus.cover_requested.emit("Blur", True)
+    assert answers == [True]
+    covered = _covered(plugin, frame)
+    assert covered.shape == frame.shape and covered.any()  # the default screen, at the stream's size
+    assert plugin.frame_step()(frame).shape == frame.shape
+    bus.cover_requested.emit("Other", True)
+    bus.cover_requested.emit("Blur", False)
+    assert answers == [True, True, True] and plugin.process_frame(frame) is not frame  # someone still wants it
+    bus.cover_requested.emit("Other", False)
+    assert answers[-1] is False and plugin.process_frame(frame) is frame
+
+
+def test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it(qapp, config_home):
+    import numpy as np
+    picture = np.zeros((2, 4, 3), np.uint8)
+    picture[:, 0] = (255, 0, 0)  # red on the left, in RGB as vcam loads it
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=lambda path, w, h: [(picture, 1.0)])
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    out = _covered(plugin, np.zeros((2, 4, 3), np.uint8))
+    assert tuple(out[0, 0]) == (0, 0, 255)  # BGR, like the stream's frames
+    plugin.mirror = True
+    assert tuple(_covered(plugin, np.zeros((2, 4, 3), np.uint8))[0, 3]) == (0, 0, 255)
+
+
+def test_a_slow_wait_screen_never_holds_up_the_stream(qapp, config_home):
+    import threading
+    import time
+    import numpy as np
+    loaded = threading.Event()
+
+    def slow(path, w, h):  # a long GIF at 1080p
+        loaded.wait(5)
+        return [(np.full((h, w, 3), 200, np.uint8), 1.0)]
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=slow)
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    frame = np.full((36, 64, 3), 99, np.uint8)
+    t0 = time.monotonic()
+    out = plugin.process_frame(frame)
+    assert time.monotonic() - t0 < 0.5 and not out.any()  # black until it's made, never the camera's picture
+    loaded.set()
+    assert _covered(plugin, frame).max() == 200
+
+
+def test_a_wait_screen_that_wont_load_is_not_retried_on_every_frame(qapp, config_home):
+    import numpy as np
+    from telescope.plugins import wait_screen
+    tries = []
+
+    def broken(path, w, h):
+        tries.append((w, h))
+        raise OSError("unreadable")
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=broken)
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    frame = np.zeros((36, 64, 3), np.uint8)
+    for _ in range(5):
+        assert not _covered(plugin, frame).any()  # black, never the camera's picture
+    assert tries.count((64, 36)) == 1
+    plugin._cover_failed = {k: t - wait_screen._RETRY_S - 1 for k, t in plugin._cover_failed.items()}
+    _covered(plugin, frame)
+    assert tries.count((64, 36)) == 2

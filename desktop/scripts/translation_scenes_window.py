@@ -864,6 +864,51 @@ def plugins_changed_files(stack):
     return plugins_scene(stack, before=before)
 
 
+# ── Updates for added plugins ──
+
+def no_update_checks(stack):
+    """The update check never goes out to GitHub from a scene."""
+    from telescope.widgets.plugin_updater import PluginUpdater
+    stack.enter_context(mock.patch.object(PluginUpdater, "maybe_check", lambda self: None))
+
+
+def found_release(win, repo="someone/counter_card", tag="v1.2"):
+    """What the window's update check would have found for repo."""
+    updater = win._plugin_updater
+    updater._cache.repos[repo] = {"checked": 0, "etag": "", "release": {
+        "tag": tag, "page": f"https://github.com/{repo}/releases/tag/{tag}", "assets": []}}
+    updater.changed.emit()
+
+
+@scene("plugins-update-out", "settings", "Plugins · a newer version of an added plugin is out")
+def plugins_update_out(stack):
+    no_update_checks(stack)
+
+    def before():
+        write_plugin("counter_card", {"repo": "https://github.com/someone/counter_card"})
+    return plugins_scene(stack, before=before, after=found_release)
+
+
+@scene("plugins-auto-updated", "settings", "Plugins · an added plugin updated itself")
+def plugins_auto_updated(stack):
+    no_update_checks(stack)
+
+    def before():
+        write_plugin("counter_card", {"repo": "https://github.com/someone/counter_card", "version": "1.2"})
+        turn_on("counter_card")
+        plugin_loader().set_plugin_switch("auto_update", True)
+
+    def after(win):
+        win._plugin_updater.updated["counter_card"] = "1.2"
+    return plugins_scene(stack, before=before, after=after)
+
+
+@scene("dialog-plugin-auto-update", "dialogs", "Plugins · switching on updates without asking")
+def plugin_auto_update(stack):
+    no_update_checks(stack)
+    return panel_dialog(stack, lambda win, panel, box: panel._switch_auto(True, box), **one_added())
+
+
 # ── Plugins turned off, and what the window says about them ──
 
 def turned_off(*names):
@@ -1097,10 +1142,23 @@ for _id, _title, _build in (
         lambda stack, build=_build: install_error(stack, build))
 
 
-@scene("dialog-plugin-install-again", "dialogs", "Plugins · installing one that's already there")
+@scene("dialog-plugin-install-again", "dialogs", "Plugins · installing one that's already there asks to replace it")
 def install_again(stack):
     win, panel, held, archive = install(stack, lambda: make_zip("counter_card", good_entries("counter_card")))
     plugin_loader().install_zip(archive, panel._reserved)
+    panel.refresh()
+    panel._install(str(archive))
+    return shown(stack, held[-1])
+
+
+@scene("dialog-plugin-replaced", "dialogs", "Plugins · a plugin replaced by a newer version")
+def install_replaced(stack):
+    from telescope.widgets import plugins_panel
+    stack.enter_context(mock.patch.object(plugins_panel, "_ask", lambda *_a, **_k: True))
+    win, panel, held, archive = install(stack, lambda: make_zip("counter_card", good_entries("counter_card",
+                                                                                            version="1.1")))
+    write_plugin("counter_card")
+    panel.refresh()
     panel._install(str(archive))
     return shown(stack, held[-1])
 

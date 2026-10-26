@@ -41,7 +41,7 @@ def test_construction_check_shuts_down_and_destroys_its_window(qapp, monkeypatch
         with pytest.raises(RuntimeError, match=f"{failure} failed"):
             smoke_check.check_app_construction()
     else:
-        assert "15 plugins registered" in smoke_check.check_app_construction()
+        assert "16 plugins registered" in smoke_check.check_app_construction()
     assert shutdown == [True]
     assert sip.isdeleted(win) and sip.isdeleted(child)
     assert not sip.isdeleted(qapp)

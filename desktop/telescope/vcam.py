@@ -38,6 +38,7 @@ FILTER_POLL    = 0.05          # Windows: how often to look for an app's filter 
 RETRY_OPEN     = 3.0           # seconds before trying a camera that wouldn't open again
 PROC_SCAN_PERIOD = 5.0         # old-driver fallback: how often to look for readers in /proc
 WATCH_LINGER   = 3.0           # Windows: a reader counts as gone once it hasn't asked for a frame this long
+MF_WATCH_PERIOD = 0.5          # Windows 11 camera: how often the watch looks at it
 
 
 MAX_SLOTS = 4  # virtual cameras streams can go to at once: the usual one and up to three more
@@ -72,7 +73,7 @@ def slot_ready(slot: int) -> bool:
         return True
     if IS_LINUX:
         return slot_device(slot) is not None
-    return slot_label(slot) in _uc_names().values()
+    return _use_mf(slot) or slot_label(slot) in _uc_names().values()
 
 
 def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelFormat.RGB, slot: int = 0):
@@ -85,6 +86,8 @@ def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelForma
         if device is None:
             raise RuntimeError(f"{slot_label(slot)} isn't set up")
         return open_(device)
+    if _use_mf(slot):
+        return MFCamera(width, height, fps, fmt, slot=slot)
     if slot:
         return open_(slot_label(slot))
     try:
@@ -95,13 +98,14 @@ def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelForma
 
 
 def locked_size(slot: int = 0) -> Optional[tuple]:
-    """Linux: the size slot's camera is stuck at while an app still reads it, else None.
+    """The size slot's camera is stuck at while an app still reads it, else None. On the Windows 11 camera that's the
+    size the app picked; UnityCapture has none.
 
     v4l2loopback keeps its format while any reader holds buffers, and silently ignores a new writer asking for another
     size, so whoever opens the camera next has to use this size or the reader sees garbage.
     """
     if not IS_LINUX:
-        return None
+        return _mf_locked_size(slot)
     device = slot_device(slot)
     if device is None:
         return None
@@ -389,13 +393,14 @@ class WaitScreen(_Held):
     def __init__(self, open_camera: Callable = open_camera, loader: Callable = load_frames,
                  locked: Callable = locked_size, filter_probe: Optional[Callable] = None, slot: int = 0):
         super().__init__()
-        if slot:  # an extra camera: no filter to watch for, so it sends at the idle pace
+        if slot:  # an extra camera: UnityCapture has no filter to watch for there, so it sends at the idle pace
             open_camera = functools.partial(open_camera, slot=slot)
             locked = functools.partial(locked, slot)
         self._open_camera = open_camera
         self._loader = loader
         self._locked = locked
-        self._filter_probe = filter_probe or (None if IS_LINUX or slot else _uc_filter_probe)
+        self._filter_probe = filter_probe
+        self._slot = slot
         self._size = DEFAULT_SIZE
         self._path: Optional[str] = None
         self._mirror = False
@@ -461,13 +466,19 @@ class WaitScreen(_Held):
 
     def _feed(self, cam, frames: list, stop: threading.Event):
         filter_open = None
-        if self._filter_probe is not None:
+        probe = self._filter_probe or _filter_probe_for(self._slot)
+        if probe is not None:
             try:
-                filter_open = self._filter_probe()
+                filter_open = probe()
             except Exception:
                 logger.exception("Can't look for the camera's filter; sending at the idle pace")
         i = 0
+        checked = time.monotonic()
         while not stop.is_set():
+            if time.monotonic() - checked >= IDLE_PERIOD:
+                checked = time.monotonic()
+                if camera_changed(cam, self._slot):
+                    return
             frame, seconds = frames[i]
             self._nudge.clear()
             cam.send(frame)
@@ -482,6 +493,212 @@ class WaitScreen(_Held):
                     pass
             else:
                 self._nudge.wait(IDLE_PERIOD)
+
+
+# ── The Windows 11 camera (desktop/virtualcamera; how it works is in docs/architecture.md) ──
+
+MF_SHARED_NAME = "Global\\TelescopeCamera"
+MF_MAGIC = 0x4D435354  # "TSCM"
+MF_PROTOCOL = 1
+MF_NV12 = 1
+# The camera's fields (magic to heartbeat), then Telescope's (frame counter to reserved), as in shared_frame.h
+_MF_HEADER = struct.Struct("<8IQQ4I")
+_MF_COUNTER_AT, _MF_FRAME_AT = 40, 48
+
+
+def _use_mf(slot: int) -> bool:
+    """Whether slot goes to the Windows 11 camera rather than UnityCapture."""
+    if IS_LINUX:
+        return False
+    from telescope.platform import windows
+    return windows.use_mf(slot)
+
+
+def camera_changed(cam, slot: int) -> bool:
+    """Windows: cam is the other kind of camera from the one slot now goes to (installed or updated while it was
+    open), so whoever holds it should open it again."""
+    return not IS_LINUX and isinstance(cam, MFCamera) != _use_mf(slot)
+
+
+def fit_frame(frame: np.ndarray, width: int, height: int) -> np.ndarray:
+    """frame scaled to fit width x height, keeping its shape, with black bars as needed (the same frame if it fits)."""
+    import cv2
+    fh, fw = frame.shape[:2]
+    if (fw, fh) == (width, height):
+        return frame
+    scale = min(width / fw, height / fh)
+    new_w, new_h = int(fw * scale), int(fh * scale)
+    if (new_w, new_h) == (width, height):
+        return cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    canvas = np.zeros((height, width) + frame.shape[2:], dtype=frame.dtype)
+    x, y = (width - new_w) // 2, (height - new_h) // 2
+    canvas[y:y + new_h, x:x + new_w] = resized
+    return canvas
+
+
+class _SharedView:
+    """A camera's shared memory, mapped: buf is the writable bytes, close() lets go of them."""
+
+    def __init__(self, buf, close: Callable = lambda: None):
+        self.buf = buf
+        self._close = close
+
+    def header(self) -> tuple:
+        return _MF_HEADER.unpack_from(self.buf, 0)
+
+    def valid(self) -> bool:
+        h = self.header()
+        return h[0] == MF_MAGIC and h[1] == MF_PROTOCOL and h[2] >= _MF_HEADER.size and h[2] + h[3] <= len(self.buf)
+
+    def reader_size(self) -> Optional[tuple]:
+        """The size the app reading the camera picked, if one is reading and it's a size frames fit in."""
+        h = self.header()
+        w, ht = h[5], h[6]
+        if h[4] != 1 or w <= 0 or ht <= 0 or w % 2 or ht % 2 or w * ht * 3 // 2 > h[3]:
+            return None
+        return w, ht
+
+    def close(self):
+        close, self._close = self._close, None
+        if close is not None:
+            self.buf = None
+            close()
+
+
+def _mf_open(slot: int) -> Optional[_SharedView]:
+    """Windows: slot's shared memory while an app reads the camera, else None."""
+    import ctypes
+    from ctypes import wintypes
+
+    class MemoryInfo(ctypes.Structure):
+        _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                    ("AllocationProtect", wintypes.DWORD), ("PartitionId", wintypes.WORD),
+                    ("RegionSize", ctypes.c_size_t), ("State", wintypes.DWORD), ("Protect", wintypes.DWORD),
+                    ("Type", wintypes.DWORD)]
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenFileMappingW.restype = wintypes.HANDLE
+    k32.OpenFileMappingW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+    k32.MapViewOfFile.restype = ctypes.c_void_p
+    k32.MapViewOfFile.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.c_size_t)
+    k32.UnmapViewOfFile.argtypes = (ctypes.c_void_p,)
+    k32.VirtualQuery.restype = ctypes.c_size_t
+    k32.VirtualQuery.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    file_map_read_write = 0x0004 | 0x0002
+    handle = k32.OpenFileMappingW(file_map_read_write, False, f"{MF_SHARED_NAME}{slot}")
+    if not handle:
+        return None
+    address = k32.MapViewOfFile(handle, file_map_read_write, 0, 0, 0)
+    info = MemoryInfo()
+    if not address or not k32.VirtualQuery(address, ctypes.byref(info), ctypes.sizeof(info)):
+        if address:
+            k32.UnmapViewOfFile(address)
+        k32.CloseHandle(handle)
+        return None
+    buf = memoryview((ctypes.c_char * info.RegionSize).from_address(address)).cast("B")
+
+    def close():
+        buf.release()
+        k32.UnmapViewOfFile(address)
+        k32.CloseHandle(handle)
+    view = _SharedView(buf, close)
+    if not view.valid():
+        view.close()
+        return None
+    return view
+
+
+def _mf_probe(slot: int) -> Callable[[], bool]:
+    """A check for whether an app has the camera open, for the wait screen."""
+    def open_now() -> bool:
+        view = _mf_open(slot)
+        if view is None:
+            return False
+        view.close()
+        return True
+    return open_now
+
+
+def _mf_locked_size(slot: int) -> Optional[tuple]:
+    if not _use_mf(slot):
+        return None
+    view = _mf_open(slot)
+    if view is None:
+        return None
+    try:
+        return view.reader_size()
+    finally:
+        view.close()
+
+
+class MFCamera:
+    """The Windows 11 camera, used like pyvirtualcam.Camera: each frame goes to the shared memory the camera reads, at
+    the size the app reading it picked. While no app reads it there's nowhere to send, so frames are dropped."""
+
+    def __init__(self, width: int, height: int, fps: float, fmt=pyvirtualcam.PixelFormat.RGB, slot: int = 0,
+                 opener: Callable = None):
+        import cv2
+        codes = {pyvirtualcam.PixelFormat.RGB: cv2.COLOR_RGB2YUV_I420, pyvirtualcam.PixelFormat.BGR: cv2.COLOR_BGR2YUV_I420}
+        if fmt not in codes:
+            raise ValueError(f"The Windows 11 camera takes RGB or BGR frames, not {fmt}")
+        self.width, self.height, self.fps = width, height, fps
+        self.device = slot_label(slot)
+        self._to_i420 = codes[fmt]
+        self._open = opener or functools.partial(_mf_open, slot)
+        self._view: Optional[_SharedView] = None
+        self._beat = None
+        self._beat_at = 0.0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+        return False
+
+    def close(self):
+        if self._view is not None:
+            self._view.close()
+            self._view = None
+
+    def _reader(self) -> Optional[_SharedView]:
+        """The shared memory while an app reads the camera. Let go of once it stops (or stops asking for frames), so
+        the camera can take it away and the camera watch sees it gone."""
+        now = time.monotonic()
+        if self._view is not None:
+            beat = self._view.header()[8]
+            if beat != self._beat:
+                self._beat, self._beat_at = beat, now
+            if self._view.reader_size() is None or now - self._beat_at > WATCH_LINGER:
+                self.close()
+        if self._view is None:
+            self._view = self._open()
+            if self._view is not None:
+                self._beat, self._beat_at = self._view.header()[8], now
+        return self._view
+
+    def send(self, frame: np.ndarray):
+        import cv2
+        view = self._reader()
+        size = view.reader_size() if view is not None else None
+        if size is None:
+            return
+        w, h = size
+        yuv = cv2.cvtColor(np.ascontiguousarray(fit_frame(frame, w, h)), self._to_i420)
+        planar = yuv.reshape(-1)
+        luma, quarter = w * h, w * h // 4
+        header = view.header()
+        counter = header[9] + (header[9] & 1)  # odd: a write was cut off half way
+        struct.pack_into("<Q", view.buf, _MF_COUNTER_AT, counter + 1)
+        data = np.frombuffer(view.buf, np.uint8, count=luma * 3 // 2, offset=header[2])
+        data[:luma] = planar[:luma]
+        uv = data[luma:].reshape(h // 2, w // 2, 2)
+        uv[..., 0] = planar[luma:luma + quarter].reshape(h // 2, w // 2)
+        uv[..., 1] = planar[luma + quarter:].reshape(h // 2, w // 2)
+        del data, uv  # nothing may point into the mapping once it's closed
+        struct.pack_into("<3I", view.buf, _MF_FRAME_AT, w, h, MF_NV12)
+        struct.pack_into("<Q", view.buf, _MF_COUNTER_AT, counter + 2)
 
 
 # ── Whether an app is reading the camera ──────────────────────────────────
@@ -543,6 +760,15 @@ def _uc_object_name(kind: str, name: str = UC_NAME) -> str:
     return f"UnityCapture_{kind}" + (chr(ord("0") + num) if num else "")
 
 
+def _filter_probe_for(slot: int) -> Optional[Callable[[], Callable[[], bool]]]:
+    """Windows: what tells the wait screen an app has opened slot's camera, so it sends right away, or None."""
+    if IS_LINUX:
+        return None
+    if _use_mf(slot):
+        return functools.partial(_mf_probe, slot)
+    return None if slot else _uc_filter_probe
+
+
 def _uc_filter_probe() -> Callable[[], bool]:
     """Windows: a check for whether the camera's shared image exists yet. An app's filter creates it when it opens the
     camera, and until then every send goes nowhere; a sender that has sent once keeps it alive."""
@@ -566,8 +792,9 @@ class CameraWatch(_Held):
     """Reports whether an app is reading the virtual camera, from a thread of its own.
 
     Linux: v4l2loopback (0.13+) sends an event when a reader starts or stops streaming; older drivers fall back to
-    looking for other processes holding the device. Windows: the UnityCapture filter inside an app sets a named event
-    whenever it wants a frame. on_change(watched) runs on the watch thread, only when the answer changes.
+    looking for other processes holding the device. Windows 11 camera: its shared memory exists while an app reads it,
+    and the camera counts each frame it hands over. UnityCapture: the filter inside an app sets a named event whenever
+    it wants a frame. on_change(watched) runs on the watch thread, only when the answer changes.
     """
 
     def __init__(self, on_change: Callable[[bool], None]):
@@ -641,6 +868,35 @@ class CameraWatch(_Held):
             stop.wait(PROC_SCAN_PERIOD)
 
     def _run_windows(self, stop: threading.Event):
+        # Which camera it is can change while Telescope runs (installed from the first-run checklist)
+        while not stop.is_set():
+            if _use_mf(0):
+                self._watch_mf(stop)
+            else:
+                self._watch_uc(stop)
+
+    def _watch_mf(self, stop: threading.Event, opener: Callable = None):
+        opener = opener or functools.partial(_mf_open, 0)
+        beat, beat_at = None, 0.0
+        while not stop.is_set():
+            view = opener()
+            if view is None:
+                self._report(False)
+                beat = None
+            else:
+                try:
+                    reading, new_beat = view.reader_size() is not None, view.header()[8]
+                finally:
+                    view.close()
+                now = time.monotonic()
+                if new_beat != beat:
+                    beat, beat_at = new_beat, now
+                # An app that stopped asking for frames without closing (one hung or paused) counts as gone
+                self._report(reading and now - beat_at <= WATCH_LINGER)
+            if stop.wait(MF_WATCH_PERIOD) or not _use_mf(0):
+                return
+
+    def _watch_uc(self, stop: threading.Event):
         import ctypes
         from ctypes import wintypes
         k32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -660,7 +916,8 @@ class CameraWatch(_Held):
                     handle = k32.OpenEventW(synchronize, False, name) or None
                     if handle is None:
                         self._report(False)
-                        stop.wait(RETRY_OPEN)
+                        if stop.wait(RETRY_OPEN) or _use_mf(0):
+                            return
                         continue
                 if k32.WaitForSingleObject(handle, 1000) == wait_object_0:
                     last_seen = time.monotonic()

@@ -24,6 +24,9 @@ Full notices (bundled binaries and Python runtime dependencies) are in [`desktop
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
 Source: https://github.com/schellingb/UnityCapture
 
+**The Windows 11 camera** (`desktop/virtualcamera/`) - Telescope's own code under the AGPL-3.0. Its structure follows Microsoft's VirtualCamera sample, which is MIT licensed (Copyright (c) Microsoft Corporation).
+Source of the sample: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
+
 **Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
 Copyright (c) Google LLC. Android Software Development Kit License Agreement: https://developer.android.com/studio/terms
 
