@@ -125,7 +125,7 @@ Optional. It lets the people you live with know you're on a call without you hav
 - It waits a second before going on air and six before going off again, because apps like to close and reopen the camera when you change their settings
 - **Sign on another device** shows a big On air or Off air page in any browser on your network. Scan the code with an old tablet or phone and tap the page to make it full screen. The screen stays on where the browser allows that. The link stays the same after Telescope restarts until you click **New link** and the page only answers to that link. The browser warns about the certificate the first time, the same as with [Browser camera](#browser-camera)
 - **Webhook** sends a request every time you go on or off air, for Home Assistant or a smart plug or anything else that takes one. POST sends what's in **Going on air** or **Going off air** as the body (`{"on_air": true}` when left empty) and GET adds it to the address instead. **Test on** and **Test off** send one right away
-- If the webhook stops answering you get one quiet banner about it and no more of them until it has worked again. Quitting Telescope while on air sends the off request first
+- If the webhook stops answering you get one quiet banner about it and no more of them until it has worked again. Meanwhile Telescope tries the latest state again after 5 seconds, 15 seconds and a minute, then every 5 minutes, which puts the light right after a Wi-Fi blip or a hub restart. It also sends the current state when it starts. Quitting while on air sends the off request first
 - While you're on air an **On air** button shows next to the settings button and takes you to the tab
 
 ## Monitoring

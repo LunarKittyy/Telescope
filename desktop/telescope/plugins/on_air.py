@@ -80,6 +80,8 @@ class OnAirPlugin(TelescopePlugin):
         self._problem = ""  # why the sign page isn't up
         self._watch = None  # our own camera watch, only without Wait screen
         self._webhook_failing = False
+        self._state_gen = 0  # moves on with each change, so a late answer about an older one is ignored
+        self._retries = 0
         self.test_result = ("", "")  # (text, status kind) of the last Send test
         self._section: Optional[OnAirSection] = None
         self._header_btn: Optional[QPushButton] = None
@@ -90,6 +92,9 @@ class OnAirPlugin(TelescopePlugin):
         self._timer = QTimer()
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._settle)
+        self._retry_timer = QTimer()
+        self._retry_timer.setSingleShot(True)
+        self._retry_timer.timeout.connect(lambda: self._send_state(fresh=False))
         bus.camera_watched.connect(self._on_watched)
         bus.mic_changed.connect(self._on_mic_changed)
         bus.stream_started.connect(lambda _url: self._evaluate())
@@ -102,6 +107,7 @@ class OnAirPlugin(TelescopePlugin):
             self._watch.start()
         self._sync_server()
         self._evaluate()
+        self._send_state()  # the light may still show how the last run left it
 
     # ── Whether we're on air ──────────────────────────────────────────────
 
@@ -158,9 +164,14 @@ class OnAirPlugin(TelescopePlugin):
         payload = self.webhook_on if on else self.webhook_off
         return on_air.webhook_request(self.webhook_url, self.webhook_method, payload, on)
 
-    def _send_state(self):
+    def _send_state(self, fresh: bool = True):
+        """Sends what's true now; fresh: a change, which starts the retries over."""
+        if fresh:
+            self._state_gen += 1
+            self._retries = 0
+            self._retry_timer.stop()
         if self.webhook_ready():
-            self._sender.send(self._request(self.on), "state")
+            self._sender.send(self._request(self.on), f"state:{self._state_gen}", slot="state")
 
     def send_test(self, on: bool):
         if not self.webhook_ready():
@@ -172,19 +183,30 @@ class OnAirPlugin(TelescopePlugin):
         self._sender.send(self._request(on), "test")
 
     def _on_webhook_done(self, tag: str, error: str):
+        kind, _, gen = tag.partition(":")
+        if kind == "state" and gen == str(self._state_gen):
+            self._state_done(error)
+        if tag == "test":
+            self.test_result = ((tr("It went through."), "status_ok") if not error
+                                 else (tr("It didn't go through: {error}", error=error), "status_err"))
+        self._refresh()
+
+    def _state_done(self, error: str):
         if not error:
+            self._retries = 0
+            self._retry_timer.stop()
             self._webhook_failing = False
             self._host.clear_issue(ISSUE)
-        elif tag == "state" and not self._webhook_failing:
+            return
+        if not self._webhook_failing:
             self._webhook_failing = True  # one quiet banner per run of failures, however many changes follow
             logger.warning("On Air webhook didn't go through: %s", error)
             self._host.show_issue(ISSUE, Issue(
                 tr("The On Air webhook didn't go through"), tr("It answered: {error}", error=error),
                 [BannerAction(tr("Settings"), lambda: self._host.open_settings(TAB))], kind="warn"))
-        if tag == "test":
-            self.test_result = ((tr("It went through."), "status_ok") if not error
-                                 else (tr("It didn't go through: {error}", error=error), "status_err"))
-        self._refresh()
+        delay = on_air.RETRY_S[min(self._retries, len(on_air.RETRY_S) - 1)]
+        self._retries += 1
+        self._retry_timer.start(delay * 1000)  # until it works or a change replaces it
 
     # ── Sign page ─────────────────────────────────────────────────────────
 
@@ -222,6 +244,13 @@ class OnAirPlugin(TelescopePlugin):
         candidates = self.addresses()
         if self.address not in candidates:
             self.address = candidates[0] if candidates else ""
+
+    def refresh_address(self):
+        """The network may have changed since the server started: the link points at an address this computer has."""
+        before = self.address
+        self._fill_address()
+        if self.address != before:
+            self._host.schedule_save()
 
     def addresses(self) -> list:
         return [a.ip for a in self._addresses()]
@@ -285,9 +314,13 @@ class OnAirPlugin(TelescopePlugin):
 
     def create_settings_sections(self) -> list:
         self._section = OnAirSection(self)
-        return [SettingsSection(TAB, self._section, on_show=self._section.refresh, tab_title=tr("On Air"),
+        return [SettingsSection(TAB, self._section, on_show=self._on_show, tab_title=tr("On Air"),
                                 keywords=tr("on air sign busy light call meeting do not disturb webhook home "
                                             "assistant smart home", ctx="search"))]
+
+    def _on_show(self):
+        self.refresh_address()
+        self._section.refresh()
 
     # ── Config ────────────────────────────────────────────────────────────
 
@@ -323,8 +356,12 @@ class OnAirPlugin(TelescopePlugin):
 
     def shutdown(self):
         self._timer.stop()
-        if self.on and self.webhook_ready():
-            on_air.send_webhook(self._request(False), timeout=2.0)  # don't leave the light on after quitting
+        retrying = self._retry_timer.isActive()
+        self._retry_timer.stop()
+        if (self.on or retrying) and self.webhook_ready():
+            # Behind anything still going out, so a late "on" can't land after it; quitting waits only so long
+            self._sender.send(self._request(False), "quit", slot="state")
+            self._sender.wait_idle(3.0)
         self._stop_server()
         if self._watch is not None:
             self._watch.stop()

@@ -90,7 +90,7 @@ msgstr ""
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr ""
 
-#: telescope/app.py:574 telescope/app.py:575 telescope/plugins/on_air.py:183 telescope/widgets/settings_window.py:140
+#: telescope/app.py:574 telescope/app.py:575 telescope/plugins/on_air.py:206 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr ""
 
@@ -1010,7 +1010,7 @@ msgstr ""
 msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:212 telescope/plugins/on_air.py:361
+#: telescope/plugins/browser_camera.py:212 telescope/plugins/on_air.py:398
 msgid "New link"
 msgstr ""
 
@@ -1018,7 +1018,7 @@ msgstr ""
 msgid "Make a new code; the old one stops working"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:237 telescope/plugins/on_air.py:375
+#: telescope/plugins/browser_camera.py:237 telescope/plugins/on_air.py:412
 msgid "Scan"
 msgstr ""
 
@@ -1026,19 +1026,19 @@ msgstr ""
 msgid "Which of this computer's addresses the code points to"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:243 telescope/plugins/on_air.py:380 telescope/plugins/on_air.py:408
+#: telescope/plugins/browser_camera.py:243 telescope/plugins/on_air.py:417 telescope/plugins/on_air.py:445
 msgid "Address"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:250 telescope/plugins/on_air.py:386 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
+#: telescope/plugins/browser_camera.py:250 telescope/plugins/on_air.py:423 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
 msgid "Copy"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:251 telescope/plugins/on_air.py:387
+#: telescope/plugins/browser_camera.py:251 telescope/plugins/on_air.py:424
 msgid "Copy the link, to open it on a device that can't scan the code"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:255 telescope/plugins/on_air.py:391
+#: telescope/plugins/browser_camera.py:255 telescope/plugins/on_air.py:428
 msgid "Link"
 msgstr ""
 
@@ -1093,7 +1093,7 @@ msgstr ""
 msgid "Can't keep up"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:512 telescope/plugins/on_air.py:202
+#: telescope/plugins/browser_camera.py:512 telescope/plugins/on_air.py:224
 msgid "Needs the cryptography package: pip install cryptography"
 msgstr ""
 
@@ -1101,7 +1101,7 @@ msgstr ""
 msgid "Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:525 telescope/plugins/on_air.py:211
+#: telescope/plugins/browser_camera.py:525 telescope/plugins/on_air.py:233
 #, python-brace-format
 msgid "Couldn't start: {error}"
 msgstr ""
@@ -2504,7 +2504,7 @@ msgstr ""
 msgid "Telescope is streaming"
 msgstr ""
 
-#: telescope/plugins/on_air.py:55 telescope/plugins/on_air.py:343
+#: telescope/plugins/on_air.py:55 telescope/plugins/on_air.py:380
 msgid "On Air sign"
 msgstr ""
 
@@ -2516,132 +2516,132 @@ msgstr ""
 msgid "Without it there's no On Air tab in Settings and no sign or webhook."
 msgstr ""
 
-#: telescope/plugins/on_air.py:143 telescope/plugins/on_air.py:278 telescope/plugins/on_air.py:450
+#: telescope/plugins/on_air.py:149 telescope/plugins/on_air.py:307 telescope/plugins/on_air.py:487
 msgid "On air"
 msgstr ""
 
-#: telescope/plugins/on_air.py:143 telescope/plugins/on_air.py:450
+#: telescope/plugins/on_air.py:149 telescope/plugins/on_air.py:487
 msgid "Off air"
 msgstr ""
 
-#: telescope/plugins/on_air.py:144 telescope/plugins/on_air.py:288
+#: telescope/plugins/on_air.py:150 telescope/plugins/on_air.py:317
 msgid "On Air"
 msgstr ""
 
-#: telescope/plugins/on_air.py:167
+#: telescope/plugins/on_air.py:178
 msgid "Enter an address starting with http:// or https:// first."
 msgstr ""
 
-#: telescope/plugins/on_air.py:170
+#: telescope/plugins/on_air.py:181
 msgid "Sending…"
 msgstr ""
 
-#: telescope/plugins/on_air.py:182
-msgid "The On Air webhook didn't go through"
-msgstr ""
-
-#: telescope/plugins/on_air.py:182
-#, python-brace-format
-msgid "It answered: {error}"
-msgstr ""
-
-#: telescope/plugins/on_air.py:185
+#: telescope/plugins/on_air.py:190
 msgid "It went through."
 msgstr ""
 
-#: telescope/plugins/on_air.py:186
+#: telescope/plugins/on_air.py:191
 #, python-brace-format
 msgid "It didn't go through: {error}"
 msgstr ""
 
-#: telescope/plugins/on_air.py:280
+#: telescope/plugins/on_air.py:205
+msgid "The On Air webhook didn't go through"
+msgstr ""
+
+#: telescope/plugins/on_air.py:205
+#, python-brace-format
+msgid "It answered: {error}"
+msgstr ""
+
+#: telescope/plugins/on_air.py:309
 msgid "Open the On Air settings"
 msgstr ""
 
-#: telescope/plugins/on_air.py:289
+#: telescope/plugins/on_air.py:318
 msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
 msgstr ""
 
-#: telescope/plugins/on_air.py:344
+#: telescope/plugins/on_air.py:381
 msgid "Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."
 msgstr ""
 
-#: telescope/plugins/on_air.py:347
+#: telescope/plugins/on_air.py:384
 msgid "Now"
 msgstr ""
 
-#: telescope/plugins/on_air.py:353
+#: telescope/plugins/on_air.py:390
 msgid "The mic counts while it streams and isn't muted"
 msgstr ""
 
-#: telescope/plugins/on_air.py:356
+#: telescope/plugins/on_air.py:393
 msgid "On air when"
 msgstr ""
 
-#: telescope/plugins/on_air.py:361
+#: telescope/plugins/on_air.py:398
 msgid "Make a new link; the old one stops working"
 msgstr ""
 
-#: telescope/plugins/on_air.py:363
+#: telescope/plugins/on_air.py:400
 msgid "Sign on another device"
 msgstr ""
 
-#: telescope/plugins/on_air.py:364
+#: telescope/plugins/on_air.py:401
 msgctxt "search"
 msgid "tablet phone screen page link qr code"
 msgstr ""
 
-#: telescope/plugins/on_air.py:365
+#: telescope/plugins/on_air.py:402
 msgid "Show the sign on a web page"
 msgstr ""
 
-#: telescope/plugins/on_air.py:378
+#: telescope/plugins/on_air.py:415
 msgid "Which of this computer's addresses the link points to"
 msgstr ""
 
-#: telescope/plugins/on_air.py:393
+#: telescope/plugins/on_air.py:430
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
 msgstr ""
 
-#: telescope/plugins/on_air.py:401
+#: telescope/plugins/on_air.py:438
 msgid "Webhook"
 msgstr ""
 
-#: telescope/plugins/on_air.py:402
+#: telescope/plugins/on_air.py:439
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
 msgstr ""
 
-#: telescope/plugins/on_air.py:403
+#: telescope/plugins/on_air.py:440
 msgid "Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."
 msgstr ""
 
-#: telescope/plugins/on_air.py:418
+#: telescope/plugins/on_air.py:455
 msgid "Method"
 msgstr ""
 
-#: telescope/plugins/on_air.py:421 telescope/plugins/on_air.py:425
+#: telescope/plugins/on_air.py:458 telescope/plugins/on_air.py:462
 msgid "POST sends it as the body, GET adds it to the address"
 msgstr ""
 
-#: telescope/plugins/on_air.py:422
+#: telescope/plugins/on_air.py:459
 msgid "Going on air"
 msgstr ""
 
-#: telescope/plugins/on_air.py:426
+#: telescope/plugins/on_air.py:463
 msgid "Going off air"
 msgstr ""
 
-#: telescope/plugins/on_air.py:427
+#: telescope/plugins/on_air.py:464
 msgid "Test on"
 msgstr ""
 
-#: telescope/plugins/on_air.py:427
+#: telescope/plugins/on_air.py:464
 msgid "Test off"
 msgstr ""
 
-#: telescope/plugins/on_air.py:444
+#: telescope/plugins/on_air.py:481
 msgid "The address has to start with http:// or https://"
 msgstr ""
 

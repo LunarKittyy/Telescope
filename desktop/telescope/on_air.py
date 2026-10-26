@@ -7,6 +7,7 @@ TlsServer (so the same connection caps and headers apply). It answers nothing bu
 """
 
 import hmac
+import http.client
 import json
 import logging
 import secrets
@@ -28,6 +29,7 @@ ON_AIR_PORT = 8768
 ON_AFTER_S = 1.0  # the raw answer has to hold this long before the sign goes on
 OFF_AFTER_S = 6.0  # and this long before it goes off (apps close and reopen the camera when settings change)
 WEBHOOK_TIMEOUT_S = 5.0
+RETRY_S = (5, 15, 60, 300)  # a failed state is sent again after these, the last one repeating until it works
 _POLL_WAIT_S = 20.0  # how long a page's request for the state waits for a change before answering anyway
 
 TRIGGERS = ("camera", "camera_mic", "mic", "streaming")
@@ -103,6 +105,8 @@ def webhook_problem(url: str) -> str:
         return "it has to start with http:// or https://"
     if not parts.hostname:
         return "there's no host in it"
+    if any(c.isspace() or not c.isprintable() for c in url):
+        return "there's a space in it"
     return ""
 
 
@@ -114,7 +118,8 @@ def webhook_request(url: str, method: str, payload: str, on: bool) -> urllib.req
     headers = {"User-Agent": f"Telescope/{VERSION}"}
     if method == "GET":
         parts = urllib.parse.urlsplit(url)
-        query = "&".join(q for q in (parts.query, payload.lstrip("?&")) if q)
+        payload = urllib.parse.quote(payload.lstrip("?&"), safe="=&%+")  # a space or quote can't break the request line
+        query = "&".join(q for q in (parts.query, payload) if q)
         return urllib.request.Request(urllib.parse.urlunsplit(parts._replace(query=query, fragment="")), headers=headers,
                                       method="GET")
     try:
@@ -127,7 +132,7 @@ def webhook_request(url: str, method: str, payload: str, on: bool) -> urllib.req
 
 def send_webhook(request: urllib.request.Request, timeout: float = WEBHOOK_TIMEOUT_S,
                  opener: Callable = urllib.request.urlopen) -> str:
-    """Sends it; "" when the other end took it, else a short reason (English, no address in it)."""
+    """Sends it; "" when the other end took it, else a short reason (English, never the address: it can hold a secret)."""
     try:
         with opener(request, timeout=timeout) as response:
             response.read(4096)
@@ -139,41 +144,55 @@ def send_webhook(request: urllib.request.Request, timeout: float = WEBHOOK_TIMEO
         if isinstance(reason, (TimeoutError, OSError)) and getattr(reason, "strerror", None):
             return reason.strerror
         return str(reason) or "couldn't connect"
-    except (TimeoutError, OSError, ValueError) as exc:
-        return str(exc) or type(exc).__name__
+    except (TimeoutError, OSError) as exc:
+        return getattr(exc, "strerror", None) or type(exc).__name__
+    except (http.client.HTTPException, ValueError) as exc:
+        return type(exc).__name__  # their text can quote the address
 
 
 class WebhookSender:
-    """Sends requests one at a time on a thread of its own; a newer request replaces one still waiting, so a quick
-    on-off-on only sends what's true at the end. on_result(tag, error) runs on that thread ("" error: it worked)."""
+    """Sends requests one at a time on a thread of its own. Each slot holds one waiting request and a newer one replaces
+    it, so a quick on-off-on only sends what's true at the end and a test never takes the place of a state.
+    on_result(tag, error) runs on that thread ("" error: it worked)."""
 
     def __init__(self, on_result: Callable[[str, str], None], send: Callable = send_webhook):
         self._on_result, self._send = on_result, send
-        self._lock = threading.Lock()
-        self._pending: Optional[tuple] = None
+        self._cond = threading.Condition()
+        self._pending: dict = {}  # slot: (request, tag), oldest first
         self._busy = False
 
-    def send(self, request: urllib.request.Request, tag: str = ""):
-        with self._lock:
-            self._pending = (request, tag)
+    def send(self, request: urllib.request.Request, tag: str = "", slot: Optional[str] = None):
+        with self._cond:
+            self._pending[tag if slot is None else slot] = (request, tag)
             if self._busy:
                 return
             self._busy = True
         threading.Thread(target=self._run, name="on-air-webhook", daemon=True).start()
 
+    def wait_idle(self, timeout: float) -> bool:
+        """Waits up to timeout for everything sent to be through; False if it isn't."""
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while self._busy:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return False
+                self._cond.wait(left)
+            return True
+
     def _run(self):
         while True:
-            with self._lock:
-                pending, self._pending = self._pending, None
-                if pending is None:
+            with self._cond:
+                if not self._pending:
                     self._busy = False
+                    self._cond.notify_all()
                     return
-            request, tag = pending
+                request, tag = self._pending.pop(next(iter(self._pending)))
             try:
                 error = self._send(request)
             except Exception as exc:
-                logger.exception("On Air webhook failed")
-                error = str(exc) or type(exc).__name__
+                logger.warning("On Air webhook failed: %s", type(exc).__name__)  # no traceback: it would show the address
+                error = type(exc).__name__
             try:
                 self._on_result(tag, error)
             except Exception:

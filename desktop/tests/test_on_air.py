@@ -72,9 +72,15 @@ def test_get_adds_the_payload_to_the_query():
     assert on_air.webhook_request("http://10.0.0.9/r", "GET", "", False).full_url == "http://10.0.0.9/r?on_air=false"
 
 
+def test_a_get_payload_is_encoded_so_it_cant_break_the_request():
+    req = on_air.webhook_request("http://hub.local/x?a=1", "GET", 'state=on air&note="hi"', True)
+    assert req.full_url == "http://hub.local/x?a=1&state=on%20air&note=%22hi%22"
+    assert on_air.webhook_request("http://hub.local/x", "GET", "light=100%25", True).full_url.endswith("light=100%25")
+
+
 @pytest.mark.parametrize("url, ok", [
     ("http://hub.local/x", True), ("https://1.2.3.4:8123/api", True),
-    ("", False), ("hub.local/x", False), ("ftp://hub/x", False), ("http://", False),
+    ("", False), ("hub.local/x", False), ("ftp://hub/x", False), ("http://", False), ("http://hub/a b", False),
 ])
 def test_only_http_addresses_are_used(url, ok):
     assert (on_air.webhook_problem(url) == "") is ok
@@ -107,6 +113,53 @@ def test_send_reports_what_went_wrong_without_the_address():
     def not_found(req, timeout):
         raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
     assert on_air.send_webhook(req, opener=not_found) == "HTTP 404"
+
+
+def test_errors_never_carry_the_address(caplog):
+    import http.client
+    req = on_air.webhook_request("http://hub.local/api/webhook/SECRET", "POST", "", True)
+
+    def bad_url(req, timeout):
+        raise http.client.InvalidURL("URL can't contain control characters. '/api/webhook/SECRET'")
+    assert on_air.send_webhook(req, opener=bad_url) == "InvalidURL"
+
+    def unknown(req, timeout):
+        raise ValueError("unknown url type: '/api/webhook/SECRET'")
+    assert "SECRET" not in on_air.send_webhook(req, opener=unknown)
+    done = threading.Event()
+    results = []
+
+    def explode(_req):
+        raise RuntimeError("boom at /api/webhook/SECRET")
+    sender = on_air.WebhookSender(lambda tag, err: (results.append(err), done.set()), send=explode)
+    sender.send(req, "state")
+    assert done.wait(2) and "SECRET" not in results[0] and "SECRET" not in caplog.text
+
+
+def test_a_test_never_takes_the_place_of_a_state():
+    release, sent = threading.Event(), []
+
+    def send(req):
+        sent.append(req.data)
+        release.wait(2)
+        return ""
+    sender = on_air.WebhookSender(lambda tag, err: None, send=send)
+    sender.send(on_air.webhook_request("http://h/x", "POST", "first", True), "state:1", slot="state")
+    time.sleep(0.05)
+    sender.send(on_air.webhook_request("http://h/x", "POST", "on", True), "state:2", slot="state")
+    sender.send(on_air.webhook_request("http://h/x", "POST", "test", True), "test")
+    release.set()
+    assert sender.wait_idle(2)
+    assert sent == [b"first", b"on", b"test"]
+
+
+def test_waiting_for_the_sender_gives_up_at_the_deadline():
+    release = threading.Event()
+    sender = on_air.WebhookSender(lambda tag, err: None, send=lambda req: release.wait(2) and "")
+    sender.send(on_air.webhook_request("http://h/x", "POST", "", True), "quit")
+    assert not sender.wait_idle(0.1)
+    release.set()
+    assert sender.wait_idle(2)
 
 
 def test_the_sender_only_sends_whats_true_at_the_end():
@@ -254,10 +307,17 @@ class _Server:
 
 class _Sender:
     def __init__(self, on_result):
-        self.on_result, self.sent = on_result, []
+        self.on_result, self.sent, self.waited = on_result, [], []
 
-    def send(self, req, tag=""):
+    def send(self, req, tag="", slot=None):
         self.sent.append((req, tag))
+
+    def wait_idle(self, timeout):
+        self.waited.append(timeout)
+        return True
+
+    def states(self):
+        return [(req.data, tag.partition(":")[0]) for req, tag in self.sent]
 
 
 class _Watch:
@@ -355,7 +415,7 @@ def test_each_change_goes_to_the_webhook(make):
     _later(plugin, 2)
     bus.camera_watched.emit(False)
     _later(plugin, on_air.OFF_AFTER_S + 1)
-    assert [(req.data, tag) for req, tag in plugin._sender.sent] == [(b"on", "state"), (b"off", "state")]
+    assert plugin._sender.states() == [(b"off", "state"), (b"on", "state"), (b"off", "state")]  # startup first
 
 
 def test_no_webhook_without_a_usable_address(make):
@@ -365,18 +425,22 @@ def test_no_webhook_without_a_usable_address(make):
     assert plugin.on and not plugin._sender.sent
 
 
+def _state_tag(plugin):
+    return plugin._sender.sent[-1][1]
+
+
 def test_webhook_failures_make_one_quiet_banner_until_one_works(make):
     plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
-    plugin._on_webhook_done("state", "Connection refused")
+    plugin._on_webhook_done(_state_tag(plugin), "Connection refused")
     first = host.issues[ISSUE]
     assert first.kind == "warn" and "Connection refused" in first.text
     host.issues.clear()  # dismissed
-    plugin._on_webhook_done("state", "Connection refused")
+    plugin._on_webhook_done(_state_tag(plugin), "Connection refused")
     assert ISSUE not in host.issues  # not again for the same run of failures
-    plugin._on_webhook_done("state", "")
-    plugin._on_webhook_done("state", "HTTP 500")
+    plugin._on_webhook_done(_state_tag(plugin), "")
+    plugin._on_webhook_done(_state_tag(plugin), "HTTP 500")
     assert ISSUE in host.issues
-    plugin._on_webhook_done("state", "")
+    plugin._on_webhook_done(_state_tag(plugin), "")
     assert ISSUE not in host.issues
     first.actions[0].callback()
     assert host.opened == ["on_air"]
@@ -435,7 +499,50 @@ def test_quitting_while_on_air_turns_the_light_off(make, monkeypatch):
     plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
     bus.camera_watched.emit(True)
     _later(plugin, 2)
-    sent = []
-    monkeypatch.setattr(on_air, "send_webhook", lambda req, timeout: sent.append(json.loads(req.data)) or "")
+    plugin._sender.sent.clear()
     plugin.shutdown()
-    assert sent == [{"on_air": False}] and _Server.made[0].stopped
+    assert plugin._sender.states() == [(b'{"on_air": false}', "quit")] and plugin._sender.waited == [3.0]
+    assert _Server.made[0].stopped
+
+
+def test_quitting_off_air_sends_nothing(make):
+    plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
+    plugin._sender.sent.clear()
+    plugin.shutdown()
+    assert not plugin._sender.sent and not plugin._sender.waited
+
+
+def test_a_failed_state_is_sent_again_with_backoff_until_it_works(make):
+    plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
+    timer = plugin._retry_timer
+    delays = []
+    for _ in range(6):
+        plugin._on_webhook_done(_state_tag(plugin), "Connection refused")
+        delays.append(timer.interval() // 1000)
+        assert timer.isActive()
+        timer.timeout.emit()  # the retry goes out
+    assert delays == [5, 15, 60, 300, 300, 300]
+    assert len({tag for _req, tag in plugin._sender.sent}) == 1  # always the same change, sent again
+    plugin._on_webhook_done(_state_tag(plugin), "")
+    assert not timer.isActive() and ISSUE not in host.issues
+
+
+def test_a_newer_change_replaces_the_retries(make):
+    plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
+    old = _state_tag(plugin)
+    plugin._on_webhook_done(old, "Connection refused")
+    assert plugin._retry_timer.isActive()
+    bus.camera_watched.emit(True)
+    _later(plugin, 2)
+    assert not plugin._retry_timer.isActive() and _state_tag(plugin) != old
+    plugin._on_webhook_done(old, "Connection refused")  # a late answer about the old one changes nothing
+    assert not plugin._retry_timer.isActive()
+
+
+def test_the_link_follows_a_network_change(make):
+    plugin, host, bus = make()
+    plugin._addresses = lambda: [SimpleNamespace(ip="10.0.0.7")]
+    saves = host.saves
+    section = plugin.create_settings_sections()[0]
+    section.on_show()
+    assert plugin.url().startswith("https://10.0.0.7:") and host.saves > saves
