@@ -27,7 +27,9 @@ pseudo	out of its box	False colour
 pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking
 pseudo	out of its box	Heavy
+pseudo	out of its box	Hold a QR code up to the camera.
 pseudo	out of its box	Manual
+pseudo	out of its box	Notify me when a code is read
 pseudo	out of its box	Off
 pseudo	out of its box	Only on the preview. Apps never see these.
 pseudo	out of its box	Picked
