@@ -91,6 +91,21 @@ class NotesBoardTest {
     fun tearDown() {
         NotesBoard.removeListener(listener)
         NotesBoard.clear()
+        NotesBoard.setShown(false)
+    }
+
+    @Test
+    fun `notes held back while Recovering or under Preview open once the stream is back`() {
+        NotesBoard.apply(NotesCommand.Text("Line one"))
+        assertFalse(NotesBoard.opensNow(streaming = false, previewUp = false, inFront = true))
+        assertFalse(NotesBoard.opensNow(streaming = true, previewUp = true, inFront = true))
+        assertFalse(NotesBoard.opensNow(streaming = true, previewUp = false, inFront = false))
+        assertTrue(NotesBoard.opensNow(streaming = true, previewUp = false, inFront = true))
+        NotesBoard.setShown(true)
+        assertFalse(NotesBoard.opensNow(streaming = true, previewUp = false, inFront = true))  // already up
+        NotesBoard.setShown(false)
+        NotesBoard.dismissed = true
+        assertFalse(NotesBoard.opensNow(streaming = true, previewUp = false, inFront = true))  // closed with Back
     }
 
     @Test

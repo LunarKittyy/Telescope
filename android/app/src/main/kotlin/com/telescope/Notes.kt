@@ -110,6 +110,10 @@ object NotesBoard {
     val hasNotes: Boolean get() = state.text.isNotBlank()
     val wantsScreen: Boolean get() = hasNotes && !dismissed
 
+    // Android only lets an app open a screen while one of its own is up, and over Preview they'd take its surface and rebuild the session
+    fun opensNow(streaming: Boolean, previewUp: Boolean, inFront: Boolean): Boolean =
+        streaming && !previewUp && inFront && wantsScreen && !shown
+
     // From any thread. True when new text came that should go on screen.
     fun apply(command: NotesCommand): Boolean {
         val now: NotesState

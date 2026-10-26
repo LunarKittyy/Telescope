@@ -556,6 +556,7 @@ class CameraStreamService : Service() {
             if (streamingSinceMs == 0L) streamingSinceMs = System.currentTimeMillis()
             rememberSelection()
             mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
+            mainHandler.post(::showNotes)  // notes that came while Recovering or while Preview had the surface
         }
         android.util.Log.i(
             TAG,
@@ -1131,14 +1132,12 @@ class CameraStreamService : Service() {
         return ok()
     }
 
-    // Android only lets an app open a screen while one of its own is up; otherwise MainActivity.onStart opens them
+    // Runs on new text and on every return to Streaming (Preview closing ends in one too); MainActivity.onStart covers the app coming to the front
     private fun showNotes() {
-        if (!isStreaming || NotesBoard.shown || !NotesBoard.wantsScreen) return
-        // Over Preview they'd take its surface and rebuild the capture session; MainActivity opens them once it closes
-        if (controller?.hasPreviewSurface() == true) return
         val info = android.app.ActivityManager.RunningAppProcessInfo()
         android.app.ActivityManager.getMyMemoryState(info)
-        if (info.importance > android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
+        val inFront = info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        if (!NotesBoard.opensNow(isStreaming, controller?.hasPreviewSurface() == true, inFront)) return
         try {
             startActivity(NotesActivity.intent(this))
         } catch (e: Exception) {
