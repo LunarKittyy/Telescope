@@ -330,3 +330,35 @@ def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env,
     window.set_camera_on(True)
     assert 1 not in wait._idle and extras[1].stops > stops  # the camera has it back
     wait.shutdown()
+
+
+def test_it_stands_in_for_the_streams_picture_when_asked(env):
+    import numpy as np
+    plugin, _host, bus, _screen = env
+    answers = []
+    bus.stream_covered.connect(answers.append)
+    frame = np.zeros((180, 320, 3), np.uint8)
+    assert plugin.process_frame(frame) is frame and plugin.frame_step() is None
+    bus.cover_requested.emit("Blur", True)
+    assert answers == [True]
+    covered = plugin.process_frame(frame)
+    assert covered.shape == frame.shape and covered.any()  # the default screen, at the stream's size
+    assert plugin.frame_step()(frame).shape == frame.shape
+    bus.cover_requested.emit("Other", True)
+    bus.cover_requested.emit("Blur", False)
+    assert answers == [True, True, True] and plugin.process_frame(frame) is not frame  # someone still wants it
+    bus.cover_requested.emit("Other", False)
+    assert answers[-1] is False and plugin.process_frame(frame) is frame
+
+
+def test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it(qapp, config_home):
+    import numpy as np
+    picture = np.zeros((2, 4, 3), np.uint8)
+    picture[:, 0] = (255, 0, 0)  # red on the left, in RGB as vcam loads it
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=lambda path, w, h: [(picture, 1.0)])
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    out = plugin.process_frame(np.zeros((2, 4, 3), np.uint8))
+    assert tuple(out[0, 0]) == (0, 0, 255)  # BGR, like the stream's frames
+    plugin.mirror = True
+    assert tuple(plugin.process_frame(np.zeros((2, 4, 3), np.uint8))[0, 3]) == (0, 0, 255)

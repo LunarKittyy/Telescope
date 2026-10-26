@@ -128,7 +128,7 @@ Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at
 Where it goes:
 - **Libraries, about 130 MB**: Qt draws the window, OpenCV and NumPy handle the pictures, FFmpeg decodes the video. They're loaded once and don't grow.
 - **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
-- **The vision models, about 150 MB**: only while Background, Auto framing or Expose for my face is on. About 10 seconds after you switch them all off most of it is given back, and restarting Telescope frees the rest.
+- **The vision models, about 150 MB**: only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back, and restarting Telescope frees the rest.
 - **Telescope itself, about 50 MB**: its code, settings and the wait screen.
 
 Task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share), so your numbers may not match these.
@@ -180,10 +180,10 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 **A card or menu entry is gone**
 That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Turn all back on**, then click **Restart now**.
 
-**Auto framing, Background or Expose for my face asks for a one-time download**
+**A plugin that finds people asks for a one-time download**
 The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.
 
-**Auto framing, Background or Expose for my face says MediaPipe didn't load**
+**A plugin that finds people says MediaPipe didn't load**
 The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
 
 ## Updates

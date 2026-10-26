@@ -86,7 +86,8 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "face_exposure": "_switch"}
+                "browser_camera": "_card", "face_exposure": "_switch",
+                "privacy_blur": "_now_btn"}
 
 
 def card_of(win, widget):
@@ -473,6 +474,25 @@ def face_exposure_no_point(stack):
     win, _source = streaming_window(stack, phone_state(lens(supportsFocusPoint=False)))
     plugin_of(win, "face_exposure")._switch.setChecked(True)
     return cards(stack, win, "face_exposure")
+
+
+# ── Privacy blur ─────────────────────────────────────────────────────────────
+
+@scene("privacy-blur", "main", "Privacy blur", width=CARD_WIDTH)
+def privacy_blur(stack):
+    win = ready_window(stack)
+    plugin_of(win, "privacy_blur")._switch.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+@scene("privacy-blur-no-wait-screen", "states", "Privacy blur · Wait screen switched off", width=CARD_WIDTH)
+def privacy_blur_no_wait_screen(stack):
+    win = ready_window(stack)
+    win._bus.cover_requested.disconnect()  # nothing answers, as with Wait screen switched off
+    plugin = plugin_of(win, "privacy_blur")
+    plugin._set_mode("wait")
+    plugin._now_btn.setChecked(True)
+    return cards(stack, win, "privacy_blur")
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────

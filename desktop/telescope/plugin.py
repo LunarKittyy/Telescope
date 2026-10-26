@@ -620,6 +620,11 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    cover_requested        = pyqtSignal(str, bool)
+    """Something asks for the wait screen in place of the shown stream's picture, or lets go (who's asking, on).
+    Wait screen answers with stream_covered; without it nothing answers."""
+    stream_covered         = pyqtSignal(bool)
+    """Wait screen shows in place of the shown stream's picture for a cover_requested, or stopped."""
     window_shown           = pyqtSignal(bool)
     """The main window came on screen, or went to the tray or was minimized."""
     phone_wanted           = pyqtSignal(bool, bool)

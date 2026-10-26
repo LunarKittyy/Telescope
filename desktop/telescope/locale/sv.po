@@ -2849,6 +2849,60 @@ msgstr "Stäng av telefonens kamera. Mikrofonen fortsätter strömma."
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Starta med telefonens kamera avstängd och strömma bara mikrofonen."
 
+#. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
+#: telescope/plugins/privacy_blur.py:25
+msgid "Blur the others"
+msgstr ""
+
+#. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
+#: telescope/plugins/privacy_blur.py:25
+msgid "Blur all but me"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:26
+msgid "Show the wait screen"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:112 telescope/plugins/privacy_blur.py:141 telescope/plugins/privacy_blur.py:163
+msgid "Privacy blur"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:113
+msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in."
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:114
+msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:139
+msgid "Blur automatically when a second person shows up"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:149
+msgid "What happens while someone else is in the picture"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:152 telescope/plugins/privacy_blur.py:165
+msgid "Blur now"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:154
+msgid "Blur by hand until you click again"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:166
+msgid "Privacy blur when someone walks in"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:167
+msgid "Privacy blur: what happens"
+msgstr ""
+
+#: telescope/plugins/privacy_blur.py:240
+msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
+msgstr ""
+
 #: telescope/plugins/setup.py:44
 msgid "Auto (from first frame)"
 msgstr "Auto (från första bildrutan)"
@@ -4376,58 +4430,58 @@ msgstr "Uppdateringen misslyckades."
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Uppdaterat. Stäng och öppna Telescope igen för att slutföra."
 
-#: telescope/plugins/wait_screen.py:40 telescope/plugins/wait_screen.py:211
+#: telescope/plugins/wait_screen.py:44 telescope/plugins/wait_screen.py:252
 msgid "Wait screen"
 msgstr "Väntebild"
 
-#: telescope/plugins/wait_screen.py:41
+#: telescope/plugins/wait_screen.py:45
 msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "Bilden som appar ser på den virtuella kameran när inget strömmar."
 
-#: telescope/plugins/wait_screen.py:42
+#: telescope/plugins/wait_screen.py:46
 msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "Utan det finns Väntebild inte i Inställningar och mellan strömmar kan appar se en svart bild eller ingenting alls."
 
-#: telescope/plugins/wait_screen.py:212
+#: telescope/plugins/wait_screen.py:253
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "inaktiv vänteläge platshållare väntebild bild gif svart skärm frusen strömmar inte spegelvänd vänd egen bakgrund logotyp logga idle standby placeholder picture image black screen frozen not streaming mirror flip custom background logo"
 
-#: telescope/plugins/wait_screen.py:214
+#: telescope/plugins/wait_screen.py:255
 msgid "What video calls see while the phone isn't streaming."
 msgstr "Vad videosamtal ser när telefonen inte strömmar."
 
-#: telescope/plugins/wait_screen.py:223
+#: telescope/plugins/wait_screen.py:264
 msgid "Choose image…"
 msgstr "Välj bild…"
 
-#: telescope/plugins/wait_screen.py:225
+#: telescope/plugins/wait_screen.py:266
 msgid "Use default"
 msgstr "Använd standard"
 
-#: telescope/plugins/wait_screen.py:228
+#: telescope/plugins/wait_screen.py:269
 msgid "Mirror it, for apps that flip the camera"
 msgstr "Spegelvänd den, för appar som vänder kameran"
 
-#: telescope/plugins/wait_screen.py:263
+#: telescope/plugins/wait_screen.py:304
 #, python-brace-format
 msgid "Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
 msgstr "Visas i {size}, den storlek som strömmen öppnar kameran i. Stillbilder och GIF-bilder fungerar; genomskinliga delar visar den mörka bakgrunden."
 
-#: telescope/plugins/wait_screen.py:266
+#: telescope/plugins/wait_screen.py:307
 #, python-brace-format
 msgid "Couldn't use that image: {problem}. Keeping the current wait screen."
 msgstr "Kunde inte använda den bilden: {problem}. Behåller den nuvarande väntebilden."
 
-#: telescope/plugins/wait_screen.py:269
+#: telescope/plugins/wait_screen.py:310
 msgid "Couldn't read that image, so the default screen is showing. Choose another one."
 msgstr "Kunde inte läsa den bilden, så standardbilden visas. Välj en annan."
 
-#: telescope/plugins/wait_screen.py:276
+#: telescope/plugins/wait_screen.py:317
 msgid "Choose a wait screen"
 msgstr "Välj en väntebild"
 
-#: telescope/plugins/wait_screen.py:277
+#: telescope/plugins/wait_screen.py:318
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "Bilder ({formats})"

@@ -45,11 +45,17 @@ Optional and it shares the vision download too. It moves the phone's metering po
 
 Picking a point on the preview or a focus mode on the Camera card takes over from it until you click **Follow my face** or switch it off and on. The phone only meters on the point while exposure is automatic. With manual exposure the point sets the focus and nothing else. A few lenses can't do either.
 
+## Privacy blur
+
+Optional. It hides other people who walk into the picture, in one of three ways picked on its card. **Blur the others** blurs everyone but you, **Blur all but me** blurs the room as well and **Show the wait screen** puts the wait screen up in place of the whole picture. "You" is whoever has been in the picture longest. Blurring starts once a second person has been found a couple of times in a row and only stops after there has been only one person (or nobody) for about five seconds. Someone walking past or the model losing track for a moment won't make it flicker.
+
+**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
 ## The vision download
 
-Auto framing, Background and Expose for my face use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
