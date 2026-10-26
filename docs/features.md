@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -53,6 +53,15 @@ Optional. It hides other people who walk into the picture, in one of three ways 
 
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
+## Chroma key
+
+Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Optional** in the Plugins tab of Settings.
+
+- **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't quite the usual green or with uneven light
+- **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
+- **Behind you** is a **Colour** you pick or a **Picture** (PNG, JPEG, WebP or BMP) scaled to cover the frame
+- Presets save it like the other picture settings
+
 ## Cinema tools
 
 Optional, for judging focus and exposure while you set ISO, shutter and focus by hand. Switch it on under **Optional** in the Plugins tab of Settings. Everything it draws stays on the preview and apps using the virtual camera never get any of it.
@@ -63,6 +72,25 @@ Optional, for judging focus and exposure while you set ISO, shutter and focus by
 - **Scope** puts a histogram, waveform, RGB parade or vectorscope in the bottom right of the preview. The waveform and parade show brightness from 0 at the bottom to 100% at the top, with a line every 25%. The vectorscope marks the colour bar targets and has a line for skin tones
 
 Peaking colour and sensitivity and how big the scope is are under Video in Settings. The tools work on the preview's own smaller copy of the picture and the scopes are worked out on their own thread about 12 times a second, which keeps the stream itself as fast as before.
+
+## Desk and document mode
+
+Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Optional** in the Plugins tab of Settings.
+
+- **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
+- The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
+- **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
+- Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
+- If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
+- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill the picture** stretches it over the whole frame
+- If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
+- Each phone remembers its own corners and presets save them too
+
+## QR codes
+
+Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. The code gets a green outline on the preview for a moment and a notification says what was copied (**Notify me when a code is read** turns that off).
+
+Telescope looks about three times a second at a smaller copy away from the stream itself and the picture doesn't slow down for it. The same code isn't copied again until it's been out of view for a few seconds. On Linux with Wayland a window in the background isn't allowed to change the clipboard. When that happens the card says so and **Copy** puts the code there with one click.
 
 ## Photos
 

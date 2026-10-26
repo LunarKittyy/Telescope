@@ -19,24 +19,33 @@ pseudo	out of its box	0
 pseudo	out of its box	0.00
 pseudo	out of its box	0.435
 pseudo	out of its box	1.00
+pseudo	out of its box	100%
 pseudo	out of its box	20[% ~]
 pseudo	out of its box	270°
+pseudo	out of its box	30
+pseudo	out of its box	40
 pseudo	out of its box	45[ °Ç ~]
+pseudo	out of its box	60
 pseudo	out of its box	95
 pseudo	out of its box	Add phone
+pseudo	out of its box	Auto
 pseudo	out of its box	Bar
 pseudo	out of its box	Black level lock
 pseudo	out of its box	Blur the others
 pseudo	out of its box	Bottom left
 pseudo	out of its box	Change…
+pseudo	out of its box	Choose…
 pseudo	out of its box	False colour
 pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking
 pseudo	out of its box	Heavy
+pseudo	out of its box	Hold a QR code up to the camera.
 pseudo	out of its box	Manual
 pseudo	out of its box	Medium
+pseudo	out of its box	Notify me when a code is read
 pseudo	out of its box	Off
 pseudo	out of its box	Only on the preview. Apps never see these.
+pseudo	out of its box	Picked
 pseudo	out of its box	Picture
 pseudo	out of its box	Reset
 pseudo	out of its box	Start streaming to load lenses
