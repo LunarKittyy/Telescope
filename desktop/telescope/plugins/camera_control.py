@@ -727,6 +727,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._sync_manual_control_visibility()
 
     def _on_focus_mode(self):
+        self._bus.focus_mode_picked.emit("point" if self._rb_focus_point.isChecked() else
+                                         "manual" if self._rb_focus_manual.isChecked() else "auto")
         if self._rb_focus_point.isChecked():
             if not self._point_focus:
                 self._bus.focus_point_picked.emit(0.5, 0.5)  # the middle of what the preview shows
