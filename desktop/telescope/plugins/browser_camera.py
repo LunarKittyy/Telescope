@@ -151,6 +151,8 @@ class BrowserCameraPlugin(TelescopePlugin):
     name = "browser_camera"
     title = N_("Browser camera")
     about = N_("Streaming from any device's web browser, by scanning a code.")
+    category = "streaming"
+    icon = "wifi"
     when_off = N_("Without it Browser camera isn't in the phone picker and its card is gone too.")
     panel_region = "right"  # where the Camera card is, which hides while this streams
 

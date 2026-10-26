@@ -200,7 +200,8 @@ SensorStatus.kinds = ()
 SensorStatus.reason = ''
 SensorStatus.state = 'off'
 SensorStatus.streaming = ()
-SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='')
+SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='', footer=None)
+SettingsSection.footer = None
 SettingsSection.keywords = ''
 SettingsSection.on_show = None
 SettingsSection.order = 0
@@ -270,6 +271,7 @@ StreamsBehind.keep(self, host, ctrl, value)
 StreamsBehind.take(self, host, ctrl)
 TelescopePlugin.about = ''
 TelescopePlugin.apply_preset(self, cfg)
+TelescopePlugin.category = 'extras'
 TelescopePlugin.create_actions(self)
 TelescopePlugin.create_header_widget(self)
 TelescopePlugin.create_menu_actions(self)
@@ -282,6 +284,7 @@ TelescopePlugin.follows_focus = True
 TelescopePlugin.frame_step(self)
 TelescopePlugin.get_config(self)
 TelescopePlugin.header_side = 'left'
+TelescopePlugin.icon = 'plug'
 TelescopePlugin.in_presets = False
 TelescopePlugin.name = ''
 TelescopePlugin.needs_vision = False

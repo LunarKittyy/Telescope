@@ -120,6 +120,8 @@ class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
     title = N_("Keyboard shortcuts")
     about = N_("Keys for Telescope's controls, including ones that work in other apps.")
+    category = "extras"
+    icon = "keyboard"
     when_off = N_("Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your "
                   "shortcuts are kept for when it's back).")
 

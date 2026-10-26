@@ -96,6 +96,8 @@ class ColourGradingPlugin(TelescopePlugin):
     name = "colour_grading"
     title = N_("Colour grading")
     about = N_("Colour wheels, curves and LUT files for the look of the picture.")
+    category = "camera"
+    icon = "colour"
     when_off = N_("Without it there's no Colour grading card and the picture keeps the camera's colours.")
     optional = True
     in_presets = True

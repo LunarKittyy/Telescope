@@ -138,6 +138,8 @@ class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
     title = N_("Stream output")
     about = N_("The resolution, frame rate and format of the stream.")
+    category = "streaming"
+    icon = "stream"
     when_off = N_("Without it there's no Stream output card and streams use whatever size and format the phone "
                   "picks.")
     in_presets = True

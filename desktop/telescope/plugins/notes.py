@@ -84,6 +84,8 @@ class NotesPlugin(TelescopePlugin):
     name = "notes"
     title = N_("Notes")
     about = N_("Shows your notes on the phone's screen right under the camera, to read while looking people in the eye.")
+    category = "on_screen"
+    icon = "notes"
     when_off = N_("Without it there's no Notes card and the phone never shows notes.")
     optional = True
     panel_region = "right"

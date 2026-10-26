@@ -404,6 +404,33 @@ QFrame#setting_row {{
     border-radius: 9px;
 }}
 QFrame#setting_row QLabel {{ background: transparent; }}
+/* The Plugins tab: tiles are cards of their own, the groups around them are flat */
+QFrame#setting_row[tile="true"] {{
+    background-color: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 12px;
+}}
+QFrame#setting_row[tile="true"]:hover {{ border-color: {BORDER_STRONG}; }}
+QFrame#setting_row[tile="true"] QLabel#setting_name {{ font-weight: 600; }}
+QFrame#setting_row[tile="true"][off="true"] QLabel#setting_name {{ color: {TEXT_DIM}; }}
+QFrame#card[flat="true"] {{ background: transparent; border: none; border-radius: 0; }}
+QLabel#plugin_badge {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    color: {TEXT_DIM};
+    font-size: 8.25pt;
+    padding: 1px 7px;
+}}
+QLabel#plugin_badge[kind="restart"] {{ color: {WARN}; border-color: #5a4a2e; background-color: #251f17; }}
+QLabel#plugin_badge[kind="lock"] {{ color: {ACCENT_SOFT}; }}
+QFrame#plugins_footer {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER_STRONG};
+    border-radius: 12px;
+}}
+QFrame#plugins_footer QLabel {{ background: transparent; }}
+QLabel#footer_count {{ color: {TEXT}; font-weight: 600; }}
 QLabel#setting_sub {{ color: {TEXT_FAINT}; }}
 QLabel[sub="true"] {{ font-size: 8.75pt; }}
 QLabel#version_note {{ color: {TEXT_FAINT}; font-size: 9pt; }}

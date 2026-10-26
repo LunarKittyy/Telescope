@@ -176,6 +176,8 @@ class QrReaderPlugin(TelescopePlugin):
     name = "qr_reader"
     title = N_("QR code reader")
     about = N_("Copies a QR code you hold up to the camera, or the password from a Wi-Fi code.")
+    category = "preview"
+    icon = "qr"
     when_off = N_("Without it there's no QR code card and codes in the picture are left alone.")
     optional = True
     panel_region = "left"
