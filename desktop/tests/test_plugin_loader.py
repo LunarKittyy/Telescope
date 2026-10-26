@@ -459,3 +459,21 @@ def test_plugins_being_written_need_a_dev_profile(plugins, tmp_path, monkeypatch
     monkeypatch.delenv("TELESCOPE_DEV_PROFILE", raising=False)
     monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", str(_example(work)))
     assert plugin_loader.find_installed() == [] and plugin_loader.load_enabled() == ([], [])
+
+
+def test_a_swap_that_fails_leaves_the_old_one_switched_on(plugins, tmp_path, monkeypatch):
+    _example(plugins)
+    plugin_loader.set_enabled(_one(plugins), True)
+    real, calls = os.replace, []
+
+    def flaky(src, dst):
+        calls.append(dst)
+        if len(calls) == 2:  # the new folder into place, as when Windows has a file in it open
+            raise PermissionError("in use")
+        return real(src, dst)
+    monkeypatch.setattr(plugin_loader.os, "replace", flaky)
+    with pytest.raises(OSError):
+        plugin_loader.install_zip(_newer_example(tmp_path), folder=plugins, replace=True)
+    found = _one(plugins)
+    assert found.version == "1.0" and found.enabled
+    assert [p.name for p in plugins.iterdir()] == ["black_and_white"]

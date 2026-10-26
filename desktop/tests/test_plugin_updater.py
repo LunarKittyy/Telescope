@@ -55,9 +55,9 @@ class _Reply(io.BytesIO):
 
 
 class _GitHub:
-    def __init__(self, tag="v1.1", data=None, offline=False):
+    def __init__(self, tag="v1.1", data=None, offline=False, corrupt=False):
         self.data = _zip_bytes() if data is None else data
-        self.tag, self.offline, self.asked = tag, offline, []
+        self.tag, self.offline, self.corrupt, self.asked = tag, offline, corrupt, []
 
     def __call__(self, url, timeout, headers=None):
         self.asked.append(url)
@@ -67,7 +67,7 @@ class _GitHub:
             return _Reply(json.dumps({"tag_name": self.tag, "html_url": f"{REPO_URL}/releases/tag/{self.tag}", "assets": [
                 {"name": "extra.zip", "size": len(self.data), "browser_download_url": f"{REPO_URL}/x/extra.zip",
                  "digest": "sha256:" + hashlib.sha256(self.data).hexdigest()}]}).encode())
-        return _Reply(self.data)
+        return _Reply(b"x" * len(self.data) if self.corrupt else self.data)
 
 
 def _check(qapp, updater):
@@ -146,3 +146,23 @@ def test_with_the_check_off_github_isnt_asked(qapp, plugins):
     github = _GitHub()
     _check(qapp, PluginUpdater(opener=github))
     assert github.asked == []
+
+
+def test_a_download_that_fails_isnt_tried_again_every_hour(qapp, plugins):
+    _install(plugins)
+    plugin_loader.set_plugin_switch("auto_update", True)
+    github = _GitHub(corrupt=True)  # doesn't match its digest
+    updater = PluginUpdater(opener=github)
+    _check(qapp, updater)
+    _check(qapp, updater)  # the next hourly tick, the release still cached as newer
+    assert [u for u in github.asked if u.endswith("extra.zip")] == [f"{REPO_URL}/x/extra.zip"]
+    assert _item(plugins).version == "1.0" and updater.newer(_item(plugins)).tag == "v1.1"
+
+
+def test_a_release_whose_zip_isnt_newer_isnt_installed(qapp, plugins):
+    _install(plugins, version="1.1")
+    plugin_loader.set_plugin_switch("auto_update", True)
+    updater = PluginUpdater(opener=_GitHub(tag="v1.2", data=_zip_bytes(version="1.0")))  # mislabelled
+    _check(qapp, updater)
+    item = _item(plugins)
+    assert item.version == "1.1" and item.enabled and updater.updated == {}

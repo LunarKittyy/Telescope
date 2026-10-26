@@ -216,3 +216,24 @@ def test_a_download_is_checked_against_its_size_and_digest(tmp_path):
         plugin_updates.download(Asset("p.zip", good.url, 1000), tmp_path, opener=lambda *a: _Reply(data))
     with pytest.raises(plugin_updates.DownloadError, match="couldn't be downloaded"):
         plugin_updates.download(good, tmp_path, opener=_GitHub(urllib.error.URLError("offline")))
+
+
+@pytest.mark.parametrize("code", [403, 410, 451])
+def test_a_repo_github_refuses_only_skips_that_repo(cache, code):
+    github = _GitHub(_http_error(code), _Reply(_release_json()))
+    cache = plugin_updates.check(["aaa/blocked", REPO], cache, now=NOW, opener=github)
+    assert len(github.asked) == 2 and cache.wait_until == 0
+    assert cache.release("aaa/blocked") is None and not cache.due("aaa/blocked", NOW + 60)
+    assert cache.release(REPO).tag == "v1.3"
+
+
+def test_a_403_with_retry_after_is_a_rate_limit(cache):
+    github = _GitHub(_http_error(403, Retry_After=7200))
+    cache = plugin_updates.check(["aaa/first", REPO], cache, now=NOW, opener=github)
+    assert len(github.asked) == 1 and cache.wait_until == NOW + 7200
+
+
+def test_a_server_error_waits_for_every_repo(cache):
+    github = _GitHub(_http_error(502))
+    cache = plugin_updates.check(["aaa/first", REPO], cache, now=NOW, opener=github)
+    assert len(github.asked) == 1 and cache.wait_until == NOW + 3600 and cache.due("aaa/first", NOW + 3600)

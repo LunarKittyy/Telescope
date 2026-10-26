@@ -206,6 +206,14 @@ def _wait_after_limit(exc: urllib.error.HTTPError, now: float) -> float:
     return min(wait, WAIT_MAX_S)
 
 
+def _rate_limited(exc: urllib.error.HTTPError) -> bool:
+    """A 429, or a 403 that comes with GitHub's rate limit headers (a 403 alone is about the one repo)."""
+    headers = exc.headers or {}
+    if exc.code == 429:
+        return True
+    return exc.code == 403 and (headers.get("X-RateLimit-Remaining") == "0" or bool(headers.get("Retry-After")))
+
+
 def check(repos, cache: Optional[Cache] = None, now: Optional[float] = None, opener: Callable = _open) -> Cache:
     """Ask GitHub about each repo that's due, unless it's being left alone after a failure. Never raises; whatever
     went wrong only makes it wait longer. Returns the cache, saved."""
@@ -230,14 +238,16 @@ def check(repos, cache: Optional[Cache] = None, now: Optional[float] = None, ope
             if exc.code == 304:  # nothing new since the ETag, and it didn't count against the limit
                 cache.repos[repo] = dict(entry, checked=now)
                 continue
-            if exc.code == 404:  # no release (or no such repo): nothing to say, ask again tomorrow
-                cache.repos[repo] = {"checked": now, "etag": "", "release": None}
-                continue
-            if exc.code in (403, 429):
+            if _rate_limited(exc):
                 cache.wait_until = now + _wait_after_limit(exc, now)
                 logger.info("GitHub is limiting plugin update checks; trying again in %d min",
                             (cache.wait_until - now) // 60)
                 break
+            if 400 <= exc.code < 500:  # no release, or this repo is blocked or gone: ask again tomorrow, others now
+                if exc.code != 404:
+                    logger.info("GitHub said HTTP %d about %s", exc.code, repo)
+                cache.repos[repo] = {"checked": now, "etag": "", "release": None}
+                continue
             _failed(cache, now, f"HTTP {exc.code}")
             break
         except (OSError, ValueError, http.client.HTTPException) as exc:

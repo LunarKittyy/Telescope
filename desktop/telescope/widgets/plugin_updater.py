@@ -2,10 +2,12 @@
 passed (plugin_updates.py does the asking). With the auto-update switch on, it also installs a newer release of a
 plugin that's on and switches it on again, from the next start."""
 
+import json
 import logging
 import shutil
 import tempfile
 import threading
+import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -19,6 +21,17 @@ CHECK = "check_updates"
 AUTO = "auto_update"
 _FIRST_CHECK_MS = 30_000  # after the app's own update check, and well clear of starting up
 _TICK_MS = 60 * 60 * 1000
+
+
+def _zip_version(path: Path, name: str) -> str:
+    """The version the plugin.json in a downloaded .zip gives, "" when it can't be read."""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            manifest = json.loads(zf.read(f"{name}/{plugin_loader.MANIFEST}").decode("utf-8"))
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile):
+        return ""
+    version = manifest.get("version") if isinstance(manifest, dict) else None
+    return version if isinstance(version, str) else ""
 
 
 class PluginUpdater(QObject):
@@ -78,7 +91,7 @@ class PluginUpdater(QObject):
     def _run(self, repos: set, auto: list):
         extra = {"opener": self._opener} if self._opener else {}
         cache = plugin_updates.check(repos, plugin_updates.Cache(self._cache.path), **extra)
-        downloads = {}
+        downloads, failed = {}, False
         for name, repo, installed in auto:
             release = cache.release(repo)
             if (release is None or not plugin_updates.is_newer(release.tag, installed)
@@ -94,6 +107,10 @@ class PluginUpdater(QObject):
             except plugin_updates.DownloadError as exc:
                 logger.info("Couldn't update %s: %s", name, exc)
                 shutil.rmtree(folder, ignore_errors=True)
+                cache.auto_installed[name] = release.tag  # not downloaded again every hour
+                failed = True
+        if failed:
+            cache.save()  # the GUI thread only writes it once this thread is done
         try:
             self._done.emit(cache, downloads)
         except RuntimeError:  # the window went away first
@@ -120,6 +137,9 @@ class PluginUpdater(QObject):
                 return
             if plugin_loader.zip_plugin_name(path) != name:
                 raise ValueError(f"its .zip holds another plugin, not {name}")
+            version = _zip_version(path, name)
+            if not plugin_updates.is_newer(version, current.version):
+                raise ValueError(f"its .zip is version {version or '?'}, not newer than {current.version or '?'}")
             item = plugin_loader.install_zip(path, self._reserved, replace=True)
             if item.problem:
                 logger.warning("Updated %s to %s, but it can't load: %s", name, tag, item.problem)

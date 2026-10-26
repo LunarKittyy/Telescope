@@ -475,15 +475,13 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None, repla
                     for n in names:
                         os.chmod(Path(root) / n, 0o644)
                 if target.exists():
-                    off, added = _state(load_config(strict=True))
-                    if added.pop(name, None) is not None:
-                        _save_state(off, added)  # before the swap: a new version is never on by itself
                     os.replace(target, staging / ".old")
                     try:
                         os.replace(staging / name, target)
                     except OSError:
-                        os.replace(staging / ".old", target)
+                        os.replace(staging / ".old", target)  # the old one stays, and stays as switched on as it was
                         raise
+                    _switch_off_replaced(name)
                 else:
                     os.replace(staging / name, target)
             finally:
@@ -491,6 +489,17 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None, repla
     except zipfile.BadZipFile:
         raise ValueError(tr("It isn't a .zip file Telescope can open.")) from None
     return _inspect(folder / name, reserved, _read_enabled(), _unsafe_permissions(folder))
+
+
+def _switch_off_replaced(name: str):
+    """A new version is never on by itself. If the switch can't be saved its files no longer match the fingerprint,
+    which keeps it off anyway."""
+    try:
+        off, added = _state(load_config(strict=True))
+        if added.pop(name, None) is not None:
+            _save_state(off, added)
+    except OSError:
+        logger.warning("Couldn't switch off the replaced plugin %s; its new files keep it off", name, exc_info=True)
 
 
 def remove(plugin: Installed, folder: Optional[Path] = None):
