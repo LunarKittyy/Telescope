@@ -31,12 +31,19 @@
   const row = $(".dl-row", downloads);
   const note = $(".dl-note", downloads);
   const pick = $(`[data-os="${os}"]`, row);
+  // The visitor's own download is the one big button and the rest become small links next to it
   if (pick) {
     pick.classList.add("primary");
-    pick.textContent = "Download for " + pick.textContent;
+    pick.textContent = pick.dataset.primary;
     row.prepend(pick);
+    const others = $$(".dl:not(.primary)", row);
+    for (const a of others) {
+      a.classList.add("other");
+      a.textContent = a.dataset.other;
+    }
+    others[0].before(Object.assign(document.createElement("span"), { className: "dl-or", textContent: "or" }));
   }
-  if (os === "android") note.innerHTML = 'Telescope runs on a Linux or Windows computer, so open this page there. The phone half is the <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk">APK</a>, but the desktop app can install it for you.';
+  if (os === "android") note.textContent = "That's the phone half. Telescope itself runs on a Linux or Windows computer, so open this page there too (the desktop app can also put the phone app on your phone for you).";
   if (os === "apple") note.textContent = "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install.";
   for (const slot of $$("[data-clone=downloads]")) slot.innerHTML = downloads.innerHTML;
 
@@ -66,7 +73,8 @@
   }
   document.body.style.backgroundImage = `url(${tile.toDataURL()})`;
 
-  // Where we are on the trip: stop i sits at its top edge, and a stop taller than the screen holds while you read it
+  // Where we are on the trip: 0 at the top, and stop i once its middle reaches the middle of the screen. The camera
+  // flies between them at the pace you scroll, so the planets drift past instead of waiting at each section
   const stops = $$(".stop");
   const journey = window.telescopeJourney = { p: 0, stops: stops.length };
   // Screen height with the phone's address bar showing, which stays put while the bar slides in and out
@@ -74,28 +82,19 @@
   probe.style.cssText = "position: absolute; top: 0; width: 0; height: 100svh; visibility: hidden; pointer-events: none";
   document.body.append(probe);
   const screenH = () => probe.offsetHeight || innerHeight;
-  let anchors = [], holds = [];
+  let anchors = [];
   const measure = () => {
-    anchors = stops.map(s => s.offsetTop);
-    holds = stops.map(s => Math.max(0, s.offsetHeight - screenH()));
+    const vh = screenH(), max = document.documentElement.scrollHeight - innerHeight;
+    anchors = stops.map((s, i) => i ? Math.min(max, s.offsetTop + s.offsetHeight / 2 - vh / 2) : 0);
+    for (let i = 1; i < anchors.length; i++) anchors[i] = Math.max(anchors[i], anchors[i - 1] + 1);
   };
   const update = () => {
-    const y = scrollY, vh = screenH();
-    let p = 0;
-    for (let i = 0; i < stops.length; i++) {
-      if (i === stops.length - 1 || y < anchors[i + 1]) {
-        const span = i < stops.length - 1 ? anchors[i + 1] - anchors[i] - holds[i] : 1;
-        p = i + (i < stops.length - 1 ? Math.min(1, Math.max(0, (y - anchors[i] - holds[i]) / span)) : 0);
-        break;
-      }
+    const y = scrollY;
+    let p = stops.length - 1;
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (y < anchors[i + 1]) { p = i + Math.max(0, (y - anchors[i]) / (anchors[i + 1] - anchors[i])); break; }
     }
     journey.p = p;
-    stops.forEach((s, i) => {
-      const d = y - anchors[i];
-      const reach = i === 0 ? 0.3 * vh : 0.6 * vh;
-      const f = d < 0 ? 1 + d / reach : 1 - (d - holds[i]) / reach;
-      s.style.setProperty("--f", Math.min(1, Math.max(0, f)).toFixed(3));
-    });
     const lit = Math.round(p / (stops.length - 1) * MARK_TICKS);
     markTicks.forEach((t, i) => t.classList.toggle("on", i < lit));
     document.documentElement.style.setProperty("--mark", Math.min(1, p * 2).toFixed(2));
@@ -104,170 +103,45 @@
   measure();
   update();
   addEventListener("scroll", update, { passive: true });
-
-  // One driver moves the scroll at a time, frame by frame, and keeps its position and speed so the next can carry on
-  // from exactly there. Each step also updates the page in the same frame, so the text never lags a frame behind.
-  let drive = null, frame = 0, last = 0, y = scrollY, v = 0;
-  const loop = now => {
-    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
-    last = now;
-    const [ny, done] = drive(now, dt);
-    v = (ny - y) / dt;
-    y = ny;
-    scrollTo(0, y);
-    update();
-    frame = done ? 0 : requestAnimationFrame(loop);
-    if (done) { drive = null; v = 0; document.documentElement.classList.remove("driving"); }
-  };
-  // While a driver runs, CSS snapping is off so it can't pull each step to a stop
-  const run = (d, from = scrollY, speed = 0) => {
-    if (!frame) { y = from; v = speed; last = performance.now(); frame = requestAnimationFrame(loop); }
-    document.documentElement.classList.add("driving");
-    drive = d;
-  };
-  const halt = () => { cancelAnimationFrame(frame); frame = 0; drive = null; document.documentElement.classList.remove("driving"); };
-  // A path over ms, where path(t) gives the position for t from 0 to 1, counted from start
-  const glide = (path, ms, start = performance.now()) => {
-    run(now => { const t = Math.min(1, (now - start) / ms); return [path(t), t >= 1]; });
-  };
-
-  // The scroll hint glides to the next stop over 2s on an ease in out cubic
-  const hintLink = $(".scroll-hint");
-  hintLink.addEventListener("click", e => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    e.preventDefault();
-    const from = scrollY, to = $(hintLink.hash).offsetTop;
-    restY = to;
-    glide(t => from + (to - from) * (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), 2000);
-  });
-
-  // The page settles like a ball rolling over hills, with a stop in each dip. The moment you stop scrolling it carries
-  // on at your speed: heading at least 15% of the way to the next stop takes it over there, a smaller nudge lets it
-  // roll back, and it eases into the dip without rocking. A stop taller than the screen is a flat dip, so it can rest
-  // anywhere inside it. Only for the 3D trip; the flat page has no gaps between stops.
-  const trip = () => document.body.classList.contains("space") && !zoom;
-  let restY = scrollY, rollSpan = [0, 0];
-  // Quintic from (0, slope m) to (1, slope 0) with no acceleration at either end; it never overshoots while m <= 2.5
-  const roll = (s, m) => { const s3 = s * s * s; return s3 * (10 - 15 * s + 6 * s * s) + m * (s - 6 * s3 + 8 * s3 * s - 3 * s3 * s * s); };
-  // Rolls from the current position and speed into the dip nearest where it was heading, however many hills away;
-  // false if it's already resting there
-  const settle = (heading, start) => {
-    // Which way it was going: by where it was heading, else since it last rested
-    const dir = Math.sign(Math.abs(heading - y) > 10 ? heading - y : y - restY);
-    let to = heading;
-    for (let i = 0; i < stops.length - 1; i++) {
-      const top = anchors[i] + holds[i], bottom = anchors[i + 1];
-      if (heading <= top) { to = Math.max(heading, anchors[i]); break; }
-      if (heading < bottom) { to = heading - top > (bottom - top) * (0.5 - dir * 0.35) ? bottom : top; break; }
-    }
-    return rollTo(to, start);
-  };
-  // Rolls from the current position and speed to y = to, leaving at least at slope kick; false if it's already there
-  const rollTo = (to, start, kick = 0) => {
-    const from = y, d = to - from;
-    restY = to;
-    if (Math.abs(d) < 1) return false;
-    // Longer for a longer way, but quicker when it's already heading there fast, so it never has to brake past the dip
-    let sec = Math.min(2.4, Math.max(0.5, 0.45 + Math.abs(d) / 2400));
-    if (v * d > 0) sec = Math.max(0.35, Math.min(sec, 2.5 * Math.abs(d) / Math.abs(v)));
-    const m = Math.min(2.5, Math.max(kick, v * sec / d));
-    rollSpan = [start, start + sec * 1000];
-    glide(t => from + d * roll(t, m), sec * 1000, start);
-    return true;
-  };
-
-  // Wheel and keys move a target that the page follows on a spring, and the moment they stop it rolls into a dip
-  let aim = 0, nudgedAt = 0;
-  const FOLLOW = 16;
-  const follow = (now, dt) => {
-    // The roll starts from where the last frame left off, so this frame already carries on at the same speed
-    if (now - nudgedAt > 60 && settle(aim, now - dt * 1000)) return drive(now, dt);
-    const nv = v + (FOLLOW * FOLLOW * (aim - y) - 2 * FOLLOW * v) * dt;
-    const ny = y + nv * dt;
-    return [ny, now - nudgedAt > 60 && Math.abs(aim - ny) < 0.5 && Math.abs(nv) < 5];
-  };
-  const nudge = (e, by, to = null) => {
-    if (!trip()) return false;
-    e.preventDefault();
-    const max = document.documentElement.scrollHeight - innerHeight;
-    if (drive !== follow) aim = frame ? y : scrollY;
-    aim = Math.min(max, Math.max(0, to ?? aim + by));
-    nudgedAt = performance.now();
-    run(follow);
-    return true;
-  };
-  // Each wheel gesture or page key moves one stop that way; inside a stop taller than the screen it scrolls up to the edge first
-  const lo = i => anchors[i];
-  const hi = i => i === stops.length - 1 ? document.documentElement.scrollHeight - innerHeight : anchors[i] + holds[i];
-  // A gesture is a burst of wheel events with no pause, so a touchpad's coasting after the swipe counts as the same one
-  let gestureAt = 0, gestureDir = 0, gestureUsed = false, peak = 0;
-  // A step sets off at this many times its average speed, since a wheel notch carries almost no speed of its own
-  const STEP_KICK = 1.6;
-  const step = (e, by, fresh) => {
-    if (!trip()) return;
-    e.preventDefault();
-    const dir = Math.sign(by), now = performance.now(), mag = Math.abs(by);
-    if (fresh || now - gestureAt > 250 || dir !== gestureDir) gestureUsed = false, peak = 0;
-    gestureAt = now; gestureDir = dir; peak = Math.max(peak, mag);
-    // Coasting only slows down, so scrolling that keeps its strength once a step is mostly done earns the next one
-    const rolled = frame && drive !== follow ? (now - rollSpan[0]) / (rollSpan[1] - rollSpan[0]) : 1;
-    if (gestureUsed && mag >= peak * 0.85 && rolled >= 0.6) gestureUsed = false, peak = mag;
-    if (!frame) y = scrollY, v = 0;
-    const at = drive === follow ? aim : frame ? restY : scrollY;
-    const tall = stops.findIndex((_, i) => holds[i] > 80 && at >= lo(i) - 1 && at <= hi(i) + 1);
-    if (tall >= 0 && (dir > 0 ? at < hi(tall) - 1 : at > lo(tall) + 1)) {
-      gestureUsed = true;
-      nudge(e, 0, Math.min(hi(tall), Math.max(lo(tall), at + by)));
-      return;
-    }
-    if (gestureUsed) return;
-    gestureUsed = true;
-    const next = dir > 0 ? stops.findIndex((_, i) => lo(i) > at + 1) : stops.findLastIndex((_, i) => hi(i) < at - 1);
-    if (next >= 0) { if (drive === follow) drive = null; rollTo(dir > 0 ? lo(next) : hi(next), performance.now(), STEP_KICK); }
-  };
-  addEventListener("wheel", e => {
-    if (e.ctrlKey || !e.deltaY) return;
-    step(e, e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1), false);
-  }, { passive: false });
-  addEventListener("keydown", e => {
-    if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
-    const page = innerHeight * 0.85;
-    const keys = { ArrowDown: 60, ArrowUp: -60 };
-    if (e.key === " " && !e.target.closest("button, a")) step(e, e.shiftKey ? -page : page, true);
-    else if (e.key === "PageDown" || e.key === "PageUp") step(e, e.key === "PageDown" ? page : -page, true);
-    else if (e.key in keys) nudge(e, keys[e.key]);
-    else if (e.key === "Home") nudge(e, 0, 0);
-    else if (e.key === "End") nudge(e, 0, Infinity);
-  });
-
-  // A finger or a dragged scrollbar scrolls natively; once it lets go and the page goes quiet, it rolls on from there
-  // Touch screens skip this: CSS snapping lands a flick on a stop without stopping first
-  const touchScreen = matchMedia("(pointer: coarse)");
-  let idle = 0, held = false;
-  const recent = [];
-  const quiet = () => requestAnimationFrame(() => {
-    if (frame || held || !trip() || touchScreen.matches) return;
-    const now = performance.now(), b = recent.at(-1), a = recent.at(-3);
-    y = scrollY;
-    v = a && now - b.t < 50 && b.t - a.t < 60 ? (b.y - a.y) / (b.t - a.t) * 1000 : 0;
-    settle(y + v * 0.35);
-  });
-  addEventListener("scroll", () => {
-    if (frame) return;
-    recent.push({ t: performance.now(), y: scrollY });
-    if (recent.length > 20) recent.shift();
-    clearTimeout(idle);
-    idle = setTimeout(quiet, 140);
-  }, { passive: true });
-  addEventListener("pointerdown", () => { held = true; halt(); }, { passive: true });
-  addEventListener("touchstart", () => { held = true; halt(); }, { passive: true });
-  for (const ev of ["pointerup", "pointercancel", "touchend", "touchcancel"]) addEventListener(ev, () => {
-    held = false;
-    clearTimeout(idle);
-    idle = setTimeout(quiet, 60);
-  }, { passive: true });
   addEventListener("resize", () => { measure(); update(); });
   new ResizeObserver(() => { measure(); update(); }).observe(document.body);
+
+  // Clips play while they're on screen and wait while they aren't. With reduced motion they stay on their poster
+  // until clicked
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const box of $$(".tile-media[data-src]")) {
+    const video = document.createElement("video");
+    Object.assign(video, { muted: true, loop: true, playsInline: true, preload: "metadata" });
+    video.src = box.dataset.src;
+    video.poster = box.dataset.src.replace(/\.mp4$/, "-poster.webp");
+    box.append(video);
+  }
+  const clips = $$(".clip video, .tile-media video");
+  const seen = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting && !still) e.target.play().catch(() => {});
+      else e.target.pause();
+    }
+  }, { threshold: 0.25 });
+  for (const v of clips) {
+    if (still) v.controls = true;
+    seen.observe(v);
+  }
+
+  // The setup steps light up along with the part of the clip that shows them
+  for (const video of $$("video[data-steps]")) {
+    const steps = $$("li[data-at]", video.closest("section"));
+    const mark = () => {
+      const at = video.duration ? video.currentTime / video.duration : 0;
+      let on = 0;
+      steps.forEach((s, i) => { if (at >= +s.dataset.at) on = i; });
+      steps.forEach((s, i) => s.classList.toggle("now", i === on));
+      if (!video.paused) requestAnimationFrame(mark);
+    };
+    video.addEventListener("play", mark);
+    video.addEventListener("seeked", mark);
+    mark();
+  }
 
   // Screenshots: a click floats one to the middle of the screen, and any click, Esc or scroll puts it back
   const veil = document.createElement("div");
