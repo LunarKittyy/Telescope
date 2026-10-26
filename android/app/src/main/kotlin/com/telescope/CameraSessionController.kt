@@ -133,10 +133,16 @@ class CameraSessionController(
     @Volatile private var codecFailure: CodecFailure? = null
     // Photo outputs the session carries besides the stream's (StillCapture); dropped when they make it fail
     @Volatile private var stillOutputs: List<StillOutput> = emptyList()
-    // StillCapture closed the session to run its own; anything rebuilding the session ends that
+    // StillCapture closed the session to run its own; rebuilds wait for resumeAfterStill, which takes in every change
     @Volatile private var stillPaused = false
-    // StillCapture's: the stream's session or camera is being rebuilt, which ends a photo in flight (camera thread)
-    var onStillInterrupted: (() -> Unit)? = null
+    // StillCapture's: the lens changed or the camera reopened or stopped, which ends a photo in flight (camera thread)
+    var onStillInterrupted: ((StillRebuild.Cause) -> Unit)? = null
+    // StillCapture's: the stream's session is up again after a rebuild, with the photo outputs it kept (camera thread)
+    var onStillSessionReady: (() -> Unit)? = null
+    // useStillOutputs' answer, given once a session is up or the photo can't go on
+    private var stillSetup: ((Boolean) -> Unit)? = null
+    // Automatic changes waiting for the photo under way to end (camera thread)
+    private val photoHold = PhotoHold<() -> Unit>()
     // The newest result of the repeating request: what auto exposure and focus settled on, for photos
     @Volatile private var lastResult: TotalCaptureResult? = null
 
@@ -241,6 +247,7 @@ class CameraSessionController(
 
     // On the camera thread, after Dynamic stepped: the encoder takes the new rate, or the session is rebuilt for it
     private fun applyFrameRate() {
+        if (photoHold.hold("frameRate") { applyFrameRate() }) { encoder?.setBitrate(currentBitrate()); return }
         val cap = frameRate?.cap
         val enc = encoder
         // Only from a camera already at the rate asked for: one an earlier step slowed down needs the session rebuilt anyway
@@ -262,20 +269,24 @@ class CameraSessionController(
     // Some encoders take KEY_MAX_FPS_TO_ENCODER and ignore it: a few seconds on, what came out says whether it worked
     private fun checkEncoderCap(enc: H264Encoder, cap: Int) {
         val generation = ++capCheckGeneration
-        handler?.postDelayed({
-            if (generation != capCheckGeneration || encoder !== enc || !capInEncoder || frameRate?.cap != cap) return@postDelayed
-            val out = enc.outputRate.fps()
-            // Working, it puts out the cap give or take a frame; ignoring it, the camera's rate (a rung or more above)
-            if (out > cap + maxOf(2.0, cap * 0.1)) {
-                android.util.Log.i(TAG, "The encoder didn't drop frames for $cap fps ($out came out): restarting the camera instead")
-                encoderCapWorks = false
-                uncapEncoder()
-                // The camera holds the encoder's surface, so a FrameGate comes with a fresh encoder: one reopen, then no more restarts
-                if (!gateBroken) { reopen("addFrameGate"); return@postDelayed }
-                reconfigureSession()
-                encoder?.setBitrate(currentBitrate())
-            }
-        }, ENCODER_CAP_CHECK_MS)
+        handler?.postDelayed({ runCapCheck(enc, cap, generation) }, ENCODER_CAP_CHECK_MS)
+    }
+
+    private fun runCapCheck(enc: H264Encoder, cap: Int, generation: Int) {
+        if (generation != capCheckGeneration || encoder !== enc || !capInEncoder || frameRate?.cap != cap) return
+        // A photo's hitch skews what came out, and the fix restarts the camera: checked afresh once it's over
+        if (photoHold.hold("capCheck") { checkEncoderCap(enc, cap) }) return
+        val out = enc.outputRate.fps()
+        // Working, it puts out the cap give or take a frame; ignoring it, the camera's rate (a rung or more above)
+        if (out > cap + maxOf(2.0, cap * 0.1)) {
+            android.util.Log.i(TAG, "The encoder didn't drop frames for $cap fps ($out came out): restarting the camera instead")
+            encoderCapWorks = false
+            uncapEncoder()
+            // The camera holds the encoder's surface, so a FrameGate comes with a fresh encoder: one reopen, then no more restarts
+            if (!gateBroken) { reopen("addFrameGate"); return }
+            reconfigureSession()
+            encoder?.setBitrate(currentBitrate())
+        }
     }
 
     private fun uncapEncoder() {
@@ -337,6 +348,7 @@ class CameraSessionController(
     @Volatile private var thermalSeen = 0  // bumped by every status, so a cool-down that waited sees a newer one
 
     private fun applyThermalStatus(status: Int) {
+        if (photoHold.hold("thermal") { applyThermalStatus(status) }) return
         val before = cameraFps() to streamFps()
         thermalStatus = status
         // A new size needs a new reader or encoder, so the camera reopens, which picks up the new rate too
@@ -640,7 +652,7 @@ class CameraSessionController(
         if (previewSurface == null) return false
         previewSurface = null
         onControlError("$op.previewDropped", e ?: IllegalStateException("configure failed"))
-        reconfigureSession(onComplete, interruptsStill = false)
+        reconfigureSession(onComplete)
         return true
     }
 
@@ -658,7 +670,7 @@ class CameraSessionController(
     }
 
     private fun teardown() {
-        onStillInterrupted?.invoke()
+        stillRebuilding(StillRebuild.Cause.OFF)
         // Invalidate in-flight callbacks so they can't resurrect stale camera/session with dead surfaces
         cameraGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
@@ -782,14 +794,14 @@ class CameraSessionController(
             // Photos don't get to break the stream: it goes back without them, and StillCapture shoots on its own
             stillOutputs = emptyList()
             onControlError("$op.stillOutputsDropped", e ?: IllegalStateException("configure failed"))
-            reconfigureSession(onComplete, interruptsStill = false)
+            reconfigureSession(onComplete)
             return true
         }
         if (usedStreamUseCase && !streamUseCaseRefused) {
             // The labels are only a hint: a camera that won't take them gets the session without, from now on
             streamUseCaseRefused = true
             onControlError("$op.streamUseCaseDropped", e ?: IllegalStateException("configure failed"))
-            reconfigureSession(onComplete, interruptsStill = false)
+            reconfigureSession(onComplete)
             return true
         }
         if (retryWithoutPreview(op, e, onComplete)) return true
@@ -832,7 +844,7 @@ class CameraSessionController(
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(s: CameraCaptureSession) {
                         if (generation != cameraGeneration) { s.close(); onComplete?.invoke(); return }
-                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s) }
+                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s); stillSessionReady() }
                         else s.close()
                         onComplete?.invoke()
                     }
@@ -881,7 +893,7 @@ class CameraSessionController(
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(s: CameraCaptureSession) {
                         if (generation != cameraGeneration) { s.close(); onComplete?.invoke(); return }
-                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s) }
+                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s); stillSessionReady() }
                         else s.close()
                         onComplete?.invoke()
                     }
@@ -901,11 +913,13 @@ class CameraSessionController(
     }
 
     // Rebuilds capture session without reopening device; onComplete fires when terminal state reached.
-    // interruptsStill: false for StillCapture's own rebuilds and the retries of one already under way
-    private fun reconfigureSession(onComplete: (() -> Unit)? = null, interruptsStill: Boolean = true) {
+    // The photo outputs stay in it, so a photo under way carries on (StillCapture asks again for what it dropped)
+    private fun reconfigureSession(onComplete: (() -> Unit)? = null, resumingStill: Boolean = false) {
         val camera = cameraDevice ?: run { onComplete?.invoke(); return }
+        // The photo's own session has the camera: the stream's comes back with every change once the photo is done
+        if (stillPaused && !resumingStill) { onComplete?.invoke(); return }
         stillPaused = false
-        if (interruptsStill) onStillInterrupted?.invoke()
+        stillRebuilding(StillRebuild.Cause.SESSION)
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         captureSession = null
@@ -914,6 +928,19 @@ class CameraSessionController(
         val cam    = currentCamera
         val physId = if (cam?.logicalId != null) cam.id else null
         createSession(camera, physId, cameraGeneration, mySession, onComplete)
+    }
+
+    // Tells StillCapture: a photo in flight ends unless only the session is rebuilt
+    private fun stillRebuilding(cause: StillRebuild.Cause) {
+        if (!StillRebuild.interrupts(cause)) return
+        onStillInterrupted?.invoke(cause)
+        // After the photo ended, so its outputs aren't taken as refused by this lens
+        stillSetup?.let { stillSetup = null; it(false) }
+    }
+
+    private fun stillSessionReady() {
+        stillSetup?.let { stillSetup = null; it(true) }
+        onStillSessionReady?.invoke()
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
@@ -1164,8 +1191,17 @@ class CameraSessionController(
         if (cameraDevice == null || cameraOff) { done(false); return }
         if (stillOutputs === outputs && captureSession != null && !stillPaused) { done(true); return }
         stillOutputs = outputs
-        reconfigureSession({ done(stillOutputsInSession(outputs) || (outputs.isEmpty() && captureSession != null)) },
-            interruptsStill = false)
+        // Answered by the session that comes up with them, or without them when they made it fail
+        stillSetup?.invoke(false)
+        stillSetup = { ready -> done(ready && (stillOutputsInSession(outputs) || (outputs.isEmpty() && captureSession != null))) }
+        reconfigureSession()
+    }
+
+    // StillCapture's photo is being set up or taken: automatic session changes wait until it ends
+    fun stillBusy(busy: Boolean) {
+        if (busy) { photoHold.start(); return }
+        val held = photoHold.end()
+        if (held.isNotEmpty()) post { if (!photoHold.busy) held.forEach { it() } }
     }
 
     // Closes the stream's session so StillCapture can run its own; false when there's no camera to do it on
@@ -1194,7 +1230,7 @@ class CameraSessionController(
     // The stream's session again, unless something else rebuilt it or reopened the camera meanwhile
     fun resumeAfterStill(generation: Int) {
         if (!stillPaused || generation != cameraGeneration || stopped) return
-        reconfigureSession(interruptsStill = false)
+        reconfigureSession(resumingStill = true)
     }
 
     private val ccmCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
@@ -1240,7 +1276,7 @@ class CameraSessionController(
         currentCamera = entry
         if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
-        onStillInterrupted?.invoke()
+        stillRebuilding(StillRebuild.Cause.LENS)
 
         val myGeneration = ++cameraGeneration
         try { captureSession?.close() } catch (_: Exception) {}
@@ -1305,7 +1341,7 @@ class CameraSessionController(
     private fun reopen(op: String, tries: Int = 0) {
         if (cameraOff) return  // a new size or codec is simply what it opens with later
         onStateChanged(StreamState.Recovering, op, null)
-        onStillInterrupted?.invoke()
+        stillRebuilding(StillRebuild.Cause.REOPEN)
 
         val myGeneration = ++cameraGeneration
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
