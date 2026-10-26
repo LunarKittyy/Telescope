@@ -320,6 +320,10 @@ class HostVision(Protocol):
         anything moves and 3 while nothing does."""
         ...
 
+    def tracked_people(self, source_id: Optional[str] = None) -> tuple:
+        """([telescope.people.Track], how many people are there) on source_id's stream, by default the shown one, as
+        the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
+        ...
 
 class HostPreview(Protocol):
     """Drawing on the preview without it reaching the virtual camera, and asking for points and areas there
@@ -357,8 +361,21 @@ class HostPreview(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostPreview,
-                   Protocol):
+class HostMotion(Protocol):
+    """Something moving in parts of the shown stream's picture (telescope.motion): no download, plain OpenCV."""
+
+    def watch_motion(self, owner: str, zones: list, sensitivity: int = 5) -> None:
+        """Look for motion in zones, [(x0, y0, x1, y1)] 0..1 in the picture as shown at zoom 1 (where Person's points
+        are), at a sensitivity of 1 to 10; motion_seen says when it starts and stops. Empty zones stop it."""
+        ...
+
+    def motion(self, owner: str) -> list:
+        """The indexes of owner's zones something moved in lately on the shown stream."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostMotion,
+                   HostPreview, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -597,6 +614,19 @@ class EventBus(QObject):
     """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
     focus_point_available  = pyqtSignal(bool)
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
+    meter_point_picked     = pyqtSignal(float, float)
+    """A point to meter exposure on and leave focus alone, 0..1 in the frame as shown, for a lens that can meter on a
+    point but not focus on one."""
+    meter_point            = pyqtSignal(float, float)
+    """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
+    meter_point_available  = pyqtSignal(bool)
+    """Whether the current lens can meter on a point (and a stream is running to send it to); said right after
+    focus_point_available."""
+    focus_mode_picked      = pyqtSignal(str)
+    """A focus mode was picked by hand on the Camera card: "auto", "point" or "manual"."""
+    focus_mode_changed     = pyqtSignal(str)
+    """The Camera card's focus mode is now "auto", "point" or "manual", however it changed (a pick, a preset, the
+    phone's state); also once every plugin is ready."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
     view_dragged           = pyqtSignal(float, float)
@@ -615,6 +645,12 @@ class EventBus(QObject):
     people_seen            = pyqtSignal(str, list)
     """Where the people are in a stream (its source id) as [telescope.vision.Person], in its frame before the view;
     only while something wants_people. Check focused_source_id() for the shown stream."""
+    people_tracked         = pyqtSignal(str, list, int)
+    """people_seen made steady (telescope.people), right after it: the stream's source id, [Track] and how many people
+    are there. Someone new counts after two updates in a row and someone gone only after a few seconds."""
+    motion_seen            = pyqtSignal(str, str, list)
+    """Motion in a watch_motion owner's zones started or stopped: the stream's source id, the owner and the indexes of
+    the zones something moves in now."""
     vision_state_changed   = pyqtSignal(str)
     """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
     view_status            = pyqtSignal(object)
@@ -631,6 +667,11 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    cover_requested        = pyqtSignal(str, bool)
+    """Something asks for the wait screen in place of the shown stream's picture, or lets go (who's asking, on).
+    Wait screen answers with stream_covered; without it nothing answers."""
+    stream_covered         = pyqtSignal(bool)
+    """Wait screen shows in place of the shown stream's picture for a cover_requested, or stopped."""
     window_shown           = pyqtSignal(bool)
     """The main window came on screen, or went to the tray or was minimized."""
     phone_wanted           = pyqtSignal(bool, bool)

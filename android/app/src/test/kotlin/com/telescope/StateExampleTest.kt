@@ -21,7 +21,7 @@ class StateExampleTest {
             aeCompMin = -12, aeCompMax = 12, aeCompStep = 0.16666667f, supportsFlash = true, hwLevel = "FULL",
             supportedSizes = listOf(CameraSize(4032, 3024), CameraSize(1920, 1080)),
             h264Sizes = listOf(CameraSize(1920, 1080)),
-            supportsFocusPoint = true, zoomRatioMax = 10f, cropZoomMax = 8f, freeformCrop = true,
+            supportsFocusPoint = true, supportsMeterPoint = true, zoomRatioMax = 10f, cropZoomMax = 8f, freeformCrop = true,
             lensZooms = listOf(3f), maxFps = 60,
         )),
         auto = false, iso = 400, shutter_ns = 16_666_666L,

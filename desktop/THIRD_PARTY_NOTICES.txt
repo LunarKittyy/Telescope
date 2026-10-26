@@ -14,6 +14,12 @@ UnityCapture (desktop/unitycapture/)
     License: MIT (see desktop/unitycapture/LICENSE).
     Source: https://github.com/schellingb/UnityCapture
 
+Windows 11 camera (virtualcamera\TelescopeCamera.dll, source in desktop/virtualcamera/)
+    Telescope's own code, under Telescope's license. Its structure follows
+    Microsoft's VirtualCamera sample.
+    Sample: Copyright (c) Microsoft Corporation. License: MIT.
+    Source: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
+
 Android SDK Platform Tools (not included)
     On Windows, adb.exe is downloaded from Google when you ask for it (Get adb), and kept in
     %LOCALAPPDATA%\Telescope\platform-tools with Google's NOTICE.txt.
@@ -86,6 +92,15 @@ aiortc (https://pypi.org/project/aiortc/)
     - google-crc32c (https://pypi.org/project/google-crc32c/), Apache 2.0
     - pyOpenSSL (https://pypi.org/project/pyOpenSSL/), Apache 2.0
     - dnspython (https://pypi.org/project/dnspython/), ISC
+
+pyrnnoise (https://pypi.org/project/pyrnnoise/)
+    Brings RNNoise for the Microphone card's noise reduction. Copyright (c)
+    Zhendong Peng. License: Apache 2.0. Installed from
+    desktop/requirements-nodeps.txt; Telescope only uses the library it ships.
+    Its wheels bundle RNNoise (https://gitlab.xiph.org/xiph/rnnoise),
+    BSD 3-Clause: Copyright (c) 2007-2017, 2024 Jean-Marc Valin, (c) 2023
+    Amazon, (c) 2017 Mozilla, (c) 2005-2017 Xiph.Org Foundation, (c) 2003-2004
+    Mark Borgerding.
 
 truststore (https://pypi.org/project/truststore/)
     Checks the certificates of Telescope's own downloads (updates, adb,
