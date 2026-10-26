@@ -169,3 +169,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+
+### Name tag
+
+<!-- due: desktop/telescope/name_tag.py desktop/telescope/plugins/name_tag.py -->
+
+- [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
+- [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.

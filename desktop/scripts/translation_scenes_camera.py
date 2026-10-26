@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card"}
+                "browser_camera": "_card", "name_tag": "_name_edit"}
 
 
 def card_of(win, widget):
@@ -447,6 +447,13 @@ def background_unreadable_picture(stack):
             file.write(b"not a picture")
         plugin.set_config({"mode": "picture", "picture": path})
     return background_card(stack, broken)
+
+
+@scene("name-tag", "main", "Name tag · filled in", width=CARD_WIDTH)
+def name_tag_filled(stack):
+    win = ready_window(stack)
+    plugin_of(win, "name_tag").set_config({"on": True, "name": "Alex Rivera", "pronouns": "they/them"})
+    return cards(stack, win, "name_tag")
 
 
 @scene("dialog-background-picture", "dialogs", "Background · choose a picture")

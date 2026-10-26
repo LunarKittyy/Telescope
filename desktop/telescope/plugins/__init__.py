@@ -12,6 +12,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.plugins.name_tag import NameTagPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
@@ -32,6 +33,7 @@ def builtin_plugins() -> list:
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
+        NameTagPlugin(),  # optional, after Background: its text mustn't be taken for the background
         MicrophonePlugin(),
         PresetsPlugin(),
         PreviewPlugin(),
