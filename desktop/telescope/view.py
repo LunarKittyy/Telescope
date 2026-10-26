@@ -1,4 +1,4 @@
-"""Zoom, pan, flip and rotation of a stream's picture, and how the zoom is shared with the phone. No Qt here."""
+"""Zoom, pan, flip, rotation and stretch of a stream's picture, and how the zoom is shared with the phone. No Qt here."""
 import math
 from dataclasses import dataclass
 from typing import Optional
@@ -23,6 +23,8 @@ class View:
     flip_h: bool = False
     flip_v: bool = False
     rotation: Optional[int] = None  # one of ROTATIONS' values
+    stretch_x: float = 1.0  # widens (>1) or squishes (<1) the picture as shown, around its centre
+    stretch_y: float = 1.0
 
 
 def apply_zoom(frame, zoom: float, pan_x: float, pan_y: float):
@@ -180,11 +182,13 @@ def lens_step(lens: float) -> int:
 
 
 def inverse_map(u: float, v: float, w: int, h: int, zoom: float = 1.0, pan_x: float = 0.0,
-                pan_y: float = 0.0, flip_h: bool = False, flip_v: bool = False, rotation=None) -> tuple:
+                pan_y: float = 0.0, flip_h: bool = False, flip_v: bool = False, rotation=None,
+                stretch_x: float = 1.0, stretch_y: float = 1.0) -> tuple:
     """A point in the transformed frame (u, v in 0..1) back to the phone's frame (w x h before transforms).
 
-    Undoes process_frame in reverse: rotation, then flip, then zoom/pan.
+    Undoes process_frame in reverse: stretch, rotation, then flip, then zoom/pan.
     """
+    u, v = unstretch(u, v, stretch_x, stretch_y)
     if rotation == cv2.ROTATE_90_CLOCKWISE:
         u, v = v, 1.0 - u
     elif rotation == cv2.ROTATE_180:
@@ -209,12 +213,13 @@ def window(zoom: float, pan: float) -> tuple:
 
 
 def shown_to_view(u: float, v: float, zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
-                  flip_v: bool = False, rotation=None) -> tuple:
-    """A point in the frame as shown (after crop, flip and rotation) to the full view of the main lens.
+                  flip_v: bool = False, rotation=None, stretch_x: float = 1.0, stretch_y: float = 1.0) -> tuple:
+    """A point in the frame as shown (after crop, flip, rotation and stretch) to the full view of the main lens.
 
     Continuous and unclamped (a drag can leave the frame), and by the zoom asked for: how the phone and
     this computer share it doesn't change where things are. inverse_map is the pixel-exact one for focus.
     """
+    u, v = unstretch(u, v, stretch_x, stretch_y)
     if rotation == cv2.ROTATE_90_CLOCKWISE:
         u, v = v, 1.0 - u
     elif rotation == cv2.ROTATE_180:
@@ -230,7 +235,7 @@ def shown_to_view(u: float, v: float, zoom: float, pan_x: float, pan_y: float, f
 
 
 def view_to_shown(x: float, y: float, zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
-                  flip_v: bool = False, rotation=None) -> tuple:
+                  flip_v: bool = False, rotation=None, stretch_x: float = 1.0, stretch_y: float = 1.0) -> tuple:
     """The reverse of shown_to_view."""
     (x0, w), (y0, h) = window(zoom, pan_x), window(zoom, pan_y)
     u, v = (x - x0) / w, (y - y0) / h
@@ -244,7 +249,12 @@ def view_to_shown(x: float, y: float, zoom: float, pan_x: float, pan_y: float, f
         u, v = 1.0 - u, 1.0 - v
     elif rotation == cv2.ROTATE_90_COUNTERCLOCKWISE:
         u, v = v, 1.0 - u
-    return u, v
+    return 0.5 + (u - 0.5) * stretch_x, 0.5 + (v - 0.5) * stretch_y
+
+
+def unstretch(u: float, v: float, stretch_x: float = 1.0, stretch_y: float = 1.0) -> tuple:
+    """A point in the stretched picture (0..1) to where it was before apply_stretch moved it."""
+    return 0.5 + (u - 0.5) / stretch_x, 0.5 + (v - 0.5) / stretch_y
 
 
 def pan_for(centre: float, zoom: float) -> float:
@@ -265,7 +275,7 @@ def zoom_detent(old: int, new: int, marks) -> int:
 
 
 def lens_boxes(caps: Optional[PhoneZoomCaps], zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
-               flip_v: bool = False, rotation=None) -> list:
+               flip_v: bool = False, rotation=None, stretch_x: float = 1.0, stretch_y: float = 1.0) -> list:
     """What each longer lens sees, as (label, x0, y0, x1, y1) in the frame as shown (may run off it).
 
     A lens at ratio r sees the centred 1/r of the main lens's view. Nominal: the lenses sit a few mm
@@ -274,7 +284,7 @@ def lens_boxes(caps: Optional[PhoneZoomCaps], zoom: float, pan_x: float, pan_y: 
     boxes = []
     for lens in caps.lens_zooms if caps else ():
         half = 0.5 / lens
-        corners = [view_to_shown(x, y, zoom, pan_x, pan_y, flip_h, flip_v, rotation)
+        corners = [view_to_shown(x, y, zoom, pan_x, pan_y, flip_h, flip_v, rotation, stretch_x, stretch_y)
                    for x in (0.5 - half, 0.5 + half) for y in (0.5 - half, 0.5 + half)]
         xs, ys = [c[0] for c in corners], [c[1] for c in corners]
         boxes.append((f"{round(lens, 1):g}×", min(xs), min(ys), max(xs), max(ys)))
@@ -287,6 +297,16 @@ def transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     elif flip_v:          frame = cv2.flip(frame,  0)
     if rotation is not None: frame = cv2.rotate(frame, rotation)
     return frame
+
+
+def apply_stretch(frame, stretch_x: float, stretch_y: float):
+    """Scale the picture by stretch_x and stretch_y around its centre, keeping the frame's size: what's pushed out
+    is cut off and the room a squish leaves is black, like the bars around a rotated picture."""
+    if abs(stretch_x - 1.0) < 1e-6 and abs(stretch_y - 1.0) < 1e-6:
+        return frame
+    h, w = frame.shape[:2]
+    move = np.float32([[stretch_x, 0, (w - 1) / 2 * (1 - stretch_x)], [0, stretch_y, (h - 1) / 2 * (1 - stretch_y)]])
+    return cv2.warpAffine(frame, move, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
 
 @dataclass(frozen=True)

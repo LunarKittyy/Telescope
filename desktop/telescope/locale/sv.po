@@ -792,7 +792,7 @@ msgstr "Tillägg"
 msgid "Updates & About"
 msgstr "Uppdateringar & Om"
 
-#: telescope/plugin.py:449
+#: telescope/plugin.py:450
 msgid "Open settings"
 msgstr "Öppna inställningar"
 
@@ -4034,80 +4034,80 @@ msgstr "Dynamisk"
 msgid "{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS."
 msgstr "{quality}. Pricken ({default} %) rekommenderas: högre kostar mycket mer data för nästan ingen synlig skillnad. På långsamt Wi-Fi: sänk den eller FPS."
 
-#: telescope/plugins/transforms.py:56
+#: telescope/plugins/transforms.py:57
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "Bytte till {lens}"
 
-#: telescope/plugins/transforms.py:61
+#: telescope/plugins/transforms.py:62
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "Panorerade förbi det {tele} kan se, så den använder {live}. Panorera tillbaka för att byta igen."
 
-#: telescope/plugins/transforms.py:62 telescope/plugins/transforms.py:68
+#: telescope/plugins/transforms.py:63 telescope/plugins/transforms.py:69
 msgid "the telephoto"
 msgstr "teleobjektivet"
 
-#: telescope/plugins/transforms.py:63
+#: telescope/plugins/transforms.py:64
 msgid "the main camera"
 msgstr "huvudkameran"
 
-#: telescope/plugins/transforms.py:66
+#: telescope/plugins/transforms.py:67
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "Telefonen stannade kvar på {live} av sig själv, troligen för mörkt eller för nära för {tele}. Den byter så fort den kan."
 
-#: telescope/plugins/transforms.py:71
+#: telescope/plugins/transforms.py:72
 msgid "It can wobble for a moment while it switches."
 msgstr "Bilden kan hoppa till ett ögonblick när den byter."
 
-#: telescope/plugins/transforms.py:130 telescope/plugins/transforms.py:167 telescope/plugins/transforms.py:244
+#: telescope/plugins/transforms.py:131 telescope/plugins/transforms.py:170 telescope/plugins/transforms.py:264
 msgid "Transforms"
 msgstr "Vändning och zoom"
 
-#: telescope/plugins/transforms.py:131
-msgid "Zoom, pan, flip and rotate the picture."
-msgstr "Zooma, panorera, vänd och rotera bilden."
-
 #: telescope/plugins/transforms.py:132
+msgid "Zoom, pan, flip, rotate and stretch the picture."
+msgstr ""
+
+#: telescope/plugins/transforms.py:133
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Utan det finns inte kortet Vändning och zoom och bilden går ut precis som telefonen skickar den."
 
-#: telescope/plugins/transforms.py:165
+#: telescope/plugins/transforms.py:168
 msgid "Reset"
 msgstr "Återställ"
 
-#: telescope/plugins/transforms.py:165
-msgid "Clear flip, rotation, zoom and pan back to defaults"
-msgstr "Återställ vändning, rotation, zoom och panorering till standard"
+#: telescope/plugins/transforms.py:168
+msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
+msgstr ""
 
-#: telescope/plugins/transforms.py:171
+#: telescope/plugins/transforms.py:174
 msgid "Mirror"
 msgstr "Spegelvänd"
 
-#: telescope/plugins/transforms.py:172
+#: telescope/plugins/transforms.py:175
 msgid "Upside down"
 msgstr "Upp och ned"
 
-#: telescope/plugins/transforms.py:177
+#: telescope/plugins/transforms.py:180
 msgid "Flip"
 msgstr "Vänd"
 
-#: telescope/plugins/transforms.py:194 telescope/plugins/transforms.py:248
+#: telescope/plugins/transforms.py:197 telescope/plugins/transforms.py:268
 msgid "Rotation"
 msgstr "Rotation"
 
-#: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:377
+#: telescope/plugins/transforms.py:206 telescope/plugins/transforms.py:405
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249
+#: telescope/plugins/transforms.py:208 telescope/plugins/transforms.py:269
 msgid "Zoom"
 msgstr "Zoom"
 
 #. H and V for horizontal and vertical, in the narrow Pan readout
-#: telescope/plugins/transforms.py:232 telescope/plugins/transforms.py:463
+#: telescope/plugins/transforms.py:235 telescope/plugins/transforms.py:499
 #, python-brace-format
 msgid ""
 "H {x}\n"
@@ -4116,76 +4116,102 @@ msgstr ""
 "H {x}\n"
 "V {y}"
 
-#: telescope/plugins/transforms.py:233 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:236 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr "Panorera"
 
+#: telescope/plugins/transforms.py:246 telescope/plugins/transforms.py:277
+msgid "Width"
+msgstr ""
+
 #: telescope/plugins/transforms.py:246
+msgid "Stretch or squish the picture sideways"
+msgstr ""
+
+#: telescope/plugins/transforms.py:248 telescope/plugins/transforms.py:279
+msgid "Height"
+msgstr ""
+
+#: telescope/plugins/transforms.py:248
+msgid "Stretch or squish the picture up and down"
+msgstr ""
+
+#: telescope/plugins/transforms.py:266
 msgid "Flip horizontal"
 msgstr "Vänd horisontellt"
 
-#: telescope/plugins/transforms.py:247
+#: telescope/plugins/transforms.py:267
 msgid "Flip vertical"
 msgstr "Vänd vertikalt"
 
-#: telescope/plugins/transforms.py:251
+#: telescope/plugins/transforms.py:271
 msgid "Pan left/right"
 msgstr "Panorera vänster/höger"
 
-#: telescope/plugins/transforms.py:254
+#: telescope/plugins/transforms.py:274
 msgid "Pan up/down"
 msgstr "Panorera upp/ned"
 
-#: telescope/plugins/transforms.py:257
+#: telescope/plugins/transforms.py:281
 msgid "Reset transforms"
 msgstr "Återställ vändning och zoom"
 
-#: telescope/plugins/transforms.py:259
+#: telescope/plugins/transforms.py:283
 msgctxt "search"
 msgid "mirror"
 msgstr "spegelvänd spegla vågrätt horisontellt mirror"
 
-#: telescope/plugins/transforms.py:260
+#: telescope/plugins/transforms.py:284
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "spegelvänd upp och ned upp och ner lodrätt vertikalt mirror upside down"
 
-#: telescope/plugins/transforms.py:261
+#: telescope/plugins/transforms.py:285
 msgctxt "search"
 msgid "rotate turn"
 msgstr "rotera vrid snurra rotate turn"
 
-#: telescope/plugins/transforms.py:262
+#: telescope/plugins/transforms.py:286
 msgctxt "search"
 msgid "crop framing"
 msgstr "beskär beskärning inramning crop framing"
 
-#: telescope/plugins/transforms.py:263 telescope/plugins/transforms.py:264
+#: telescope/plugins/transforms.py:287 telescope/plugins/transforms.py:288
 msgctxt "search"
 msgid "framing move"
 msgstr "inramning flytta framing move"
 
-#: telescope/plugins/transforms.py:329
+#: telescope/plugins/transforms.py:289
+msgctxt "search"
+msgid "stretch squish aspect wide"
+msgstr ""
+
+#: telescope/plugins/transforms.py:290
+msgctxt "search"
+msgid "stretch squish aspect tall"
+msgstr ""
+
+#: telescope/plugins/transforms.py:357
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "Zoomat på den här datorn: det här objektivet kan inte zooma självt"
 
-#: telescope/plugins/transforms.py:330
+#: telescope/plugins/transforms.py:358
 msgid "Zoomed on this computer"
 msgstr "Zoomat på den här datorn"
 
-#: telescope/plugins/transforms.py:332
+#: telescope/plugins/transforms.py:360
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "Zoomat på telefonens sensor så långt det här objektivet tillåter, resten på den här datorn"
 
-#: telescope/plugins/transforms.py:334
+#: telescope/plugins/transforms.py:362
 msgid "Zoomed on the phone's sensor"
 msgstr "Zoomat på telefonens sensor"
 
-#: telescope/plugins/transforms.py:340
+#: telescope/plugins/transforms.py:368
 msgid "Dots mark where the phone switches to another lens"
 msgstr "Prickarna markerar var telefonen byter till ett annat objektiv"
 
-#: telescope/plugins/transforms.py:342
+#: telescope/plugins/transforms.py:370
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} flyttar zoom och panorering"
@@ -5499,3 +5525,9 @@ msgstr "MediaPipe kunde inte laddas på den här datorn. Detaljerna får du med 
 #: telescope/widgets/vision_status.py:53
 msgid "Getting ready…"
 msgstr "Förbereder…"
+
+#~ msgid "Zoom, pan, flip and rotate the picture."
+#~ msgstr "Zooma, panorera, vänd och rotera bilden."
+
+#~ msgid "Clear flip, rotation, zoom and pan back to defaults"
+#~ msgstr "Återställ vändning, rotation, zoom och panorering till standard"

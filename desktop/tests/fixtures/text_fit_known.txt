@@ -26,4 +26,5 @@ pseudo	out of its box	Stop the stream
 pseudo	out of its box	Upside down
 pseudo	out of its box	Widen for something in your hand
 pseudo	out of its box	[1.0× ~]
+pseudo	out of its box	[100% ~]
 pseudo	out of its box	—
