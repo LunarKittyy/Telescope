@@ -63,7 +63,7 @@ object StillCatalog {
             hotPixelHq = CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY in hotPixel,
             distortion = CaptureRequest.DISTORTION_CORRECTION_MODE_OFF in distortion && distortion.size > 1,
         )
-    }.getOrNull()
+    }.onFailure { android.util.Log.w("StillCatalog", "Couldn't read what lens ${entry.id} can do for photos", it) }.getOrNull()
 
     // The JPEG size a maker's mode takes its photos at: the largest it lists
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)

@@ -79,6 +79,7 @@ class DynamicUdpSimTest {
         var paceCredit = 0.0
         var paceBps = 0
         var encoded = 0L
+        var rateBytes = 0L  // for encodedBps, reset every sample like MjpegServer's
         var encodedBps = 0.0
 
         // Router and the air between
@@ -133,6 +134,7 @@ class DynamicUdpSimTest {
                 val perFrame = bitrate / 8.0 / fps * usage(now)
                 val size = (perFrame * (if (key) keyShare * fps else (1 - keyShare) * fps / (fps - 1)) * (0.8 + 0.4 * rnd.nextDouble())).toInt()
                 encoded += size
+                rateBytes += size
                 frameNo++
                 if (!(waitingForKey && !key)) {
                     if (frames.size >= UdpVideoClient.QUEUE) { frames.clear(); waitingForKey = true; wantKey = true; skips++ }
@@ -243,7 +245,8 @@ class DynamicUdpSimTest {
             while (toPhone.isNotEmpty() && toPhone.first().first <= now) toPhone.removeFirst().second()
             // Phone: sample every 250 ms, like MjpegServer
             if (now > 0 && now % MjpegServer.LINK_SAMPLE_MS == 0L) {
-                (encoded * 8_000.0 / MjpegServer.LINK_SAMPLE_MS).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
+                (rateBytes * 8_000.0 / MjpegServer.LINK_SAMPLE_MS).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
+                rateBytes = 0
                 if (dynamic) { sndbufCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2; paceBps = UdpVideoClient.paceFor(encodedBps, bitrate, if (controller!!.full && linkPace) udpLink.peakBps(now) else 0.0) }
                 val take = udpLink.take(now, frames.firstOrNull()?.let { now - it.atMs } ?: 0L)
                 if (take != null) {
