@@ -1255,5 +1255,5 @@ def on_air_header_and_banner(stack):
     plugin = win._plugin("on_air")
     plugin._debounce.state = True
     plugin._refresh()
-    plugin._on_webhook_done("state", "Connection refused")
+    plugin._on_webhook_done(f"state:{plugin._state_gen}", "Connection refused")
     return window_wide(win)
