@@ -362,8 +362,9 @@ def fake_windows(stack, files=False, net=None, exit_code=0, registered=False, fo
             raise subprocess.TimeoutExpired(cmd, 60)
         return SimpleNamespace(returncode=exit_code)
 
-    for module in (windows, setup, onboarding):
+    for module in (windows, setup):
         stack.enter_context(mock.patch.object(module, "unitycapture_dir", lambda: folder))
+    stack.enter_context(mock.patch.object(windows, "mf_installable", lambda: False))  # these scenes are UnityCapture's
     stack.enter_context(mock.patch.object(windows, "web", _Shim(windows.web, urlopen=urlopen)))
     stack.enter_context(mock.patch.object(windows, "subprocess", _Shim(subprocess, run=run)))
     if valid:

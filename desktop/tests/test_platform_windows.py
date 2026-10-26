@@ -478,12 +478,6 @@ def test_windows_10_installs_unitycapture(monkeypatch):
     assert calls == [("download",), ("uc", 1, True)]
 
 
-def test_register_mf_camera_needs_the_bundled_dll(monkeypatch, tmp_path):
-    monkeypatch.setattr(windows, "mf_camera_dir", lambda: tmp_path)
-    ok, msg, code = windows.register_mf_camera()
-    assert not ok and windows.MF_DLL in msg and code is None
-
-
 def test_the_windows_11_camera_is_copied_checked_and_registered_as_admin(monkeypatch, tmp_path):
     monkeypatch.setattr(windows, "mf_camera_dir", lambda: tmp_path)
     (tmp_path / windows.MF_DLL).write_bytes(b"the camera")

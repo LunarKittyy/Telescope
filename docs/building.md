@@ -40,6 +40,19 @@ python scripts/smoke_check.py    # packaging smoke checks
 
 For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. Those launchers create their own environment for running the app; they don't install the test dependencies or activate it in your terminal. Linux still needs the [virtual camera setup](setup.md) for a real stream.
 
+## The Windows 11 camera
+
+The camera Telescope installs on Windows 11 is a small C++ DLL in `desktop/virtualcamera/` (how it works is in [Architecture](architecture.md#the-windows-11-camera)). Builds need Visual Studio 2022 or its Build Tools with the C++ workload, a Windows 11 SDK and CMake (the C++ workload ships one). From `desktop/` in a Developer PowerShell:
+
+```powershell
+cmake -S virtualcamera -B virtualcamera/build -A x64
+cmake --build virtualcamera/build --config Release
+```
+
+That writes `virtualcamera/build/Release/TelescopeCamera.dll`, where a source checkout looks for it. **Install driver** then copies it into Program Files and registers it. CI builds the same way and puts the DLL in `virtualcamera\` next to `TelescopeDesktop.exe`.
+
+Change the DLL in a way an installed copy has to be replaced for (anything but comments) and raise `kCameraVersion` in `camera.h` and `MF_VERSION` in `platform/windows.py` together. Settings then offers **Update** to people who have the old one.
+
 ## Try a change without touching your real install
 
 A dev phone app and a dev desktop run next to the real ones and pair only with each other.
@@ -92,7 +105,7 @@ They also run on every pull request without publishing. Their checks are called 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**`, `VERSION` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
-| `build-windows.yml` | `desktop/**`, `installer/**`, `VERSION` | Installs dependencies, runs `pytest` and `smoke_check.py`, checks the driver install for real on the runner, builds the app folder with PyInstaller (`telescope.spec`), and on pull requests builds a quick `TelescopeSetup.exe` with Inno Setup and checks the installer, update and uninstall paths. A release does those last two in `release.yml`, on the setup it publishes |
+| `build-windows.yml` | `desktop/**`, `installer/**`, `VERSION` | Builds the Windows 11 camera's DLL, installs dependencies, runs `pytest` and `smoke_check.py`, checks the UnityCapture install for real on the runner (its Windows Server is older than Windows 11, so the Windows 11 camera can't be registered there), builds the app folder with PyInstaller (`telescope.spec`), and on pull requests builds a quick `TelescopeSetup.exe` with Inno Setup and checks the installer, update and uninstall paths. A release does those last two in `release.yml`, on the setup it publishes |
 | `build-linux.yml` | `desktop/**`, `VERSION` | Runs `pytest` (with the Inter and Noto fonts installed, which `test_text_fit.py` measures with) and `smoke_check.py`, then assembles the source bundle: `main.py`, `update_guard.py`, the `telescope/` package, the requirements files, `start.sh` and the notices. There's no compiled build step since `start.sh` makes its own venv on first run |
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log and the downloaded adb, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.

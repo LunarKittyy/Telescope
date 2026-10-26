@@ -422,11 +422,8 @@ def mf_outdated() -> bool:
 def register_mf_camera(devices: int = 1) -> tuple:
     """Install the Windows 11 camera as admin, with devices cameras to stream to: (ok, message, exit code or None)."""
     src = mf_camera_dir()
-    dll = src / MF_DLL
-    if not dll.is_file():
-        return False, tr("{file} is missing from Telescope's folder", file=MF_DLL), None
     # Hashed here and checked again as admin on the copy in Program Files, the one that gets registered
-    return _run_as_admin(_mf_install_script(src, _sha256(dll).upper(), devices))
+    return _run_as_admin(_mf_install_script(src, _sha256(src / MF_DLL).upper(), devices))
 
 
 def install_camera(devices: int = 1, reset: bool = False, progress_cb=None) -> tuple:

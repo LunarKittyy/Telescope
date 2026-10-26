@@ -204,6 +204,8 @@ def test_windows_background_check_emits_current_status(monkeypatch, windows_dial
     monkeypatch.setattr(setup_mod, "uc_registered_name", lambda: "Telescope")
     monkeypatch.setattr(setup_mod, "uc_in_app_folder", lambda: False)
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
+    monkeypatch.setattr(setup_mod, "use_mf", lambda slot=0: False)
+    monkeypatch.setattr(setup_mod, "mf_installable", lambda: False)  # Windows 10
     windows_dialog._check_win_setup()
     assert windows_dialog._uc_status_lbl.text() == "Ready"
     assert "Not found" in windows_dialog._adb_status_lbl.text()
