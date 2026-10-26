@@ -72,6 +72,20 @@ def test_the_tools_judge_the_picture_before_any_of_them_paints():
     assert (out == _colour_for(100)).all(axis=2).mean() > 0.3
 
 
+def test_a_big_preview_is_judged_small_and_marked_at_its_own_size():
+    layer = CinemaLayer()
+    frame = _grey(40, w=2560, h=1440)
+    frame[:, 1280:] = 255
+    layer.look = Look(peaking=True, zebras=True, peaking_colour="green")
+    out = layer.tint(frame.copy())
+    assert out.shape == frame.shape
+    assert np.all(out[:, 1276:1284] == (60, 255, 60), axis=2).any()  # the edge, where it is in the big frame
+    assert not np.all(out[:, :1200] == (60, 255, 60), axis=2).any()
+    assert 0.3 < (out[:, 1300:] == 0).all(axis=2).mean() < 0.7  # striped, not blacked out
+    layer.look = Look(false_colour=True)
+    assert tuple(layer.tint(frame.copy())[10, 2000]) == _colour_for(100)
+
+
 class _Host:
     def __init__(self):
         self.overlays = PreviewOverlays(View)

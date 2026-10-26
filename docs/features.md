@@ -64,7 +64,7 @@ Peaking colour and sensitivity and how big the scope is are under Video in Setti
 
 Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Optional** in the Plugins tab of Settings.
 
-- **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture
+- **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
 - The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
 - **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
 - Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened

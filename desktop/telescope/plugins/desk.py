@@ -24,6 +24,8 @@ _PAPER = (255, 255, 255)  # ...and around a cleaned-up one
 _SHADE_SMALL = 8  # the paper's shading is worked out at an eighth of the size
 _INSET = 0.985  # the sheet is cut this much inside the corners as marked
 _INK = 0.92  # contrast: the paper's brightness is divided out, then scaled by this so ink stays dark
+_MIN_AREA = 0.01  # a sheet covering less than this share of the picture is corners bunched up, not a sheet
+_MIN_ANGLE = 15.0  # degrees: a sharper corner, or one this close to flat, means corners in a line
 
 
 def order_corners(points) -> np.ndarray:
@@ -34,6 +36,25 @@ def order_corners(points) -> np.ndarray:
     pts = pts[np.argsort(angles)]  # clockwise on screen, since y points down
     start = int(np.argmin(pts.sum(axis=1)))
     return np.roll(pts, -start, axis=0)
+
+
+def usable_corners(points) -> bool:
+    """Whether four points (0..1 of the picture) outline a sheet that can be straightened: not bunched up, crossed
+    or lined up, which would give a warp of garbage."""
+    pts = order_corners(points).astype(np.float64)
+    edges = np.roll(pts, -1, axis=0) - pts
+    after = np.roll(edges, -1, axis=0)
+    turns = edges[:, 0] * after[:, 1] - edges[:, 1] * after[:, 0]
+    area = abs(float(np.sum(pts[:, 0] * np.roll(pts[:, 1], -1) - np.roll(pts[:, 0], -1) * pts[:, 1]))) / 2
+    if area < _MIN_AREA or not (np.all(turns > 0) or np.all(turns < 0)):
+        return False
+    lengths = np.linalg.norm(edges, axis=1)
+    for i in range(4):
+        before, after = -edges[i - 1], edges[i]
+        cos = float(before @ after) / max(lengths[i - 1] * lengths[i], 1e-12)
+        if not _MIN_ANGLE <= math.degrees(math.acos(min(max(cos, -1.0), 1.0))) <= 180.0 - _MIN_ANGLE:
+            return False
+    return True
 
 
 def sheet_size(corners: np.ndarray) -> tuple:
@@ -145,6 +166,7 @@ class DeskPlugin(TelescopePlugin):
         self._warp = Warp()
         self._picking = False  # the warp waits while the corners are being placed, so they go on the real picture
         self._told = None  # the warp the preview was last told about
+        self._refused = False  # the last corners marked didn't make a sheet, so the card says so
         bus.view_changed.connect(self._on_view)
         bus.preview_pick_changed.connect(self._on_pick_changed)
 
@@ -254,6 +276,11 @@ class DeskPlugin(TelescopePlugin):
         if pick is None:
             self._show()
             return
+        if not usable_corners(pick.full):
+            self._refused = True
+            self._show()
+            return
+        self._refused = False
         self._apply(corners=tuple(pick.full), on=True)
         self._switch.blockSignals(True)
         self._switch.setChecked(True)
@@ -262,6 +289,8 @@ class DeskPlugin(TelescopePlugin):
 
     def _on_pick_changed(self, owner: str):
         self._picking = owner == self.name
+        if self._picking:
+            self._refused = False
         self._show()
 
     def _show(self):
@@ -273,6 +302,9 @@ class DeskPlugin(TelescopePlugin):
         self._mark_btn.setText(tr("Mark the sheet again") if self._settings.corners else tr("Mark the sheet"))
         if self._picking:
             text, kind = tr("Drag the corners on the preview onto the sheet's corners."), ""
+        elif self._refused:
+            text, kind = tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with "
+                            "one on each of its corners."), "warn"
         elif self._settings.on and self._settings.corners is None:
             text, kind = tr("Mark the sheet's corners to straighten it."), "warn"
         elif self._settings.on and self._off_picture():
@@ -324,7 +356,7 @@ class DeskPlugin(TelescopePlugin):
         valid = (isinstance(corners, list) and len(corners) == 4 and all(
             isinstance(p, list) and len(p) == 2 and all(isinstance(c, (int, float)) and not isinstance(c, bool)
                                                         and math.isfinite(c) for c in p) for p in corners))
-        corners = tuple((float(x), float(y)) for x, y in corners) if valid else None
+        corners = tuple((float(x), float(y)) for x, y in corners) if valid and usable_corners(corners) else None
         cleanup = cfg.get("cleanup") if cfg.get("cleanup") in dict(CLEANUPS) else "off"
         keep = cfg.get("keep_shape") is not False
         on = cfg.get("on") is True and corners is not None
