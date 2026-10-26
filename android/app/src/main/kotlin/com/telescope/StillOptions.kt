@@ -69,6 +69,28 @@ data class StillRequest(
     val exposureMs: Long get() = shots.sumOf { (it.exposureNs ?: 0L) / 1_000_000L }
     // Shot next to the stream, manual exposures leave the video out, so long ones freeze it noticeably: reported as paused
     val pausesVideo: Boolean get() = ownSession || exposureMs >= StillOptions.PAUSE_MS
+    // The longest single picture's exposure, which it may take on top of the usual time
+    val longestExposureMs: Long get() = shots.maxOfOrNull { (it.exposureNs ?: 0L) / 1_000_000L } ?: 0L
+    // Any best quality mode, which some phones stall on with a HEIC output
+    val hq: Boolean get() = nrHq || edgeHq || hotPixelHq
+    fun withoutHq(): StillRequest = copy(nrHq = false, edgeHq = false, hotPixelHq = false)
+}
+
+// How long a photo may take before the phone gives up on it; plain numbers, so the JVM tests cover them
+object StillTiming {
+    const val SETUP_MS = 10_000L   // the session set up and the light settled
+    const val SHOT_MS = 5_000L     // each picture, on top of its exposure
+    const val STALL_MS = 6_000L    // a photo that shot and then heard nothing for this long (plus its exposure) has stalled
+    const val BACKSTOP_MS = 5_000L // StillJobs fails it this long after the camera thread should have
+
+    // The camera thread's limit for the whole photo, after its timer
+    fun limitMs(r: StillRequest): Long = SETUP_MS + r.exposureMs + r.shots.size * SHOT_MS
+
+    fun stalled(nowMs: Long, lastProgressMs: Long, r: StillRequest): Boolean =
+        nowMs - lastProgressMs > STALL_MS + r.longestExposureMs
+
+    // StillJobs' limit, for a camera thread that never gets to fail it: room for a second go without the best quality modes
+    fun backstopMs(r: StillRequest): Long = (if (r.hq) 2 else 1) * limitMs(r) + BACKSTOP_MS
 }
 
 // Base exposure for bracketing and long exposures: what the stream runs at (set by hand, or what auto exposure picked).
