@@ -1445,7 +1445,7 @@ def test_a_usb_check_that_finishes_after_the_move_doesnt_start_another(plugin_en
     assert plugin.prepare_stream_route(USB, "id-a") is None  # it's on that one already
 
 
-def test_udp_is_used_on_wifi_only_when_switched_on_and_not_on_dynamic(plugin_env, monkeypatch):
+def test_udp_is_used_on_wifi_only_when_switched_on_and_dynamic_only_where_the_phone_runs_it(plugin_env, monkeypatch):
     plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
     _add(plugin)
@@ -1461,7 +1461,13 @@ def test_udp_is_used_on_wifi_only_when_switched_on_and_not_on_dynamic(plugin_env
     assert plugin.prepare_stream_route(USB, "id-a").endswith("/v1/video.h264")  # handing over to the cable too
     plugin.drop_stream_route("id-a")
 
-    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": -1}  # Dynamic measures TCP's queue
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": -1}  # an older phone measures TCP's queue
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")
+    plugin._apply_resolution(Resolution(READY, WIFI, udp_dynamic=True))  # a newer one runs it from our reports
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.udp")
+    plugin._apply_resolution(Resolution(UNREACHABLE))  # a check that didn't reach it doesn't forget that
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.udp")
+    plugin._apply_resolution(Resolution(READY, WIFI))  # downgraded
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")
     host.configs["stream_output"] = {"format": "mjpeg"}
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video")  # Heavy is never UDP
@@ -1477,7 +1483,21 @@ def test_udp_switch_reconnects_a_running_wifi_stream(plugin_env, monkeypatch):
     assert host.reconnects == 1
 
 
-def test_dynamic_replaces_a_running_udp_stream_with_tcp(plugin_env, monkeypatch):
+def test_dynamic_keeps_udp_on_a_phone_that_runs_it_there(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    _add(plugin)
+    plugin._apply_resolution(Resolution(READY, WIFI, udp_dynamic=True))
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
+    plugin._udp = True
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("https://phone/v1/video.udp", None)
+    host.configs["stream_output"]["bitrate_mbps"] = -1
+    plugin._bus.stream_transport_changed.emit()
+    assert host.reconnects == 0
+
+
+def test_dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone(plugin_env, monkeypatch):
     plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
     host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}

@@ -552,6 +552,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_pref = ROUTE_AUTO
         self._udp = False  # experimental H.264 over UDP on Wi-Fi
         self._transport_udp = False
+        self._udp_dynamic: set = set()  # phones that run Dynamic over UDP, from their last ping
         self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
@@ -754,8 +755,8 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
-        # Translators: Dynamic and Heavy are names of stream formats, as the Stream output card shows them
-        self._udp_cb.setToolTip(tr("Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP."))
+        # Translators: Heavy is the name of a stream format, as the Stream output card shows it
+        self._udp_cb.setToolTip(tr("Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."))
         self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = QWidget()
@@ -1026,6 +1027,11 @@ class ConnectionPlugin(TelescopePlugin):
         if self._update_note is not None and res.status not in (PHONE_OUTDATED, UNREACHABLE):
             self._update_note = None  # the phone moved on from the update; its note is stale
         self._resolution = res
+        if res.status == READY and self._selected_id:
+            if res.udp_dynamic:
+                self._udp_dynamic.add(self._selected_id)
+            else:
+                self._udp_dynamic.discard(self._selected_id)
         phone = self._selected_phone()
         if phone and res.route is not None and res.route.kind == "wifi" and phone.active_ip != res.route.host:
             phone.active_ip = res.route.host  # remember the address that answered (e.g. after DHCP moved it)
@@ -1166,7 +1172,7 @@ class ConnectionPlugin(TelescopePlugin):
             forward = route.serial
             url = f"https://127.0.0.1:{local}{path}"
         else:
-            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path)}"
+            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path, pid)}"
         self._holds[pid] = (route, forward)
         self._paths[pid] = path
         return url
@@ -1195,7 +1201,7 @@ class ConnectionPlugin(TelescopePlugin):
             forward = route.serial
             url = f"https://127.0.0.1:{local}{path}"
         else:
-            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path)}"
+            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path, pid)}"
         self._prepared[pid] = (route, forward, path)
         return url
 
@@ -1259,14 +1265,16 @@ class ConnectionPlugin(TelescopePlugin):
         route = self._stream_route
         if not self._streaming or route is None or route.kind != "wifi" or self._video_path() != "/v1/video.h264":
             return
-        wants_udp = self._path_for(route, "/v1/video.h264").endswith(".udp")
+        wants_udp = self._path_for(route, "/v1/video.h264", self._selected_id).endswith(".udp")
         if wants_udp != self._transport_udp:
             self._host.reconnect_stream()
 
-    def _path_for(self, route: Route, path: str) -> str:
-        """The H.264 path over UDP where it applies: Wi-Fi, switched on, and not Dynamic (which measures TCP's queue)."""
+    def _path_for(self, route: Route, path: str, pid: Optional[str] = None) -> str:
+        """The H.264 path over UDP where it applies: Wi-Fi and switched on. Dynamic only on a phone that runs it from
+        this desktop's reports; an older one measures its TCP queue, so Dynamic stays on TCP there."""
         out = self._host.plugin_config("stream_output") or {}
-        if path == "/v1/video.h264" and route.kind == "wifi" and self._udp and out.get("bitrate_mbps") != -1:
+        dynamic_ok = out.get("bitrate_mbps") != -1 or pid in self._udp_dynamic
+        if path == "/v1/video.h264" and route.kind == "wifi" and self._udp and dynamic_ok:
             return "/v1/video.udp"
         return path
 

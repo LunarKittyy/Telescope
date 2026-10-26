@@ -460,11 +460,11 @@ def test_default_config_resets_boolean_camera_settings(camera_plugin):
     assert cfg["bll"] is False
 
 
-def _point_state(focus_mode="continuous", supports=True):
+def _point_state(focus_mode="continuous", supports=True, meter=False):
     return {
         "cameras": [{"id": "0", "label": "Main", "current": True, "supportsManualSensor": True,
                      "supportsManualWB": True, "supportsManualFocus": True, "minFocusDistance": 10.0,
-                     "supportsFocusPoint": supports}],
+                     "supportsFocusPoint": supports, "supportsMeterPoint": meter}],
         "auto": True, "focus_mode": focus_mode,
     }
 
@@ -504,6 +504,30 @@ def test_point_focus_follows_the_phone_and_the_lens(camera_plugin):
     assert ctrl.sent == []  # this lens can't
     plugin.on_stream_stop()
     assert not plugin._rb_focus_point.isEnabled()
+
+
+def test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    ctrl = _Ctrl()
+    focus, meter = [], []
+    bus.focus_point_available.connect(focus.append)
+    bus.meter_point_available.connect(meter.append)
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state(_point_state(supports=False, meter=True))
+    assert focus[-1] is False and meter[-1] is True and not plugin._rb_focus_point.isEnabled()
+    ctrl.sent.clear()
+    bus.meter_point.emit(0.25, 0.75)
+    assert ctrl.sent == [{"action": "meter_point", "x": 0.25, "y": 0.75}]
+    assert plugin._rb_focus_auto.isChecked()
+    ctrl.sent.clear()
+    bus.focus_point.emit(0.25, 0.75)
+    assert ctrl.sent == []  # Tap a point works as before: not on this lens
+    plugin.on_phone_state(_point_state(supports=False))  # an older phone doesn't say
+    bus.meter_point.emit(0.5, 0.5)
+    assert ctrl.sent == [] and meter[-1] is False
+    plugin.on_phone_state(_point_state(supports=False, meter=True))
+    plugin.on_stream_stop()
+    assert meter[-1] is False
 
 
 def test_compensation_snaps_and_all_three_reset_on_a_double_click(camera_plugin):
@@ -620,3 +644,18 @@ def test_back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is(came
     plugin.on_stream_stop()
     plugin.on_focus_gained("url", ctrl)
     assert ctrl.sent  # nothing kept from a stream that ended
+
+
+def test_the_focus_mode_is_published_however_it_changes(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    modes, picked = [], []
+    bus.focus_mode_changed.connect(modes.append)
+    bus.focus_mode_picked.connect(picked.append)
+    plugin.on_plugins_ready()
+    assert modes == ["auto"]
+    plugin.set_config({"focus_manual": True})  # a saved Manual focus coming back
+    assert modes[-1] == "manual" and picked == []
+    plugin.on_stream_start("url", _Ctrl())
+    assert modes[-2:] == ["manual", "manual"]  # said again for the new stream
+    plugin._rb_focus_auto.click()
+    assert modes[-1] == "auto" and picked == ["auto"]
