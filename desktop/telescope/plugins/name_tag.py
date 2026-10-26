@@ -124,7 +124,8 @@ class NameTagPlugin(TelescopePlugin):
         settings = self._settings
         if not settings.shows:
             return None
-        return lambda frame: self._step(frame, settings)
+        frozen = _Settings(settings.on, settings.spec)  # a cache of its own: the streams can differ in size
+        return lambda frame: self._step(frame, frozen)
 
     @staticmethod
     def _step(frame: np.ndarray, settings: _Settings) -> np.ndarray:

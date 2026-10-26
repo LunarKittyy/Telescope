@@ -55,6 +55,7 @@ Optional. It puts your name and pronouns in a corner of the picture, with a smal
 - **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
 - Presets save the tag too. One preset can have it on for a talk and another can leave it off for a chat
 - Names in any script work (Arabic and Hebrew ones start from the right) and anything too long for the picture is cut short with "…"
+- The tag goes on the picture before Telescope fits it to the virtual camera's canvas. With a **Canvas size** of another shape it sits in the corner of the picture rather than of the canvas. A low-resolution stream on a bigger canvas makes its text a little soft too (a higher resolution on the Stream output card helps)
 - **Mirror** on the Transforms card never mirrors the text. If your own preview in a video call shows it backwards, that's the call app mirroring your self view while everyone else sees it the right way round
 
 ## Presets

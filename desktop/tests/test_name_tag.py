@@ -196,3 +196,18 @@ def test_it_runs_after_the_background_plugin():
 
 def test_it_uses_the_apps_fonts():
     assert nt.app_families()[0] == "Inter" and "sans-serif" not in nt.app_families()
+
+
+def test_a_whitespace_name_doesnt_decide_the_direction():
+    lay = nt.layout(nt.Spec(name="   ", pronouns="هي"), 1280, 720)
+    assert lay.stripe.right() == lay.box.right()  # laid out right to left, by the pronouns
+
+
+def test_a_stream_behind_the_panels_keeps_a_cache_of_its_own(plugin):
+    plugin.set_config({"on": True, "name": "Luna"})
+    step = plugin.frame_step()
+    live = plugin._settings.cache
+    plugin.process_frame(np.zeros((720, 1280, 3), np.uint8))
+    step(np.zeros((360, 640, 3), np.uint8))
+    plugin.process_frame(np.zeros((720, 1280, 3), np.uint8))
+    assert live.renders == 1  # the other size didn't throw it out

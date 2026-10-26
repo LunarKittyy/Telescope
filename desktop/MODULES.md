@@ -483,8 +483,8 @@ v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec s
 
 ### `plugins/name_tag.py`
 **NameTagPlugin** - the Name tag. `optional`, so it's off until switched on in Plugins; `in_presets`; one setting for the whole app. Registered after Background, so Background never takes the tag for part of the background. `panel_region = "right"`.
-- UI: a switch in the header, Name, Pronouns and Second line boxes, and Style, Position and Size drop-downs. Every change makes a new `_Settings` (on, `name_tag.Spec` and its own `TagCache`) swapped in whole for the worker thread, and a frozen `frame_step` keeps the one it had.
-- `process_frame` runs after the window's view (zoom, pan, flip, rotation), so the tag is drawn on the picture as sent and Mirror never mirrors the text.
+- UI: a switch in the header, Name, Pronouns and Second line boxes, and Style, Position and Size drop-downs. Every change makes a new `_Settings` (on, `name_tag.Spec` and its own `TagCache`) swapped in whole for the worker thread; a frozen `frame_step` copies it with a cache of its own, since the stream behind the panels can be another size.
+- `process_frame` runs after the window's view (zoom, pan, flip, rotation), so the tag is drawn on the picture as sent and Mirror never mirrors the text. It also runs before `vcam.fit_frame`, so the tag is placed and sized in the stream's frame, not the canvas.
 - Config keys: `on`, `name`, `pronouns`, `second`, `style`, `position`, `size`. `tests/test_name_tag.py`.
 
 ### `plugins/stream_output.py`

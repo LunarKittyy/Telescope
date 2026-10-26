@@ -143,7 +143,7 @@ def layout(spec: Spec, w: int, h: int) -> Optional[Layout]:
     y = h - margin_y - box_h if spec.position.startswith("bottom") else margin_y
     box = QRectF(round(x), round(y), round(box_w), round(box_h))
 
-    rtl = right_to_left(spec.name or spec.pronouns or spec.second)
+    rtl = right_to_left(name or pronouns or second)
     left, right = box.left() + pad_x, box.right() - pad_x
     if rtl:
         right -= stripe_w  # the accent goes where the text starts
