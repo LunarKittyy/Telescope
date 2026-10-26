@@ -85,6 +85,14 @@ def _clamp(point: tuple) -> tuple:
     return min(max(point[0], 0.0), 1.0), min(max(point[1], 0.0), 1.0)
 
 
+def _nudge(d: float, lo: float, hi: float) -> float:
+    """A move of d along one axis of shapes whose corners span lo..hi there, cut short only where it would push a
+    corner further off the frame. A shape already reaching past an edge doesn't jump back."""
+    if d < 0:
+        return max(d, min(0.0, -lo))
+    return min(d, max(0.0, 1.0 - hi))
+
+
 def _inside(point: tuple, polygon: list) -> bool:
     """Whether point is inside polygon (ray casting)."""
     x, y = point
@@ -385,8 +393,9 @@ class PreviewOverlays(QObject):
         elif pick.drag == "all":
             # Moved as far as all four corners stay on the picture, so the shape never gets squashed at an edge
             shown = self._shown_points()
-            du = min(max(u - pick.grab_at[0], -min(p[0] for p in shown)), 1.0 - max(p[0] for p in shown))
-            dv = min(max(v - pick.grab_at[1], -min(p[1] for p in shown)), 1.0 - max(p[1] for p in shown))
+            us, vs = [p[0] for p in shown], [p[1] for p in shown]
+            du = _nudge(u - pick.grab_at[0], min(us), max(us))
+            dv = _nudge(v - pick.grab_at[1], min(vs), max(vs))
             view = self._view()
             pick.points = [to_full(view, pu + du, pv + dv) for pu, pv in shown]
             pick.grab_at = (pick.grab_at[0] + du, pick.grab_at[1] + dv)

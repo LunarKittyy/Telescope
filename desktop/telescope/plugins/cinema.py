@@ -27,6 +27,7 @@ SIZES = (("small", N_("Small"), 0.26), ("medium", N_("Medium"), 0.36), ("large",
 _SCOPE_FPS = 12  # scopes are worked out this often, off the stream thread
 _ZEBRA_PERIOD = 8  # px, one black and one clear stripe
 _LEGEND = 6  # px, a false colour legend swatch
+_WORK_WIDTH = 1280  # px, the widest the tools judge a frame at; a bigger preview gets their marks scaled up
 
 # False colour: (up to this luma %, BGR), the classic exposure scheme; None keeps the picture in grey there
 # Translators: the false colour legend on the preview, as short as you can
@@ -84,19 +85,34 @@ def peaking_mask(frame: np.ndarray, sensitivity: int) -> np.ndarray:
 
 
 _stripes: dict = {}
+_solids: dict = {}
 
 
-def zebra_mask(frame: np.ndarray, level: int, phase: int = 0, luma: Optional[np.ndarray] = None) -> np.ndarray:
-    """Diagonal stripes where luma is at level % or more, as a bool array; phase moves them along."""
-    h, w = frame.shape[:2]
+def _stripes_at(h: int, w: int, phase: int) -> np.ndarray:
+    """The zebras' diagonal stripes for an h x w frame as a bool array, cached per size; phase moves them along."""
     if (h, w) not in _stripes:
         ys, xs = np.mgrid[0:h, 0:w + _ZEBRA_PERIOD]
         _stripes.clear()
         _stripes[(h, w)] = ((xs + ys) // (_ZEBRA_PERIOD // 2)) % 2 == 0
     phase %= _ZEBRA_PERIOD
-    stripes = _stripes[(h, w)][:, phase:phase + w]
+    return _stripes[(h, w)][:, phase:phase + w]
+
+
+def zebra_mask(frame: np.ndarray, level: int, phase: int = 0, luma: Optional[np.ndarray] = None) -> np.ndarray:
+    """Diagonal stripes where luma is at level % or more, as a bool array; phase moves them along."""
+    h, w = frame.shape[:2]
     y = scopes.luma(frame) if luma is None else luma
-    return (y >= round(level / 100 * 255)) & stripes
+    return (y >= round(level / 100 * 255)) & _stripes_at(h, w, phase)
+
+
+def _paint(frame: np.ndarray, mask: np.ndarray, colour: tuple):
+    """colour on frame wherever mask (uint8, the frame's size) is set, in place; far quicker than frame[mask] = colour."""
+    key = (frame.shape, colour)
+    if key not in _solids:
+        for old in [k for k in _solids if k[0] != frame.shape]:
+            del _solids[old]
+        _solids[key] = np.full(frame.shape, colour, np.uint8)
+    cv2.copyTo(_solids[key], mask, frame)
 
 
 @dataclass(frozen=True)
@@ -131,21 +147,36 @@ class CinemaLayer(PreviewLayer):
 
     def tint(self, frame: np.ndarray) -> np.ndarray:
         look = self.look
+        h, w = frame.shape[:2]
+        # Judged on a copy at most _WORK_WIDTH wide, so a full screen pop-out costs about what the card does
+        small = scopes.shrink(frame, _WORK_WIDTH)
+        scaled = small is not frame
+
+        def full(mask: np.ndarray) -> np.ndarray:
+            if not scaled:
+                return mask.view(np.uint8)
+            # Scaled smoothly and cut at half way, so edges don't come out as steps
+            grown = cv2.resize(mask.view(np.uint8) * 255, (w, h), interpolation=cv2.INTER_LINEAR)
+            return cv2.threshold(grown, 127, 1, cv2.THRESH_BINARY)[1]
+
         # Every tool judges the picture as it came in, then they all paint: one tool's paint isn't another's edge
-        luma = scopes.luma(frame) if look.false_colour or look.zebras else None
+        luma = scopes.luma(small) if look.false_colour or look.zebras else None
         zebras = peaks = None
         if look.zebras:
             self._phase = (self._phase + 1) % _ZEBRA_PERIOD
-            zebras = zebra_mask(frame, look.zebra_level, self._phase, luma)
+            bright = full(luma >= round(look.zebra_level / 100 * 255))
+            # The stripes are drawn at the frame's own size, so they stay crisp however it was judged
+            zebras = cv2.bitwise_and(bright, _stripes_at(h, w, self._phase).view(np.uint8))
         if look.peaking:
-            peaks = peaking_mask(frame, look.peaking_level)
+            peaks = full(peaking_mask(small, look.peaking_level))
         if look.false_colour:
-            frame = false_colour(frame, luma)
+            coloured = false_colour(small, luma)
+            frame = cv2.resize(coloured, (w, h), interpolation=cv2.INTER_LINEAR) if scaled else coloured
         if zebras is not None:
-            frame[zebras] = 0
+            _paint(frame, zebras, (0, 0, 0))
         if peaks is not None:
-            frame[peaks] = next((c for key, _n, c in PEAKING_COLOURS if key == look.peaking_colour),
-                                PEAKING_COLOURS[0][2])
+            _paint(frame, peaks, next((c for key, _n, c in PEAKING_COLOURS if key == look.peaking_colour),
+                                      PEAKING_COLOURS[0][2]))
         return frame
 
     def analyse(self, frame: np.ndarray) -> bool:
