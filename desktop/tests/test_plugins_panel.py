@@ -133,22 +133,29 @@ def _boxes(dialog) -> dict:
     return {box.accessibleName(): box for box in dialog.findChildren(QCheckBox)}
 
 
-def _row_restarts(dialog) -> list:
-    """The Restart now buttons on rows that wait for one (rows being replaced are hidden)."""
-    return [b for b in dialog.findChildren(dialog_module.QPushButton, "row_restart") if b.isVisibleTo(dialog)]
+def _hosted(panel):
+    """The panel with its footer placed under it, as the Settings window places it."""
+    from PyQt6.QtWidgets import QVBoxLayout, QWidget
+    holder = QWidget()
+    lay = QVBoxLayout(holder)
+    lay.addWidget(panel)
+    lay.addWidget(panel.footer)
+    panel.refresh()
+    panel._holder = holder  # kept alive with the panel
+    return panel
 
 
-def _restart_offered(dialog) -> bool:
-    return bool(_row_restarts(dialog)) or not dialog._restart_bar.isHidden()
+def _footer_shown(panel) -> bool:
+    return not panel.footer.isHidden()
 
 
 def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, plugins, answers):
     asked, reply = answers
     builtins = _builtins()
-    dialog = PluginsPanel(builtins, {p.name for p in builtins}, {}, lambda: True)
+    dialog = _hosted(PluginsPanel(builtins, {p.name for p in builtins}, {}, lambda: True))
     boxes = _boxes(dialog)
-    assert "Connection" not in boxes  # required: no switch at all
-    assert not _restart_offered(dialog)
+    assert boxes["Connection"].isChecked() and not boxes["Connection"].isEnabled()  # required: locked on
+    assert not _footer_shown(dialog) and dialog.pending_changes() == 0
     reply["yes"] = False
     boxes["Presets"].setChecked(False)
     assert plugin_loader.builtin_off() == set() and boxes["Presets"].isChecked()  # cancelled: nothing changes
@@ -157,9 +164,11 @@ def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, 
     assert plugin_loader.builtin_off() == {"presets"}
     title, text, _danger = asked[-1]
     assert title == "Switch off Presets?" and "The Presets card goes away." in text and "settings stay saved" in text
-    assert len(_row_restarts(dialog)) == 1 and dialog._restart_bar.isHidden()  # on the row, not only up top
+    assert dialog.pending_changes() == 1 and _footer_shown(dialog)
+    assert dialog._footer_note.text() == "Restart to apply 1 change"
+    assert "Waits for a restart" in _labels(dialog)  # on the tile too
     _boxes(dialog)["Presets"].setChecked(True)
-    assert plugin_loader.builtin_off() == set() and not _restart_offered(dialog)  # back as it is: no restart
+    assert plugin_loader.builtin_off() == set() and not _footer_shown(dialog)  # back as it is: no restart
 
 
 def test_switching_on_an_added_plugin_warns_about_trust(qapp, plugins, answers):
@@ -169,7 +178,7 @@ def test_switching_on_an_added_plugin_warns_about_trust(qapp, plugins, answers):
     _boxes(dialog)["Extra"].setChecked(True)
     title, text, danger = asked[-1]
     assert title == "Switch on Extra?" and "trust" in text and danger
-    assert plugin_loader.find_installed(folder=plugins)[0].enabled and _row_restarts(dialog)
+    assert plugin_loader.find_installed(folder=plugins)[0].enabled and dialog.pending_changes() == 1
 
 
 def test_turn_all_back_on(qapp, plugins, answers):
@@ -182,20 +191,21 @@ def test_turn_all_back_on(qapp, plugins, answers):
 
 def test_restart_now_restarts(qapp, plugins, answers):
     restarted = []
-    dialog = PluginsPanel(_builtins(), set(), {}, lambda: restarted.append(True) or True)
+    dialog = _hosted(PluginsPanel(_builtins(), set(), {}, lambda: restarted.append(True) or True))
+    assert _footer_shown(dialog) and dialog._footer_note.text() == "Restart to apply 2 changes"
     dialog._restart_btn.click()
-    _row_restarts(dialog)[0].click()
-    assert restarted == [True, True]
+    assert restarted == [True]
+    assert not dialog.findChildren(dialog_module.QPushButton, "row_restart")  # one button, in the footer
 
 
-def test_a_restart_no_row_offers_gets_the_bar(qapp, plugins, answers):
-    # A plugin that didn't start says why on its row, and a restart tries it again.
+def test_a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies(qapp, plugins, answers):
+    # It says why on its tile, and a restart tries it again.
     _added(plugins, "extra")
     plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)
     builtins = _builtins()
     dialog = PluginsPanel(builtins, {p.name for p in builtins}, {"extra": "RuntimeError: no card today"},
                           lambda: True)
-    assert not _row_restarts(dialog) and not dialog._restart_bar.isHidden()
+    assert dialog.pending_changes() == 1
 
 
 def test_a_plugin_that_didnt_start_says_why_in_the_list(qapp, plugins, answers):
@@ -226,7 +236,7 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     win = SettingsWindow([SettingsSection("plugins", panel, on_show=panel.refresh)])
     win.resize(700, 500)
     win.show()
-    bar = win._stack.currentWidget().verticalScrollBar()
+    bar = win._pages[0].verticalScrollBar()
     seen = -1
     for _ in range(40):  # the rows are rebuilt as the tab comes up, and laid out a pass later: wait for it to settle
         QTest.qWait(100)
@@ -253,11 +263,11 @@ def test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch(qapp
     monkeypatch.setenv("TELESCOPE_DEV_PROFILE", str(tmp_path / "profile"))
     monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", str(folder))
     dialog = PluginsPanel(_builtins(), {"connection", "camera_control", "presets", "mine"}, {}, lambda: True)
-    assert "Mine" not in _boxes(dialog)
+    assert not _boxes(dialog)["Mine"].isEnabled()
     texts = [w.text() for w in dialog.findChildren(QLabel)]
     assert any(t.startswith(f"Loaded from {folder} by dev_desktop.py.") for t in texts)
     assert not [b for b in dialog.findChildren(dialog_module.QPushButton) if b.text() == "Remove"]
-    assert not _restart_offered(dialog)
+    assert dialog.pending_changes() == 0
 
 
 def test_the_plugins_tab_opens_over_the_main_window_without_blocking_it(qapp, window, plugins):
@@ -340,7 +350,8 @@ def test_switching_one_on_asks_to_download_first_then_switches_it_on(qapp, plugi
     dialog = PluginsPanel(builtins, {"connection", "camera_control", "presets"}, {}, lambda: True,
                            download=dl)
     texts = [lbl.text() for lbl in dialog.findChildren(QLabel)]
-    assert "Switching it on downloads about 47 MB first." in texts
+    assert "Switching one of these on downloads about 47 MB first, once for all of them." in texts
+    assert "Needs the vision download" in texts
     reply["yes"] = False
     _boxes(dialog)["Auto framing"].setChecked(True)
     assert dl.started == [] and plugin_loader.optional_on() == set()
@@ -349,7 +360,7 @@ def test_switching_one_on_asks_to_download_first_then_switches_it_on(qapp, plugi
     _boxes(dialog)["Auto framing"].setChecked(True)
     assert asked[-1][0] == "Download about 47 MB?" and "MediaPipe" in asked[-1][1]
     assert dl.started == ["framing"] and plugin_loader.optional_on() == {"framing"}
-    assert _boxes(dialog)["Auto framing"].isChecked() and _restart_offered(dialog)
+    assert _boxes(dialog)["Auto framing"].isChecked() and dialog.pending_changes() == 1
     assert dialog._remove_pack_btn.isHidden()  # something uses it
 
 
@@ -408,7 +419,7 @@ def test_installing_a_plugin_thats_there_asks_then_replaces_it(qapp, plugins, an
     newer.mkdir()
     _added(newer, "extra", version="1.1")
     archive = _zip_of(newer / "extra", tmp_path / "extra.zip")
-    dialog = PluginsPanel(_builtins(), {"connection", "extra"}, {}, lambda: True)
+    dialog = PluginsPanel(_builtins(), {"connection", "camera_control", "presets", "extra"}, {}, lambda: True)
 
     reply["yes"] = False
     dialog._install(str(archive))
@@ -421,17 +432,17 @@ def test_installing_a_plugin_thats_there_asks_then_replaces_it(qapp, plugins, an
     assert item.version == "1.1" and not item.enabled
     assert shown[-1][0] == "Replaced" and "Extra 1.1" in shown[-1][1]
     assert not _boxes(dialog)["Extra 1.1"].isChecked()
-    assert any("goes away after Telescope restarts" in t for t in _labels(dialog))  # the old one still runs
+    assert "Waits for a restart" in _labels(dialog) and dialog.pending_changes() == 1  # the old one still runs
 
 
 def test_the_repo_shows_as_a_link_next_to_the_author(qapp, plugins, answers):
     _added(plugins, "extra", author="Someone <b>", description="Does things.",
            repo="https://github.com/someone/extra")
     dialog = PluginsPanel(_builtins(), set(), {}, lambda: True)
-    (about,) = [lbl for lbl in dialog.findChildren(QLabel) if "Does things." in lbl.text()]
-    assert about.text() == ('Does things. By Someone &lt;b&gt;. '
-                            '<a href="https://github.com/someone/extra">github.com/someone/extra</a>')
-    assert about.openExternalLinks()
+    assert "Does things." in _labels(dialog)
+    (by,) = [lbl for lbl in dialog.findChildren(QLabel) if lbl.text().startswith("By Someone")]
+    assert by.text() == 'By Someone &lt;b&gt;. <a href="https://github.com/someone/extra">github.com/someone/extra</a>'
+    assert by.openExternalLinks()
 
 
 class _Updater(dialog_module.PluginUpdater):
@@ -493,3 +504,115 @@ def test_without_the_check_the_auto_switch_cant_go_on(qapp, plugins, answers):
 def test_with_no_added_plugins_there_are_no_update_switches(qapp, plugins, answers):
     dialog = PluginsPanel(_builtins(), set(), {}, lambda: True, updater=_Updater())
     assert "Check for updates" not in _boxes(dialog)
+
+
+# ── Finding a plugin: groups, order, search and the On/Off filter ──────────────
+
+def _grouped():
+    camera = _Builtin("zoom_tool", "Zoom tool")
+    camera.category, camera.about = "camera", "Makes the picture bigger."
+    other = _Builtin("alpha", "Alpha")
+    other.category = "camera"
+    sound = _Builtin("echo", "Echo")
+    sound.category = "sound"
+    lost = _Builtin("lost", "Lost")
+    lost.category = "no_such_group"
+    return [*_builtins(), camera, other, sound, lost]
+
+
+def _group_names(panel) -> list:
+    return [f.findChild(QLabel, "card_title").text() for f, _tiles, _count in panel._groups if not f.isHidden()]
+
+
+def test_tiles_are_grouped_by_category_and_sorted_by_name(qapp, plugins, answers):
+    panel = PluginsPanel(_grouped(), set(), {}, lambda: True)
+    assert _group_names(panel) == ["Camera and picture", "Sound", "Extras"]  # empty groups aren't shown
+    assert panel.shown_tiles() == ["Alpha", "Zoom tool", "Echo", "Camera", "Connection", "Lost", "Presets"]
+
+
+def test_the_search_finds_by_name_and_description_in_the_language_shown(qapp, plugins, answers, monkeypatch):
+    real = dialog_module.tr
+    german = {"Presets": "Voreinstellungen", "What Presets does.": "Speichert Einstellungen."}
+    monkeypatch.setattr(dialog_module, "tr", lambda t, /, *a, **k: german.get(t) or real(t, *a, **k))
+    panel = PluginsPanel(_grouped(), set(), {}, lambda: True)
+    panel._search.setText("vorein")
+    assert panel.shown_tiles() == ["Voreinstellungen"] and _group_names(panel) == ["Extras"]
+    panel._search.setText("speichert")
+    assert panel.shown_tiles() == ["Voreinstellungen"]
+    panel._search.setText("picture bigger")  # every word, anywhere in the name or the description
+    assert panel.shown_tiles() == ["Zoom tool"]
+    assert panel._added_box.isHidden() and panel._empty.isHidden()
+    panel._search.setText("nothing like it")
+    assert panel.shown_tiles() == [] and not panel._empty.isHidden()
+    assert panel._empty_note.text() == "No plugins match “nothing like it”."
+    panel._show_all_btn.click()
+    assert panel._search.text() == "" and len(panel.shown_tiles()) == 7 and not panel._added_box.isHidden()
+
+
+def test_the_filter_shows_the_ones_on_or_off(qapp, plugins, answers):
+    plugin_loader.set_builtin_off("presets", True)
+    plugin_loader.set_builtin_off("echo", True)
+    panel = PluginsPanel(_grouped(), set(), {}, lambda: True)
+    panel._filter_btns["off"].click()
+    assert panel.shown_tiles() == ["Echo", "Presets"] and panel._filter_btns["off"].isChecked()
+    panel._filter_btns["on"].click()
+    assert panel.shown_tiles() == ["Alpha", "Zoom tool", "Camera", "Connection", "Lost"]  # a required one is on
+    panel._search.setText("echo")
+    assert panel.shown_tiles() == [] and panel._empty_note.text() == "No plugins match “echo”."
+    panel._search.clear()
+    plugin_loader.all_builtin_on()
+    panel._set_filter("off")
+    panel.refresh()
+    assert panel.shown_tiles() == [] and panel._empty_note.text() == "Every plugin is switched on."
+
+
+def test_the_footer_counts_the_changes_that_wait_for_a_restart(qapp, plugins, answers):
+    builtins = _grouped()
+    panel = _hosted(PluginsPanel(builtins, {p.name for p in builtins}, {}, lambda: True))
+    assert not _footer_shown(panel)
+    _boxes(panel)["Presets"].setChecked(False)
+    assert _footer_shown(panel) and panel._footer_note.text() == "Restart to apply 1 change"
+    _boxes(panel)["Echo"].setChecked(False)
+    assert panel._footer_note.text() == "Restart to apply 2 changes" and panel.pending_changes() == 2
+    panel._all_on_btn.click()
+    assert not _footer_shown(panel) and panel.pending_changes() == 0
+
+
+def test_the_footer_counts_a_removed_plugin_that_still_runs(qapp, plugins, answers):
+    panel = _hosted(PluginsPanel(_builtins(), {"connection", "camera_control", "presets", "gone"}, {}, lambda: True))
+    assert _footer_shown(panel) and panel.pending_changes() == 1
+
+
+def test_a_footer_with_nowhere_to_go_never_becomes_a_window(qapp, plugins, answers):
+    panel = PluginsPanel(_builtins(), set(), {}, lambda: True)
+    assert panel.pending_changes() == 2 and panel.footer.isHidden() and panel.footer.parentWidget() is None
+
+
+def test_required_plugins_are_locked_on_and_say_so(qapp, plugins, answers):
+    panel = PluginsPanel(_builtins(), set(), {}, lambda: True)
+    box = _boxes(panel)["Connection"]
+    assert box.isChecked() and not box.isEnabled()
+    tile = box.parentWidget()
+    assert "Required" in [lbl.text() for lbl in tile.findChildren(QLabel)]
+    assert "can't be switched off" in tile.toolTip()
+
+
+def test_an_added_plugin_goes_in_the_group_its_plugin_json_names(qapp, plugins, answers):
+    _added(plugins, "extra", category="sound")
+    _added(plugins, "other", category="made_up")
+    panel = PluginsPanel(_builtins(), set(), {}, lambda: True)
+    groups = {f.findChild(QLabel, "card_title").text(): [t.findChild(QLabel, "setting_name").text() for t in tiles]
+              for f, tiles, _count in panel._groups}
+    assert groups["Sound"] == ["Extra"] and "Other" in groups["Extras"]
+    assert "Added" in [lbl.text() for lbl in panel.findChildren(QLabel)]
+
+
+def test_every_built_in_plugin_picks_its_category_and_icon():
+    from telescope.plugin import PLUGIN_CATEGORIES
+    from telescope.plugins import builtin_plugins
+    from telescope.widgets.common import _ICON_SVG
+    from telescope.widgets.line_icons import LINE_ICONS
+    for plugin in builtin_plugins():
+        own = vars(type(plugin))
+        assert own.get("category") in dict(PLUGIN_CATEGORIES), f"{plugin.name} needs a category"  # not Extras by default
+        assert own.get("icon") in LINE_ICONS or own.get("icon") in _ICON_SVG, f"{plugin.name} needs an icon"

@@ -59,6 +59,23 @@ class _Page(QScrollArea):
                     logger.exception("A settings section couldn't refresh itself")
 
 
+def _with_footers(page: _Page, footers: list) -> QWidget:
+    """The page as it goes in the stack: on its own, or above the bars its sections keep in reach."""
+    if not footers:
+        return page
+    holder = QWidget()
+    lay = QVBoxLayout(holder)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(10)
+    lay.addWidget(page, 1)
+    for footer in footers:
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 8, 0)  # lined up with the cards, which leave room for the scrollbar
+        row.addWidget(footer)
+        lay.addLayout(row)
+    return holder
+
+
 def ordered_tabs(sections: list) -> list:
     """[(id, name, its sections)] for the tabs that have any: the fixed ones in order, new ones before Plugins."""
     names = dict(SETTINGS_TABS)
@@ -180,10 +197,13 @@ class SettingsWindow(PlacedDialog):
         self._tabs = ordered_tabs(sections)
         self._ids: list = []
         self._names: list = []
+        self._pages: list = []
         for tab, name, mine in self._tabs:
             self._ids.append(tab)
             self._names.append(name)
-            self._stack.addWidget(_Page(mine))
+            page = _Page(mine)
+            self._pages.append(page)
+            self._stack.addWidget(_with_footers(page, [s.footer for s in mine if s.footer is not None]))
             item = QListWidgetItem(_tab_icon(tab), name)
             item.setSizeHint(QSize(0, ui_px(38)))
             self._nav.addItem(item)
@@ -324,7 +344,7 @@ class SettingsWindow(PlacedDialog):
 
     def _reveal(self, entry):
         try:
-            page = self._stack.widget(self._ids.index(entry.tab))
+            page = self._pages[self._ids.index(entry.tab)]
             page.widget().layout().activate()
             page.ensureWidgetVisible(entry.target, 0, 40)
             self._flash(entry.target)

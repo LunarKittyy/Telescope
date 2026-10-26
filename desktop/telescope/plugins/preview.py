@@ -410,6 +410,8 @@ class PreviewPlugin(TelescopePlugin):
     name = "preview"
     title = N_("Preview")
     about = N_("The live picture in the middle of the window, and the camera on/off button under it.")
+    category = "preview"
+    icon = "eye"
     when_off = N_("Without it the window doesn't show the picture but apps using the virtual camera still get it.")
     panel_region = "center"
     sees_final_frame = True  # shows what apps get, added plugins included

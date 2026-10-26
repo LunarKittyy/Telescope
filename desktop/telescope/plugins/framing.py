@@ -219,6 +219,8 @@ class FramingPlugin(TelescopePlugin):
     name = "framing"
     title = N_("Auto framing")
     about = N_("Zooms and pans to keep you in the picture as you move.")
+    category = "vision"
+    icon = "framing"
     when_off = N_("Without it there's no Auto framing card and the zoom stays where you put it.")
     optional = True
     needs_vision = True
