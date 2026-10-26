@@ -426,7 +426,7 @@ def test_settings_section_and_header_follow_the_state(make, qt_widgets):
     bus.camera_watched.emit(True)
     _later(plugin, 2)
     assert not header.isHidden()
-    assert section.widget._state_lbl.text() == "On air" and section.widget._url_lbl.text() == plugin.url()
+    assert section.widget._state_lbl.fullText() == "On air" and section.widget._url_lbl.fullText() == plugin.url()
     section.widget._url_edit.setText("ftp://nope")
     assert plugin.webhook_url == "ftp://nope" and not section.widget._url_problem.isHidden()
 
