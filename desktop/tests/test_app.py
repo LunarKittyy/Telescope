@@ -3827,3 +3827,28 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
+    from types import SimpleNamespace
+    from telescope.view import View
+    from telescope.vision import Person
+    person = Person({"nose": (0.3, 0.3, 0.99), "left_shoulder": (0.35, 0.45, 0.99),
+                     "right_shoulder": (0.25, 0.45, 0.99)})
+    worker = object()
+    monkeypatch.setattr(window._sessions, "by_worker", lambda w: SimpleNamespace(id="phone") if w is worker else None)
+    monkeypatch.setattr(window, "focused_source_id", lambda: "phone")
+    heard = []
+    window._bus.people_tracked.connect(lambda sid, tracks, count: heard.append((sid, count)))
+    window._bus.view_changed.emit(View())
+    for _ in range(3):
+        window._on_people(worker, [person])
+    assert heard[-1] == ("phone", 1)
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda: resets.append(True))
+    window._bus.view_changed.emit(View(flip_h=True))
+    tracks, count = window.tracked_people()
+    assert count == 1 and tracks[0].id == 1 and tracks[0].centre[0] > 0.5  # mirrored, same person
+    assert resets == [True]
+    window._tracking.drop("phone")
+    assert window.tracked_people() == ([], 0)

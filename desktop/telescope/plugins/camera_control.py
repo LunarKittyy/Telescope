@@ -146,6 +146,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_wb         = False
         self._manual_focus      = False
         self._point_focus       = False
+        self._published_focus: Optional[str] = None  # what focus_mode_changed last said
         self._lens_id: Optional[str] = None
         self._pending_lens: Optional[str] = None  # a preset's lens, applied while idle, for the next stream
         self._last_state: Optional[dict] = None  # the stream's latest state, for its lenses and ranges
@@ -260,6 +261,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_grp.addButton(self._rb_focus_manual)
         self._rb_focus_auto.setChecked(True)
         self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
+        self._focus_grp.buttonToggled.connect(lambda _b, _on: self._publish_focus_mode())
         lay.addWidget(_row_widget(
             tr("Focus"), segmented_row(self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual),
             stretch=True))
@@ -383,6 +385,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._ctrl = ctrl
         self._lens_panel.set_placeholder(tr("Loading lenses..."))
         self._push_settings_to_phone()
+        self._publish_focus_mode(again=True)
 
     def on_focus_gained(self, stream_url: str, ctrl):
         kept = self._behind.take(self._host, ctrl)
@@ -726,9 +729,20 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_slider.setEnabled(False)
         self._sync_manual_control_visibility()
 
+    def _focus_mode(self) -> str:
+        return "point" if self._rb_focus_point.isChecked() else "manual" if self._rb_focus_manual.isChecked() else "auto"
+
+    def _publish_focus_mode(self, again: bool = False):
+        mode = self._focus_mode()
+        if again or mode != self._published_focus:
+            self._published_focus = mode
+            self._bus.focus_mode_changed.emit(mode)
+
+    def on_plugins_ready(self):
+        self._publish_focus_mode(again=True)
+
     def _on_focus_mode(self):
-        self._bus.focus_mode_picked.emit("point" if self._rb_focus_point.isChecked() else
-                                         "manual" if self._rb_focus_manual.isChecked() else "auto")
+        self._bus.focus_mode_picked.emit(self._focus_mode())
         if self._rb_focus_point.isChecked():
             if not self._point_focus:
                 self._bus.focus_point_picked.emit(0.5, 0.5)  # the middle of what the preview shows

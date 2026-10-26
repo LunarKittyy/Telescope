@@ -171,3 +171,21 @@ def test_nothing_is_sent_while_the_lens_cant_meter_on_a_point(card):
     bus.focus_point_available.emit(False)
     see((0.4, 0.3))
     assert picked == [] and "can't meter" in plugin._status.text()
+
+
+def test_manual_focus_on_the_camera_card_is_left_alone_until_follow_my_face(card):
+    plugin, _host, bus, picked, see = card
+    bus.focus_mode_changed.emit("manual")  # restored from the saved settings
+    plugin._switch.setChecked(True)
+    see((0.4, 0.3))
+    assert picked == [] and "Manual" in plugin._manual_note.text()
+    assert plugin._follow_btn.isVisibleTo(plugin._follow_btn.parentWidget())
+    plugin._follow_btn.click()
+    see((0.4, 0.3))
+    assert picked == [pytest.approx((0.4, 0.3))]
+    bus.focus_mode_changed.emit("point")  # the Camera card followed the point
+    bus.focus_mode_changed.emit("manual")  # and someone set Manual again by preset
+    picked.clear()
+    plugin._meter.reset()
+    see((0.6, 0.3))
+    assert picked == [pytest.approx((0.6, 0.3))]  # Follow my face still stands until switched off and on

@@ -275,6 +275,7 @@
     "[\"\", \"Flip vertical\"]",
     "[\"\", \"Flip\"]",
     "[\"\", \"Focus distance\"]",
+    "[\"\", \"Focus is on Manual in the Camera card.\"]",
     "[\"\", \"Focus mode\"]",
     "[\"\", \"Focus\"]",
     "[\"\", \"Follow my face\"]",
@@ -4632,6 +4633,14 @@
       "[\"\", \"Go back to metering on your face\"]",
       "[\"\", \"Meter the exposure on your face\"]",
       "[\"\", \"The phone meters on the point you picked by hand.\"]"
+    ],
+    "face-exposure-manual-focus": [
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"Expose for my face\"]",
+      "[\"\", \"Focus is on Manual in the Camera card.\"]",
+      "[\"\", \"Follow my face\"]",
+      "[\"\", \"Go back to metering on your face\"]",
+      "[\"\", \"Meter the exposure on your face\"]"
     ],
     "face-exposure-no-point": [
       "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
@@ -29150,6 +29159,7 @@
     "background-unreadable-picture": 444,
     "dialog-background-picture": 760,
     "face-exposure-picked-by-hand": 444,
+    "face-exposure-manual-focus": 444,
     "face-exposure-no-point": 444,
     "preview-idle": 760,
     "preview-mic-only": 760,
@@ -29648,5 +29658,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1254
+  "total": 1255
 }

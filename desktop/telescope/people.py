@@ -3,7 +3,7 @@ quick to notice someone new and slow to let them go, since the pose model drops 
 time. No Qt here."""
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 SEEN = 0.5  # a landmark counts at this visibility
 CONFIRM = 2  # a new person counts once found in this many updates in a row
@@ -12,6 +12,7 @@ SMOOTH_S = 0.25  # boxes and faces follow the model with this time constant
 GATE = 1.2  # a person found again within this many of their own sizes of where they were going is the same person
 GATE_GROWTH = 1.5  # and the reach grows by this many sizes a second while they're missing
 GATE_MOST = 4.0
+FORGET_S = 60.0  # a stream with no update for this long is forgotten
 DUPLICATE = 0.6  # a second skeleton overlapping someone found this much (intersection over union) is them again
 _FACE = ("nose", "left_eye", "right_eye", "left_ear", "right_ear")
 
@@ -108,6 +109,13 @@ class _Follow:
         if self.hits >= CONFIRM:
             self.counted = True
 
+    def mapped(self, to: Callable):
+        corners = [to(x, y) for x in (self.box[0], self.box[2]) for y in (self.box[1], self.box[3])]
+        self.box = (min(p[0] for p in corners), min(p[1] for p in corners),
+                    max(p[0] for p in corners), max(p[1] for p in corners))
+        self.face = to(*self.face) if self.face is not None else None
+        self.velocity = (0.0, 0.0)
+
     def track(self, now: float) -> Track:
         return Track(self.id, self.box, self.face, now - self.first_at, now - self.last_at)
 
@@ -164,6 +172,11 @@ class PeopleTracker:
         """How many people there are, steadied."""
         return sum(1 for f in self._follows if f.counted)
 
+    def remap(self, to: Callable):
+        """Everyone's position put through to(x, y): the picture turned or flipped, and they're the same people."""
+        for f in self._follows:
+            f.mapped(to)
+
     def reset(self):
         self._follows, self._updated_at = [], None
 
@@ -173,24 +186,32 @@ class PeopleTracking:
 
     def __init__(self):
         self._trackers: dict = {}
-        self._last: dict = {}
+        self._last: dict = {}  # source id: ([Track], count, when)
 
     def update(self, source_id: str, people: list, now: float) -> tuple:
         """([Track], count) for source_id after this update."""
+        for sid in [s for s, (_t, _c, at) in self._last.items() if now - at > FORGET_S]:
+            self.drop(sid)
         tracker = self._trackers.setdefault(source_id, PeopleTracker())
         tracks = tracker.update(people, now)
-        self._last[source_id] = (tracks, tracker.count())
-        return self._last[source_id]
+        self._last[source_id] = (tracks, tracker.count(), now)
+        return tracks, tracker.count()
 
-    def last(self, source_id: str) -> tuple:
-        """What the last update for source_id gave, or ([], 0)."""
-        return self._last.get(source_id, ([], 0))
+    def last(self, source_id: str, now: float) -> tuple:
+        """What the last update for source_id gave, or ([], 0) without one in DROP_S (nothing asks for people, or
+        the stream stopped)."""
+        tracks, count, at = self._last.get(source_id, ([], 0, -math.inf))
+        return (tracks, count) if now - at <= DROP_S else ([], 0)
 
     def drop(self, source_id: str):
+        """source_id's stream ended."""
         self._trackers.pop(source_id, None)
         self._last.pop(source_id, None)
 
-    def reset(self):
-        """Everyone starts over (the picture turned, so the same people are somewhere else now)."""
-        self._trackers.clear()
-        self._last.clear()
+    def remap(self, to: Callable):
+        """Everyone on every stream put through to(x, y), keeping their ids (the picture turned or flipped)."""
+        for sid, tracker in self._trackers.items():
+            tracker.remap(to)
+            if sid in self._last:
+                _tracks, count, at = self._last[sid]
+                self._last[sid] = (tracker.tracks(at), count, at)

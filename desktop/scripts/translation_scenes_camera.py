@@ -468,6 +468,14 @@ def face_exposure_picked_by_hand(stack):
     return cards(stack, win, "face_exposure")
 
 
+@scene("face-exposure-manual-focus", "states", "Expose for my face · Manual focus on the Camera card", width=CARD_WIDTH)
+def face_exposure_manual_focus(stack):
+    win = ready_window(stack)
+    win._bus.focus_mode_changed.emit("manual")
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
 @scene("face-exposure-no-point", "states", "Expose for my face · a lens that can't meter on a point", width=CARD_WIDTH)
 def face_exposure_no_point(stack):
     win, _source = streaming_window(stack, phone_state(lens(supportsFocusPoint=False)))

@@ -27,6 +27,7 @@ from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
+from telescope.view import shown_to_view, view_to_shown
 from telescope.view_controller import ViewController
 from telescope.motion import Motion
 from telescope.people import PeopleTracking
@@ -1147,6 +1148,9 @@ class TelescopeWindow(QMainWindow):
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
                 pass  # already disconnected
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._tracking.drop(source.id or "")
         worker.request_stop()
         self._vision.drop_stream(worker)
         self._motion.drop_stream(worker)
@@ -1666,13 +1670,19 @@ class TelescopeWindow(QMainWindow):
             self._bus.people_tracked.emit(source.id or "", tracks, count)
 
     def tracked_people(self, source_id: Optional[str] = None) -> tuple:
-        return self._tracking.last((self.focused_source_id() if source_id is None else source_id) or "")
+        return self._tracking.last((self.focused_source_id() if source_id is None else source_id) or "",
+                                   time.monotonic())
 
     def _on_view_turned(self, view):
-        turned = (view.flip_h, view.flip_v, view.rotation)
-        if self._turned is not None and turned != self._turned:
-            self._tracking.reset()  # the same people are somewhere else in the picture now
-        self._turned = turned
+        old, new = self._turned, (view.flip_h, view.flip_v, view.rotation)
+        self._turned = new
+        if old is None or old == new:
+            return
+
+        def remap(x, y):
+            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *old), 1.0, 0.0, 0.0, *new)
+        self._tracking.remap(remap)  # the same people, somewhere else in the picture now
+        self._motion.reset()
 
     def watch_motion(self, owner: str, zones: list, sensitivity: int = 5):
         self._motion.watch(owner, zones, sensitivity)

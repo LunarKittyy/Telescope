@@ -109,3 +109,50 @@ def test_zones_follow_the_phones_share_of_the_zoom():
     to_shown = lambda u, v: (0.25 + u * 0.5, 0.25 + v * 0.5)  # noqa: E731
     assert motion._to_frame(((0.6, 0.0, 1.0, 1.0),), to_shown) == ((0.7, 0.0, 1.0, 1.0),)
     assert motion._to_frame(((0.0, 0.0, 0.2, 1.0),), to_shown) == ((0.0, 0.0, 0.0, 0.0),)  # off the frame: never moves
+
+
+def test_a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall(watched):
+    m, events, feed = watched
+    m.watch("trap", [_LEFT, _RIGHT], sensitivity=8)
+    t = 0.0
+    wall = _scene(brightness=200)
+    for _ in range(10):
+        feed(wall, t)
+        t += 0.1
+    coat = wall.copy()
+    coat[:, :210] = 100  # someone in a dark coat fills the left third, the right zone is a still white wall
+    for _ in range(10):
+        feed(coat, t)
+        t += 0.1
+    assert all(1 not in zones for _k, _o, zones in events)
+
+
+def test_coming_back_after_a_gap_starts_the_background_over(watched):
+    m, events, feed = watched
+    feed(_scene(), 0.0)
+    feed(_scene(), 0.1)
+    feed(_scene(square_x=500), 30.0)  # the panels were on another stream for half a minute
+    feed(_scene(square_x=500), 30.1)
+    assert events == [] and m.moving("s", "trap") == []
+
+
+def test_a_lens_switch_is_a_cut_not_motion(watched):
+    _m, events, feed = watched
+    for i in range(5):
+        feed(_scene(brightness=60), i * 0.1)
+    for i in range(5, 10):
+        feed(255 - _scene(brightness=60), i * 0.1)  # everything changed at once
+    assert events == []
+
+
+def test_watching_again_or_turning_the_picture_starts_over(watched):
+    m, events, feed = watched
+    for i in range(5):
+        feed(_scene(), i * 0.1)
+    feed(_scene(square_x=500), 0.5)
+    assert m.moving("s", "trap") == [1]
+    m.watch("trap", [_LEFT, _RIGHT])
+    assert m.moving("s", "trap") == []
+    m.reset()
+    feed(_scene(), 0.6)  # a turned picture: no difference with the background from before it
+    assert m.moving("s", "trap") == []

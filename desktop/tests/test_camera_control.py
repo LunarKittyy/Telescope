@@ -620,3 +620,18 @@ def test_back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is(came
     plugin.on_stream_stop()
     plugin.on_focus_gained("url", ctrl)
     assert ctrl.sent  # nothing kept from a stream that ended
+
+
+def test_the_focus_mode_is_published_however_it_changes(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    modes, picked = [], []
+    bus.focus_mode_changed.connect(modes.append)
+    bus.focus_mode_picked.connect(picked.append)
+    plugin.on_plugins_ready()
+    assert modes == ["auto"]
+    plugin.set_config({"focus_manual": True})  # a saved Manual focus coming back
+    assert modes[-1] == "manual" and picked == []
+    plugin.on_stream_start("url", _Ctrl())
+    assert modes[-2:] == ["manual", "manual"]  # said again for the new stream
+    plugin._rb_focus_auto.click()
+    assert modes[-1] == "auto" and picked == ["auto"]

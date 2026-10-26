@@ -97,11 +97,26 @@ def test_two_skeletons_on_one_person_count_once():
     assert max(count for _t, count in _play(tracker, [[_person(), twin]] * 6)) == 1
 
 
-def test_tracking_is_kept_per_stream_and_can_start_over():
+def test_tracking_is_kept_per_stream_and_forgets_what_stopped():
     tracking = PeopleTracking()
     for i in range(3):
         tracking.update("a", [_person()], i * _EVERY)
-    assert tracking.last("a")[1] == 1 and tracking.last("b") == ([], 0)
-    tracking.reset()
-    assert tracking.last("a") == ([], 0)
-    assert tracking.update("a", [_person()], 1.0)[1] == 0
+    assert tracking.last("a", 0.5)[1] == 1 and tracking.last("b", 0.5) == ([], 0)
+    assert tracking.last("a", 0.2 + DROP_S + 1) == ([], 0)  # no updates any more: nothing to go by
+    tracking.drop("a")
+    assert tracking.update("a", [_person()], 10.0)[1] == 0  # a new stream starts over
+    tracking.update("b", [_person()], 100.0)
+    assert "a" not in tracking._trackers  # not heard from in a minute
+
+
+def test_flipping_the_picture_keeps_everyone_and_their_ids():
+    tracking = PeopleTracking()
+    for i in range(4):
+        tracking.update("a", [_person(0.3), _person(0.8)], i * _EVERY)
+    tracking.remap(lambda x, y: (1.0 - x, y))  # mirrored
+    assert sorted(round(t.centre[0], 2) for t in tracking.last("a", 0.4)[0]) == [0.2, 0.7]
+    results = [tracking.update("a", [_person(0.7), _person(0.2)], (4 + i) * _EVERY) for i in range(3)]
+    assert all(count == 2 for _t, count in results)
+    assert {t.id for t in results[-1][0]} == {1, 2}
+    by_id = {t.id: t.centre[0] for t in results[-1][0]}
+    assert by_id[1] == pytest.approx(0.7, abs=0.01) and by_id[2] == pytest.approx(0.2, abs=0.01)

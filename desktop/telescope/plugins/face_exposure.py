@@ -77,11 +77,14 @@ class FaceExposurePlugin(TelescopePlugin):
         self._meter = FaceMeter()
         self._on = False
         self._manual = False  # a point was picked by hand, which wins until the plugin is switched off and on again
+        self._camera_manual = False  # the Camera card is on Manual focus, which a point would undo
+        self._forced = False  # Follow my face was clicked, so a point goes out even then
         self._available = False  # the lens can meter on a point, and a stream is there to send it to
         self._moving = False  # the point being picked is ours
         bus.people_tracked.connect(self._on_tracked)
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.focus_mode_picked.connect(lambda _mode: self._on_point_picked())
+        bus.focus_mode_changed.connect(self._on_focus_mode)
         bus.focus_point_available.connect(self._on_available)
 
     # ── Card ──────────────────────────────────────────────────────────────
@@ -95,7 +98,7 @@ class FaceExposurePlugin(TelescopePlugin):
         self._switch.toggled.connect(self._on_switch)
         add_card_header(lay, tr("Expose for my face"), "sun", action=self._switch, hue="vision")
         dim_until_paired(card, self._bus, phone_only=True)
-        self._manual_note = wrapped_note(tr("The phone meters on the point you picked by hand."))
+        self._manual_note = wrapped_note("")
         lay.addWidget(self._manual_note)
         self._follow_btn = action_button(tr("Follow my face"))
         self._follow_btn.setToolTip(tr("Go back to metering on your face"))
@@ -119,23 +122,29 @@ class FaceExposurePlugin(TelescopePlugin):
     def _apply(self, on: bool):
         if on != self._on:
             self._on = on
-            self._manual = False
+            self._manual = self._forced = False
             self._meter.reset()
             self._host.want_people(self.title, on)
         self._show()
 
     def follow_again(self):
         """Back to the face after a point was picked by hand."""
-        self._manual = False
+        self._manual, self._forced = False, True
         self._meter.reset()
         self._show()
+
+    def _held(self) -> bool:
+        """Something the user chose keeps the point where it is."""
+        return self._manual or (self._camera_manual and not self._forced)
 
     def _show(self):
         if not hasattr(self, "_status"):
             return
-        manual = self._on and self._manual
-        self._manual_note.setVisible(manual)
-        self._follow_btn.setVisible(manual)
+        held = self._on and self._held()
+        self._manual_note.setText(tr("The phone meters on the point you picked by hand.") if self._manual else
+                                  tr("Focus is on Manual in the Camera card."))
+        self._manual_note.setVisible(held)
+        self._follow_btn.setVisible(held)
         problem = ""
         if self._on and not self._available and self._host.is_streaming():
             problem = tr("This lens can't meter on a point.")
@@ -149,8 +158,12 @@ class FaceExposurePlugin(TelescopePlugin):
 
     def _on_point_picked(self, *_point):
         if self._on and not self._moving:
-            self._manual = True
+            self._manual, self._forced = True, False
             self._show()
+
+    def _on_focus_mode(self, mode: str):
+        self._camera_manual = mode == "manual"
+        self._show()
 
     def on_focus_gained(self, stream_url: str, ctrl):
         self._meter.reset()
@@ -161,7 +174,7 @@ class FaceExposurePlugin(TelescopePlugin):
     # ── Following (Qt thread) ─────────────────────────────────────────────
 
     def _on_tracked(self, source_id: str, tracks: list, _count: int):
-        if not self._on or self._manual or not self._available:
+        if not self._on or self._held() or not self._available:
             return
         if source_id != (self._host.focused_source_id() or ""):
             return
@@ -203,4 +216,5 @@ class FaceExposurePlugin(TelescopePlugin):
     def diagnostics(self) -> dict:
         if not self._on:
             return {"Expose for my face": "off"}
-        return {"Expose for my face": "point picked by hand" if self._manual else "following"}
+        return {"Expose for my face": "point picked by hand" if self._manual else
+                "waiting (manual focus)" if self._held() else "following"}
