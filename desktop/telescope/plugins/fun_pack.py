@@ -97,6 +97,7 @@ class FunPackPlugin(TelescopePlugin):
     when_off = N_("Without it there's no Fun pack card and the picture has no effects.")
     optional = True
     in_presets = True
+    device_local = True  # an effect on one camera stays on that camera
     panel_region = "right"
 
     def setup(self, host, bus):

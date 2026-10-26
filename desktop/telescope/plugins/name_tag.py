@@ -46,6 +46,7 @@ class NameTagPlugin(TelescopePlugin):
     when_off = N_("Without it there's no Name tag card and nothing is drawn on the picture.")
     optional = True
     in_presets = True  # a preset can be a scene: the tag for a talk, none for a chat
+    device_local = True  # each camera has its own tag, or none (the desk camera usually doesn't want one)
     panel_region = "right"
 
     def setup(self, host, bus):

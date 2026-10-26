@@ -150,6 +150,7 @@ class ChromaKeyPlugin(TelescopePlugin):
     when_off = N_("Without it there's no Chroma key card and a green screen stays green.")
     optional = True
     in_presets = True
+    device_local = True  # the screen behind you is only in that camera's picture
     panel_region = "right"
 
     def setup(self, host, bus):

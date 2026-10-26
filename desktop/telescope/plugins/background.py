@@ -94,6 +94,7 @@ class BackgroundPlugin(TelescopePlugin):
     optional = True
     needs_vision = True
     in_presets = True
+    device_local = True  # a blur or picture behind you on one camera, not on the desk camera too
     panel_region = "right"
 
     def setup(self, host, bus):
