@@ -185,7 +185,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 ## On Air sign
 
-Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **Streaming and devices** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
+Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **On screen** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
 
 - **On air when** decides what counts. By default it's an app using the virtual camera, even while it only sees the wait screen. It can also count Telescope's mic being live (streaming and not muted), the mic alone or any stream at all
 - It waits a second before going on air and six before going off again, because apps like to close and reopen the camera when you change their settings

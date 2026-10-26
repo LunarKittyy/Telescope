@@ -17,6 +17,7 @@ LINE_ICONS = {
     "framing": '<path d="M1.5 5V2.5a1 1 0 0 1 1-1H5M11 1.5h2.5a1 1 0 0 1 1 1V5M14.5 11v2.5a1 1 0 0 1-1 1H11M5 14.5H2.5a1 1 0 0 1-1-1V11"/><circle cx="8" cy="6.3" r="1.9"/><path d="M4.6 12.3c.6-1.7 1.9-2.6 3.4-2.6s2.8.9 3.4 2.6"/>',
     "skeleton": '<circle cx="8" cy="3" r="1.6"/><path d="M8 4.6v5.2M3.5 6.8L8 6l4.5.8M8 9.8l-2.8 4.7M8 9.8l2.8 4.7"/>',
     "image": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M1.5 11l4-3.5 3 2.5 2-1.5 4 3"/>',
+    "photo": '<rect x="1.5" y="2.5" width="13" height="11" rx="2"/><circle cx="11" cy="5.8" r="1.2"/><path d="M1.5 12.5l4.5-5 3.5 3.5 1.8-1.6 3.2 3.1"/>',
     "stabilize": '<rect x="4" y="3" width="8" height="10" rx="1.5"/><path d="M1.5 6v4M14.5 6v4"/>',
     "moon": '<path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/>',
     "lock": '<rect x="3" y="7" width="10" height="7.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',

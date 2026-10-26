@@ -115,7 +115,7 @@ class PhotosPlugin(TelescopePlugin):
     title = N_("Photos")
     about = N_("Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them.")
     category = "camera"
-    icon = "snapshot"
+    icon = "photo"
     when_off = N_("Without it there's no Photos card and no Take photo shortcut.")
     optional = True
     panel_region = "right"
