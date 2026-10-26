@@ -54,8 +54,7 @@ data class CameraControlSnapshot(
 // around (x, y) in 0..1 of that view. Kept normalized, so it carries over a lens switch, clamped to the new lens.
 data class ZoomRequest(val ratio: Float = 1f, val crop: Float = 1f, val x: Float = 0.5f, val y: Float = 0.5f)
 
-// A photo output next to the stream's (StillCapture): part of the session, never of the repeating request.
-// maxRes: it's from the maximum resolution sensor mode's sizes.
+// A photo output next to the stream's (StillCapture), never in the repeating request; maxRes: a full resolution mode size
 class StillOutput(val surface: Surface, val maxRes: Boolean)
 
 // Owns the Camera2 session lifecycle (device/session/reader) and control state; CameraStreamService owns the HTTP server, notification, and everything outside the camera itself. onFatalError tears the whole session down (camera/session lost); onControlError reports a single failed control change (e.g. exposure) while the stream keeps running on its previous request.
@@ -1122,6 +1121,8 @@ class CameraSessionController(
         outputs.isNotEmpty() && stillOutputs === outputs && captureSession != null
     // The lens a multi-lens camera streams from, as the session's outputs name it; null for the camera itself
     fun stillPhysicalId(): String? = currentCamera?.let { if (it.logicalId != null) it.id else null }
+    // What decides whether photo outputs fit next to the stream: the lens, the stream's size and its codec
+    fun stillStreamKey(): String = "${currentCamera?.id}|${streamWidth}x$streamHeight|$codec"
 
     // What the stream exposes at: the exposure set by hand, or what auto exposure settled on lately
     fun streamExposure(): StillExposure? {
@@ -1138,8 +1139,7 @@ class CameraSessionController(
     fun stillRequest(device: CameraDevice, template: Int): CaptureRequest.Builder =
         device.createCaptureRequest(template).also { applyControls(it, cameraFps()) }
 
-    // Whether the session would take these outputs next to the stream's: null when the phone can't say (Android 9,
-    // or a HAL that doesn't answer), so it's worth trying
+    // Whether the session takes these outputs next to the stream's; null when the phone can't say, so it's worth trying
     fun stillsFit(outputs: List<StillOutput>): Boolean? {
         val camera = cameraDevice ?: return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null

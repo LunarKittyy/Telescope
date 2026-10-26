@@ -134,4 +134,34 @@ class StillJobsTest {
         assertNull(jobs.status(id))
         assertTrue(dir.listFiles()!!.isEmpty())
     }
+
+    @Test
+    fun `old requests go when anyone asks about photos, not only on the next start`() {
+        val jobs = jobs()
+        val id = jobs.start(1, 0)!!
+        val file = writeFile(jobs, id, "jpg", 1)
+        jobs.finish(id)
+        val other = jobs.start(1, 0)!!
+        jobs.finish(other)
+        now += StillJobs.KEEP_MS + 1
+        assertNull(jobs.status(other))
+        assertNull(jobs.status(id))
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `finished requests past the size limit go, oldest first`() {
+        val jobs = jobs()
+        val big = (StillJobs.MAX_BYTES / 2 + 1).toInt()
+        val first = jobs.start(1, 0)!!.also { id -> java.io.RandomAccessFile(jobs.newFile(id, "dng")!!, "rw").use { it.setLength(big.toLong()) } }
+        // newFile's part file is renamed by fileDone
+        jobs.fileDone(first, dir.listFiles()!!.single { it.name.endsWith(".part") })
+        jobs.finish(first)
+        val second = jobs.start(1, 0)!!
+        java.io.RandomAccessFile(jobs.newFile(second, "dng")!!, "rw").use { it.setLength(big.toLong()) }
+        jobs.fileDone(second, dir.listFiles()!!.single { it.name.endsWith(".part") })
+        jobs.finish(second)
+        assertNull(jobs.status(first))
+        assertNotNull(jobs.status(second))
+    }
 }

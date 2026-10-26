@@ -1155,7 +1155,7 @@ class CameraStreamService : Service() {
             is StillOptions.Parsed.Ok -> parsed.request
         }
         val id = stillJobs.start(request.shots.size, request.timerMs) ?: return refuse("busy", "The phone is already taking a photo")
-        capture.start(id, request, caps)
+        capture.start(id, request, caps, cam.id)
         return answer(StillStarted(ok = true, id = id))
     }
 

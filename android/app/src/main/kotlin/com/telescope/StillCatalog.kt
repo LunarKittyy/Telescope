@@ -14,8 +14,7 @@ object StillCatalog {
         val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return null
         val jpeg = largest(map, ImageFormat.JPEG) ?: return null
         val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.toSet() ?: emptySet()
-        // A lens of a multi-lens camera goes through its parent's session: its RAW needs the per-lens results of
-        // Android 12, and the full resolution mode and the maker's modes only exist for the camera as a whole
+        // A single lens of a multi-lens camera: RAW needs Android 12's per-lens results, and no full resolution or maker modes
         val physical = entry.logicalId != null
 
         val raw = if (CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW in caps &&

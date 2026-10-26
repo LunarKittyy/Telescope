@@ -718,4 +718,25 @@ class MjpegServerTest {
         assertEquals("2", MjpegServer.queryParam("n=2&id=abc", "n"))
         assertEquals(null, MjpegServer.queryParam("idx=1", "id"))
     }
+
+    @Test
+    fun `a download nobody reads any more is cut off and frees its slot`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { java.io.RandomAccessFile(this, "rw").use { it.setLength(64L shl 20) } }
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            stillFile = { _, _ -> file to "IMG_1.dng" }, fileTimeoutMs = 400)
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.receiveBufferSize = 4096
+                socket.getOutputStream().write("GET /v1/still/file?id=a&n=0 HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n".toByteArray())
+                Thread.sleep(2_000)  // reading nothing while the phone's writes fill up
+                socket.soTimeout = 5_000
+                val read = try { socket.getInputStream().readBytes().size.toLong() } catch (_: java.io.IOException) { 0L }
+                assertTrue(read < file.length(), "read $read of ${file.length()}")
+            }
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
 }

@@ -177,9 +177,9 @@ A plain photo goes into the stream's own camera session next to the video and th
 
 `state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`: one of the codes above, or `interrupted` when the stream's session was rebuilt under it, `timeout` and `failed`). `paused` is true while the video is paused for it. `files` lists every file written so far in the order they were taken, and a desktop can start fetching them before the last one is done.
 
-`GET /v1/still/file?id=<id>&n=<index>` sends file `n` (from 0) with its `Content-Length` and `Content-Type`, streamed in pieces since a RAW file is often 50 MB or more. It takes one of the stream slots while it sends.
+`GET /v1/still/file?id=<id>&n=<index>` sends file `n` (from 0) with its `Content-Length` and `Content-Type`, streamed in pieces since a RAW file is often 50 MB or more. It takes one of the stream slots while it sends, and a download that stops moving for 30 seconds is cut off. Both `GET` requests answer `404` for an `id` or file the phone doesn't have (any more).
 
-`POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. Otherwise the phone holds on to them in its cache for ten minutes (only the last four requests' worth) and deletes all of them when the stream stops. An unknown `id` gets `404`.
+`POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. It always answers ok, also for an `id` that's already gone. Otherwise the phone holds on to them in its cache for ten minutes (at most the last four requests and 1 GB) and deletes all of them when the stream stops.
 
 ## `GET /v1/video.udp` (experimental)
 

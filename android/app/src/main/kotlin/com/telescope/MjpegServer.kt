@@ -40,6 +40,8 @@ class MjpegServer(
     val stillStatus: (String) -> String? = { null },
     // GET /v1/still/file?id=&n=: the file and the name to send it as; null when there's no such file
     val stillFile: (String, Int) -> Pair<java.io.File, String>? = { _, _ -> null },
+    // A file download that makes no progress for this long is cut off
+    private val fileTimeoutMs: Int = FILE_TIMEOUT_MS,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -308,13 +310,14 @@ class MjpegServer(
                             if (status == null) HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
                             else HttpWire.sendJson(socket.getOutputStream(), status)
                         }
-                        else -> {
+                        "POST" -> {
                             if (!HttpWire.isJsonBody(request)) { HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return }
                             val body = HttpWire.readBody(socket, request) ?: return
                             val params = HttpWire.parseJsonParams(body)
                             if (params == null) HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request")
                             else HttpWire.sendJson(socket.getOutputStream(), handleStill(params))
                         }
+                        else -> HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed")
                     }
                 }
                 "/v1/still/file" -> {
@@ -359,8 +362,17 @@ class MjpegServer(
 
     // A photo, which can be 50 MB and more: streamed in TLS-record-sized pieces with its length up front
     private fun sendFile(socket: Socket, file: java.io.File, name: String) {
-        socket.soTimeout = FILE_TIMEOUT_MS
+        socket.soTimeout = fileTimeoutMs
         val out = socket.getOutputStream()
+        // A write blocked on a computer that went away never times out on its own, so the socket is closed instead
+        val lastWrite = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+        val guard = fileGuards.scheduleWithFixedDelay({
+            if (System.currentTimeMillis() - lastWrite.get() > fileTimeoutMs) try { socket.close() } catch (_: Exception) {}
+        }, fileTimeoutMs / 2L, fileTimeoutMs / 2L, TimeUnit.MILLISECONDS)
+        try { sendFileBody(file, name, out) { lastWrite.set(System.currentTimeMillis()) } } finally { guard.cancel(false) }
+    }
+
+    private fun sendFileBody(file: java.io.File, name: String, out: java.io.OutputStream, wrote: () -> Unit) {
         file.inputStream().use { input ->
             val length = file.length()
             out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${StillJobs.type(name)}\r\nContent-Length: $length\r\n" +
@@ -372,6 +384,7 @@ class MjpegServer(
                 val n = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
                 if (n <= 0) break
                 out.write(buf, 0, n)
+                wrote()
                 left -= n
             }
             out.flush()
@@ -405,7 +418,10 @@ class MjpegServer(
         }
 
         private const val MAX_CONCURRENT_STREAMS = 16
-        private const val FILE_TIMEOUT_MS = 30_000
+        const val FILE_TIMEOUT_MS = 30_000
+        private val fileGuards = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->
+            Thread(r, "still-file-guard").apply { isDaemon = true }
+        }
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
         const val ACCEPT_RETRY_MS = 200L

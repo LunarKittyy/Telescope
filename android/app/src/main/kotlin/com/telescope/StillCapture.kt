@@ -25,10 +25,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
-// Takes the photos POST /v1/still asks for, on the camera thread, with the camera CameraSessionController has open.
-// Photos go next to the stream in its session where the phone allows that, so the video keeps going; the maker's
-// modes, and whatever the phone won't take next to the stream, get a session of their own while the video pauses.
+// Takes /v1/still's photos on the camera thread: next to the stream where the phone allows it, else in a session of their own.
 class StillCapture(
     private val context: Context,
     private val controller: CameraSessionController,
@@ -45,6 +44,10 @@ class StillCapture(
         private const val FOCUS_SETTLE_FRAMES = 3 // frames for the lens to get to the next focus distance
         private const val SHOT_MS = 5_000L        // time allowed per picture, on top of its exposure
         private const val SETUP_MS = 20_000L      // and for setting the session up
+        private const val RAW_IMAGES = 3          // RAW buffers held at once (a DNG holds its image until it's written)
+        private const val MAX_RES_RAW_IMAGES = 2  // and at full resolution, where each is 100 MB or more
+        private const val IMAGES = 4              // compressed buffers held at once
+        private const val MAX_WRITES = 4          // pictures waiting for the writer before no more are taken in
 
         // How a photo output goes into a session: on a lens of a multi-lens camera, and in the full resolution mode
         @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
@@ -78,7 +81,9 @@ class StillCapture(
     }
 
     // A photo output and the reader its pictures come out of; format is a StillOptions name
-    private class Output(val format: String, val reader: ImageReader, val still: StillOutput)
+    private class Output(val format: String, val reader: ImageReader, val still: StillOutput, val maxImages: Int) {
+        val acquired = AtomicInteger()  // images taken from the reader and not closed yet
+    }
 
     // The outputs a request needs, kept in the stream's session for the next photo once they're in it
     private class Outputs(val key: String, val list: List<Output>) {
@@ -86,7 +91,8 @@ class StillCapture(
         fun close() = list.forEach { runCatching { it.reader.close() } }
     }
 
-    private inner class Run(val id: String, val request: StillRequest, val caps: StillCaps, val generation: Int) {
+    private inner class Run(val id: String, val request: StillRequest, val caps: StillCaps, val generation: Int,
+                            val array: SensorBox?, val maxResArray: SensorBox?) {
         var active = true
         var outputs: Outputs? = null
         var own: Outputs? = null      // its own session's outputs, closed when it's done
@@ -98,9 +104,10 @@ class StillCapture(
         var written = 0
         val tries = IntArray(request.shots.size)
         val results = HashMap<Long, TotalCaptureResult>()
-        val images = HashMap<Long, MutableList<Pair<String, Image>>>()
+        val images = HashMap<Long, MutableList<Pair<Output, Image>>>()
         val discard = HashSet<Long>()
-        val needsResult = request.raw || request.shots.any { it.focus != null }
+        // Pictures wait for their capture result (DNGs need it, and it tells stale pictures apart); the maker's modes have none
+        val needsResult = request.extension == null
         val requests = arrayOfNulls<CaptureRequest>(request.shots.size)
         var target: CameraCaptureSession? = null  // the session its pictures are asked of
     }
@@ -109,16 +116,17 @@ class StillCapture(
     private val writer = Executors.newSingleThreadExecutor { r -> Thread(r, "still-writer").apply { isDaemon = true } }
     private var current: Run? = null      // camera thread only
     private var kept: Outputs? = null     // camera thread only
-    private val refused = HashSet<String>()  // output sets this phone wouldn't take next to the stream
+    private val refused = HashSet<String>()  // output sets this lens and stream configuration wouldn't take
+    private val writes = AtomicInteger()      // pictures handed to the writer and not written yet
     @Volatile private var stopped = false
 
     private fun handler(): Handler? = controller.stillHandler()
 
-    // From any thread: shoot the request in StillJobs as id, after its timer
-    fun start(id: String, request: StillRequest, caps: StillCaps) {
+    // From any thread: shoot the request in StillJobs as id with cameraId's lens, after its timer
+    fun start(id: String, request: StillRequest, caps: StillCaps, cameraId: String) {
         onBusy(true)
         val h = handler()
-        if (h == null || !h.postDelayed({ begin(id, request, caps) }, request.timerMs)) {
+        if (h == null || !h.postDelayed({ begin(id, request, caps, cameraId) }, request.timerMs)) {
             jobs.fail(id, "camera_off", "The camera isn't running")
             onBusy(false)
         }
@@ -137,7 +145,7 @@ class StillCapture(
         kept = null
     }
 
-    private fun begin(id: String, request: StillRequest, caps: StillCaps) {
+    private fun begin(id: String, request: StillRequest, caps: StillCaps, cameraId: String) {
         if (stopped) return
         val device = controller.stillDevice()
         if (device == null || controller.stillSession() == null && !request.ownSession) {
@@ -145,13 +153,25 @@ class StillCapture(
             onBusy(false)
             return
         }
-        val r = Run(id, request, caps, controller.stillGeneration())
+        val cam = controller.stillCamera()
+        if (cam?.id != cameraId) {
+            // The lens changed during the timer: its sizes and what it can do were the other lens's
+            jobs.fail(id, "interrupted", "The lens changed before the photo")
+            onBusy(false)
+            return
+        }
+        val maxResArray = if (request.maxRes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching {
+            manager.getCameraCharacteristics(cam.id).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION)
+                ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
+        }.getOrNull() else null
+        val r = Run(id, request, caps, controller.stillGeneration(), cam.activeArray, maxResArray)
         current = r
         handler()?.postDelayed({ if (current === r && r.active) end(r, "timeout", "The phone took too long") },
             SETUP_MS + request.exposureMs + request.shots.size * SHOT_MS)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
             val key = outputsKey(request)
+            val refusal = "${controller.stillStreamKey()}|$key"
             val old = kept
             if (old != null && old.key == key && controller.stillOutputsInSession(old.stills)) {
                 r.outputs = old
@@ -160,14 +180,14 @@ class StillCapture(
             }
             // Readers that dropped out of the session (a reopen, a paused photo) can go now
             if (old != null && !controller.stillOutputsInSession(old.stills)) { old.close(); kept = null }
-            if (key in refused) { alone(r); return }
+            if (refusal in refused) { alone(r); return }
             val fresh = makeOutputs(request, caps, key)
-            if (controller.stillsFit(fresh.stills) == false) { fresh.close(); refused += key; alone(r); return }
+            if (controller.stillsFit(fresh.stills) == false) { fresh.close(); refused += refusal; alone(r); return }
             controller.useStillOutputs(fresh.stills) { ok ->
                 // The session has let go of the old ones either way: in it now are the new ones or none
                 kept?.close()
                 kept = if (ok) fresh else null
-                if (!ok) { fresh.close(); refused += key }
+                if (!ok) { fresh.close(); refused += refusal }
                 if (!r.active) return@useStillOutputs
                 r.outputs = if (ok) fresh else null
                 if (ok) beside(r) else alone(r)
@@ -192,8 +212,13 @@ class StillCapture(
                 format == StillOptions.ULTRA_HDR -> caps.ultraHdr
                 else -> caps.jpeg
             } ?: error("no size for $format")
-            val reader = ImageReader.newInstance(size.first, size.second, imageFormat(format), 2)
-            Output(format, reader, StillOutput(reader.surface, request.maxRes))
+            val images = when {
+                format != StillOptions.RAW -> IMAGES
+                request.maxRes -> MAX_RES_RAW_IMAGES
+                else -> RAW_IMAGES
+            }
+            val reader = ImageReader.newInstance(size.first, size.second, imageFormat(format), images)
+            Output(format, reader, StillOutput(reader.surface, request.maxRes), images)
         })
     }
 
@@ -210,7 +235,6 @@ class StillCapture(
 
     private fun alone(r: Run) {
         val device = controller.stillDevice() ?: return end(r, "camera_off", "The camera isn't running")
-        // Readers of the stream's session may still be in it: this session gets readers of its own
         val outputs = makeOutputs(r.request, r.caps, outputsKey(r.request))
         r.own = outputs
         r.outputs = outputs
@@ -221,7 +245,7 @@ class StillCapture(
         openAlone(r, device, withMeter = true)
     }
 
-    // withMeter: a small output for auto exposure and focus to run on before the shot, as they don't run on photos
+    // withMeter: a small output for auto exposure and focus to settle on first, as they don't run on photos
     private fun openAlone(r: Run, device: CameraDevice, withMeter: Boolean) {
         val physId = controller.stillPhysicalId()
         val meter = if (withMeter) meterReader() else null
@@ -309,11 +333,38 @@ class StillCapture(
 
     private fun listen(r: Run, outputs: Outputs) {
         for (output in outputs.list) {
-            output.reader.setOnImageAvailableListener({ reader ->
-                val image = try { reader.acquireNextImage() } catch (_: Exception) { null } ?: return@setOnImageAvailableListener
-                if (current !== r || !r.active) { image.close(); return@setOnImageAvailableListener }
-                onImage(r, output.format, image)
-            }, handler())
+            discardWaiting(output)  // left over from an earlier photo on a kept reader
+            output.reader.setOnImageAvailableListener({ drain(r, output) }, handler())
+        }
+    }
+
+    // Takes in what fits in the buffers and the writer's queue; the rest waits until a picture is closed or written
+    private fun drain(r: Run, output: Output) {
+        if (current !== r || !r.active) { discardWaiting(output); return }
+        while (output.acquired.get() < output.maxImages && writes.get() < MAX_WRITES) {
+            val image = try { output.reader.acquireNextImage() } catch (_: Exception) { null } ?: return
+            output.acquired.incrementAndGet()
+            onImage(r, output, image)
+        }
+    }
+
+    private fun drainAll() {
+        val r = current ?: return
+        r.outputs?.list?.forEach { drain(r, it) }
+    }
+
+    // From any thread: the picture's buffer goes back, and anything waiting behind it is taken in
+    private fun close(output: Output, image: Image) {
+        runCatching { image.close() }
+        output.acquired.decrementAndGet()
+        handler()?.post { drainAll() }
+    }
+
+    // Pictures nobody wants any more (a photo that ended, an earlier one's): closed as they come
+    private fun discardWaiting(output: Output) {
+        while (output.acquired.get() < output.maxImages) {
+            val image = try { output.reader.acquireNextImage() } catch (_: Exception) { null } ?: return
+            image.close()
         }
     }
 
@@ -330,7 +381,8 @@ class StillCapture(
                 lastFocus = shot.focus
                 r.requests[i] = buildShot(r, device, shot, i, streamTargets).also(burst::add)
             }
-            session.captureBurst(burst, shotCallback(r), handler())
+            if (burst.size == 1) session.capture(burst[0], shotCallback(r), handler())
+            else session.captureBurst(burst, shotCallback(r), handler())
         } catch (e: Exception) {
             onError("still.shoot", e)
             end(r, "failed", "The phone couldn't take the photo")
@@ -372,11 +424,31 @@ class StillCapture(
                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
                 set(CaptureRequest.LENS_FOCUS_DISTANCE, shot.focus)
             }
-            if (req.maxRes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            if (req.maxRes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 set(CaptureRequest.SENSOR_PIXEL_MODE, CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
+                toMaxRes(this, r)
+            }
             if (req.raw) set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON)
             setTag(index)
         }.build()
+    }
+
+    // The crop and metering regions are measured on the full resolution array in that mode, not the usual one
+    private fun toMaxRes(builder: CaptureRequest.Builder, r: Run) {
+        val from = r.array ?: return
+        val to = r.maxResArray ?: return
+        fun scaled(rect: android.graphics.Rect): android.graphics.Rect {
+            val b = StillOptions.scaleBox(SensorBox(rect.left, rect.top, rect.width(), rect.height()), from, to)
+            return android.graphics.Rect(b.left, b.top, b.left + b.width, b.top + b.height)
+        }
+        builder.get(CaptureRequest.SCALER_CROP_REGION)?.let { builder.set(CaptureRequest.SCALER_CROP_REGION, scaled(it)) }
+        for (key in listOf(CaptureRequest.CONTROL_AF_REGIONS, CaptureRequest.CONTROL_AE_REGIONS)) {
+            val regions = builder.get(key) ?: continue
+            builder.set(key, regions.map { m ->
+                val rect = scaled(m.rect)
+                android.hardware.camera2.params.MeteringRectangle(rect, m.meteringWeight)
+            }.toTypedArray())
+        }
     }
 
     private fun shotCallback(r: Run) = object : CameraCaptureSession.CaptureCallback() {
@@ -389,14 +461,13 @@ class StillCapture(
                 r.tries[index] < FOCUS_TRIES) {
                 r.tries[index]++
                 r.discard += ts
-                r.images.remove(ts)?.forEach { it.second.close() }
+                r.images.remove(ts)?.forEach { (output, image) -> close(output, image) }
                 retry(r, index)
                 return
             }
             jobs.shotTaken(r.id)
-            if (!r.needsResult) return
             r.results[ts] = result
-            r.images.remove(ts)?.forEach { (format, image) -> save(r, format, image, result) }
+            r.images.remove(ts)?.forEach { (output, image) -> save(r, output, image, result) }
         }
 
         override fun onCaptureFailed(session: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
@@ -417,41 +488,43 @@ class StillCapture(
         }
     }
 
-    private fun onImage(r: Run, format: String, image: Image) {
+    private fun onImage(r: Run, output: Output, image: Image) {
         val ts = image.timestamp
-        if (ts in r.discard) { image.close(); return }
-        if (!r.needsResult) { save(r, format, image, null); return }
+        if (ts in r.discard) { close(output, image); return }
+        if (!r.needsResult) { save(r, output, image, null); return }
         val result = r.results[ts]
-        if (result != null) save(r, format, image, result)
-        else r.images.getOrPut(ts) { mutableListOf() } += format to image
+        if (result != null) save(r, output, image, result)
+        else r.images.getOrPut(ts) { mutableListOf() } += output to image
     }
 
-    // Copies a compressed picture out at once and frees its buffer; a RAW one is written into a DNG on the writer
-    // thread, which needs the image until it's done
-    private fun save(r: Run, format: String, image: Image, result: TotalCaptureResult?) {
-        val file = jobs.newFile(r.id, extension(format)) ?: run { image.close(); return }
-        if (format != StillOptions.RAW) {
+    // A compressed picture is copied out and freed at once; a RAW one holds its image until the writer has the DNG
+    private fun save(r: Run, output: Output, image: Image, result: TotalCaptureResult?) {
+        val file = jobs.newFile(r.id, extension(output.format)) ?: run { close(output, image); return }
+        writes.incrementAndGet()
+        if (output.format != StillOptions.RAW) {
             val bytes = try {
                 val buf = image.planes[0].buffer
                 ByteArray(buf.remaining()).also { buf.get(it) }
-            } finally { image.close() }
+            } finally { close(output, image) }
             writer.execute { write(r, file) { out -> out.write(bytes) } }
             return
         }
         val cam = controller.stillCamera()
-        val chars = manager.getCameraCharacteristics(cam?.id ?: run { image.close(); return })
+        val id = cam?.id
+        if (id == null || result == null) { close(output, image); writes.decrementAndGet(); return }
+        val chars = manager.getCameraCharacteristics(id)
         val physical = if (cam.logicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-            result?.physicalCameraTotalResults?.get(cam.id) else null
+            result.physicalCameraTotalResults?.get(id) else null
         val rotation = r.request.rotation
         writer.execute {
             try {
                 write(r, file) { out ->
-                    DngCreator(chars, physical ?: result!!).use { dng ->
+                    DngCreator(chars, physical ?: result).use { dng ->
                         dng.setOrientation(exifOrientation(rotation))
                         dng.writeImage(out, image)
                     }
                 }
-            } finally { image.close() }
+            } finally { close(output, image) }
         }
     }
 
@@ -468,6 +541,9 @@ class StillCapture(
             file.delete()
             onError("still.write", e)
             handler()?.post { if (r.active) end(r, "failed", "The phone couldn't save the photo") }
+        } finally {
+            writes.decrementAndGet()
+            handler()?.post { drainAll() }
         }
     }
 
@@ -480,8 +556,8 @@ class StillCapture(
         val ext = manager.getCameraExtensionCharacteristics(cam.logicalId ?: cam.id)
         val size = ext.getExtensionSupportedSizes(type, ImageFormat.JPEG).maxByOrNull { it.width.toLong() * it.height }
             ?: return end(r, "unsupported", "This lens has no '${r.request.extension}' mode")
-        val reader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 2)
-        val outputs = Outputs("ext", listOf(Output(StillOptions.JPEG, reader, StillOutput(reader.surface, false))))
+        val reader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, IMAGES)
+        val outputs = Outputs("ext", listOf(Output(StillOptions.JPEG, reader, StillOutput(reader.surface, false), IMAGES)))
         r.own = outputs
         r.outputs = outputs
         if (!controller.pauseForStill()) return end(r, "camera_off", "The camera isn't running")
@@ -541,9 +617,14 @@ class StillCapture(
         if (!r.active) return
         r.active = false
         if (current === r) current = null
-        r.images.values.flatten().forEach { runCatching { it.second.close() } }
+        r.images.values.flatten().forEach { (output, image) -> close(output, image) }
         r.images.clear()
-        r.outputs?.list?.forEach { it.reader.setOnImageAvailableListener(null, null) }
+        // Pictures of requests still in flight are thrown away as they come, so they can't fill a kept reader
+        r.outputs?.list?.forEach { output ->
+            output.reader.setOnImageAvailableListener({ discardWaiting(output) }, handler())
+        }
+        // A photo that failed part way stops asking for the rest, whose frames would also hold up the video
+        if (code != null) try { r.target?.abortCaptures() } catch (_: Exception) {}
         val own = r.session
         r.session = null
         try { own?.close() } catch (_: Exception) {}
@@ -551,7 +632,7 @@ class StillCapture(
         r.extension = null
         if (ext != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) try { (ext as CameraExtensionSession).close() } catch (_: Exception) {}
         r.meter?.close()
-        // Images still being written hold their reader's buffers; closing waits for nothing, so it goes after them
+        // Images still being written hold their reader's buffers, so the readers close after them
         val ownOutputs = r.own
         if (ownOutputs != null) writer.execute { ownOutputs.close() }
         if (r.paused && restore) controller.resumeAfterStill(r.generation)

@@ -182,4 +182,14 @@ class StillOptionsTest {
         assertTrue(flagship.bracketing && flagship.focusBracketing && flagship.distortionCorrection)
         assertEquals(StillOptions.MAX_SHOTS, flagship.burstMax)
     }
+
+    @Test
+    fun `crop and metering boxes move onto the full resolution array`() {
+        val array = SensorBox(0, 0, 4080, 3072)
+        val full = SensorBox(0, 0, 8160, 6144)
+        assertEquals(SensorBox(2040, 1536, 4080, 3072), StillOptions.scaleBox(SensorBox(1020, 768, 2040, 1536), array, full))
+        assertEquals(full, StillOptions.scaleBox(array, array, full))
+        // Arrays that don't start at 0
+        assertEquals(SensorBox(16, 8, 200, 100), StillOptions.scaleBox(SensorBox(8, 4, 100, 50), SensorBox(0, 0, 100, 50), SensorBox(0, 0, 200, 100)))
+    }
 }

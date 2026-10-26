@@ -179,6 +179,15 @@ object StillOptions {
         return time to needIso.coerceIn(caps.isoMin, caps.isoMax)
     }
 
+    // A box on one sensor array moved to the same place on another (the full resolution mode's is bigger)
+    fun scaleBox(box: SensorBox, from: SensorBox, to: SensorBox): SensorBox {
+        val sx = to.width.toDouble() / from.width
+        val sy = to.height.toDouble() / from.height
+        return SensorBox(to.left + ((box.left - from.left) * sx).roundToLong().toInt(),
+            to.top + ((box.top - from.top) * sy).roundToLong().toInt(),
+            (box.width * sx).roundToLong().toInt(), (box.height * sy).roundToLong().toInt())
+    }
+
     // count focus distances from from to to diopters, evenly spaced (diopters are already 1/distance)
     fun focusSteps(from: Float, to: Float, count: Int): List<Float> =
         (0 until count).map { from + (to - from) * it / (count - 1) }

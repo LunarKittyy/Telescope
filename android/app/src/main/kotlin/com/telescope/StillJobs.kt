@@ -6,12 +6,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// The photo requests the computer made and the files they left in the app's cache, until it fetches and forgets them
-// or they get old. One request shoots at a time. Plain JVM, so it runs in tests.
+// Photo requests and their files in the app's cache until fetched and forgotten or too old; one shoots at a time
 class StillJobs(private val dir: File, private val clock: () -> Long = System::currentTimeMillis) {
     companion object {
         const val KEEP_MS = 10 * 60_000L  // files a computer never came back for go after this
         const val MAX_KEPT = 4             // and only the newest few are kept at all
+        const val MAX_BYTES = 1_000_000_000L  // and no more than this of finished requests' files
         fun type(name: String): String = when (name.substringAfterLast('.').lowercase()) {
             "dng" -> "image/x-adobe-dng"
             "heic" -> "image/heic"
@@ -97,6 +97,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
 
     @Synchronized
     fun status(id: String): StillStatus? {
+        sweep()
         val job = jobs[id] ?: return null
         return StillStatus(
             id = job.id, state = job.state, shots = job.shots, taken = job.taken,
@@ -108,7 +109,10 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
 
     // The n-th file (from 0) of a request
     @Synchronized
-    fun file(id: String, n: Int): File? = jobs[id]?.files?.getOrNull(n)?.takeIf { it.isFile }
+    fun file(id: String, n: Int): File? {
+        sweep()
+        return jobs[id]?.files?.getOrNull(n)?.takeIf { it.isFile }
+    }
 
     // The computer has what it wanted: the files go
     @Synchronized
@@ -128,10 +132,17 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     // The name a computer saves it under, without the request id kept to tell requests apart here
     fun publicName(file: File): String = file.name.replace(Regex("_[0-9a-f]{16}(\\.[a-z]+)$"), "$1")
 
-    private fun sweep() {
+    // Requests over KEEP_MS old, past the newest MAX_KEPT - 1, or past MAX_BYTES (oldest first) go with their files
+    @Synchronized
+    fun sweep() {
         val now = clock()
         val ended = jobs.values.filter { it.endedAt != 0L }
-        val old = ended.filter { now - it.endedAt > KEEP_MS } + ended.dropLast(MAX_KEPT - 1)
-        old.distinct().forEach { job -> job.files.forEach { it.delete() }; jobs.remove(job.id) }
+        val old = (ended.filter { now - it.endedAt > KEEP_MS } + ended.dropLast(MAX_KEPT - 1)).toMutableSet()
+        var bytes = 0L
+        for (job in ended.reversed()) {
+            bytes += job.files.sumOf { it.length() }
+            if (bytes > MAX_BYTES) old += job
+        }
+        old.forEach { job -> job.files.forEach { it.delete() }; jobs.remove(job.id) }
     }
 }
