@@ -21,11 +21,12 @@ class Tap:
 
     def set(self, makers: dict) -> bool:
         """The steps from {owner: make_step}: an owner new here gets a fresh one from make_step(), one already on keeps
-        its own, and {} takes them all off. True if any came off, so the picture needs a keyframe to recover."""
-        removed = any(owner not in makers for owner in self._steps)
+        its own, and {} takes them all off. True if any came on or off: a new step needs a keyframe to start from (the
+        stream's parameters come with it), and the picture needs one to recover from a step that came off."""
+        changed = makers.keys() != self._steps.keys()
         self._steps = {owner: self._steps.get(owner) or guarded(owner, make()) for owner, make in makers.items()}
         self.step = chain(list(self._steps.values())) if self._steps else None
-        return removed
+        return changed
 
 
 def guarded(name: str, step: Callable[[bytes], list]) -> Callable[[bytes], list]:

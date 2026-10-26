@@ -88,16 +88,16 @@ def test_steps_run_one_after_the_other():
     assert tap.step(b"x") == [b"x!", b"x!"]
 
 
-def test_each_stream_gets_a_fresh_step_and_taking_one_off_says_so():
+def test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so():
     made = []
 
     def make():
         made.append(1)
         return lambda u: [u]
     one, two = packets.Tap(), packets.Tap()
-    assert not one.set({"fun": make})
+    assert one.set({"fun": make})
     assert not one.set({"fun": make})  # already on: it keeps its step
-    assert not two.set({"fun": make})
+    assert two.set({"fun": make})
     assert len(made) == 2
     assert one.set({}) and one.step is None
     assert not one.set({})

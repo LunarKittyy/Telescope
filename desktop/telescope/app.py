@@ -1679,7 +1679,7 @@ class TelescopeWindow(QMainWindow):
         return dict(self._packet_makers)
 
     def _ask_keyframe(self, source: Source):
-        """Steps came off source's H.264: a keyframe from the phone brings back a picture they may have broken."""
+        """Steps came on or off source's H.264: a keyframe gives a new one a start and brings back a picture they broke."""
         session = source.session
         if session is not None and session.client is not None and session.url.endswith((".h264", ".udp")):
             session.client.send(action="keyframe")

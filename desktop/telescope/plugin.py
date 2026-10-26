@@ -332,8 +332,8 @@ class HostPackets(Protocol):
     def change_packets(self, owner: str, make_step: Optional[Callable[[], Callable[[bytes], list]]]) -> None:
         """While set, the shown stream's access units (Annex-B bytes, one frame each) go through a step from
         make_step(), on the stream's thread, before they're decoded: step(unit) returns the ones to decode in its place
-        ([] drops it). Each stream it's put on gets a fresh step, and it moves with the panels. None takes it off,
-        and the phone is asked for a keyframe so the picture recovers. Nothing extra runs while nobody has one."""
+        ([] drops it). Each stream it's put on gets a fresh step, starting at a keyframe, and it moves with the panels.
+        None takes it off, and the phone is asked for a keyframe so the picture recovers. Nothing extra runs while nobody has one."""
         ...
 
 

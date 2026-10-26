@@ -367,7 +367,8 @@ class StreamFlow:
         if session is not None:
             if session.worker is not None:
                 session.worker.set_pipeline(self.pipeline())
-                session.worker.packets.set(host.packet_steps())
+                if session.worker.packets.set(host.packet_steps()):
+                    host.ask_keyframe(source)
             self._each_follower("on_focus_gained", session.url, session.client)
             source.refresh_state(session.id)
             if source.recovering:

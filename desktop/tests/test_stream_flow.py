@@ -338,9 +338,9 @@ def test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe(setu
     _two_streams(flow, host, log)
     a, b = sources["a"].session.worker, sources["b"].session.worker
     assert b.packets.step is not None and a.packets.step is None
-    assert host.keyframes == ["a"]  # the panels moved to the new stream
+    assert host.keyframes == ["a"]  # the panels moved to the new stream, which started with one anyway
     host.keyframes.clear()
     flow.move_focus(sources["a"])
     assert a.packets.step is not None and b.packets.step is None
-    assert host.keyframes == ["b"]
+    assert host.keyframes == ["b", "a"]
 

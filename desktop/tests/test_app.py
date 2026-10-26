@@ -3849,17 +3849,17 @@ def test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_cha
     assert window.packets_problem() != ""
 
 
-def test_taking_packet_steps_off_asks_the_phone_for_a_keyframe(window):
+def test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe(window):
     sent = []
     worker = SimpleNamespace(packets=packets.Tap())
     session = SimpleNamespace(url="https://phone/v1/video.h264", worker=worker,
                               client=SimpleNamespace(send=lambda **p: sent.append(p)))
     window._sessions.focus = SimpleNamespace(session=session)
     window.change_packets("fun", lambda: lambda unit: [])
-    assert worker.packets.step is not None and sent == []
+    assert worker.packets.step is not None and sent == [{"action": "keyframe"}]
     window.change_packets("fun", None)
     assert worker.packets.step is None
-    assert sent == [{"action": "keyframe"}]
+    assert sent == [{"action": "keyframe"}] * 2
     window.change_packets("fun", None)
-    assert sent == [{"action": "keyframe"}]
+    assert sent == [{"action": "keyframe"}] * 2
     window._sessions.focus = None

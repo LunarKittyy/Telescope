@@ -10,6 +10,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.framing import FramingPlugin
+    from telescope.plugins.fun_pack import FunPackPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
@@ -29,6 +30,7 @@ def builtin_plugins() -> list:
         CameraControlPlugin(),
         BrowserCameraPlugin(),  # after Camera: its card takes that place while it's picked
         BackgroundPlugin(),  # optional: off until switched on in Plugins
+        FunPackPlugin(),  # optional, after Background: its effects work on the picture with the background done
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows

@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Fun pack](#fun-pack) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -41,9 +41,23 @@ Optional and it shares the vision download. **Blur** blurs everything behind you
 
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
+## Fun pack
+
+Optional, off until you switch it on in the Plugins tab. Its card has one **Effect** picker:
+
+- **Clone party** copies you into the picture after a three second countdown. Move somewhere else and add another, up to eight. With the vision download your outline comes from MediaPipe, otherwise take the empty room first and the clones are cut out by how much the picture differs from it
+- **Invisibility cloak** fills in the empty room wherever you are. Take the empty room, step back in and you're gone. A plain wall behind you works better than one the same colour as your clothes. Edges are cleaner with the vision download
+- **Light painting** leaves trails behind anything bright. Wave a torch or a phone screen around in a dark room. **Trails** sets how long they hang around and **Brightness** how bright a light has to be to paint
+- **Slit-scan** shows each band of the picture a little later than the one before, which stretches and bends anything that moves. **Spread** is how many frames the picture spans from one end to the other
+- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. It needs the vision download
+- **Game Boy**, **1998 webcam**, **VHS**, **CRT** and **ASCII** are retro looks with nothing to set
+- **Datamosh** drops keyframes from the video before it's decoded. The motion in the frames after them then smears over the old picture instead of refreshing it. **Smear** plays each frame's motion up to three extra times and **Clean up** lets one keyframe through to get a clear picture back. It only works on Light (Heavy sends whole pictures with no keyframes to drop) and not with Browser camera. Phones that refresh the picture gradually instead of sending keyframes heal a mosh within about a second, so it's more of a flicker there
+
+The empty room isn't saved and needs taking again after the phone moves. Switching the effect off or to another one gets the phone to send a keyframe and the picture is back right away.
+
 ## The vision download
 
-Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
+Auto framing and Background use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
