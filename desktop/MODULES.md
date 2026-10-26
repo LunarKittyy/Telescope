@@ -537,6 +537,13 @@ v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec s
 - Keying waits while its own pick runs, so the screen shows on the preview. The pick samples the median of a small square of the last frame before keying (a copy, kept while its pick runs) at `Pick.shown`, which is already mapped back past Desk mode's warp. That's the key's own input, so Desk's Writing clean-up on the preview doesn't skew it; `Pick.picture` at `Pick.in_picture` is only for a pick before any frame came in and refuses a colour with hardly any colour in it (`keyable()`). `frame_step()` freezes the settings for a stream behind the panels.
 - Config keys: `on`, `screen`, `picked`, `tolerance`, `softness`, `spill`, `background`, `colour`, `picture`. `tests/test_chroma_key.py`.
 
+### `plugins/qr_reader.py`
+**QrReaderPlugin** - QR codes held up to the camera go to the clipboard: a Wi-Fi code's password (`parse_wifi()`, with its backslash escapes) or the network's name without one, else the text as it is. `optional`, `panel_region = "left"`, not in presets.
+- UI: an on switch in the header, a status line with **Copy** once a code was read, and **Notify me when a code is read**.
+- `process_frame` only hands a copy (at most 1280 wide) to a `qr-reader` thread every `_EVERY_S` while none is running; `read_code()` tries `QRCodeDetectorAruco` and `QRCodeDetector` on it and on a half-size copy, since each misses codes the other reads and big ones close up read better small. The result comes back to the UI thread; the same text isn't copied again within `_AGAIN_S` of last seeing it.
+- `_check()` reads the clipboard back `_CHECK_MS` after a copy: Wayland ignores one from a window in the background, and then the card says to click **Copy** (a click gives the window focus, so that one goes through). A `CodeLayer` outlines the code on the preview for `_OUTLINE_S`.
+- Config keys: `on`, `notify`. `tests/test_qr_reader.py`.
+
 ### `plugins/photos.py`
 **PhotosPlugin** - the Photos card. `optional`, `panel_region = "right"`, one setting for the whole app.
 - Everything goes through `HostStills`, so it has no idea how photos are taken and another plugin's photo disables its button too (`still_busy_changed`). `offered(caps, choices)` says what the card shows for the lens (a maker's mode only does JPEG singles and bursts at its own exposure, full resolution only JPEG and RAW, bracketing has no long exposure) and `build_options(caps, choices, rotation)` turns the picks into `/v1/still` options, leaving out what the lens can't do. Picks the lens can't do are kept for the next lens that can. The photo's rotation is the shown view's (`host.view().rotation`).

@@ -86,6 +86,12 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 - If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
 - Each phone remembers its own corners and presets save them too
 
+## QR codes
+
+Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. The code gets a green outline on the preview for a moment and a notification says what was copied (**Notify me when a code is read** turns that off).
+
+Telescope looks about three times a second at a smaller copy away from the stream itself and the picture doesn't slow down for it. The same code isn't copied again until it's been out of view for a few seconds. On Linux with Wayland a window in the background isn't allowed to change the clipboard. When that happens the card says so and **Copy** puts the code there with one click.
+
 ## Photos
 
 Optional. Switch it on under **Optional** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
