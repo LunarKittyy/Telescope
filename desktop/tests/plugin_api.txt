@@ -69,6 +69,7 @@ HostPreview.pick_on_preview(self, owner, kind, on_done, start=None, hint='')
 HostPreview.preview_overlays(self)
 HostPreview.refresh_preview(self)
 HostPreview.remove_preview_layer(self, owner)
+HostPreview.set_preview_warp(self, owner, matrix)
 HostSettings.apply_preset(self, name, cfg)
 HostSettings.device_config(self, source_id, plugin_name)
 HostSettings.forget_device_settings(self, name)
@@ -147,8 +148,9 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
-Pick(kind, shown, full, picture=None)
+Pick(kind, shown, full, picture=None, in_picture=())
 Pick.full
+Pick.in_picture = ()
 Pick.kind
 Pick.picture = None
 Pick.shown

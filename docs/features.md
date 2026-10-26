@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Cinema tools](#cinema-tools) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Cinema tools](#cinema-tools) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -63,6 +63,19 @@ Optional, for judging focus and exposure while you set ISO, shutter and focus by
 - **Scope** puts a histogram, waveform, RGB parade or vectorscope in the bottom right of the preview. The waveform and parade show brightness from 0 at the bottom to 100% at the top, with a line every 25%. The vectorscope marks the colour bar targets and has a line for skin tones
 
 Peaking colour and sensitivity and how big the scope is are under Video in Settings. The tools work on the preview's own smaller copy of the picture and the scopes are worked out on their own thread about 12 times a second, which keeps the stream itself as fast as before.
+
+## Desk and document mode
+
+Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Optional** in the Plugins tab of Settings.
+
+- **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
+- The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
+- **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
+- Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
+- If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
+- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill the picture** stretches it over the whole frame
+- If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
+- Each phone remembers its own corners and presets save them too
 
 ## The vision download
 

@@ -11,10 +11,12 @@ pseudo	cut short	Frame rate
 pseudo	cut short	Good for most calls
 pseudo	cut short	Sharper, more data
 pseudo	not translated	30 fps
+pseudo	out of its box	100%
 pseudo	out of its box	20[% ~]
 pseudo	out of its box	270°
 pseudo	out of its box	45[ °Ç ~]
 pseudo	out of its box	Add phone
+pseudo	out of its box	Auto
 pseudo	out of its box	Black level lock
 pseudo	out of its box	Blur the others
 pseudo	out of its box	False colour

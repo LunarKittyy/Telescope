@@ -110,7 +110,7 @@ msgid "Stop"
 msgstr "Stop"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:628 telescope/app.py:1948 telescope/app.py:1964 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:628 telescope/app.py:1951 telescope/app.py:1967 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "Mulai"
 
@@ -274,7 +274,7 @@ msgstr "Ubah ukuran kamera virtual"
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Ponsel mengirim data yang tidak dapat dibaca oleh versi ini. Perbarui kedua aplikasi ke versi yang sama."
 
-#: telescope/app.py:1572 telescope/plugins/preview.py:589
+#: telescope/app.py:1572 telescope/plugins/preview.py:590
 msgid "Show"
 msgstr "Tampilkan"
 
@@ -294,32 +294,32 @@ msgstr "Telescope ini tidak memiliki pintasan."
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Tindakan itu gagal; Salin diagnostik memiliki detailnya."
 
-#: telescope/app.py:1947
+#: telescope/app.py:1950
 msgid "The stream stopped unexpectedly"
 msgstr "Stream berhenti secara tak terduga"
 
-#: telescope/app.py:1947 telescope/app.py:1963
+#: telescope/app.py:1950 telescope/app.py:1966
 msgid "Copy diagnostics has the details."
 msgstr "Salin diagnostik memiliki detailnya."
 
-#: telescope/app.py:1962
+#: telescope/app.py:1965
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Stream dari {name} berhenti secara tak terduga"
 
-#: telescope/app.py:2041
+#: telescope/app.py:2044
 msgid "Telescope is still running"
 msgstr "Telescope masih berjalan"
 
-#: telescope/app.py:2042
+#: telescope/app.py:2045
 msgid "Streaming continues in the background."
 msgstr "Streaming berlanjut di latar belakang."
 
-#: telescope/app.py:2043
+#: telescope/app.py:2046
 msgid "It starts streaming by itself when it needs to."
 msgstr "Aplikasi ini mulai streaming dengan sendirinya saat diperlukan."
 
-#: telescope/app.py:2044
+#: telescope/app.py:2047
 msgid "Right-click the tray icon to quit."
 msgstr "Klik kanan ikon baki sistem untuk keluar."
 
@@ -396,15 +396,15 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: telescope/overlays.py:410
+#: telescope/overlays.py:458
 msgid "Click a point on the picture. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:412
+#: telescope/overlays.py:460
 msgid "Drag across the picture to mark an area. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:413
+#: telescope/overlays.py:461
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr ""
 
@@ -808,7 +808,7 @@ msgstr "Plugin"
 msgid "Updates & About"
 msgstr "Pembaruan & Tentang"
 
-#: telescope/plugin.py:504
+#: telescope/plugin.py:511
 msgid "Open settings"
 msgstr "Buka pengaturan"
 
@@ -921,8 +921,9 @@ msgstr "Harus memuat satu folder dengan nama yang sama seperti plugin."
 msgid "That isn't a folder in the plugins folder."
 msgstr "Itu bukan folder di dalam folder plugin."
 
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/framing.py:40
+#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40
 msgid "Off"
 msgstr "Nonaktif"
 
@@ -1137,7 +1138,7 @@ msgstr "Kamera browser tidak tersedia"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Pindai kode pada kartu Kamera browser dengan perangkat yang akan digunakan. Streaming akan dimulai segera setelah terhubung."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:33
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:235 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:33
 msgid "Cancel"
 msgstr "Batal"
 
@@ -1216,7 +1217,8 @@ msgctxt "camera section"
 msgid "Light"
 msgstr "Pencahayaan"
 
-#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/stream_output.py:654
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/desk.py:23 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "Otomatis"
 
@@ -1753,7 +1755,7 @@ msgstr "Anda dapat mulai streaming sekarang."
 msgid "Paired with {name}"
 msgstr "Tersanding dengan {name}"
 
-#: telescope/plugins/connection.py:352
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:233
 msgid "Done"
 msgstr "Selesai"
 
@@ -2183,6 +2185,139 @@ msgstr "Apakah ini {name} lagi?"
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "Ponsel bernama {name} disandingkan sebagai ponsel baru. Hal ini terjadi setelah Telescope diinstal ulang atau datanya dihapus. Memilih Ya akan memindahkan pengaturan dan preset {name} ke ponsel ini serta menghapus entri lama."
+
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
+#: telescope/plugins/desk.py:21
+msgid "Contrast"
+msgstr ""
+
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
+#: telescope/plugins/desk.py:21
+msgid "Black and white"
+msgstr ""
+
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "A4"
+msgstr ""
+
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "Letter"
+msgstr ""
+
+#. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
+#: telescope/plugins/desk.py:23
+msgid "Square"
+msgstr ""
+
+#: telescope/plugins/desk.py:24
+msgid "Fill the picture"
+msgstr ""
+
+#: telescope/plugins/desk.py:200 telescope/plugins/desk.py:287
+msgid "Desk and document mode"
+msgstr ""
+
+#: telescope/plugins/desk.py:201
+msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+msgstr ""
+
+#: telescope/plugins/desk.py:202
+msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
+
+#: telescope/plugins/desk.py:225
+msgid "Straighten the sheet you marked"
+msgstr ""
+
+#: telescope/plugins/desk.py:227 telescope/plugins/desk.py:289
+msgid "Desk mode"
+msgstr ""
+
+#: telescope/plugins/desk.py:230 telescope/plugins/desk.py:290 telescope/plugins/desk.py:363
+msgid "Mark the sheet"
+msgstr ""
+
+#: telescope/plugins/desk.py:231
+msgid "Drag the four corners of the sheet into place on the preview"
+msgstr ""
+
+#: telescope/plugins/desk.py:242 telescope/plugins/transforms.py:165
+msgid "Reset"
+msgstr "Reset"
+
+#: telescope/plugins/desk.py:242
+msgid "Put the width and height back to 100%"
+msgstr ""
+
+#: telescope/plugins/desk.py:247
+msgid "Make the writing on the sheet stand out"
+msgstr ""
+
+#: telescope/plugins/desk.py:249
+msgid "Writing"
+msgstr ""
+
+#: telescope/plugins/desk.py:250
+msgid "Auto works the shape out from the corners"
+msgstr ""
+
+#: telescope/plugins/desk.py:252 telescope/plugins/stream_output.py:181
+msgid "Shape"
+msgstr "Bentuk"
+
+#: telescope/plugins/desk.py:255
+msgid "Width"
+msgstr ""
+
+#: telescope/plugins/desk.py:255
+msgid "Stretch the sheet sideways if it still looks squashed"
+msgstr ""
+
+#: telescope/plugins/desk.py:256
+msgid "Height"
+msgstr ""
+
+#: telescope/plugins/desk.py:256
+msgid "Stretch the sheet up and down if it still looks squashed"
+msgstr ""
+
+#: telescope/plugins/desk.py:291
+msgid "Make the writing stand out"
+msgstr ""
+
+#: telescope/plugins/desk.py:292
+msgid "Sheet shape"
+msgstr ""
+
+#: telescope/plugins/desk.py:331
+msgid "Drag the corners onto the sheet's corners, then press Enter."
+msgstr ""
+
+#: telescope/plugins/desk.py:332
+msgid "Start streaming to mark the sheet on the preview."
+msgstr ""
+
+#: telescope/plugins/desk.py:363
+msgid "Mark the sheet again"
+msgstr ""
+
+#: telescope/plugins/desk.py:370
+msgid "Drag the corners on the preview onto the sheet's corners."
+msgstr ""
+
+#: telescope/plugins/desk.py:372
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+msgstr ""
+
+#: telescope/plugins/desk.py:375
+msgid "Mark the sheet's corners to straighten it."
+msgstr ""
+
+#: telescope/plugins/desk.py:377
+msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
+msgstr ""
 
 #: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:102 telescope/plugins/face_exposure.py:116 telescope/plugins/face_exposure.py:117
 msgid "Expose for my face"
@@ -2951,75 +3086,75 @@ msgstr ""
 "Mikrofon ponsel masih streaming, dan kamera akan aktif\n"
 "kembali saat ada aplikasi yang membukanya."
 
-#: telescope/plugins/preview.py:363
+#: telescope/plugins/preview.py:364
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Pratinjau Video"
 
-#: telescope/plugins/preview.py:410 telescope/plugins/preview.py:579
+#: telescope/plugins/preview.py:411 telescope/plugins/preview.py:580
 msgid "Preview"
 msgstr "Pratinjau"
 
-#: telescope/plugins/preview.py:411
+#: telescope/plugins/preview.py:412
 msgid "The live picture in the middle of the window, and the camera on/off button under it."
 msgstr "Gambar langsung di tengah jendela, serta tombol kamera aktif/nonaktif di bawahnya."
 
-#: telescope/plugins/preview.py:412
+#: telescope/plugins/preview.py:413
 msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
 msgstr "Tanpa ini, jendela tidak menampilkan gambar tetapi aplikasi yang menggunakan kamera virtual tetap menerimanya."
 
-#: telescope/plugins/preview.py:503 telescope/plugins/preview.py:589
+#: telescope/plugins/preview.py:504 telescope/plugins/preview.py:590
 msgid "Hide"
 msgstr "Sembunyikan"
 
-#: telescope/plugins/preview.py:507
+#: telescope/plugins/preview.py:508
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "Berhenti menampilkan pratinjau ini. Output kamera tidak berubah."
 
-#: telescope/plugins/preview.py:516 telescope/plugins/shortcuts.py:180
+#: telescope/plugins/preview.py:517 telescope/plugins/shortcuts.py:180
 msgid "Phone camera"
 msgstr "Kamera ponsel"
 
-#: telescope/plugins/preview.py:527 telescope/plugins/preview.py:583
+#: telescope/plugins/preview.py:528 telescope/plugins/preview.py:584
 msgid "Skeleton"
 msgstr "Kerangka"
 
-#: telescope/plugins/preview.py:535
+#: telescope/plugins/preview.py:536
 msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
 msgstr "Gambar kerangka yang dideteksi MediaPipe. Tidak ditampilkan pada output kamera."
 
-#: telescope/plugins/preview.py:543 telescope/plugins/preview.py:582
+#: telescope/plugins/preview.py:544 telescope/plugins/preview.py:583
 msgid "Lens outlines"
 msgstr "Garis batas lensa"
 
-#: telescope/plugins/preview.py:557
+#: telescope/plugins/preview.py:558
 msgid "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
 msgstr "Tetap tampilkan apa yang dilihat lensa ponsel yang lebih panjang. Tidak ditampilkan pada output kamera."
 
-#: telescope/plugins/preview.py:562
+#: telescope/plugins/preview.py:563
 msgid "Pop out"
 msgstr "Pisahkan jendela"
 
-#: telescope/plugins/preview.py:581
+#: telescope/plugins/preview.py:582
 msgid "Show or hide the preview"
 msgstr "Tampilkan atau sembunyikan pratinjau"
 
-#: telescope/plugins/preview.py:584
+#: telescope/plugins/preview.py:585
 msgid "Pop out the preview"
 msgstr "Pisahkan jendela pratinjau"
 
-#: telescope/plugins/preview.py:593 telescope/plugins/preview.py:616
+#: telescope/plugins/preview.py:594 telescope/plugins/preview.py:617
 msgid "Preview hidden"
 msgstr "Pratinjau disembunyikan"
 
-#: telescope/plugins/preview.py:652
+#: telescope/plugins/preview.py:653
 msgid "Turn the phone's camera back on."
 msgstr "Aktifkan kembali kamera ponsel."
 
-#: telescope/plugins/preview.py:656
+#: telescope/plugins/preview.py:657
 msgid "Turn the phone's camera off. Its mic keeps streaming."
 msgstr "Nonaktifkan kamera ponsel. Mikrofonnya tetap streaming."
 
-#: telescope/plugins/preview.py:658
+#: telescope/plugins/preview.py:659
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Mulai dengan kamera ponsel nonaktif, hanya streaming mikrofonnya."
 
@@ -4175,10 +4310,6 @@ msgstr "Resolusi, frame rate, dan format stream."
 msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
 msgstr "Tanpa ini, tidak ada kartu Output stream dan stream menggunakan ukuran serta format apa pun yang dipilih ponsel."
 
-#: telescope/plugins/stream_output.py:181
-msgid "Shape"
-msgstr "Bentuk"
-
 #: telescope/plugins/stream_output.py:197
 msgid "The phone's capture rate and the virtual camera's. Lower saves data and battery."
 msgstr "Frame rate perekaman ponsel dan kamera virtual. Nilai lebih rendah menghemat data dan baterai."
@@ -4327,10 +4458,6 @@ msgstr "Zoom, geser, balik, dan putar gambar."
 #: telescope/plugins/transforms.py:132
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Tanpanya, kartu Transformasi tidak ada dan gambar keluar persis seperti yang dikirim ponsel."
-
-#: telescope/plugins/transforms.py:165
-msgid "Reset"
-msgstr "Reset"
 
 #: telescope/plugins/transforms.py:165
 msgid "Clear flip, rotation, zoom and pan back to defaults"
