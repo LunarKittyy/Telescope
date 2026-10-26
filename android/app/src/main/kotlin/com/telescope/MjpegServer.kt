@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/state, POST /v1/control;
-// all require bearer token. Opening a video route tells the service which codec to run.
+// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/state, POST /v1/control, and photos on
+// /v1/still and /v1/still/file; all require bearer token. Opening a video route tells the service which codec to run.
 class MjpegServer(
     val port: Int,
     val getCamerasJson: () -> String,
@@ -34,6 +34,12 @@ class MjpegServer(
     // A viewer sent nothing for this long is dropped: with nothing to write it would never notice the computer left.
     private val viewerGiveUpMs: Long = VIEWER_GIVE_UP_MS,
     private val onWifiViewersChanged: (Boolean) -> Unit = {},
+    // POST /v1/still: start a photo (or forget one); the JSON answer
+    val handleStill: (Map<String, String>) -> String = { """{"ok":false,"error":"no photos"}""" },
+    // GET /v1/still?id=: how that photo is getting on, as JSON; null for an id it doesn't know
+    val stillStatus: (String) -> String? = { null },
+    // GET /v1/still/file?id=&n=: the file and the name to send it as; null when there's no such file
+    val stillFile: (String, Int) -> Pair<java.io.File, String>? = { _, _ -> null },
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -55,6 +61,15 @@ class MjpegServer(
         val was = wifiViewers.isNotEmpty()
         if (watching) wifiViewers.add(socket) else wifiViewers.remove(socket)
         if (was != wifiViewers.isNotEmpty()) onWifiViewersChanged(wifiViewers.isNotEmpty())
+    }
+
+    // A photo is being taken: a long exposure or a paused video sends no frames, which mustn't count as a viewer gone
+    @Volatile private var holding = false
+    @Volatile private var heldUntilMs = 0L
+
+    fun holdViewers(on: Boolean) {
+        if (holding && !on) heldUntilMs = System.currentTimeMillis()
+        holding = on
     }
 
     // Updated on every authorized request; feeds battery-saving watchdog.
@@ -285,6 +300,33 @@ class MjpegServer(
                         }
                     } finally { streamSlots.release() }
                 }
+                "/v1/still" -> {
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    when (request.method) {
+                        "GET" -> {
+                            val status = queryParam(request.query, "id")?.let(stillStatus)
+                            if (status == null) HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
+                            else HttpWire.sendJson(socket.getOutputStream(), status)
+                        }
+                        else -> {
+                            if (!HttpWire.isJsonBody(request)) { HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                            val body = HttpWire.readBody(socket, request) ?: return
+                            val params = HttpWire.parseJsonParams(body)
+                            if (params == null) HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request")
+                            else HttpWire.sendJson(socket.getOutputStream(), handleStill(params))
+                        }
+                    }
+                }
+                "/v1/still/file" -> {
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    val id = queryParam(request.query, "id")
+                    val n = queryParam(request.query, "n")?.toIntOrNull()
+                    val found = if (id != null && n != null) stillFile(id, n) else null
+                    if (found == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (!takeStreamSlot()) return
+                    try { sendFile(socket, found.first, found.second) } finally { streamSlots.release() }
+                }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
         } catch (_: SocketTimeoutException) {
@@ -315,11 +357,33 @@ class MjpegServer(
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 
+    // A photo, which can be 50 MB and more: streamed in TLS-record-sized pieces with its length up front
+    private fun sendFile(socket: Socket, file: java.io.File, name: String) {
+        socket.soTimeout = FILE_TIMEOUT_MS
+        val out = socket.getOutputStream()
+        file.inputStream().use { input ->
+            val length = file.length()
+            out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${StillJobs.type(name)}\r\nContent-Length: $length\r\n" +
+                "Content-Disposition: attachment; filename=\"$name\"\r\nCache-Control: no-store\r\n" +
+                "Connection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
+            val buf = ByteArray(WRITE_CHUNK)
+            var left = length
+            while (left > 0) {
+                val n = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                if (n <= 0) break
+                out.write(buf, 0, n)
+                left -= n
+            }
+            out.flush()
+        }
+    }
+
     // Checked again while a viewer streams, so removing its computer on the phone cuts off video and mic it already has
     private fun stillPaired(request: HttpWire.Request): Boolean = HttpWire.bearerMatchesAny(tokens(), request)
 
     // Also checked by the senders: a viewer whose write is blocked on a dead link never polls, and closing unblocks it
-    private fun givenUp(lastWriteAtMs: Long): Boolean = System.currentTimeMillis() - lastWriteAtMs >= viewerGiveUpMs
+    private fun givenUp(lastWriteAtMs: Long): Boolean =
+        !holding && System.currentTimeMillis() - maxOf(lastWriteAtMs, heldUntilMs) >= viewerGiveUpMs
 
     // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
     // computer's ACK, which Windows delays by up to 200 ms.
@@ -335,7 +399,13 @@ class MjpegServer(
             part.removePrefix("port=").takeIf { part.startsWith("port=") }?.toIntOrNull()?.takeIf { it in 1..65535 }
         }
 
+        // name=value from a query string, or null
+        fun queryParam(query: String, name: String): String? = query.split('&').firstNotNullOfOrNull { part ->
+            part.removePrefix("$name=").takeIf { part.startsWith("$name=") }
+        }
+
         private const val MAX_CONCURRENT_STREAMS = 16
+        private const val FILE_TIMEOUT_MS = 30_000
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
         const val ACCEPT_RETRY_MS = 200L
