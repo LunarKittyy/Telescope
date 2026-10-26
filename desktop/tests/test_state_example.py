@@ -39,7 +39,8 @@ def test_the_desktop_reads_the_phones_state():
     assert (camera.logical_id, camera.label, camera.current, camera.has_ois, camera.iso_min) == ("0", "Back ~24mm OIS [phys]", True, True, 50)
     assert (camera.shutter_min_ns, camera.shutter_max_ns, camera.min_focus_distance) == (100_000, 1_000_000_000, 10)
     assert camera.supports_manual_sensor and camera.supports_manual_wb and camera.supports_manual_focus
-    assert camera.supports_focus_point and camera.supports_flash and camera.freeform_crop
+    assert camera.supports_focus_point and camera.supports_meter_point
+    assert camera.supports_flash and camera.freeform_crop
     assert (camera.zoom_ratio_max, camera.crop_zoom_max, camera.hw_level) == (10, 8, "FULL")
     assert (camera.ae_comp_min, camera.ae_comp_max, camera.ae_comp_step) == (-12, 12, 0.16666667)
     assert state.raw == EXAMPLE

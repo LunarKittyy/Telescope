@@ -91,6 +91,7 @@ class Resolution:
     busy: bool = False
     streaming_for: str = ""  # the other paired computer the phone's stream belongs to, if any
     phone_version: str = ""  # the phone app's version, when it told us
+    udp_dynamic: bool = False  # the phone runs Dynamic over UDP (PingResult.udp_dynamic)
     # LEGACY MIGRATION PATH: pairings saved before TLS; remove with the check in resolve() and connection.problem_text().
     before_tls: bool = False  # NOT_PAIRED because this pairing predates TLS, not because the phone dropped it
 
@@ -205,7 +206,8 @@ class RouteResolver:
                     return Resolution(NOT_PAIRED), None
                 if ping.status == "paired":
                     return Resolution(READY, route, streaming=bool(ping.streaming), busy=bool(ping.busy),
-                                      streaming_for=ping.streaming_for or "", phone_version=hello.app_version), None
+                                      streaming_for=ping.streaming_for or "", phone_version=hello.app_version,
+                                      udp_dynamic=ping.udp_dynamic), None
             finally:
                 self._tunnels.release(serial, PING_PORT)
         if old_app_serial is not None:
@@ -249,7 +251,8 @@ class RouteResolver:
         if ping.local_only:
             return Resolution(LOCAL_ONLY)
         return Resolution(READY, route, streaming=bool(ping.streaming), busy=bool(ping.busy),
-                          streaming_for=ping.streaming_for or "", phone_version=hello.app_version)
+                          streaming_for=ping.streaming_for or "", phone_version=hello.app_version,
+                          udp_dynamic=ping.udp_dynamic)
 
     def _try_wifi(self, phone: Phone) -> Resolution:
         candidates = self._wifi_candidates(phone)

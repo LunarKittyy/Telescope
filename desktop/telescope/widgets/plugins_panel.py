@@ -1,5 +1,6 @@
 """The Plugins tab of Settings: every plugin, built in or added, with a switch for each one that can be off."""
 
+import html
 import logging
 from pathlib import Path
 from typing import Callable, Optional
@@ -12,6 +13,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import plugin_loader
 from telescope.widgets import vision_download
+from telescope.widgets.plugin_updater import AUTO, CHECK, PluginUpdater
 from telescope.widgets.common import (
     Switch,
     add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, wrapped_note,
@@ -36,7 +38,8 @@ def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
 
 class PluginsPanel(QWidget):
     def __init__(self, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
-                 is_streaming: Callable[[], bool] = lambda: False, download=None):
+                 is_streaming: Callable[[], bool] = lambda: False, download=None,
+                 updater: Optional[PluginUpdater] = None):
         """builtins: every built-in plugin object; running: the names of the plugins running now; problems: why each
         added plugin that's on didn't start this time; restart() starts Telescope again, False if it couldn't."""
         super().__init__()
@@ -49,6 +52,8 @@ class PluginsPanel(QWidget):
         self._download = download or vision_download.shared()
         self._download.progress.connect(self._on_download_progress)
         self._download.finished.connect(self._on_download_done)
+        self._updater = updater or PluginUpdater(self._reserved, parent=self)
+        self._updater.changed.connect(self.refresh)
         self.setAcceptDrops(True)
         body = QVBoxLayout(self)
         body.setContentsMargins(0, 0, 0, 0)
@@ -149,6 +154,9 @@ class PluginsPanel(QWidget):
                 "drop it onto this window. Added plugins start out switched off.")))
         for item in self._installed:
             rows.addWidget(self._added_row(item))
+        if any(not i.dev for i in self._installed):
+            rows.addWidget(self._update_check_row())
+            rows.addWidget(self._auto_update_row())
         rows = self._card(tr("Always on"), "lock")
         for plugin in self._builtins:
             if plugin.required:
@@ -172,7 +180,7 @@ class PluginsPanel(QWidget):
         return lay
 
     def _row(self, title: str, on: bool, about: str, note: str = "", note_kind: str = "dim",
-             locked: bool = False, tooltip: str = "") -> tuple:
+             locked: bool = False, tooltip: str = "", rich_about: bool = False, rich_note: bool = False) -> tuple:
         """A plugin as a strip: its name and what it does, its switch on the right (none when locked), and a line
         under it about what happens next. Returns the strip, the switch (None when locked) and the strip's controls."""
         box = None
@@ -198,8 +206,13 @@ class PluginsPanel(QWidget):
             restart.clicked.connect(self._restart_now)
             extra.addWidget(restart, 0, Qt.AlignmentFlag.AlignVCenter)
             self._restart_rows += 1
-        strip, _line = setting_row(title, about, controls, extra)
+        strip, line = setting_row(title, about, controls, extra)
         strip.setToolTip(tooltip if locked else "")
+        for text, rich in ((line, rich_about), (label if note else None, rich_note)):
+            if rich and text is not None:  # HTML the caller escaped, with links that open in the browser
+                text.setTextFormat(Qt.TextFormat.RichText)
+                text.setOpenExternalLinks(True)
+                text._fit()
         return strip, box, controls
 
     def _builtin_row(self, plugin, on: bool) -> QWidget:
@@ -289,7 +302,16 @@ class PluginsPanel(QWidget):
         note, kind = "", "dim"
         if item.dev:
             return self._dev_row(item, title, about)
-        if item.problem:
+        if item.repo:  # the address without https://, as a link
+            shown = html.escape(item.repo.split("://", 1)[1].rstrip("/"), quote=False)
+            about = (html.escape(item.description, quote=False)
+                     + (" " + tr("By {author}.", author=html.escape(item.author, quote=False)) if item.author else "")
+                     + f' <a href="{html.escape(item.repo)}">{shown}</a>').lstrip()
+        release = self._updater.newer(item)
+        if item.name in self._updater.updated and item.enabled and not item.changed:
+            note, kind = tr("Updated to {version} automatically. The new version runs after Telescope restarts.",
+                            version=self._updater.updated[item.name]), "restart"
+        elif item.problem:
             note, kind = item.problem, "status_err"
         elif item.changed:
             note, kind = tr("Its files changed since you switched it on, so it's off for now. Switch it on again "
@@ -300,13 +322,61 @@ class PluginsPanel(QWidget):
             note, kind = tr("It starts after Telescope restarts."), "restart"
         elif not item.enabled and item.name in self._running:
             note, kind = tr("It goes away after Telescope restarts."), "restart"
-        row, box, controls = self._row(title, item.enabled, about, note, kind)
+        linked = not note and release is not None
+        if linked:
+            # Translators: keep the <a href="{url}"> link
+            note, kind = tr('Version {version} is out. <a href="{url}">Download it from its release page</a> and '
+                            'install it here to replace this one.', version=html.escape(release.tag, quote=False),
+                            url=html.escape(release.page, quote=True)), "status_warn"
+        row, box, controls = self._row(title, item.enabled, about, note, kind, rich_about=bool(item.repo),
+                                       rich_note=linked)
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
         remove = icon_button("trash", tr("Remove {plugin}", plugin=item.title), tr("Remove"))
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))
         controls.insertWidget(0, remove)
         return row
+
+    def _update_check_row(self) -> QWidget:
+        on = self._read(self._updater.checking, True)
+        row, box, _controls = self._row(
+            tr("Check for updates"), on,
+            tr("Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them "
+               "here. Nothing gets downloaded."))
+        box.toggled.connect(lambda checked: self._switch_updates(CHECK, checked))
+        return row
+
+    def _auto_update_row(self) -> QWidget:
+        """The switch that installs updates without asking: red, and it asks before it goes on."""
+        checking = self._read(self._updater.checking, True)
+        on = checking and self._read(self._updater.auto, False)
+        row, box, _controls = self._row(
+            tr("Install updates without asking"), on,
+            tr("Installs new versions of the plugins you switched on and switches them on again."),
+            tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they "
+               "publish a release."), "status_err")
+        box.setProperty("danger", True)
+        box.setEnabled(checking or on)
+        box.toggled.connect(lambda checked, b=box: self._switch_auto(checked, b))
+        return row
+
+    def _switch_auto(self, on: bool, box: QCheckBox):
+        if on and not _ask(self, tr("Install plugin updates without asking?"),
+                           tr("Telescope will install new versions of the plugins you switched on and switch them on "
+                              "too, without showing them to you first.\n\nWhoever controls a plugin's repo on GitHub "
+                              "(its author, or anyone who gets into their account) can then run new code on this "
+                              "computer every time they publish a release. Only switch this on if you trust all of "
+                              "them with that."),
+                           tr("Switch on"), danger=True):
+            with QSignalBlocker(box):
+                box.setChecked(False)
+            return
+        self._switch_updates(AUTO, on)
+
+    def _switch_updates(self, key: str, on: bool):
+        self._save(lambda: plugin_loader.set_plugin_switch(key, on))
+        if on:
+            self._updater.maybe_check()
 
     def _dev_row(self, item, title: str, about: str) -> QWidget:
         """A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove."""
@@ -405,13 +475,16 @@ class PluginsPanel(QWidget):
         if path:
             self._install(path)
 
-    def _install(self, path: str):
+    def _install(self, path: str, replace: bool = False):
         try:
-            item = plugin_loader.install_zip(Path(path), self._reserved)
+            item = plugin_loader.install_zip(Path(path), self._reserved, replace=replace)
         except FileExistsError as exc:
-            QMessageBox.warning(self, tr("Already installed"),
-                                tr("A plugin called {plugin} is already installed. Remove that one first to put this "
-                                   "one in its place.", plugin=exc.args[0]))
+            old = next((i for i in self._installed if i.name == exc.args[0] and not i.dev), None)
+            title = f"{old.title} {old.version}".strip() if old else exc.args[0]
+            if _ask(self, tr("Replace {plugin}?", plugin=title),
+                    tr("The version in this .zip takes its place with the same settings. Like any plugin you add it "
+                       "starts out switched off."), tr("Replace")):
+                self._install(path, replace=True)
             return
         except (OSError, ValueError) as exc:
             QMessageBox.warning(self, tr("Couldn't install it"), str(exc))
@@ -422,6 +495,11 @@ class PluginsPanel(QWidget):
             QMessageBox.warning(self, tr("Installed, but it won't load"),
                                 tr("{plugin} was installed, but it can't run yet. {problem}",
                                    plugin=item.title, problem=item.problem))
+        elif replace:
+            QMessageBox.information(self, tr("Replaced"),
+                                    tr("{plugin} {version} is in place but switched off for now. To use it, switch it "
+                                       "on again under Added and restart Telescope.",
+                                       plugin=item.title, version=item.version))
         else:
             QMessageBox.information(self, tr("Installed"),
                                     tr("{plugin} is installed but switched off for now. To use it, switch it on under "

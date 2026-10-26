@@ -575,6 +575,7 @@ _OUR_FILES = (OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, update_guard.JOURNAL, 
 _OUR_FOLDERS = {  # name: the files Telescope ships in it (nothing else may be in there)
     "platform-tools": {"adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll", "NOTICE"},
     "unitycapture": {"UnityCaptureFilter32.dll", "UnityCaptureFilter64.dll", "LICENSE"},
+    "virtualcamera": {"TelescopeCamera.dll"},
 }
 _UPDATER_FOLDERS = (STAGING_DIR, PREVIOUS_DIR)  # only Telescope's updater makes these dot-folders
 

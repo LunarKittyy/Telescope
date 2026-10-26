@@ -382,3 +382,114 @@ def test_without_a_pack_for_this_computer_it_cant_be_switched_on(qapp, plugins, 
     dialog = PluginsPanel([*_builtins(), _Optional("framing", "Auto framing")], {"connection"}, {},
                            lambda: True, download=dl)
     assert not _boxes(dialog)["Auto framing"].isEnabled()
+
+
+# ── Updating added plugins ─────────────────────────────────────────────────────
+
+def _zip_of(folder, path):
+    import zipfile
+    with zipfile.ZipFile(path, "w") as zf:
+        for f in folder.rglob("*"):
+            zf.write(f, f.relative_to(folder.parent).as_posix())
+    return path
+
+
+def _labels(dialog) -> list:
+    return [lbl.text() for lbl in dialog.findChildren(QLabel) if lbl.isVisibleTo(dialog)]  # not rows being replaced
+
+
+def test_installing_a_plugin_thats_there_asks_then_replaces_it(qapp, plugins, answers, tmp_path, monkeypatch):
+    asked, reply = answers
+    shown = []
+    monkeypatch.setattr(dialog_module.QMessageBox, "information", lambda _p, title, text: shown.append((title, text)))
+    _added(plugins, "extra", version="1.0")
+    plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)
+    newer = tmp_path / "new"
+    newer.mkdir()
+    _added(newer, "extra", version="1.1")
+    archive = _zip_of(newer / "extra", tmp_path / "extra.zip")
+    dialog = PluginsPanel(_builtins(), {"connection", "extra"}, {}, lambda: True)
+
+    reply["yes"] = False
+    dialog._install(str(archive))
+    assert asked[-1][0] == "Replace Extra 1.0?" and "same settings" in asked[-1][1]
+    assert plugin_loader.find_installed(folder=plugins)[0].version == "1.0"  # cancelled: untouched
+
+    reply["yes"] = True
+    dialog._install(str(archive))
+    (item,) = plugin_loader.find_installed(folder=plugins)
+    assert item.version == "1.1" and not item.enabled
+    assert shown[-1][0] == "Replaced" and "Extra 1.1" in shown[-1][1]
+    assert not _boxes(dialog)["Extra 1.1"].isChecked()
+    assert any("goes away after Telescope restarts" in t for t in _labels(dialog))  # the old one still runs
+
+
+def test_the_repo_shows_as_a_link_next_to_the_author(qapp, plugins, answers):
+    _added(plugins, "extra", author="Someone <b>", description="Does things.",
+           repo="https://github.com/someone/extra")
+    dialog = PluginsPanel(_builtins(), set(), {}, lambda: True)
+    (about,) = [lbl for lbl in dialog.findChildren(QLabel) if "Does things." in lbl.text()]
+    assert about.text() == ('Does things. By Someone &lt;b&gt;. '
+                            '<a href="https://github.com/someone/extra">github.com/someone/extra</a>')
+    assert about.openExternalLinks()
+
+
+class _Updater(dialog_module.PluginUpdater):
+    """An updater whose last check found release for every plugin, without asking anyone."""
+
+    def __init__(self, release=None):
+        super().__init__()
+        self.release = release
+        self.checks = 0
+
+    def newer(self, item):
+        return self.release if self.checking() else None
+
+    def maybe_check(self):
+        self.checks += 1
+
+
+def test_a_newer_release_is_mentioned_with_a_link_to_it(qapp, plugins, answers):
+    from telescope.plugin_updates import Release
+    _added(plugins, "extra", version="1.0", repo="https://github.com/someone/extra")
+    release = Release("v1.1", "https://github.com/someone/extra/releases/tag/v1.1")
+    dialog = PluginsPanel(_builtins(), set(), {}, lambda: True, updater=_Updater(release))
+    (note,) = [lbl for lbl in dialog.findChildren(QLabel) if "Version v1.1" in lbl.text()]
+    assert "Version v1.1 is out." in note.text() and f'href="{release.page}"' in note.text()
+    _boxes(dialog)["Check for updates"].setChecked(False)
+    assert plugin_loader.plugin_switch("check_updates", True) is False
+    assert not any("Version v1.1" in t for t in _labels(dialog))
+
+
+def test_the_auto_update_switch_is_red_warns_and_asks_first(qapp, plugins, answers):
+    asked, reply = answers
+    _added(plugins, "extra")
+    updater = _Updater()
+    dialog = PluginsPanel(_builtins(), set(), {}, lambda: True, updater=updater)
+    box = _boxes(dialog)["Install updates without asking"]
+    assert box.property("danger") and not box.isChecked()
+    assert any("Whoever controls a plugin's repo can then run new code" in t for t in _labels(dialog))
+
+    reply["yes"] = False
+    box.setChecked(True)
+    assert asked[-1][2] and "every time they publish a release" in asked[-1][1]
+    assert not box.isChecked() and plugin_loader.plugin_switch("auto_update", False) is False
+
+    reply["yes"] = True
+    _boxes(dialog)["Install updates without asking"].setChecked(True)
+    assert plugin_loader.plugin_switch("auto_update", False) is True and updater.checks == 1
+    count = len(asked)
+    _boxes(dialog)["Install updates without asking"].setChecked(False)  # off again without asking
+    assert len(asked) == count and plugin_loader.plugin_switch("auto_update", True) is False
+
+
+def test_without_the_check_the_auto_switch_cant_go_on(qapp, plugins, answers):
+    _added(plugins, "extra")
+    plugin_loader.set_plugin_switch("check_updates", False)
+    dialog = PluginsPanel(_builtins(), set(), {}, lambda: True, updater=_Updater())
+    assert not _boxes(dialog)["Install updates without asking"].isEnabled()
+
+
+def test_with_no_added_plugins_there_are_no_update_switches(qapp, plugins, answers):
+    dialog = PluginsPanel(_builtins(), set(), {}, lambda: True, updater=_Updater())
+    assert "Check for updates" not in _boxes(dialog)

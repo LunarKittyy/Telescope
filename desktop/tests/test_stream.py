@@ -37,7 +37,7 @@ class _Capture:
 def test_fit_frame_returns_matching_frame_without_copy():
     frame = np.ones((3, 5, 3), dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 5, 3)
+    result = stream.vcam.fit_frame(frame, 5, 3)
 
     assert result is frame
 
@@ -45,7 +45,7 @@ def test_fit_frame_returns_matching_frame_without_copy():
 def test_fit_frame_resizes_same_aspect_ratio():
     frame = np.full((2, 4, 3), 17, dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 8, 4)
+    result = stream.vcam.fit_frame(frame, 8, 4)
 
     assert result.shape == (4, 8, 3)
     assert np.all(result == 17)
@@ -54,7 +54,7 @@ def test_fit_frame_resizes_same_aspect_ratio():
 def test_fit_frame_letterboxes_and_preserves_dtype():
     frame = np.full((2, 4, 3), 255, dtype=np.uint16)
 
-    result = stream._fit_frame(frame, 4, 4)
+    result = stream.vcam.fit_frame(frame, 4, 4)
 
     assert result.shape == (4, 4, 3)
     assert result.dtype == np.uint16
@@ -66,7 +66,7 @@ def test_fit_frame_letterboxes_and_preserves_dtype():
 def test_fit_frame_pillarboxes_narrow_input():
     frame = np.full((4, 2, 3), 9, dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 4, 4)
+    result = stream.vcam.fit_frame(frame, 4, 4)
 
     assert np.all(result[:, 0] == 0)
     assert np.all(result[:, 1:3] == 9)

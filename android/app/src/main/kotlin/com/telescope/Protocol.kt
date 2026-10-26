@@ -36,6 +36,7 @@ data class CameraCapability(
     val supportedSizes: List<CameraSize> = emptyList(),
     val h264Sizes: List<CameraSize>? = null,  // the supportedSizes the H.264 encoder takes; null = no encoder, or not said
     val supportsFocusPoint: Boolean = false,
+    val supportsMeterPoint: Boolean = false,  // meter_point works: AE regions, whether or not the lens can focus on a point
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,

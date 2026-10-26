@@ -13,7 +13,7 @@ $problems = @()
 $p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "Setup exited with $($p.ExitCode)" }
 
-foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\unins000.exe", $menu) {
+foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\virtualcamera\TelescopeCamera.dll", "$app\unins000.exe", $menu) {
     if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
 }
 if (-not (Get-ChildItem $app -Directory -Filter "lib-*")) { $problems += "after install, no lib-<build> folder" }

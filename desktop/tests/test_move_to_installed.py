@@ -195,7 +195,8 @@ def _unzipped(folder, extras=()):
         (folder / name).write_bytes(b"x")
     for name in ("lib-123/PyQt6/Qt6Core.dll", "lib-99/PyQt6/Qt6Core.dll", "lib-99/python313.dll",
                  "platform-tools/adb.exe", "platform-tools/AdbWinApi.dll", "platform-tools/NOTICE",
-                 "unitycapture/UnityCaptureFilter64.dll", "unitycapture/LICENSE", ".update-staging/x.dll"):
+                 "unitycapture/UnityCaptureFilter64.dll", "unitycapture/LICENSE", "virtualcamera/TelescopeCamera.dll",
+                 ".update-staging/x.dll"):
         (folder / name).parent.mkdir(parents=True, exist_ok=True)
         (folder / name).write_bytes(b"x")
     for name in extras:

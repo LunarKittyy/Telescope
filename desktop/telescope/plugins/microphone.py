@@ -19,7 +19,7 @@ from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices
 from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
 
-from telescope import audio, theme
+from telescope import audio, denoise, theme
 from telescope.platform import virtual_mic
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, slider_action
@@ -168,8 +168,9 @@ class MicrophonePlugin(TelescopePlugin):
     follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"
 
-    def __init__(self, backend=None, worker_cls=audio.AudioWorker, run_job=None):
+    def __init__(self, backend=None, worker_cls=audio.AudioWorker, run_job=None, denoise_problem=denoise.problem):
         self._backend = backend
+        self._denoise_problem = denoise_problem  # "" when RNNoise can be loaded, else why not
         self._worker_cls = worker_cls
         self._run_job = run_job  # runs a callable off the UI thread; tests pass one that runs it inline
 
@@ -201,6 +202,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._muted = False
         self._gain_db = 0
         self._auto_level = False
+        self._noise_reduction = False  # what's saved; it only reaches the worker while RNNoise can be loaded
         self._jobs = None
         if self._run_job is None:
             self._jobs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mic-setup")
@@ -256,6 +258,23 @@ class MicrophonePlugin(TelescopePlugin):
         self._auto_cb.toggled.connect(self._on_auto_level)
         self._auto_row = control_row_widget(tr("Auto level"), self._auto_cb)
         lay.addWidget(self._auto_row)
+        self._nr_cb = Switch()
+        self._nr_cb.toggled.connect(self._on_noise_reduction)
+        self._nr_problem = self._denoise_problem()
+        self._nr_note = wrapped_note(self._nr_problem)
+        nr_lay = QHBoxLayout()
+        nr_lay.setContentsMargins(0, 0, 0, 0)
+        nr_lay.setSpacing(10)
+        nr_lay.addWidget(self._nr_cb)
+        nr_lay.addWidget(self._nr_note, 1)
+        self._nr_row = control_row_widget(tr("Noise reduction"), nr_lay, stretch=True)
+        self._nr_note.setVisible(bool(self._nr_problem))  # once it has a parent, or it'd open as a window
+        if self._nr_problem:
+            self._nr_cb.setEnabled(False)
+            self._nr_cb.setToolTip(self._nr_problem)
+        else:
+            self._nr_cb.setToolTip(tr("Takes out typing, fans and room hiss."))
+        lay.addWidget(self._nr_row)
         self._meter_timer = QTimer(card)
         self._meter_timer.setInterval(METER_MS)
         self._meter_timer.timeout.connect(self._tick_meter)
@@ -321,11 +340,20 @@ class MicrophonePlugin(TelescopePlugin):
             self._worker.auto_level = on
         self._host.schedule_save()
 
+    def _on_noise_reduction(self, on: bool):
+        if on == self._noise_reduction:
+            return
+        self._noise_reduction = on
+        if self._worker is not None:
+            self._worker.noise_reduction = on
+        self._host.schedule_save()
+
     def _show_mute(self):
         here = self._enabled and self._elsewhere is None
         self._mute_btn.setVisible(here)
         self._gain_row.setVisible(here)
         self._auto_row.setVisible(here)
+        self._nr_row.setVisible(here)
         self._level_row.setVisible(here)
         self._mic_row.setVisible(here)
         self._mute_btn.setText(tr("Unmute") if self._muted else tr("Mute"))
@@ -506,6 +534,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._worker.muted = self._muted
         self._worker.limit = self._limit
         self._worker.auto_level = self._auto_level
+        self._worker.noise_reduction = self._noise_reduction and not self._nr_problem
         self._worker.start()
         self._meter_timer.start()
 
@@ -612,13 +641,16 @@ class MicrophonePlugin(TelescopePlugin):
             return {"Microphone": "off"}
         return {"Microphone": "on, " + ("running" if self._worker is not None else "not running")
                 + (f", gain {self._gain_db:+d} dB" if self._gain_db else "") + (", auto level" if self._auto_level else "")
+                + ((", noise reduction" if not self._nr_problem else ", noise reduction unavailable")
+                   if self._noise_reduction else "")
                 + (", muted" if self._muted else "")}
 
     def on_plugins_ready(self):
         self._bus.mic_changed.emit(self._enabled, self._muted)
 
     def get_config(self) -> dict:
-        return {"enabled": self._enabled, "gain_db": self._gain_db, "auto_level": self._auto_level}
+        return {"enabled": self._enabled, "gain_db": self._gain_db, "auto_level": self._auto_level,
+                "noise_reduction": self._noise_reduction}
 
     def set_config(self, cfg: dict):
         try:
@@ -627,6 +659,10 @@ class MicrophonePlugin(TelescopePlugin):
             gain = 0
         self._gain_slider.setValue(gain)  # the slider holds it inside the range
         self._auto_cb.setChecked(bool(cfg.get("auto_level", False)))
+        if self._nr_problem:
+            self._noise_reduction = bool(cfg.get("noise_reduction", False))  # kept for when it can be loaded again
+        else:
+            self._nr_cb.setChecked(bool(cfg.get("noise_reduction", False)))
         self._set_enabled(bool(cfg.get("enabled", False)) or self._handing_on)
         self._show_toggle()
         self._refresh()
