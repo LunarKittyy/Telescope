@@ -2,7 +2,7 @@ import math
 import time
 from typing import Optional
 
-from PyQt6.QtCore import QEvent, QRectF, Qt, QTimer
+from PyQt6.QtCore import QEvent, QRectF, QSignalBlocker, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QButtonGroup, QHBoxLayout, QLabel, QWidget,
@@ -530,8 +530,13 @@ class TransformsPlugin(TelescopePlugin):
         self.pan_y = _number(cfg.get("pan_y", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
         self._framing_changed()
         lo, hi = (n / 100.0 for n in _STRETCH_RANGE)
-        self._stretch_x_slider.setValue(round(_number(cfg.get("stretch_x", 1.0), 1.0, lo, hi) * 100))
-        self._stretch_y_slider.setValue(round(_number(cfg.get("stretch_y", 1.0), 1.0, lo, hi) * 100))
+        for slider, key in ((self._stretch_x_slider, "stretch_x"), (self._stretch_y_slider, "stretch_y")):
+            with QSignalBlocker(slider):  # both at once below, not one at a time with the other still the old one's
+                slider.setValue(round(_number(cfg.get(key, 1.0), 1.0, lo, hi) * 100))
+        self.stretch_x = self._stretch_x_slider.value() / 100.0
+        self.stretch_y = self._stretch_y_slider.value() / 100.0
+        self._stretch_x_lbl.setText(percent(self._stretch_x_slider.value()))
+        self._stretch_y_lbl.setText(percent(self._stretch_y_slider.value()))
         # Unchanged widgets don't fire, so the window's view hears flip, rotation and stretch here too
         self._host.set_view(flip_h=self.flip_h, flip_v=self.flip_v, rotation=self.rotation,
                             stretch_x=self.stretch_x, stretch_y=self.stretch_y)

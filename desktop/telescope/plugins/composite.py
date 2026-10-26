@@ -89,7 +89,7 @@ class CompositePlugin(TelescopePlugin):
 
     def _run_clock(self):
         while not self._shut:
-            if not self._on:
+            if not self._on or self._target is None:  # rests until there's a stream on the camera to keep moving
                 self._clock_wake.wait()
                 self._clock_wake.clear()
                 continue
@@ -170,6 +170,8 @@ class CompositePlugin(TelescopePlugin):
             self._target = target
             self._main_frame = None  # another stream's frame isn't this one's
             self._fallback_key = None
+            if target is not None:
+                self._wake_clock()
         if size is not None and size != self._camera_size:
             self._camera_size = size
             self._prepare()

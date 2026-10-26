@@ -265,7 +265,7 @@ class ChromaKeyPlugin(TelescopePlugin):
                                           hint=tr("Click the screen behind you on the preview. Esc cancels.")):
             self._status.setText(tr("Start streaming to pick the screen's colour on the preview."))
             self._status.setVisible(True)
-            set_status_kind(self._status, "warn")
+            set_status_kind(self._status, "status_warn")
 
     def _picked_point(self, pick):
         if pick is None:
@@ -282,7 +282,7 @@ class ChromaKeyPlugin(TelescopePlugin):
         if not keyable(colour):
             self._status.setText(tr("That spot has hardly any colour. Click the screen itself."))
             self._status.setVisible(True)
-            set_status_kind(self._status, "warn")
+            set_status_kind(self._status, "status_warn")
             return
         self._picked = colour
         self._screen = "picked"
@@ -337,7 +337,7 @@ class ChromaKeyPlugin(TelescopePlugin):
             text = tr("Choose a picture to put behind you.")
         self._status.setText(text)
         self._status.setVisible(bool(text))
-        set_status_kind(self._status, "warn" if text else "")
+        set_status_kind(self._status, "status_warn" if text else "dim")
 
     # ── Frames (worker thread) ────────────────────────────────────────────
 

@@ -70,11 +70,11 @@ def test_the_status_says_what_stands_in_the_way_first():
                 edited=False)
     assert notes_status(**{**base, "phone": False})[1] == "dim"
     assert "Update Telescope" in notes_status(**{**base, "takes_notes": False})[0]
-    assert notes_status(**{**base, "too_long": True})[1] == "err"
+    assert notes_status(**{**base, "too_long": True})[1] == "status_err"
     assert "Start streaming" in notes_status(**{**base, "streaming": False})[0]
     assert "front camera" in notes_status(**{**base, "front": False})[0]
     assert "Open Telescope" in notes_status(**{**base, "sent": True})[0]
-    assert notes_status(**{**base, "sent": True, "shown": True}) == ("The notes are on the phone's screen.", "ok")
+    assert notes_status(**{**base, "sent": True, "shown": True}) == ("The notes are on the phone's screen.", "status_ok")
     assert "back camera" in notes_status(**{**base, "sent": True, "shown": True, "front": False})[0]
     assert "Send again" in notes_status(**{**base, "sent": True, "shown": True, "edited": True})[0]
     assert "closed on the phone" in notes_status(**{**base, "sent": True, "closed": True})[0]

@@ -6,6 +6,7 @@ follows the panels from phone to phone and copes with streams starting, stopping
 here: the window passes on_change and turns it into the bus's sensors_changed.
 """
 
+import http.client
 import json
 import logging
 import socket
@@ -87,7 +88,8 @@ def _socket_of(resp):
 
 
 def _wake(resp):
-    """Ends a read blocked on resp's socket, from another thread, without touching the response's own lock."""
+    """Ends a read blocked on a plain http response's socket, from another thread, without touching the response's own
+    lock. Not for TLS: SSLSocket.shutdown() clears OpenSSL state under the reader."""
     sock = _socket_of(resp)
     if sock is None:
         return
@@ -101,6 +103,13 @@ def _wake(resp):
             socket.socket(fileno=sock.detach()).close()
         except (OSError, ValueError):
             pass
+
+
+def _abort_quietly(resp):
+    try:
+        resp.abort()
+    except Exception:
+        pass
 
 
 def _close_quietly(resp):
@@ -163,6 +172,9 @@ class _Reader:
         resp = self._response
         if resp is None:
             return
+        if hasattr(resp, "abort"):  # a paired phone's (pinned_https): wakes the read without touching its TLS state
+            threading.Thread(target=_abort_quietly, args=(resp,), name="phone-sensors-close", daemon=True).start()
+            return
         _wake(resp)
         threading.Thread(target=_close_quietly, args=(resp,), name="phone-sensors-close", daemon=True).start()
 
@@ -220,8 +232,10 @@ class _Reader:
                     self._hub._reader_hello(self, line.get("sensors"))
                 else:
                     self._hub._reader_line(self, line)
+        except (OSError, ValueError, http.client.HTTPException):
+            pass  # the connection dropped, or stop() ended the read
         except Exception:
-            pass
+            logger.exception("Reading the phone's sensors failed")
         finally:
             alive_stop.set()
             self._response = None

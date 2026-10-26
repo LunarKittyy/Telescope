@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QSizePolicy, QWidget
 from telescope import people
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import (
     Switch, action_button, add_card_header, card_layout, create_card, dim_until_paired, wrapped_note,
 )
@@ -220,9 +220,7 @@ class FaceExposurePlugin(TelescopePlugin):
 
     def _shown(self, face: tuple) -> Optional[tuple]:
         """face, from the picture at zoom 1, in the picture as shown now; None when it's outside it."""
-        view = self._host.view()
-        turn = (view.flip_h, view.flip_v, view.rotation)
-        u, v = view_to_shown(*shown_to_view(*face, 1.0, 0.0, 0.0, *turn), view.zoom, view.pan_x, view.pan_y, *turn)
+        u, v = upright_to_shown(self._host.view(), *face)
         return (u, v) if 0.0 <= u <= 1.0 and 0.0 <= v <= 1.0 else None
 
     def shutdown(self):
