@@ -268,3 +268,31 @@ def test_blur_now_asks_for_people_so_it_can_tell_you_apart(card):
     assert _sharp(out, 100, 220) and not _sharp(out, 450, 560)
     plugin._now_btn.click()
     assert host.wanted == set()
+
+
+def test_a_visitor_alone_for_a_moment_is_never_taken_for_you(card):
+    plugin, _host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you, other])
+    see([other], seconds=1 / 12)  # you leaned out long enough for your track to go: just the visitor, once
+    assert not _sharp(plugin.process_frame(_frame()), 450, 560)  # they're still someone else
+    you_back = Track(9, you.box, you.face, 0.2, 0.0)
+    see([you_back, other])
+    out = plugin.process_frame(_frame())
+    assert _sharp(out, 100, 220) and not _sharp(out, 450, 560)
+
+
+def test_while_you_are_away_the_mode_decides_what_gets_blurred(card):
+    plugin, host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you, other])
+    see([other])
+    out = plugin.process_frame(_frame())
+    assert _sharp(out, 100, 220) and not _sharp(out, 450, 560)  # Blur the others: whoever is there, the room stays
+    mask = np.zeros((360, 640), np.uint8)
+    mask[:, 400:640] = 255
+    host.mask = mask
+    assert not _sharp(plugin.process_frame(_frame()), 600, 640)  # all of them, not just their box
+    plugin._set_mode("background")
+    out = plugin.process_frame(_frame())
+    assert not _sharp(out, 100, 220) and not _sharp(out, 450, 560)  # Blur all but me, with no you: everything

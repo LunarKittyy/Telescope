@@ -394,3 +394,23 @@ def test_a_slow_wait_screen_never_holds_up_the_stream(qapp, config_home):
     assert time.monotonic() - t0 < 0.5 and not out.any()  # black until it's made, never the camera's picture
     loaded.set()
     assert _covered(plugin, frame).max() == 200
+
+
+def test_a_wait_screen_that_wont_load_is_not_retried_on_every_frame(qapp, config_home):
+    import numpy as np
+    from telescope.plugins import wait_screen
+    tries = []
+
+    def broken(path, w, h):
+        tries.append((w, h))
+        raise OSError("unreadable")
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=broken)
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    frame = np.zeros((36, 64, 3), np.uint8)
+    for _ in range(5):
+        assert not _covered(plugin, frame).any()  # black, never the camera's picture
+    assert tries.count((64, 36)) == 1
+    plugin._cover_failed = {k: t - wait_screen._RETRY_S - 1 for k, t in plugin._cover_failed.items()}
+    _covered(plugin, frame)
+    assert tries.count((64, 36)) == 2

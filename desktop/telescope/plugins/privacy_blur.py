@@ -62,6 +62,7 @@ class _Blur:
     you: Optional[tuple] = None  # your box, in the picture as shown at zoom 1
     others: tuple = ()  # everyone else's
     covered: bool = False  # the wait screen is up in place of the picture
+    away: bool = False  # you were found when blurring started but aren't now: everyone in the picture is someone else
 
 
 def grown(box: tuple, by: float = _GROW, head: float = _HEAD) -> tuple:
@@ -244,13 +245,16 @@ class PrivacyBlurPlugin(TelescopePlugin):
 
     def _you(self) -> Optional[people.Track]:
         """You: whoever was there longest when blurring started, while they're still followed. Once their track is
-        gone, whoever is where you were last seen (the model lost you for a while), else whoever's been there longest."""
+        gone, whoever is where you were last seen (the model lost you for a while). Anyone else is never you, so
+        None while you're away."""
+        if self._you_box is None:
+            return people.main(self._tracks)
         held = next((t for t in self._tracks if t.id == self._you_id), None)
-        if held is None and self._you_box is not None and self._tracks:
+        if held is None and self._tracks:
             best = max(self._tracks, key=lambda t: overlap(t.box, self._you_box))
             if overlap(best.box, self._you_box) > 0.1:
                 held = best
-        return held or people.main(self._tracks)
+        return held
 
     def _update(self):
         """Work out what frames get now, from the switches and the latest people."""
@@ -274,8 +278,9 @@ class PrivacyBlurPlugin(TelescopePlugin):
         others = tuple(t.box for t in self._tracks if you is None or t.id != you.id)
         if active and others:
             self._others = others
+        away = active and you is None and self._you_box is not None
         self._blur = _Blur(mode, active, you.box if you is not None else None, self._others,
-                           self._covered and want_cover)
+                           self._covered and want_cover, away)
         problem = ""
         if want_cover and not self._covered:
             problem = tr("With Wait screen switched off in Plugins the whole picture gets blurred instead.")
@@ -303,6 +308,15 @@ class PrivacyBlurPlugin(TelescopePlugin):
             return frame
         h, w = frame.shape[:2]
         view = self._host.view()
+        if blur.away and blur.mode == "others":
+            weight = boxes_mask([shown_box(grown(b), view) for b in blur.others], w, h) if blur.others else None
+            mask = self._host.person_mask(frame)
+            if mask is not None:
+                people = cv2.resize(mask, (max(1, w // _SMALL), max(1, h // _SMALL)), interpolation=cv2.INTER_AREA)
+                people = people.astype(np.float32) / 255.0
+                weight = people if weight is None else np.maximum(weight, people)
+            if weight is not None:
+                return compose(frame, weight)  # you're away: whoever is there gets blurred, all of them
         if blur.you is None or blur.mode == "wait":
             return blurred(frame)  # nobody to go by (by hand without the vision download), or no wait screen to show
         you = boxes_mask([shown_box(grown(blur.you), view)], w, h)

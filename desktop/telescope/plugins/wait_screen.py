@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 _PREVIEW_W = 384
 _KEPT_PREFIX = "wait_screen-"  # the copy of the chosen image, next to the config
+_RETRY_S = 10.0  # a stand-in that couldn't be made is tried again this long after, not on every frame
 
 
 class _Signals(QObject):
@@ -66,6 +67,7 @@ class WaitScreenPlugin(TelescopePlugin):
         self._covering = False  # read by the worker thread
         self._cover_frames: dict = {}  # (w, h, image, mirror): ([(BGR frame, seconds)], seconds in all), swapped whole
         self._cover_loading: set = set()  # the keys a thread is making frames for
+        self._cover_failed: dict = {}  # key: time.monotonic() its frames last couldn't be made
         self._cover_lock = threading.Lock()
 
     def setup(self, host, bus):
@@ -157,25 +159,31 @@ class WaitScreenPlugin(TelescopePlugin):
         with self._cover_lock:
             if key in self._cover_frames or key in self._cover_loading:
                 return
+            if time.monotonic() - self._cover_failed.get(key, float("-inf")) < _RETRY_S:
+                return
             self._cover_loading.add(key)
         threading.Thread(target=self._load_cover, args=(key,), daemon=True, name="wait-screen-cover").start()
 
     def _load_cover(self, key: tuple):
         w, h, path, mirror = key
+        frames = []
         try:
             flip = (lambda f: f[:, ::-1]) if mirror else (lambda f: f)  # noqa: E731
             frames = [(np.ascontiguousarray(cv2.cvtColor(flip(f), cv2.COLOR_RGB2BGR)), max(s, 0.01))
                       for f, s in self._loader(path, w, h)]
-            if frames:
-                with self._cover_lock:
-                    kept = {k: v for k, v in self._cover_frames.items() if k[2:] == key[2:]}  # this picture's sizes
-                    kept[key] = (frames, sum(s for _f, s in frames))
-                    self._cover_frames = dict(list(kept.items())[-2:])
+            if not frames:
+                logger.warning("The wait screen for the stream came out empty")
         except Exception:
             logger.exception("Couldn't make the wait screen for the stream")
-        finally:
-            with self._cover_lock:
-                self._cover_loading.discard(key)
+        with self._cover_lock:
+            if frames:
+                kept = {k: v for k, v in self._cover_frames.items() if k[2:] == key[2:]}  # this picture's sizes
+                kept[key] = (frames, sum(s for _f, s in frames))
+                self._cover_frames = dict(list(kept.items())[-2:])
+                self._cover_failed.pop(key, None)
+            else:
+                self._cover_failed[key] = time.monotonic()
+            self._cover_loading.discard(key)
 
     def _cover(self, frame: np.ndarray) -> np.ndarray:
         """The wait screen at frame's size, as the virtual camera shows it (animations play); black while it's being
