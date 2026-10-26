@@ -29,6 +29,9 @@ HANDOVER_TAKE_S = 5.0  # how long a ready one waits for the reader to take it (a
 # JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
 MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 
+# Every frame a stream sends out gets the next number, across all streams, so a number never comes round again.
+_frame_numbers = itertools.count(1)
+
 # A plugin step that fails this many frames in a row is skipped until the next stream.
 STEP_FAILS_BEFORE_SKIP = 30
 
@@ -73,29 +76,6 @@ def _vcam_format(width: int, height: int):
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
 _UNCHANGED = object()
-
-
-def _fit_frame(frame, target_w, target_h):
-    """Resize frame preserving aspect (black bars as needed; zero-copy if already matches)."""
-    fh, fw = frame.shape[:2]
-    if fw == target_w and fh == target_h:
-        return frame
-
-    scale = min(target_w / fw, target_h / fh)
-    new_w = int(fw * scale)
-    new_h = int(fh * scale)
-
-    if new_w == target_w and new_h == target_h:
-        return cv2.resize(frame, (target_w, target_h),
-                          interpolation=cv2.INTER_LINEAR)
-
-    resized = cv2.resize(frame, (new_w, new_h),
-                         interpolation=cv2.INTER_LINEAR)
-    canvas = np.zeros((target_h, target_w, 3), dtype=frame.dtype)
-    x_off = (target_w - new_w) // 2
-    y_off = (target_h - new_h) // 2
-    canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
-    return canvas
 
 
 class _Newest:
@@ -158,6 +138,8 @@ class StreamWorker(QThread):
         self._vcam_free.set()
         # The newest processed frame (BGR, as the decoders give it and the plugins work on it).
         self._latest       = None
+        self._published    = None  # (_latest, its number, time.monotonic() when it was made), swapped in whole
+        self.camera_size: Optional[tuple] = None  # (width, height) the virtual camera last opened at
         self._to_cam: Optional[Callable] = None  # the camera's own format from BGR, set by _open_vcam (None: BGR)
         self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
         self._seq          = itertools.count(1)
@@ -180,6 +162,7 @@ class StreamWorker(QThread):
         self._settle_last_frame = 0.0
         # Plugins' steps on the H.264 before it's decoded (HostPackets); a phone's Light stream only
         self.packets = packets.Tap()
+        self._photo_until = 0.0  # until then frames stopping is the phone taking a photo, not a dropped stream
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -189,6 +172,21 @@ class StreamWorker(QThread):
     def latest_frame(self):
         """The newest frame sent out (BGR), or None before the first; for a thumbnail."""
         return self._latest
+
+    def published(self) -> Optional[tuple]:
+        """(frame, number, time) of the newest frame sent out, from any thread; the frame is never changed after."""
+        return self._published
+
+    def replace_frame(self, frame, number: int) -> bool:
+        """From any thread: send frame out in place of the newest one, numbered number, unless a newer one came since.
+        published() keeps the stream's own frame."""
+        with self._publish_lock:
+            published = self._published
+            if self._latest is None or published is None or published[1] != number:
+                return False
+            self._latest = frame
+        self._frame_ready.set()
+        return True
 
     def set_pipeline(self, frame_pipeline: list):
         """Swap the plugin steps from the next frame on (the panels moved to another stream, or back)."""
@@ -210,6 +208,12 @@ class StreamWorker(QThread):
         with self._settle_lock:
             self._settle_since = time.monotonic()
             self._settle_flowing = None
+
+    def hold_for_photo(self, seconds: float = 3.0):
+        """The phone is taking a photo, which can pause its video: for seconds from now a stream that stops is
+        reconnected quietly instead of being reported as dropped. Called again to extend it."""
+        self._photo_until = time.monotonic() + seconds
+        self.settle()
 
     def _count_arrived(self, frames: int):
         self._frames_arrived += frames
@@ -335,7 +339,10 @@ class StreamWorker(QThread):
         return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
-        self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
+        if time.monotonic() < self._photo_until:
+            self.status.emit("info", tr("The video is paused while the phone takes a photo"))
+        else:
+            self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
         while not stop_event.is_set() and not self._stop_flag:
             for _ in range(DROP_RETRY_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
@@ -422,6 +429,7 @@ class StreamWorker(QThread):
             here = vision.current_frame.set((self, seq))  # the plugins' person_mask() knows which stream this is
             try:
                 self._latest = self._prepare(raw)
+                self._published = (self._latest, next(_frame_numbers), time.monotonic())
             except Exception:
                 logger.exception("Frame processing failed; dropping this frame")
                 return
@@ -481,7 +489,8 @@ class StreamWorker(QThread):
             self._bytes_total += cap.last_frame_bytes
             self._count_arrived(getattr(cap, "last_frame_count", 1))
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
-            self._latest = None
+            with self._publish_lock:
+                self._latest = None  # under the lock, so replace_frame() can't slip a frame in before the first
             self._publish(next(self._seq), frame)
             if self._latest is None:
                 cap.release()
@@ -533,6 +542,7 @@ class StreamWorker(QThread):
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = vcam.slot_label(self.slot) if vcam.IS_LINUX else cam.device
+                self.camera_size = (cam_w, cam_h)
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", tr("Streaming {size} at {fps} fps to {camera}", size=f"{cam_w} × {cam_h}",
                                          fps=self._fps, camera=shown_as))
@@ -553,12 +563,14 @@ class StreamWorker(QThread):
                         # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
                         # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
                         if src is not last_src:
-                            last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                            last_src, fitted = src, vcam.fit_frame(src, cam_w, cam_h)
                             if self._to_cam is not None:
                                 fitted = self._to_cam(fitted)
                         cam.send(fitted)
                         last_sent = time.monotonic()
                     if (elapsed := time.monotonic() - t0) >= 2.0:
+                        if vcam.camera_changed(cam, self.slot):
+                            self._restart_vcam.set()  # the camera was installed or updated while streaming
                         src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]

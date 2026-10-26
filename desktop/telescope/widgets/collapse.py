@@ -223,8 +223,12 @@ class Collapsing:
         card_body, card_lay = _body(lay)
         target = card_lay
         for item, stretch in rows:
-            if _is_section_head(item):
-                heading = item.widget()
+            widget, alignment, section = item.widget(), item.alignment(), _is_section_head(item)
+            if widget is not None:
+                # Qt only clears the size cache of a widget's first layout item, so the old one has to go first
+                sip.delete(item)
+            if section:
+                heading = widget
                 card_lay.addWidget(heading)
                 label = heading.findChild(QLabel, SECTION_TITLE)
                 section_key = unique(f"{card_key}/{_english_of(label) if label else heading.objectName()}")
@@ -233,8 +237,8 @@ class Collapsing:
                 if label is not None:
                     self._register(section_key, section_body, label, [heading, label], heading.layout())
                 continue
-            if item.widget() is not None:
-                target.addWidget(item.widget(), stretch, item.alignment())
+            if widget is not None:
+                target.addWidget(widget, stretch, alignment)
             elif item.layout() is not None:
                 target.addLayout(item.layout(), stretch)
             else:

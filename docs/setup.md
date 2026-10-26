@@ -83,6 +83,11 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ## Windows
 
-The first-run checklist registers the virtual camera driver with one click (Windows asks for admin). It's copied into `C:\Program Files\Telescope\UnityCapture` where only an admin can change it.
+The first-run checklist installs the virtual camera with one click (Windows asks for admin). Which camera you get depends on the Windows version:
 
-Running from a source checkout instead? `start.bat` installs the pip dependencies and downloads and registers the driver on first run. The release zip doesn't need it.
+- **Windows 11:** Telescope's own camera. Every app can see it, including ones like the Windows Camera app that older virtual cameras never show up in. Apps list it as "Telescope (Windows Virtual Camera)" because Windows adds the part in brackets itself. It goes into `C:\Program Files\Telescope\VirtualCamera`
+- **Windows 10:** the UnityCapture driver, which apps using DirectShow (OBS, for example) can see but apps that only use Media Foundation can't. It goes into `C:\Program Files\Telescope\UnityCapture`
+
+Only an admin can change either folder. Upgraded to Windows 11 with the older driver installed, or installed it with an older Telescope? **Virtual camera & phone** in Settings shows **Update**, which puts the Windows 11 camera in and takes UnityCapture out so apps don't list Telescope twice.
+
+Running from a source checkout instead? `start.bat` installs the pip dependencies and downloads and registers UnityCapture on first run. The release zip doesn't need it. For the Windows 11 camera build its DLL first (see [Building](building.md#the-windows-11-camera)), otherwise a source checkout sticks with UnityCapture.

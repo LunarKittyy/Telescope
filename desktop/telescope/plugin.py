@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
@@ -7,6 +8,10 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.colour import ColourStage
+    from telescope.overlays import PreviewLayer, PreviewOverlays
+    from telescope.sensors import SensorReading, SensorStatus
+    from telescope.stills import StillCaps
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -185,6 +190,11 @@ class HostStreams(Protocol):
         """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
         ...
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        """(source id, width, height) of the stream going to virtual camera slot (0 is the one apps list as Telescope),
+        or None when none does. Width and height are None until its camera has opened, and with the camera off."""
+        ...
+
     def remove_extra_cameras(self, on_done=None) -> None:
         """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
         ...
@@ -319,6 +329,10 @@ class HostVision(Protocol):
         anything moves and 3 while nothing does."""
         ...
 
+    def tracked_people(self, source_id: Optional[str] = None) -> tuple:
+        """([telescope.people.Track], how many people are there) on source_id's stream, by default the shown one, as
+        the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
+        ...
 
 class HostPackets(Protocol):
     """The shown stream's H.264 before it's decoded, for effects that change the video itself (datamosh). Only a
@@ -337,7 +351,171 @@ class HostPackets(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostPackets,
+@dataclass(frozen=True)
+class StreamFrame:
+    """The newest picture of one running stream, as it goes out to its virtual camera (after that stream's plugins)."""
+
+    source_id: str
+    """The stream's source: a phone's id or a StreamSource's ("" for the stream with no phone picked)."""
+    name: str
+    """What the phone picker and the stream's tile call it."""
+    frame: np.ndarray
+    """BGR, read-only and shared with the stream: never copied unless copy=True was asked for."""
+    number: int
+    """Goes up with every frame any stream sends out, so a different number is a different frame."""
+    time: float
+    """When the stream made it, in time.monotonic() seconds."""
+
+    def age(self, now: Optional[float] = None) -> float:
+        """Seconds since it was made. A stream that dropped keeps its last frame, which only gets older."""
+        return (time.monotonic() if now is None else now) - self.time
+
+
+class HostFrames(Protocol):
+    """Frames from other streams: the newest picture of every running stream, from any thread and without copying."""
+
+    def stream_frames(self, copy: bool = False) -> list:
+        """[StreamFrame] of every running stream that has sent a picture, in the order they started. A stream that
+        stops is gone from the next call; copy=True hands out frames that are yours to change."""
+        ...
+
+    def stream_frame(self, source_id: Optional[str], copy: bool = False) -> Optional[StreamFrame]:
+        """The newest StreamFrame of source_id's stream, or None while it doesn't run or hasn't sent a picture yet."""
+        ...
+
+    def frame_source(self) -> Optional[str]:
+        """From process_frame or a frame_step only: the source id of the stream the frame being worked on is from."""
+        ...
+
+    def replace_frame(self, source_id: Optional[str], frame: np.ndarray, number: int) -> bool:
+        """From any thread: frame (BGR, never changed after) goes out on source_id's virtual camera in place of that
+        stream's newest frame, the one numbered number. False, and nothing sent, once the stream has a newer frame or
+        doesn't run. For a picture that should move on while the stream it goes out on stalls; stream_frame() keeps
+        handing out the stream's own frame."""
+        ...
+
+
+class HostPreview(Protocol):
+    """Drawing on the preview without it reaching the virtual camera, and asking for points and areas there
+    (telescope.overlays). Nothing shows and no pick starts while the Preview plugin is off."""
+
+    def add_preview_layer(self, owner: str, layer: "PreviewLayer") -> None:
+        """Draw layer (a telescope.overlays.PreviewLayer) on the preview until it's removed; the same owner replaces it."""
+        ...
+
+    def remove_preview_layer(self, owner: str) -> None:
+        """Stop drawing owner's layer."""
+        ...
+
+    def refresh_preview(self) -> None:
+        """Paint the layers again, for one that would draw something else now. Any thread."""
+        ...
+
+    def pick_on_preview(self, owner: str, kind: str, on_done: Callable, start=None, hint: str = "") -> bool:
+        """Ask for a "point", a "rect" or a "quad" (four corners) on the preview: on_done gets a telescope.overlays.Pick,
+        or None when it's cancelled (Esc, another pick, the stream stopping). A quad starts from start (four points in
+        the whole picture, like Pick.full) and ends with Enter or finish_pick. hint replaces the line shown over the
+        picture. False if there's no preview to pick on; a pick already under way is cancelled."""
+        ...
+
+    def finish_pick(self, owner: str) -> bool:
+        """End owner's pick with what it has (a quad as it is now); False if it has nothing yet."""
+        ...
+
+    def cancel_pick(self, owner: str) -> None:
+        """End owner's pick without points (its on_done gets None)."""
+        ...
+
+    def set_preview_warp(self, owner: str, matrix) -> None:
+        """For a plugin that moves the whole picture after the view (Desk mode): matrix is a 3 x 3 homography from the
+        frame as shown with the view to what comes out, both 0..1, or None once it stops. Clicks, scrolls and picks on
+        the preview are mapped back through it, and the lens outlines and skeleton aren't drawn meanwhile. It lasts
+        until the plugin sends None, streams stopping and starting included. Any thread."""
+        ...
+
+    def preview_overlays(self) -> "PreviewOverlays":
+        """For whatever shows the preview: the layers and the pick, to draw and pass the mouse to."""
+        ...
+
+
+class HostColour(Protocol):
+    """The colour pipeline: every plugin's colour changes baked into one LUT per stream (telescope.colour), applied
+    after the plugins' frame steps and before the plugins that see the final frame."""
+
+    def set_colour_stage(self, owner: str, stage: Optional["ColourStage"], order: int = 0,
+                         source_id: Optional[str] = None) -> None:
+        """Put owner's telescope.colour.ColourStage in the pipeline, in place of its last one; None takes it out. Lower
+        order runs first (a grade is 0, so evening phones out would go below it). source_id: only that stream, shown
+        or not. Without it the stage is the shown stream's, and a stream the panels leave keeps the one it had."""
+        ...
+
+    def colour_split(self, owner: str, position: Optional[float]) -> None:
+        """Show the shown stream without its colour stages left of position (0..1 of the width), on the preview only;
+        None ends it."""
+        ...
+
+    def colour_preview(self, frame: np.ndarray) -> np.ndarray:
+        """From the process_frame of a plugin that sees the final frame: frame (or a smaller copy of it) as the preview
+        shows it, with a colour_split drawn in. A new array when it draws anything; frame itself is never changed."""
+        ...
+
+
+class HostMotion(Protocol):
+    """Something moving in parts of the shown stream's picture (telescope.motion): no download, plain OpenCV."""
+
+    def watch_motion(self, owner: str, zones: list, sensitivity: int = 5) -> None:
+        """Look for motion in zones, [(x0, y0, x1, y1)] 0..1 in the picture as shown at zoom 1 (where Person's points
+        are), at a sensitivity of 1 to 10; motion_seen says when it starts and stops. Empty zones stop it."""
+        ...
+
+    def motion(self, owner: str) -> list:
+        """The indexes of owner's zones something moved in lately on the shown stream."""
+        ...
+
+
+class HostStills(Protocol):
+    """Full-quality photos taken on the phone (telescope.stills), not frames of the video: for the Photos card, or any
+    plugin wanting a burst, without depending on the Photos plugin."""
+
+    def still_caps(self, source_id: Optional[str] = None) -> Optional["StillCaps"]:
+        """What the lens the shown stream (or source_id's) is on can take, or None when it can't take photos (an
+        older phone, a Browser camera, not streaming)."""
+        ...
+
+    def take_still(self, options: dict, folder: str, on_done: Callable, on_progress: Optional[Callable] = None,
+                   source_id: Optional[str] = None) -> bool:
+        """Take a photo on the shown stream's phone (or source_id's) with the /v1/still options in docs/protocol.md
+        and save it in folder. on_done(StillResult) and on_progress(StillProgress) come on the GUI thread. False when
+        it can't start: no photos there, or one is already being taken."""
+        ...
+
+    def still_busy(self, source_id: Optional[str] = None) -> bool:
+        """Whether a photo is being taken on the shown stream's phone (or source_id's)."""
+        ...
+
+
+class HostSensors(Protocol):
+    """The shown stream's phone's motion and light sensors (telescope.sensors): only streamed while something wants
+    them, and only from the phone the panels show."""
+
+    def want_sensors(self, owner: str, kinds) -> None:
+        """Ask for these kinds (telescope.sensors.KINDS) under owner's name, replacing what owner asked for before; an
+        empty list lets go. The phone streams what anyone wants, and stops once nobody does."""
+        ...
+
+    def sensor_status(self, source_id: Optional[str] = None) -> "SensorStatus":
+        """Where the sensors of source_id's stream (default: the shown one) stand: off, starting, on or unavailable
+        with the reason. Another stream's are always off. sensors_changed says when it changes."""
+        ...
+
+    def sensor_reading(self, source_id: Optional[str] = None) -> Optional["SensorReading"]:
+        """The newest readings from source_id's phone (default: the shown stream's), None while there are none. Safe
+        from any thread."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostFrames,
+                   HostMotion, HostPreview, HostStills, HostColour, HostSensors, HostPackets,
                    Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
@@ -577,6 +755,19 @@ class EventBus(QObject):
     """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
     focus_point_available  = pyqtSignal(bool)
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
+    meter_point_picked     = pyqtSignal(float, float)
+    """A point to meter exposure on and leave focus alone, 0..1 in the frame as shown, for a lens that can meter on a
+    point but not focus on one."""
+    meter_point            = pyqtSignal(float, float)
+    """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
+    meter_point_available  = pyqtSignal(bool)
+    """Whether the current lens can meter on a point (and a stream is running to send it to); said right after
+    focus_point_available."""
+    focus_mode_picked      = pyqtSignal(str)
+    """A focus mode was picked by hand on the Camera card: "auto", "point" or "manual"."""
+    focus_mode_changed     = pyqtSignal(str)
+    """The Camera card's focus mode is now "auto", "point" or "manual", however it changed (a pick, a preset, the
+    phone's state); also once every plugin is ready."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
     view_dragged           = pyqtSignal(float, float)
@@ -595,8 +786,17 @@ class EventBus(QObject):
     people_seen            = pyqtSignal(str, list)
     """Where the people are in a stream (its source id) as [telescope.vision.Person], in its frame before the view;
     only while something wants_people. Check focused_source_id() for the shown stream."""
+    people_tracked         = pyqtSignal(str, list, int)
+    """people_seen made steady (telescope.people), right after it: the stream's source id, [Track] and how many people
+    are there. Someone new counts after two updates in a row and someone gone only after a few seconds."""
+    motion_seen            = pyqtSignal(str, str, list)
+    """Motion in a watch_motion owner's zones started or stopped: the stream's source id, the owner and the indexes of
+    the zones something moves in now."""
     vision_state_changed   = pyqtSignal(str)
     """host.vision_state() changed (MediaPipe loading, ready, missing or failed; off again after the download)."""
+    sensors_changed        = pyqtSignal(str)
+    """A stream's phone sensors (its source id) sent new readings, up to 30 times a second, or host.sensor_status()
+    changed. Only while something wants them."""
     view_status            = pyqtSignal(object)
     """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)
@@ -609,8 +809,16 @@ class EventBus(QObject):
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
     vcam_opened            = pyqtSignal(int, int)
     """The stream opened the virtual camera at this width and height."""
+    camera_opened          = pyqtSignal(str, int, int, int)
+    """Any stream's virtual camera opened: its source id, slot (0 is Telescope's own), width and height. vcam_opened
+    says the same for slot 0 alone."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    cover_requested        = pyqtSignal(str, bool)
+    """Something asks for the wait screen in place of the shown stream's picture, or lets go (who's asking, on).
+    Wait screen answers with stream_covered; without it nothing answers."""
+    stream_covered         = pyqtSignal(bool)
+    """Wait screen shows in place of the shown stream's picture for a cover_requested, or stopped."""
     window_shown           = pyqtSignal(bool)
     """The main window came on screen, or went to the tray or was minimized."""
     phone_wanted           = pyqtSignal(bool, bool)
@@ -634,6 +842,12 @@ class EventBus(QObject):
     """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
     forget_source_requested = pyqtSignal(str)
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
+    preview_pick_changed   = pyqtSignal(str)
+    """A pick on the preview started (who asked: host.pick_on_preview's owner) or ended ("")."""
+    still_busy_changed     = pyqtSignal(str, bool)
+    """A photo started or finished on a stream's phone (its source id), whichever plugin asked for it."""
+    still_saved            = pyqtSignal(str, list)
+    """Photos were saved from a stream's phone (its source id, [file paths]), whichever plugin asked for them."""
     stream_behind          = pyqtSignal(str, bool)
     """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
     Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught

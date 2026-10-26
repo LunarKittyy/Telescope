@@ -88,9 +88,10 @@ class _Ctrl:
 _PANELS = []
 
 
-def _plugin(backend):
+def _plugin(backend, denoise_problem=""):
     _Worker.made = []
-    p = MicrophonePlugin(backend=backend, worker_cls=_Worker, run_job=lambda fn: fn())
+    p = MicrophonePlugin(backend=backend, worker_cls=_Worker, run_job=lambda fn: fn(),
+                         denoise_problem=lambda: denoise_problem)
     p.setup(_Host(), EventBus())
     _PANELS.append(p.create_panel())
     return p
@@ -128,7 +129,7 @@ def test_on_follows_the_stream(qapp):
     assert p._status_row.isHidden()  # the meter shows it's working
     p.on_stream_stop()
     assert w.stopped
-    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False}
+    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False, "noise_reduction": False}
 
 
 def test_audio_follows_the_stream_onto_another_route(qapp):
@@ -270,7 +271,7 @@ def test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved(qapp):
     assert p._mute_btn.text() == "Unmute" and p._readout.text() == "Muted"
     p._mute_btn.setChecked(False)
     assert not w.muted and p._mute_btn.text() == "Mute"
-    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False}
+    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False, "noise_reduction": False}
 
 
 def test_meter_follows_the_worker_and_clears_when_the_stream_stops(qapp):
@@ -294,7 +295,7 @@ def test_gain_reaches_the_worker_and_is_saved_per_phone(qapp):
     assert w.gain == pytest.approx(1.995, abs=0.001)
     p._gain_slider.setValue(-30)  # past the end: held at the minimum
     assert w.gain == pytest.approx(10 ** (-24 / 20)) and p._gain_spin.text() == "-24 dB"
-    assert p.get_config() == {"enabled": True, "gain_db": -24, "auto_level": False}
+    assert p.get_config() == {"enabled": True, "gain_db": -24, "auto_level": False, "noise_reduction": False}
     p.set_config({"enabled": True, "gain_db": "junk"})
     assert w.gain == 1.0 and p._gain_spin.text() == "0 dB"
 
@@ -472,3 +473,29 @@ def test_auto_level_reaches_the_worker_and_is_saved_per_phone(qapp):
     assert "auto level" in p.diagnostics()["Microphone"]
     p.set_config({"enabled": True, "auto_level": False})
     assert w.auto_level is False
+
+
+def test_noise_reduction_reaches_the_worker_and_is_saved_per_phone(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True})
+    assert not p._nr_cb.isChecked() and not p._nr_row.isHidden() and p._nr_cb.isEnabledTo(p._nr_row)  # off until asked for
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert w.noise_reduction is False
+    p._nr_cb.setChecked(True)
+    assert w.noise_reduction is True and p.get_config()["noise_reduction"] is True
+    assert "noise reduction" in p.diagnostics()["Microphone"]
+    p.set_config({"enabled": True, "noise_reduction": False})
+    assert w.noise_reduction is False
+
+
+def test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before(qapp):
+    p = _plugin(_Backend(), denoise_problem="The pyrnnoise package isn't installed.")
+    p.set_config({"enabled": True, "noise_reduction": True})
+    assert not p._nr_cb.isEnabledTo(p._nr_row) and not p._nr_cb.isChecked()
+    assert p._nr_note.text() == "The pyrnnoise package isn't installed." and not p._nr_note.isHidden()
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert w.started and w.noise_reduction is False
+    assert p.get_config()["noise_reduction"] is True  # still on for when it can be loaded again
+    assert "noise reduction unavailable" in p.diagnostics()["Microphone"]

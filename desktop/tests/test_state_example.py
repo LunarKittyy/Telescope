@@ -6,6 +6,7 @@ from pathlib import Path
 
 from telescope.models import PhoneState
 from telescope.plugins.camera_control import derive_camera_control_view
+from telescope.stills import StillCaps
 from telescope.view import PhoneZoomCaps
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,7 +39,8 @@ def test_the_desktop_reads_the_phones_state():
     assert (camera.logical_id, camera.label, camera.current, camera.has_ois, camera.iso_min) == ("0", "Back ~24mm OIS [phys]", True, True, 50)
     assert (camera.shutter_min_ns, camera.shutter_max_ns, camera.min_focus_distance) == (100_000, 1_000_000_000, 10)
     assert camera.supports_manual_sensor and camera.supports_manual_wb and camera.supports_manual_focus
-    assert camera.supports_focus_point and camera.supports_flash and camera.freeform_crop
+    assert camera.supports_focus_point and camera.supports_meter_point
+    assert camera.supports_flash and camera.freeform_crop
     assert (camera.zoom_ratio_max, camera.crop_zoom_max, camera.hw_level) == (10, 8, "FULL")
     assert (camera.ae_comp_min, camera.ae_comp_max, camera.ae_comp_step) == (-12, 12, 0.16666667)
     assert state.raw == EXAMPLE
@@ -51,6 +53,9 @@ def test_nested_camera_and_control_consumers_read_the_same_contract():
     assert view.low_light and view.low_light_available and view.torch
     caps = PhoneZoomCaps.from_camera(state["cameras"][0])
     assert (caps.ratio_max, caps.crop_max, caps.lens_zooms) == (10, 8, (3.0,))
+    stills = StillCaps.from_state(state)
+    assert stills.formats == ("jpeg", "heic", "ultrahdr", "raw") and stills.max_res == (8064, 6048)
+    assert stills.extensions == ("night", "hdr", "bokeh") and stills.burst_max == 60 and stills.distortion
 
 
 def test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends():

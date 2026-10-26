@@ -7,7 +7,7 @@ import types
 from unittest import mock
 
 from scripts.translation_scenes import *  # noqa: F401,F403
-from scripts.translation_scenes import _Held, _MicBackend, remember
+from scripts.translation_scenes import _Held, _MicBackend, quiet_sign, remember
 
 
 def also_shows(target, slot, *texts):
@@ -463,6 +463,8 @@ def tweak_plugins(plugins):
             plugin._backend = _MicBackend()
         elif plugin.name == "shortcuts":
             plugin._backend_factory = lambda: None
+        elif plugin.name == "on_air":
+            quiet_sign(plugin)
 
 
 def loaded_window(stack, before=None, tray=False, dev=False):
@@ -867,6 +869,51 @@ def plugins_changed_files(stack):
     return plugins_scene(stack, before=before)
 
 
+# ── Updates for added plugins ──
+
+def no_update_checks(stack):
+    """The update check never goes out to GitHub from a scene."""
+    from telescope.widgets.plugin_updater import PluginUpdater
+    stack.enter_context(mock.patch.object(PluginUpdater, "maybe_check", lambda self: None))
+
+
+def found_release(win, repo="someone/counter_card", tag="v1.2"):
+    """What the window's update check would have found for repo."""
+    updater = win._plugin_updater
+    updater._cache.repos[repo] = {"checked": 0, "etag": "", "release": {
+        "tag": tag, "page": f"https://github.com/{repo}/releases/tag/{tag}", "assets": []}}
+    updater.changed.emit()
+
+
+@scene("plugins-update-out", "settings", "Plugins · a newer version of an added plugin is out")
+def plugins_update_out(stack):
+    no_update_checks(stack)
+
+    def before():
+        write_plugin("counter_card", {"repo": "https://github.com/someone/counter_card"})
+    return plugins_scene(stack, before=before, after=found_release)
+
+
+@scene("plugins-auto-updated", "settings", "Plugins · an added plugin updated itself")
+def plugins_auto_updated(stack):
+    no_update_checks(stack)
+
+    def before():
+        write_plugin("counter_card", {"repo": "https://github.com/someone/counter_card", "version": "1.2"})
+        turn_on("counter_card")
+        plugin_loader().set_plugin_switch("auto_update", True)
+
+    def after(win):
+        win._plugin_updater.updated["counter_card"] = "1.2"
+    return plugins_scene(stack, before=before, after=after)
+
+
+@scene("dialog-plugin-auto-update", "dialogs", "Plugins · switching on updates without asking")
+def plugin_auto_update(stack):
+    no_update_checks(stack)
+    return panel_dialog(stack, lambda win, panel, box: panel._switch_auto(True, box), **one_added())
+
+
 # ── Plugins turned off, and what the window says about them ──
 
 def turned_off(*names):
@@ -1100,10 +1147,23 @@ for _id, _title, _build in (
         lambda stack, build=_build: install_error(stack, build))
 
 
-@scene("dialog-plugin-install-again", "dialogs", "Plugins · installing one that's already there")
+@scene("dialog-plugin-install-again", "dialogs", "Plugins · installing one that's already there asks to replace it")
 def install_again(stack):
     win, panel, held, archive = install(stack, lambda: make_zip("counter_card", good_entries("counter_card")))
     plugin_loader().install_zip(archive, panel._reserved)
+    panel.refresh()
+    panel._install(str(archive))
+    return shown(stack, held[-1])
+
+
+@scene("dialog-plugin-replaced", "dialogs", "Plugins · a plugin replaced by a newer version")
+def install_replaced(stack):
+    from telescope.widgets import plugins_panel
+    stack.enter_context(mock.patch.object(plugins_panel, "_ask", lambda *_a, **_k: True))
+    win, panel, held, archive = install(stack, lambda: make_zip("counter_card", good_entries("counter_card",
+                                                                                            version="1.1")))
+    write_plugin("counter_card")
+    panel.refresh()
     panel._install(str(archive))
     return shown(stack, held[-1])
 
@@ -1190,3 +1250,73 @@ def settings_legacy_plugin(stack):
     QApplication.processEvents()
     grow(settings, _SIZE[0], _SIZE[1])
     return settings
+
+
+# ── On Air sign ──────────────────────────────────────────────────────────────
+
+def on_air_section(stack, setup=None):
+    """The On Air page's section on its own, after setup(plugin)."""
+    from scripts.translation_scenes_camera import on_its_own
+    win = main_window(stack)
+    win.open_settings()
+    plugin = win._plugin("on_air")
+    if setup is not None:
+        setup(plugin)
+    plugin._section.refresh()
+    return on_its_own(stack, plugin._section)
+
+
+@scene("on-air-problems", "states", "On Air · on air, with problems")
+def on_air_problems(stack):
+    def broken(plugin):
+        class Taken(plugin._server_cls):
+            def start(self):
+                raise OSError(98, "Address already in use")
+        plugin._debounce.state = True
+        plugin.set_page(False)
+        plugin._server_cls = Taken
+        plugin.set_page(True)
+        plugin.webhook_url = "homeassistant.local/api/webhook/office"
+        plugin.webhook_method = "GET"
+        plugin._on_webhook_done("test", "HTTP 404")
+    return on_air_section(stack, broken)
+
+
+@scene("on-air-test-sending", "states", "On Air · webhook test on its way")
+def on_air_test_sending(stack):
+    def sending(plugin):
+        plugin.webhook_url = "http://homeassistant.local:8123/api/webhook/office"
+        plugin._sender = _Held()
+        plugin.send_test(True)
+    return on_air_section(stack, sending)
+
+
+@scene("on-air-test-sent", "states", "On Air · webhook test that worked")
+def on_air_test_sent(stack):
+    return on_air_section(stack, lambda plugin: plugin._on_webhook_done("test", ""))
+
+
+@scene("on-air-test-no-address", "states", "On Air · webhook test without an address")
+def on_air_test_no_address(stack):
+    return on_air_section(stack, lambda plugin: plugin.send_test(False))
+
+
+@scene("on-air-cryptography-missing", "states", "On Air · sign without the cryptography package")
+def on_air_cryptography_missing(stack):
+    from telescope.plugins import on_air as on_air_plugin
+
+    def missing(plugin):
+        stack.enter_context(mock.patch.object(on_air_plugin, "certificate_available", lambda: False))
+        plugin.set_page(False)
+        plugin.set_page(True)
+    return on_air_section(stack, missing)
+
+
+@scene("on-air-header-and-banner", "states", "On Air · on air, and the webhook didn't go through")
+def on_air_header_and_banner(stack):
+    win = live_window(stack)
+    plugin = win._plugin("on_air")
+    plugin._debounce.state = True
+    plugin._refresh()
+    plugin._on_webhook_done(f"state:{plugin._state_gen}", "Connection refused")
+    return window_wide(win)
