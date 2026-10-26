@@ -64,6 +64,7 @@ def open_library(paths: list):
     except (OSError, AttributeError) as e:
         logger.warning("Couldn't load RNNoise from %s: %s", path, e)
         return None, ("failed", str(e))
+    logger.info("RNNoise loaded from %s", path)
     return lib, None
 
 
