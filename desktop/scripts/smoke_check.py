@@ -104,6 +104,29 @@ def check_background_speed():
     return f"1080p blur without the model: {median:.1f} ms"
 
 
+def check_colour_speed():
+    import time
+
+    import cv2
+    import numpy as np
+
+    from telescope.colour import ColourStage, bake
+    from telescope.grade import Grade
+
+    cv2.setNumThreads(2)  # as the app runs it (main.py)
+    frame = np.random.default_rng(0).integers(0, 255, (1080, 1920, 3), np.uint8)
+    lut = bake([ColourStage(Grade(temperature=20, saturation=1.2, shadows=10))])
+    times = []
+    for _ in range(30):
+        t0 = time.perf_counter()
+        lut.apply(frame)
+        times.append((time.perf_counter() - t0) * 1000)
+    median = sorted(times)[len(times) // 2]
+    if median > 25:  # well past what 60 fps leaves for it: something made it a lot slower
+        raise RuntimeError(f"a 1080p 3D LUT took {median:.1f} ms")
+    return f"1080p 3D LUT: {median:.1f} ms"
+
+
 def check_adb_discovery():
     from telescope.platform import adb_available, adb_devices
 
@@ -293,6 +316,7 @@ def main() -> int:
     _check("Authenticated MJPEG stream round-trip", check_authenticated_stream_round_trip)
     _check("Browser camera round-trip", check_browser_camera_round_trip)
     _check("Background blur keeps up at 1080p", check_background_speed)
+    _check("Colour LUT keeps up at 1080p", check_colour_speed)
 
     print()
     if _FAILURES:

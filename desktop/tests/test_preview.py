@@ -56,6 +56,9 @@ class _Host(QWidget):
     def focused_source_id(self):
         return "phone"
 
+    def colour_preview(self, frame):
+        return frame
+
     def schedule_save(self):
         pass
 

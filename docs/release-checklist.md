@@ -169,3 +169,11 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+
+### Colour grading
+
+<!-- due: desktop/telescope/colour.py desktop/telescope/grade.py desktop/telescope/plugins/colour_grading.py desktop/telescope/widgets/colour_wheel.py desktop/telescope/widgets/curve_editor.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on in **Optional**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.

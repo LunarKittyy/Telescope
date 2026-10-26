@@ -146,6 +146,10 @@ Zoom, pan, flip and rotation belong to the window, not to the Transforms card, s
 
 The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second while anything in the picture moves, and about 3 times a second while nothing does. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
 
+## Colour
+
+A plugin that changes colours shouldn't touch the pixels in `process_frame()`. It hands the colour pipeline a `ColourStage` from `telescope.colour` instead and Telescope bakes every plugin's stages into one LUT per stream, applied once after all the plugins' frame steps. The stage's function gets an `(n, 3)` array of RGB values from 0 to 1 and returns the changed ones (`per_channel=True` if each channel only depends on itself, which lets a simple grade skip the 3D LUT). `host.set_colour_stage("My plugin", stage)` puts it in, a later call replaces it and `None` takes it out. `order` decides where it goes among other plugins' stages (Colour grading's is 0) and `source_id` ties it to one stream instead of the one the panels show. `host.colour_split("My plugin", 0.5)` shows the picture without the colour stages on the left half of the preview, never in the output.
+
 ## Translating your plugin
 
 Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:

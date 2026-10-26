@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.colour import ColourStage
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -320,7 +321,30 @@ class HostVision(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
+class HostColour(Protocol):
+    """The colour pipeline: every plugin's colour changes baked into one LUT per stream (telescope.colour), applied
+    after the plugins' frame steps and before the plugins that see the final frame."""
+
+    def set_colour_stage(self, owner: str, stage: Optional["ColourStage"], order: int = 0,
+                         source_id: Optional[str] = None) -> None:
+        """Put owner's telescope.colour.ColourStage in the pipeline, in place of its last one; None takes it out. Lower
+        order runs first (a grade is 0, so evening phones out would go below it). source_id: only that stream, shown
+        or not. Without it the stage is the shown stream's, and a stream the panels leave keeps the one it had."""
+        ...
+
+    def colour_split(self, owner: str, position: Optional[float]) -> None:
+        """Show the shown stream without its colour stages left of position (0..1 of the width), on the preview only;
+        None ends it."""
+        ...
+
+    def colour_preview(self, frame: np.ndarray) -> np.ndarray:
+        """From the process_frame of a plugin that sees the final frame: frame (or a smaller copy of it) as the preview
+        shows it, with a colour_split drawn in. A new array when it draws anything; frame itself is never changed."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostColour,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 

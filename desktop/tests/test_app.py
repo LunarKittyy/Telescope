@@ -35,7 +35,8 @@ class _Signal:
 
 
 # The built-in plugins whose settings are kept per phone (their device_local)
-_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"}
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone",
+                 "colour_grading"}
 
 
 class _Plugin(TelescopePlugin):
@@ -979,7 +980,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["auth"] == "tok"
     frame = np.zeros((2, 2, 3), np.uint8)
     steps = workers[0].kwargs["frame_pipeline"]
-    assert len(steps) == len(window._plugins) + 1  # the window's view, then every fake (each has a process_frame)
+    assert len(steps) == len(window._plugins) + 2  # the window's view, every fake (each has a process_frame), colour
     assert all(step(frame) is frame for step in steps)
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
@@ -1008,9 +1009,27 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
     for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
         window.register_plugin(plugin)
     frame = np.zeros((1, 1, 3), np.uint8)
-    assert len(window._flow.pipeline()) == 4  # the window's view first
+    assert len(window._flow.pipeline()) == 5  # the window's view first, its colour pipeline last
     steps = window._flow.pipeline(live=False)
-    assert len(steps) == 2 and steps[1](steps[0](frame))[0, 0, 0] == 1
+    assert len(steps) == 3 and steps[2](steps[1](steps[0](frame)))[0, 0, 0] == 1
+
+
+def test_colour_stages_go_on_after_the_plugins(window):
+    from telescope.colour import ColourPipeline, ColourStage
+
+    class Brighten(_Plugin):
+        def process_frame(self, frame):
+            return frame + 100
+
+    window.register_plugin(Brighten("brighten"))
+    window._colour = ColourPipeline(window._frame_source_id, bake_inline=True)
+    window.set_colour_stage("grade", ColourStage(lambda x: x * 0.5, per_channel=True))
+    window.colour_split("grade", 0.5)
+    frame = np.zeros((4, 4, 3), np.uint8)
+    for step in window._flow.pipeline():
+        frame = step(frame)
+    assert abs(int(frame[0, 3, 0]) - 50) <= 1  # brightened first, then halved
+    assert window.colour_preview(frame)[0, 0, 0] == 100  # before the colour step on the preview's left
 
 
 def test_wake_progress_updates_status_while_waking(window):
