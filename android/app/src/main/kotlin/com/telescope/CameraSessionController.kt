@@ -387,7 +387,11 @@ class CameraSessionController(
     fun onLinkSample(sample: DynamicBitrate.Sample) {
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
-        d.update(sample)?.let { encoder?.setBitrate(it) }
+        d.update(sample)?.let {
+            android.util.Log.i(TAG, "Dynamic: ${it / 1000} kbps (queue ${sample.queueMs} ms, on the way ${sample.routerMs} ms, " +
+                "lost ${"%.1f".format(sample.loss * 100)}%, through ${sample.sentBytes * 8 / 250} kbps)")
+            encoder?.setBitrate(it)
+        }
         // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
         // rebuilt here
         val camera = currentCamera

@@ -115,7 +115,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `camera_on` | `value=1\|0` | Turn the camera off (the server and `/v1/audio` keep going, every camera setting is kept, and controls sent meanwhile apply when it's back) or on again. A camera that won't reopen stays off and `/v1/state` reports `camera_error` instead of the stream ending |
 | `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (the desktop's dropdown offers 15, 24, 25, 30, 48 and 60). A new rate rebuilds the capture session, since the rate is also set up with it; expect a short hitch |
 
-On Dynamic the phone measures its own H.264 sending: every 250 ms, the shortest time a packet waited to go out (a queue that stays, not a keyframe's burst) and how much the socket took. A queue that stays for half a second drops the bitrate to just under what got through; otherwise it climbs, first to just under where the link filled up last time, then more carefully past it. It also keeps the socket's send buffer to about 100 ms of video and skips ahead to the next keyframe when video has waited over a second, so a full link shows up as a queue right away instead of as lag. `DynamicBitrate.kt` has the rules.
+On Dynamic the phone measures its own H.264 sending: every 250 ms, the shortest time a packet waited to go out (a queue that stays, not a keyframe's burst) and how much the socket took. A queue that stays for half a second drops the bitrate to just under what got through; otherwise it climbs, first to just under where the link filled up last time, then more carefully past it. It also keeps the socket's send buffer to about 100 ms of video and skips ahead to the next keyframe when video has waited over a second, so a full link shows up as a queue right away instead of as lag. Over UDP the queue comes from the desktop's reports instead (see [`/v1/video.udp`](#get-v1videoudp-experimental)). `DynamicBitrate.kt` has the rules.
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
@@ -125,16 +125,19 @@ The desktop checks each `/v1/state` it reads against the settings it last sent (
 
 ## `GET /v1/video.udp` (experimental)
 
-The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with **UDP on Wi-Fi** checked, the Light format and a bitrate other than Dynamic. Changing the switch or entering Dynamic reconnects onto the appropriate transport.
+The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with **UDP on Wi-Fi** checked and the Light format. With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
 
 - The desktop opens a UDP socket and asks `GET /v1/video.udp?port=<its port>`. Over the phone's loopback (USB) the answer is `409`, since there's nothing to gain there.
 - The reply is `application/x-telescope-udp`, and its first line is JSON: `{"key": <32 random bytes, base64>, "port": <the phone's UDP port>}`. The request then stays open as the session: the phone writes `\n` every second, and when either side closes it, the UDP stream ends too. The key comes over the pinned HTTPS connection, so it's as private as the token.
 - Every datagram is an 8-byte big-endian counter followed by AES-256-GCM of the plaintext, with the nonce being a direction byte (`1` phone to desktop, `2` desktop to phone), three zero bytes and the counter. Each side drops anything that doesn't decrypt or that it has already seen (a 4096-datagram window).
 - Phone to desktop, each plaintext is a piece of one frame: frame number (u32), piece index (u16), piece count (u16), flags (u8, `1` for a keyframe), then up to 1100 bytes of Annex-B. Keyframes start with the encoder's SPS/PPS, so the desktop can start at any of them, and every frame ends with an access unit delimiter.
-- Desktop to phone, the first byte says what it is: `1` NACK (frame number u32, then the missing piece indexes as u16, or none for the whole frame), `2` keyframe please, `3` hello. The desktop sends a hello every half second, which also keeps its firewall open for the phone's datagrams; the phone sends to wherever the last valid one came from.
+- Desktop to phone, the first byte says what it is: `1` NACK (frame number u32, then the missing piece indexes as u16, or none for the whole frame), `2` keyframe please, `3` hello, `4` report. The desktop sends a hello every half second, which also keeps its firewall open for the phone's datagrams; the phone sends to wherever the last valid one came from. The desktop likewise answers whichever port the phone's datagrams come from, the way back through a NAT in between.
+- The report goes out every 100 ms whatever the bitrate, all big-endian: datagrams it took (u32), the highest datagram counter it saw (u32, its low 32 bits), bytes of video it took (u32), its own clock in ms (u32), the newest frame it has whole (u32, all ones before any), how many ms ago that frame became whole (u16) and frames it gave up on (u16). Every count only grows and wraps around, so a lost report costs nothing. A phone without Dynamic over UDP ignores it.
 - The phone checks pairing while the session is open and closes it when that token is revoked, the encoder closes, or no authenticated feedback arrives for 5 seconds. Recent feedback counts as an active viewer.
 - The phone keeps the last 90 frames for resending and gives at most one keyframe per 300 ms however many are asked for. When its queue to that desktop backs up, it drops what's queued and waits for the next keyframe.
 - The desktop asks again for a frame that's missing pieces after 15 ms (60 ms for the newest one, whose pieces may still be arriving), every 50 ms after that, and gives up after 250 ms: it then freezes on the last picture and asks for a keyframe rather than decode on a broken reference. A partial keyframe, including the first one, is repaired too; its timeout starts over while more pieces arrive. A newer keyframe can replace a full backlog.
+- On Dynamic the phone goes by the reports (`UdpLink` in `UdpVideo.kt`). Datagrams missing between the counters are the share lost. Under 2% counts as nothing because the resends cover that much, 8% counts like a queue of 60 ms and 25% like one of 400 ms. A frame given up on counts as 10% at least. How long a frame takes to go out, reach the desktop and come back in its report, beyond the quickest trip of the last 10 seconds, is a queue on the way. Frames waiting on the phone are one too. `DynamicBitrate` goes by the longest of those and takes the bytes that reached the desktop as what got through. A cut also aims low enough to drain a queue on the way within about 2 seconds (the phone can't skip ahead past one sitting in a router).
+- On Dynamic the phone also spreads each frame's datagrams out at 2.5 times the video's rate, at least 2 Mbps, instead of sending a keyframe in one burst that a thin router would drop. Its socket's send buffer stays at about 100 ms of video like on TCP.
 - When nothing decodable arrives within 3 seconds (usually a firewall), or the phone refuses, the desktop switches to `/v1/video.h264` and doesn't try UDP with that phone again until it restarts.
 
 ## `GET /v1/hello`
@@ -158,11 +161,12 @@ Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists w
   "busy": false,
   "localOnly": true,
   "phoneId": "3f9c…",
-  "phoneName": "Pixel 8 Pro"
+  "phoneName": "Pixel 8 Pro",
+  "udpDynamic": true
 }
 ```
 
-`streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on. `streamingFor` is the name of another paired computer that stream or start belongs to (see [One computer per stream](#one-computer-per-stream)); it's left out when the stream is the asking computer's, or nobody's. An older phone never sends it.
+`udpDynamic` is true on a phone that runs Dynamic over UDP from the desktop's reports (an older phone leaves it out). `streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on. `streamingFor` is the name of another paired computer that stream or start belongs to (see [One computer per stream](#one-computer-per-stream)); it's left out when the stream is the asking computer's, or nobody's. An older phone never sends it.
 
 ## `POST /v1/session`
 

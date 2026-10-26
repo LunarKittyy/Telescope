@@ -25,9 +25,13 @@ class UdpVideoTest {
         private val out = UdpSeal(key, UdpWire.TO_PHONE)
         val runner = Thread { client.run { null } }.apply { start() }
 
-        fun hello() {
-            val sealed = out.seal(byteArrayOf(UdpWire.HELLO))
+        fun tell(plain: ByteArray) {
+            val sealed = out.seal(plain)
             desktop.send(java.net.DatagramPacket(sealed, sealed.size, java.net.InetAddress.getLoopbackAddress(), port))
+        }
+
+        fun hello() {
+            tell(byteArrayOf(UdpWire.HELLO))
             val deadline = System.nanoTime() + 1_000_000_000L
             while (!client.hasActiveViewer() && System.nanoTime() < deadline) Thread.sleep(5)
             assertTrue(client.hasActiveViewer())
@@ -48,6 +52,26 @@ class UdpVideoTest {
             session.runner.join(1500)
             assertFalse(session.runner.isAlive)
             assertFalse(session.client.hasActiveViewer())
+        }
+    }
+
+    @Test
+    fun `the desktop's reports reach Dynamic, and an older desktop's silence counts as nothing measured`() {
+        fun report(received: Int, highest: Int) = ByteBuffer.allocate(UdpReport.SIZE).put(UdpWire.REPORT)
+            .putInt(received).putInt(highest).putInt(0).putInt(0).putInt(-1).putShort(0).putShort(0).array()
+        Session().use { session ->
+            session.hello()
+            assertFalse(session.client.reporting)
+            assertNull(session.client.takeLink())
+            session.tell(report(0, 0))
+            val deadline = System.nanoTime() + 1_000_000_000L
+            while (!session.client.reporting && System.nanoTime() < deadline) Thread.sleep(5)
+            assertTrue(session.client.reporting)
+            assertNull(session.client.takeLink())  // the first one only starts the count
+            session.tell(report(90, 100))
+            var take: UdpLink.Take? = null
+            while (take == null && System.nanoTime() < deadline + 1_000_000_000L) { Thread.sleep(5); take = session.client.takeLink() }
+            assertEquals(0.1, take!!.loss, 1e-9)
         }
     }
 

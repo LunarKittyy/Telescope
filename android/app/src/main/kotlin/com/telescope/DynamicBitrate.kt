@@ -23,6 +23,8 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
         val queueMs: Long,       // the shortest wait to go out since the last sample, for the slowest viewer
         val sentBytes: Long,     // bytes the slowest viewer's socket took since the last sample
         val encodedBytes: Long,  // bytes the encoder produced since the last sample
+        val loss: Double = 0.0,  // over UDP, the share of datagrams that didn't arrive (UdpLink); 0 over TCP
+        val routerMs: Long = 0,  // over UDP, how much of the queue is on the way (UdpLink), out of the phone's reach
     )
 
     companion object {
@@ -41,6 +43,24 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
         const val PROBE_MS = 10_000L     // after a cut, stays under where it filled up this long before looking higher,
         const val PROBE_MAX_MS = 20_000L // and longer each time looking higher only found the same wall
         private const val MIN_CHANGE = 0.05  // smaller changes aren't worth reconfiguring the encoder
+        // Over UDP a full link loses datagrams instead of queueing them. The desktop asks for each one again, so a
+        // little loss is just Wi-Fi; more counts like a queue of that length, from CLEAR_MS up to SEVERE_MS.
+        const val LOSS_CLEAR = 0.02      // under this it keeps up
+        const val LOSS_CONGESTED = 0.08  // a queue of CONGESTED_MS
+        const val LOSS_SEVERE = 0.25     // SEVERE_MS
+        const val DRAIN_MS = 2_000L      // over UDP a cut also drains a queue in the router in about this long
+
+        /** How long a queue the sample amounts to: its own, or what its loss counts as, whichever is longer. */
+        fun pressureMs(s: Sample): Long {
+            val l = s.loss
+            val lossMs = when {
+                l < LOSS_CLEAR -> 0.0
+                l < LOSS_CONGESTED -> CLEAR_MS + 1 + (l - LOSS_CLEAR) / (LOSS_CONGESTED - LOSS_CLEAR) * (CONGESTED_MS - CLEAR_MS - 2)
+                l < LOSS_SEVERE -> CONGESTED_MS + (l - LOSS_CONGESTED) / (LOSS_SEVERE - LOSS_CONGESTED) * (SEVERE_MS - CONGESTED_MS)
+                else -> SEVERE_MS.toDouble()
+            }
+            return maxOf(s.queueMs, lossMs.toLong())
+        }
     }
 
     private var floor = H264Stream.DYNAMIC_MIN_BPS
@@ -81,7 +101,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
 
     /** Feed one sample; returns the new bitrate when the encoder should change, else null. */
     @Synchronized
-    fun update(s: Sample): Int? {
+    fun update(sample: Sample): Int? {
+        // Everything below goes by the queue; over UDP that's the one its loss amounts to as well
+        val s = sample.copy(queueMs = pressureMs(sample))
         var prev = window.lastOrNull()
         if (prev != null && s.nowMs <= prev.nowMs) return null
         if (prev != null && s.nowMs - prev.nowMs > GAP_MS) {  // nobody watched for a while: measure afresh
@@ -126,7 +148,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
             // What got through is what the link carries right now: aim the encoder's output a little under it, so the
             // backlog drains. Far over, or slower for the whole last second, goes straight there: the link is slower.
             // A short dip may be over already, so that's at most 30% at a time.
-            val toSent = sent * 0.9 / usage
+            // Over UDP the queue may be in the router, where skipping ahead can't clear it: aim low enough to drain that too.
+            val drain = minOf(0.4, sample.routerMs.toDouble() / DRAIN_MS)
+            val toSent = sent * (0.9 - drain) / usage
             val slower = s.queueMs >= SEVERE_MS || sentRate(s.nowMs, WINDOW_MS) < target * usage * 0.8
             val next = if (slower) minOf(target * 0.9, toSent) else maxOf(target * 0.7, minOf(target * 0.9, toSent))
             // Where the wall is: what got through on a slower link, or after a dip, about where the output ran into it.

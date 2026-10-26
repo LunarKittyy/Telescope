@@ -12,10 +12,10 @@ class DynamicBitrateTest {
 
     // A sample 250 ms after the last: the queue, and Mbps that went out and that the encoder made.
     private var now = 0L
-    private fun DynamicBitrate.feed(queueMs: Long, sentMbps: Double, encodedMbps: Double): Int? {
+    private fun DynamicBitrate.feed(queueMs: Long, sentMbps: Double, encodedMbps: Double, loss: Double = 0.0): Int? {
         now += 250
         return update(DynamicBitrate.Sample(now, queueMs, (sentMbps * 1_000_000 / 8 / 4).toLong(),
-            (encodedMbps * 1_000_000 / 8 / 4).toLong()))
+            (encodedMbps * 1_000_000 / 8 / 4).toLong(), loss))
     }
 
     @Test
@@ -50,6 +50,33 @@ class DynamicBitrateTest {
         d.feed(100, 4.0, 7.5)
         val cut = d.feed(150, 4.0, 7.5)!!
         assertTrue(cut in 3_000_000..4_500_000, "$cut")
+    }
+
+    @Test
+    fun `over udp loss counts like a queue of its own`() {
+        fun pressure(loss: Double, queueMs: Long = 0) = DynamicBitrate.pressureMs(DynamicBitrate.Sample(0, queueMs, 0, 0, loss))
+        assertEquals(0L, pressure(0.01))  // resends cover it
+        assertTrue(pressure(0.05) in DynamicBitrate.CLEAR_MS + 1 until DynamicBitrate.CONGESTED_MS, "${pressure(0.05)}")
+        assertEquals(DynamicBitrate.CONGESTED_MS, pressure(DynamicBitrate.LOSS_CONGESTED))
+        assertEquals(DynamicBitrate.SEVERE_MS, pressure(DynamicBitrate.LOSS_SEVERE))
+        assertEquals(DynamicBitrate.SEVERE_MS, pressure(0.9))
+        assertEquals(300L, pressure(0.01, queueMs = 300))  // the longer of the two
+    }
+
+    @Test
+    fun `over udp lasting loss cuts to under what got through, a little doesn't, and some holds it`() {
+        val d = DynamicBitrate(auto, top)
+        repeat(4) { d.feed(0, 7.5, 7.5) }
+        d.feed(0, 5.0, 7.5, loss = 0.15)
+        val cut = d.feed(0, 5.0, 7.5, loss = 0.15)!!
+        assertTrue(cut in 4_000_000..6_000_000, "$cut")  // at most 30% at a time, as for a queue
+
+        val calm = DynamicBitrate(auto, top)
+        repeat(20) { calm.feed(0, 7.5, 7.5, loss = 0.01) }
+        assertTrue(calm.bitrate > auto, "climbs through loss the resends cover")
+        val held = DynamicBitrate(auto, top)
+        repeat(20) { held.feed(0, 7.5, 7.5, loss = 0.05) }
+        assertEquals(auto, held.bitrate, "neither climbs nor cuts in between")
     }
 
     @Test

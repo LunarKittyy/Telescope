@@ -168,6 +168,7 @@ class _Phone(http.server.BaseHTTPRequestHandler):
     udp_refused = False
     udp_silent = False
     nacks = 0
+    reports: list = []
 
     def do_GET(self):
         if self.headers.get("Authorization") != "Bearer secret":
@@ -200,8 +201,9 @@ class _Phone(http.server.BaseHTTPRequestHandler):
         sent, rnd, peer = {}, random.Random(5), ("127.0.0.1", port)
 
         def send(p, first):
+            sealed = out.seal(p)  # lost on the way, like on a real link: its counter is gone too
             if not (first and rnd.random() < self.loss):
-                sock.sendto(out.seal(p), peer)
+                sock.sendto(sealed, peer)
 
         sock.settimeout(0.002)
         for seq, (frame, key) in enumerate(self.frames):
@@ -214,6 +216,8 @@ class _Phone(http.server.BaseHTTPRequestHandler):
                     plain = back.open(sock.recvfrom(2048)[0])
                 except OSError:
                     continue
+                if plain and plain[0] == udp_reader.REPORT:
+                    _Phone.reports.append(udp_reader.REPORT_BODY.unpack(plain))
                 if plain and plain[0] == udp_reader.NACK:
                     _Phone.nacks += 1
                     nseq = struct.unpack(">I", plain[1:5])[0]
@@ -228,7 +232,7 @@ class _Phone(http.server.BaseHTTPRequestHandler):
 
 @pytest.fixture
 def phone():
-    _Phone.loss, _Phone.udp_refused, _Phone.udp_silent, _Phone.nacks = 0.0, False, False, 0
+    _Phone.loss, _Phone.udp_refused, _Phone.udp_silent, _Phone.nacks, _Phone.reports = 0.0, False, False, 0, []
     udp_reader._UDP_FAILED.clear()
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Phone)
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
@@ -260,6 +264,33 @@ def test_frames_arrive_over_udp_and_lost_datagrams_are_sent_again(phone, monkeyp
     assert len(means) >= len(values) - 5  # nearly every frame, lost pieces and all
     assert _Phone.nacks > 0
     assert all(b >= a - 3 for a, b in zip(means, means[1:]))  # in order, nothing decoded from a broken frame
+
+
+def test_reports_say_how_much_got_through(phone, monkeypatch):
+    monkeypatch.setattr(UdpH264Reader, "__init__", _short_timeout(UdpH264Reader.__init__))
+    _Phone.frames, _Phone.loss = _frames(list(range(40, 200, 4))), 0.1
+    reader = UdpH264Reader(phone, PhoneAuth("secret"))
+    assert reader.open()
+    _read_all(reader)
+    assert len(_Phone.reports) >= 5  # about every 100 ms over the 1.3 s of video
+    _kind, received, highest, taken, _clock, whole, since, gave_up = _Phone.reports[-1]
+    assert 0.03 < 1 - received / (highest + 1) < 0.2  # the first sends lost, their resends arrived
+    assert taken > 0 and whole > 30 and since < 1000 and gave_up == 0
+    counts = [r[1] for r in _Phone.reports]
+    assert counts == sorted(counts)  # they only grow, so a lost one costs nothing
+
+
+def test_a_report_packs_what_the_reassembler_saw():
+    r = Reassembler()
+    assert udp_reader.report(0, -1, r, 1.0) == udp_reader.REPORT_BODY.pack(4, 0, 0, 0, 1000, 0xFFFFFFFF, 0xFFFF, 0)
+    for p in _fragments(0, b"x" * 30, True, 10):
+        r.add(p, 2.0)
+    r.add(_fragments(0, b"x" * 30, True, 10)[1], 2.1)  # a duplicate isn't counted again
+    r.add(_fragments(1, b"y" * 30, False, 10)[0], 2.2)  # not whole yet
+    body = udp_reader.report(5, 6, r, 2.25)
+    assert udp_reader.REPORT_BODY.unpack(body) == (4, 5, 6, 40, 2250, 0, 250, 0)
+    big = udp_reader.report(2 ** 32 + 3, 2 ** 32 + 4, r, 2.0 ** 32 / 1000 + 100)
+    assert udp_reader.REPORT_BODY.unpack(big)[1:3] == (3, 4)  # counts wrap at 32 bits
 
 
 def test_a_phone_that_refuses_udp_streams_over_tcp(phone):
