@@ -139,6 +139,28 @@ def test_dragging_a_quad_to_the_edge_stops_it_there_whole(overlays):
     assert _flat(got[0].shown) == pytest.approx([0.4, 0.4, 1.0, 0.4, 1.0, 1.0, 0.4, 1.0])  # moved, not squashed
 
 
+def test_a_quad_reaching_past_the_picture_does_not_jump_when_dragged(overlays):
+    start = ((0.1, 0.1), (0.9, 0.1), (0.9, 0.9), (0.1, 0.9))
+    overlays.views.view = View(zoom=2.0)  # shown as -0.3..1.3, past every edge
+    got = _picker(overlays, "quad", start=start)
+    assert overlays.press(0.5, 0.5, SIZE)
+    overlays.move(0.51, 0.5, SIZE)  # right would push its right corners further out
+    overlays.release(0.51, 0.5)
+    overlays.finish_pick("Test")
+    assert _flat(got[0].full) == pytest.approx(_flat(start))
+
+
+def test_a_quad_past_one_edge_still_moves_away_from_it(overlays):
+    start = ((0.3, 0.3), (1.0, 0.3), (1.0, 0.7), (0.3, 0.7))
+    overlays.views.view = View(zoom=2.0)  # shown as 0.1..1.5 across
+    got = _picker(overlays, "quad", start=start)
+    assert overlays.press(0.5, 0.5, SIZE)
+    overlays.move(0.4, 0.5, SIZE)
+    overlays.release(0.4, 0.5)
+    overlays.finish_pick("Test")
+    assert got[0].full[0] == pytest.approx((0.25, 0.3))
+
+
 def test_quad_corners_stay_on_the_picture_when_the_view_moves(overlays):
     start = ((0.1, 0.1), (0.9, 0.1), (0.9, 0.9), (0.1, 0.9))
     got = _picker(overlays, "quad", start=start)

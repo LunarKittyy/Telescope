@@ -485,7 +485,7 @@ v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec s
 ### `plugins/cinema.py`
 **CinemaPlugin** - focus peaking, zebras, false colour and a scope, all on the preview through a `CinemaLayer` (`host.add_preview_layer`, only while a tool is on). `optional`, `panel_region = "right"` after Camera, not in presets.
 - UI: three switches and a Scope dropdown on the card; peaking colour and sensitivity, Zebras from (70 to 100%) and scope size in a Video settings section. All of it is one frozen `Look`, swapped whole.
-- `tint()`: `false_colour()` (a LUT on BT.709 luma, `FALSE_COLOURS`), `zebra_mask()` (diagonal stripes cached per size, moved one step each frame) and `peaking_mask()` (Sobel magnitude over `peaking_threshold`), on the preview's copy (about 4 ms for all three at 960 x 540). `analyse()` builds the scope's QImage at `_SCOPE_FPS`; `paint()` draws it in the bottom right and the false colour legend in the bottom left.
+- `tint()`: `false_colour()` (a LUT on BT.709 luma, `FALSE_COLOURS`), `zebra_mask()` (diagonal stripes cached per size, moved one step each frame) and `peaking_mask()` (Sobel magnitude over `peaking_threshold`), on the preview's copy. A copy wider than `_WORK_WIDTH` (1280 px) is judged shrunk and the marks are scaled back up, so all three cost about 4 ms at 1080p and 9 ms at 4K. `analyse()` builds the scope's QImage at `_SCOPE_FPS`; `paint()` draws it in the bottom right and the false colour legend in the bottom left.
 - Config keys: `peaking`, `zebras`, `false_colour`, `scope`, `peaking_colour`, `peaking_level`, `zebra_level`, `scope_size`. `tests/test_cinema.py`.
 
 ### `plugins/background.py`
