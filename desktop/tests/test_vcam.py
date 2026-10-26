@@ -607,3 +607,30 @@ def test_the_python_side_matches_the_dlls_shared_memory_layout():
     fields = [line.split()[1].rstrip(";") for line in header[header.index("struct SharedHeader"):].splitlines()[1:]
               if line.strip().startswith("uint")]
     assert fields[8] == "consumer_heartbeat" and fields[9] == "frame_counter" and fields[10] == "frame_width"
+
+
+def test_the_wait_screen_moves_to_a_camera_installed_while_it_runs(qapp, monkeypatch):
+    # Started on UnityCapture, then Update put the Windows 11 camera in: keeping the old one would leave apps blank
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    monkeypatch.setattr(vcam, "IDLE_PERIOD", 0.02)
+    mf = [False]
+    monkeypatch.setattr(vcam, "_use_mf", lambda slot: mf[0])
+    screen, cams, attempts = _screen(filter_open=lambda: True)
+    screen.show((8, 8), None)
+    _wait_for(lambda: cams and cams[0].sent)
+    time.sleep(0.1)
+    assert len(attempts) == 1  # the same kind: kept
+    mf[0] = True
+    _wait_for(lambda: len(attempts) >= 2)
+    screen.stop()
+    assert cams[0].closed
+
+
+def test_camera_changed_compares_the_kind_with_the_slots_camera(monkeypatch):
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    monkeypatch.setattr(vcam, "_use_mf", lambda slot: slot == 0)
+    mf_cam = vcam.MFCamera(8, 4, 30, opener=_Opener(None))
+    assert not vcam.camera_changed(mf_cam, 0) and vcam.camera_changed(mf_cam, 1)
+    assert vcam.camera_changed(object(), 0) and not vcam.camera_changed(object(), 1)
+    monkeypatch.setattr(vcam, "IS_LINUX", True)
+    assert not vcam.camera_changed(object(), 0)

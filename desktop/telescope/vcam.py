@@ -473,7 +473,12 @@ class WaitScreen(_Held):
             except Exception:
                 logger.exception("Can't look for the camera's filter; sending at the idle pace")
         i = 0
+        checked = time.monotonic()
         while not stop.is_set():
+            if time.monotonic() - checked >= IDLE_PERIOD:
+                checked = time.monotonic()
+                if camera_changed(cam, self._slot):
+                    return
             frame, seconds = frames[i]
             self._nudge.clear()
             cam.send(frame)
@@ -511,6 +516,12 @@ def _use_mf(slot: int) -> bool:
         return False
     from telescope.platform import windows
     return windows.use_mf(slot)
+
+
+def camera_changed(cam, slot: int) -> bool:
+    """Windows: cam is the other kind of camera from the one slot now goes to (installed or updated while it was
+    open), so whoever holds it should open it again."""
+    return not IS_LINUX and isinstance(cam, MFCamera) != _use_mf(slot)
 
 
 def fit_frame(frame: np.ndarray, width: int, height: int) -> np.ndarray:

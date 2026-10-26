@@ -533,6 +533,8 @@ class StreamWorker(QThread):
                         cam.send(fitted)
                         last_sent = time.monotonic()
                     if (elapsed := time.monotonic() - t0) >= 2.0:
+                        if vcam.camera_changed(cam, self.slot):
+                            self._restart_vcam.set()  # the camera was installed or updated while streaming
                         src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]
