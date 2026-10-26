@@ -7,7 +7,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QButtonGroup, QComboBox, QVBoxLayout, QWidget
 
@@ -37,6 +37,7 @@ LEVEL_LEAVE = 1.0  # degrees: and it has to tilt more than this to stop showing 
 PITCH_SNAP, PITCH_LEAVE = 1.0, 2.0
 _LEVEL_SMOOTH_S = 0.3  # how quickly the guide follows the phone; slower is calmer
 _LEVEL_STALE_S = 1.5  # a reading older than this isn't drawn
+_LEVEL_UNSEEN_S = 2.0  # the guide not painted for this long (preview hidden, window minimized): the sensors stop
 _VIEW_TURN = {None: 0, cv2.ROTATE_90_CLOCKWISE: 90, cv2.ROTATE_180: 180, cv2.ROTATE_90_COUNTERCLOCKWISE: -90}
 # Why the level guide can't show, by telescope.sensors.REASONS
 LEVEL_PROBLEMS = {
@@ -215,6 +216,7 @@ class CinemaLayer(PreviewLayer):
         self._phase = 0
         self._scope: Optional[tuple] = None  # (name, QImage) last worked out
         self.level: Optional[tuple] = None  # (Level, time.monotonic() it came) for the level guide
+        self.painted_at = 0.0  # time.monotonic() the preview last drew this layer
 
     @property
     def analyse_fps(self) -> float:
@@ -266,6 +268,7 @@ class CinemaLayer(PreviewLayer):
 
     def paint(self, p: QPainter, rect: QRectF):
         look = self.look
+        self.painted_at = time.monotonic()
         if look.false_colour:
             self._paint_legend(p, rect)
         level = self.level
@@ -377,6 +380,10 @@ class CinemaPlugin(TelescopePlugin):
         self._shown = False  # the layer is on the preview
         self._level_filter = LevelFilter()
         self._wants_sensors = False
+        # While the level is on: the sensors only run while something actually draws the guide
+        self._seen_timer = QTimer()
+        self._seen_timer.setInterval(1000)
+        self._seen_timer.timeout.connect(self._check_seen)
         bus.sensors_changed.connect(self._on_sensors)
         bus.view_changed.connect(lambda _view: self._level_filter.reset())  # the old tilt as shown means nothing now
         bus.device_changed.connect(lambda _id: self._level_filter.reset())
@@ -498,6 +505,11 @@ class CinemaPlugin(TelescopePlugin):
         elif not look.any() and self._shown:
             self._host.remove_preview_layer(self.name)
         self._shown = look.any()
+        if look.level and not self._seen_timer.isActive():
+            self._layer.painted_at = time.monotonic()  # just added: the preview gets its chance to draw it
+            self._seen_timer.start()
+        elif not look.level:
+            self._seen_timer.stop()
         self._want_sensors(look.level)
         self._host.refresh_preview()
 
@@ -512,6 +524,9 @@ class CinemaPlugin(TelescopePlugin):
             self._level_filter.reset()
             self._layer.level = None
         self._show_level_status()
+
+    def _check_seen(self):
+        self._want_sensors(self._layer.look.level and time.monotonic() - self._layer.painted_at < _LEVEL_UNSEEN_S)
 
     def _on_sensors(self, source_id: str):
         if not self._wants_sensors or source_id != self._host.focused_source_id():
@@ -597,6 +612,7 @@ class CinemaPlugin(TelescopePlugin):
         return {"Cinema tools": ", ".join(on) or "nothing on"}
 
     def shutdown(self):
+        self._seen_timer.stop()
         self._want_sensors(False)
         if self._shown:
             self._host.remove_preview_layer(self.name)

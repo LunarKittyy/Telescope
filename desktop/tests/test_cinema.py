@@ -303,3 +303,20 @@ def test_why_the_level_cant_show_is_on_the_card(cinema):
     plugin._on_sensors("phone")
     plugin._level_switch.setChecked(False)
     assert plugin._level_note.isHidden()
+
+
+def test_the_sensors_stop_while_nothing_draws_the_guide(cinema, monkeypatch):
+    from telescope.plugins import cinema as cinema_module
+    plugin, host = cinema
+    now = [100.0]
+    monkeypatch.setattr(cinema_module.time, "monotonic", lambda: now[0])
+    plugin._level_switch.setChecked(True)
+    assert host.wanted["cinema"] == ["orientation"] and plugin._seen_timer.isActive()
+    now[0] += 3.0  # the preview hid, or the window went to the tray: no paints
+    plugin._check_seen()
+    assert host.wanted["cinema"] == []
+    plugin._layer.painted_at = now[0]  # drawn again
+    plugin._check_seen()
+    assert host.wanted["cinema"] == ["orientation"]
+    plugin._level_switch.setChecked(False)
+    assert host.wanted["cinema"] == [] and not plugin._seen_timer.isActive()
