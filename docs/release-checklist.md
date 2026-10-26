@@ -179,7 +179,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Preview tools and picture plugins
 
-<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/preview.py -->
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
 - [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.

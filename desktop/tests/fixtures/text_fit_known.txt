@@ -20,6 +20,7 @@ pseudo	out of its box	False colour
 pseudo	out of its box	Fast
 pseudo	out of its box	Focus peaking
 pseudo	out of its box	Heavy
+pseudo	out of its box	Level
 pseudo	out of its box	Manual
 pseudo	out of its box	Off
 pseudo	out of its box	Only on the preview. Apps never see these.
