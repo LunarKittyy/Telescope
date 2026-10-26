@@ -120,6 +120,16 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto and Auto returns to continuous. The pop-out works the same.
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 
+### Photos
+
+<!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
+
+- [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
+- [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
+- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
+- [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+
 ### Microphone
 
 <!-- due: desktop/telescope/audio.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice -->
