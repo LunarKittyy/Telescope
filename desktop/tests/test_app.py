@@ -3882,8 +3882,8 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     assert window.still_caps().formats == ("jpeg",)
 
     taken = {}
-    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress:
-                        taken.update(source=source, on_done=on_done, on_progress=on_progress) or True)
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress, alive:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress, alive=alive) or True)
     busy, saved, done = [], [], []
     window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
     window._bus.still_saved.connect(lambda s, files: saved.append(files))
@@ -3895,6 +3895,10 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
     QCoreApplication.processEvents()
     assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+    # A restart gives the phone a new session: the photo on the old one counts as interrupted
+    assert taken["alive"]()
+    window._phone.session = StreamSession(source=window._phone, id=2, url="url", client=object(), worker=worker)
+    assert not taken["alive"]()
 
     # The next photo already started there when the last one's end reaches the Qt thread: still busy
     monkeypatch.setattr(window._stills, "busy", lambda source: True)

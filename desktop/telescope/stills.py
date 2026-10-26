@@ -23,6 +23,7 @@ _REQUEST_TIMEOUT_S = 10
 _FILE_TIMEOUT_S = 30  # between reads of one file, not for all of it
 _LOST_AFTER_S = 30  # the phone not answering for this long ends the photo
 _LONGEST_S = 15 * 60  # a photo nobody hears the end of is given up on after this
+_STALL_S = 45  # a photo whose status doesn't move for this long (plus its exposures) is given up on
 _CHUNK = 1 << 20
 
 # The phone's codes for why a photo didn't happen, worded here in the desktop's language (its English goes along
@@ -181,6 +182,18 @@ def safe_name(name: str, index: int) -> str:
     return name or f"photo_{index + 1}.jpg"
 
 
+def exposure_seconds(options: dict) -> float:
+    """How long the sensor is open in all for a photo with these /v1/still options (0 for the video's exposure)."""
+    try:
+        exposure = float(options.get("exposure_ns") or 0) / 1e9
+        count = max(1, int(options.get("count") or 1))
+        bracket = len([s for s in str(options.get("bracket_ev") or "").split(",") if s.strip()]) or 1
+        steps = max(1, int(options.get("focus_steps") or 1))
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, exposure) * count * bracket * steps
+
+
 class Stills:
     """Takes photos on a stream's phone and saves them, one at a time per phone, each on a thread of its own."""
 
@@ -193,8 +206,10 @@ class Stills:
             return source_id in self._busy
 
     def take(self, source_id: Optional[str], ctrl, options: dict, folder, on_done: Callable[[StillResult], None],
-             on_progress: Optional[Callable[[StillProgress], None]] = None) -> bool:
-        """Start a photo with ctrl (the stream's PhoneControlClient: base and auth); False while one is being taken."""
+             on_progress: Optional[Callable[[StillProgress], None]] = None,
+             alive: Optional[Callable[[], bool]] = None) -> bool:
+        """Start a photo with ctrl (the stream's PhoneControlClient: base and auth); False while one is being taken.
+        alive() turning False (its stream stopped or restarted) ends the photo as interrupted."""
         stop = threading.Event()
         with self._lock:
             if source_id in self._busy:
@@ -203,7 +218,7 @@ class Stills:
 
         def work():
             try:
-                result = self._run(ctrl, options, Path(folder), stop, on_progress)
+                result = self._run(ctrl, options, Path(folder), stop, on_progress, alive)
             except Exception as exc:  # a bug must still end the photo, or the card waits forever
                 logger.exception("Taking a photo failed")
                 result = StillResult.failed("failed", str(exc))
@@ -233,7 +248,7 @@ class Stills:
             raise ValueError("not a JSON object")
         return reply
 
-    def _run(self, ctrl, options: dict, folder: Path, stop: threading.Event, on_progress) -> StillResult:
+    def _run(self, ctrl, options: dict, folder: Path, stop: threading.Event, on_progress, alive=None) -> StillResult:
         try:
             started = self._request(ctrl, "/still", dict(options, action="take"))
         except urllib.error.HTTPError as exc:
@@ -247,17 +262,24 @@ class Stills:
         sid = started["id"]
         saved: list = []
         fetched = 0
-        heard = begun = time.monotonic()
+        heard = begun = moved = time.monotonic()
+        last = None  # what the phone said last, to tell a photo that's getting on from one that's stuck
+        stall_after = _STALL_S + exposure_seconds(options)
         try:
             folder.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             logger.warning("Can't make the photo folder %s: %s", folder, exc)
             return StillResult.failed("save")
         while not stop.is_set():
+            if alive is not None and not alive():
+                # Its stream stopped or restarted: the phone drops the photo with it, if it can still say so at all
+                return StillResult.failed("interrupted", "", saved)
             try:
                 status = self._request(ctrl, f"/still?id={sid}")
                 heard = time.monotonic()
             except urllib.error.HTTPError as exc:
+                if alive is not None and not alive():
+                    continue
                 if exc.code == 404:
                     return StillResult.failed("dropped", "", saved)  # the phone let go of it: its stream stopped, say
                 if time.monotonic() - heard > _LOST_AFTER_S:
@@ -266,6 +288,8 @@ class Stills:
                 stop.wait(_POLL_S)
                 continue
             except Exception as exc:
+                if alive is not None and not alive():
+                    continue
                 if time.monotonic() - heard > _LOST_AFTER_S:
                     self._forget(ctrl, sid)  # in case it's only this computer's link that's gone
                     return StillResult.failed("lost", str(exc), saved)
@@ -273,6 +297,9 @@ class Stills:
                 continue
             files = [f for f in status.get("files") or () if isinstance(f, dict)]
             state = str(status.get("state") or "")
+            now = (state, status.get("taken"), len(files), status.get("countdown_ms") if state == "waiting" else None)
+            if now != last:
+                last, moved = now, time.monotonic()
 
             def report():
                 if on_progress is not None:
@@ -294,7 +321,8 @@ class Stills:
                 if state == "failed":
                     return StillResult.failed(str(status.get("code") or "failed"), str(status.get("error") or ""), saved)
                 return StillResult(True, saved)
-            if time.monotonic() - begun > _LONGEST_S:
+            if time.monotonic() - begun > _LONGEST_S or time.monotonic() - moved > stall_after:
+                logger.warning("Photo %s got nowhere on the phone (%s), giving up on it", sid, state)
                 self._forget(ctrl, sid)
                 return StillResult.failed("timeout", "", saved)
             stop.wait(_POLL_S)
