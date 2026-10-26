@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QButtonGroup, QPushButton, QWidget
+from PyQt6.QtWidgets import QButtonGroup, QComboBox, QPushButton, QWidget
 
 from telescope import fun_effects
 from telescope.fun_effects import Clones, Look
@@ -132,6 +132,8 @@ class FunPackPlugin(TelescopePlugin):
         dim_until_paired(card, self._bus)
 
         self._combo = NoScrollComboBox()
+        self._combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._combo.setMinimumContentsLength(12)  # a long effect name can't widen the card; the list opens wider
         for key, text in EFFECTS:
             self._combo.addItem(tr(text), key)
             self._combo.setItemData(self._combo.count() - 1, text, SHORTCUT_VALUE_ROLE)

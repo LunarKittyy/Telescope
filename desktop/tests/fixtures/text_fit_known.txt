@@ -19,6 +19,7 @@ pseudo	out of its box	Black level lock
 pseudo	out of its box	Fast
 pseudo	out of its box	Heavy
 pseudo	out of its box	Manual
+pseudo	out of its box	Off
 pseudo	out of its box	Picture
 pseudo	out of its box	Reset
 pseudo	out of its box	Start streaming to load lenses
