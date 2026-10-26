@@ -126,8 +126,6 @@ One plugin for playing around, after the useful ones above. Clone party, an invi
 ### Not for now
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
-- **Gestures and posture nudges** need pose detection a lot steadier than MediaPipe's to not be annoying
-- **Recording and instant replay** are left to OBS. Telescope doesn't store video
 
 ## A guide to unusual setups
 
