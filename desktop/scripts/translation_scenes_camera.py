@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, desk mode, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -87,7 +87,7 @@ def streaming_window(stack, state=None, camera_on=True):
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
                 "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
-                "privacy_blur": "_now_btn"}
+                "privacy_blur": "_now_btn", "chroma_key": "_colour_btn"}
 
 
 def card_of(win, widget):
@@ -698,6 +698,52 @@ def desk_not_streaming(stack):
     win = ready_window(stack)
     plugin_of(win, "desk")._mark()
     return cards(stack, win, "desk")
+
+
+# ── Chroma key ───────────────────────────────────────────────────────────────
+
+@scene("chroma-key", "main", "Chroma key · a green screen swapped for a colour", width=CARD_WIDTH)
+def chroma_key_card(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-picked", "states", "Chroma key · a colour picked from the preview, no picture chosen yet",
+       width=CARD_WIDTH)
+def chroma_key_picked(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True, "screen": "picked", "picked": [160, 40, 150],
+                                             "background": "picture"})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-grey", "states", "Chroma key · a pick with hardly any colour", width=CARD_WIDTH)
+def chroma_key_grey(stack):
+    import numpy as np
+    from telescope.overlays import Pick
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "chroma_key")
+    plugin._last = np.full((36, 64, 3), 128, np.uint8)
+    plugin._picked_point(Pick("point", ((0.5, 0.5),), ((0.5, 0.5),)))
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-not-streaming", "states", "Chroma key · picking a colour before streaming", width=CARD_WIDTH)
+def chroma_key_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "chroma_key")._pick()
+    return cards(stack, win, "chroma_key")
+
+
+@scene("preview-chroma-key-pick", "states", "Preview · Chroma key asking for the screen's colour", width=PREVIEW_WIDTH)
+def preview_chroma_key_pick(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "chroma_key")._pick()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

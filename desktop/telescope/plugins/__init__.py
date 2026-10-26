@@ -8,6 +8,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
+    from telescope.plugins.chroma_key import ChromaKeyPlugin
     from telescope.plugins.cinema import CinemaPlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.desk import DeskPlugin
@@ -35,6 +36,7 @@ def builtin_plugins() -> list:
         CinemaPlugin(),  # optional, under Camera: what it shows is for judging the camera's settings
         FaceExposurePlugin(),  # optional, after Camera: it moves the point Tap a point picks
         BackgroundPlugin(),  # optional: off until switched on in Plugins
+        ChromaKeyPlugin(),  # optional, next to Background: both swap what's behind you
         PrivacyBlurPlugin(),  # optional, after Background: it blurs what Background puts together
         StreamOutputPlugin(),
         TransformsPlugin(),

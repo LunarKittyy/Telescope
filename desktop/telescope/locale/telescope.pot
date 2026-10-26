@@ -929,67 +929,67 @@ msgstr ""
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40
+#: telescope/plugins/background.py:20 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40
 msgid "Off"
 msgstr ""
 
-#: telescope/plugins/background.py:19 telescope/plugins/background.py:147
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:128
 msgid "Blur"
 msgstr ""
 
-#: telescope/plugins/background.py:19 telescope/plugins/background.py:159
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:140 telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:229
 msgid "Picture"
 msgstr ""
 
-#: telescope/plugins/background.py:20
+#: telescope/plugins/background.py:21 telescope/plugins/chroma_key.py:25
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr ""
 
-#: telescope/plugins/background.py:108 telescope/plugins/background.py:128 telescope/plugins/background.py:139 telescope/plugins/background.py:179 telescope/plugins/background.py:181
+#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162
 msgid "Background"
 msgstr ""
 
-#: telescope/plugins/background.py:109
+#: telescope/plugins/background.py:90
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr ""
 
-#: telescope/plugins/background.py:110
+#: telescope/plugins/background.py:91
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr ""
 
-#: telescope/plugins/background.py:150
+#: telescope/plugins/background.py:131 telescope/plugins/chroma_key.py:214 telescope/plugins/chroma_key.py:220
 msgid "Choose…"
 msgstr ""
 
-#: telescope/plugins/background.py:151
+#: telescope/plugins/background.py:132 telescope/plugins/chroma_key.py:221
 msgid "Pick the picture that goes behind you"
 msgstr ""
 
-#: telescope/plugins/background.py:153 telescope/plugins/background.py:217
+#: telescope/plugins/background.py:134 telescope/plugins/background.py:198 telescope/plugins/chroma_key.py:223 telescope/plugins/chroma_key.py:329
 msgid "No picture yet"
 msgstr ""
 
-#: telescope/plugins/background.py:166
+#: telescope/plugins/background.py:147 telescope/plugins/chroma_key.py:192
 msgid "How soft the edge around you is"
 msgstr ""
 
-#: telescope/plugins/background.py:169
+#: telescope/plugins/background.py:150 telescope/plugins/chroma_key.py:192
 msgid "Edges"
 msgstr ""
 
-#: telescope/plugins/background.py:182
+#: telescope/plugins/background.py:163
 msgid "Background blur"
 msgstr ""
 
-#: telescope/plugins/background.py:206
+#: telescope/plugins/background.py:187 telescope/plugins/chroma_key.py:317
 msgid "Choose a picture"
 msgstr ""
 
-#: telescope/plugins/background.py:216
+#: telescope/plugins/background.py:197 telescope/plugins/chroma_key.py:328
 msgid "Telescope can't open that picture."
 msgstr ""
 
-#: telescope/plugins/background.py:243
+#: telescope/plugins/background.py:224 telescope/plugins/chroma_key.py:346
 msgid "Choose a picture to put behind you."
 msgstr ""
 
@@ -1442,6 +1442,98 @@ msgstr ""
 msgid "This lens can't focus on a point"
 msgstr ""
 
+#: telescope/plugins/chroma_key.py:22 telescope/plugins/cinema.py:24
+msgid "Green"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:22 telescope/plugins/cinema.py:25
+msgid "Blue"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:23
+msgid "Picked"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:24 telescope/plugins/chroma_key.py:217
+msgid "Colour"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:146 telescope/plugins/chroma_key.py:175 telescope/plugins/chroma_key.py:238 telescope/plugins/chroma_key.py:240
+msgid "Chroma key"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:147
+msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:148
+msgid "Without it there's no Chroma key card and a green screen stays green."
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:173
+msgid "Swap the screen behind you"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:186
+msgid "Pick the screen's colour from the preview"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:187
+msgid "Screen"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:191
+msgid "Tolerance"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:191
+msgid "Higher takes out more shades of the screen"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:193
+msgid "Spill"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:193
+msgid "Takes the screen's colour out of your edges and skin"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:212
+msgid "Behind you"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:215
+msgid "Pick the colour that goes behind you"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:241
+msgid "Chroma key screen"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:242
+msgid "Chroma key tolerance"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:274
+msgid "Click the screen behind you on the preview. Esc cancels."
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:275
+msgid "Start streaming to pick the screen's colour on the preview."
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:292
+msgid "That spot has hardly any colour. Click the screen itself."
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:310
+msgid "Colour behind you"
+msgstr ""
+
+#: telescope/plugins/chroma_key.py:341
+msgid "The colour picked from the preview. Click to pick again."
+msgstr ""
+
 #: telescope/plugins/cinema.py:22
 msgid "Histogram"
 msgstr ""
@@ -1460,14 +1552,6 @@ msgstr ""
 
 #: telescope/plugins/cinema.py:24
 msgid "Red"
-msgstr ""
-
-#: telescope/plugins/cinema.py:24
-msgid "Green"
-msgstr ""
-
-#: telescope/plugins/cinema.py:25
-msgid "Blue"
 msgstr ""
 
 #: telescope/plugins/cinema.py:25
