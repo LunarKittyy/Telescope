@@ -332,6 +332,18 @@ def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env,
     wait.shutdown()
 
 
+
+def _covered(plugin, frame):
+    """What the stream sends once the wait screen's frames for it are made (on their thread)."""
+    import time
+    plugin.process_frame(frame)
+    for _ in range(500):
+        if not plugin._cover_loading:
+            break
+        time.sleep(0.01)
+    return plugin.process_frame(frame)
+
+
 def test_it_stands_in_for_the_streams_picture_when_asked(env):
     import numpy as np
     plugin, _host, bus, _screen = env
@@ -341,7 +353,7 @@ def test_it_stands_in_for_the_streams_picture_when_asked(env):
     assert plugin.process_frame(frame) is frame and plugin.frame_step() is None
     bus.cover_requested.emit("Blur", True)
     assert answers == [True]
-    covered = plugin.process_frame(frame)
+    covered = _covered(plugin, frame)
     assert covered.shape == frame.shape and covered.any()  # the default screen, at the stream's size
     assert plugin.frame_step()(frame).shape == frame.shape
     bus.cover_requested.emit("Other", True)
@@ -358,7 +370,27 @@ def test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it(qapp, co
     plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=lambda path, w, h: [(picture, 1.0)])
     plugin.setup(_Host(), EventBus())
     plugin._on_cover_requested("Blur", True)
-    out = plugin.process_frame(np.zeros((2, 4, 3), np.uint8))
+    out = _covered(plugin, np.zeros((2, 4, 3), np.uint8))
     assert tuple(out[0, 0]) == (0, 0, 255)  # BGR, like the stream's frames
     plugin.mirror = True
-    assert tuple(plugin.process_frame(np.zeros((2, 4, 3), np.uint8))[0, 3]) == (0, 0, 255)
+    assert tuple(_covered(plugin, np.zeros((2, 4, 3), np.uint8))[0, 3]) == (0, 0, 255)
+
+
+def test_a_slow_wait_screen_never_holds_up_the_stream(qapp, config_home):
+    import threading
+    import time
+    import numpy as np
+    loaded = threading.Event()
+
+    def slow(path, w, h):  # a long GIF at 1080p
+        loaded.wait(5)
+        return [(np.full((h, w, 3), 200, np.uint8), 1.0)]
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch, loader=slow)
+    plugin.setup(_Host(), EventBus())
+    plugin._on_cover_requested("Blur", True)
+    frame = np.full((36, 64, 3), 99, np.uint8)
+    t0 = time.monotonic()
+    out = plugin.process_frame(frame)
+    assert time.monotonic() - t0 < 0.5 and not out.any()  # black until it's made, never the camera's picture
+    loaded.set()
+    assert _covered(plugin, frame).max() == 200

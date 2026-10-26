@@ -65,6 +65,13 @@ def test_boxes_follow_the_view_and_fade_at_the_edges():
 class _Host:
     def __init__(self):
         self.wanted, self.mask = set(), None
+        self.shown, self.tracked = "phone", {}
+
+    def tracked_people(self, source_id=None):
+        return self.tracked.get(source_id, ([], 0))
+
+    def is_streaming(self):
+        return True
 
     def view(self):
         return View()
@@ -79,7 +86,7 @@ class _Host:
         return vision.READY
 
     def focused_source_id(self):
-        return "phone"
+        return self.shown
 
     def schedule_save(self):
         pass
@@ -109,10 +116,10 @@ def card(qt_widgets, monkeypatch):
     you = Track(1, (0.1, 0.2, 0.4, 0.9), (0.25, 0.3), 30.0, 0.0)
     other = Track(2, (0.65, 0.3, 0.85, 0.9), (0.75, 0.35), 1.0, 0.0)
 
-    def see(tracks, seconds=0.5):
+    def see(tracks, seconds=0.5, source="phone"):
         for _ in range(round(seconds * 12)):
             clock[0] += 1 / 12
-            bus.people_tracked.emit("phone", tracks, len(tracks))
+            bus.people_tracked.emit(source, tracks, len(tracks))
     yield plugin, host, bus, see, you, other
     plugin.shutdown()
 
@@ -201,3 +208,63 @@ def test_the_person_mask_blurs_all_of_the_other_person_not_just_their_box(card):
     host.mask = mask
     out = plugin.process_frame(_frame())
     assert _sharp(out, 100, 220) and not _sharp(out, 405, 430) and not _sharp(out, 600, 640)
+
+
+def test_coming_back_to_a_blurred_stream_keeps_it_blurred(card):
+    plugin, host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you, other])
+    plugin.on_focus_lost()
+    host.shown = "laptop"
+    plugin.on_focus_gained("url", None)
+    assert _sharp(plugin.process_frame(_frame()), 450, 560)  # nobody else on this one
+    plugin.on_focus_lost()
+    host.shown = "phone"
+    plugin.on_focus_gained("url", None)  # back, long after the pose model was closed: no update yet
+    assert not _sharp(plugin.process_frame(_frame()), 450, 560)
+
+
+def test_a_stream_seen_for_the_first_time_starts_from_what_tracking_knows(card):
+    plugin, host, _bus, _see, you, other = card
+    plugin._switch.setChecked(True)
+    host.tracked["laptop"] = ([you, other], 2)
+    plugin.on_focus_lost()
+    host.shown = "laptop"
+    plugin.on_focus_gained("url", None)
+    assert not _sharp(plugin.process_frame(_frame()), 450, 560)
+
+
+def test_you_stay_you_when_your_track_is_lost_and_found_again(card):
+    plugin, _host, _bus, see, you, other = card
+    plugin._switch.setChecked(True)
+    see([you, other])
+    # The model lost both and found them again with new ids; the other one is closer and bigger now
+    you_again = Track(7, you.box, you.face, 0.5, 0.0)
+    closer = Track(8, (0.55, 0.1, 0.95, 1.0), (0.75, 0.2), 0.5, 0.0)
+    see([closer, you_again])
+    out = plugin.process_frame(_frame())
+    assert _sharp(out, 100, 220) and not _sharp(out, 600, 640)
+
+
+def test_someone_sitting_right_next_to_you_is_blurred_too(card):
+    plugin, host, _bus, see, you, _other = card
+    plugin._switch.setChecked(True)
+    beside = Track(2, (0.42, 0.2, 0.6, 0.9), (0.51, 0.3), 1.0, 0.0)  # inside your grown box
+    see([you, beside])
+    mask = np.zeros((360, 640), np.uint8)
+    mask[:, 64:390] = 255  # the mask runs the two of you together
+    host.mask = mask
+    out = plugin.process_frame(_frame())
+    assert _sharp(out, 100, 220) and not _sharp(out, 300, 370)
+
+
+def test_blur_now_asks_for_people_so_it_can_tell_you_apart(card):
+    plugin, host, _bus, see, you, other = card
+    assert host.wanted == set()
+    plugin._now_btn.click()
+    assert host.wanted == {"Privacy blur"}
+    see([you, other])
+    out = plugin.process_frame(_frame())
+    assert _sharp(out, 100, 220) and not _sharp(out, 450, 560)
+    plugin._now_btn.click()
+    assert host.wanted == set()

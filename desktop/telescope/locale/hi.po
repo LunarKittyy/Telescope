@@ -2868,43 +2868,43 @@ msgstr ""
 msgid "Show the wait screen"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:112 telescope/plugins/privacy_blur.py:141 telescope/plugins/privacy_blur.py:163
+#: telescope/plugins/privacy_blur.py:121 telescope/plugins/privacy_blur.py:153 telescope/plugins/privacy_blur.py:175
 msgid "Privacy blur"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:113
+#: telescope/plugins/privacy_blur.py:122
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:114
+#: telescope/plugins/privacy_blur.py:123
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:139
+#: telescope/plugins/privacy_blur.py:151
 msgid "Blur automatically when a second person shows up"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:149
+#: telescope/plugins/privacy_blur.py:161
 msgid "What happens while someone else is in the picture"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:152 telescope/plugins/privacy_blur.py:165
+#: telescope/plugins/privacy_blur.py:164 telescope/plugins/privacy_blur.py:177
 msgid "Blur now"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:154
+#: telescope/plugins/privacy_blur.py:166
 msgid "Blur by hand until you click again"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:166
+#: telescope/plugins/privacy_blur.py:178
 msgid "Privacy blur when someone walks in"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:167
+#: telescope/plugins/privacy_blur.py:179
 msgid "Privacy blur: what happens"
 msgstr ""
 
-#: telescope/plugins/privacy_blur.py:240
+#: telescope/plugins/privacy_blur.py:281
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr ""
 
@@ -4435,58 +4435,58 @@ msgstr "अपडेट विफल रहा."
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "अपडेट हो गया. पूरा करने के लिए Telescope को बंद करके फिर से खोलें."
 
-#: telescope/plugins/wait_screen.py:44 telescope/plugins/wait_screen.py:252
+#: telescope/plugins/wait_screen.py:45 telescope/plugins/wait_screen.py:282
 msgid "Wait screen"
 msgstr "वेट स्क्रीन"
 
-#: telescope/plugins/wait_screen.py:45
+#: telescope/plugins/wait_screen.py:46
 msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "जब कुछ भी स्ट्रीम नहीं हो रहा हो, तब ऐप्स को वर्चुअल कैमरे पर दिखने वाली तस्वीर."
 
-#: telescope/plugins/wait_screen.py:46
+#: telescope/plugins/wait_screen.py:47
 msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "इसके बिना सेटिंग्स में 'वेट स्क्रीन' नहीं होगी और स्ट्रीम के बीच ऐप्स को काली तस्वीर दिख सकती है या कुछ भी नहीं."
 
-#: telescope/plugins/wait_screen.py:253
+#: telescope/plugins/wait_screen.py:283
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "वेट स्क्रीन निष्क्रिय स्टैंडबाय प्लेसहोल्डर तस्वीर इमेज गिफ काली स्क्रीन फ़्रोज़न स्ट्रीम नहीं हो रहा मिरर पलटें कस्टम बैकग्राउंड लोगो idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 
-#: telescope/plugins/wait_screen.py:255
+#: telescope/plugins/wait_screen.py:285
 msgid "What video calls see while the phone isn't streaming."
 msgstr "जब फ़ोन स्ट्रीम नहीं कर रहा हो, तब वीडियो कॉल में दिखने वाली तस्वीर."
 
-#: telescope/plugins/wait_screen.py:264
+#: telescope/plugins/wait_screen.py:294
 msgid "Choose image…"
 msgstr "इमेज चुनें…"
 
-#: telescope/plugins/wait_screen.py:266
+#: telescope/plugins/wait_screen.py:296
 msgid "Use default"
 msgstr "डिफ़ॉल्ट इस्तेमाल करें"
 
-#: telescope/plugins/wait_screen.py:269
+#: telescope/plugins/wait_screen.py:299
 msgid "Mirror it, for apps that flip the camera"
 msgstr "इसे मिरर करें, उन ऐप्स के लिए जो कैमरे को पलट देते हैं"
 
-#: telescope/plugins/wait_screen.py:304
+#: telescope/plugins/wait_screen.py:334
 #, python-brace-format
 msgid "Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
 msgstr "{size} पर दिखाया जाता है, जिस साइज़ पर स्ट्रीम कैमरे को खोलती है. स्थिर इमेज और GIFs काम करते हैं; पारदर्शी हिस्सों में डार्क बैकग्राउंड दिखता है."
 
-#: telescope/plugins/wait_screen.py:307
+#: telescope/plugins/wait_screen.py:337
 #, python-brace-format
 msgid "Couldn't use that image: {problem}. Keeping the current wait screen."
 msgstr "उस इमेज का इस्तेमाल नहीं किया जा सका: {problem}. मौजूदा वेट स्क्रीन को बनाए रखा जा रहा है."
 
-#: telescope/plugins/wait_screen.py:310
+#: telescope/plugins/wait_screen.py:340
 msgid "Couldn't read that image, so the default screen is showing. Choose another one."
 msgstr "उस इमेज को पढ़ा नहीं जा सका, इसलिए डिफ़ॉल्ट स्क्रीन दिखाई जा रही है. कोई दूसरी इमेज चुनें."
 
-#: telescope/plugins/wait_screen.py:317
+#: telescope/plugins/wait_screen.py:347
 msgid "Choose a wait screen"
 msgstr "वेट स्क्रीन चुनें"
 
-#: telescope/plugins/wait_screen.py:318
+#: telescope/plugins/wait_screen.py:348
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "इमेज ({formats})"

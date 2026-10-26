@@ -27,6 +27,7 @@ MODES = (("others", N_("Blur the others")), ("background", N_("Blur all but me")
 OFF_S = 5.0  # blurring stops once there's been one person (or nobody) for this long
 _GROW = 0.4  # a person's box from their landmarks grows by this much of its size each way (arms, a chair)
 _HEAD = 1.0  # and upwards by this much of its width more, since the landmarks stop at the eyes
+_NEAR = 0.15, 0.5  # someone else's box grown this little (each way, and upwards) is kept out of yours
 _SMALL = 16  # the blur is worked out at a sixteenth of the size
 _EDGE = 0.04  # the edge of a blurred box fades over this much of the picture
 
@@ -63,9 +64,17 @@ class _Blur:
     covered: bool = False  # the wait screen is up in place of the picture
 
 
-def grown(box: tuple, by: float = _GROW) -> tuple:
+def grown(box: tuple, by: float = _GROW, head: float = _HEAD) -> tuple:
     w, h = box[2] - box[0], box[3] - box[1]
-    return box[0] - w * by, box[1] - h * by - w * _HEAD, box[2] + w * by, box[3] + h * by
+    return box[0] - w * by, box[1] - h * by - w * head, box[2] + w * by, box[3] + h * by
+
+
+def overlap(a: tuple, b: tuple) -> float:
+    """Intersection over union of two boxes."""
+    w = max(min(a[2], b[2]) - max(a[0], b[0]), 0.0)
+    h = max(min(a[3], b[3]) - max(a[1], b[1]), 0.0)
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - w * h
+    return w * h / union if union > 0 else 0.0
 
 
 def shown_box(box: tuple, view) -> tuple:
@@ -121,9 +130,12 @@ class PrivacyBlurPlugin(TelescopePlugin):
         self._trigger = Trigger()
         self._blur = _Blur()
         self._auto = False
+        self._wanting = False  # asked for people (the switch is on, or Blur now is down)
         self._tracks: list = []
         self._you_id: Optional[int] = None  # who "you" were when blurring started
+        self._you_box: Optional[tuple] = None  # and where you were last seen
         self._others: tuple = ()  # where the others were last seen, kept while blurring (they may still be there)
+        self._behind: dict = {}  # source id: what's above, for a stream the panels moved away from
         self._covered = False
         self._asked_cover = False
         bus.people_tracked.connect(self._on_tracked)
@@ -187,7 +199,6 @@ class PrivacyBlurPlugin(TelescopePlugin):
         if on != self._auto:
             self._auto = on
             self._trigger.reset()
-            self._host.want_people(self.title, on)
         self._update()
 
     def _on_tracked(self, source_id: str, tracks: list, count: int):
@@ -202,29 +213,59 @@ class PrivacyBlurPlugin(TelescopePlugin):
         self._covered = covered
         self._update()
 
-    def on_focus_gained(self, stream_url: str, ctrl):
-        self._tracks, self._you_id, self._others = [], None, ()
-        self._trigger.reset()
+    def _state(self) -> tuple:
+        return self._trigger, self._tracks, self._you_id, self._you_box, self._others
+
+    def _set_state(self, state: tuple):
+        self._trigger, self._tracks, self._you_id, self._you_box, self._others = state
         self._update()
 
+    def on_focus_lost(self):
+        # The stream carries on blurred (frame_step), and coming back to it picks up where it was
+        self._behind[self._host.focused_source_id() or ""] = self._state()
+
+    def on_focus_gained(self, stream_url: str, ctrl):
+        sid = self._host.focused_source_id() or ""
+        kept = self._behind.pop(sid, None)
+        if kept is not None:
+            self._set_state(kept)
+            return
+        tracks, count = self._host.tracked_people(sid)
+        trigger = Trigger()
+        if self._auto:
+            trigger.update(count, time.monotonic())
+        self._set_state((trigger, tracks, None, None, ()))
+
     def on_stream_stop(self):
-        self.on_focus_gained("", None)
+        self._behind.pop(self._host.focused_source_id() or "", None)
+        if not self._host.is_streaming():
+            self._behind.clear()
+        self._set_state((Trigger(), [], None, None, ()))
 
     def _you(self) -> Optional[people.Track]:
-        """You: whoever was there longest when blurring started, while they're still followed; else whoever is now."""
+        """You: whoever was there longest when blurring started, while they're still followed. Once their track is
+        gone, whoever is where you were last seen (the model lost you for a while), else whoever's been there longest."""
         held = next((t for t in self._tracks if t.id == self._you_id), None)
+        if held is None and self._you_box is not None and self._tracks:
+            best = max(self._tracks, key=lambda t: overlap(t.box, self._you_box))
+            if overlap(best.box, self._you_box) > 0.1:
+                held = best
         return held or people.main(self._tracks)
 
     def _update(self):
         """Work out what frames get now, from the switches and the latest people."""
         if not hasattr(self, "_now_btn"):
             return
+        want = self._auto or self._now_btn.isChecked()
+        if want != self._wanting:
+            self._wanting = want
+            self._host.want_people(self.title, want)
         active = self._now_btn.isChecked() or (self._auto and self._trigger.on)
         if not active:
-            self._you_id, self._others = None, ()
+            self._you_id, self._you_box, self._others = None, None, ()
         you = self._you() if active else None
-        if active and you is not None and self._you_id is None:
-            self._you_id = you.id
+        if you is not None:
+            self._you_id, self._you_box = you.id, you.box
         mode = self._mode()
         want_cover = active and mode == "wait"
         if want_cover != self._asked_cover:
@@ -243,7 +284,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
     def shutdown(self):
         if self._asked_cover:
             self._bus.cover_requested.emit(self.title, False)
-        if self._auto:
+        if self._wanting:
             self._host.want_people(self.title, False)
 
     # ── Frames (worker thread) ────────────────────────────────────────────
@@ -271,6 +312,9 @@ class PrivacyBlurPlugin(TelescopePlugin):
             people = cv2.resize(mask, (you.shape[1], you.shape[0]), interpolation=cv2.INTER_AREA).astype(np.float32)
             people /= 255.0
             you = people * np.minimum(you * 2.0, 1.0)  # you: the person mask inside your box
+        if blur.others:  # but not someone sitting right next to you
+            near = boxes_mask([shown_box(grown(b, *_NEAR), view) for b in blur.others], w, h)
+            you = you * (1.0 - near)
         if blur.mode == "others" and blur.others:
             weight = boxes_mask([shown_box(grown(b), view) for b in blur.others], w, h)
             if people is not None:

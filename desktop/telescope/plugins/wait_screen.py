@@ -9,6 +9,7 @@ Another plugin can also ask for it in place of the shown stream's picture (cover
 import logging
 import os
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -63,7 +64,9 @@ class WaitScreenPlugin(TelescopePlugin):
         self._loader = loader
         self._covers: set = set()  # who asked for it in place of the stream's picture
         self._covering = False  # read by the worker thread
-        self._cover_frames = None  # ((w, h, image, mirror), [(BGR frame, seconds)], seconds in all)
+        self._cover_frames: dict = {}  # (w, h, image, mirror): ([(BGR frame, seconds)], seconds in all), swapped whole
+        self._cover_loading: set = set()  # the keys a thread is making frames for
+        self._cover_lock = threading.Lock()
 
     def setup(self, host, bus):
         self._host = host
@@ -138,6 +141,9 @@ class WaitScreenPlugin(TelescopePlugin):
     def _on_cover_requested(self, owner: str, on: bool):
         (self._covers.add if on else self._covers.discard)(owner)
         self._covering = bool(self._covers)
+        if self._covering:
+            w, h = self.size()
+            self._make_cover((w, h, self.image_path, self.mirror))  # likely the stream's size: ready by the first frame
         self._bus.stream_covered.emit(self._covering)  # every time, so whoever asked hears back straight away
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
@@ -146,17 +152,41 @@ class WaitScreenPlugin(TelescopePlugin):
     def frame_step(self):
         return self._cover if self._covering else None
 
+    def _make_cover(self, key: tuple):
+        """Make the frames for key (w, h, image, mirror) on a thread: a long animation takes a while to load."""
+        with self._cover_lock:
+            if key in self._cover_frames or key in self._cover_loading:
+                return
+            self._cover_loading.add(key)
+        threading.Thread(target=self._load_cover, args=(key,), daemon=True, name="wait-screen-cover").start()
+
+    def _load_cover(self, key: tuple):
+        w, h, path, mirror = key
+        try:
+            flip = (lambda f: f[:, ::-1]) if mirror else (lambda f: f)  # noqa: E731
+            frames = [(np.ascontiguousarray(cv2.cvtColor(flip(f), cv2.COLOR_RGB2BGR)), max(s, 0.01))
+                      for f, s in self._loader(path, w, h)]
+            if frames:
+                with self._cover_lock:
+                    kept = {k: v for k, v in self._cover_frames.items() if k[2:] == key[2:]}  # this picture's sizes
+                    kept[key] = (frames, sum(s for _f, s in frames))
+                    self._cover_frames = dict(list(kept.items())[-2:])
+        except Exception:
+            logger.exception("Couldn't make the wait screen for the stream")
+        finally:
+            with self._cover_lock:
+                self._cover_loading.discard(key)
+
     def _cover(self, frame: np.ndarray) -> np.ndarray:
-        """The wait screen at frame's size, as the virtual camera shows it (animations play)."""
+        """The wait screen at frame's size, as the virtual camera shows it (animations play); black while it's being
+        made."""
         h, w = frame.shape[:2]
         key = (w, h, self.image_path, self.mirror)
-        cached = self._cover_frames
-        if cached is None or cached[0] != key:
-            flip = (lambda f: f[:, ::-1]) if self.mirror else (lambda f: f)  # noqa: E731
-            frames = [(np.ascontiguousarray(cv2.cvtColor(flip(f), cv2.COLOR_RGB2BGR)), max(s, 0.01))
-                      for f, s in self._loader(self.image_path, w, h)]
-            cached = self._cover_frames = (key, frames, sum(s for _f, s in frames))
-        _key, frames, total = cached
+        cached = self._cover_frames.get(key)
+        if cached is None:
+            self._make_cover(key)
+            return np.zeros_like(frame)
+        frames, total = cached
         at = time.monotonic() % total
         for picture, seconds in frames:
             if at < seconds:
