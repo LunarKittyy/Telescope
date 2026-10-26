@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import logging
 import os
 import re
 import shutil
@@ -11,6 +12,8 @@ from typing import Optional
 from telescope import web
 from telescope.platform import NO_WINDOW
 from telescope.i18n import tr
+
+logger = logging.getLogger(__name__)
 
 # Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
@@ -112,12 +115,35 @@ def _ps_quote(value) -> str:
 
 
 def _elevated_install_script(src: Path, devices: int = 1, reset: bool = False) -> str:
-    """Runs as admin: find Program Files itself, refuse a Telescope folder there that isn't admin-only all the way down, copy the DLLs in, check their hashes there, register those copies."""
-    files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
+    """Runs as admin: the UnityCapture DLLs into Program Files\\Telescope\\UnityCapture, registered from there."""
     # UnityCapture reads both from regsvr32's command line; the extra cameras get "Telescope #2" and on
     count = f"'/i:UnityCaptureDevices={int(devices)}', " if devices > 1 else ""
     # Registering never takes cameras away, so going back to fewer unregisters them all first
     unregister = "$p = Start-Process $regsvr32 -ArgumentList '/s', '/u', $dll -Wait -PassThru\n    " if reset else ""
+    register = f"""foreach ($name in $files.Keys) {{
+    $dll = '"' + (Join-Path $dst $name) + '"'
+    {unregister}$p = Start-Process $regsvr32 -ArgumentList '/s', {count}'"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
+    if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
+}}"""
+    return _admin_install_script(src, "UnityCapture", _EXPECTED_SHA256, register)
+
+
+def _mf_install_script(src: Path, digest: str, devices: int = 1) -> str:
+    """Runs as admin: the Windows 11 camera's DLL into Program Files\\Telescope\\VirtualCamera, set up from there for
+    devices cameras, and then UnityCapture unregistered, as apps would list Telescope twice."""
+    register = f"""$p = Start-Process $regsvr32 -ArgumentList '/s', '/n', '/i:{int(devices)}', ('"' + (Join-Path $dst {_ps_quote(MF_DLL)}) + '"') -Wait -PassThru
+if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
+foreach ($name in 'UnityCaptureFilter64.dll', 'UnityCaptureFilter32.dll') {{
+    $old = Join-Path (Join-Path $telescope 'UnityCapture') $name
+    if (Test-Path -LiteralPath $old) {{ Start-Process $regsvr32 -ArgumentList '/s', '/u', ('"' + $old + '"') -Wait }}
+}}"""
+    return _admin_install_script(src, "VirtualCamera", {MF_DLL: digest}, register)
+
+
+def _admin_install_script(src: Path, folder: str, digests: dict, register: str) -> str:
+    """Runs as admin: find Program Files itself, refuse a Telescope folder there that isn't admin-only all the way down,
+    copy the DLLs into folder in it, check their hashes there, then run register (PowerShell) on those copies."""
+    files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in digests.items())
     return f"""$ErrorActionPreference = 'Stop'
 # Anything unexpected gets its own exit code, so it isn't mistaken for a cancelled admin prompt
 trap {{ exit {_EXIT_ERROR} }}
@@ -132,7 +158,7 @@ function Get-Sha256($path) {{
 $src = {_ps_quote(src)}
 # Resolved here, as admin, from the system's settings: nothing the unelevated app passes decides where the DLLs go
 $telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
-$dst = Join-Path $telescope 'UnityCapture'
+$dst = Join-Path $telescope {_ps_quote(folder)}
 $files = [ordered]@{{ {files} }}
 $icacls = Join-Path ([Environment]::SystemDirectory) 'icacls.exe'
 $sid = [Security.Principal.SecurityIdentifier]
@@ -172,10 +198,14 @@ foreach ($dir in @($telescope, $dst)) {{
         Set-AdminOwner $dir
     }}
 }}
+# Old copies set aside by an earlier update, once nothing has them loaded any more
+Get-ChildItem -LiteralPath $dst -Filter '*.old' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
     if (-not (Test-Path -LiteralPath $target) -or (Get-Sha256 $target) -ne $files[$name]) {{
+        # A loaded one can still be renamed out of the way
+        if (Test-Path -LiteralPath $target) {{ Move-Item -LiteralPath $target -Destination ($target + '.' + [guid]::NewGuid() + '.old') -Force }}
         Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target -Force
         Set-AdminOwner $target
     }}
@@ -190,11 +220,7 @@ foreach ($name in $files.Keys) {{
     }}
 }}
 $regsvr32 = Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'
-foreach ($name in $files.Keys) {{
-    $dll = '"' + (Join-Path $dst $name) + '"'
-    {unregister}$p = Start-Process $regsvr32 -ArgumentList '/s', {count}'"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
-    if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
-}}
+{register}
 exit 0
 """
 
@@ -233,7 +259,11 @@ def register_unitycapture(devices: int = 1, reset: bool = False) -> tuple:
                 pass
             return False, tr("{file} failed checksum verification - not registering", file=name)
     # The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy
-    script = _elevated_install_script(d, devices, reset)
+    return _run_as_admin(_elevated_install_script(d, devices, reset))[:2]
+
+
+def _run_as_admin(script: str) -> tuple:
+    """Runs script in PowerShell as admin, after Windows' prompt: (ok, message, exit code or None)."""
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     ps = ("$ErrorActionPreference = 'Stop'; "
           "$ps = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\\v1.0\\powershell.exe'; "
@@ -244,22 +274,23 @@ def register_unitycapture(devices: int = 1, reset: bool = False) -> tuple:
             [_powershell(), "-NoProfile", "-Command", ps],
             capture_output=True, timeout=60, **NO_WINDOW,
         )
-        if r.returncode == 0:
-            return True, tr("Installed")
-        if r.returncode == _EXIT_CHECKSUM:
-            return False, tr("The driver copy in Program Files failed checksum verification - not registering")
-        if r.returncode == _EXIT_ERROR:
-            return False, tr("The driver install hit an error while running as admin - not registering")
-        if r.returncode == _EXIT_UNSAFE_FOLDER:
+        code = r.returncode
+        if code == 0:
+            return True, tr("Installed"), code
+        if code == _EXIT_CHECKSUM:
+            return False, tr("The driver copy in Program Files failed checksum verification - not registering"), code
+        if code == _EXIT_ERROR:
+            return False, tr("The driver install hit an error while running as admin - not registering"), code
+        if code == _EXIT_UNSAFE_FOLDER:
             return False, tr("Program Files\\Telescope has links in it or other users can change it - delete that "
-                             "folder, then install again")
-        if r.returncode == _EXIT_REGSVR32:
-            return False, tr("Windows refused to register the driver (regsvr32 failed)")
-        return False, tr("Registration failed (cancelled or denied?)")
+                             "folder, then install again"), code
+        if code == _EXIT_REGSVR32:
+            return False, tr("Windows refused to register the driver (regsvr32 failed)"), code
+        return False, tr("Registration failed (cancelled or denied?)"), code
     except subprocess.TimeoutExpired:
-        return False, tr("Timed out")
+        return False, tr("Timed out"), None
     except Exception as e:
-        return False, str(e)
+        return False, str(e), None
 
 
 def _uc_registration() -> Optional[tuple]:
@@ -309,6 +340,119 @@ def uc_in_app_folder() -> bool:
 
 def uc_is_registered() -> bool:
     return uc_registered_name() is not None
+
+
+# ── The Windows 11 camera (desktop/virtualcamera) ──
+# A media source Windows' Frame Server loads, so every app sees it, Media Foundation ones included. Older Windows, or
+# Windows 11 when it can't be set up, keeps UnityCapture.
+
+MF_DLL = "TelescopeCamera.dll"
+MF_MIN_BUILD = 22000  # MFCreateVirtualCamera arrived with Windows 11
+MF_VERSION = 1        # kCameraVersion in virtualcamera/camera.h: raise both when an installed DLL needs replacing
+# One per camera slot, as in virtualcamera/dllmain.cpp
+MF_CLSIDS = (
+    "{D1063481-2B46-4750-8A9D-85F69573355A}",
+    "{563D2A25-6CA0-48AF-922D-B098035893B4}",
+    "{8DF9E1B0-1CD9-42D3-86F1-ED2691C3D197}",
+    "{128E9FE3-4FDD-4786-87E1-EEA12E34254A}",
+)
+FORCE_ENV = "TELESCOPE_VCAM"  # "unitycapture" keeps the older camera on Windows 11
+
+
+def mf_camera_dir() -> Path:
+    """Where this copy of Telescope keeps the camera DLL it would install."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent / "virtualcamera"
+    return Path(__file__).parent.parent.parent / "virtualcamera" / "build" / "Release"
+
+
+def protected_mf_dir() -> Path:
+    base = _known_folder(_FOLDERID_PROGRAM_FILES) or Path(r"C:\Program Files")
+    return base / "Telescope" / "VirtualCamera"
+
+
+def windows_build() -> int:
+    getter = getattr(sys, "getwindowsversion", None)
+    return getter().build if getter else 0
+
+
+def mf_allowed() -> bool:
+    """Windows 11, and the older camera not asked for instead."""
+    return windows_build() >= MF_MIN_BUILD and os.environ.get(FORCE_ENV, "").strip().lower() != "unitycapture"
+
+
+def mf_installable() -> bool:
+    """Whether installing the camera here sets up the Windows 11 one."""
+    return mf_allowed() and (mf_camera_dir() / MF_DLL).is_file()
+
+
+def _mf_registration(slot: int) -> Optional[tuple]:
+    """(DLL path, version) slot's Windows 11 camera is registered with, or None."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, rf"CLSID\{MF_CLSIDS[slot]}\InprocServer32") as k:
+            path, _ = winreg.QueryValueEx(k, "")
+        try:
+            with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, rf"CLSID\{MF_CLSIDS[slot]}") as k:
+                version, _ = winreg.QueryValueEx(k, "TelescopeVersion")
+        except OSError:
+            version = 0
+        return path, int(version)
+    except (OSError, ImportError, IndexError, ValueError):
+        return None
+
+
+def mf_registered(slot: int = 0) -> bool:
+    """Whether slot's Windows 11 camera is set up (its DLL registered and still there)."""
+    reg = _mf_registration(slot)
+    return reg is not None and Path(reg[0]).is_file()
+
+
+def use_mf(slot: int = 0) -> bool:
+    """Whether slot streams to the Windows 11 camera rather than UnityCapture."""
+    return mf_allowed() and mf_registered(slot)
+
+
+def mf_outdated() -> bool:
+    """An older Telescope's Windows 11 camera is installed, and this one has a newer one to put in its place."""
+    reg = _mf_registration(0)
+    return reg is not None and mf_installable() and reg[1] < MF_VERSION
+
+
+def register_mf_camera(devices: int = 1) -> tuple:
+    """Install the Windows 11 camera as admin, with devices cameras to stream to: (ok, message, exit code or None)."""
+    src = mf_camera_dir()
+    dll = src / MF_DLL
+    if not dll.is_file():
+        return False, tr("{file} is missing from Telescope's folder", file=MF_DLL), None
+    # Hashed here and checked again as admin on the copy in Program Files, the one that gets registered
+    return _run_as_admin(_mf_install_script(src, _sha256(dll).upper(), devices))
+
+
+def install_camera(devices: int = 1, reset: bool = False, progress_cb=None) -> tuple:
+    """Set up Telescope's virtual camera as admin, with devices cameras to stream to: the Windows 11 one where it can be,
+    else UnityCapture (downloaded first if needed). reset: UnityCapture goes back to fewer cameras."""
+    if mf_installable():
+        if progress_cb:
+            progress_cb(tr("Registering (admin access required)..."))
+        ok, msg, code = register_mf_camera(devices)
+        if ok or code != _EXIT_REGSVR32:
+            return ok, msg
+        logger.warning("Windows didn't take the Windows 11 camera (%s); installing UnityCapture instead", msg)
+    if not unitycapture_downloaded(unitycapture_dir()):
+        if progress_cb:
+            progress_cb(tr("Downloading driver files..."))
+        ok, msg = download_unitycapture()
+        if not ok:
+            return ok, msg
+    if progress_cb:
+        progress_cb(tr("Registering (admin access required)..."))
+    return register_unitycapture(devices, reset)
+
+
+def camera_installed() -> bool:
+    """Whether apps can see a Telescope camera, either kind."""
+    return use_mf(0) or uc_is_registered()
 
 
 APP_USER_MODEL_ID = "LunarKittyy.Telescope"  # installer/Telescope.iss gives its shortcuts the same one

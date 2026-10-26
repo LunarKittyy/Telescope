@@ -75,29 +75,6 @@ def _vcam_format(width: int, height: int):
 _UNCHANGED = object()
 
 
-def _fit_frame(frame, target_w, target_h):
-    """Resize frame preserving aspect (black bars as needed; zero-copy if already matches)."""
-    fh, fw = frame.shape[:2]
-    if fw == target_w and fh == target_h:
-        return frame
-
-    scale = min(target_w / fw, target_h / fh)
-    new_w = int(fw * scale)
-    new_h = int(fh * scale)
-
-    if new_w == target_w and new_h == target_h:
-        return cv2.resize(frame, (target_w, target_h),
-                          interpolation=cv2.INTER_LINEAR)
-
-    resized = cv2.resize(frame, (new_w, new_h),
-                         interpolation=cv2.INTER_LINEAR)
-    canvas = np.zeros((target_h, target_w, 3), dtype=frame.dtype)
-    x_off = (target_w - new_w) // 2
-    y_off = (target_h - new_h) // 2
-    canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
-    return canvas
-
-
 class _Newest:
     """Hands the newest packet from the reader to the decoders; one nobody took in time is dropped, so a slow decoder
     skips frames instead of letting them queue up (in here or in the TCP buffers) as lag."""
@@ -550,7 +527,7 @@ class StreamWorker(QThread):
                         # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
                         # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
                         if src is not last_src:
-                            last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                            last_src, fitted = src, vcam.fit_frame(src, cam_w, cam_h)
                             if self._to_cam is not None:
                                 fitted = self._to_cam(fitted)
                         cam.send(fitted)

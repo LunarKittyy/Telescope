@@ -1240,8 +1240,8 @@ class TelescopeWindow(QMainWindow):
                                                if not vcam.slot_ready(n)])
                     ok, msg, command = result.ok, result.message, result.command or ""
                 else:
-                    from telescope.platform.windows import register_unitycapture
-                    ok, msg = register_unitycapture(vcam.MAX_SLOTS)
+                    from telescope.platform.windows import install_camera
+                    ok, msg = install_camera(vcam.MAX_SLOTS)
             except Exception as exc:  # still report back, so a later Add camera can try again
                 logging.exception("Setting up more virtual cameras failed")
                 ok, msg = False, str(exc)
@@ -1265,8 +1265,8 @@ class TelescopeWindow(QMainWindow):
                         result = v4l2_remove_devices([d for d in map(vcam.slot_device, extras) if d])
                         ok, msg = result.ok, result.message
                     else:
-                        from telescope.platform.windows import register_unitycapture
-                        ok, msg = register_unitycapture(1, reset=True)
+                        from telescope.platform.windows import install_camera
+                        ok, msg = install_camera(1, reset=True)
             except Exception as exc:
                 logging.exception("Removing the extra virtual cameras failed")
                 ok, msg = False, str(exc)

@@ -248,57 +248,49 @@ def test_a_registration_in_the_app_folder_asks_for_a_reinstall_and_says_why(wind
     assert windows_dialog._uc_status_lbl.text() == "Ready" and windows_dialog._uc_btn.toolTip() == ""
 
 
-def test_install_unitycapture_downloads_then_registers(monkeypatch, windows_dialog, tmp_path):
-    dialog = windows_dialog
+def test_install_driver_shows_progress_then_ready(monkeypatch, windows_dialog):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    calls = []
+    seen = []
 
-    def download():
-        calls.append("download")
-        (tmp_path / "UnityCaptureFilter64.dll").write_bytes(b"dll")
-        return True, "downloaded"
-
-    monkeypatch.setattr(setup_mod, "download_unitycapture", download)
-    monkeypatch.setattr(
-        setup_mod,
-        "register_unitycapture",
-        lambda: calls.append("register") or (True, "installed"),
-    )
-    dialog._install_uc()
-    assert calls == ["download", "register"]
-    assert dialog._uc_status_lbl.text() == "Ready"
-    assert dialog._uc_btn.text() == "Reinstall"
-
-
-def test_install_unitycapture_stops_after_download_error(monkeypatch, windows_dialog, tmp_path):
-    dialog = windows_dialog
-    monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    monkeypatch.setattr(setup_mod, "download_unitycapture", lambda: (False, "offline"))
-    monkeypatch.setattr(
-        setup_mod,
-        "register_unitycapture",
-        lambda: (_ for _ in ()).throw(AssertionError("must not register")),
-    )
-    dialog._install_uc()
-    assert dialog._uc_status_lbl.text() == "Failed: offline"
-    assert dialog._uc_btn.text() == "Retry"
-
-
-def test_install_unitycapture_skips_download_when_dll_exists(monkeypatch, windows_dialog, tmp_path):
-    (tmp_path / "UnityCaptureFilter32.dll").write_bytes(b"dll")
-    (tmp_path / "UnityCaptureFilter64.dll").write_bytes(b"dll")
-    monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    monkeypatch.setattr(
-        setup_mod,
-        "download_unitycapture",
-        lambda: (_ for _ in ()).throw(AssertionError("must not download")),
-    )
-    monkeypatch.setattr(setup_mod, "register_unitycapture", lambda: (False, "denied"))
+    def install(progress_cb=None):
+        progress_cb("Registering (admin access required)...")
+        seen.append(windows_dialog._uc_status_lbl.text())
+        return True, "Installed"
+    monkeypatch.setattr(setup_mod, "install_camera", install)
     windows_dialog._install_uc()
-    assert windows_dialog._uc_status_lbl.text() == "Failed: denied"
+    assert seen == ["Registering (admin access required)..."]
+    assert windows_dialog._uc_status_lbl.text() == "Ready"
+    assert windows_dialog._uc_btn.text() == "Reinstall"
+
+
+def test_install_driver_failure_offers_a_retry(monkeypatch, windows_dialog):
+    monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
+    monkeypatch.setattr(setup_mod, "install_camera", lambda progress_cb=None: (False, "offline"))
+    windows_dialog._install_uc()
+    assert windows_dialog._uc_status_lbl.text() == "Failed: offline"
+    assert windows_dialog._uc_btn.text() == "Retry"
+
+
+def test_the_windows_11_camera_installed_is_ready(windows_dialog):
+    windows_dialog._on_win_checks("", True, False, "ready")
+    assert windows_dialog._uc_status_lbl.text() == "Ready"
+    assert windows_dialog._uc_btn.text() == "Reinstall"
+
+
+@pytest.mark.parametrize("uc_name, mf, status", [("Telescope", "offer", "Some apps can't see it"),
+                                                 ("", "update", "Update ready")])
+def test_windows_11_offers_its_camera_over_an_older_one(windows_dialog, uc_name, mf, status):
+    windows_dialog._on_win_checks(uc_name, True, False, mf)
+    assert windows_dialog._uc_status_lbl.text() == status
+    assert windows_dialog._uc_btn.text() == "Update"
+    assert "Windows 11" in windows_dialog._uc_btn.toolTip()
+
+
+def test_windows_11_with_nothing_installed_has_nothing_to_download(monkeypatch, windows_dialog, tmp_path):
+    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
+    windows_dialog._on_win_checks("", True, False, "offer")
+    assert windows_dialog._uc_status_lbl.text() == "Not installed"
+    assert windows_dialog._uc_btn.text() == "Install driver"
 
 
 def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
@@ -499,9 +491,8 @@ def test_max_gain_buttons_apply_straight_away(qapp):
 
 def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    monkeypatch.setattr(setup_mod, "download_unitycapture",
-                        lambda: (_ for _ in ()).throw(PermissionError("read-only folder")))
+    monkeypatch.setattr(setup_mod, "install_camera",
+                        lambda progress_cb=None: (_ for _ in ()).throw(PermissionError("read-only folder")))
     windows_dialog._install_uc()
     assert windows_dialog._uc_btn.isEnabled()
     assert "read-only folder" in windows_dialog._uc_status_lbl.text()

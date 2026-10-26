@@ -19,8 +19,8 @@ from telescope.platform.linux import (
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
 from telescope.platform.windows import (
-    UC_NAME, download_unitycapture, register_unitycapture, uc_in_app_folder, uc_registered_name, unitycapture_dir,
-    unitycapture_downloaded,
+    UC_NAME, install_camera, mf_installable, mf_outdated, uc_in_app_folder, uc_registered_name, unitycapture_dir,
+    unitycapture_downloaded, use_mf,
 )
 from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.widgets.adb import AdbDownload
@@ -107,7 +107,8 @@ class AdvancedSettings(QWidget):
     _sig_v4l_result   = pyqtSignal(bool, str, str)  # ok, message, the command to run by hand ("" if none)
     _sig_v4l_unload   = pyqtSignal(bool, str, str)
     _sig_persist_result = pyqtSignal(bool, str, str)
-    _sig_win_checks   = pyqtSignal(str, bool, bool)  # registered camera name ("" if none), adb found, still in the app folder
+    # UnityCapture's registered name ("" if none), adb found, still in the app folder, the Windows 11 camera's state
+    _sig_win_checks   = pyqtSignal(str, bool, bool, str)
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
@@ -737,11 +738,29 @@ class AdvancedSettings(QWidget):
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
-        self._sig_win_checks.emit(uc_registered_name() or "", adb_available(), uc_in_app_folder())
+        if use_mf(0):
+            mf = "update" if mf_outdated() else "ready"
+        else:
+            mf = "offer" if mf_installable() else ""
+        self._sig_win_checks.emit(uc_registered_name() or "", adb_available(), uc_in_app_folder(), mf)
 
-    def _on_win_checks(self, uc_name: str, adb_ok: bool, in_app_folder: bool = False):
+    def _on_win_checks(self, uc_name: str, adb_ok: bool, in_app_folder: bool = False, mf: str = ""):
+        """mf: "ready" or "update" (an older one) for the Windows 11 camera, "offer" where it could be installed."""
         self._uc_btn.setEnabled(not self._uc_installing)
-        if uc_name and in_app_folder:
+        if mf == "ready":
+            set_status_kind(self._uc_status_lbl, "status_ok")
+            self._uc_status_lbl.setText(tr("Ready"))
+            self._uc_btn.setText(tr("Reinstall"))
+            self._uc_btn.setToolTip("")
+            set_ui_role(self._uc_btn, "")
+        elif mf == "update" or (mf == "offer" and uc_name):
+            set_status_kind(self._uc_status_lbl, "status_warn")
+            self._uc_status_lbl.setText(tr("Update ready") if mf == "update" else tr("Some apps can't see it"))
+            self._uc_btn.setText(tr("Update"))
+            self._uc_btn.setToolTip(tr("Installs the camera every Windows 11 app can see (Windows asks for admin "
+                                       "access once)."))
+            set_ui_role(self._uc_btn, "primary")
+        elif uc_name and in_app_folder:
             # Registered by an older Telescope from the app's own folder, which any program running as this user can write to.
             set_status_kind(self._uc_status_lbl, "status_warn")
             self._uc_status_lbl.setText(tr("Reinstall for a security fix"))
@@ -763,7 +782,7 @@ class AdvancedSettings(QWidget):
             set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
-            dlls = unitycapture_downloaded(unitycapture_dir())
+            dlls = mf == "offer" or unitycapture_downloaded(unitycapture_dir())  # the Windows 11 one comes with Telescope
             self._uc_status_lbl.setText(
                 tr("Not installed") if dlls else tr("Not installed (Install driver downloads it first)"))
             self._uc_btn.setText(tr("Install driver"))
@@ -816,14 +835,7 @@ class AdvancedSettings(QWidget):
 
         def worker():
             try:
-                if not unitycapture_downloaded(unitycapture_dir()):
-                    self._sig_uc_msg.emit(tr("Downloading driver files..."))
-                    ok, msg = download_unitycapture()
-                    if not ok:
-                        self._sig_uc_done.emit(False, msg)
-                        return
-                self._sig_uc_msg.emit(tr("Registering (admin access required)..."))
-                ok, msg = register_unitycapture()
+                ok, msg = install_camera(progress_cb=self._sig_uc_msg.emit)
             except Exception as exc:  # always report back, or the button stays off until a restart
                 logger.exception("Driver install failed")
                 ok, msg = False, str(exc)

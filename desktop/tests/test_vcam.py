@@ -440,3 +440,170 @@ def test_linux_watch_retries_while_the_device_is_missing(monkeypatch, tmp_path):
     time.sleep(0.05)
     watch.stop()
     assert not watch.running
+
+
+# ── The Windows 11 camera ─────────────────────────────────────────────────────
+
+_VIRTUALCAMERA = os.path.join(os.path.dirname(__file__), "..", "virtualcamera")
+
+
+def _shared(w=8, h=4, state=1, beat=0, counter=0, capacity=None, magic=vcam.MF_MAGIC):
+    """A camera's shared memory as its DLL leaves it while an app reads it at w x h."""
+    capacity = w * h * 3 // 2 if capacity is None else capacity
+    buf = bytearray(64 + capacity)
+    vcam._MF_HEADER.pack_into(buf, 0, magic, vcam.MF_PROTOCOL, 64, capacity, state, w, h, 30, beat, counter,
+                              0, 0, 0, 0)
+    return buf
+
+
+class _Opener:
+    """Hands out views of bufs[0] (None: no app reads the camera) and counts how many are left open."""
+
+    def __init__(self, buf):
+        self.buf, self.opened, self.closed = buf, 0, 0
+
+    def __call__(self):
+        if self.buf is None:
+            return None
+        self.opened += 1
+        return vcam._SharedView(memoryview(self.buf), lambda: setattr(self, "closed", self.closed + 1))
+
+
+def _header(buf):
+    return vcam._MF_HEADER.unpack_from(buf, 0)
+
+
+def test_the_windows_11_camera_gets_nv12_at_the_readers_size():
+    import cv2
+    buf = _shared(8, 4)
+    cam = vcam.MFCamera(8, 4, 30, vcam.pyvirtualcam.PixelFormat.BGR, opener=_Opener(buf))
+    frame = np.random.default_rng(1).integers(0, 255, (4, 8, 3), dtype=np.uint8)
+    cam.send(frame)
+    i420 = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420).reshape(-1)
+    data = np.frombuffer(bytes(buf[64:]), np.uint8)
+    assert (data[:32] == i420[:32]).all()  # luma as is
+    assert (data[32::2] == i420[32:40]).all() and (data[33::2] == i420[40:48]).all()  # U and V interleaved
+    h = _header(buf)
+    assert h[9] == 2 and h[10:13] == (8, 4, vcam.MF_NV12)  # even again: the frame is whole
+    cam.send(frame)
+    assert _header(buf)[9] == 4
+
+
+def test_a_frame_of_another_size_is_fitted_to_what_the_app_picked():
+    buf = _shared(8, 4)
+    cam = vcam.MFCamera(16, 16, 30, vcam.pyvirtualcam.PixelFormat.RGB, opener=_Opener(buf))
+    cam.send(np.full((16, 16, 3), 255, np.uint8))
+    luma = np.frombuffer(bytes(buf[64:96]), np.uint8).reshape(4, 8)
+    assert _header(buf)[10:12] == (8, 4)
+    assert luma[:, 3:5].min() > 200 and luma[:, 0].max() < 30  # white in the middle, black bars at the sides
+
+
+def test_frames_are_dropped_until_an_app_opens_the_camera():
+    opener = _Opener(None)
+    cam = vcam.MFCamera(8, 4, 30, opener=opener)
+    cam.send(np.zeros((4, 8, 3), np.uint8))
+    opener.buf = _shared(8, 4)
+    cam.send(np.zeros((4, 8, 3), np.uint8))  # looked for again on every frame, so the first one lands straight away
+    assert _header(opener.buf)[9] == 2
+
+
+def test_a_write_cut_off_half_way_is_finished_with_an_even_count():
+    buf = _shared(8, 4, counter=5)
+    vcam.MFCamera(8, 4, 30, opener=_Opener(buf)).send(np.zeros((4, 8, 3), np.uint8))
+    assert _header(buf)[9] == 8
+
+
+def test_the_camera_is_let_go_once_the_app_stops_reading(monkeypatch):
+    opener = _Opener(_shared(8, 4))
+    cam = vcam.MFCamera(8, 4, 30, opener=opener)
+    cam.send(np.zeros((4, 8, 3), np.uint8))
+    struct_state = 16
+    opener.buf[struct_state] = 0  # the DLL stopped: holding on would keep its memory alive
+    opener.buf = None
+    cam.send(np.zeros((4, 8, 3), np.uint8))
+    assert opener.closed == 1 and cam._view is None
+
+
+def test_an_app_that_stopped_asking_for_frames_counts_as_gone(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(vcam.time, "monotonic", lambda: now[0])
+    opener = _Opener(_shared(8, 4, beat=7))
+    cam = vcam.MFCamera(8, 4, 30, opener=opener)
+    cam.send(np.zeros((4, 8, 3), np.uint8))
+    now[0] += vcam.WATCH_LINGER + 1
+    cam.send(np.zeros((4, 8, 3), np.uint8))
+    assert opener.closed == 1  # let go, then looked for again
+    assert opener.opened == 2
+
+
+def test_a_size_too_big_for_the_shared_memory_is_never_written():
+    buf = _shared(8, 4, capacity=10)
+    view = vcam._SharedView(memoryview(buf))
+    assert view.reader_size() is None
+    vcam.MFCamera(8, 4, 30, opener=_Opener(buf)).send(np.zeros((4, 8, 3), np.uint8))
+    assert _header(buf)[9] == 0
+
+
+def test_memory_from_another_program_is_refused():
+    assert not vcam._SharedView(memoryview(_shared(magic=0x1234))).valid()
+    assert vcam._SharedView(memoryview(_shared())).valid()
+
+
+def test_the_windows_11_camera_only_takes_rgb_or_bgr():
+    with pytest.raises(ValueError):
+        vcam.MFCamera(8, 4, 30, vcam.pyvirtualcam.PixelFormat.I420, opener=_Opener(None))
+
+
+def test_windows_opens_the_windows_11_camera_where_it_is_set_up(monkeypatch):
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    monkeypatch.setattr(vcam, "_use_mf", lambda slot: slot in (0, 2))
+    monkeypatch.setattr(vcam, "_uc_names", lambda: {})
+    cam = vcam.open_camera(8, 4, 30, slot=2)
+    assert isinstance(cam, vcam.MFCamera) and cam.device == "Telescope #3"
+    assert vcam.slot_ready(2) and not vcam.slot_ready(1)
+    assert vcam._filter_probe_for(1) is None and vcam._filter_probe_for(2) is not None
+
+
+def test_the_watch_follows_the_windows_11_cameras_reader(monkeypatch):
+    monkeypatch.setattr(vcam, "MF_WATCH_PERIOD", 0.01)
+    monkeypatch.setattr(vcam, "_use_mf", lambda slot: True)
+    opener = _Opener(None)
+    seen = []
+    watch = vcam.CameraWatch(seen.append)
+    stop = threading.Event()
+    t = threading.Thread(target=watch._watch_mf, args=(stop, opener))
+    t.start()
+    _wait_for(lambda: seen == [False])
+    opener.buf = _shared(8, 4)
+    _wait_for(lambda: seen == [False, True])
+    opener.buf[16] = 0  # the app stopped; the DLL takes its memory away right after
+    _wait_for(lambda: seen == [False, True, False])
+    stop.set()
+    t.join()
+    assert opener.closed == opener.opened  # the watch never keeps it open itself
+
+
+def test_the_watch_counts_a_stalled_reader_as_gone(monkeypatch):
+    monkeypatch.setattr(vcam, "MF_WATCH_PERIOD", 0.01)
+    monkeypatch.setattr(vcam, "WATCH_LINGER", 0.05)
+    monkeypatch.setattr(vcam, "_use_mf", lambda slot: True)
+    seen = []
+    watch = vcam.CameraWatch(seen.append)
+    stop = threading.Event()
+    t = threading.Thread(target=watch._watch_mf, args=(stop, _Opener(_shared(8, 4))))
+    t.start()
+    _wait_for(lambda: seen == [True, False])  # the heartbeat never moved
+    stop.set()
+    t.join()
+
+
+def test_the_python_side_matches_the_dlls_shared_memory_layout():
+    with open(os.path.join(_VIRTUALCAMERA, "shared_frame.h")) as f:
+        header = f.read()
+    assert f"kMagic = 0x{vcam.MF_MAGIC:08X}" in header
+    assert f"kVersion = {vcam.MF_PROTOCOL};" in header and f"kFormatNV12 = {vcam.MF_NV12};" in header
+    assert vcam._MF_HEADER.size == 64 and "kDataOffset = 64;" in header
+    assert vcam.MF_SHARED_NAME.replace("\\", "\\\\") in header
+    fields = [line.split()[1].rstrip(";") for line in header[header.index("struct SharedHeader"):].splitlines()[1:]
+              if line.strip().startswith("uint")]
+    assert fields[8] == "consumer_heartbeat" and fields[9] == "frame_counter" and fields[10] == "frame_width"
