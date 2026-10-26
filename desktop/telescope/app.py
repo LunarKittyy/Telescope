@@ -1672,10 +1672,10 @@ class TelescopeWindow(QMainWindow):
         state = self._last_states.get(source.id) if source is not None else None
         if not isinstance(state, dict) or not isinstance(cam, dict) or "id" not in cam:
             return
-        cameras = [(dict(c, **cam, current=True) if c.get("id") == cam["id"] else dict(c, current=False))
+        cameras = [({**c, **cam, "current": True} if c.get("id") == cam["id"] else dict(c, current=False))
                    if isinstance(c, dict) else c for c in state.get("cameras") or ()]
         if not any(isinstance(c, dict) and c.get("current") for c in cameras):
-            cameras.append(dict(cam, current=True))
+            cameras.append({**cam, "current": True})
         self._last_states[source.id] = dict(state, cameras=cameras)
 
     def still_busy(self, source_id: Optional[str] = None) -> bool:

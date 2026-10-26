@@ -3870,5 +3870,5 @@ def test_photo_options_follow_a_lens_switch(window):
     assert window.still_caps().max_res == (8000, 6000)
     seen = []
     window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
-    window._bus.camera_switched.emit({"id": "4", "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})
+    window._bus.camera_switched.emit({"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})  # as /v1/state lists it
     assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening
