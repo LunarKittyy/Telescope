@@ -9,7 +9,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QIcon, QPixmap
 from PyQt6.QtWidgets import QButtonGroup, QColorDialog, QFileDialog, QHBoxLayout, QPushButton, QSizePolicy, QWidget
 
-from telescope.pictures import cover, read_picture
+from telescope.config import clamped_int
+from telescope.pictures import compose, cover, read_picture
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, choice_action, slider_action
 from telescope.widgets.common import (
@@ -27,13 +28,6 @@ _DEFAULT_COLOUR = (40, 34, 30)  # BGR, a dark neutral behind you
 _SPILL_SPREAD = 0.5  # spill comes off colours up to about 60 degrees of hue from the screen's, fading out towards there
 _SAMPLE = 4  # px: a picked colour is the median of a square this far around the click, at the stream's size
 _MIN_CHROMA = 12.0  # a picked colour with less colour than this (out of about 128) can't be keyed: grey, white, black
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
 
 
 def chroma_of(bgr) -> tuple:
@@ -87,13 +81,6 @@ def matte(frame: np.ndarray, tables: tuple) -> tuple:
     alpha = up(alpha_t[index])
     clean = cv2.cvtColor(cv2.merge((ycrcb[..., 0], up(cr_t[index]), up(cb_t[index]))), cv2.COLOR_YCrCb2BGR)
     return alpha, clean
-
-
-def compose(frame: np.ndarray, alpha: np.ndarray, background: np.ndarray) -> np.ndarray:
-    """frame where alpha is 255 over background, all uint8."""
-    weight = cv2.merge((alpha, alpha, alpha))
-    return cv2.add(cv2.multiply(frame, weight, scale=1 / 255), cv2.multiply(background, cv2.bitwise_not(weight),
-                                                                              scale=1 / 255))
 
 
 def swatch(bgr) -> QIcon:
@@ -396,7 +383,7 @@ class ChromaKeyPlugin(TelescopePlugin):
         self._bg_btns[background].setChecked(True)
         for name, default in (("tolerance", 40), ("softness", 30), ("spill", 60)):
             slider, readout = self._sliders[name]
-            slider.setValue(_clamp(cfg.get(name), default, 0, 100))
+            slider.setValue(clamped_int(cfg.get(name), default, 0, 100))
             readout.setText(str(slider.value()))
         for w in widgets:
             w.blockSignals(False)
