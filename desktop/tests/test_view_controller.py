@@ -62,6 +62,10 @@ def test_a_picked_point_reaches_camera_control_without_the_transforms_card(view)
     vc.process_frame(np.zeros((90, 160, 3), np.uint8))
     bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.25, 0.5)]
+    metered = []
+    bus.meter_point.connect(lambda x, y: metered.append((x, y)))
+    bus.meter_point_picked.emit(0.25, 0.5)
+    assert metered == [(0.25, 0.5)] and len(seen) == 1
 
 
 def test_taking_the_view_moves_zoom_and_pan_but_leaves_flip_and_rotation_manual(view):

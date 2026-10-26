@@ -54,6 +54,9 @@ data class CameraControlSnapshot(
 // around (x, y) in 0..1 of that view. Kept normalized, so it carries over a lens switch, clamped to the new lens.
 data class ZoomRequest(val ratio: Float = 1f, val crop: Float = 1f, val x: Float = 0.5f, val y: Float = 0.5f)
 
+// A photo output next to the stream's (StillCapture), never in the repeating request; maxRes: a full resolution mode size
+class StillOutput(val surface: Surface, val maxRes: Boolean)
+
 // Owns the Camera2 session lifecycle (device/session/reader) and control state; CameraStreamService owns the HTTP server, notification, and everything outside the camera itself. onFatalError tears the whole session down (camera/session lost); onControlError reports a single failed control change (e.g. exposure) while the stream keeps running on its previous request.
 class CameraSessionController(
     private val context: Context,
@@ -104,6 +107,8 @@ class CameraSessionController(
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
     // Set in "point" mode: x, y and size in the stream frame; mapped onto the sensor per request, through the zoom.
     @Volatile private var focusPoint: FloatArray? = null
+    // Set by meter_point: like focusPoint, but only metering goes there and focus stays as it is
+    @Volatile private var meterPoint: FloatArray? = null
     @Volatile private var zoom = ZoomRequest()
     @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
@@ -128,6 +133,12 @@ class CameraSessionController(
     // Dynamic's frame rate step, alongside its bitrate: only while Dynamic runs the H.264 stream
     @Volatile private var frameRate: DynamicFrameRate? = null
     @Volatile private var codecFailure: CodecFailure? = null
+    // Photo outputs the session carries besides the stream's (StillCapture); dropped when they make it fail
+    @Volatile private var stillOutputs: List<StillOutput> = emptyList()
+    // StillCapture closed the session to run its own; anything rebuilding the session ends that
+    @Volatile private var stillPaused = false
+    // The newest result of the repeating request: what auto exposure and focus settled on, for photos
+    @Volatile private var lastResult: TotalCaptureResult? = null
 
     @Volatile private var currentCamera: CameraEntry? = null
 
@@ -382,12 +393,22 @@ class CameraSessionController(
         return capped
     }
 
+    /** The bitrate Dynamic set, or 0 when it's off. */
+    val dynamicBitrate: Int get() = if (requestedBitrate == H264Stream.DYNAMIC) dynamic?.bitrate ?: 0 else 0
+
+    /** Whether Dynamic found where the link fills up lately (DynamicBitrate.full). */
+    val dynamicFull: Boolean get() = requestedBitrate == H264Stream.DYNAMIC && dynamic?.full == true
+
     /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
      *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
-        d.update(sample)?.let { encoder?.setBitrate(it) }
+        d.update(sample)?.let {
+            android.util.Log.i(TAG, "Dynamic: ${it / 1000} kbps (queue ${sample.queueMs} ms, on the way ${sample.routerMs} ms, " +
+                "lost ${"%.1f".format(sample.loss * 100)}%, through ${sample.sentBytes * 8 / 250} kbps)")
+            encoder?.setBitrate(it)
+        }
         // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
         // rebuilt here
         val camera = currentCamera
@@ -424,7 +445,7 @@ class CameraSessionController(
         // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
         post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
     }
-    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; post { applyExposure() } }
+    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; meterPoint = null; post { applyExposure() } }
     fun setZoom(z: ZoomRequest)             { zoom = z;                         post { applyExposure() } }
 
     // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
@@ -434,8 +455,18 @@ class CameraSessionController(
         if (cam.activeArray == null) return false
         if (cam.maxAfRegions <= 0 || CaptureRequest.CONTROL_AF_MODE_AUTO !in cam.afModes) return false
         focusPoint = floatArrayOf(x, y, size)
+        meterPoint = null
         currentFocusMode = "point"
         post { triggerFocus() }
+        return true
+    }
+
+    // Meters on a point while exposure is automatic and leaves focus alone; false without AE regions or an active array
+    fun setMeterPoint(x: Float, y: Float, size: Float): Boolean {
+        val cam = currentCamera ?: return false
+        if (cam.activeArray == null || cam.maxAeRegions <= 0) return false
+        meterPoint = floatArrayOf(x, y, size)
+        post { applyExposure() }
         return true
     }
 
@@ -461,14 +492,26 @@ class CameraSessionController(
     private fun applyFocusRegion(builder: CaptureRequest.Builder): Boolean {
         val point = focusPoint ?: return false
         val cam = currentCamera ?: return false
-        val area = zoomCrop(cam) ?: cam.activeArray ?: return false
-        val region = CameraRequestSelection.meteringRect(point[0], point[1], point[2], area, streamWidth, streamHeight)
-        val rect = MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
+        val rect = meteringRect(point, cam) ?: return false
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(rect))
         if (cam.maxAeRegions > 0 && currentIso == null) builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
         return true
+    }
+
+    private fun applyMeterRegion(builder: CaptureRequest.Builder) {
+        val point = meterPoint ?: return
+        val cam = currentCamera ?: return
+        if (cam.maxAeRegions <= 0 || currentIso != null) return
+        builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(meteringRect(point, cam) ?: return))
+    }
+
+    // point: x, y and size in the stream frame, mapped onto the sensor through the zoom
+    private fun meteringRect(point: FloatArray, cam: CameraEntry): MeteringRectangle? {
+        val area = zoomCrop(cam) ?: cam.activeArray ?: return null
+        val region = CameraRequestSelection.meteringRect(point[0], point[1], point[2], area, streamWidth, streamHeight)
+        return MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
     }
     fun setFocusDistance(d: Float)          { currentFocusDistance = d;         post { applyExposure() } }
     fun setNrMode(m: Int)                   { currentNrMode = m;                post { applyExposure() } }
@@ -699,6 +742,8 @@ class CameraSessionController(
         gate?.release()
         encoder?.release()
         imageReader = null; encoder = null; gate = null
+        stillOutputs = emptyList()  // StillCapture makes its readers again for the new session
+        stillPaused = false
         capInEncoder = false  // a new encoder doesn't have the cap: the session takes Dynamic's rate again
         capCheckGeneration++
     }
@@ -764,6 +809,13 @@ class CameraSessionController(
 
     // Returns true when it has taken over (onComplete is then someone else's to call)
     private fun sessionFailed(op: String, e: Throwable?, onComplete: (() -> Unit)?): Boolean {
+        if (stillOutputs.isNotEmpty()) {
+            // Photos don't get to break the stream: it goes back without them, and StillCapture shoots on its own
+            stillOutputs = emptyList()
+            onControlError("$op.stillOutputsDropped", e ?: IllegalStateException("configure failed"))
+            reconfigureSession(onComplete)
+            return true
+        }
         if (usedStreamUseCase && !streamUseCaseRefused) {
             // The labels are only a hint: a camera that won't take them gets the session without, from now on
             streamUseCaseRefused = true
@@ -805,13 +857,7 @@ class CameraSessionController(
         try {
             if (noOutput("createSession", onComplete)) return
             usedStreamUseCase = false
-            val outCfgs = currentTargetSurfaces().map { surface ->
-                OutputConfiguration(surface).also { cfg ->
-                    physId?.let { cfg.setPhysicalCameraId(it) }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !streamUseCaseRefused)
-                        applyStreamUseCase(cfg, surface)
-                }
-            }
+            val outCfgs = sessionOutputs(physId, stillOutputs)
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
                 object : CameraCaptureSession.StateCallback() {
@@ -841,6 +887,16 @@ class CameraSessionController(
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
+    private fun sessionOutputs(physId: String?, stills: List<StillOutput>): List<OutputConfiguration> =
+        currentTargetSurfaces().map { surface ->
+            OutputConfiguration(surface).also { cfg ->
+                physId?.let { cfg.setPhysicalCameraId(it) }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !streamUseCaseRefused)
+                    applyStreamUseCase(cfg, surface)
+            }
+        } + stills.map { still -> StillCapture.outputConfig(still, physId) }
+
     @Suppress("DEPRECATION")
     private fun createLegacySession(
         camera: CameraDevice,
@@ -850,7 +906,7 @@ class CameraSessionController(
     ) {
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
         if (noOutput("createLegacySession", onComplete)) return
-        val targets = currentTargetSurfaces()
+        val targets = currentTargetSurfaces() + stillOutputs.map { it.surface }
         try {
             camera.createCaptureSession(targets,
                 object : CameraCaptureSession.StateCallback() {
@@ -878,6 +934,7 @@ class CameraSessionController(
     // Rebuilds capture session without reopening device; onComplete fires when terminal state reached
     private fun reconfigureSession(onComplete: (() -> Unit)? = null) {
         val camera = cameraDevice ?: run { onComplete?.invoke(); return }
+        stillPaused = false
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         captureSession = null
@@ -994,7 +1051,15 @@ class CameraSessionController(
         return camera.createCaptureRequest(requestTemplate()).apply {
             addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
+            val fps = cameraFps()
+            sessionFps = fps
+            applyControls(this, fps)
+        }.build()
+    }
 
+    // Every setting the computer made: the stream's repeating request, and the photos taken from it
+    private fun applyControls(builder: CaptureRequest.Builder, fps: Int) {
+        builder.apply {
             val cam = currentCamera
             if (cam != null) applyZoom(this, cam)
 
@@ -1004,8 +1069,6 @@ class CameraSessionController(
             set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
-            val fps = cameraFps()
-            sessionFps = fps
             CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps, currentLowLight)?.let { range ->
                 android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
@@ -1032,6 +1095,7 @@ class CameraSessionController(
                 set(CaptureRequest.CONTROL_AF_MODE,
                     CameraRequestSelection.pickAfMode(cam?.afModes ?: emptySet(), wantContinuousVideo = true))
             }
+            applyMeterRegion(this)
 
             set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
@@ -1075,8 +1139,91 @@ class CameraSessionController(
             set(CaptureRequest.FLASH_MODE,
                 if (currentTorch && cam?.supportsFlash == true) CaptureRequest.FLASH_MODE_TORCH
                 else CaptureRequest.FLASH_MODE_OFF)
+        }
+    }
 
-        }.build()
+    // ── For StillCapture, on the camera thread ──────────────────────────────
+
+    fun stillHandler(): Handler? = handler
+    fun stillDevice(): CameraDevice? = cameraDevice
+    fun stillCamera(): CameraEntry? = currentCamera
+    fun stillSession(): CameraCaptureSession? = captureSession
+    // The stream's outputs, which a photo's request can feed too so the video doesn't stop for it
+    fun stillStreamTargets(): List<Surface> = currentTargetSurfaces()
+    // Changes with every reopen: a photo started on an older camera stops there
+    fun stillGeneration(): Int = cameraGeneration
+    fun stillOutputsInSession(outputs: List<StillOutput>): Boolean =
+        outputs.isNotEmpty() && stillOutputs === outputs && captureSession != null
+    // The lens a multi-lens camera streams from, as the session's outputs name it; null for the camera itself
+    fun stillPhysicalId(): String? = currentCamera?.let { if (it.logicalId != null) it.id else null }
+    // What decides whether photo outputs fit next to the stream: the lens, the stream's size and its codec
+    fun stillStreamKey(): String = "${currentCamera?.id}|${streamWidth}x$streamHeight|$codec"
+
+    // What the stream exposes at: the exposure set by hand, or what auto exposure settled on lately
+    fun streamExposure(): StillExposure? {
+        val iso = currentIso
+        val shutter = currentShutterNs
+        if (iso != null && shutter != null) return StillExposure(shutter, iso)
+        val result = lastResult ?: return null
+        val e = result.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: return null
+        val s = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: return null
+        return StillExposure(e, s)
+    }
+
+    // A request with the stream's settings (lens, zoom, exposure, white balance, focus, torch)
+    fun stillRequest(device: CameraDevice, template: Int): CaptureRequest.Builder =
+        device.createCaptureRequest(template).also { applyControls(it, cameraFps()) }
+
+    // Whether the session takes these outputs next to the stream's; null when the phone can't say, so it's worth trying
+    fun stillsFit(outputs: List<StillOutput>): Boolean? {
+        val camera = cameraDevice ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return try {
+            val cfg = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, sessionOutputs(stillPhysicalId(), outputs),
+                Executor { it.run() }, object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(s: CameraCaptureSession) {}
+                    override fun onConfigureFailed(s: CameraCaptureSession) {}
+                })
+            cfg.sessionParameters = buildRequest(camera)
+            camera.isSessionConfigurationSupported(cfg)
+        } catch (_: Exception) { null }
+    }
+
+    // Rebuilds the stream's session with these photo outputs as well (empty: none); done(true) once they're in it
+    fun useStillOutputs(outputs: List<StillOutput>, done: (Boolean) -> Unit) {
+        if (cameraDevice == null || cameraOff) { done(false); return }
+        if (stillOutputs === outputs && captureSession != null && !stillPaused) { done(true); return }
+        stillOutputs = outputs
+        reconfigureSession { done(stillOutputsInSession(outputs) || (outputs.isEmpty() && captureSession != null)) }
+    }
+
+    // Closes the stream's session so StillCapture can run its own; false when there's no camera to do it on
+    fun pauseForStill(): Boolean {
+        if (cameraDevice == null || cameraOff || stopped) return false
+        try { captureSession?.stopRepeating() } catch (_: Exception) {}
+        try { captureSession?.close() } catch (_: Exception) {}
+        captureSession = null
+        stillOutputs = emptyList()
+        sessionGeneration++  // a session of the stream's still configuring is closed when it gets there
+        stillPaused = true
+        return true
+    }
+
+    // The stream's repeating request again after a photo aborted its captures on the stream's own session
+    fun stillRestartStream(session: CameraCaptureSession) {
+        if (captureSession !== session || stillPaused) return
+        val c = cameraDevice ?: return
+        try {
+            session.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
+        } catch (e: Exception) {
+            onControlError("stillRestartStream", e)
+        }
+    }
+
+    // The stream's session again, unless something else rebuilt it or reopened the camera meanwhile
+    fun resumeAfterStill(generation: Int) {
+        if (!stillPaused || generation != cameraGeneration || stopped) return
+        reconfigureSession()
     }
 
     private val ccmCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
@@ -1085,6 +1232,7 @@ class CameraSessionController(
             request: CaptureRequest,
             result: TotalCaptureResult
         ) {
+            lastResult = result
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
             result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { ns ->
@@ -1117,6 +1265,7 @@ class CameraSessionController(
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
+        meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
         if (cameraOff) return  // the lens it opens with when the camera comes back on
@@ -1126,6 +1275,9 @@ class CameraSessionController(
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
         captureSession = null; cameraDevice = null
+        // The old lens's photo outputs wouldn't fit the new one: StillCapture makes them again for it
+        stillOutputs = emptyList()
+        stillPaused = false
 
         val openId = entry.logicalId ?: entry.id
         val physId = if (entry.logicalId != null) entry.id else null

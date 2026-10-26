@@ -603,8 +603,9 @@ class ServerStats:
         "browsers": "a browser connected",
     }
 
-    def __init__(self, port: int, wanted_port: int, fell_back: bool = False):
+    def __init__(self, port: int, wanted_port: int, fell_back: bool = False, label: str = "Browser camera"):
         self.port, self.wanted_port = port, wanted_port
+        self.label = label  # what its log lines start with
         self.fell_back = fell_back  # wanted_port was taken, so port is whatever was free
         self.started = time.monotonic()
         self._counts = dict.fromkeys(self.STEPS, 0)
@@ -615,7 +616,7 @@ class ServerStats:
             self._counts[step] += 1
             first = self._counts[step] == 1
         if first:
-            logger.info("Browser camera: %s", self.STEPS[step])
+            logger.info("%s: %s", self.label, self.STEPS[step])
 
     def __getitem__(self, step: str) -> int:
         return self._counts[step]
@@ -624,14 +625,14 @@ class ServerStats:
         return self._counts["connections"] == 0
 
 
-class _Server(ThreadingHTTPServer):
+class TlsServer(ThreadingHTTPServer):
     """TLS per connection, on that connection's own thread, so a slow handshake holds up nobody else. Open
-    connections are capped in total and per address."""
+    connections are capped in total and per address. owner has the ServerStats as owner.stats (On Air uses it too)."""
 
     allow_reuse_address = sys.platform != "win32"  # on Windows it would let two servers share the port
     daemon_threads = True
 
-    def __init__(self, address, handler, ctx: ssl.SSLContext, owner: "BrowserServer"):
+    def __init__(self, address, handler, ctx: ssl.SSLContext, owner):
         self.ctx, self.owner = ctx, owner
         self._open: dict = {}
         self._open_lock = threading.Lock()
@@ -680,7 +681,9 @@ class _Server(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
-class _Handler(BaseHTTPRequestHandler):
+class PageHandler(BaseHTTPRequestHandler):
+    """Replies with the headers every page here gets; On Air's handler builds on it too."""
+
     server_version = "Telescope"
     sys_version = ""
     protocol_version = "HTTP/1.1"
@@ -705,6 +708,8 @@ class _Handler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.do_GET()
 
+
+class _Handler(PageHandler):
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
         if url.path == "/ws":
@@ -756,7 +761,7 @@ class BrowserServer:
         self._on_change = on_change or (lambda: None)
         self._want_port, self._host = port, host
         self._rtc_session = rtc_session or browser_rtc.RtcSession
-        self._server: Optional[_Server] = None
+        self._server: Optional[TlsServer] = None
         self._thread: Optional[threading.Thread] = None
         self._socks: set = set()
         self._kicked: dict = {}  # connections to end, with their close code; each one's own thread notices within _TICK_S
@@ -789,9 +794,9 @@ class BrowserServer:
         ctx.load_cert_chain(self._cert, self._key)
         fell_back = False
         try:
-            self._server = _Server((self._host, self._want_port), _Handler, ctx, self)
+            self._server = TlsServer((self._host, self._want_port), _Handler, ctx, self)
         except OSError:
-            self._server = _Server((self._host, 0), _Handler, ctx, self)  # taken: any free port
+            self._server = TlsServer((self._host, 0), _Handler, ctx, self)  # taken: any free port
             fell_back = True
         self.stats = ServerStats(self.port, self._want_port, fell_back)
         if fell_back:

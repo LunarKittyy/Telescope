@@ -12,7 +12,8 @@
 #     Widgets, Svg) and their plugins, not all of PyQt6.
 #   - No UPX: compressed DLLs have to be unpacked again on every load, and virus scanners look harder at them.
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
-#     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
+#     DirectShow COM filter (UnityCapture), so no DLLs need bundling. The Windows 11 camera's DLL
+#     (virtualcamera/) is built with CMake and copied next to the exe by build-windows.yml, not by this spec.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
 #   - Windows checks every program file it hasn't seen before when it first loads, and that takes seconds per file
 #     (minutes for the first start after an install). So the bundle holds as few files as it can: zeroconf runs as
@@ -20,6 +21,7 @@
 #   - The exe's icon is resources/telescope.ico, the app icon (create_app_icon); scripts/write_icon.py
 #     writes it again if the icon changes.
 
+import importlib.util
 import os
 import sys
 
@@ -29,10 +31,16 @@ sys.path.insert(0, SPECPATH)
 from telescope.updates import LIB_PREFIX  # noqa: E402
 from telescope.version import BUILD  # noqa: E402
 
+# Mic noise reduction loads pyrnnoise's RNNoise DLL itself (telescope/denoise.py), so only the DLL comes along
+_rnnoise = importlib.util.find_spec('pyrnnoise')
+_rnnoise_dll = os.path.join(_rnnoise.submodule_search_locations[0], 'rnnoise.dll') if _rnnoise else ''
+if not os.path.isfile(_rnnoise_dll):
+    raise SystemExit('pyrnnoise is missing: pip install --no-deps -r requirements-nodeps.txt')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[(_rnnoise_dll, 'pyrnnoise')],
     # The Browser camera page, which vision pack this build downloads for Auto framing and Background,
     # and the translations
     datas=[('telescope/web', 'telescope/web'), ('telescope/vision_pack.json', 'telescope'),

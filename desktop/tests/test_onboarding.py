@@ -4,14 +4,19 @@ import pytest
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 import telescope.plugins.onboarding as onboarding_module
+from telescope.overlays import PreviewOverlays
 from telescope.plugin import EventBus
 from telescope.plugins.onboarding import OnboardingPlugin
 from telescope.plugins.preview import PreviewPlugin
+from telescope.view import View
 
 
 class _Host:
     def installEventFilter(self, _filter):
         pass
+
+    def preview_overlays(self):
+        return PreviewOverlays(View)
 
     def is_streaming(self):
         return False

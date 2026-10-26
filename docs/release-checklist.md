@@ -42,13 +42,14 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Windows packaging
 
-<!-- due: installer/** desktop/telescope.spec desktop/resources/** desktop/unitycapture/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
+<!-- due: installer/** desktop/telescope.spec desktop/resources/** desktop/unitycapture/** desktop/virtualcamera/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
 
 `windows_pass.py` checks the rest of Windows packaging. These need a real phone:
 
 - [ ] After **Get adb**, plugging a phone in pairs it over USB.
 - [ ] After an unzipped copy updated into the installed one, Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it.
 - [ ] On a machine an older version registered the driver on, streaming works before and after **Rename** or **Reinstall for a security fix**.
+- [ ] Windows 11: after **Install driver** (or **Update** over UnityCapture) the phone's picture shows in the Windows Camera app and in OBS, Automatic streaming starts and stops with the app, and uninstalling removes the camera from both.
 
 ### Linux system setup
 
@@ -120,9 +121,19 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto and Auto returns to continuous. The pop-out works the same.
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 
+### Photos
+
+<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt -->
+
+- [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
+- [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
+- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
+- [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+
 ### Microphone
 
-<!-- due: desktop/telescope/audio.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice -->
+<!-- due: desktop/telescope/audio.py desktop/telescope/denoise.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt ; packages: sounddevice pyrnnoise -->
 
 - [ ] Linux (PipeWire): switching it on while streaming makes "Telescope Microphone" appear, a call records the phone and switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift and unplugging and replugging recovers.
 - [ ] Windows: without VB-Cable the card offers Install VB-Cable. It asks first (naming VB-Audio), opens VB-Audio's setup through UAC and after a restart and an off/on apps record from CABLE Output.
@@ -130,6 +141,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Permission: the first request makes the phone's Get set up card show Microphone and allowing it there starts the audio within a few seconds without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
 - [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
+- [ ] Noise reduction, on Linux and Windows: with a fan going and some typing a call recording loses both while speech still sounds natural and switching it mid-sentence doesn't click.
 
 ### Starting, stopping and the camera button
 
@@ -155,20 +167,53 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
 - [ ] Windows: the firewall prompt (or a rule) lets port 8767 through and picking a phone again stops the server.
 
+### On Air sign
+
+<!-- due: desktop/telescope/on_air.py desktop/telescope/plugins/on_air.py desktop/telescope/browser_server.py desktop/telescope/web/** ; packages: cryptography -->
+
+- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
+- [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
+
 ### Settings, keyboard and folding
 
-<!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py ; packages: jeepney -->
+<!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py desktop/telescope/plugin_updates.py desktop/telescope/widgets/plugin_updater.py ; packages: jeepney -->
 
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
 - [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
 - [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home and inspect labels with a screen reader.
 - [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
+- [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its row. **Install updates without asking** asks before it goes on.
 
 ### Vision effects
 
-<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
+<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+- [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
+- [ ] Privacy blur with a real phone: a second person walking in gets blurred within a second, you stay sharp, and it stops a few seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
+
+### Preview tools and picture plugins
+
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/preview.py -->
+
+- [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.
+
+### Name tag
+
+<!-- due: desktop/telescope/name_tag.py desktop/telescope/plugins/name_tag.py -->
+
+- [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
+- [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
+
+### Colour grading
+
+<!-- due: desktop/telescope/colour.py desktop/telescope/grade.py desktop/telescope/plugins/colour_grading.py desktop/telescope/widgets/colour_wheel.py desktop/telescope/widgets/curve_editor.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on in **Optional**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
 
 ### Notes next to the lens
 

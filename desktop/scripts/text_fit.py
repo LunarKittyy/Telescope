@@ -120,8 +120,8 @@ NAMES = {"Telescope", "Telescope.apk"}  # shown as they are in every language
 def _untranslated(text: str) -> bool:
     """In the pseudo language, a shown text with English left once every translated part is taken out."""
     from telescope.version import display_version
-    if text in NAMES or text == display_version():
-        return False
+    if text in NAMES or text == display_version() or re.match(r"https?://\S+$", text):
+        return False  # a link is the same in every language
     while _BRACKETED.search(text):
         text = _BRACKETED.sub(" ", text)
     return bool(_WORD.search(re.sub(r"<[^<>]*>|&[a-z]+;", " ", text)))
@@ -417,6 +417,7 @@ def _quiet_system():
     import telescope.app as app_module
     import telescope.plugins.connection as connection
     import telescope.plugins.setup as setup
+    from telescope.plugins import on_air
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.updates import UpdatesPlugin
     with contextlib.ExitStack() as stack:
@@ -431,10 +432,36 @@ def _quiet_system():
             (connection.ConnectionPlugin, "ensure_virtual_camera", lambda self, interactive=True: True),
             (OnboardingPlugin, "check_virtual_camera", lambda self: None),
             (UpdatesPlugin, "_maybe_auto_check", lambda self: None),
+            (on_air, "ensure_certificate", lambda _folder, _hosts: ("", "")),
         ):
             if hasattr(target, name):
                 stack.enter_context(mock.patch.object(target, name, value))
         yield
+
+
+class _SignServer:
+    """Stands in for the On Air sign's server: nothing listens."""
+
+    port = 8768
+
+    def __init__(self, token, *_args, **_kwargs):
+        self.token = token
+
+    def url_for(self, host):
+        return f"https://{host}:{self.port}/#{self.token}"
+
+    def set_token(self, token):
+        self.token = token
+
+    def __getattr__(self, _name):
+        return lambda *_a, **_k: None
+
+
+def quiet_sign(plugin):
+    """The On Air sign with a fixed address and no server, camera watch or certificate of its own."""
+    from types import SimpleNamespace
+    plugin._server_cls, plugin._watch_cls = _SignServer, _Held
+    plugin._addresses = lambda: [SimpleNamespace(ip="192.168.1.20")]
 
 
 def _main_window():
@@ -449,6 +476,8 @@ def _main_window():
             plugin._backend = _MicBackend()
         elif plugin.name == "shortcuts":
             plugin._backend_factory = lambda: None
+        elif plugin.name == "on_air":
+            quiet_sign(plugin)
         win.register_plugin(plugin)
     win.apply_saved_config()
     QApplication.processEvents()

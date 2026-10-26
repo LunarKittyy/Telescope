@@ -45,6 +45,7 @@ def check_app_construction():
     from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
+    from telescope.plugins.cinema import CinemaPlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
@@ -62,7 +63,8 @@ def check_app_construction():
     win = TelescopeWindow()
     try:
         for plugin_cls in (
-            SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
+            SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, CinemaPlugin, BackgroundPlugin,
+            StreamOutputPlugin,
             TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
             ShortcutsPlugin, StartupPlugin,
         ):
@@ -104,6 +106,57 @@ def check_background_speed():
     return f"1080p blur without the model: {median:.1f} ms"
 
 
+def check_colour_speed():
+    import time
+
+    import cv2
+    import numpy as np
+
+    from telescope.colour import ColourStage, bake
+    from telescope.grade import Grade
+
+    cv2.setNumThreads(2)  # as the app runs it (main.py)
+    frame = np.random.default_rng(0).integers(0, 255, (1080, 1920, 3), np.uint8)
+    lut = bake([ColourStage(Grade(temperature=20, saturation=1.2, shadows=10))])
+    times = []
+    for _ in range(30):
+        t0 = time.perf_counter()
+        lut.apply(frame)
+        times.append((time.perf_counter() - t0) * 1000)
+    median = sorted(times)[len(times) // 2]
+    if median > 50:  # CI's Windows runner takes about 37 ms; far past that, something made it a lot slower
+        raise RuntimeError(f"a 1080p 3D LUT took {median:.1f} ms on {os.cpu_count()} processors")
+    return f"1080p 3D LUT: {median:.1f} ms on {os.cpu_count()} processors"
+
+
+def check_cinema_speed():
+    import time
+
+    import cv2
+    import numpy as np
+
+    from telescope import scopes
+    from telescope.plugins.cinema import CinemaLayer, Look
+
+    cv2.setNumThreads(2)
+    frame = cv2.GaussianBlur(np.random.default_rng(0).integers(0, 255, (540, 960, 3), np.uint8), (0, 0), 2)
+    layer = CinemaLayer()
+    layer.look = Look(peaking=True, zebras=True, false_colour=True)
+    tints, scope_times = [], []
+    for _ in range(30):
+        t0 = time.perf_counter()
+        layer.tint(frame.copy())
+        tints.append((time.perf_counter() - t0) * 1000)
+    for name in scopes.SCOPES:
+        t0 = time.perf_counter()
+        scopes.scope_image(name, frame)
+        scope_times.append((time.perf_counter() - t0) * 1000)
+    tint = sorted(tints)[len(tints) // 2]
+    if tint > 15 or max(scope_times) > 40:  # the tint runs per preview frame; scopes 12 times a second off the stream
+        raise RuntimeError(f"peaking, zebras and false colour took {tint:.1f} ms, the slowest scope {max(scope_times):.1f} ms")
+    return f"all three on the preview: {tint:.1f} ms, slowest scope {max(scope_times):.1f} ms"
+
+
 def check_adb_discovery():
     from telescope.platform import adb_available, adb_devices
 
@@ -119,8 +172,8 @@ def check_virtual_camera_availability():
         from telescope.platform.linux import v4l2_devices_ready, v4l2_module_loaded
         return f"module_loaded={v4l2_module_loaded()}, devices_ready={v4l2_devices_ready()}"
     if IS_WINDOWS:
-        from telescope.platform.windows import uc_is_registered
-        return f"unitycapture_registered={uc_is_registered()}"
+        from telescope.platform.windows import uc_is_registered, use_mf
+        return f"windows11_camera={use_mf(0)}, unitycapture_registered={uc_is_registered()}"
     return "unsupported platform - skipped"
 
 
@@ -293,6 +346,8 @@ def main() -> int:
     _check("Authenticated MJPEG stream round-trip", check_authenticated_stream_round_trip)
     _check("Browser camera round-trip", check_browser_camera_round_trip)
     _check("Background blur keeps up at 1080p", check_background_speed)
+    _check("Colour LUT keeps up at 1080p", check_colour_speed)
+    _check("Cinema tools keep up on the preview", check_cinema_speed)
 
     print()
     if _FAILURES:

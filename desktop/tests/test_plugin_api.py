@@ -7,7 +7,7 @@ import inspect
 import os
 from pathlib import Path
 
-from telescope import i18n, plugin, shortcuts
+from telescope import colour, i18n, overlays, plugin, shortcuts, stills
 from telescope.plugin_loader import OLDEST_PLUGIN_API, PLUGIN_API
 from telescope.widgets import banner
 
@@ -15,10 +15,12 @@ FROZEN = Path(__file__).with_name("plugin_api.txt")
 
 # What docs/writing-plugins.md and plugin.py offer to plugins; anything else in Telescope can change freely
 _PROTOCOLS = (plugin.HostSettings, plugin.HostStreams, plugin.HostCamera, plugin.HostSources, plugin.HostShell,
-              plugin.HostView, plugin.HostVision, plugin.StreamSource)
-_CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection,
+              plugin.HostView, plugin.HostVision, plugin.HostMotion, plugin.HostPreview, plugin.HostStills,
+              plugin.HostColour, plugin.StreamSource)
+_CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection, colour.ColourStage,
+            overlays.PreviewLayer, overlays.Pick,
             banner.Issue, banner.BannerAction, shortcuts.Param,
-            shortcuts.ShortcutAction)
+            shortcuts.ShortcutAction, stills.StillCaps, stills.StillResult, stills.StillProgress)
 _FUNCTIONS = (banner.copy_action, shortcuts.button_action, shortcuts.slider_action, shortcuts.log_slider_action,
               shortcuts.choice_action, i18n.tr, i18n.trn, i18n.N_)
 

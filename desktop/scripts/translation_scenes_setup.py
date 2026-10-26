@@ -362,26 +362,31 @@ def fake_windows(stack, files=False, net=None, exit_code=0, registered=False, fo
             raise subprocess.TimeoutExpired(cmd, 60)
         return SimpleNamespace(returncode=exit_code)
 
-    for module in (windows, setup, onboarding):
+    for module in (windows, setup):
         stack.enter_context(mock.patch.object(module, "unitycapture_dir", lambda: folder))
+    stack.enter_context(mock.patch.object(windows, "mf_installable", lambda: False))  # these scenes are UnityCapture's
     stack.enter_context(mock.patch.object(windows, "web", _Shim(windows.web, urlopen=urlopen)))
     stack.enter_context(mock.patch.object(windows, "subprocess", _Shim(subprocess, run=run)))
     if valid:
         stack.enter_context(mock.patch.object(windows, "_sha256", lambda path: windows._EXPECTED_SHA256[Path(path).name]))
     for module in (setup, onboarding):
-        stack.enter_context(mock.patch.object(module, "uc_is_registered" if module is onboarding else "uc_registered_name",
+        stack.enter_context(mock.patch.object(module, "camera_installed" if module is onboarding else "uc_registered_name",
                                               (lambda: registered) if module is onboarding else
                                               (lambda: windows.UC_NAME if registered else None)))
     return folder
 
 
-def windows_driver(stack, name=None, in_app=False, files=False, adb=True):
-    """The Virtual camera card on Windows, once it has looked at what's registered."""
+def windows_driver(stack, name=None, in_app=False, files=False, adb=True, mf=""):
+    """The Virtual camera card on Windows, once it has looked at what's registered. mf: the Windows 11 camera is
+    "ready", an older one needs an "update", or it's on "offer" (Windows 11 with only UnityCapture)."""
     from telescope.plugins import setup
     fake_windows(stack, files=files)
     settings, panel, _win = advanced(stack, "devices", windows=True, adb=adb)
     stack.enter_context(mock.patch.object(setup, "uc_registered_name", lambda: name))
     stack.enter_context(mock.patch.object(setup, "uc_in_app_folder", lambda: in_app))
+    stack.enter_context(mock.patch.object(setup, "use_mf", lambda slot=0: mf in ("ready", "update")))
+    stack.enter_context(mock.patch.object(setup, "mf_outdated", lambda: mf == "update"))
+    stack.enter_context(mock.patch.object(setup, "mf_installable", lambda: mf == "offer"))
     panel._check_win_setup()
     return finish(settings)
 
@@ -393,6 +398,9 @@ DRIVER.add("renamed", "Setup · Windows driver: listed under its old name", name
 DRIVER.add("missing", "Setup · Windows driver: not installed", files=False)
 DRIVER.add("downloaded", "Setup · Windows driver: downloaded, not installed", files=True)
 DRIVER.add("no-adb", "Setup · Windows driver: adb not found", name="Telescope", adb=False)
+DRIVER.add("windows-11", "Setup · Windows driver: the Windows 11 camera is installed", mf="ready")
+DRIVER.add("offer", "Setup · Windows driver: Windows 11 with only the older camera", name="Telescope", mf="offer")
+DRIVER.add("update", "Setup · Windows driver: an older Windows 11 camera", mf="update")
 
 
 def installing_driver(stack, how, files=False, net=None, exit_code=0, registered=True, valid=True):
@@ -402,9 +410,9 @@ def installing_driver(stack, how, files=False, net=None, exit_code=0, registered
     fake_windows(stack, files=files, net=net, exit_code=exit_code, registered=registered, valid=valid)
     settings, panel, _win = advanced(stack, "devices", windows=True, adb=True)
     if how == "download":
-        stack.enter_context(mock.patch.object(setup, "download_unitycapture", mock.Mock(side_effect=Midway())))
+        stack.enter_context(mock.patch.object(windows, "download_unitycapture", mock.Mock(side_effect=Midway())))
     elif how == "register":
-        stack.enter_context(mock.patch.object(setup, "register_unitycapture", mock.Mock(side_effect=Midway())))
+        stack.enter_context(mock.patch.object(windows, "register_unitycapture", mock.Mock(side_effect=Midway())))
     midway(panel._install_uc)
     return finish(settings)
 
@@ -724,7 +732,8 @@ def checklist(stack, windows=False, apk=False, adb=True, phone=False, act=None, 
     else:
         stack.enter_context(mock.patch.object(onboarding, "adb_install", adb_install))
     if register_midway:
-        stack.enter_context(mock.patch.object(onboarding, "register_unitycapture", mock.Mock(side_effect=Midway())))
+        from telescope.platform import windows as windows_module
+        stack.enter_context(mock.patch.object(windows_module, "register_unitycapture", mock.Mock(side_effect=Midway())))
     immediate_threads(stack, onboarding)
     win = main_window(stack, phone=phone)
     plugin = next(p for p in win._plugins if p.name == "onboarding")
