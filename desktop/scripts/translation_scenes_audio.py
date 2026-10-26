@@ -44,7 +44,7 @@ class MicWorker:
 
     def __init__(self, url, auth, open_sink, on_status):
         self.url, self.auth, self.on_status = url, auth, on_status
-        self.gain, self.muted, self.limit, self.auto_level = 1.0, False, True, False
+        self.gain, self.muted, self.limit, self.auto_level, self.noise_reduction = 1.0, False, True, False, False
 
     def take_level(self):
         return 0.0, 0.0, False
@@ -112,7 +112,7 @@ def keep_tags_in_tooltips(stack):
     stack.enter_context(mock.patch.object(NoScrollSlider, "setToolTip", set_tooltip))
 
 
-def mic_card(stack, backend=None, run_job=None, main=None, on=True, streaming=False):
+def mic_card(stack, backend=None, run_job=None, main=None, on=True, streaming=False, denoise_problem=lambda: ""):
     """The Microphone card on its own, in the state a user reaches by switching it on (and starting a stream)."""
     from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
     from telescope.plugin import EventBus
@@ -120,7 +120,8 @@ def mic_card(stack, backend=None, run_job=None, main=None, on=True, streaming=Fa
     keep_tags_in_tooltips(stack)
     track_field_texts(stack)
     host, bus = MicHost(main), EventBus()
-    plugin = MicrophonePlugin(backend=backend or MicStub(), worker_cls=MicWorker, run_job=run_job or (lambda job: None))
+    plugin = MicrophonePlugin(backend=backend or MicStub(), worker_cls=MicWorker, run_job=run_job or (lambda job: None),
+                              denoise_problem=denoise_problem)
     plugin.setup(host, bus)
     # Qt signals turn a text into a plain str and drop its tag, so the results of setup and install go straight in
     plugin._sig = SimpleNamespace(prepared=SimpleNamespace(emit=plugin._on_prepared),
@@ -227,6 +228,21 @@ mic_scene("mic-win-cable-opened", "Microphone · VB-Cable setup was opened (Wind
           lambda stack: mic_card(stack, windows_backend(stack, opened=True)))
 mic_scene("mic-setting-up", "Microphone · setting up the virtual microphone",
           lambda stack: mic_card(stack, streaming=True))
+
+
+def rnnoise_problem(stack, kind, error=""):
+    """denoise.problem() on a computer where RNNoise is missing or won't load."""
+    from unittest import mock
+    from telescope import denoise
+    stack.enter_context(mock.patch.object(denoise, "_loaded", True))
+    stack.enter_context(mock.patch.object(denoise, "_problem", (kind, error)))
+    return denoise.problem
+
+
+mic_scene("mic-no-rnnoise", "Microphone · noise reduction's package missing",
+          lambda stack: mic_card(stack, denoise_problem=rnnoise_problem(stack, "missing")))
+mic_scene("mic-rnnoise-broken", "Microphone · noise reduction's library won't load",
+          lambda stack: mic_card(stack, denoise_problem=rnnoise_problem(stack, "failed", "invalid ELF header")))
 
 
 # ── Microphone setup and stream problems ─────────────────────────────────────

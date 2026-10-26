@@ -2,11 +2,18 @@ BannerAction(label, callback, keeps_banner=False)
 BannerAction.callback
 BannerAction.keeps_banner = False
 BannerAction.label
+ColourStage(fn, per_channel=False, size=33)
+ColourStage.fn
+ColourStage.per_channel = False
+ColourStage.size = 33
 EventBus.add_phone_requested()
 EventBus.camera_on_changed(bool)
 EventBus.camera_switched(PyQt_PyObject)
 EventBus.camera_watched(bool)
+EventBus.cover_requested(QString,bool)
 EventBus.device_changed(QString)
+EventBus.focus_mode_changed(QString)
+EventBus.focus_mode_picked(QString)
 EventBus.focus_point(double,double)
 EventBus.focus_point_available(bool)
 EventBus.focus_point_picked(double,double)
@@ -16,20 +23,29 @@ EventBus.lens_boxes(QVariantList,bool)
 EventBus.limiter_changed(bool)
 EventBus.max_gain_changed(int)
 EventBus.max_zoom_changed(int)
+EventBus.meter_point(double,double)
+EventBus.meter_point_available(bool)
+EventBus.meter_point_picked(double,double)
 EventBus.mic_changed(bool,bool)
+EventBus.motion_seen(QString,QString,QVariantList)
 EventBus.people_seen(QString,QVariantList)
+EventBus.people_tracked(QString,QVariantList,int)
 EventBus.phone_ready(QString,bool)
 EventBus.phone_state_updated(PyQt_PyObject)
 EventBus.phone_wanted(bool,bool)
 EventBus.phones_changed(int)
+EventBus.preview_pick_changed(QString)
 EventBus.remembered_sources(QVariantList)
 EventBus.resolution_change_requested(int,int)
 EventBus.sensors_changed(QString)
 EventBus.setup_guide_requested()
 EventBus.setup_needed(bool)
 EventBus.source_selected(QString)
+EventBus.still_busy_changed(QString,bool)
+EventBus.still_saved(QString,QVariantList)
 EventBus.stream_behind(QString,bool)
 EventBus.stream_connected(QString)
+EventBus.stream_covered(bool)
 EventBus.stream_lost(QString)
 EventBus.stream_sources_changed(QVariantList)
 EventBus.stream_start_failed()
@@ -51,6 +67,18 @@ HostCamera.can_turn_camera_off(self)
 HostCamera.is_camera_off_auto(self)
 HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
+HostColour.colour_preview(self, frame)
+HostColour.colour_split(self, owner, position)
+HostColour.set_colour_stage(self, owner, stage, order=0, source_id=None)
+HostMotion.motion(self, owner)
+HostMotion.watch_motion(self, owner, zones, sensitivity=5)
+HostPreview.add_preview_layer(self, owner, layer)
+HostPreview.cancel_pick(self, owner)
+HostPreview.finish_pick(self, owner)
+HostPreview.pick_on_preview(self, owner, kind, on_done, start=None, hint='')
+HostPreview.preview_overlays(self)
+HostPreview.refresh_preview(self)
+HostPreview.remove_preview_layer(self, owner)
 HostSensors.sensor_reading(self, source_id=None)
 HostSensors.sensor_status(self, source_id=None)
 HostSensors.want_sensors(self, owner, kinds)
@@ -77,6 +105,9 @@ HostShell.toggle_window(self)
 HostSources.add_stream_source(self, source)
 HostSources.remove_stream_source(self, source_id)
 HostSources.stream_source(self, source_id)
+HostStills.still_busy(self, source_id=None)
+HostStills.still_caps(self, source_id=None)
+HostStills.take_still(self, options, folder, on_done, on_progress=None, source_id=None)
 HostStreams.background_streams(self)
 HostStreams.canvas_size(self)
 HostStreams.focused_source_id(self)
@@ -105,6 +136,7 @@ HostView.take_view(self, owner)
 HostView.view(self)
 HostView.view_aspect(self)
 HostVision.person_mask(self, frame)
+HostVision.tracked_people(self, source_id=None)
 HostVision.vision_state(self)
 HostVision.want_people(self, owner, on)
 Issue(title, text='', actions=<factory>, kind='err', details='', on_dismiss=None)
@@ -131,6 +163,16 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
+Pick(kind, shown, full, picture=None)
+Pick.full
+Pick.kind
+Pick.picture = None
+Pick.shown
+PreviewLayer.analyse(self, frame)
+PreviewLayer.analyse_fps = 0.0
+PreviewLayer.order = 0
+PreviewLayer.paint(self, painter, rect)
+PreviewLayer.tint(self, frame)
 SensorReading(at=0.0, roll=None, pitch=None, camera='', orientation_at=0.0, accelerometer=None, gyroscope=None, magnetometer=None, gravity=None, rotation=None, light=None)
 SensorReading.accelerometer = None
 SensorReading.at = 0.0
@@ -170,6 +212,34 @@ ShortcutAction.repeats(_p)
 ShortcutAction.run
 ShortcutAction.summary(self, params)
 ShortcutAction.widgets = ()
+StillCaps(formats=('jpeg',), size=None, max_res=None, max_res_raw=False, extensions=(), exposure_max_ns=0, bracketing=False, focus_bracketing=False, noise_reduction_hq=False, sharpening_hq=False, hot_pixel_hq=False, distortion=False, burst_max=1, extension_sizes=())
+StillCaps.bracketing = False
+StillCaps.burst_max = 1
+StillCaps.distortion = False
+StillCaps.exposure_max_ns = 0
+StillCaps.extension_sizes = ()
+StillCaps.extensions = ()
+StillCaps.focus_bracketing = False
+StillCaps.formats = ('jpeg',)
+StillCaps.hot_pixel_hq = False
+StillCaps.max_res = None
+StillCaps.max_res_raw = False
+StillCaps.noise_reduction_hq = False
+StillCaps.sharpening_hq = False
+StillCaps.size = None
+StillCaps.size_for(self, mode)
+StillProgress(state='waiting', shots=1, taken=0, countdown_ms=0, paused=False, saved=<factory>)
+StillProgress.countdown_ms = 0
+StillProgress.paused = False
+StillProgress.saved
+StillProgress.shots = 1
+StillProgress.state = 'waiting'
+StillProgress.taken = 0
+StillResult(ok, files=<factory>, code='', error='')
+StillResult.code = ''
+StillResult.error = ''
+StillResult.files
+StillResult.ok
 StreamSource.control_client(self)
 StreamSource.fps(self)
 StreamSource.id

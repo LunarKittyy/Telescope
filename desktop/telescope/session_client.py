@@ -66,6 +66,8 @@ class PingResult:
     phone_name: Optional[str] = None
     # The other paired computer the phone is streaming to (or starting for); None when it's this one or nobody.
     streaming_for: Optional[str] = None
+    # Runs Dynamic over UDP from this desktop's reports; an older phone leaves it out and Dynamic stays on TCP.
+    udp_dynamic: bool = False
 
     @property
     def paired(self) -> bool:
@@ -188,6 +190,7 @@ class PhoneSessionClient:
             phone_id=body.get("phoneId") if isinstance(body.get("phoneId"), str) else None,
             phone_name=clean_name(body["phoneName"]) if isinstance(body.get("phoneName"), str) else None,
             streaming_for=_computer_name(body.get("streamingFor")),
+            udp_dynamic=body.get("udpDynamic") is True,
         )
 
     def start(self, opening: Optional[dict] = None) -> SessionResult:

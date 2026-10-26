@@ -14,9 +14,11 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from telescope import dev_profile, diagnostics, theme, vcam
+from telescope import dev_profile, diagnostics, theme, vcam, vision
+from telescope.colour import ColourPipeline
 from telescope.config import load_config, save_config, saveable, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
+from telescope.overlays import PreviewOverlays
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
@@ -26,9 +28,13 @@ from telescope.sensors import SensorHub
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
+from telescope.stills import StillCaps, Stills
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
+from telescope.view import shown_to_view, view_to_shown
 from telescope.view_controller import ViewController
+from telescope.motion import LENS_SETTLE_S, Motion
+from telescope.people import PeopleTracking
 from telescope.vision import Vision
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.collapse import Collapsing
@@ -136,7 +142,8 @@ class _FlowHost:
         self.bus = win._bus
 
     def plugins(self) -> list:
-        return [self._win._view] + self._win._plugins  # the view first: it crops before the plugins see a frame
+        # The view first (it crops before the plugins see a frame), the colour pipeline after them
+        return [self._win._view] + self._win._plugins + [self._win._colour]
 
     def plugin(self, name: str):
         return self._win._plugin(name)
@@ -227,6 +234,8 @@ class TelescopeWindow(QMainWindow):
     _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
     _sig_vision_state = pyqtSignal(str)
     _sig_sensors = pyqtSignal(str)  # a source id, from the sensor reader's thread
+    _sig_still = pyqtSignal(object, object)  # a callback and its value, from a photo's thread
+    _sig_motion = pyqtSignal(object, str, list)  # a stream's worker, owner, [zone index], from its worker thread
 
     def __init__(self):
         super().__init__()
@@ -244,13 +253,29 @@ class TelescopeWindow(QMainWindow):
         self._bus.stream_started.connect(lambda _url: self._sync_sensors())
         self._bus.stream_stopped.connect(lambda: self._sync_sensors())
         self._bus.stream_connected.connect(lambda _id: self._sync_sensors())  # maybe on another route now
+        self._stills  = Stills()  # full-quality photos on the phone (HostStills)
+        self._last_states: dict = {}  # source id: the newest whole /v1/state from its phone, for still_caps
+        self._sig_still.connect(lambda callback, value: callback(value))
+        self._tracking = PeopleTracking()  # people_seen made steady (HostVision.tracked_people)
+        self._motion = Motion(on_change=self._sig_motion.emit)  # (HostMotion)
+        self._sig_motion.connect(self._on_motion)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
-        self._view.setup(self, self._bus, self._vision)
+        self._view.setup(self, self._bus, self._vision, self._motion)
+        self._turned = None  # the view's flips and rotation, for starting people tracking over when they change
+        self._bus.view_changed.connect(self._on_view_turned)
+        self._overlays = PreviewOverlays(lambda: self._view.view)  # drawn on the preview only (HostPreview)
+        self._overlays.pick_changed.connect(self._bus.preview_pick_changed)
+        self._bus.stream_stopped.connect(lambda: self._overlays.cancel_pick())
+        # A pick belongs to the stream it started on: its points mean nothing on another phone's picture
+        self._bus.device_changed.connect(lambda _id: self._overlays.cancel_pick())
+        self._colour  = ColourPipeline(self._frame_source_id)  # every plugin's colour changes as one LUT (HostColour)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
         self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
+        self._bus.camera_switched.connect(self._note_lens)  # before the plugins connect, so still_caps is fresh for them
+        self._bus.camera_switched.connect(lambda _cam: self._motion.reset(LENS_SETTLE_S))  # another lens isn't motion
         # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""
@@ -259,6 +284,7 @@ class TelescopeWindow(QMainWindow):
         self._builtin_plugins: list = []  # every built-in one, turned off or not (load_plugins)
         self._added_plugins: list = []  # the ones the user installed that are running
         self._plugin_problems: dict = {}  # name: why an added plugin that's on didn't start
+        self._plugin_updater = None  # widgets/plugin_updater.py, made by load_plugins
         self._settings_win: Optional[SettingsWindow] = None  # built the first time Settings is opened
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         self._shortcut_actions: list = []
@@ -433,6 +459,9 @@ class TelescopeWindow(QMainWindow):
                 logging.exception("Plugin %s failed while starting; leaving it out", plugin.name)
                 problems[plugin.name] = (plugin.title or plugin.name, f"{type(exc).__name__}: {exc}"[:300])
         self._added_plugins = [p for p in loaded if p in self._plugins]
+        from telescope.widgets.plugin_updater import PluginUpdater
+        self._plugin_updater = PluginUpdater({p.name for p in builtins}, parent=self)
+        self._plugin_updater.start()
         self._plugin_problems = {name: error for name, (_title, error) in problems.items()}
         if problems:
             titles = [tr(title) for title, _error in problems.values()]
@@ -495,7 +524,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s couldn't list its settings", p.name)
         panel = PluginsPanel(self._builtin_plugins, {p.name for p in self._plugins}, self._plugin_problems,
-                             self.restart_app, self.is_streaming)
+                             self.restart_app, self.is_streaming, updater=self._plugin_updater)
         off = len(self.plugins_off())
         sections.append(SettingsSection("plugins", panel, on_show=panel.refresh,
                                         tab_title=tr("Plugins ({n} off)", n=off) if off else ""))
@@ -948,6 +977,8 @@ class TelescopeWindow(QMainWindow):
                 logging.exception("Plugin %s failed to shut down", p.name)
         self._vision.shutdown()
         self._sensors.shutdown()
+        self._stills.shutdown()
+        self._overlays.shutdown()
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
@@ -1148,8 +1179,12 @@ class TelescopeWindow(QMainWindow):
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
                 pass  # already disconnected
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._tracking.drop(source.id or "")
         worker.request_stop()
         self._vision.drop_stream(worker)
+        self._motion.drop_stream(worker)
         # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
         if not worker.wait(5000):
             logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
@@ -1249,8 +1284,8 @@ class TelescopeWindow(QMainWindow):
                                                if not vcam.slot_ready(n)])
                     ok, msg, command = result.ok, result.message, result.command or ""
                 else:
-                    from telescope.platform.windows import register_unitycapture
-                    ok, msg = register_unitycapture(vcam.MAX_SLOTS)
+                    from telescope.platform.windows import install_camera
+                    ok, msg = install_camera(vcam.MAX_SLOTS)
             except Exception as exc:  # still report back, so a later Add camera can try again
                 logging.exception("Setting up more virtual cameras failed")
                 ok, msg = False, str(exc)
@@ -1274,8 +1309,8 @@ class TelescopeWindow(QMainWindow):
                         result = v4l2_remove_devices([d for d in map(vcam.slot_device, extras) if d])
                         ok, msg = result.ok, result.message
                     else:
-                        from telescope.platform.windows import register_unitycapture
-                        ok, msg = register_unitycapture(1, reset=True)
+                        from telescope.platform.windows import install_camera
+                        ok, msg = install_camera(1, reset=True)
             except Exception as exc:
                 logging.exception("Removing the extra virtual cameras failed")
                 ok, msg = False, str(exc)
@@ -1534,6 +1569,8 @@ class TelescopeWindow(QMainWindow):
                 self._sessions.held_states[source.id] = (source, session_id, state)
             else:
                 self._flow.move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
+        if "cameras" in state:
+            self._last_states[source.id] = state
         # Plugins get the dict as sent; PhoneState above only checks it
         if source is self._sessions.focus:
             self._sync_sensors(state)
@@ -1659,6 +1696,99 @@ class TelescopeWindow(QMainWindow):
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
 
+    def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
+        self._colour.set_stage(owner, stage, order, source_id)
+
+    def colour_split(self, owner: str, position: Optional[float]):
+        self._colour.set_split(owner, position)
+
+    def colour_preview(self, frame):
+        return self._colour.preview(frame)
+
+    def _frame_source_id(self) -> Optional[str]:
+        """From a frame step: the id of the stream whose frame it is (None before its session is there)."""
+        current = vision.current_frame.get()
+        if current is None:
+            return None
+        worker = current[0]
+        for source in list(self._sessions.streams):
+            if getattr(source.session, "worker", None) is worker:
+                return source.id
+        return None
+
+    def _still_source(self, source_id: Optional[str]) -> Optional[Source]:
+        source = self._sessions.find(self.focused_source_id() if source_id is None else source_id)
+        return source if source is not None and source.session is not None else None
+
+    def still_caps(self, source_id: Optional[str] = None) -> Optional[StillCaps]:
+        source = self._still_source(source_id)
+        return StillCaps.from_state(self._last_states.get(source.id)) if source is not None else None
+
+    def _note_lens(self, cam: dict):
+        """The panels' stream moved to another lens: its stored state says so, so still_caps describes that lens."""
+        source = self._sessions.focus
+        state = self._last_states.get(source.id) if source is not None else None
+        if not isinstance(state, dict) or not isinstance(cam, dict) or "id" not in cam:
+            return
+        cameras = [({**c, **cam, "current": True} if c.get("id") == cam["id"] else dict(c, current=False))
+                   if isinstance(c, dict) else c for c in state.get("cameras") or ()]
+        if not any(isinstance(c, dict) and c.get("current") for c in cameras):
+            cameras.append({**cam, "current": True})
+        self._last_states[source.id] = dict(state, cameras=cameras)
+
+    def still_busy(self, source_id: Optional[str] = None) -> bool:
+        source = self._still_source(source_id)
+        return source is not None and self._stills.busy(source.id)
+
+    def take_still(self, options: dict, folder: str, on_done: Callable, on_progress: Optional[Callable] = None,
+                   source_id: Optional[str] = None) -> bool:
+        source = self._still_source(source_id)
+        if source is None or self.still_caps(source.id) is None:
+            return False
+        sid, session = source.id, source.session
+
+        def progress(p):
+            # The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
+            if p.state == "capturing" and session.worker is not None:
+                session.worker.hold_for_photo()
+            if on_progress is not None:
+                on_progress(p)
+
+        def done(result):
+            # Another photo may have started there before this reached the Qt thread
+            self._bus.still_busy_changed.emit(sid or "", self._stills.busy(sid))
+            if result.files:
+                self._bus.still_saved.emit(sid or "", list(result.files))
+            on_done(result)
+
+        started = self._stills.take(sid, session.client, options, folder,
+                                    on_done=lambda r: self._sig_still.emit(done, r),
+                                    on_progress=lambda p: self._sig_still.emit(progress, p))
+        if started:
+            self._bus.still_busy_changed.emit(sid or "", True)
+        return started
+
+    def add_preview_layer(self, owner: str, layer):
+        self._overlays.add_layer(owner, layer)
+
+    def remove_preview_layer(self, owner: str):
+        self._overlays.remove_layer(owner)
+
+    def refresh_preview(self):
+        self._overlays.refresh()
+
+    def pick_on_preview(self, owner: str, kind: str, on_done: Callable, start=None, hint: str = "") -> bool:
+        return self.is_streaming() and self._overlays.start_pick(owner, kind, on_done, start, hint)
+
+    def finish_pick(self, owner: str) -> bool:
+        return self._overlays.finish_pick(owner)
+
+    def cancel_pick(self, owner: str):
+        self._overlays.cancel_pick(owner)
+
+    def preview_overlays(self):
+        return self._overlays
+
     def want_sensors(self, owner: str, kinds):
         self._sensors.want(owner, kinds)
 
@@ -1683,6 +1813,35 @@ class TelescopeWindow(QMainWindow):
         source = self._sessions.by_worker(worker)
         if source is not None:
             self._bus.people_seen.emit(source.id or "", people)
+            tracks, count = self._tracking.update(source.id or "", people, time.monotonic())
+            self._bus.people_tracked.emit(source.id or "", tracks, count)
+
+    def tracked_people(self, source_id: Optional[str] = None) -> tuple:
+        return self._tracking.last((self.focused_source_id() if source_id is None else source_id) or "",
+                                   time.monotonic())
+
+    def _on_view_turned(self, view):
+        old, new = self._turned, (view.flip_h, view.flip_v, view.rotation)
+        self._turned = new
+        if old is None or old == new:
+            return
+
+        def remap(x, y):
+            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *old), 1.0, 0.0, 0.0, *new)
+        self._tracking.remap(remap)  # the same people, somewhere else in the picture now
+        self._motion.reset()
+
+    def watch_motion(self, owner: str, zones: list, sensitivity: int = 5):
+        self._motion.watch(owner, zones, sensitivity)
+
+    def motion(self, owner: str) -> list:
+        shown = self._sessions.shown()
+        return self._motion.moving(shown.worker, owner) if shown is not None else []
+
+    def _on_motion(self, worker, owner: str, zones: list):
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._bus.motion_seen.emit(source.id or "", owner, zones)
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         cfg = load_config()
@@ -1725,6 +1884,8 @@ class TelescopeWindow(QMainWindow):
             state["Added plugins"] = ", ".join(added)
         state.update(self._vision.diagnostics())
         state.update(self._sensors.diagnostics())
+        state.update(self._colour.diagnostics())
+        state.update(self._motion.diagnostics())
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())
