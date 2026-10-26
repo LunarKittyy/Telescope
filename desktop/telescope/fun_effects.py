@@ -12,6 +12,8 @@ from typing import Callable, Optional
 import cv2
 import numpy as np
 
+from telescope.pictures import shrink
+
 _MASK_SMALL = 4  # masks from the empty room are worked out at a quarter of the size
 _DIFFERENCE = 28  # how far a pixel has to be from the empty room to count as someone in front of it
 _ASCII_RAMP = " .:-=+*#%@"
@@ -231,7 +233,7 @@ class GameBoy:
     def __call__(self, frame: np.ndarray, look: Look) -> np.ndarray:
         h, w = frame.shape[:2]
         sh, sw = self.LINES, max(1, round(w * self.LINES / h))
-        gray = cv2.cvtColor(cv2.resize(frame, (sw, sh), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(shrink(frame, sw, sh), cv2.COLOR_BGR2GRAY)
         if (sh, sw) not in self._bayer:
             self._bayer = {(sh, sw): np.tile(_BAYER, (sh // 4 + 1, sw // 4 + 1))[:sh, :sw]}
         levels = np.clip(gray.astype(np.float32) / 255 * 3 + self._bayer[(sh, sw)] + 0.5, 0, 3).astype(np.uint8)
@@ -350,7 +352,7 @@ class Ascii:
         cols, rows = w // cw, h // ch
         if self._cell != (cw, ch):
             self._build(cw, ch)
-        gray = cv2.cvtColor(cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(shrink(frame, cols, rows), cv2.COLOR_BGR2GRAY)
         index = (gray.astype(np.uint16) * len(_ASCII_RAMP) // 256).astype(np.intp)
         text = self._glyphs[index].transpose(0, 2, 1, 3).reshape(rows * ch, cols * cw)
         out = np.zeros_like(frame)

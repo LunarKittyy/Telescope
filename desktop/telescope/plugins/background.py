@@ -7,7 +7,7 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QButtonGroup, QFileDialog, QHBoxLayout, QPushButton, QWidget
 
-from telescope.pictures import cover, read_picture
+from telescope.pictures import cover, read_picture, shrink
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import choice_action, slider_action
 from telescope.widgets.vision_status import VisionStatus
@@ -35,11 +35,11 @@ def blurred(frame: np.ndarray, strength: int, mask: Optional[np.ndarray] = None)
     person is left out of the blur, so they don't smear into a dark halo around themselves."""
     h, w = frame.shape[:2]
     size = (max(1, w // _BLUR_SMALL), max(1, h // _BLUR_SMALL))
-    small = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+    small = shrink(frame, *size)
     sigma = (1.0 + strength * 1.2) * _SMALL / _BLUR_SMALL
     if mask is None:
         return cv2.resize(cv2.GaussianBlur(small, (0, 0), sigma), (w, h), interpolation=cv2.INTER_LINEAR)
-    rest = 1.0 - cv2.resize(mask, size, interpolation=cv2.INTER_AREA).astype(np.float32) / 255.0
+    rest = 1.0 - shrink(mask, *size).astype(np.float32) / 255.0
     spread = cv2.GaussianBlur(rest, (0, 0), sigma)
     total = cv2.GaussianBlur(small.astype(np.float32) * rest[..., None], (0, 0), sigma)
     plain = cv2.GaussianBlur(small, (0, 0), sigma).astype(np.float32)

@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QComboBox, QPushButton, QSizePolicy, QWidget
 
 from telescope import people
+from telescope.pictures import shrink
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action
 from telescope.view import shown_to_view, view_to_shown
@@ -90,7 +91,7 @@ def shown_box(box: tuple, view) -> tuple:
 def blurred(frame: np.ndarray) -> np.ndarray:
     """frame blurred past recognising anyone, at a sixteenth of the size and scaled back up."""
     h, w = frame.shape[:2]
-    small = cv2.resize(frame, (max(1, w // _SMALL), max(1, h // _SMALL)), interpolation=cv2.INTER_AREA)
+    small = shrink(frame, max(1, w // _SMALL), max(1, h // _SMALL))
     return cv2.resize(cv2.GaussianBlur(small, (0, 0), 2.0), (w, h), interpolation=cv2.INTER_LINEAR)
 
 
@@ -319,7 +320,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
             weight = boxes_mask([shown_box(grown(b), view) for b in blur.others], w, h) if blur.others else None
             mask = self._host.person_mask(frame)
             if mask is not None:
-                people = cv2.resize(mask, (max(1, w // _SMALL), max(1, h // _SMALL)), interpolation=cv2.INTER_AREA)
+                people = shrink(mask, max(1, w // _SMALL), max(1, h // _SMALL))
                 people = people.astype(np.float32) / 255.0
                 weight = people if weight is None else np.maximum(weight, people)
             if weight is not None:
@@ -330,7 +331,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
         mask = self._host.person_mask(frame)
         people = None
         if mask is not None:
-            people = cv2.resize(mask, (you.shape[1], you.shape[0]), interpolation=cv2.INTER_AREA).astype(np.float32)
+            people = shrink(mask, you.shape[1], you.shape[0]).astype(np.float32)
             people /= 255.0
             you = people * np.minimum(you * 2.0, 1.0)  # you: the person mask inside your box
         if blur.others:  # but not someone sitting right next to you
