@@ -13,15 +13,21 @@ pseudo	cut short	Sharper, more data
 pseudo	not translated	30 fps
 pseudo	out of its box	20[% ~]
 pseudo	out of its box	270°
+pseudo	out of its box	3
+pseudo	out of its box	44
 pseudo	out of its box	45[ °Ç ~]
 pseudo	out of its box	Add phone
 pseudo	out of its box	Black level lock
+pseudo	out of its box	By hand
+pseudo	out of its box	Clear from phone
 pseudo	out of its box	Fast
 pseudo	out of its box	Heavy
 pseudo	out of its box	Manual
+pseudo	out of its box	Next
 pseudo	out of its box	Picture
 pseudo	out of its box	Reset
 pseudo	out of its box	Start streaming to load lenses
+pseudo	out of its box	Start streaming to send the notes to the phone.
 pseudo	out of its box	Stop the stream
 pseudo	out of its box	Upside down
 pseudo	out of its box	Widen for something in your hand

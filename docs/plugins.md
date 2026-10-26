@@ -12,7 +12,7 @@ Want to write one? That's in [Writing a plugin](writing-plugins.md).
 
 Switching a plugin off deletes nothing. Its settings stay saved and everything is back once you switch it on again. **Turn all back on** does that for every built-in plugin.
 
-- **Optional** holds the plugins that start out off (Auto framing and Background). They need a separate download the first time, see [the vision download](features.md#the-vision-download)
+- **Optional** holds the plugins that start out off (Auto framing, Background and Notes). Auto framing and Background need a separate download the first time, see [the vision download](features.md#the-vision-download)
 - **Always on** holds Phones and connection, Advanced settings and Updates, since Telescope doesn't work without them
 
 **A card or setting is gone?** Check the Plugins tab. When some are off its name reads **Plugins (2 off)** and right after a restart a banner at the top names them.

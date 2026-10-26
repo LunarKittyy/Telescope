@@ -106,6 +106,20 @@ def test_non_coalescing_actions_preserve_order(recording_server, make_client):
     ]
 
 
+def test_every_next_or_previous_reaches_the_phone(recording_server, make_client):
+    client = make_client()
+    recording_server.reply.clear()
+    client.send(action="camera", id="hold")
+    _wait_for_requests(recording_server, 1)
+    client.send(action="notes_scroll", by=1)
+    client.send(action="notes_scroll", by=1)
+    client.send(action="notes_scroll", by=-1)
+    recording_server.reply.set()
+
+    _wait_for_requests(recording_server, 4)
+    assert [r.get("by") for r in recording_server.received[1:]] == [1, 1, -1]
+
+
 def test_requests_carry_bearer_token(recording_server, make_client):
     client = make_client("secret-tok")
 

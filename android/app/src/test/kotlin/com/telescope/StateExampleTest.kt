@@ -33,7 +33,7 @@ class StateExampleTest {
         h264_profile = "high", intra_refresh = true, wifi_band = "5", wifi_rssi = -58, wifi_mbps = 866, codec_error = "H.264 isn't available at 1920x1080 on this phone", codec_error_code = "h264_unavailable",
         codec_error_width = 1920, codec_error_height = 1080, codec_unsupported = true,
         active_lens = "2", camera_off = true, camera_error = "The camera didn't turn back on. Another app may be using it.", camera_error_code = "camera_in_use",
-        camera_taken = true, camera_toggle = true,
+        camera_taken = true, camera_toggle = true, takes_notes = true, notes = true, notes_shown = true,
         stream_width = 1920, stream_height = 1080, battery = 87, charging = true, battery_temp_c = 32.5,
     )
 

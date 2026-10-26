@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Notes](#notes-next-to-the-lens) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -40,6 +40,18 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
 
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
+
+## Notes next to the lens
+
+Optional, switched on under **Optional** in the Plugins tab of Settings. Type your notes on the Notes card and **Send to phone** puts them on the phone's screen in big text right under the front camera. Reading them there keeps your eyes almost on the lens and the people on the call see you looking at them. It needs the front camera and the phone facing you, and the phone app from the same release (with an older one the card asks you to update it).
+
+- Each line you type is one step for **Next** and **Previous**. Both can go on a key in Keyboard shortcuts. A presenter clicker works too because it sends keys like a keyboard does
+- **Auto** scrolls at the **Speed** you set once you press **Play**. **By hand** only moves with Next and Previous or when you drag the text on the phone
+- **Text size** changes the size on the phone straight away. Edits to the text itself only show after you send again
+- The card keeps a few sets of notes, named after their first line
+- On the phone the screen stays on and black behind the text while the notes are up, which is easy on the battery with an OLED screen. Back closes them until you send again and stopping the stream takes them away
+
+Android only lets an app open a screen while it's in front. With Telescope in the background the card asks you to open it on the phone and the notes appear once you do. Turned sideways in a holder, the text sits next to the lens instead of under it.
 
 ## The vision download
 

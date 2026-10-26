@@ -169,3 +169,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+
+### Notes next to the lens
+
+<!-- due: desktop/telescope/plugins/notes.py android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt -->
+
+- [ ] Switch Notes on under **Optional**, stream from the front camera and send a few lines. They open on the phone right under the camera (on a notch, a punch hole and a phone without either), Play scrolls them, Next and Previous step a line and a shortcut or presenter clicker bound to Next works. Turn the phone sideways and the text moves beside the lens. The stream doesn't stutter while they scroll.
+- [ ] With Telescope in the background on the phone the card asks you to open it and opening it shows the notes. Back closes them until you send again, and stopping the stream takes them away.

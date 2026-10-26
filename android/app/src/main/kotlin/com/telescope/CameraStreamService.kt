@@ -968,6 +968,9 @@ class CameraStreamService : Service() {
             camera_error_code = if (controller?.cameraError != null) "camera_in_use" else null,
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
+            takes_notes = true,
+            notes = NotesBoard.hasNotes,
+            notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -978,6 +981,7 @@ class CameraStreamService : Service() {
     }
 
     private fun handleControlCommand(params: Map<String, String>): String {
+        NotesCommand.parse(params)?.let { return notesControl(it) }
         val ctrl = controller ?: return err("camera not ready")
         return try {
             when (params["action"]) {
@@ -1118,6 +1122,27 @@ class CameraStreamService : Service() {
         } catch (e: Exception) { err(e.message ?: "exception") }
     }
 
+    // Notes don't touch the camera, so they work with it off too
+    private fun notesControl(command: NotesCommand): String {
+        if (command is NotesCommand.Refused) return err(command.error)
+        if (NotesBoard.apply(command)) mainHandler.post { showNotes() }
+        return ok()
+    }
+
+    // Android only lets an app open a screen while one of its own is up; otherwise the app opens them next time it's
+    // on screen (MainActivity.onStart)
+    private fun showNotes() {
+        if (!isStreaming || NotesBoard.shown || !NotesBoard.wantsScreen) return
+        val info = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(info)
+        if (info.importance > android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
+        try {
+            startActivity(NotesActivity.intent(this))
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Couldn't open the notes", e)
+        }
+    }
+
     private fun ok()             = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = true))
     private fun err(msg: String) = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = false, error = msg))
 
@@ -1131,6 +1156,7 @@ class CameraStreamService : Service() {
         releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
+        NotesBoard.clear()
         streamingSinceMs = 0L
         viewer = null
         setState(StreamState.Idle, op)
