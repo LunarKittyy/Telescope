@@ -37,6 +37,7 @@ _REASONS = {
     "timeout": N_("The phone took too long to take the photo."),
     "failed": N_("The phone couldn't take the photo."),
     "lost": N_("Lost the phone while it was taking the photo."),
+    "dropped": N_("The phone gave up on the photo, maybe because its stream stopped."),
     "save": N_("Telescope couldn't save the photo."),
     "no_photos": N_("This phone can't take photos from Telescope. Update the app on the phone."),
 }
@@ -245,6 +246,14 @@ class Stills:
             try:
                 status = self._request(ctrl, f"/still?id={sid}")
                 heard = time.monotonic()
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    return StillResult.failed("dropped", "", saved)  # the phone let go of it: its stream stopped, say
+                if time.monotonic() - heard > _LOST_AFTER_S:
+                    self._forget(ctrl, sid)
+                    return StillResult.failed("lost", str(exc), saved)
+                stop.wait(_POLL_S)
+                continue
             except Exception as exc:
                 if time.monotonic() - heard > _LOST_AFTER_S:
                     self._forget(ctrl, sid)  # in case it's only this computer's link that's gone

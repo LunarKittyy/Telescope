@@ -72,9 +72,10 @@ def test_reasons_are_worded_here_and_unknown_ones_keep_the_phones_english():
 class _Phone:
     """/v1/still as the phone serves it: a photo that takes a couple of polls and leaves the files given."""
 
-    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False, unreachable=False):
+    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False, unreachable=False, dropped=False):
         self.files = files if files is not None else {"IMG_1.jpg": b"jpeg" * 100, "IMG_2.dng": b"dng!" * 5000}
         self.polls, self.start, self.fail, self.missing, self.unreachable = polls, start, fail, missing, unreachable
+        self.dropped = dropped
         self.posts, self.forgotten = [], []
         phone = self
 
@@ -111,6 +112,8 @@ class _Phone:
                     return
                 if phone.unreachable:
                     return self._json({"error": "gone"}, 503)
+                if phone.dropped and phone.polls <= 1:
+                    return self._json({"error": "Not Found"}, 404)
                 phone.polls -= 1
                 done = phone.polls <= 0
                 files = [{"name": k, "size": len(v), "type": "image/jpeg"} for k, v in phone.files.items()] if done else []
@@ -232,6 +235,13 @@ def test_a_phone_that_stops_answering_is_told_to_forget_the_photo(tmp_path, phon
     p = phone(unreachable=True)
     result, _ = _take(Stills(), p, tmp_path)
     assert result.code == "lost" and p.forgotten == ["abc"]
+
+
+def test_a_photo_the_phone_let_go_of_ends_at_once(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LOST_AFTER_S", 60)
+    p = phone(dropped=True)  # the stream stopped during the timer: the phone forgot the request
+    result, progress = _take(Stills(), p, tmp_path)
+    assert result.code == "dropped" and "gave up" in result.error and len(progress) == 1
 
 
 def test_a_photo_that_never_ends_is_given_up_on_and_forgotten(tmp_path, phone, monkeypatch):

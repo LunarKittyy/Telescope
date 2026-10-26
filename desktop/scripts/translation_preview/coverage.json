@@ -1256,6 +1256,7 @@
     "[\"\", \"The download didn't match what this version of Telescope expects, so it wasn't used.\"]",
     "[\"\", \"The phone couldn't take the photo.\"]",
     "[\"\", \"The phone didn't accept those photo settings.\"]",
+    "[\"\", \"The phone gave up on the photo, maybe because its stream stopped.\"]",
     "[\"\", \"The phone is already taking a photo.\"]",
     "[\"\", \"The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most.\"]",
     "[\"\", \"The phone isn't ready for photos yet. Try again in a moment.\"]",
@@ -30686,6 +30687,7 @@
       "[\"\", \"Switched to {lens}\"]",
       "[\"\", \"Telescope couldn't save the photo.\"]",
       "[\"\", \"The phone didn't accept those photo settings.\"]",
+      "[\"\", \"The phone gave up on the photo, maybe because its stream stopped.\"]",
       "[\"\", \"The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most.\"]",
       "[\"\", \"The phone isn't ready for photos yet. Try again in a moment.\"]",
       "[\"\", \"The phone took too long to take the photo.\"]",
@@ -31379,5 +31381,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1315
+  "total": 1316
 }
