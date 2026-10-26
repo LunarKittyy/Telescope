@@ -12,10 +12,11 @@ struct Mode {
     UINT32 width, height, fps;
 };
 
-// The first is what most apps take. Telescope fits its picture to whichever one an app picks.
+// Telescope fits its picture to whichever one an app picks. No portrait ones: some apps (the Windows Camera app) pick
+// one of those if offered, and a webcam is expected to be landscape.
 constexpr Mode kModes[] = {
-    {1920, 1080, 30}, {1920, 1080, 60}, {1280, 720, 30}, {1280, 720, 60}, {3840, 2160, 30}, {2560, 1440, 30},
-    {960, 540, 30},   {640, 480, 30},   {640, 360, 30},  {1080, 1920, 30}, {720, 1280, 30},
+    {1920, 1080, 30}, {1920, 1080, 60}, {1280, 720, 30}, {1280, 720, 60}, {3840, 2160, 30},
+    {2560, 1440, 30}, {960, 540, 30},   {640, 480, 30},  {640, 360, 30},
 };
 
 HRESULT MakeType(const Mode& mode, IMFMediaType** out) {
