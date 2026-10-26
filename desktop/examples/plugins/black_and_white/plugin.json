@@ -4,6 +4,7 @@
   "version": "1.0",
   "author": "Telescope",
   "description": "Turns the picture black and white. An example to start your own plugin from.",
+  "category": "look",
   "api": 1,
   "class": "BlackAndWhitePlugin"
 }

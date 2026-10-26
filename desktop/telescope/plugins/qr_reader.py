@@ -207,7 +207,7 @@ class QrReaderPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Look for QR codes in the picture"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("QR codes"), "qr", action=self._switch)
+        add_card_header(lay, tr("QR codes"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._status = wrapped_note("")
         self._copy_btn = QPushButton(tr("Copy"))

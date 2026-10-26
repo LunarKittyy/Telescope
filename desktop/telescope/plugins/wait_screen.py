@@ -289,7 +289,7 @@ class WaitScreenSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Wait screen"), "image", hue="stream")
+        add_card_header(lay, tr("Wait screen"), WaitScreenPlugin.icon, hue=WaitScreenPlugin.category)
         keywords(card, tr("idle standby placeholder picture image gif black screen frozen not streaming mirror flip "
                           "custom background logo", ctx="search"))
         lay.addWidget(wrapped_note(tr("What video calls see while the phone isn't streaming.")))

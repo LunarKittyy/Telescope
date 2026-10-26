@@ -10,7 +10,7 @@ Want to write one? That's in [Writing a plugin](writing-plugins.md).
 2. Flip the switch on a plugin's tile. Telescope asks first and tells you what will be missing
 3. Click **Restart now** in the bar at the bottom of the tab (a running stream stops for the few seconds it takes)
 
-The tiles are grouped by what the plugins are for: Camera and picture, Preview tools, People and vision, On screen, Sound, Streaming and devices and Extras. Within a group they're in alphabetical order. Type in **Search plugins** to find one by its name or description. **All**, **On** and **Off** next to it show every plugin, only the ones switched on or only the ones switched off.
+The tiles are grouped by what the plugins are for: Camera, Look, People, Preview tools, On screen, Sound, Streaming and devices and Extras. Each group has its own colour, and its plugins' cards in the main window take that colour too. Within a group they're in alphabetical order. Type in **Search plugins** to find one by its name or description. **All**, **On** and **Off** next to it show every plugin, only the ones switched on or only the ones switched off.
 
 Switching a plugin off deletes nothing. Its settings stay saved and everything is back once you switch it on again. **Turn all back on** does that for every built-in plugin. The restart bar counts every change still waiting, which lets you flip several switches and restart just once.
 

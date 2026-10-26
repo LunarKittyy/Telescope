@@ -62,7 +62,7 @@ class UpdatesSection(QWidget):
         c = card_layout(card)
         self._check_btn = card_action(tr("Check now"), "reset")
         self._check_btn.clicked.connect(lambda: plugin.check(manual=True))
-        add_card_header(c, "Telescope", "update", action=self._check_btn)
+        add_card_header(c, "Telescope", UpdatesPlugin.icon, action=self._check_btn, hue=UpdatesPlugin.category)
         keywords(card, tr("update upgrade new version release download install latest", ctx="search"))
         self._version_lbl = wrapped_note(version.display_version(), "val")
         c.addLayout(control_row(tr("This version"), self._version_lbl, stretch=True,

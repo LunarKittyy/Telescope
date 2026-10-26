@@ -62,7 +62,7 @@ class NameTagPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Show the name tag on the picture"))
         self._switch.toggled.connect(self._changed)
-        add_card_header(lay, tr("Name tag"), "bookmark", action=self._switch)
+        add_card_header(lay, tr("Name tag"), self.icon, action=self._switch, hue=self.category)
         keywords(card, tr("lower third caption title label overlay text name pronouns role", ctx="search"))
 
         self._name_edit = self._edit()

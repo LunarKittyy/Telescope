@@ -92,7 +92,7 @@ class FunPackPlugin(TelescopePlugin):
     name = "fun_pack"
     title = N_("Fun pack")
     about = N_("Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh.")
-    category = "extras"
+    category = "look"
     icon = "sparkle"
     when_off = N_("Without it there's no Fun pack card and the picture has no effects.")
     optional = True
@@ -136,7 +136,7 @@ class FunPackPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Fun pack"), "sparkle", hue="vision")
+        add_card_header(lay, tr("Fun pack"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._combo = NoScrollComboBox()
