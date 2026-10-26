@@ -45,7 +45,8 @@ REPORT_BODY = struct.Struct(">BIIIIIHH")  # what got through, for the phone's Dy
 WINDOW = 4096  # replay window, in datagrams
 HELLO_S = 0.5  # keeps the desktop's firewall open for the phone's datagrams
 REPORT_S = 0.1
-FIRST_FRAME_S = 3.0  # nothing decodable by then: the datagrams don't get here, use TCP
+FIRST_FRAME_S = 3.0  # no datagram by then: they don't get here (usually a firewall), use TCP
+FIRST_DECODE_S = 10.0  # datagrams arrive but no frame decodes by then (a link too thin for a keyframe): TCP too
 NACK_AFTER_S = 0.015  # a frame behind newer ones this long is missing pieces...
 NACK_AGAIN_S = 0.05  # ...asked for again this often...
 GIVE_UP_S = 0.25  # ...and given up on after this: freeze until a keyframe
@@ -326,12 +327,13 @@ class UdpH264Reader:
         try:
             while True:
                 now = time.monotonic()
-                if not self._decoded_any and now - self._opened_at > FIRST_FRAME_S:
+                waited = now - self._opened_at
+                if not self._decoded_any and waited > (FIRST_DECODE_S if self._received else FIRST_FRAME_S):
                     _UDP_FAILED.add(self._phone[0])  # likely a firewall: don't wait for it again
                     if self._fall_back():
                         return self.read()
                     return False, None
-                if now > deadline:  # the phone stopped sending: the session's over
+                if now > deadline and self._decoded_any:  # the phone stopped sending: the session's over
                     return False, None
                 self._hello()
                 self._report(now)
