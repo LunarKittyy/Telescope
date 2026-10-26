@@ -3983,7 +3983,7 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=worker)
     sid = window._phone.id
     assert window.still_caps() is None and not window.take_still({}, "/tmp", lambda r: None)  # nothing said yet
-    window._last_states[sid] = {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]}
+    window._stills.note_state(sid, {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]})
     assert window.still_caps().formats == ("jpeg",)
 
     taken = {}
@@ -4015,9 +4015,9 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
 def test_photo_options_follow_a_lens_switch(window):
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=None)
     full = {"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000}
-    window._last_states[window._phone.id] = {"stills": 1, "cameras": [
+    window._stills.note_state(window._phone.id, {"stills": 1, "cameras": [
         {"id": "1", "current": True, "stills": full},
-        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]}
+        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]})
     assert window.still_caps().max_res == (8000, 6000)
     seen = []
     window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))

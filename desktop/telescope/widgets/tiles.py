@@ -10,6 +10,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from telescope import theme
+from telescope.pictures import shrink
 from telescope.widgets.common import create_vector_icon, set_status_kind, ui_px
 from telescope.i18n import tr
 
@@ -20,8 +21,7 @@ def thumbnail(frame: np.ndarray, width: int = THUMB_W, height: int = THUMB_H) ->
     """A BGR frame shrunk to fit width x height."""
     h, w = frame.shape[:2]
     scale = min(width / w, height / h)
-    small = cv2.resize(frame, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
-    small = np.ascontiguousarray(small)
+    small = np.ascontiguousarray(shrink(frame, max(1, int(w * scale)), max(1, int(h * scale))))
     sh, sw = small.shape[:2]
     return QPixmap.fromImage(QImage(small.data, sw, sh, sw * 3, QImage.Format.Format_BGR888).copy())
 

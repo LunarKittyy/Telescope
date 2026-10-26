@@ -353,7 +353,7 @@ def test_moving_a_tile_doesnt_scale_the_background_picture_again(tmp_path, monke
     assert covered == [(64, 36), (32, 18)]
 
 
-def test_four_1080p_streams_draw_well_inside_a_60_fps_frame(timing):
+def test_four_1080p_streams_draw_quickly_even_on_a_busy_runner(timing):
     streams = [(c, c, 16 / 9) for c in "abcd"]
     rng = np.random.default_rng(2)
     frames = {c: (rng.integers(0, 255, (1080, 1920, 3), np.uint8), None) for c in "abcd"}
