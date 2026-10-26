@@ -1705,7 +1705,8 @@ class TelescopeWindow(QMainWindow):
 
         started = self._stills.take(sid, session.client, options, folder,
                                     on_done=lambda r: self._sig_still.emit(done, r),
-                                    on_progress=lambda p: self._sig_still.emit(progress, p))
+                                    on_progress=lambda p: self._sig_still.emit(progress, p),
+                                    alive=lambda: source.session is session)  # a restart makes a new session
         if started:
             self._bus.still_busy_changed.emit(sid or "", True)
         return started
