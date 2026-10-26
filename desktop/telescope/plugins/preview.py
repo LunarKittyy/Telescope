@@ -777,7 +777,7 @@ class PreviewPlugin(TelescopePlugin):
 
             def map_point(x, y):
                 return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *flips), view.zoom, view.pan_x,
-                                     view.pan_y, *flips)
+                                     view.pan_y, *flips, view.stretch_x, view.stretch_y)
             lines = skeleton(self._people, map_point, self._host.view_aspect() or 16 / 9)
         for lbl in self._labels():
             lbl.set_skeleton(lines)

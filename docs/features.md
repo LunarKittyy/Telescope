@@ -20,6 +20,7 @@ These apply live without restarting the camera.
 - Flip horizontally or vertically
 - Rotate 90° CW, 180° or 90° CCW
 - **Zoom 1-10x** with pan. **Max zoom** under Video in Settings goes up to 30x. Scroll over the preview to zoom and drag to pan
+- **Width** and **Height** stretch or squish the picture from 50% to 200%, each on its own. Whatever goes past the edge is cut off and a squish leaves black bars, like a rotated picture gets
 - Double-click any slider to reset it. The pan pad takes arrow keys (Shift for bigger steps) and Home to centre
 
 Zooming crops from the full sensor first and hops to the telephoto lens once your framing fits inside it, which is why zooming in gets sharper. Dots on the zoom slider mark where a longer lens takes over.

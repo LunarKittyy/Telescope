@@ -284,7 +284,7 @@ class HostShell(Protocol):
 
 
 class HostView(Protocol):
-    """The shown stream's view: zoom, pan, flip and rotation, done before the plugins see the frame."""
+    """The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame."""
 
     def view(self) -> "View":
         """The shown stream's view as it is now (telescope.view.View)."""
@@ -295,7 +295,8 @@ class HostView(Protocol):
         ...
 
     def set_view(self, **changes) -> None:
-        """Change the manual view (zoom, pan_x, pan_y, flip_h, flip_v, rotation); the phone does its share of the zoom.
+        """Change the manual view (zoom, pan_x, pan_y, flip_h, flip_v, rotation, stretch_x, stretch_y); the phone does
+        its share of the zoom.
         While something has taken the view, zoom and pan wait until it lets go."""
         ...
 

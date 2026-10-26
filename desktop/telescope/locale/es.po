@@ -862,7 +862,7 @@ msgstr "Complementos"
 msgid "Updates & About"
 msgstr "Actualizaciones y Acerca de"
 
-#: telescope/plugin.py:645
+#: telescope/plugin.py:646
 msgid "Open settings"
 msgstr "Abrir configuración"
 
@@ -2715,7 +2715,7 @@ msgstr ""
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:242 telescope/plugins/transforms.py:165
+#: telescope/plugins/desk.py:242 telescope/plugins/transforms.py:168
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -2739,7 +2739,7 @@ msgstr ""
 msgid "Shape"
 msgstr "Forma"
 
-#: telescope/plugins/desk.py:255
+#: telescope/plugins/desk.py:255 telescope/plugins/transforms.py:246 telescope/plugins/transforms.py:277
 msgid "Width"
 msgstr ""
 
@@ -2747,7 +2747,7 @@ msgstr ""
 msgid "Stretch the sheet sideways if it still looks squashed"
 msgstr ""
 
-#: telescope/plugins/desk.py:256
+#: telescope/plugins/desk.py:256 telescope/plugins/transforms.py:248 telescope/plugins/transforms.py:279
 msgid "Height"
 msgstr ""
 
@@ -5797,76 +5797,76 @@ msgstr "Dinámico"
 msgid "{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS."
 msgstr "{quality}. Se recomienda el punto ({default} %): un valor más alto consume muchos más datos para una diferencia apenas visible. Si el Wi-Fi es lento, redúcelo o baja los FPS."
 
-#: telescope/plugins/transforms.py:56
+#: telescope/plugins/transforms.py:57
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "Cambiado a {lens}"
 
-#: telescope/plugins/transforms.py:61
+#: telescope/plugins/transforms.py:62
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "La panorámica fue más allá de lo que {tele} puede ver, así que está en {live}. Mueve la panorámica hacia atrás para cambiar de nuevo."
 
-#: telescope/plugins/transforms.py:62 telescope/plugins/transforms.py:68
+#: telescope/plugins/transforms.py:63 telescope/plugins/transforms.py:69
 msgid "the telephoto"
 msgstr "el teleobjetivo"
 
-#: telescope/plugins/transforms.py:63
+#: telescope/plugins/transforms.py:64
 msgid "the main camera"
 msgstr "la cámara principal"
 
-#: telescope/plugins/transforms.py:66
+#: telescope/plugins/transforms.py:67
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "El teléfono se quedó en {live} por su cuenta, probablemente porque está muy oscuro o muy cerca para {tele}. Cambiará en cuanto pueda."
 
-#: telescope/plugins/transforms.py:71
+#: telescope/plugins/transforms.py:72
 msgid "It can wobble for a moment while it switches."
 msgstr "La foto puede temblar un momento mientras cambia."
 
-#: telescope/plugins/transforms.py:130 telescope/plugins/transforms.py:167 telescope/plugins/transforms.py:244
+#: telescope/plugins/transforms.py:131 telescope/plugins/transforms.py:170 telescope/plugins/transforms.py:264
 msgid "Transforms"
 msgstr "Transformaciones"
 
-#: telescope/plugins/transforms.py:131
-msgid "Zoom, pan, flip and rotate the picture."
-msgstr "Aplica zoom y panorámica, voltea y rota la foto."
-
 #: telescope/plugins/transforms.py:132
+msgid "Zoom, pan, flip, rotate and stretch the picture."
+msgstr ""
+
+#: telescope/plugins/transforms.py:133
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Sin este complemento no habrá tarjeta Transformaciones y la foto saldrá exactamente como la envía el teléfono."
 
-#: telescope/plugins/transforms.py:165
-msgid "Clear flip, rotation, zoom and pan back to defaults"
-msgstr "Restablece el volteo, la rotación, el zoom y la panorámica a sus valores predeterminados"
+#: telescope/plugins/transforms.py:168
+msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
+msgstr ""
 
-#: telescope/plugins/transforms.py:171
+#: telescope/plugins/transforms.py:174
 msgid "Mirror"
 msgstr "Reflejar"
 
-#: telescope/plugins/transforms.py:172
+#: telescope/plugins/transforms.py:175
 msgid "Upside down"
 msgstr "De cabeza"
 
-#: telescope/plugins/transforms.py:177
+#: telescope/plugins/transforms.py:180
 msgid "Flip"
 msgstr "Voltear"
 
-#: telescope/plugins/transforms.py:194 telescope/plugins/transforms.py:248
+#: telescope/plugins/transforms.py:197 telescope/plugins/transforms.py:268
 msgid "Rotation"
 msgstr "Rotación"
 
-#: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:377
+#: telescope/plugins/transforms.py:206 telescope/plugins/transforms.py:405
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:639
+#: telescope/plugins/transforms.py:208 telescope/plugins/transforms.py:269 telescope/widgets/composite_editor.py:639
 msgid "Zoom"
 msgstr "Zoom"
 
 #. H and V for horizontal and vertical, in the narrow Pan readout
-#: telescope/plugins/transforms.py:232 telescope/plugins/transforms.py:463
+#: telescope/plugins/transforms.py:235 telescope/plugins/transforms.py:499
 #, python-brace-format
 msgid ""
 "H {x}\n"
@@ -5875,76 +5875,94 @@ msgstr ""
 "H {x}\n"
 "V {y}"
 
-#: telescope/plugins/transforms.py:233 telescope/widgets/composite_editor.py:37 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:236 telescope/widgets/composite_editor.py:37 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr "Panorámica"
 
 #: telescope/plugins/transforms.py:246
+msgid "Stretch or squish the picture sideways"
+msgstr ""
+
+#: telescope/plugins/transforms.py:248
+msgid "Stretch or squish the picture up and down"
+msgstr ""
+
+#: telescope/plugins/transforms.py:266
 msgid "Flip horizontal"
 msgstr "Voltear horizontalmente"
 
-#: telescope/plugins/transforms.py:247
+#: telescope/plugins/transforms.py:267
 msgid "Flip vertical"
 msgstr "Voltear verticalmente"
 
-#: telescope/plugins/transforms.py:251
+#: telescope/plugins/transforms.py:271
 msgid "Pan left/right"
 msgstr "Panorámica izquierda/derecha"
 
-#: telescope/plugins/transforms.py:254
+#: telescope/plugins/transforms.py:274
 msgid "Pan up/down"
 msgstr "Panorámica arriba/abajo"
 
-#: telescope/plugins/transforms.py:257
+#: telescope/plugins/transforms.py:281
 msgid "Reset transforms"
 msgstr "Restablecer transformaciones"
 
-#: telescope/plugins/transforms.py:259
+#: telescope/plugins/transforms.py:283
 msgctxt "search"
 msgid "mirror"
 msgstr "reflejar espejo mirror"
 
-#: telescope/plugins/transforms.py:260
+#: telescope/plugins/transforms.py:284
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "reflejar de cabeza invertir vertical horizontal voltear mirror upside down"
 
-#: telescope/plugins/transforms.py:261
+#: telescope/plugins/transforms.py:285
 msgctxt "search"
 msgid "rotate turn"
 msgstr "rotar girar rotacion giro rotate turn"
 
-#: telescope/plugins/transforms.py:262
+#: telescope/plugins/transforms.py:286
 msgctxt "search"
 msgid "crop framing"
 msgstr "recortar recorte encuadre crop framing"
 
-#: telescope/plugins/transforms.py:263 telescope/plugins/transforms.py:264
+#: telescope/plugins/transforms.py:287 telescope/plugins/transforms.py:288
 msgctxt "search"
 msgid "framing move"
 msgstr "encuadre mover encuadrar posicion framing move"
 
-#: telescope/plugins/transforms.py:329
+#: telescope/plugins/transforms.py:289
+msgctxt "search"
+msgid "stretch squish aspect wide"
+msgstr ""
+
+#: telescope/plugins/transforms.py:290
+msgctxt "search"
+msgid "stretch squish aspect tall"
+msgstr ""
+
+#: telescope/plugins/transforms.py:357
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "Zoom en esta computadora: este lente no puede hacer zoom por sí mismo"
 
-#: telescope/plugins/transforms.py:330
+#: telescope/plugins/transforms.py:358
 msgid "Zoomed on this computer"
 msgstr "Zoom en esta computadora"
 
-#: telescope/plugins/transforms.py:332
+#: telescope/plugins/transforms.py:360
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "Zoom en el sensor del teléfono hasta donde permite este lente; el resto, en esta computadora"
 
-#: telescope/plugins/transforms.py:334
+#: telescope/plugins/transforms.py:362
 msgid "Zoomed on the phone's sensor"
 msgstr "Zoom en el sensor del teléfono"
 
-#: telescope/plugins/transforms.py:340
+#: telescope/plugins/transforms.py:368
 msgid "Dots mark where the phone switches to another lens"
 msgstr "Los puntos marcan dónde cambia el teléfono a otro lente"
 
-#: telescope/plugins/transforms.py:342
+#: telescope/plugins/transforms.py:370
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} está moviendo el zoom y la panorámica"
