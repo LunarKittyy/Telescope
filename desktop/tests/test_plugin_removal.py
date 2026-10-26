@@ -41,6 +41,7 @@ class _Worker:
     """Stands in for StreamWorker: no thread, no virtual camera."""
     made = []
     parked = False
+    camera_size = None
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
