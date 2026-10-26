@@ -14,6 +14,7 @@ class StillOptionsTest {
     private val full = StillCaps(
         jpeg = 4080 to 3072, heic = 4080 to 3072, ultraHdr = 4080 to 3072, raw = 4080 to 3072,
         maxResJpeg = 8160 to 6144, maxResRaw = 8160 to 6144, extensions = listOf("night", "hdr", "bokeh"),
+        extensionSizes = mapOf("night" to (3840 to 2160), "hdr" to (4080 to 3072), "bokeh" to (4080 to 3072)),
         manualSensor = true, manualFocus = true, exposureMinNs = 10_000L, exposureMaxNs = 30_000_000_000L,
         isoMin = 50, isoMax = 6400, minFocusDistance = 10f, nrHq = true, edgeHq = true, hotPixelHq = true,
         distortion = true,
@@ -181,6 +182,20 @@ class StillOptionsTest {
         assertEquals(30_000_000_000L, flagship.exposureMaxNs)
         assertTrue(flagship.bracketing && flagship.focusBracketing && flagship.distortionCorrection)
         assertEquals(StillOptions.MAX_SHOTS, flagship.burstMax)
+        // Night takes its photos smaller than the lens's own JPEG
+        assertEquals(StillSize(3840, 2160), flagship.extensionSizes["night"])
+        assertEquals(4080, flagship.width)
+        assertTrue(emulator.extensionSizes.isEmpty())
+    }
+
+    @Test
+    fun `a long exposure next to the stream counts as pausing the video`() {
+        assertFalse(ok(mapOf("format" to "jpeg")).pausesVideo)
+        assertFalse(ok(mapOf("format" to "jpeg", "bracket_ev" to "-2,0,2")).pausesVideo)
+        assertTrue(ok(mapOf("format" to "jpeg", "exposure_ns" to "4000000000")).pausesVideo)
+        // Short ones add up in a burst
+        assertTrue(ok(mapOf("format" to "jpeg", "exposure_ns" to "100000000", "count" to "6")).pausesVideo)
+        assertTrue(ok(mapOf("format" to "jpeg", "extension" to "night")).pausesVideo)
     }
 
     @Test

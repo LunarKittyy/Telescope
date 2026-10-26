@@ -1239,6 +1239,9 @@ class CameraSessionController(
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
         captureSession = null; cameraDevice = null
+        // The old lens's photo outputs wouldn't fit the new one: StillCapture makes them again for it
+        stillOutputs = emptyList()
+        stillPaused = false
 
         val openId = entry.logicalId ?: entry.id
         val physId = if (entry.logicalId != null) entry.id else null

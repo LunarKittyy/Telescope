@@ -133,6 +133,7 @@ A real photo from the phone's camera at full quality, not a frame of the video. 
 | `width`, `height` | The largest JPEG, which is what a photo is taken at |
 | `maxResWidth`, `maxResHeight` | The JPEG from the maximum resolution sensor mode (Android 12), only when it's bigger. `maxResRaw` is true when RAW works in that mode too |
 | `extensions` | The maker's own modes the lens has through Camera2 extensions (Android 12): `night`, `hdr`, `bokeh` and `auto` |
+| `extensionSizes` | The size each of those modes takes its photos at, like `{"night": {"width": 3840, "height": 2160}}`. Often smaller than `width` and `height` |
 | `exposureMaxNs` | The longest exposure the sensor and its frame duration allow, for long exposures. 0 on a lens without manual exposure |
 | `bracketing`, `focusBracketing` | Exposure bracketing (needs manual exposure) and focus bracketing (needs manual focus) |
 | `noiseReductionHq`, `sharpeningHq`, `hotPixelHq`, `distortionCorrection` | The high quality noise reduction, sharpening and hot pixel modes, and whether distortion correction can be switched |
@@ -175,7 +176,7 @@ A plain photo goes into the stream's own camera session next to the video and th
  "files": [{"name": "IMG_20261026_142501_01.dng", "size": 48711980, "type": "image/x-adobe-dng"}]}
 ```
 
-`state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`: one of the codes above, or `interrupted` when the stream's session was rebuilt under it, `timeout` and `failed`). `paused` is true while the video is paused for it. `files` lists every file written so far in the order they were taken, and a desktop can start fetching them before the last one is done.
+`state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`: one of the codes above, or `interrupted` when the stream's session was rebuilt under it, `timeout` and `failed`). `paused` is true while the video is paused for it, which also covers manual exposures next to the stream that add up to half a second or more, since those frames stay out of the video. `files` lists every file written so far in the order they were taken, and a desktop can start fetching them before the last one is done.
 
 `GET /v1/still/file?id=<id>&n=<index>` sends file `n` (from 0) with its `Content-Length` and `Content-Type`, streamed in pieces since a RAW file is often 50 MB or more. It takes one of the stream slots while it sends, and a download that stops moving for 30 seconds is cut off. Both `GET` requests answer `404` for an `id` or file the phone doesn't have (any more).
 

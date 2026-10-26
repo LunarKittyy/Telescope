@@ -54,6 +54,7 @@ data class StillCapability(
     val maxResHeight: Int = 0,
     val maxResRaw: Boolean = false,  // RAW in that mode too
     val extensions: List<String> = emptyList(),  // the maker's "night", "hdr", "bokeh" and "auto" modes
+    val extensionSizes: Map<String, StillSize> = emptyMap(),  // the JPEG size each of those modes takes its photos at
     val exposureMaxNs: Long = 0L,  // long exposures up to this; 0 = no manual exposure
     val bracketing: Boolean = false,  // exposure bracketing
     val focusBracketing: Boolean = false,
@@ -64,6 +65,9 @@ data class StillCapability(
     val burstMax: Int = 1,  // the most pictures one request takes, bursts and brackets together
 )
 
+@Serializable
+data class StillSize(val width: Int, val height: Int)
+
 // GET /v1/still?id=<id>: how a photo request is getting on
 @Serializable
 data class StillStatus(
@@ -73,7 +77,7 @@ data class StillStatus(
     val taken: Int = 0,
     val files: List<StillFile> = emptyList(),  // the ones ready to fetch, in the order they were taken
     val countdown_ms: Long = 0L,  // while waiting: how long until it shoots
-    val paused: Boolean = false,  // the video is paused while it shoots (its own camera session)
+    val paused: Boolean = false,  // the video gets no frames while it shoots (its own camera session, or a long exposure)
     val error: String? = null,  // English, for desktops that don't read code
     val code: String? = null,
 )

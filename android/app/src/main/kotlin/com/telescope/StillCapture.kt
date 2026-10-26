@@ -93,7 +93,7 @@ class StillCapture(
     }
 
     private inner class Run(val id: String, val request: StillRequest, val caps: StillCaps, val generation: Int,
-                            val array: SensorBox?, val maxResArray: SensorBox?) {
+                            val cameraId: String, val array: SensorBox?, val maxResArray: SensorBox?) {
         var active = true
         var outputs: Outputs? = null
         var own: Outputs? = null      // its own session's outputs, closed when it's done
@@ -143,11 +143,13 @@ class StillCapture(
         }
     }
 
-    // From any thread, once the controller was asked for another lens: a photo on its timer for the old lens fails now
+    // From any thread, once the controller was asked for another lens: a photo on its timer or in flight for the old lens fails now
     fun lensChanged() {
         handler()?.post {
+            val lens = controller.stillCamera()?.id
+            current?.let { r -> if (r.cameraId != lens) end(r, "interrupted", "The lens changed during the photo") }
             val w = waiting ?: return@post
-            if (controller.stillCamera()?.id == w.cameraId) return@post
+            if (lens == w.cameraId) return@post
             waiting = null
             handler()?.removeCallbacks(w.go)
             jobs.fail(w.id, "interrupted", "The lens changed before the photo")
@@ -189,7 +191,7 @@ class StillCapture(
             manager.getCameraCharacteristics(cam.id).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION)
                 ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
         }.getOrNull() else null
-        val r = Run(id, request, caps, controller.stillGeneration(), cam.activeArray, maxResArray)
+        val r = Run(id, request, caps, controller.stillGeneration(), cam.id, cam.activeArray, maxResArray)
         current = r
         handler()?.postDelayed({ if (current === r && r.active) end(r, "timeout", "The phone took too long") },
             SETUP_MS + request.exposureMs + request.shots.size * SHOT_MS)
@@ -251,7 +253,8 @@ class StillCapture(
 
     private fun beside(r: Run) {
         val session = controller.stillSession() ?: return end(r, "camera_off", "The camera isn't running")
-        jobs.capturing(r.id, paused = false)
+        // A long exposure stays out of the video, which then gets no frames until it's done
+        jobs.capturing(r.id, paused = r.request.pausesVideo)
         listen(r, r.outputs!!)
         shoot(r, session, streamTargets = !r.request.maxRes)
     }
@@ -586,9 +589,9 @@ class StillCapture(
         val cam = controller.stillCamera() ?: return end(r, "camera_off", "The camera isn't running")
         val type = StillOptions.EXTENSIONS.entries.first { it.value == r.request.extension }.key
         val ext = manager.getCameraExtensionCharacteristics(cam.logicalId ?: cam.id)
-        val size = ext.getExtensionSupportedSizes(type, ImageFormat.JPEG).maxByOrNull { it.width.toLong() * it.height }
+        val size = r.caps.extensionSizes[r.request.extension] ?: StillCatalog.extensionSize(ext, type)
             ?: return end(r, "unsupported", "This lens has no '${r.request.extension}' mode")
-        val reader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, IMAGES)
+        val reader = ImageReader.newInstance(size.first, size.second, ImageFormat.JPEG, IMAGES)
         val outputs = Outputs("ext", listOf(Output(StillOptions.JPEG, reader, StillOutput(reader.surface, false), IMAGES)))
         r.own = outputs
         r.outputs = outputs
