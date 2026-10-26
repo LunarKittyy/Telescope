@@ -50,6 +50,7 @@ Optional, for anyone with a green or blue screen. It swaps the screen behind you
 - **Behind you** is a **Colour** you pick or a **Picture** (PNG, JPEG, WebP or BMP) scaled to cover the frame
 - Presets save it like the other picture settings
 
+## Cinema tools
 
 Optional, for judging focus and exposure while you set ISO, shutter and focus by hand. Switch it on under **Optional** in the Plugins tab of Settings. Everything it draws stays on the preview and apps using the virtual camera never get any of it.
 
