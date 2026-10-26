@@ -10,7 +10,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from telescope import h264_reader, vcam, vision
+from telescope import h264_reader, packets, vcam, vision
 from telescope.h264_reader import H264Reader
 from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
@@ -28,6 +28,9 @@ HANDOVER_TIMEOUT_S = 10.0  # ...or it gives up on it
 HANDOVER_TAKE_S = 5.0  # how long a ready one waits for the reader to take it (a read on the old route can block)
 # JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
 MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
+
+# Every frame a stream sends out gets the next number, across all streams, so a number never comes round again.
+_frame_numbers = itertools.count(1)
 
 # A plugin step that fails this many frames in a row is skipped until the next stream.
 STEP_FAILS_BEFORE_SKIP = 30
@@ -135,6 +138,8 @@ class StreamWorker(QThread):
         self._vcam_free.set()
         # The newest processed frame (BGR, as the decoders give it and the plugins work on it).
         self._latest       = None
+        self._published    = None  # (_latest, its number, time.monotonic() when it was made), swapped in whole
+        self.camera_size: Optional[tuple] = None  # (width, height) the virtual camera last opened at
         self._to_cam: Optional[Callable] = None  # the camera's own format from BGR, set by _open_vcam (None: BGR)
         self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
         self._seq          = itertools.count(1)
@@ -155,6 +160,8 @@ class StreamWorker(QThread):
         self._settle_since: Optional[float] = time.monotonic()
         self._settle_flowing: Optional[float] = None
         self._settle_last_frame = 0.0
+        # Plugins' steps on the H.264 before it's decoded (HostPackets); a phone's Light stream only
+        self.packets = packets.Tap()
         self._photo_until = 0.0  # until then frames stopping is the phone taking a photo, not a dropped stream
 
     def _process(self, frame):
@@ -165,6 +172,21 @@ class StreamWorker(QThread):
     def latest_frame(self):
         """The newest frame sent out (BGR), or None before the first; for a thumbnail."""
         return self._latest
+
+    def published(self) -> Optional[tuple]:
+        """(frame, number, time) of the newest frame sent out, from any thread; the frame is never changed after."""
+        return self._published
+
+    def replace_frame(self, frame, number: int) -> bool:
+        """From any thread: send frame out in place of the newest one, numbered number, unless a newer one came since.
+        published() keeps the stream's own frame."""
+        with self._publish_lock:
+            published = self._published
+            if self._latest is None or published is None or published[1] != number:
+                return False
+            self._latest = frame
+        self._frame_ready.set()
+        return True
 
     def set_pipeline(self, frame_pipeline: list):
         """Swap the plugin steps from the next frame on (the panels moved to another stream, or back)."""
@@ -303,8 +325,9 @@ class StreamWorker(QThread):
 
     def _new_reader(self, url: str):
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
-        reader_cls = H264Reader if url.endswith(".h264") else UdpH264Reader if url.endswith(".udp") else MjpegReader
-        return reader_cls(url, self.auth)
+        if url.endswith((".h264", ".udp")):
+            return (H264Reader if url.endswith(".h264") else UdpH264Reader)(url, self.auth, tap=self.packets)
+        return MjpegReader(url, self.auth)
 
     def _open_cap(self):
         if self._open_reader is not None:
@@ -406,6 +429,7 @@ class StreamWorker(QThread):
             here = vision.current_frame.set((self, seq))  # the plugins' person_mask() knows which stream this is
             try:
                 self._latest = self._prepare(raw)
+                self._published = (self._latest, next(_frame_numbers), time.monotonic())
             except Exception:
                 logger.exception("Frame processing failed; dropping this frame")
                 return
@@ -465,7 +489,8 @@ class StreamWorker(QThread):
             self._bytes_total += cap.last_frame_bytes
             self._count_arrived(getattr(cap, "last_frame_count", 1))
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
-            self._latest = None
+            with self._publish_lock:
+                self._latest = None  # under the lock, so replace_frame() can't slip a frame in before the first
             self._publish(next(self._seq), frame)
             if self._latest is None:
                 cap.release()
@@ -517,6 +542,7 @@ class StreamWorker(QThread):
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = vcam.slot_label(self.slot) if vcam.IS_LINUX else cam.device
+                self.camera_size = (cam_w, cam_h)
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", tr("Streaming {size} at {fps} fps to {camera}", size=f"{cam_w} × {cam_h}",
                                          fps=self._fps, camera=shown_as))

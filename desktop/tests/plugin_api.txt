@@ -2,8 +2,13 @@ BannerAction(label, callback, keeps_banner=False)
 BannerAction.callback
 BannerAction.keeps_banner = False
 BannerAction.label
+ColourStage(fn, per_channel=False, size=33)
+ColourStage.fn
+ColourStage.per_channel = False
+ColourStage.size = 33
 EventBus.add_phone_requested()
 EventBus.camera_on_changed(bool)
+EventBus.camera_opened(QString,int,int,int)
 EventBus.camera_switched(PyQt_PyObject)
 EventBus.camera_watched(bool)
 EventBus.cover_requested(QString,bool)
@@ -33,6 +38,7 @@ EventBus.phones_changed(int)
 EventBus.preview_pick_changed(QString)
 EventBus.remembered_sources(QVariantList)
 EventBus.resolution_change_requested(int,int)
+EventBus.sensors_changed(QString)
 EventBus.setup_guide_requested()
 EventBus.setup_needed(bool)
 EventBus.source_selected(QString)
@@ -62,8 +68,17 @@ HostCamera.can_turn_camera_off(self)
 HostCamera.is_camera_off_auto(self)
 HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
+HostColour.colour_preview(self, frame)
+HostColour.colour_split(self, owner, position)
+HostColour.set_colour_stage(self, owner, stage, order=0, source_id=None)
+HostFrames.frame_source(self)
+HostFrames.replace_frame(self, source_id, frame, number)
+HostFrames.stream_frame(self, source_id, copy=False)
+HostFrames.stream_frames(self, copy=False)
 HostMotion.motion(self, owner)
 HostMotion.watch_motion(self, owner, zones, sensitivity=5)
+HostPackets.change_packets(self, owner, make_step)
+HostPackets.packets_problem(self)
 HostPreview.add_preview_layer(self, owner, layer)
 HostPreview.cancel_pick(self, owner)
 HostPreview.finish_pick(self, owner)
@@ -72,6 +87,9 @@ HostPreview.preview_overlays(self)
 HostPreview.refresh_preview(self)
 HostPreview.remove_preview_layer(self, owner)
 HostPreview.set_preview_warp(self, owner, matrix)
+HostSensors.sensor_reading(self, source_id=None)
+HostSensors.sensor_status(self, source_id=None)
+HostSensors.want_sensors(self, owner, kinds)
 HostSettings.apply_preset(self, name, cfg)
 HostSettings.device_config(self, source_id, plugin_name)
 HostSettings.forget_device_settings(self, name)
@@ -117,6 +135,7 @@ HostStreams.start_stream(self, interactive=True)
 HostStreams.stop_all_streams(self)
 HostStreams.stop_stream(self, source_id=None)
 HostStreams.stream_count(self)
+HostStreams.stream_on_camera(self, slot=0)
 HostStreams.stream_output(self, source_id)
 HostStreams.update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id=None)
 HostView.release_view(self, owner)
@@ -164,6 +183,23 @@ PreviewLayer.analyse_fps = 0.0
 PreviewLayer.order = 0
 PreviewLayer.paint(self, painter, rect)
 PreviewLayer.tint(self, frame)
+SensorReading(at=0.0, roll=None, pitch=None, camera='', orientation_at=0.0, accelerometer=None, gyroscope=None, magnetometer=None, gravity=None, rotation=None, light=None)
+SensorReading.accelerometer = None
+SensorReading.at = 0.0
+SensorReading.camera = ''
+SensorReading.gravity = None
+SensorReading.gyroscope = None
+SensorReading.light = None
+SensorReading.magnetometer = None
+SensorReading.orientation_at = 0.0
+SensorReading.pitch = None
+SensorReading.roll = None
+SensorReading.rotation = None
+SensorStatus(state='off', kinds=(), streaming=(), reason='')
+SensorStatus.kinds = ()
+SensorStatus.reason = ''
+SensorStatus.state = 'off'
+SensorStatus.streaming = ()
 SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='', footer=None)
 SettingsSection.footer = None
 SettingsSection.keywords = ''
@@ -215,6 +251,13 @@ StillResult.code = ''
 StillResult.error = ''
 StillResult.files
 StillResult.ok
+StreamFrame(source_id, name, frame, number, time)
+StreamFrame.age(self, now=None)
+StreamFrame.frame
+StreamFrame.name
+StreamFrame.number
+StreamFrame.source_id
+StreamFrame.time
 StreamSource.control_client(self)
 StreamSource.fps(self)
 StreamSource.id

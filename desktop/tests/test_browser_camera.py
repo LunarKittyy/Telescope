@@ -11,6 +11,7 @@ import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
 import telescope.sources as sources_module
 from telescope.browser_server import BrowserFeed, ServerStats
+from telescope import packets
 from telescope.plugin import EventBus
 from telescope.plugins.browser_camera import (
     HINT_AFTER_S, REMEMBER_DAYS, SOURCE_ID, BrowserCameraPlugin, waiting_hint,
@@ -102,6 +103,7 @@ class _Worker:
         self.kwargs = kwargs
         self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
         self.auth = None
+        self.packets = packets.Tap()
 
     def start(self):
         pass

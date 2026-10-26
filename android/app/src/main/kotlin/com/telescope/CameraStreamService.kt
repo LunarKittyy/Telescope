@@ -63,6 +63,7 @@ data class CameraEntry(
     val facing: String = "",  // LensLabel.BACK, FRONT or EXTERNAL
     val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
     val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
+    val sensorOrientation: Int = 0,  // SENSOR_ORIENTATION: the clockwise turn that makes the picture upright on the screen
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -446,7 +447,8 @@ class CameraStreamService : Service() {
                             aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
-                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind)
+                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
+                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -482,6 +484,12 @@ class CameraStreamService : Service() {
     private val stillCaps = java.util.concurrent.ConcurrentHashMap<String, StillCaps>()
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
+    private val sensorsMade = lazy {
+        PhoneSensors(this) {
+            controller?.getCurrentCamera()?.let { PhoneSensors.Lens(it.id, it.facing, it.sensorOrientation) }
+        }
+    }
+    private val sensors by sensorsMade
     @Volatile private var micForeground = false
     // In the foreground on its own; false while running under WaitingService.
     private var inForeground = false
@@ -560,6 +568,7 @@ class CameraStreamService : Service() {
             if (streamingSinceMs == 0L) streamingSinceMs = System.currentTimeMillis()
             rememberSelection()
             mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
+            mainHandler.post(::showNotes)  // notes that came while Recovering or while Preview had the surface
         }
         android.util.Log.i(
             TAG,
@@ -816,6 +825,7 @@ class CameraStreamService : Service() {
             dynamicFull    = { controller?.dynamicFull ?: false },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
+            sensors        = sensors,
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
             onWifiViewersChanged = { watching -> mainHandler.post {
                 if (server === serving) {
@@ -989,7 +999,13 @@ class CameraStreamService : Service() {
             camera_error_code = if (controller?.cameraError != null) "camera_in_use" else null,
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
+            takes_notes = true,
+            notes = NotesBoard.hasNotes,
+            notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
+            notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
+            notes_preview = NotesBoard.wantsScreen && !NotesBoard.shown && controller?.hasPreviewSurface() == true,
             stills = 1,
+            sensors = sensors.available(),
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -1000,6 +1016,7 @@ class CameraStreamService : Service() {
     }
 
     private fun handleControlCommand(params: Map<String, String>): String {
+        NotesCommand.parse(params)?.let { return notesControl(it) }
         val ctrl = controller ?: return err("camera not ready")
         return try {
             when (params["action"]) {
@@ -1143,9 +1160,34 @@ class CameraStreamService : Service() {
                     ctrl.setCameraOn(params["value"] == "1")
                     ok()
                 }
+                "keyframe" -> {
+                    // A desktop plugin that changed the H.264 before decoding it stopped: this brings the picture back
+                    ctrl.requestKeyFrame()
+                    ok()
+                }
                 else -> err("unknown action '${params["action"]}'")
             }
         } catch (e: Exception) { err(e.message ?: "exception") }
+    }
+
+    // Notes don't touch the camera, so they work with it off too
+    private fun notesControl(command: NotesCommand): String {
+        if (command is NotesCommand.Refused) return err(command.error)
+        if (NotesBoard.apply(command)) mainHandler.post { showNotes() }
+        return ok()
+    }
+
+    // Runs on new text and on every return to Streaming (Preview closing ends in one too); MainActivity.onStart covers the app coming to the front
+    private fun showNotes() {
+        val info = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(info)
+        val inFront = info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        if (!NotesBoard.opensNow(isStreaming, controller?.hasPreviewSurface() == true, inFront)) return
+        try {
+            startActivity(NotesActivity.intent(this))
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Couldn't open the notes", e)
+        }
     }
 
     // POST /v1/still: {"action": "take", ...StillOptions} starts a photo, {"action": "forget", "id"} deletes its files
@@ -1182,11 +1224,13 @@ class CameraStreamService : Service() {
         stills = null
         stillJobs.clear()
         server?.stop()
+        if (sensorsMade.isInitialized()) sensors.stopAll()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
+        NotesBoard.clear()
         streamingSinceMs = 0L
         viewer = null
         setState(StreamState.Idle, op)

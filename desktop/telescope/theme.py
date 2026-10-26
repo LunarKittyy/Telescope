@@ -42,6 +42,7 @@ PLUGIN_HUES = {
     "camera":     "#7fd3c4",  # mint
     "phone":      "#f2a0bf",  # rose
     "vision":     "#bcd98c",  # pistachio, the optional plugins that find people in the picture
+    "grade":      "#e6a6e0",  # orchid, Colour grading
 }
 _own_hues = True
 

@@ -593,6 +593,8 @@ class StreamOutputPlugin(TelescopePlugin):
         self._format = fmt
         self._show_format()
         self._host.schedule_save()
+        if not self._host.is_streaming():
+            self._bus.stream_transport_changed.emit()  # a stream reconnects instead, which says it again
         # The route decides the phone's codec, so switching means reconnecting.
         self._host.reconnect_stream()
 

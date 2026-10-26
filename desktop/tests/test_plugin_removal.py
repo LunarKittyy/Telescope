@@ -12,6 +12,7 @@ import telescope.plugins.connection as connection_module
 from telescope.config import load_config
 import telescope.plugins.setup as setup_plugin
 import telescope.updates as updates_module
+from telescope import packets
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
 from telescope.plugins.onboarding import OnboardingPlugin
@@ -45,6 +46,7 @@ class _Worker:
         self.kwargs = kwargs
         self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
         self.started = self.stopped = False
+        self.packets = packets.Tap()
         _Worker.made.append(self)
 
     def start(self):

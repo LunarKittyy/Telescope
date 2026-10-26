@@ -328,4 +328,4 @@ def test_real_rnnoise_keeps_up_with_10_ms_chunks_easily():
         start = time.perf_counter()
         w._shape(c)
         took.append(time.perf_counter() - start)
-    assert np.median(took) < 0.001  # a 10 ms chunk in under 1 ms, usually about 0.2 ms
+    assert np.median(took) < 0.005  # a 10 ms chunk in under 5 ms, usually about 0.2 ms (shared CI runners hit 1.7)

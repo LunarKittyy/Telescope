@@ -227,6 +227,8 @@ class MainActivity : AppCompatActivity() {
         // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
         syncWaitForComputer()
+        // Notes the computer sent while the app wasn't on screen, and that weren't closed since
+        if (NotesBoard.wantsScreen && CameraStreamService.instance?.isStreaming == true) startActivity(NotesActivity.intent(this))
         // RECEIVER_EXPORTED is required for adb, but gated on DUMP permission (shell-only)
         ContextCompat.registerReceiver(
             this, pairReceiver, IntentFilter(ACTION_PAIR),

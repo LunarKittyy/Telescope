@@ -315,3 +315,35 @@ def test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback(ha
     decode_newest(decoder, packets[1])
     assert decoder.hardware == "cuda" and not h264_reader._hw_failed
     assert decode_newest(decoder, b"".join(packets[2:])) is not None
+
+
+class _RefusingCodec:
+    """A graphics card decoder that splits the stream fine but refuses every picture."""
+    options = {}
+
+    def __init__(self):
+        self._real = av.CodecContext.create("h264", "r")
+
+    def parse(self, data):
+        return self._real.parse(data)
+
+    def decode(self, packet):
+        raise av.error.InvalidDataError(1, "refused")
+
+
+def test_the_software_fallback_gives_steps_each_unit_once(hardware):
+    from telescope import packets
+    seen = []
+
+    def make():
+        mine = []
+        seen.append(mine)
+        return lambda u: (mine.append(u), [u])[1]
+    tap = packets.Tap()
+    tap.set({"test": make})
+    hardware.append(_RefusingCodec())
+    dec = new_decoder(tap)
+    assert dec.hardware == "cuda"
+    frame, _count = h264_reader.decode_counted(dec, b"".join(_packets([60, 120])))
+    assert frame is not None and dec.hardware is None
+    assert len(seen) == 3 and len(seen[-1]) == 2  # a fresh step for the software decoder, given each unit once

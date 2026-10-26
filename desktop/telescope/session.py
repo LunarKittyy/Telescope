@@ -42,6 +42,7 @@ class Sessions:
         self.held_states: dict = {}  # id: (source, session id, state) that needs the panels once that start is through
         self.start_later: list = []  # starts that waited for the extra cameras, one at a time once they're there
         self.canvas_restart = False  # a canvas resize stopped the stream and starts it once done; a Stop cancels it
+        self.changed: Callable[[], None] = lambda: None  # called after a stream is added, changes worker or goes
 
     # ── Which sources stream ──────────────────────────────────────────────
 
@@ -50,11 +51,13 @@ class Sessions:
         source.session = session
         if source not in self.streams:
             self.streams.append(source)
+        self.changed()
 
     def forget(self, source: "Source"):
         source.session = None
         if source in self.streams:
             self.streams.remove(source)
+        self.changed()
 
     @property
     def shown(self) -> Optional[StreamSession]:
