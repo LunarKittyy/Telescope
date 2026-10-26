@@ -67,6 +67,7 @@ AUTO_UP_DB = 0.06  # per 10 ms chunk: 6 dB/s up, slow so it doesn't pump...
 AUTO_DOWN_DB = 0.3  # ...and 30 dB/s down, so a loud bit comes down quickly (the limiter catches the first of it)
 AUTO_LEVEL_RATE = 0.02  # per chunk: the speech level it goes by is an average over about half a second
 LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping catches anything in between
+NR_SWITCH_WAIT = 200  # chunks (2 s) noise reduction waits for a pause to switch in, before switching anyway
 
 
 def _close(resp):
@@ -241,9 +242,11 @@ class JitterBuffer:
         part = self._buf[start:start + n]
         if not part.size:
             return False
-        rms = float(np.sqrt(np.mean(part * part)))
-        limit = min(_dbfs(QUIET_MAX_DBFS), max(_dbfs(QUIET_DBFS), self._floor * 2))
-        return rms < limit
+        return float(np.sqrt(np.mean(part * part))) < self.quiet_limit()
+
+    def quiet_limit(self) -> float:
+        """The RMS a quiet moment stays under: near the room's own noise, and never as loud as speech."""
+        return min(_dbfs(QUIET_MAX_DBFS), max(_dbfs(QUIET_DBFS), self._floor * 2))
 
     def _cubic(self, at: np.ndarray) -> np.ndarray:
         """Catmull-Rom between samples: straight lines would dull "s" and "t" sounds."""
@@ -359,7 +362,8 @@ class AudioWorker:
         self.noise_reduction = False  # RNNoise, before everything else; stays off without the library
         self._make_denoiser = make_denoiser
         self._denoiser = None  # made by the writer when switched on, and only ever used there
-        self._wet = 0.0  # how much of the cleaned audio the last chunk ended on: switching fades over a chunk
+        self._wet = 0.0  # 1.0 once the cleaned audio is what's written; switching fades over a chunk
+        self._nr_waited = 0  # chunks a switch of noise_reduction has waited for a pause
         self._recent: collections.deque = collections.deque(maxlen=denoise.DELAY // (CHUNK // 2))  # to start RNNoise on
         self._auto_db = 0.0  # automatic level's gain now
         self._speech_db: Optional[float] = None  # how loud speech has been lately (RMS, dBFS); None before any
@@ -574,9 +578,9 @@ class AudioWorker:
         return np.clip(samples, -32768, FULL_SCALE).astype(np.int16).tobytes()
 
     def _reduce_noise(self, data: bytes) -> Optional[np.ndarray]:
-        """The chunk through RNNoise, fading between it and the plain audio over a chunk when switched; None while off."""
-        on = self.noise_reduction
-        if not on and self._wet == 0.0:
+        """The chunk through RNNoise once it's switched in; None while the plain audio is written."""
+        want = 1.0 if self.noise_reduction else 0.0
+        if want == 0.0 and self._wet == 0.0:
             self._recent.append(data)
             self._drop_denoiser()
             return None
@@ -593,12 +597,21 @@ class AudioWorker:
             for old in self._recent:  # so it has its lookahead already and doesn't open with 20 ms of silence
                 self._denoiser.process(np.frombuffer(old, np.int16).astype(np.float32))
         wet = self._denoiser.process(dry)
+        recent = list(self._recent)
         self._recent.append(data)
-        target = 1.0 if on else 0.0
-        if target == self._wet:
+        if want == self._wet:
+            self._nr_waited = 0
             return wet
-        ramp = np.linspace(self._wet, target, dry.size, dtype=np.float32)
-        self._wet = target
+        # RNNoise's output is 20 ms behind: switching repeats or skips 20 ms, so it waits for a pause that long
+        self._nr_waited += 1
+        limit = self._buffer.quiet_limit()
+        if self._nr_waited < NR_SWITCH_WAIT and not all(
+                float(np.sqrt(np.mean(np.square(np.frombuffer(c, np.int16), dtype=np.float32)))) < limit
+                for c in recent + [data]):
+            return wet if self._wet else None
+        self._nr_waited = 0
+        ramp = np.linspace(self._wet, want, dry.size, dtype=np.float32)
+        self._wet = want
         return dry + (wet - dry) * ramp
 
     def _drop_denoiser(self):
@@ -606,6 +619,7 @@ class AudioWorker:
             self._denoiser.close()
             self._denoiser = None
         self._wet = 0.0
+        self._nr_waited = 0
 
     def _auto(self, samples: np.ndarray) -> np.ndarray:
         """Automatic level: follows how loud speech is and moves its gain toward the target, holding it in pauses."""

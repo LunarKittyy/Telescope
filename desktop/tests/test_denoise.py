@@ -33,16 +33,20 @@ class _EchoLib:
         return 0.0
 
 
-class _Halver:
-    """A denoiser that halves everything, so a test can tell its audio from the plain one."""
+class _Lagging:
+    """A denoiser that scales everything by gain and, like RNNoise, hands it back 20 ms late."""
 
-    def __init__(self):
+    def __init__(self, gain=1.0):
+        self.gain = gain
         self.seen = []
         self.closed = False
+        self._lag = np.zeros(denoise.DELAY, np.float32)
 
     def process(self, samples):
         self.seen.append(samples.copy())
-        return samples * 0.5
+        both = np.concatenate((self._lag, samples))
+        self._lag = both[samples.size:]
+        return both[:samples.size] * self.gain
 
     def close(self):
         self.closed = True
@@ -163,42 +167,88 @@ def test_a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on(
     assert len(calls) == 1 and "noise reduction" in caplog.text
 
 
-def test_switching_fades_over_one_chunk_each_way_and_lets_go_of_rnnoise():
+def _made(gain=1.0):
     made = []
 
     def make():
-        made.append(_Halver())
+        made.append(_Lagging(gain))
         return made[-1]
+    return made, make
+
+
+def test_switching_in_a_pause_fades_over_one_chunk_each_way_and_lets_go_of_rnnoise():
+    made, make = _made(0.5)
     w = _worker(make)
     w.limit = False
-    loud = np.full(CHUNK_SAMPLES, 8000.0)
-    assert np.array_equal(_shape_all(w, loud), loud)  # off: untouched
+    hush = np.full(CHUNK_SAMPLES * 3, 200.0)  # the room between words
+    assert np.array_equal(_shape_all(w, hush), hush)  # off: untouched
     w.noise_reduction = True
-    fading = _shape_all(w, loud)
-    assert fading[0] == 8000 and fading[-1] == pytest.approx(4000, abs=10)
+    fading = _shape_all(w, hush[:CHUNK_SAMPLES])
+    assert fading[0] == 200 and fading[-1] == pytest.approx(100, abs=1)
     assert np.all(np.diff(fading) <= 0)  # smoothly, no jump
-    assert np.array_equal(_shape_all(w, loud), np.full(CHUNK_SAMPLES, 4000.0))
+    assert np.array_equal(_shape_all(w, hush[:CHUNK_SAMPLES]), np.full(CHUNK_SAMPLES, 100.0))
     w.noise_reduction = False
-    back = _shape_all(w, loud)
-    assert back[0] == 4000 and back[-1] == pytest.approx(8000, abs=10)
-    assert np.array_equal(_shape_all(w, loud), loud)
+    back = _shape_all(w, hush[:CHUNK_SAMPLES])
+    assert back[0] == 100 and back[-1] == pytest.approx(200, abs=1)
+    assert np.array_equal(_shape_all(w, hush[:CHUNK_SAMPLES]), hush[:CHUNK_SAMPLES])
     assert len(made) == 1 and made[0].closed
 
 
+def _talk(segments, speech_chunks=30, pause_chunks=5):
+    """Loud speech in which no two neighbouring samples match, with silent pauses between."""
+    parts, at = [], 0
+    for _ in range(segments):
+        n = CHUNK_SAMPLES * speech_chunks
+        parts += [1000 + (np.arange(at, at + n) % 20000), np.zeros(CHUNK_SAMPLES * pause_chunks)]
+        at += n
+    return np.concatenate(parts).astype(np.float32)
+
+
+def test_switching_mid_sentence_waits_for_the_pause_so_no_speech_is_repeated_or_dropped():
+    made, make = _made()
+    w = _worker(make)
+    w.limit = False
+    x = _talk(6)
+    switch = {10: True, 45: False, 80: True, 120: False}  # chunk: switched to, each in the middle of a sentence
+    out = []
+    for k in range(x.size // CHUNK_SAMPLES):
+        if k in switch:
+            w.noise_reduction = switch[k]
+        if k in (31, 66, 101, 136):  # still in that sentence: nothing has changed yet
+            assert w._wet == (0.0 if k in (31, 101) else 1.0)
+        if k in (35, 70, 105, 140):  # the next sentence: it switched in the pause
+            assert w._wet == (1.0 if k in (35, 105) else 0.0)
+        out.append(np.frombuffer(w._shape(_pcm(x[k * CHUNK_SAMPLES:(k + 1) * CHUNK_SAMPLES])), np.int16))
+    out = np.concatenate(out).astype(np.float32)
+    assert np.array_equal(out[np.abs(out) > 500], x[x > 500])  # every sample of speech once, in order
+
+
+def test_with_no_pause_it_switches_anyway_after_two_seconds():
+    made, make = _made()
+    w = _worker(make)
+    w.limit = False
+    x = _talk(1, speech_chunks=audio.NR_SWITCH_WAIT + 10, pause_chunks=0)
+    w.noise_reduction = True
+    for k in range(audio.NR_SWITCH_WAIT + 5):
+        w._shape(_pcm(x[k * CHUNK_SAMPLES:(k + 1) * CHUNK_SAMPLES]))
+        assert w._wet == (1.0 if k >= audio.NR_SWITCH_WAIT - 1 else 0.0)
+
+
 def test_rnnoise_starts_on_the_audio_just_before_so_it_doesnt_open_with_silence():
-    made = []
-    w = _worker(lambda: made.append(_Halver()) or made[-1])
+    made, make = _made()
+    w = _worker(make)
     w.limit = False
     for level in (100, 200, 300):
         w._shape(_pcm(np.full(CHUNK_SAMPLES, level)))
     w.noise_reduction = True
-    w._shape(_pcm(np.full(CHUNK_SAMPLES, 400)))
+    out = np.frombuffer(w._shape(_pcm(np.full(CHUNK_SAMPLES, 400))), np.int16)
     assert [float(s[0]) for s in made[0].seen] == [200.0, 300.0, 400.0]  # its 20 ms lookahead, then the chunk
+    assert out[-1] == 200  # faded into what it gave back for 20 ms ago, not into silence
 
 
 def test_the_writer_lets_go_of_rnnoise_when_it_stops():
-    made = []
-    w = _worker(lambda: made.append(_Halver()) or made[-1])
+    made, make = _made()
+    w = _worker(make)
     w.noise_reduction = True
     w._shape(_pcm(np.full(CHUNK_SAMPLES, 1000)))
     w._drop_denoiser()
@@ -206,12 +256,13 @@ def test_the_writer_lets_go_of_rnnoise_when_it_stops():
 
 
 def test_noise_reduction_comes_before_gain():
-    made = []
-    w = _worker(lambda: made.append(_Halver()) or made[-1])
+    made, make = _made(0.5)
+    w = _worker(make)
     w.limit = False
     w.noise_reduction = True
+    w._wet = 1.0  # already switched in
     w.gain = w._gain = 2.0  # already there, no fade
-    for _ in range(2):
+    for _ in range(3):
         out = np.frombuffer(w._shape(_pcm(np.full(CHUNK_SAMPLES, 3000))), np.int16)
     assert made[0].seen[-1].max() == 3000  # it hears the mic as it comes
     assert np.all(out == 3000)  # halved, then doubled

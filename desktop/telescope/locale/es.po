@@ -123,7 +123,7 @@ msgstr "Iniciar"
 msgid "Stop streaming"
 msgstr "Detener transmisión"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:674 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:688 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "No está transmitiendo"
 
@@ -328,41 +328,41 @@ msgstr "Comienza a transmitir automáticamente cuando es necesario."
 msgid "Right-click the tray icon to quit."
 msgstr "Haz clic derecho en el icono de la bandeja del sistema para salir."
 
-#: telescope/audio.py:463
+#: telescope/audio.py:467
 msgid "Can't reach the phone's microphone."
 msgstr "No se puede conectar con el micrófono del teléfono."
 
-#: telescope/audio.py:476 telescope/audio.py:485
+#: telescope/audio.py:480 telescope/audio.py:489
 msgid "The phone's microphone stopped."
 msgstr "El micrófono del teléfono se detuvo."
 
-#: telescope/audio.py:511
+#: telescope/audio.py:515
 #, python-brace-format
 msgid "Couldn't open the virtual microphone: {error}"
 msgstr "No se pudo abrir el micrófono virtual: {error}"
 
-#: telescope/audio.py:522
+#: telescope/audio.py:526
 msgid "The virtual microphone stopped taking audio."
 msgstr "El micrófono virtual dejó de recibir audio."
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
-#: telescope/audio.py:673
+#: telescope/audio.py:687
 msgid "No microphone"
 msgstr "Sin micrófono"
 
-#: telescope/audio.py:675
+#: telescope/audio.py:689
 msgid "Allow the microphone in Telescope on the phone"
 msgstr "Permite el acceso al micrófono en Telescope en el teléfono"
 
-#: telescope/audio.py:676
+#: telescope/audio.py:690
 msgid "Open Telescope on the phone once, then try again"
 msgstr "Abre Telescope en el teléfono una vez y luego intenta de nuevo"
 
-#: telescope/audio.py:677
+#: telescope/audio.py:691
 msgid "The phone's microphone is in use"
 msgstr "El micrófono del teléfono está en uso"
 
-#: telescope/audio.py:686
+#: telescope/audio.py:700
 #, python-brace-format
 msgid "The phone refused the microphone (HTTP {code})."
 msgstr "El teléfono rechazó el micrófono (HTTP {code})."
@@ -375,11 +375,11 @@ msgstr "Esperando al navegador. Escanea el código en la tarjeta Cámara del nav
 msgid "This computer couldn't set up the video connection."
 msgstr "Esta computadora no pudo configurar la conexión de video."
 
-#: telescope/denoise.py:87
+#: telescope/denoise.py:88
 msgid "The pyrnnoise package isn't installed."
 msgstr ""
 
-#: telescope/denoise.py:88
+#: telescope/denoise.py:89
 #, python-brace-format
 msgid "Couldn't load RNNoise: {error}"
 msgstr ""
