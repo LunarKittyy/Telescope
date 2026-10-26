@@ -3852,3 +3852,11 @@ def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypa
     assert resets == [True]
     window._tracking.drop("phone")
     assert window.tracked_people() == ([], 0)
+
+
+def test_a_lens_switch_starts_motion_over(window, monkeypatch):
+    from telescope.motion import LENS_SETTLE_S
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda settle_s=0.0: resets.append(settle_s))
+    window._bus.camera_switched.emit({"id": "2"})
+    assert resets == [LENS_SETTLE_S]

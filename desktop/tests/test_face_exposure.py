@@ -165,6 +165,16 @@ def test_picking_a_focus_mode_by_hand_wins_too_and_follow_my_face_comes_back(car
     assert picked == [pytest.approx((0.4, 0.3))]
 
 
+def test_picking_manual_by_hand_shows_the_manual_focus_note(card):
+    plugin, _host, bus, picked, see = card
+    plugin._switch.setChecked(True)
+    bus.focus_mode_picked.emit("manual")
+    bus.focus_mode_changed.emit("manual")
+    see((0.4, 0.3))
+    assert picked == [] and "Manual" in plugin._manual_note.text()
+    assert plugin.diagnostics()["Expose for my face"] == "waiting (manual focus)"
+
+
 def test_nothing_is_sent_while_the_lens_cant_meter_on_a_point(card):
     plugin, _host, bus, picked, see = card
     plugin._switch.setChecked(True)
