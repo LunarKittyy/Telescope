@@ -22,10 +22,11 @@ class VisionStatus(QWidget):
         lay.setSpacing(8)
         lay.addWidget(self._label, 1)
         lay.addWidget(self._download_btn)
-        bus.vision_state_changed.connect(lambda _state: self._show())
+        # Methods, not lambdas: the app's bus and download outlive the card, and a method lets go when it goes
+        bus.vision_state_changed.connect(self._on_changed)
         dl = vision_download.shared()
         dl.progress.connect(self._on_progress)
-        dl.finished.connect(lambda _error: self._show())
+        dl.finished.connect(self._on_changed)
         self._show()
 
     def text(self) -> str:
@@ -59,6 +60,9 @@ class VisionStatus(QWidget):
         self._label.setText(text)
         self.setVisible(bool(text))
         self._download_btn.setVisible(download)
+
+    def _on_changed(self, *_):
+        self._show()
 
     def _download(self):
         vision_download.shared().start()

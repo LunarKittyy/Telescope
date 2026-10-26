@@ -760,6 +760,15 @@ def button_row(*buttons: QPushButton) -> QHBoxLayout:
     return lay
 
 
+def call_later(ms: int, owner, fn):
+    """Run fn in ms unless owner is gone by then; QTimer.singleShot ties a lambda to nothing and runs it regardless."""
+    timer = QTimer(owner)
+    timer.setSingleShot(True)
+    timer.timeout.connect(fn)
+    timer.timeout.connect(timer.deleteLater)
+    timer.start(ms)
+
+
 def host_window(host) -> "QWidget | None":
     """The main window, as the parent of a plugin's own window so it stays above it; None for a test's stand-in."""
     return host if isinstance(host, QWidget) else None

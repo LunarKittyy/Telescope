@@ -137,7 +137,8 @@ def cinema(qt_widgets):
     for section in plugin.create_settings_sections():
         qt_widgets(section.widget)
     plugin.set_config({})
-    return plugin, host
+    yield plugin, host
+    plugin.shutdown()
 
 
 def test_the_layer_is_on_the_preview_only_while_a_tool_is(cinema):

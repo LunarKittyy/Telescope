@@ -353,18 +353,15 @@ def test_moving_a_tile_doesnt_scale_the_background_picture_again(tmp_path, monke
     assert covered == [(64, 36), (32, 18)]
 
 
-def test_four_1080p_streams_draw_well_inside_a_60_fps_frame():
+def test_four_1080p_streams_draw_well_inside_a_60_fps_frame(timing):
     streams = [(c, c, 16 / 9) for c in "abcd"]
     rng = np.random.default_rng(2)
     frames = {c: (rng.integers(0, 255, (1080, 1920, 3), np.uint8), None) for c in "abcd"}
     for tiles in (composite.big_and_small(streams, 16 / 9), composite.grid(streams, 16 / 9)):
         comp = Compositor()
         comp.prepare(Layout(tiles=tiles), (1920, 1080))
-        comp.render(frames)
-        start = time.perf_counter()
-        for _ in range(10):
-            comp.render(frames)
-        assert (time.perf_counter() - start) / 10 < 1 / 60
+        # About 9 pieces of reference work, 2 ms on a desktop; four times that is a real slowdown, not a busy runner
+        assert timing.relative(lambda: comp.render(frames)) < 36
 
 
 # ── The plugin ────────────────────────────────────────────────────────────
@@ -554,15 +551,18 @@ def test_settings_and_presets_bring_the_picture_back(plugin, qapp):
     other = CompositePlugin()
     other.setup(_Host(), EventBus())
     other.card = other.create_panel()
-    other.set_config(saved)
-    assert other.get_config() == saved and other._switch.isChecked()
+    try:
+        other.set_config(saved)
+        assert other.get_config() == saved and other._switch.isChecked()
 
-    preset = dict(saved, layouts=[])  # what a preset saved, and a layout list that's changed since
-    plugin.set_layout(Layout())
-    plugin._switch.setChecked(False)
-    plugin.apply_preset(preset)
-    assert plugin.layout() == other.layout() and plugin._switch.isChecked()
-    assert plugin.names() == ["Two"]  # a preset leaves the saved layouts alone
+        preset = dict(saved, layouts=[])  # what a preset saved, and a layout list that's changed since
+        plugin.set_layout(Layout())
+        plugin._switch.setChecked(False)
+        plugin.apply_preset(preset)
+        assert plugin.layout() == other.layout() and plugin._switch.isChecked()
+        assert plugin.names() == ["Two"]  # a preset leaves the saved layouts alone
+    finally:
+        other.shutdown()
 
 
 def test_a_key_picks_a_saved_layout(plugin):

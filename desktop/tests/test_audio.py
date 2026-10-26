@@ -469,15 +469,20 @@ def test_level_counts_the_gain_and_keeps_samples_whole_across_odd_reads():
 def test_meter_keeps_moving_while_nothing_reads_the_mic():
     pcm = np.full(48_000, 16384, np.int16).tobytes()
 
+    resumed = threading.Event()
+
     class _StuckSink(_Sink):
         def write(self, b):
-            time.sleep(10)  # PipeWire suspended the mic and stopped reading the pipe
+            resumed.wait(10)  # PipeWire suspended the mic and stopped reading the pipe
 
     w, _ = _worker(lambda req, timeout: _Resp(pcm), _StuckSink())
     seen = []
     w.start()
-    assert _until(lambda: seen.append(w.take_level()[0]) or max(seen) > 0.4)  # each look resets the level
-    w._stop.set()
+    try:
+        assert _until(lambda: seen.append(w.take_level()[0]) or max(seen) > 0.4)  # each look resets the level
+    finally:
+        resumed.set()
+        w.stop()
 
 
 def _wave(amp: float, n: int = audio.CHUNK // 2, phase: int = 0) -> bytes:

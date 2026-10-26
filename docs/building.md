@@ -39,6 +39,8 @@ python scripts/smoke_check.py    # packaging smoke checks
 python scripts/bench_frames.py   # what each plugin costs a frame
 ```
 
+A test fails at teardown when it leaves a thread or an active `QTimer` behind or when an exception happens in a Qt callback during it (without the suite's hook PyQt aborts the whole process for those). Left running they fire into whichever test comes next, and that's where Qt crashes, in a different test every run. Stop what the test started in its fixture (a plugin's `shutdown()` usually does it). Timing checks compare against reference work measured in the same run with the `timing` fixture rather than against milliseconds, because a busy CI runner can easily be several times slower than a desktop.
+
 `bench_frames.py` builds the window offscreen with every plugin and runs synthetic 1080p frames through the real frame path: each plugin idle and at its heaviest settings, a session with several on, the stream worker, the preview, Several cameras in one picture and decoding. It prints each one's time per frame, its share of a 30 and a 60 fps frame and how much memory it allocates. `--profile` lists the costliest calls under each row and `--only fun_pack` keeps to one plugin. The vision model is swapped for a stand-in that costs nothing, which leaves only what Telescope's own code adds (Copy diagnostics has the real model's times).
 
 For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. Those launchers create their own environment for running the app; they don't install the test dependencies or activate it in your terminal. Linux still needs the [virtual camera setup](setup.md) for a real stream.

@@ -780,10 +780,24 @@ class _Live(_Capture):
         pass
 
 
+_handover_workers = []
+
+
+@pytest.fixture(autouse=True)
+def _handovers_end():
+    """A test's hand-over threads end before it lets go of their worker, so the GUI thread destroys it."""
+    yield
+    for worker in _handover_workers:
+        worker._stop_flag = True
+        worker.join_handover()
+    _handover_workers.clear()
+
+
 def _handover_worker(monkeypatch, new_reader):
     monkeypatch.setattr(stream, "HANDOVER_HEALTHY_S", 0.2)
     monkeypatch.setattr(stream, "HANDOVER_TIMEOUT_S", 1.5)
     worker = stream.StreamWorker("https://10.0.0.5:8080/v1/video", None, None, 30)
+    _handover_workers.append(worker)
     monkeypatch.setattr(worker, "_new_reader", lambda url: new_reader)
     moved, failed = [], []
     worker.moved.connect(moved.append)

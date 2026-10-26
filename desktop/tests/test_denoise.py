@@ -1,6 +1,5 @@
 import ctypes
 import logging
-import time
 
 import numpy as np
 import pytest
@@ -316,16 +315,10 @@ def test_real_rnnoise_takes_the_room_out_and_keeps_the_voice():
 
 
 @real
-def test_real_rnnoise_keeps_up_with_10_ms_chunks_easily():
+def test_real_rnnoise_keeps_up_with_10_ms_chunks_easily(timing):
     w = _worker(denoise.make)
     w.noise_reduction = w.auto_level = True
     rng = np.random.default_rng(3)
-    chunks = [_pcm(rng.standard_normal(CHUNK_SAMPLES) * 3000) for _ in range(300)]
-    for c in chunks[:20]:
-        w._shape(c)
-    took = []
-    for c in chunks[20:]:
-        start = time.perf_counter()
-        w._shape(c)
-        took.append(time.perf_counter() - start)
-    assert np.median(took) < 0.005  # a 10 ms chunk in under 5 ms, usually about 0.2 ms (shared CI runners hit 1.7)
+    chunks = iter([_pcm(rng.standard_normal(CHUNK_SAMPLES) * 3000) for _ in range(300)])
+    # A 10 ms chunk is about 0.6 pieces of reference work (0.2 ms on a desktop); five times that is a real slowdown
+    assert timing.relative(lambda: w._shape(next(chunks)), runs=100) < 3

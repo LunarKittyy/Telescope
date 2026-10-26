@@ -43,7 +43,7 @@ from telescope.widgets.settings_window import SettingsWindow
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets import vision_download
 from telescope.widgets.common import (
-    ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
+    ElidingLabel, call_later, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
 )
 from telescope.i18n import N_, and_list, tr, trn
 
@@ -2083,7 +2083,7 @@ class TelescopeWindow(QMainWindow):
         source.pending_resolution_timer = None
         if source is self._active_source():
             self._fps_lbl.setStyleSheet(f"color: {theme.ERR};")
-            QTimer.singleShot(4000, lambda: self._fps_lbl.setStyleSheet(""))
+            call_later(4000, self._fps_lbl, lambda: self._fps_lbl.setStyleSheet(""))
 
     def _clear_pending_resolution(self, source: Optional[Source] = None):
         source = source or self._active_source()

@@ -12,11 +12,13 @@ import pytest
 DESKTOP = Path(__file__).resolve().parents[1]
 
 
-def _run(tmp_path, code):
+def _run(tmp_path, code, exit_code=True):
     env = {**os.environ, "XDG_DATA_HOME": str(tmp_path / "data"), "XDG_CONFIG_HOME": str(tmp_path / "config"),
            "TELESCOPE_DEV_PROFILE": str(tmp_path / "profile"), "QT_QPA_PLATFORM": "offscreen"}
     result = subprocess.run([sys.executable, "-c", code], cwd=DESKTOP, env=env, capture_output=True, text=True, timeout=15)
-    assert result.returncode == 0, result.stderr
+    if exit_code:
+        assert result.returncode == 0, result.stderr
+    return result
 
 
 @pytest.mark.parametrize("args", [["--list-actions"], ["--action", "microphone.mute", "mode=toggle"], []])
@@ -69,7 +71,7 @@ else:
 
 def test_the_window_comes_up_without_loading_what_only_a_stream_needs(tmp_path):
     # Each file loaded is seconds of Windows checking it on a first start, so these wait until the window is up
-    _run(tmp_path, """
+    result = _run(tmp_path, """
 import os
 import socket
 import sys
@@ -83,10 +85,11 @@ try:
     main.main()
 except SystemExit:
     pass
-loaded = [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if name in sys.modules]
-print(loaded, file=sys.stderr, flush=True)
-os._exit(1 if loaded else 0)  # the window is still up, and tearing Qt down at exit isn't what's under test
-""")
+print('loaded', [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if name in sys.modules], flush=True)
+os._exit(0)  # the window is still up, and tearing Qt down at exit isn't what's under test
+""", exit_code=False)
+    # Judged by what it printed: on Windows, exiting under a live window and its threads can crash after that
+    assert "loaded []" in result.stdout, result.stdout + result.stderr
 
 
 def test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app(tmp_path):

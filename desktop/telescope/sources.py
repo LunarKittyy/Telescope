@@ -380,6 +380,11 @@ class PhoneSource(Source):
         self._alive_timer = QTimer(self)
         self._alive_timer.setInterval(_ALIVE_POLL_MS)
         self._alive_timer.timeout.connect(self._check_alive)
+        self._camera_on_timer = QTimer(self)
+        self._camera_on_timer.setSingleShot(True)
+        self._camera_on_timer.setInterval(_CAMERA_ON_CHECK_MS)
+        self._camera_on_timer.timeout.connect(self._spawn_camera_on_check)
+        self._camera_on_session = 0
         self._alive_misses = 0
         self._alive_busy = False
         # Remote-stop requests; quit path waits for these to complete.
@@ -483,6 +488,7 @@ class PhoneSource(Source):
             conn.release_stream(self.id)
         self._handover = None  # a stopped worker says nothing more about it
         self._alive_timer.stop()
+        self._camera_on_timer.stop()
         self._camera_fps = None
         self.dynamic_fps = 0
         self.heat_fps = 0
@@ -843,9 +849,11 @@ class PhoneSource(Source):
             self._host.lost_contact(self)
 
     def camera_turned_on(self, session_id: int):
-        QTimer.singleShot(_CAMERA_ON_CHECK_MS, lambda: self._spawn_camera_on_check(session_id))
+        self._camera_on_session = session_id
+        self._camera_on_timer.start()
 
-    def _spawn_camera_on_check(self, session_id: int):
+    def _spawn_camera_on_check(self):
+        session_id = self._camera_on_session
         session = self.session
         if session is None or session.id != session_id or self.camera_off:
             return

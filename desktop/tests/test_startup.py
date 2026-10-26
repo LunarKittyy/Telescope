@@ -92,7 +92,8 @@ def env(qapp):
     host, bus = _Host(), EventBus()
     plugin = StartupPlugin()
     plugin.setup(host, bus)
-    return plugin, host, bus
+    yield plugin, host, bus
+    plugin.shutdown()
 
 
 def test_off_by_default_and_never_starts(env):
