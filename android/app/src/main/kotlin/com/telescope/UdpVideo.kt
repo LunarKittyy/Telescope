@@ -100,6 +100,8 @@ class UdpLink {
     private var batchExpected = 0L  // datagrams towards the next loss share (LOSS_DATAGRAMS)
     private var batchGot = 0L
     private val batches = ArrayDeque<LongArray>()  // (when, sent, got) per loss share, for lossLately
+    private var batchLoss = 0.0  // the last loss share, which samples carry until the next one (or LATELY_MS)
+    private var batchLossMs = Long.MIN_VALUE / 2
 
     /** Whether this desktop sends reports at all (an older one doesn't). */
     @Volatile var reporting = false
@@ -153,23 +155,26 @@ class UdpLink {
         val sent = if (clockMs > 0) bytes * span / clockMs else 0L
         batchExpected += expected
         batchGot += got
-        var loss = 0.0
         if (batchExpected >= LOSS_DATAGRAMS) {
-            loss = (batchExpected - batchGot).coerceAtLeast(0).toDouble() / batchExpected
+            batchLoss = (batchExpected - batchGot).coerceAtLeast(0).toDouble() / batchExpected
+            batchLossMs = nowMs
             batches.addLast(longArrayOf(nowMs, batchExpected, batchGot))
             batchExpected = 0; batchGot = 0
         }
+        // At low bitrates a share takes a few samples: those in between carry it rather than looking clear
+        var loss = if (nowMs - batchLossMs <= LATELY_MS) batchLoss else 0.0
         while (batches.isNotEmpty() && nowMs - batches.first()[0] > LATELY_MS) batches.removeFirst()
         val lately = batches.sumOf { it[1] }.let { sentLately ->
             if (sentLately > 0) (sentLately - batches.sumOf { it[2] }).coerceAtLeast(0).toDouble() / sentLately else 0.0
         }
-        if (gaveUp > 0) loss = maxOf(loss, GAVE_UP_LOSS)
+        val gave = gaveUp > 0
+        if (gave) loss = maxOf(loss, GAVE_UP_LOSS)
         val wait = maxOf(if (waitMs == Long.MAX_VALUE) 0L else waitMs, waitingMs)
         val router = if (extraMs == Long.MAX_VALUE) 0L else extraMs
         val queue = maxOf(wait, router)
         expected = 0; got = 0; bytes = 0; clockMs = 0; gaveUp = 0; fresh = false
         extraMs = Long.MAX_VALUE; waitMs = Long.MAX_VALUE
-        return if (first) null else Take(queue, sent, loss, router, if (gaveUp > 0) maxOf(lately, GAVE_UP_LOSS) else lately)  // the first one only starts the count
+        return if (first) null else Take(queue, sent, loss, router, if (gave) maxOf(lately, GAVE_UP_LOSS) else lately)  // the first one only starts the count
     }
 }
 
@@ -216,20 +221,33 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
 // UdpVideoClient's pacing on a schedule, so an oversleep (Android's timer slack) is caught up rather than lost; pure, a JVM test
 class UdpPacer(private val burst: Int = UdpVideoClient.PACE_BURST) {
     private var nextNs = Long.MIN_VALUE  // when the next datagram is due at the pace
-    private var owed = false              // behind because it overslept, not because it was idle
+    private var wakeNs = Long.MIN_VALUE  // when the sleep it last asked for should end
+    private var lastNs = 0L              // the last call or wake, so sends straight after a wake can be told from ones after idle
+    private var overNs = 0L              // how far the last sleep overran, still to catch up
 
     /** How long to wait before sending bytes at bps; 0 or less is no pacing, and nothing builds up meanwhile. */
     fun waitNs(bytes: Int, bps: Int, nowNs: Long): Long {
-        if (bps <= 0) { nextNs = Long.MIN_VALUE; owed = false; return 0 }
+        if (bps <= 0) { nextNs = Long.MIN_VALUE; wakeNs = Long.MIN_VALUE; overNs = 0; return 0 }
         val burstNs = (burst * 8e9 / bps).toLong()
-        if (owed && nextNs >= nowNs - burstNs) owed = false
-        val floor = nowNs - if (owed) CATCH_UP_NS else burstNs  // idle banks at most a burst
+        // An oversleep is caught up by the sends right after it, never by ones after idle
+        if (overNs > 0 && (nowNs - lastNs > MIN_SLEEP_NS || nextNs >= nowNs - burstNs)) overNs = 0
+        lastNs = nowNs
+        val floor = nowNs - maxOf(burstNs, overNs)  // idle banks at most a burst
         if (nextNs < floor) nextNs = floor
         val wait = nextNs - nowNs
         nextNs += (bytes * 8e9 / bps).toLong()
         if (wait < MIN_SLEEP_NS) return 0  // short waits add up until one is worth a sleep
-        owed = true
+        wakeNs = nowNs + wait
+        overNs = 0
         return wait
+    }
+
+    /** The sleep waitNs asked for ended at nowNs: how late it woke (Android's timer slack) is caught up next. */
+    fun woke(nowNs: Long) {
+        if (wakeNs == Long.MIN_VALUE) return
+        overNs = (nowNs - wakeNs).coerceIn(0, CATCH_UP_NS)
+        wakeNs = Long.MIN_VALUE
+        lastNs = nowNs
     }
 
     companion object {
@@ -363,7 +381,9 @@ class UdpVideoClient(
     // A keyframe going out in one burst can overflow a router's buffer on a thin link, which then loses it
     private fun pace(bytes: Int) {
         val waitNs = pacer.waitNs(bytes, paceBps, System.nanoTime())
-        if (waitNs > 0) Thread.sleep(waitNs / 1_000_000, (waitNs % 1_000_000).toInt())
+        if (waitNs <= 0) return
+        Thread.sleep(waitNs / 1_000_000, (waitNs % 1_000_000).toInt())
+        pacer.woke(System.nanoTime())
     }
 
     private fun send(plain: ByteArray) {

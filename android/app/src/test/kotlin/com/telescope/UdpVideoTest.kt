@@ -82,6 +82,7 @@ class UdpVideoTest {
         assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 0))  // under a millisecond owed: no sleep yet
         assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))
         // It asked for 1 ms and the phone slept 40: the time it's behind goes out now, not lost to the cap
+        pacer.woke(40_000_000)
         repeat(39) { assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 40_000_000)) }
         assertTrue(pacer.waitNs(1_000, 8_000_000, 40_000_000) > 0)
         assertEquals(0L, pacer.waitNs(5_000, 0, 41_000_000))  // off
@@ -91,6 +92,19 @@ class UdpVideoTest {
         val steady = UdpPacer(burst = 10_000)
         steady.waitNs(10_000, 100_000_000, 0)
         assertEquals(0L, steady.waitNs(1_000, 100_000_000, 900_000_000_000L))  // minutes at one rate: no overflow
+    }
+
+    @Test
+    fun `a frame whose last datagram overslept doesn't bank the idle after it`() {
+        val pacer = UdpPacer(burst = 10_000)  // 8 Mbps: 1000 bytes a millisecond
+        pacer.waitNs(10_000, 8_000_000, 0)
+        pacer.waitNs(1_000, 8_000_000, 0)
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))  // the frame's last datagram sleeps
+        pacer.woke(5_000_000)  // 4 ms late
+        // The next frame, a big keyframe, comes 33 ms later: a burst goes at once and the rest is paced
+        var atOnce = 0
+        while (pacer.waitNs(1_000, 8_000_000, 33_000_000) <= 0) atOnce++
+        assertTrue(atOnce * 1_000 <= 10_000 + 1_000, "$atOnce datagrams at once")
     }
 
     @Test
