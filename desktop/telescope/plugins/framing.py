@@ -225,6 +225,7 @@ class FramingPlugin(TelescopePlugin):
     optional = True
     needs_vision = True
     in_presets = True  # a preset can be a scene: framing on for talking, off with the zoom parked on something
+    device_local = True  # framing the camera on you shouldn't zoom the desk camera out
     panel_region = "left"
 
     def setup(self, host, bus):

@@ -72,6 +72,7 @@ class FaceExposurePlugin(TelescopePlugin):
     optional = True
     needs_vision = True
     in_presets = True
+    device_local = True  # metering on your face only makes sense on a camera that sees it
     panel_region = "right"
 
     def setup(self, host, bus):

@@ -52,6 +52,8 @@ Optional. It hides other people who walk into the picture, in one of three ways 
 
 **Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
 
+With several cameras streaming it watches the one shown in the panels, and whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred stays blurred.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
 ## Fun pack
@@ -152,7 +154,7 @@ It only works on 64-bit Intel and AMD computers for now.
 
 ## Name tag
 
-Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card.
+Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card. With several cameras each one has its own tag (or none), so the desk camera doesn't have to show your name too.
 
 - **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
 - **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
@@ -163,7 +165,7 @@ Optional. It puts your name and pronouns in a corner of the picture, with a smal
 
 ## Presets
 
-The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. Auto framing, Background and Colour grading are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
+The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. The optional picture plugins (Auto framing, Background, Fun pack, Colour grading and the others) are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
 
 ## Resolution and FPS
 
@@ -229,6 +231,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 - The first time Telescope adds those cameras and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all
+- Picture effects belong to the camera you set them on. Turning on a Fun pack look, Background, Chroma key, Auto framing, Expose for my face or a Name tag for one stream leaves the others as they were, just like Transforms, Desk mode and Colour grading always did
 - A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes
 - Only one stream has the mic at a time (the first to start). To move it, click another tile and turn on **Phone mic**
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
@@ -278,7 +281,7 @@ Optional. It lets the people you live with know you're on a call without you hav
 - A new IP address from the router breaks nothing, since the phone announces itself on the network
 - On a slow Wi-Fi stream the note tells you when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
 - The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
-- Camera, output, transform and alert settings are saved per phone. Connection settings and the canvas are shared
+- Camera, output, transform and alert settings are saved per phone and so are picture effects like Background or the Fun pack. Connection settings and the canvas are shared
 
 ## Privacy
 
