@@ -387,15 +387,15 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: telescope/overlays.py:445
+#: telescope/overlays.py:458
 msgid "Click a point on the picture. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:447
+#: telescope/overlays.py:460
 msgid "Drag across the picture to mark an area. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:448
+#: telescope/overlays.py:461
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr ""
 
@@ -791,7 +791,7 @@ msgstr "Plugin"
 msgid "Updates & About"
 msgstr "Pembaruan & Tentang"
 
-#: telescope/plugin.py:493
+#: telescope/plugin.py:494
 msgid "Open settings"
 msgstr "Buka pengaturan"
 
@@ -942,7 +942,7 @@ msgstr "Pilih…"
 msgid "Pick the picture that goes behind you"
 msgstr "Pilih gambar yang ditempatkan di belakang Anda"
 
-#: telescope/plugins/background.py:134 telescope/plugins/background.py:198 telescope/plugins/chroma_key.py:223 telescope/plugins/chroma_key.py:328
+#: telescope/plugins/background.py:134 telescope/plugins/background.py:198 telescope/plugins/chroma_key.py:223 telescope/plugins/chroma_key.py:329
 msgid "No picture yet"
 msgstr "Belum ada gambar"
 
@@ -958,15 +958,15 @@ msgstr "Tepi"
 msgid "Background blur"
 msgstr "Buram latar belakang"
 
-#: telescope/plugins/background.py:187 telescope/plugins/chroma_key.py:316
+#: telescope/plugins/background.py:187 telescope/plugins/chroma_key.py:317
 msgid "Choose a picture"
 msgstr "Pilih gambar"
 
-#: telescope/plugins/background.py:197 telescope/plugins/chroma_key.py:327
+#: telescope/plugins/background.py:197 telescope/plugins/chroma_key.py:328
 msgid "Telescope can't open that picture."
 msgstr "Telescope tidak dapat membuka gambar tersebut."
 
-#: telescope/plugins/background.py:224 telescope/plugins/chroma_key.py:345
+#: telescope/plugins/background.py:224 telescope/plugins/chroma_key.py:346
 msgid "Choose a picture to put behind you."
 msgstr "Pilih gambar untuk ditempatkan di belakang Anda."
 
@@ -1121,7 +1121,7 @@ msgstr "Kamera browser tidak tersedia"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Pindai kode pada kartu Kamera browser dengan perangkat yang akan digunakan. Streaming akan dimulai segera setelah terhubung."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:168 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:190 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Batal"
 
@@ -1498,15 +1498,15 @@ msgstr ""
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:291
+#: telescope/plugins/chroma_key.py:292
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:309
+#: telescope/plugins/chroma_key.py:310
 msgid "Colour behind you"
 msgstr ""
 
-#: telescope/plugins/chroma_key.py:340
+#: telescope/plugins/chroma_key.py:341
 msgid "The colour picked from the preview. Click to pick again."
 msgstr ""
 
@@ -1546,100 +1546,100 @@ msgstr ""
 msgid "Large"
 msgstr ""
 
-#: telescope/plugins/cinema.py:34
+#: telescope/plugins/cinema.py:35
 msgid "Crushed"
 msgstr ""
 
-#: telescope/plugins/cinema.py:35
+#: telescope/plugins/cinema.py:36
 msgid "Too dark"
 msgstr ""
 
-#: telescope/plugins/cinema.py:37
+#: telescope/plugins/cinema.py:38
 msgid "Middle grey"
 msgstr ""
 
-#: telescope/plugins/cinema.py:39
+#: telescope/plugins/cinema.py:40
 msgid "Skin"
 msgstr ""
 
-#: telescope/plugins/cinema.py:41
+#: telescope/plugins/cinema.py:42
 msgid "Nearly clipped"
 msgstr ""
 
-#: telescope/plugins/cinema.py:42
+#: telescope/plugins/cinema.py:43
 msgid "Clipped"
 msgstr ""
 
-#: telescope/plugins/cinema.py:205 telescope/plugins/cinema.py:221 telescope/plugins/cinema.py:249 telescope/plugins/cinema.py:291
+#: telescope/plugins/cinema.py:236 telescope/plugins/cinema.py:252 telescope/plugins/cinema.py:280 telescope/plugins/cinema.py:322
 msgid "Cinema tools"
 msgstr ""
 
-#: telescope/plugins/cinema.py:206
+#: telescope/plugins/cinema.py:237
 msgid "Focus peaking, zebras, false colour and scopes on the preview, for judging focus and exposure."
 msgstr ""
 
-#: telescope/plugins/cinema.py:207
+#: telescope/plugins/cinema.py:238
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
 msgstr ""
 
-#: telescope/plugins/cinema.py:223 telescope/plugins/cinema.py:293
+#: telescope/plugins/cinema.py:254 telescope/plugins/cinema.py:324
 msgid "Focus peaking"
 msgstr ""
 
-#: telescope/plugins/cinema.py:224
+#: telescope/plugins/cinema.py:255
 msgid "Outline what's sharp"
 msgstr ""
 
-#: telescope/plugins/cinema.py:225 telescope/plugins/cinema.py:294
+#: telescope/plugins/cinema.py:256 telescope/plugins/cinema.py:325
 msgid "Zebras"
 msgstr ""
 
-#: telescope/plugins/cinema.py:226
+#: telescope/plugins/cinema.py:257
 msgid "Stripe what's about to clip to white"
 msgstr ""
 
-#: telescope/plugins/cinema.py:227 telescope/plugins/cinema.py:295
+#: telescope/plugins/cinema.py:258 telescope/plugins/cinema.py:326
 msgid "False colour"
 msgstr ""
 
-#: telescope/plugins/cinema.py:228
+#: telescope/plugins/cinema.py:259
 msgid "Colour the picture by how bright it is"
 msgstr ""
 
-#: telescope/plugins/cinema.py:239 telescope/plugins/cinema.py:296
+#: telescope/plugins/cinema.py:270 telescope/plugins/cinema.py:327
 msgid "Scope"
 msgstr ""
 
-#: telescope/plugins/cinema.py:240
+#: telescope/plugins/cinema.py:271
 msgid "Only on the preview. Apps never see these."
 msgstr ""
 
-#: telescope/plugins/cinema.py:250
+#: telescope/plugins/cinema.py:281
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor"
 msgstr ""
 
-#: telescope/plugins/cinema.py:261
+#: telescope/plugins/cinema.py:292
 msgid "Peaking colour"
 msgstr ""
 
-#: telescope/plugins/cinema.py:266
+#: telescope/plugins/cinema.py:297
 msgid "Higher outlines softer edges too"
 msgstr ""
 
-#: telescope/plugins/cinema.py:269
+#: telescope/plugins/cinema.py:300
 msgid "Peaking sensitivity"
 msgstr ""
 
-#: telescope/plugins/cinema.py:274
+#: telescope/plugins/cinema.py:305
 msgid "How bright something has to be to get stripes"
 msgstr ""
 
-#: telescope/plugins/cinema.py:277
+#: telescope/plugins/cinema.py:308
 msgid "Zebras from"
 msgstr ""
 
-#: telescope/plugins/cinema.py:286
+#: telescope/plugins/cinema.py:317
 msgid "Scope size"
 msgstr ""
 
@@ -1821,7 +1821,7 @@ msgstr "Anda dapat mulai streaming sekarang."
 msgid "Paired with {name}"
 msgstr "Tersanding dengan {name}"
 
-#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:166
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:188
 msgid "Done"
 msgstr "Selesai"
 
@@ -2262,80 +2262,84 @@ msgstr ""
 msgid "Black and white"
 msgstr ""
 
-#: telescope/plugins/desk.py:134 telescope/plugins/desk.py:198 telescope/plugins/desk.py:211
+#: telescope/plugins/desk.py:155 telescope/plugins/desk.py:220 telescope/plugins/desk.py:233
 msgid "Desk and document mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:135
+#: telescope/plugins/desk.py:156
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
 msgstr ""
 
-#: telescope/plugins/desk.py:136
+#: telescope/plugins/desk.py:157
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
 msgstr ""
 
-#: telescope/plugins/desk.py:158
+#: telescope/plugins/desk.py:180
 msgid "Straighten the sheet you marked"
 msgstr ""
 
-#: telescope/plugins/desk.py:160 telescope/plugins/desk.py:213
+#: telescope/plugins/desk.py:182 telescope/plugins/desk.py:235
 msgid "Desk mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:163 telescope/plugins/desk.py:214 telescope/plugins/desk.py:273
+#: telescope/plugins/desk.py:185 telescope/plugins/desk.py:236 telescope/plugins/desk.py:302
 msgid "Mark the sheet"
 msgstr ""
 
-#: telescope/plugins/desk.py:164
+#: telescope/plugins/desk.py:186
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:180
+#: telescope/plugins/desk.py:202
 msgid "Make the writing on the sheet stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:185
+#: telescope/plugins/desk.py:207
 msgid "Writing"
 msgstr ""
 
-#: telescope/plugins/desk.py:199
+#: telescope/plugins/desk.py:221
 msgctxt "search"
 msgid "document paper sheet whiteboard homework perspective straighten keystone scan"
 msgstr ""
 
-#: telescope/plugins/desk.py:201
+#: telescope/plugins/desk.py:223
 msgid "Keep the sheet's shape"
 msgstr ""
 
-#: telescope/plugins/desk.py:202
+#: telescope/plugins/desk.py:224
 msgid "Off stretches the sheet to fill the whole picture"
 msgstr ""
 
-#: telescope/plugins/desk.py:215
+#: telescope/plugins/desk.py:237
 msgid "Make the writing stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:248
+#: telescope/plugins/desk.py:270
 msgid "Drag the corners onto the sheet's corners, then press Enter."
 msgstr ""
 
-#: telescope/plugins/desk.py:249
+#: telescope/plugins/desk.py:271
 msgid "Start streaming to mark the sheet on the preview."
 msgstr ""
 
-#: telescope/plugins/desk.py:273
+#: telescope/plugins/desk.py:302
 msgid "Mark the sheet again"
 msgstr ""
 
-#: telescope/plugins/desk.py:275
+#: telescope/plugins/desk.py:304
 msgid "Drag the corners on the preview onto the sheet's corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:277
+#: telescope/plugins/desk.py:306
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+msgstr ""
+
+#: telescope/plugins/desk.py:309
 msgid "Mark the sheet's corners to straighten it."
 msgstr ""
 
-#: telescope/plugins/desk.py:279
+#: telescope/plugins/desk.py:311
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
 msgstr ""
 

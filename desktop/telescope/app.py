@@ -241,7 +241,7 @@ class TelescopeWindow(QMainWindow):
         self._view.setup(self, self._bus, self._vision)
         self._overlays = PreviewOverlays(lambda: self._view.view)  # drawn on the preview only (HostPreview)
         self._overlays.pick_changed.connect(self._bus.preview_pick_changed)
-        self._bus.stream_stopped.connect(lambda: (self._overlays.cancel_pick(), self._overlays.end_warps()))
+        self._bus.stream_stopped.connect(lambda: self._overlays.cancel_pick())  # a warp stays: only its plugin ends it
         # A pick belongs to the stream it started on: its points mean nothing on another phone's picture
         self._bus.device_changed.connect(lambda _id: self._overlays.cancel_pick())
         self._reported_shown: Optional[bool] = None  # what window_shown last said
