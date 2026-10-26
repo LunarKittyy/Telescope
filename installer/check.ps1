@@ -32,6 +32,8 @@ Set-Content "$env:TEMP\Telescope\telescope.log" "x"  # the log (diagnostics.py)
 New-NetFirewallRule -DisplayName "telescopedesktop.exe" -Direction Inbound -Program "$app\TelescopeDesktop.exe" -Action Allow | Out-Null
 New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\vision\pack\mediapipe" | Out-Null  # the vision download
+Set-Content "$env:LOCALAPPDATA\Telescope\vision\pack\.verified" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
 
 $p = Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
@@ -44,7 +46,7 @@ if (Test-Path $app) {
     $problems += "after uninstall, the folder is still there with: $($left -join ', ')"
 }
 if (Test-Path $menu) { $problems += "after uninstall, the Start menu entry is still there" }
-if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb is still there" }
+if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb or vision files are still there" }
 if (Test-Path "$env:TEMP\Telescope") { $problems += "after uninstall, the log folder is still there" }
 # The runner is admin, so the silent uninstall takes the camera the driver check installed, and its firewall rules
 if (Test-Path "$env:ProgramFiles\Telescope") { $problems += "after uninstall, Program Files\Telescope (the camera) is still there" }
