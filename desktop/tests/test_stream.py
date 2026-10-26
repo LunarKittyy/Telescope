@@ -37,7 +37,7 @@ class _Capture:
 def test_fit_frame_returns_matching_frame_without_copy():
     frame = np.ones((3, 5, 3), dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 5, 3)
+    result = stream.vcam.fit_frame(frame, 5, 3)
 
     assert result is frame
 
@@ -45,7 +45,7 @@ def test_fit_frame_returns_matching_frame_without_copy():
 def test_fit_frame_resizes_same_aspect_ratio():
     frame = np.full((2, 4, 3), 17, dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 8, 4)
+    result = stream.vcam.fit_frame(frame, 8, 4)
 
     assert result.shape == (4, 8, 3)
     assert np.all(result == 17)
@@ -54,7 +54,7 @@ def test_fit_frame_resizes_same_aspect_ratio():
 def test_fit_frame_letterboxes_and_preserves_dtype():
     frame = np.full((2, 4, 3), 255, dtype=np.uint16)
 
-    result = stream._fit_frame(frame, 4, 4)
+    result = stream.vcam.fit_frame(frame, 4, 4)
 
     assert result.shape == (4, 4, 3)
     assert result.dtype == np.uint16
@@ -66,7 +66,7 @@ def test_fit_frame_letterboxes_and_preserves_dtype():
 def test_fit_frame_pillarboxes_narrow_input():
     frame = np.full((4, 2, 3), 9, dtype=np.uint8)
 
-    result = stream._fit_frame(frame, 4, 4)
+    result = stream.vcam.fit_frame(frame, 4, 4)
 
     assert np.all(result[:, 0] == 0)
     assert np.all(result[:, 1:3] == 9)
@@ -191,6 +191,21 @@ def test_reconnect_stops_without_opening_when_cancelled(monkeypatch):
     monkeypatch.setattr(worker, "_open_cap", lambda: (_ for _ in ()).throw(AssertionError()))
 
     assert worker._reconnect_cap(stop) is None
+
+
+def test_frames_stopping_for_a_photo_reconnect_quietly(monkeypatch):
+    captures = iter([_Capture([(True, np.zeros((1, 1, 3), dtype=np.uint8))]) for _ in range(2)])
+    worker = stream.StreamWorker("url", None, None, 30)
+    monkeypatch.setattr(stream, "DROP_RETRY_DELAY", 0)
+    monkeypatch.setattr(worker, "_open_cap", lambda: next(captures))
+    said = []
+    worker.status.connect(lambda kind, _msg: said.append(kind))
+
+    worker.hold_for_photo(5)
+    assert worker._reconnect_cap(threading.Event()) is not None
+    worker._photo_until = 0  # the hold ran out: a stop is a dropped stream again
+    assert worker._reconnect_cap(threading.Event()) is not None
+    assert said == ["info", "reconnecting"]
 
 
 def test_stream_reader_resizes_and_runs_pipeline_keeping_bgr():

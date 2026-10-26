@@ -1,4 +1,4 @@
-"""Scenes for camera, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, colour grading, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,11 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "composite": "_combo"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
+                "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
+                "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit",
+                "colour_grading": "_switch", "notes": "_editor",
+                "composite": "_combo"}
 
 
 def card_of(win, widget):
@@ -449,12 +453,357 @@ def background_unreadable_picture(stack):
     return background_card(stack, broken)
 
 
+@scene("name-tag", "main", "Name tag · filled in", width=CARD_WIDTH)
+def name_tag_filled(stack):
+    win = ready_window(stack)
+    plugin_of(win, "name_tag").set_config({"on": True, "name": "Alex Rivera", "pronouns": "they/them"})
+    return cards(stack, win, "name_tag")
+
+
 @scene("dialog-background-picture", "dialogs", "Background · choose a picture")
 def background_dialog(stack):
     held = hold_file_dialogs(stack)
     win = ready_window(stack)
     plugin_of(win, "background")._choose_picture()
     return shown(stack, held[-1])
+
+
+# ── Expose for my face ───────────────────────────────────────────────────────
+
+@scene("face-exposure-picked-by-hand", "states", "Expose for my face · a point picked by hand", width=CARD_WIDTH)
+def face_exposure_picked_by_hand(stack):
+    win = ready_window(stack)
+    plugin = plugin_of(win, "face_exposure")
+    plugin._switch.setChecked(True)
+    win._bus.focus_point_picked.emit(0.3, 0.4)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-manual-focus", "states", "Expose for my face · Manual focus on the Camera card", width=CARD_WIDTH)
+def face_exposure_manual_focus(stack):
+    win = ready_window(stack)
+    win._bus.focus_mode_changed.emit("manual")
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+@scene("face-exposure-no-point", "states", "Expose for my face · a lens that can't meter on a point", width=CARD_WIDTH)
+def face_exposure_no_point(stack):
+    win, _source = streaming_window(stack, phone_state(lens(supportsFocusPoint=False)))
+    plugin_of(win, "face_exposure")._switch.setChecked(True)
+    return cards(stack, win, "face_exposure")
+
+
+# ── Privacy blur ─────────────────────────────────────────────────────────────
+
+@scene("privacy-blur", "main", "Privacy blur", width=CARD_WIDTH)
+def privacy_blur(stack):
+    win = ready_window(stack)
+    plugin_of(win, "privacy_blur")._switch.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+@scene("privacy-blur-no-wait-screen", "states", "Privacy blur · Wait screen switched off", width=CARD_WIDTH)
+def privacy_blur_no_wait_screen(stack):
+    win = ready_window(stack)
+    win._bus.cover_requested.disconnect()  # nothing answers, as with Wait screen switched off
+    plugin = plugin_of(win, "privacy_blur")
+    plugin._set_mode("wait")
+    plugin._now_btn.setChecked(True)
+    return cards(stack, win, "privacy_blur")
+
+
+# ── Photos ───────────────────────────────────────────────────────────────────
+
+FLAGSHIP_STILLS = {"formats": ["jpeg", "heic", "ultrahdr", "raw"], "width": 4080, "height": 3072, "maxResWidth": 8160,
+                   "maxResHeight": 6144, "maxResRaw": True, "extensions": ["night", "hdr", "bokeh"],
+                   "exposureMaxNs": 30_000_000_000, "bracketing": True, "focusBracketing": True,
+                   "noiseReductionHq": True, "sharpeningHq": True, "hotPixelHq": True, "distortionCorrection": True,
+                   "burstMax": 60}
+
+
+def photos(stack, stills=FLAGSHIP_STILLS, choices=None, then=None):
+    """The Photos card on a streaming phone whose lens takes these photos (None: a phone too old for them)."""
+    state = phone_state(lens(stills=stills) if stills else lens(), **({"stills": 1} if stills else {}))
+    win, _source = streaming_window(stack, state)
+    plugin = plugin_of(win, "photos")
+    if choices:
+        plugin.set_config({**plugin.get_config(), **choices, "folder": "/home/me/Pictures/Telescope"})
+    else:
+        plugin.set_config({**plugin.get_config(), "folder": "/home/me/Pictures/Telescope"})
+    if then is not None:
+        then(plugin)
+    return cards(stack, win, "photos")
+
+
+@scene("photos-card", "main", "Photos · a phone with every kind of photo", width=CARD_WIDTH)
+def photos_card(stack):
+    return photos(stack, choices={"format": "raw+jpeg", "shots": "bracket", "exposure_s": 0})
+
+
+@scene("photos-focus-bracket", "states", "Photos · focus bracketing in full resolution", width=CARD_WIDTH)
+def photos_focus_bracket(stack):
+    return photos(stack, choices={"mode": "max_res", "shots": "focus", "exposure_s": 4})
+
+
+@scene("photos-night", "states", "Photos · the phone's Night mode", width=CARD_WIDTH)
+def photos_night(stack):
+    return photos(stack, choices={"mode": "night", "shots": "burst"})
+
+
+@scene("photos-countdown", "states", "Photos · timer counting down", width=CARD_WIDTH)
+def photos_countdown(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, choices={"timer": 10}, then=lambda p: p._progress(StillProgress("waiting", countdown_ms=7000)))
+
+
+@scene("photos-burst", "states", "Photos · taking a burst", width=CARD_WIDTH)
+def photos_burst(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", shots=5, taken=2)))
+
+
+@scene("photos-paused", "states", "Photos · the video paused for the photo", width=CARD_WIDTH)
+def photos_paused(stack):
+    from telescope.stills import StillProgress
+    return photos(stack, then=lambda p: p._progress(StillProgress("capturing", paused=True)))
+
+
+@scene("photos-saved", "states", "Photos · saved", width=CARD_WIDTH)
+def photos_saved(stack):
+    from telescope.stills import StillResult
+    files = [f"/home/me/Pictures/Telescope/IMG_20261026_142501_0{n}.jpg" for n in (1, 2, 3)]
+    return photos(stack, then=lambda p: p._done(StillResult(True, files)))
+
+
+@scene("photos-failed", "states", "Photos · the phone couldn't take it", width=CARD_WIDTH)
+def photos_failed(stack):
+    from telescope.stills import StillResult
+    return photos(stack, then=lambda p: p._done(StillResult.failed("interrupted")))
+
+
+@scene("photos-old-phone", "states", "Photos · a phone too old for photos", width=CARD_WIDTH)
+def photos_old_phone(stack):
+    return photos(stack, stills=None)
+
+
+# ── Colour grading ───────────────────────────────────────────────────────────
+
+_SAMPLE_LUT = "TITLE \"Warm\"\nLUT_3D_SIZE 2\n" + "".join(
+    f"{min(1.0, r * 1.1):.3f} {g:.3f} {b * 0.9:.3f}\n" for b in (0, 1) for g in (0, 1) for r in (0, 1))
+
+
+def grading_card(stack, setup):
+    win = ready_window(stack)
+    plugin = plugin_of(win, "colour_grading")
+    plugin.set_config({"wheels": {"lift": [0.25, -0.2], "gain": [-0.1, 0.3]}, "masters": {"gamma": 0.1},
+                       "temperature": 12, "saturation": 1.15})
+    import tempfile
+    setup(plugin, stack.enter_context(tempfile.TemporaryDirectory(prefix="telescope-translation-luts-")))
+    return cards(stack, win, "colour_grading")
+
+
+def hold_save_dialogs(stack):
+    """Save pickers open at once as real dialogs (in an empty folder) and are kept for the picture; returns the list."""
+    from PyQt6.QtWidgets import QFileDialog
+    held, folder = [], empty_folder(stack)
+
+    def get_save(parent=None, caption="", _directory="", filter="", *_args, **_kwargs):
+        dialog = QFileDialog(parent, caption, folder, filter)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setSidebarUrls([])
+        dialog.setMinimumWidth(760)
+        remember(dialog, "window title", caption)
+        remember(dialog, "file types", filter)
+        held.append(dialog)
+        return "", ""
+
+    patch(stack, QFileDialog, "getSaveFileName", staticmethod(get_save))
+    return held
+
+
+@scene("colour-grading-primaries", "main", "Colour grading · wheels and sliders, comparing", width=CARD_WIDTH)
+def colour_grading_primaries(stack):
+    return grading_card(stack, lambda plugin, _folder: plugin._compare.setChecked(True))
+
+
+@scene("colour-grading-curves", "main", "Colour grading · RGB curves", width=CARD_WIDTH)
+def colour_grading_curves(stack):
+    def curves(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._on_curve(((0.0, 0.0), (0.3, 0.24), (0.7, 0.78), (1.0, 1.0)))
+        plugin._show_curve()
+    return grading_card(stack, curves)
+
+
+@scene("colour-grading-hue-vs-sat", "states", "Colour grading · hue vs saturation curve", width=CARD_WIDTH)
+def colour_grading_hue_vs_sat(stack):
+    def hue(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._pick_curve("hue_sat")
+    return grading_card(stack, hue)
+
+
+@scene("colour-grading-hue-vs-hue", "states", "Colour grading · hue vs hue curve", width=CARD_WIDTH)
+def colour_grading_hue_vs_hue(stack):
+    def hue(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._pick_curve("hue_hue")
+    return grading_card(stack, hue)
+
+
+@scene("colour-grading-lut", "states", "Colour grading · a LUT loaded and the grade exported", width=CARD_WIDTH)
+def colour_grading_lut(stack):
+    def lut(plugin, folder):
+        import os
+        from PyQt6.QtWidgets import QFileDialog
+        path = os.path.join(folder, "Warm look.cube")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write(_SAMPLE_LUT)
+        plugin._show_page("lut")
+        plugin._load_lut(path)
+        out = os.path.join(folder, "Telescope grade.cube")
+        patch(stack, QFileDialog, "getSaveFileName", staticmethod(lambda *_a, **_k: (out, "")))
+        plugin._export()
+    return grading_card(stack, lut)
+
+
+@scene("colour-grading-lut-problem", "states", "Colour grading · a LUT that can't be used", width=CARD_WIDTH)
+def colour_grading_lut_problem(stack):
+    def broken(plugin, folder):
+        import os
+        path = os.path.join(folder, "Film look.cube")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write("LUT_3D_SIZE 129\n")
+        plugin._show_page("lut")
+        plugin._load_lut(path)
+    return grading_card(stack, broken)
+
+
+@scene("dialog-colour-grading-lut", "dialogs", "Colour grading · load a LUT")
+def colour_grading_lut_dialog(stack):
+    held = hold_file_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._choose_lut()
+    return shown(stack, held[-1])
+
+
+@scene("dialog-colour-grading-export", "dialogs", "Colour grading · export the grade")
+def colour_grading_export_dialog(stack):
+    held = hold_save_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._export()
+    return shown(stack, held[-1])
+
+
+@scene("dialog-colour-grading-replace", "dialogs", "Colour grading · replace a LUT file on export")
+def colour_grading_replace_dialog(stack):
+    held = hold_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._may_replace("Telescope grade.cube")
+    return shown(stack, held[-1])
+
+
+# ── Notes ────────────────────────────────────────────────────────────────────
+
+NOTES_TEXT = "Welcome everyone\nWhat we shipped this week\nQuestions"
+
+
+def notes_card(stack, streaming=True, setup=None, **state):
+    """The Notes card with a few lines typed, streaming from a phone whose state has these notes fields."""
+    if streaming:
+        win, _source = streaming_window(stack, phone_state(lens(facing=state.pop("facing", "front")),
+                                                           takes_notes=True, **state))
+    else:
+        win = ready_window(stack)
+    plugin = plugin_of(win, "notes")
+    plugin._editor.setPlainText(NOTES_TEXT)
+    if setup is not None:
+        setup(plugin)
+    return cards(stack, win, "notes")
+
+
+def notes_sent(plugin, shown=True, **state):
+    plugin._send_btn.click()
+    plugin.on_phone_state(phone_state(lens(facing=state.pop("facing", "front")), takes_notes=True, notes=True,
+                                      notes_shown=shown, **state))
+
+
+@scene("notes-ready", "main", "Notes · ready to send", width=CARD_WIDTH)
+def notes_ready(stack):
+    return notes_card(stack)
+
+
+@scene("notes-by-hand", "states", "Notes · scrolled by hand", width=CARD_WIDTH)
+def notes_by_hand(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._set_scroll("hand"))
+
+
+@scene("notes-not-streaming", "states", "Notes · not streaming", width=CARD_WIDTH)
+def notes_not_streaming(stack):
+    return notes_card(stack, streaming=False)
+
+
+@scene("notes-older-phone", "states", "Notes · the phone app is too old", width=CARD_WIDTH)
+def notes_older_phone(stack):
+    return notes_card(stack, setup=lambda plugin: plugin.on_phone_state(phone_state()))
+
+
+@scene("notes-back-camera", "states", "Notes · streaming from the back camera", width=CARD_WIDTH)
+def notes_back_camera(stack):
+    return notes_card(stack, facing="back")
+
+
+@scene("notes-too-long", "states", "Notes · too long for the phone", width=CARD_WIDTH)
+def notes_too_long(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._editor.setPlainText("Welcome everyone " * 4000))
+
+
+@scene("notes-on-screen", "states", "Notes · on the phone's screen", width=CARD_WIDTH)
+def notes_on_screen(stack):
+    return notes_card(stack, setup=notes_sent)
+
+
+@scene("notes-playing", "states", "Notes · scrolling on the phone", width=CARD_WIDTH)
+def notes_playing(stack):
+    def setup(plugin):
+        notes_sent(plugin)
+        plugin._play_btn.setChecked(True)
+    return notes_card(stack, setup=setup)
+
+
+@scene("notes-not-on-screen", "states", "Notes · Telescope isn't open on the phone", width=CARD_WIDTH)
+def notes_not_on_screen(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False))
+
+
+@scene("notes-closed", "states", "Notes · closed on the phone", width=CARD_WIDTH)
+def notes_closed(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_closed=True))
+
+
+@scene("notes-preview", "states", "Notes · waiting for the phone's preview to close", width=CARD_WIDTH)
+def notes_preview(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, shown=False, notes_preview=True))
+
+
+@scene("notes-sent-back-camera", "states", "Notes · on screen while streaming from the back camera", width=CARD_WIDTH)
+def notes_sent_back_camera(stack):
+    return notes_card(stack, setup=lambda plugin: notes_sent(plugin, facing="back"))
+
+
+@scene("notes-edited", "states", "Notes · changed since they were sent", width=CARD_WIDTH)
+def notes_edited(stack):
+    def setup(plugin):
+        notes_sent(plugin)
+        plugin._editor.setPlainText(NOTES_TEXT + "\nThanks for coming")
+    return notes_card(stack, setup=setup)
+
+
+@scene("notes-browser-camera", "states", "Notes · Browser camera picked", width=CARD_WIDTH)
+def notes_browser_camera(stack):
+    return notes_card(stack, setup=lambda plugin: plugin._on_source("browser"))
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────
@@ -527,6 +876,260 @@ def preview_popout(stack):
     plugin._open_popout()
     stack.callback(plugin._popout.close)
     return shown(stack, plugin._popout)
+
+
+def picture(win):
+    """A plain picture on the stage, for what's drawn over one."""
+    from PyQt6.QtGui import QColor, QPixmap
+    pixmap = QPixmap(416, 234)  # inside the stage's least height, so the whole picture shows
+    pixmap.fill(QColor(78, 86, 96))
+    plugin_of(win, "preview")._preview_lbl.setPixmap(pixmap)
+
+
+def picking(stack, kind):
+    """The preview while a plugin asks for a point, an area or four corners."""
+    win, _source = streaming_window(stack)
+    picture(win)
+    overlays = win.preview_overlays()
+    win.pick_on_preview("Scene", kind, lambda _pick: None)
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("preview-pick-point", "states", "Preview · picking a point", width=PREVIEW_WIDTH)
+def preview_pick_point(stack):
+    return picking(stack, "point")
+
+
+@scene("preview-pick-area", "states", "Preview · marking an area", width=PREVIEW_WIDTH)
+def preview_pick_area(stack):
+    return picking(stack, "rect")
+
+
+@scene("preview-pick-corners", "main", "Preview · dragging four corners", width=PREVIEW_WIDTH)
+def preview_pick_corners(stack):
+    return picking(stack, "quad")
+
+
+# ── Cinema tools ─────────────────────────────────────────────────────────────
+
+@scene("cinema-tools", "main", "Cinema tools · focus peaking and a waveform", width=CARD_WIDTH)
+def cinema_tools(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "cinema").set_config({"peaking": True, "scope": "waveform"})
+    return cards(stack, win, "cinema")
+
+
+@scene("preview-false-colour", "main", "Preview · false colour and its legend", width=PREVIEW_WIDTH)
+def preview_false_colour(stack):
+    from telescope.plugins import cinema
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "cinema").set_config({"false_colour": True})
+    names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
+    remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
+    return preview_stage(stack, win)
+
+
+def level_window(stack, status):
+    """A streaming window whose phone's sensors stand at status, with nothing asked of the phone."""
+    win, _source = streaming_window(stack)
+    patch(stack, win, "want_sensors", lambda *_a, **_k: None)
+    patch(stack, win, "sensor_status", lambda source_id=None: status)
+    return win
+
+
+@scene("cinema-level", "main", "Cinema tools · the level guide on the preview", width=PREVIEW_WIDTH)
+def cinema_level(stack):
+    import time
+    from telescope.plugins import cinema
+    from telescope.sensors import SensorStatus
+    win = level_window(stack, SensorStatus("on", ("orientation",), ("orientation",)))
+    picture(win)
+    plugin = plugin_of(win, "cinema")
+    plugin.set_config({"level": True})
+    plugin._layer.level = (cinema.Level(2.4, -3.1, False, False), time.monotonic() + 3600)
+    return preview_stage(stack, win)
+
+
+def level_problem_scene(reason, title):
+    @scene(f"cinema-level-{reason.replace('_', '-')}", "main", f"Cinema tools · level, {title}", width=CARD_WIDTH)
+    def build(stack):
+        from telescope.sensors import SensorStatus
+        win = level_window(stack, SensorStatus("unavailable", reason=reason))
+        plugin_of(win, "cinema").set_config({"level": True})
+        return cards(stack, win, "cinema")
+
+
+for _reason, _title in (("not_phone", "not a phone"), ("old_phone", "an older phone app"),
+                        ("none", "no motion sensor"), ("camera", "an external camera"),
+                        ("failed", "the sensors can't be reached")):
+    level_problem_scene(_reason, _title)
+
+
+# ── Desk mode ────────────────────────────────────────────────────────────────
+
+SHEET = ((0.15, 0.45), (0.5, 0.42), (0.56, 0.95), (0.08, 0.97))
+
+
+@scene("desk-marking", "main", "Desk mode · marking the sheet", width=CARD_WIDTH)
+def desk_marking(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)  # with no corners yet it asks for them
+    return cards(stack, win, "desk")
+
+
+@scene("preview-desk-corners", "states", "Preview · Desk mode asking for the sheet's corners", width=PREVIEW_WIDTH)
+def preview_desk_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("desk-straightened", "main", "Desk mode · straightening a sheet, writing in black and white", width=CARD_WIDTH)
+def desk_straightened(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "cleanup": "bw"})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-stretched", "states", "Desk mode · an A4 sheet stretched by hand", width=CARD_WIDTH)
+def desk_stretched(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "shape": "a4",
+                                       "stretch": [115, 90]})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-no-corners","states", "Desk mode · switched on, the marking cancelled", width=CARD_WIDTH)
+def desk_no_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)
+    win.cancel_pick("desk")
+    return cards(stack, win, "desk")
+
+
+@scene("desk-off-picture", "states", "Desk mode · zoomed in past the sheet's corners", width=CARD_WIDTH)
+def desk_off_picture(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET]})
+    win.set_view(zoom=3.0)
+    return cards(stack, win, "desk")
+
+
+@scene("desk-refused", "states", "Desk mode · corners marked in a line, refused", width=CARD_WIDTH)
+def desk_refused(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    win.preview_overlays()._pick.points = [(0.1, 0.5), (0.4, 0.5), (0.6, 0.5), (0.9, 0.5)]
+    win.finish_pick("desk")
+    return cards(stack, win, "desk")
+
+
+@scene("desk-not-streaming", "states", "Desk mode · marking the sheet before streaming", width=CARD_WIDTH)
+def desk_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "desk")._mark()
+    return cards(stack, win, "desk")
+
+
+# ── Chroma key ───────────────────────────────────────────────────────────────
+
+@scene("chroma-key", "main", "Chroma key · a green screen swapped for a colour", width=CARD_WIDTH)
+def chroma_key_card(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-picked", "states", "Chroma key · a colour picked from the preview, no picture chosen yet",
+       width=CARD_WIDTH)
+def chroma_key_picked(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "chroma_key").set_config({"on": True, "screen": "picked", "picked": [160, 40, 150],
+                                             "background": "picture"})
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-grey", "states", "Chroma key · a pick with hardly any colour", width=CARD_WIDTH)
+def chroma_key_grey(stack):
+    import numpy as np
+    from telescope.overlays import Pick
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "chroma_key")
+    plugin._last = np.full((36, 64, 3), 128, np.uint8)
+    plugin._picked_point(Pick("point", ((0.5, 0.5),), ((0.5, 0.5),)))
+    return cards(stack, win, "chroma_key")
+
+
+@scene("chroma-key-not-streaming", "states", "Chroma key · picking a colour before streaming", width=CARD_WIDTH)
+def chroma_key_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "chroma_key")._pick()
+    return cards(stack, win, "chroma_key")
+
+
+@scene("preview-chroma-key-pick", "states", "Preview · Chroma key asking for the screen's colour", width=PREVIEW_WIDTH)
+def preview_chroma_key_pick(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "chroma_key")._pick()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+# ── QR codes ─────────────────────────────────────────────────────────────────
+
+def qr_card(stack, found=None, reached=True):
+    """The QR codes card switched on, after reading found (a code's text) when given."""
+    from PyQt6.QtGui import QGuiApplication
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "qr_reader")
+    plugin.set_config({"on": True, "notify": False})
+    if found is not None:
+        plugin._on_found(found, None)
+        if not reached:
+            QGuiApplication.clipboard().setText("something else")
+        plugin._check()
+    return cards(stack, win, "qr_reader")
+
+
+@scene("qr-waiting", "states", "QR codes · waiting for a code", width=CARD_WIDTH)
+def qr_waiting(stack):
+    return qr_card(stack)
+
+
+@scene("qr-wifi", "main", "QR codes · a Wi-Fi password copied", width=CARD_WIDTH)
+def qr_wifi(stack):
+    return qr_card(stack, "WIFI:T:WPA;S:Cafe Luna;P:hunter22;;")
+
+
+@scene("qr-open-wifi", "states", "QR codes · a Wi-Fi network without a password", width=CARD_WIDTH)
+def qr_open_wifi(stack):
+    return qr_card(stack, "WIFI:T:nopass;S:Library;;")
+
+
+@scene("qr-link", "states", "QR codes · a link copied", width=CARD_WIDTH)
+def qr_link(stack):
+    return qr_card(stack, "https://telescope.webcam")
+
+
+@scene("qr-text", "states", "QR codes · some text copied", width=CARD_WIDTH)
+def qr_text(stack):
+    return qr_card(stack, "Table 12")
+
+
+@scene("qr-not-reached", "states", "QR codes · the clipboard didn't take it (window in the background)",
+       width=CARD_WIDTH)
+def qr_not_reached(stack):
+    return qr_card(stack, "https://telescope.webcam", reached=False)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

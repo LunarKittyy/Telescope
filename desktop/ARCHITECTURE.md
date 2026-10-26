@@ -48,7 +48,7 @@ Everything a plugin can use is listed in `tests/plugin_api.txt` and `tests/test_
 
 ## Shared pieces
 
-Plugins still don't depend on each other. Something two of them need becomes a host service built together with the first plugin that needs it, as the view (`view.py`, `HostView`), the vision service (`vision.py`, `HostVision`) and frames from other streams (`frames.py`, `HostFrames`) were. Planned and not built yet: a `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry (`host.service(name)`) for added plugins to share with each other.
+Plugins still don't depend on each other. Something two of them need becomes a host service built together with the first plugin that needs it, as the view (`view.py`, `HostView`), the vision service (`vision.py`, `HostVision`), calm people tracking (`people.py`) motion zones (`motion.py`, `HostMotion`), the preview overlays with their picks (`overlays.py` and `scopes.py`, `HostPreview`), the colour pipeline (`colour.py`, `HostColour`) the phone's sensors (`sensors.py`, `HostSensors`) and frames from other streams (`frames.py`, `HostFrames`) were. Planned and not built yet: a `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry (`host.service(name)`) for added plugins to share with each other.
 
 ## What's checked automatically
 

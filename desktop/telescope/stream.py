@@ -78,29 +78,6 @@ def _vcam_format(width: int, height: int):
 _UNCHANGED = object()
 
 
-def _fit_frame(frame, target_w, target_h):
-    """Resize frame preserving aspect (black bars as needed; zero-copy if already matches)."""
-    fh, fw = frame.shape[:2]
-    if fw == target_w and fh == target_h:
-        return frame
-
-    scale = min(target_w / fw, target_h / fh)
-    new_w = int(fw * scale)
-    new_h = int(fh * scale)
-
-    if new_w == target_w and new_h == target_h:
-        return cv2.resize(frame, (target_w, target_h),
-                          interpolation=cv2.INTER_LINEAR)
-
-    resized = cv2.resize(frame, (new_w, new_h),
-                         interpolation=cv2.INTER_LINEAR)
-    canvas = np.zeros((target_h, target_w, 3), dtype=frame.dtype)
-    x_off = (target_w - new_w) // 2
-    y_off = (target_h - new_h) // 2
-    canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
-    return canvas
-
-
 class _Newest:
     """Hands the newest packet from the reader to the decoders; one nobody took in time is dropped, so a slow decoder
     skips frames instead of letting them queue up (in here or in the TCP buffers) as lag."""
@@ -183,6 +160,7 @@ class StreamWorker(QThread):
         self._settle_since: Optional[float] = time.monotonic()
         self._settle_flowing: Optional[float] = None
         self._settle_last_frame = 0.0
+        self._photo_until = 0.0  # until then frames stopping is the phone taking a photo, not a dropped stream
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -228,6 +206,12 @@ class StreamWorker(QThread):
         with self._settle_lock:
             self._settle_since = time.monotonic()
             self._settle_flowing = None
+
+    def hold_for_photo(self, seconds: float = 3.0):
+        """The phone is taking a photo, which can pause its video: for seconds from now a stream that stops is
+        reconnected quietly instead of being reported as dropped. Called again to extend it."""
+        self._photo_until = time.monotonic() + seconds
+        self.settle()
 
     def _count_arrived(self, frames: int):
         self._frames_arrived += frames
@@ -352,7 +336,10 @@ class StreamWorker(QThread):
         return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
-        self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
+        if time.monotonic() < self._photo_until:
+            self.status.emit("info", tr("The video is paused while the phone takes a photo"))
+        else:
+            self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
         while not stop_event.is_set() and not self._stop_flag:
             for _ in range(DROP_RETRY_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
@@ -573,12 +560,14 @@ class StreamWorker(QThread):
                         # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
                         # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
                         if src is not last_src:
-                            last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                            last_src, fitted = src, vcam.fit_frame(src, cam_w, cam_h)
                             if self._to_cam is not None:
                                 fitted = self._to_cam(fitted)
                         cam.send(fitted)
                         last_sent = time.monotonic()
                     if (elapsed := time.monotonic() - t0) >= 2.0:
+                        if vcam.camera_changed(cam, self.slot):
+                            self._restart_vcam.set()  # the camera was installed or updated while streaming
                         src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]

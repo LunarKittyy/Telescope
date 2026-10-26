@@ -1,6 +1,5 @@
-"""Pictures people pick for a background: reading them and scaling them to fill a frame (Background and the combined
-picture both use them)."""
-
+"""Pictures a plugin puts behind the picture (Background, Chroma key, the combined picture): reading one and
+scaling it to cover the frame. No Qt."""
 from typing import Optional
 
 import cv2

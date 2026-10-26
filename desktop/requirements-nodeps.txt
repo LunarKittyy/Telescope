@@ -1,2 +1,4 @@
 # pip install --no-deps -r requirements-nodeps.txt, after requirements.txt: aiortc 1.15 caps PyAV below 18 but runs on it
 aiortc==1.15.0
+# Mic noise reduction loads only pyrnnoise's RNNoise library (telescope/denoise.py); audiolab and matplotlib are for its CLI
+pyrnnoise==0.4.5; (sys_platform == "linux" and platform_machine in "x86_64 aarch64") or (sys_platform == "win32" and platform_machine == "AMD64")

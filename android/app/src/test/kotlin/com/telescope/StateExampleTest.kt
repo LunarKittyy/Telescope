@@ -21,8 +21,15 @@ class StateExampleTest {
             aeCompMin = -12, aeCompMax = 12, aeCompStep = 0.16666667f, supportsFlash = true, hwLevel = "FULL",
             supportedSizes = listOf(CameraSize(4032, 3024), CameraSize(1920, 1080)),
             h264Sizes = listOf(CameraSize(1920, 1080)),
-            supportsFocusPoint = true, zoomRatioMax = 10f, cropZoomMax = 8f, freeformCrop = true,
+            supportsFocusPoint = true, supportsMeterPoint = true, zoomRatioMax = 10f, cropZoomMax = 8f, freeformCrop = true,
             lensZooms = listOf(3f), maxFps = 60,
+            stills = StillCapability(
+                formats = listOf("jpeg", "heic", "ultrahdr", "raw"), width = 4032, height = 3024,
+                maxResWidth = 8064, maxResHeight = 6048, maxResRaw = true, extensions = listOf("night", "hdr", "bokeh"),
+                extensionSizes = mapOf("night" to StillSize(3840, 2160), "hdr" to StillSize(4032, 3024), "bokeh" to StillSize(4032, 3024)),
+                exposureMaxNs = 30_000_000_000L, bracketing = true, focusBracketing = true, noiseReductionHq = true,
+                sharpeningHq = true, hotPixelHq = true, distortionCorrection = true, burstMax = 60,
+            ),
         )),
         auto = false, iso = 400, shutter_ns = 16_666_666L,
         wb_manual = true, wb_r = 2.1f, wb_ge = 1f, wb_go = 1f, wb_b = 1.8f,
@@ -33,7 +40,9 @@ class StateExampleTest {
         h264_profile = "high", intra_refresh = true, wifi_band = "5", wifi_rssi = -58, wifi_mbps = 866, codec_error = "H.264 isn't available at 1920x1080 on this phone", codec_error_code = "h264_unavailable",
         codec_error_width = 1920, codec_error_height = 1080, codec_unsupported = true,
         active_lens = "2", camera_off = true, camera_error = "The camera didn't turn back on. Another app may be using it.", camera_error_code = "camera_in_use",
-        camera_taken = true, camera_toggle = true,
+        camera_taken = true, camera_toggle = true, stills = 1, takes_notes = true, notes = true, notes_shown = true,
+        notes_closed = true, notes_preview = true,
+        sensors = listOf("orientation", "accelerometer", "gyroscope", "gravity", "rotation", "light"),
         stream_width = 1920, stream_height = 1080, battery = 87, charging = true, battery_temp_c = 32.5,
     )
 

@@ -208,8 +208,23 @@ class MjpegServerTest {
         server.start()
         try {
             val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
-                "Content-Type: application/json\r\nContent-Length: 4097\r\n\r\n"
+                "Content-Type: application/json\r\nContent-Length: ${HttpWire.MAX_CONTROL_BODY_BYTES + 1}\r\n\r\n"
             assertEquals(413, request(actualPort(server), raw).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control takes notes longer than other requests may be`() {
+        val got = AtomicReference<Map<String, String>>()
+        val server = MjpegServer(0, { "{}" }, { got.set(it); "{\"ok\":true}" }, "127.0.0.1", tokens = { listOf("secret-token") })
+        server.start()
+        try {
+            val text = "Say hello to everyone. ".repeat(1_000)  // about 23 KB, past the 4 KB other bodies get
+            val body = "{\"action\":\"notes\",\"text\":\"$text\"}"
+            assertEquals(200, authPost(actualPort(server), "/v1/control", "secret-token", body).status)
+            assertEquals(text, got.get()["text"])
         } finally {
             server.stop()
         }
@@ -585,6 +600,188 @@ class MjpegServerTest {
         }
     }
 
+    // A feed that counts what's started and hands out a new reading of each kind on every latest()
+    private class FakeFeed(private val has: List<String>, private val width: Int = 1) : SensorFeed {
+        val running = java.util.concurrent.ConcurrentHashMap<String, Int>()
+        private var seq = 0L
+        override fun available() = has
+        override fun start(kinds: Set<String>): SensorHandle {
+            val started = kinds.intersect(has.toSet())
+            started.forEach { running.merge(it, 1, Int::plus) }
+            return SensorHandle(started, 0)
+        }
+        override fun stop(handle: SensorHandle) {
+            handle.kinds.forEach { k -> running.computeIfPresent(k) { _, n -> if (n > 1) n - 1 else null } }
+        }
+        @Synchronized override fun latest(): Map<String, SensorValue> {
+            seq++
+            return running.keys.associateWith { if (it == SensorKinds.ORIENTATION) SensorValue(seq, floatArrayOf(1.5f, -2f), "0")
+                                                 else SensorValue(seq, FloatArray(width) { seq.toFloat() }) }
+        }
+    }
+
+    private fun openSensors(port: Int, query: String, token: String = "t"): Socket = Socket("127.0.0.1", port).apply {
+        soTimeout = 3_000
+        getOutputStream().write("GET /v1/sensors$query HTTP/1.1\r\nAuthorization: Bearer $token\r\n\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1))
+    }
+
+    @Test
+    fun `sensors route needs the token and is missing on a phone without a feed`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = FakeFeed(SensorKinds.ALL))
+        val old = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
+        server.start()
+        old.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/sensors", "wrong").status)
+            assertEquals(404, authGet(actualPort(old), "/v1/sensors", "t").status)
+        } finally {
+            server.stop()
+            old.stop()
+        }
+    }
+
+    @Test
+    fun `sensors route refuses when the phone has none of the kinds asked for`() {
+        val feed = FakeFeed(listOf(SensorKinds.LIGHT))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = feed)
+        server.start()
+        try {
+            val response = authGet(actualPort(server), "/v1/sensors?kinds=gyroscope", "t")
+            assertEquals(409, response.status)
+            assertTrue(response.body.toString(StandardCharsets.UTF_8).contains("\"code\":\"sensors_none\""))
+            assertTrue(feed.running.isEmpty())
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `sensors route streams the kinds it has while the computer reads, then lets them go`() {
+        val feed = FakeFeed(listOf(SensorKinds.ORIENTATION, SensorKinds.LIGHT, SensorKinds.GRAVITY))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = feed)
+        server.start()
+        try {
+            val socket = openSensors(actualPort(server), "?kinds=orientation,light,magnetometer")
+            val reader = socket.getInputStream().bufferedReader()
+            val head = generateSequence { reader.readLine() }.takeWhile { it.isNotEmpty() }.toList()
+            assertTrue(head.any { it == "Content-Type: ${SensorWire.CONTENT_TYPE}" })
+            val hello = kotlinx.serialization.json.Json.parseToJsonElement(reader.readLine()).toString()
+            assertTrue(hello.contains("\"orientation\"") && hello.contains("\"light\"") && !hello.contains("magnetometer"))
+            assertEquals(mapOf(SensorKinds.ORIENTATION to 1, SensorKinds.LIGHT to 1), feed.running.toMap())
+            val lines = (1..20).map { reader.readLine() }
+            assertTrue(lines.all { it.startsWith("{\"t\":") && !it.contains("gravity") })
+            assertTrue(lines.all { it.contains("\"orientation\":{\"roll\":1.5,\"pitch\":-2.0,\"camera\":\"0\"}") })
+            // Light at most twice a second, against orientation's 30
+            assertTrue(lines.count { it.contains("\"light\"") } <= 2)
+            socket.close()
+            val deadline = System.currentTimeMillis() + 5_000
+            while (feed.running.isNotEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertTrue(feed.running.isEmpty(), "the sensors should stop once the computer is gone")
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `stopping the server ends a sensor stream and unpairing cuts it off`() {
+        val feed = FakeFeed(listOf(SensorKinds.ORIENTATION))
+        val paired = AtomicReference(listOf("t", "gone"))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { paired.get() }, sensors = feed)
+        server.start()
+        try {
+            val kept = openSensors(actualPort(server), "", "t")
+            val removed = openSensors(actualPort(server), "", "gone")
+            val keptReader = kept.getInputStream().bufferedReader()
+            val removedReader = removed.getInputStream().bufferedReader()
+            repeat(6) { keptReader.readLine(); removedReader.readLine() }
+            assertEquals(2, feed.running[SensorKinds.ORIENTATION])
+            paired.set(listOf("t"))
+            assertTrue(generateSequence { removedReader.readLine() }.count() < 100)  // ends
+            server.stop()
+            assertTrue(generateSequence { try { keptReader.readLine() } catch (_: java.io.IOException) { null } }.count() < 100)
+            val deadline = System.currentTimeMillis() + 5_000
+            while (feed.running.isNotEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertTrue(feed.running.isEmpty())
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a computer that sends no keepalive loses its sensors even while every line still fits`() {
+        val quiet = FakeFeed(listOf(SensorKinds.LIGHT))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t", "u") }, sensors = quiet,
+            sensorAliveMs = 700L)
+        server.start()
+        try {
+            val gone = openSensors(actualPort(server), "", "t")  // never asks anything again, never closes
+            val kept = openSensors(actualPort(server), "", "u")
+            val pinging = java.util.concurrent.atomic.AtomicBoolean(true)
+            val pinger = Thread {
+                while (pinging.get()) {
+                    runCatching { assertEquals(200, authGet(actualPort(server), "/v1/sensors/alive", "u").status) }
+                    Thread.sleep(150)
+                }
+            }.apply { start() }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (quiet.running[SensorKinds.LIGHT] != 1 && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            Thread.sleep(1_200)  // past the keepalive time
+            assertEquals(1, quiet.running[SensorKinds.LIGHT], "only the computer that keeps asking keeps the sensor")
+            pinging.set(false)
+            pinger.join(2_000)
+            val end = System.currentTimeMillis() + 5_000
+            while (quiet.running.isNotEmpty() && System.currentTimeMillis() < end) Thread.sleep(20)
+            assertTrue(quiet.running.isEmpty())
+            gone.close()
+            kept.close()
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `the keepalive needs the token and a phone with sensors`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = FakeFeed(SensorKinds.ALL))
+        val old = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
+        server.start()
+        old.start()
+        try {
+            assertEquals(200, authGet(actualPort(server), "/v1/sensors/alive", "t").status)
+            assertEquals(401, authGet(actualPort(server), "/v1/sensors/alive", "x").status)
+            assertEquals(404, authGet(actualPort(old), "/v1/sensors/alive", "t").status)
+        } finally {
+            server.stop()
+            old.stop()
+        }
+    }
+
+    @Test
+    fun `a computer that stops reading without closing loses its sensors`() {
+        // Wide readings fill the socket buffers in moments, like seconds of normal ones would
+        val feed = FakeFeed(listOf(SensorKinds.GRAVITY), width = 2_000)
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = feed,
+            sensorStallMs = 800L)
+        server.start()
+        try {
+            val socket = Socket()
+            socket.receiveBufferSize = 4 * 1024
+            socket.connect(java.net.InetSocketAddress("127.0.0.1", actualPort(server)))
+            socket.getOutputStream().write("GET /v1/sensors HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                .toByteArray(StandardCharsets.ISO_8859_1))
+            val deadline = System.currentTimeMillis() + 2_000
+            while (feed.running.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
+            assertEquals(1, feed.running[SensorKinds.GRAVITY])
+            // Never reads again and never closes, like a laptop that went to sleep
+            val gone = System.currentTimeMillis() + 15_000
+            while (feed.running.isNotEmpty() && System.currentTimeMillis() < gone) Thread.sleep(50)
+            assertTrue(feed.running.isEmpty(), "the sensors should stop once the writes are stuck")
+            socket.close()
+        } finally {
+            server.stop()
+        }
+    }
+
     @Test
     fun `removing a computer cuts off the video and mic it was already taking, not another computer's`() {
         val paired = AtomicReference(listOf("removed", "kept"))
@@ -675,6 +872,68 @@ class MjpegServerTest {
             }
         } finally {
             server.stop()
+        }
+    }
+
+    @Test
+    fun `photo routes need the token, answer status and stream a file with its length`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { writeBytes(ByteArray(100_000) { (it % 251).toByte() }) }
+        val posted = AtomicReference<Map<String, String>>()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") },
+            handleStill = { params -> posted.set(params); """{"ok":true,"id":"abc"}""" },
+            stillStatus = { id -> if (id == "abc") """{"id":"abc","state":"done"}""" else null },
+            stillFile = { id, n -> if (id == "abc" && n == 0) file to "IMG_1.dng" else null })
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(401, authPost(port, "/v1/still", null, "{}").status)
+            assertEquals(401, authGet(port, "/v1/still/file?id=abc&n=0", "wrong").status)
+
+            val started = authPost(port, "/v1/still", "secret-token", """{"action":"take","format":"jpeg","count":3}""")
+            assertEquals(200, started.status)
+            assertEquals(mapOf("action" to "take", "format" to "jpeg", "count" to "3"), posted.get())
+
+            assertEquals("""{"id":"abc","state":"done"}""", authGet(port, "/v1/still?id=abc", "secret-token").body.toString(StandardCharsets.UTF_8))
+            assertEquals(404, authGet(port, "/v1/still?id=nope", "secret-token").status)
+
+            val fetched = authGet(port, "/v1/still/file?id=abc&n=0", "secret-token")
+            assertEquals(200, fetched.status)
+            assertTrue(fetched.headers.contains("Content-Length: 100000"))
+            assertTrue(fetched.headers.contains("Content-Type: image/x-adobe-dng"))
+            assertTrue(fetched.headers.contains("filename=\"IMG_1.dng\""))
+            assertArrayEquals(file.readBytes(), fetched.body)
+            assertEquals(404, authGet(port, "/v1/still/file?id=abc&n=1", "secret-token").status)
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun `query params are read by name`() {
+        assertEquals("abc", MjpegServer.queryParam("n=2&id=abc", "id"))
+        assertEquals("2", MjpegServer.queryParam("n=2&id=abc", "n"))
+        assertEquals(null, MjpegServer.queryParam("idx=1", "id"))
+    }
+
+    @Test
+    fun `a download nobody reads any more is cut off and frees its slot`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { java.io.RandomAccessFile(this, "rw").use { it.setLength(64L shl 20) } }
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            stillFile = { _, _ -> file to "IMG_1.dng" }, fileTimeoutMs = 400)
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.receiveBufferSize = 4096
+                socket.getOutputStream().write("GET /v1/still/file?id=a&n=0 HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n".toByteArray())
+                Thread.sleep(2_000)  // reading nothing while the phone's writes fill up
+                socket.soTimeout = 5_000
+                val read = try { socket.getInputStream().readBytes().size.toLong() } catch (_: java.io.IOException) { 0L }
+                assertTrue(read < file.length(), "read $read of ${file.length()}")
+            }
+        } finally {
+            server.stop()
+            file.delete()
         }
     }
 }
