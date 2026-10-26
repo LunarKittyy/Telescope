@@ -140,6 +140,14 @@ def test_the_point_goes_where_the_face_is_in_the_picture_as_shown(card):
     assert picked == []
 
 
+def test_the_point_follows_a_stretched_picture(card):
+    plugin, host, _bus, picked, see = card
+    host._view = replace(View(), stretch_x=0.5)
+    plugin._switch.setChecked(True)
+    see((0.3, 0.3))
+    assert picked == [pytest.approx((0.4, 0.3))]  # Width at 50% moves the face halfway to the middle
+
+
 def test_a_point_picked_by_hand_wins_until_switched_off_and_on(card):
     plugin, _host, bus, picked, see = card
     plugin._switch.setChecked(True)

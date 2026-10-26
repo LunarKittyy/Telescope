@@ -10,7 +10,7 @@ import logging
 from typing import Callable, Optional, Protocol
 
 from telescope import vcam
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import TelescopePlugin, frame_stage_index
 from telescope.session import Sessions, StreamSession
 from telescope.sources import Source
 from telescope.stream import guarded_step
@@ -232,7 +232,7 @@ class StreamFlow:
         """The plugins' frame steps: live for the stream the panels show, or frozen at their current settings for one
         that carries on while they show another."""
         steps = []
-        for p in sorted(self._host.plugins(), key=lambda p: p.sees_final_frame):  # stable: otherwise as registered
+        for p in sorted(self._host.plugins(), key=frame_stage_index):  # stable: as registered within a stage
             if type(p).process_frame is TelescopePlugin.process_frame:
                 continue
             try:

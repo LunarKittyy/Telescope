@@ -171,7 +171,7 @@ A lens of a multi-lens camera has no full resolution mode or maker modes (those 
 
 Everything else comes from the stream, meaning the lens, zoom and crop, manual exposure, white balance, focus, exposure compensation, OIS and the torch.
 
-The answer is `{"ok": true, "id": "<id>"}`, or `{"ok": false, "error": "...", "code": "..."}` with one of these codes: `unsupported` (the lens can't do what was asked), `bad_option`, `not_ready` (the phone hasn't read the lens yet, or bracketing has no light reading to start from), `busy` (another photo is still being taken, as only one goes at a time) and `camera_off`.
+The answer is `{"ok": true, "id": "<id>"}`, or `{"ok": false, "error": "...", "code": "..."}` with one of these codes: `unsupported` (the lens can't do what was asked, or can't take photos at all), `bad_option`, `not_ready` (the phone hasn't read the lens yet, or bracketing has no light reading to start from), `busy` (another photo is still being taken, as only one goes at a time) and `camera_off`.
 
 A plain photo goes into the stream's own camera session next to the video and the video doesn't stop for it. Only the first photo makes a hitch of a fraction of a second, while the session is set up again with the photo's output, and the next ones reuse it. When the phone won't take that output next to the stream's, and always for the maker's modes, the photo gets a session of its own and the video pauses for a second or two, plus the exposure. The phone checks with `isSessionConfigurationSupported` where it can (Android 10) and remembers what didn't fit until the stream ends. While a photo is being taken the phone doesn't drop a viewer for sending it no frames.
 

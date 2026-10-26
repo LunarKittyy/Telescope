@@ -14,7 +14,7 @@ from telescope import people
 from telescope.pictures import shrink
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action
-from telescope.view import shown_to_view, view_to_shown
+from telescope.view import upright_to_shown
 from telescope.widgets.common import (
     NoScrollComboBox, Switch, add_card_header, card_layout, create_card, dim_until_paired,
 )
@@ -81,9 +81,7 @@ def overlap(a: tuple, b: tuple) -> float:
 
 def shown_box(box: tuple, view) -> tuple:
     """box from the picture as shown at zoom 1 into the frame as shown now (0..1, not clipped)."""
-    turn = (view.flip_h, view.flip_v, view.rotation)
-    corners = [view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *turn), view.zoom, view.pan_x, view.pan_y, *turn)
-               for x in (box[0], box[2]) for y in (box[1], box[3])]
+    corners = [upright_to_shown(view, x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
     return (min(p[0] for p in corners), min(p[1] for p in corners),
             max(p[0] for p in corners), max(p[1] for p in corners))
 
@@ -124,8 +122,10 @@ class PrivacyBlurPlugin(TelescopePlugin):
     about = N_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in.")
     category = "vision"
     icon = "eye_off"
+    frame_stage = "privacy"
     when_off = N_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.")
     optional = True
+    needs_vision = True
     in_presets = True
     panel_region = "right"
 
@@ -154,7 +154,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Blur automatically when a second person shows up"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Privacy blur"), "eye_off", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Privacy blur"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._mode_combo = NoScrollComboBox()
         self._mode_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -298,24 +298,23 @@ class PrivacyBlurPlugin(TelescopePlugin):
     # ── Frames (worker thread) ────────────────────────────────────────────
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
-        return self._step(frame, self._blur)
+        return self._step(frame, self._blur, self._host.view())
 
     def frame_step(self):
-        blur = self._blur
-        return lambda frame: self._behind_step(frame, blur)
+        blur, view = self._blur, self._host.view()  # host.view() is the shown stream's, so this one's is kept here
+        return lambda frame: self._behind_step(frame, blur, view)
 
-    def _behind_step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
+    def _behind_step(self, frame: np.ndarray, blur: _Blur, view) -> np.ndarray:
         if blur.active:
-            return self._step(frame, blur)  # a stream left blurred stays blurred behind the panels
+            return self._step(frame, blur, view)  # a stream left blurred stays blurred behind the panels
         if self._blur.active:
             return blurred(frame)  # the shown camera blurs, so every camera does, all of it (nobody to tell apart here)
         return frame
 
-    def _step(self, frame: np.ndarray, blur: _Blur) -> np.ndarray:
+    def _step(self, frame: np.ndarray, blur: _Blur, view) -> np.ndarray:
         if not blur.active or blur.covered:
             return frame
         h, w = frame.shape[:2]
-        view = self._host.view()
         if blur.away and blur.mode == "others":
             weight = boxes_mask([shown_box(grown(b), view) for b in blur.others], w, h) if blur.others else None
             mask = self._host.person_mask(frame)

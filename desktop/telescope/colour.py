@@ -340,8 +340,9 @@ def write_cube(path, cube: np.ndarray, title: str = ""):
 
 
 class ColourPipeline(TelescopePlugin):
-    """The window's colour step (HostColour): it sits in the frame pipeline after the plugins and before those that
-    see the final frame, like the view sits before them. It isn't in the plugin list and can't be switched off."""
+    """The window's colour step (HostColour), in the "colour" frame stage: after the picture's effects, before privacy,
+    overlays and anything combining streams. It isn't in the plugin list and can't be switched off."""
+    frame_stage = "colour"
 
     name = "colour"
 

@@ -247,6 +247,17 @@ def test_the_stick_figure_asks_for_people_and_follows_them(card):
     assert host.people["fun_pack"] is False
 
 
+def test_shutting_down_lets_go_of_packets_and_people(card):
+    plugin, host, _bus, _panel = card()
+    _pick(plugin, "mosh")
+    plugin.shutdown()
+    assert host.packets["fun_pack"] is None
+    plugin, host, _bus, _panel = card()
+    _pick(plugin, "stick")
+    plugin.shutdown()
+    assert host.people["fun_pack"] is False
+
+
 def test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops(card):
     plugin, host, bus, _panel = card()
     asked = []

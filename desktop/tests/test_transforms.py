@@ -81,13 +81,13 @@ def test_auto_framing_visibly_disables_the_zoom_handle_and_value(transforms_plug
                                              QStyle.SubControl.SC_SliderHandle, slider)
         return slider.grab().toImage().pixelColor(rect.center())
 
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     assert host.vc.take_view("Auto framing")
     assert not plugin._zoom_slider.isEnabled() and not plugin._zoom_val_lbl.isEnabled()
     assert handle_color() == QColor(theme.TEXT_DISABLED)
     host.vc.release_view("Auto framing")
     assert plugin._zoom_slider.isEnabled() and plugin._zoom_val_lbl.isEnabled()
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     panel.close()
 
 
@@ -369,6 +369,16 @@ def test_stretch_saves_loads_and_resets(transforms_plugin):
     plugin._reset_btn.click()
     assert (host.vc.view.stretch_x, host.vc.view.stretch_y) == (1.0, 1.0)
     assert plugin.get_config()["stretch_x"] == 1.0
+
+
+def test_loading_a_stretch_sets_the_view_once(transforms_plugin):
+    plugin, host, _panel = transforms_plugin
+    calls = []
+    set_view = host.set_view
+    host.set_view = lambda **changes: calls.append(changes) or set_view(**changes)
+    plugin.set_config({"stretch_x": 1.25, "stretch_y": 0.7})  # every phone switch, Transforms being per phone
+    stretched = [c for c in calls if "stretch_x" in c or "stretch_y" in c]
+    assert stretched == [{"flip_h": False, "flip_v": False, "rotation": None, "stretch_x": 1.25, "stretch_y": 0.7}]
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
@@ -716,7 +726,7 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
 
 # ── Dragging and scrolling the preview, lens boxes ───────────────────────────
 
-from telescope.view import lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent  # noqa: E402
+from telescope.view import lens_boxes, pan_for, zoom_detent  # noqa: E402
 
 _ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
 

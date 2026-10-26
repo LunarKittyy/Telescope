@@ -8,6 +8,7 @@ from typing import Optional
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPlainTextEdit, QPushButton, QWidget
 
+from telescope.config import clamped_int
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import (
@@ -54,26 +55,26 @@ def notes_status(*, streaming: bool, phone: bool, takes_notes: Optional[bool], t
     if not phone:
         return tr("Notes only work with a phone as the camera."), "dim"
     if takes_notes is False:
-        return tr("Update Telescope on the phone to show notes there."), "warn"
+        return tr("Update Telescope on the phone to show notes there."), "status_warn"
     if too_long:
-        return tr("These notes are too long to send to the phone."), "err"
+        return tr("These notes are too long to send to the phone."), "status_err"
     if not streaming:
         return tr("Start streaming to send the notes to the phone."), "dim"
     if not sent:
         if front is False:
-            return tr("Switch to the front camera to have the phone's screen facing you."), "warn"
+            return tr("Switch to the front camera to have the phone's screen facing you."), "status_warn"
         return tr("Send to phone puts them on its screen right under the camera."), "dim"
     if not shown:
         if closed:
-            return tr("The notes were closed on the phone. Send again to show them."), "warn"
+            return tr("The notes were closed on the phone. Send again to show them."), "status_warn"
         if preview:
-            return tr("The notes show up on the phone once you close its preview."), "warn"
-        return tr("Open Telescope on the phone to see the notes."), "warn"
+            return tr("The notes show up on the phone once you close its preview."), "status_warn"
+        return tr("Open Telescope on the phone to see the notes."), "status_warn"
     if front is False:
-        return tr("The notes are up but the phone streams from its back camera."), "warn"
+        return tr("The notes are up but the phone streams from its back camera."), "status_warn"
     if edited:
-        return tr("Send again to show your changes on the phone."), "ok"
-    return tr("The notes are on the phone's screen."), "ok"
+        return tr("Send again to show your changes on the phone."), "status_ok"
+    return tr("The notes are on the phone's screen."), "status_ok"
 
 
 class _Signals(QObject):
@@ -117,7 +118,7 @@ class NotesPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Notes"), "notes", hue="phone")
+        add_card_header(lay, tr("Notes"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._set_combo = NoScrollComboBox()
@@ -447,8 +448,8 @@ class NotesPlugin(TelescopePlugin):
         self._sets = sets or [""]
         current = cfg.get("current")
         self._current = current if isinstance(current, int) and 0 <= current < len(self._sets) else 0
-        self._size_slider.setValue(_clamp(cfg.get("size"), SIZE_DEFAULT, SIZE_MIN, SIZE_MAX))
-        self._speed_slider.setValue(_clamp(cfg.get("speed"), SPEED_DEFAULT, 1, SPEED_MAX))
+        self._size_slider.setValue(clamped_int(cfg.get("size"), SIZE_DEFAULT, SIZE_MIN, SIZE_MAX))
+        self._speed_slider.setValue(clamped_int(cfg.get("speed"), SPEED_DEFAULT, 1, SPEED_MAX))
         scroll = cfg.get("scroll") if cfg.get("scroll") in dict(SCROLLS) else "auto"
         self._scroll_btns[scroll].setChecked(True)
         self._fill_sets()
@@ -457,10 +458,3 @@ class NotesPlugin(TelescopePlugin):
     def diagnostics(self) -> dict:
         return {"Notes": "on the phone" if self._is_sent() else "not sent",
                 "Notes on phone": {None: "not known", True: "yes", False: "phone too old"}[self._takes_notes]}
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
