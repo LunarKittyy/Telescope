@@ -382,6 +382,9 @@ class CameraSessionController(
         return capped
     }
 
+    /** The bitrate Dynamic set, or 0 when it's off. */
+    val dynamicBitrate: Int get() = if (requestedBitrate == H264Stream.DYNAMIC) dynamic?.bitrate ?: 0 else 0
+
     /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
      *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {

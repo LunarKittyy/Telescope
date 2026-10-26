@@ -381,8 +381,7 @@ def change_lags(thumbs: list, probes: list) -> list:
 
 
 class ThinLink:
-    """A thin link: a router that forwards mbps, holds buffer_ms of it and drops the rest, loses a share at random and
-    adds a delay. Pure apart from the clock and random numbers it's given."""
+    """A router that forwards mbps, holds buffer_ms of it, drops the rest, loses a share at random and adds a delay."""
 
     def __init__(self, mbps: float, loss: float = 0.0, buffer_ms: float = 100, delay_ms: float = 10, rnd=random.random):
         self.rate = mbps * 1e6 / 8
@@ -408,8 +407,7 @@ class ThinLink:
 
 
 class ShapedSocket:
-    """The UDP reader's socket with a ThinLink each way (down for what the phone sends, up for what goes back). A thread
-    takes datagrams as they arrive, so the link sees when they really came, and wakes the reader through a socket pair."""
+    """The UDP reader's socket through a ThinLink each way, fed by a thread so the link sees when datagrams really came."""
 
     def __init__(self, sock, down: ThinLink, up: ThinLink):
         import socket

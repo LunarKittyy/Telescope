@@ -755,7 +755,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
-        # Translators: Dynamic and Heavy are names of stream formats, as the Stream output card shows them
+        # Translators: Heavy is the name of a stream format, as the Stream output card shows it
         self._udp_cb.setToolTip(tr("Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."))
         self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
         self._udp_cb.toggled.connect(self._on_udp)

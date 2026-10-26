@@ -25,6 +25,7 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
         val encodedBytes: Long,  // bytes the encoder produced since the last sample
         val loss: Double = 0.0,  // over UDP, the share of datagrams that didn't arrive (UdpLink); 0 over TCP
         val routerMs: Long = 0,  // over UDP, how much of the queue is on the way (UdpLink), out of the phone's reach
+        val lossLately: Double = loss,  // over UDP, the share lost over the last couple of seconds
     )
 
     companion object {
@@ -43,16 +44,16 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
         const val PROBE_MS = 10_000L     // after a cut, stays under where it filled up this long before looking higher,
         const val PROBE_MAX_MS = 20_000L // and longer each time looking higher only found the same wall
         private const val MIN_CHANGE = 0.05  // smaller changes aren't worth reconfiguring the encoder
-        // Over UDP a full link loses datagrams instead of queueing them. The desktop asks for each one again, so a
-        // little loss is just Wi-Fi; more counts like a queue of that length, from CLEAR_MS up to SEVERE_MS.
-        const val LOSS_CLEAR = 0.02      // under this it keeps up
+        // Over UDP a full link loses datagrams instead of queueing them: past what resends cover, loss counts like a queue
+        const val LOSS_CLEAR = 0.03      // under this lately it keeps up
         const val LOSS_CONGESTED = 0.08  // a queue of CONGESTED_MS
         const val LOSS_SEVERE = 0.25     // SEVERE_MS
         const val DRAIN_MS = 2_000L      // over UDP a cut also drains a queue in the router in about this long
 
         /** How long a queue the sample amounts to: its own, or what its loss counts as, whichever is longer. */
         fun pressureMs(s: Sample): Long {
-            val l = s.loss
+            // A burst over LOSS_CONGESTED counts at once; under it a little noise in one sample shouldn't stop a climb
+            val l = if (s.loss >= LOSS_CONGESTED) s.loss else minOf(s.loss, s.lossLately)
             val lossMs = when {
                 l < LOSS_CLEAR -> 0.0
                 l < LOSS_CONGESTED -> CLEAR_MS + 1 + (l - LOSS_CLEAR) / (LOSS_CONGESTED - LOSS_CLEAR) * (CONGESTED_MS - CLEAR_MS - 2)

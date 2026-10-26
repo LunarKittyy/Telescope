@@ -76,7 +76,7 @@ A phone that can't do Light switches to Heavy automatically.
 
 Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB or for Heavy.
 
-Dynamic works over UDP too. The computer tells the phone how many packets went missing and how long they took to arrive, which shows a thinning link earlier than waiting for video to pile up on the phone. With a phone app older than this computer's Dynamic still runs over TCP.
+Dynamic works over UDP too. The computer tells the phone how many packets went missing and how long they took to arrive, which shows a thinning link earlier than waiting for video to pile up on the phone. If the phone app is older than the desktop app, Dynamic still runs over TCP.
 </details>
 
 ## Microphone

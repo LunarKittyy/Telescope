@@ -798,6 +798,7 @@ class CameraStreamService : Service() {
             onVideoClient  = ::onVideoClient,
             requestKeyFrame = { controller?.requestKeyFrame() },
             onH264Link     = { controller?.onLinkSample(it) },
+            dynamicBitrate = { controller?.dynamicBitrate ?: 0 },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),

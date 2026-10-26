@@ -61,6 +61,10 @@ class DynamicBitrateTest {
         assertEquals(DynamicBitrate.SEVERE_MS, pressure(DynamicBitrate.LOSS_SEVERE))
         assertEquals(DynamicBitrate.SEVERE_MS, pressure(0.9))
         assertEquals(300L, pressure(0.01, queueMs = 300))  // the longer of the two
+        val noisy = DynamicBitrate.pressureMs(DynamicBitrate.Sample(0, 0, 0, 0, loss = 0.05, lossLately = 0.01))
+        assertEquals(0L, noisy)  // one noisy sample under the burst level doesn't hold it back
+        val burst = DynamicBitrate.pressureMs(DynamicBitrate.Sample(0, 0, 0, 0, loss = 0.3, lossLately = 0.01))
+        assertEquals(DynamicBitrate.SEVERE_MS, burst)  // a burst counts at once
     }
 
     @Test
@@ -72,7 +76,7 @@ class DynamicBitrateTest {
         assertTrue(cut in 4_000_000..6_000_000, "$cut")  // at most 30% at a time, as for a queue
 
         val calm = DynamicBitrate(auto, top)
-        repeat(20) { calm.feed(0, 7.5, 7.5, loss = 0.01) }
+        repeat(20) { calm.feed(0, 7.5, 7.5, loss = 0.02) }
         assertTrue(calm.bitrate > auto, "climbs through loss the resends cover")
         val held = DynamicBitrate(auto, top)
         repeat(20) { held.feed(0, 7.5, 7.5, loss = 0.05) }

@@ -1740,7 +1740,7 @@ msgstr "Automatiskt: USB när telefonen är inkopplad, annars Wi-Fi."
 msgid "Connect via"
 msgstr "Anslut via"
 
-#. Dynamic and Heavy are names of stream formats, as the Stream output card shows them
+#. Heavy is the name of a stream format, as the Stream output card shows it
 #: telescope/plugins/connection.py:759
 msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
 msgstr "Kan jämna ut fördröjningstoppar på belastat Wi-Fi. Tung använder fortfarande TCP."

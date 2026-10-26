@@ -24,6 +24,8 @@ class MjpegServer(
     val requestKeyFrame: () -> Unit = {},
     // Every LINK_SAMPLE_MS while H.264 goes out: how the link to the slowest viewer is doing (DynamicBitrate).
     val onH264Link: (DynamicBitrate.Sample) -> Unit = {},
+    // The bitrate Dynamic set, 0 when it's off: UDP's pacing follows it (UdpVideoClient.paceFor)
+    val dynamicBitrate: () -> Int = { 0 },
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
     val startAudio: () -> MicProblem? = { MicProblem.NO_MIC },
     val stopAudio: () -> Unit = {},
@@ -137,6 +139,7 @@ class MjpegServer(
         var sent = Long.MAX_VALUE
         var loss = 0.0
         var routerMs = 0L
+        var lossLately = 0.0
         for (c in h264Clients) {
             c.limitBuffers(if (dynamicH264) dynamicSendBuffer(encodedBps) else 0)
             queueMs = maxOf(queueMs, c.queue.takeQueueMs())
@@ -145,19 +148,20 @@ class MjpegServer(
         // A UDP desktop's reports say how its link did; one that sends none (an older desktop) can't be measured
         for (u in udpClients) {
             u.limitBuffer(if (dynamicH264) dynamicSendBuffer(encodedBps) else 0)
-            u.paceBps = if (dynamicH264) UdpVideoClient.paceFor(encodedBps) else 0
+            u.paceBps = if (dynamicH264) UdpVideoClient.paceFor(encodedBps, dynamicBitrate()) else 0
             val link = u.takeLink() ?: continue
             queueMs = maxOf(queueMs, link.queueMs)
             sent = minOf(sent, link.sentBytes)
             loss = maxOf(loss, link.loss)
             routerMs = maxOf(routerMs, link.routerMs)
+            lossLately = maxOf(lossLately, link.lossLately)
         }
         val encoded = encodedBytes
         // A report that's late (they come every 100 ms) leaves this sample out: its bytes count towards the next one
         if (sent == Long.MAX_VALUE && !first && udpClients.any { it.reporting }) return
         encodedBytes = 0
         if (sent == Long.MAX_VALUE || first) return  // the first one only starts the count
-        onH264Link(DynamicBitrate.Sample(now, queueMs, sent, encoded, loss, routerMs))
+        onH264Link(DynamicBitrate.Sample(now, queueMs, sent, encoded, loss, routerMs, lossLately))
     }
 
     fun sendAudio(chunk: ByteArray) {

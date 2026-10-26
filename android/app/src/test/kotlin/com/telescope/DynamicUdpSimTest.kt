@@ -4,11 +4,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-/**
- * Dynamic over UDP against simulated links: the real UdpLink and DynamicBitrate, a VBR encoder with a keyframe every
- * second, the phone's send buffer and Wi-Fi, a router in the way with its own speed, buffer and random loss, and a
- * desktop that asks for lost pieces again like udp_reader.py and reports back every 100 ms. Compared with Auto.
- */
+// Dynamic over UDP (the real UdpLink and DynamicBitrate) against a simulated router, phone and desktop, compared with Auto
 class DynamicUdpSimTest {
 
     private val w = 1920
@@ -35,9 +31,10 @@ class DynamicUdpSimTest {
         val bitrates: List<Int>,
         val gaveUpAt: List<Long> = emptyList(),
         val lossPerSecond: List<Double> = emptyList(),
+        val skips: Int = 0,         // the phone's queue overflowed and dropped what was waiting
     ) {
         override fun toString() = "%-22s %5.1f Mbps  p50 %4d ms  p95 %5d ms  max %5d ms  lost %4.1f%%  gave up %3d  frozen %4.1f%%".format(
-            name, meanMbps, p50Ms, p95Ms, maxMs, lossPct, gaveUp, frozenPct)
+            name, meanMbps, p50Ms, p95Ms, maxMs, lossPct, gaveUp, frozenPct) + "  skips $skips"
     }
 
     private class Dgram(val frame: Int, val idx: Int, val count: Int, val size: Int, var counter: Long = 0, var at: Long = 0)
@@ -107,6 +104,7 @@ class DynamicUdpSimTest {
         var sentDgrams = 0L
         val perSecond = ArrayList<Int>()
         val gaveUpAt = ArrayList<Long>()
+        var skips = 0
         val lossPerSecond = ArrayList<Double>()
         var lostMark = 0L
         var sentMark = 0L
@@ -119,6 +117,8 @@ class DynamicUdpSimTest {
             val count = counts[f] ?: return
             for (i in (idx.ifEmpty { (0 until count).toList() })) {
                 val size = if (i < count - 1) piece else 200
+                // Resends go out from the feedback thread through the same short send buffer; a full one holds them back
+                if (sndbufBytes + size + overhead > sndbufCap) return
                 sndbuf.addLast(Dgram(f, i, count, size + overhead)); sndbufBytes += size + overhead
             }
         }
@@ -134,7 +134,7 @@ class DynamicUdpSimTest {
                 encoded += size
                 frameNo++
                 if (!(waitingForKey && !key)) {
-                    if (frames.size >= UdpVideoClient.QUEUE) { frames.clear(); waitingForKey = true; wantKey = true }
+                    if (frames.size >= UdpVideoClient.QUEUE) { frames.clear(); waitingForKey = true; wantKey = true; skips++ }
                     else { frames.addLast(Queued(-1, size, key, now)); waitingForKey = false }
                 }
             }
@@ -242,10 +242,10 @@ class DynamicUdpSimTest {
             // Phone: sample every 250 ms, like MjpegServer
             if (now > 0 && now % MjpegServer.LINK_SAMPLE_MS == 0L) {
                 (encoded * 8_000.0 / MjpegServer.LINK_SAMPLE_MS).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
-                if (dynamic) { sndbufCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2; paceBps = UdpVideoClient.paceFor(encodedBps) }
+                if (dynamic) { sndbufCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2; paceBps = UdpVideoClient.paceFor(encodedBps, bitrate) }
                 val take = udpLink.take(now, frames.firstOrNull()?.let { now - it.atMs } ?: 0L)
                 if (take != null) {
-                    controller?.update(DynamicBitrate.Sample(now, take.queueMs, take.sentBytes, encoded, take.loss, take.routerMs))?.let { bitrate = it }
+                    controller?.update(DynamicBitrate.Sample(now, take.queueMs, take.sentBytes, encoded, take.loss, take.routerMs, take.lossLately))?.let { bitrate = it }
                     encoded = 0
                 }
             }
@@ -259,7 +259,7 @@ class DynamicUdpSimTest {
         fun pct(p: Double) = if (latencies.isEmpty()) 0L else latencies[((latencies.size - 1) * p).toInt()]
         val frozen = 1.0 - shown.toDouble() / maxOf(1, seq)
         return Result(name, bytes * 8.0 / seconds / 1e6, pct(0.5), pct(0.95), latencies.lastOrNull() ?: 0,
-            100.0 * lostOnWay / maxOf(1, sentDgrams), gaveUp, 100.0 * frozen, perSecond, gaveUpAt, lossPerSecond)
+            100.0 * lostOnWay / maxOf(1, sentDgrams), gaveUp, 100.0 * frozen, perSecond, gaveUpAt, lossPerSecond, skips)
     }
 
     private fun compare(title: String, link: Link, seconds: Int, seed: Int = 1, usage: (Long) -> Double = { 0.9 }): Pair<Result, Result> {
@@ -317,5 +317,30 @@ class DynamicUdpSimTest {
         assertTrue(dyn.bitrates[33] <= 4_000_000, "down within 3 s: ${dyn.bitrates[33]}")
         assertTrue(dyn.bitrates[99] >= 15_000_000, "back up by the end: ${dyn.bitrates[99]}")
         assertTrue(dyn.p95Ms < 300 && dyn.frozenPct < 4, "p95 ${dyn.p95Ms} frozen ${dyn.frozenPct}")
+    }
+
+    @Test
+    fun `a blip with nothing getting through is a stall, not a slower link`() {
+        // A second of nothing (reports included), like Wi-Fi roaming
+        val (dyn, _) = compare("10 Mbps router, nothing through for 1 s at 30 s",
+            { ms -> if (ms in 30_000 until 31_000) Path(40.0, 0.0, 100, 1.0) else Path(40.0, 10.0, 100, 0.002) }, 45)
+        val before = dyn.bitrates[29]
+        assertTrue(dyn.bitrates.subList(31, 45).all { it >= before * 0.6 }, "no deep cut after it: $before then ${dyn.bitrates.subList(31, 45)}")
+    }
+
+    @Test
+    fun `a still scene that starts moving doesn't overflow the phone's queue`() {
+        val (dyn, _) = compare("6 Mbps router, still for 20 s then moving", { Path(40.0, 6.0, 100, 0.002) }, 60,
+            usage = { ms -> if (ms < 20_000) 0.1 else 0.9 })
+        assertTrue(dyn.skips <= 1, "skips ${dyn.skips}")
+        assertTrue(dyn.p95Ms < 300 && dyn.frozenPct < 4, "p95 ${dyn.p95Ms} frozen ${dyn.frozenPct}")
+    }
+
+    @Test
+    fun `random loss doesn't keep it down once the link is back`() {
+        val (dyn, _) = compare("Router at 1.5 Mbps for 20 s then 25 Mbps, 2% random loss throughout",
+            { ms -> Path(40.0, if (ms < 20_000) 1.5 else 25.0, 100, 0.02) }, 90)
+        assertTrue(dyn.bitrates[19] < 2_000_000, "down while thin: ${dyn.bitrates[19]}")
+        assertTrue(dyn.bitrates.last() >= 12_000_000, "back up: ${dyn.bitrates.last()}")
     }
 }

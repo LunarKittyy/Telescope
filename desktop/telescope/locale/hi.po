@@ -1741,7 +1741,7 @@ msgstr "ऑटोमैटिक: फ़ोन कनेक्ट होने �
 msgid "Connect via"
 msgstr "इससे कनेक्ट करें"
 
-#. Dynamic and Heavy are names of stream formats, as the Stream output card shows them
+#. Heavy is the name of a stream format, as the Stream output card shows it
 #: telescope/plugins/connection.py:759
 msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
 msgstr "व्यस्त Wi-Fi पर लैग स्पाइक्स को कम कर सकता है. भारी अब भी TCP का इस्तेमाल करता है."

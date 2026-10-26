@@ -76,6 +76,27 @@ class UdpVideoTest {
     }
 
     @Test
+    fun `pacing spreads bytes at the rate, and time with it off or a long gap doesn't build up a burst`() {
+        val pacer = UdpPacer(burst = 10_000)
+        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 0))  // the burst goes at once
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))  // 1000 bytes at 1 MB/s: 1 ms
+        assertEquals(0L, pacer.waitNs(5_000, 0, 1_000_000))  // off
+        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 600_000_000_000L))  // on again ten minutes later: a fresh burst
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 600_000_000_000L))  // not ten minutes' worth
+        val steady = UdpPacer(burst = 10_000)
+        steady.waitNs(10_000, 100_000_000, 0)
+        val wait = steady.waitNs(1_000, 100_000_000, 900_000_000_000L)  // minutes at one rate: no overflow
+        assertEquals(0L, wait)
+    }
+
+    @Test
+    fun `pacing follows Dynamic's bitrate as well as what the encoder made`() {
+        assertEquals(UdpVideoClient.PACE_MIN_BPS, UdpVideoClient.paceFor(100_000.0))
+        assertEquals((6_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(500_000.0, 6_000_000))
+        assertEquals((8_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(8_000_000.0, 6_000_000))
+    }
+
+    @Test
     fun `a desktop that sends no feedback loses its session`() {
         Session(timeoutMs = 100L).use { session ->
             session.runner.join(1000)

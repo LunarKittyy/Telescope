@@ -95,4 +95,37 @@ class UdpLinkTest {
         link.report(report(20, 20), 300)
         assertEquals(400L, link.take(500, waitingMs = 400)!!.queueMs)  // stuck: nothing went out at all
     }
+
+    @Test
+    fun `reports that stop for a while are a sample with nothing through`() {
+        val link = UdpLink()
+        link.report(report(0, 0), 0)
+        link.take(0, 0)
+        link.report(report(100, 100), 100)
+        link.take(250, 0)
+        assertNull(link.take(500, 0))  // one late report: wait for it
+        val gap = link.take(750, 0)!!  // 650 ms without one
+        assertEquals(650L, gap.queueMs)
+        assertEquals(0L, gap.sentBytes)
+        assertTrue(DynamicBitrate.pressureMs(DynamicBitrate.Sample(750, gap.queueMs, 0, 0)) > DynamicBitrate.CLEAR_MS)
+    }
+
+    @Test
+    fun `loss counts once enough datagrams went out, and lately over a couple of seconds`() {
+        val link = UdpLink()
+        link.report(report(0, 0), 0)
+        link.take(0, 0)
+        link.report(report(7, 8), 100)  // one of 8 at the floor isn't 12% yet
+        assertEquals(0.0, link.take(250, 0)!!.loss, 1e-9)
+        link.report(report(7 + 47, 8 + 48), 300)  // 56 now: 2 lost
+        val take = link.take(500, 0)!!
+        assertEquals(2.0 / 56, take.loss, 1e-9)
+        assertEquals(2.0 / 56, take.lossLately, 1e-9)
+        link.report(report(54 + 100, 56 + 100), 600)
+        val clean = link.take(750, 0)!!
+        assertEquals(0.0, clean.loss, 1e-9)
+        assertEquals(2.0 / 156, clean.lossLately, 1e-9)
+        link.report(report(154 + 100, 156 + 100), 3_000)
+        assertEquals(0.0, link.take(3_000, 0)!!.lossLately, 1e-9)  // the old ones are too long ago
+    }
 }
