@@ -352,6 +352,12 @@ class HostPreview(Protocol):
         """End owner's pick without points (its on_done gets None)."""
         ...
 
+    def set_preview_warp(self, owner: str, matrix) -> None:
+        """For a plugin that moves the whole picture after the view (Desk mode): matrix is a 3 x 3 homography from the
+        frame as shown with the view to what comes out, both 0..1, or None once it stops. Clicks, scrolls and picks on
+        the preview are mapped back through it, and the lens outlines and skeleton aren't drawn meanwhile. Any thread."""
+        ...
+
     def preview_overlays(self) -> "PreviewOverlays":
         """For whatever shows the preview: the layers and the pick, to draw and pass the mouse to."""
         ...

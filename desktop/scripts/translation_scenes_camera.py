@@ -621,6 +621,14 @@ def desk_no_corners(stack):
     return cards(stack, win, "desk")
 
 
+@scene("desk-off-picture", "states", "Desk mode · zoomed in past the sheet's corners", width=CARD_WIDTH)
+def desk_off_picture(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET]})
+    win.set_view(zoom=3.0)
+    return cards(stack, win, "desk")
+
+
 @scene("desk-not-streaming", "states", "Desk mode · marking the sheet before streaming", width=CARD_WIDTH)
 def desk_not_streaming(stack):
     win = ready_window(stack)

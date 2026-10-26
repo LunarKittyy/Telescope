@@ -269,3 +269,17 @@ def test_a_pick_result_is_frozen(overlays):
     pick = Pick("point", ((0.5, 0.5),), ((0.5, 0.5),))
     with pytest.raises(Exception):
         pick.kind = "rect"
+
+
+def test_with_a_plugin_moving_the_picture_picks_map_back_through_it(overlays):
+    shift = [[1, 0, 0.25], [0, 1, 0], [0, 0, 1]]  # the picture moved a quarter to the right
+    overlays.set_warp("Desk", shift)
+    assert overlays.unwarp(0.75, 0.5) == pytest.approx((0.5, 0.5))
+    got = _picker(overlays, "point")
+    overlays.press(0.75, 0.5, SIZE)
+    overlays.release(0.75, 0.5)
+    assert got[0].shown[0] == pytest.approx((0.5, 0.5)) and got[0].in_picture[0] == pytest.approx((0.75, 0.5))
+    overlays.set_warp("Other", None)  # only its owner stops it
+    assert overlays.warping()
+    overlays.set_warp("Desk", None)
+    assert not overlays.warping() and overlays.unwarp(0.75, 0.5) == (0.75, 0.5)

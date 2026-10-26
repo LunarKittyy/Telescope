@@ -59,6 +59,8 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 - **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture
 - The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
 - **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
+- Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
+- If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
 - The sheet stays in its own shape with bars beside it. **Keep the sheet's shape** under Video in Settings stretches it over the whole picture instead
 - Each phone remembers its own corners and presets save them too
 

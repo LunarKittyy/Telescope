@@ -91,10 +91,12 @@ class Warp:
     def __init__(self):
         self._key = None
         self._made = None
+        self.on_preview = None  # the same warp from the frame as shown to what comes out, both 0..1, for the preview
 
     def get(self, settings: Settings, w: int, h: int) -> Optional[tuple]:
         """(matrix, (x, y, width, height)) for a w x h frame, or None while there's nothing to straighten."""
         if not settings.on or settings.corners is None:
+            self.on_preview = None
             return None
         key = (settings.corners, settings.keep_shape, settings.view, w, h)
         if key != self._key:
@@ -104,7 +106,10 @@ class Warp:
             corners = centre + (corners - centre) * _INSET  # a corner a pixel off would bring the desk's edge along
             x, y, rw, rh = target_rect(corners, w, h, settings.keep_shape)
             dest = np.float32([[0, 0], [rw, 0], [rw, rh], [0, rh]])
-            self._key, self._made = key, (cv2.getPerspectiveTransform(corners, dest), (x, y, rw, rh))
+            matrix = cv2.getPerspectiveTransform(corners, dest)
+            self._key, self._made = key, (matrix, (x, y, rw, rh))
+            moved = np.array([[1, 0, x], [0, 1, y], [0, 0, 1]], np.float64) @ matrix
+            self.on_preview = np.diag([1 / w, 1 / h, 1.0]) @ moved @ np.diag([w, h, 1.0])
         return self._made
 
 
@@ -139,6 +144,7 @@ class DeskPlugin(TelescopePlugin):
         self._settings = Settings(view=host.view())
         self._warp = Warp()
         self._picking = False  # the warp waits while the corners are being placed, so they go on the real picture
+        self._told = None  # the warp the preview was last told about
         bus.view_changed.connect(self._on_view)
         bus.preview_pick_changed.connect(self._on_pick_changed)
 
@@ -269,18 +275,35 @@ class DeskPlugin(TelescopePlugin):
             text, kind = tr("Drag the corners on the preview onto the sheet's corners."), ""
         elif self._settings.on and self._settings.corners is None:
             text, kind = tr("Mark the sheet's corners to straighten it."), "warn"
+        elif self._settings.on and self._off_picture():
+            text, kind = tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "warn"
         else:
             text, kind = "", ""
         self._status.setText(text)
         self._status.setVisible(bool(text))
         set_status_kind(self._status, kind)
 
+    def _off_picture(self) -> bool:
+        """Whether a corner sits outside the frame as shown (zoomed in past it, or Auto framing moved the view)."""
+        slack = 0.01
+        return any(not (-slack <= c <= 1 + slack) for x, y in self._settings.corners
+                   for c in to_shown(self._settings.view, x, y))
+
     # ── Frames (worker thread) ────────────────────────────────────────────
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         if self._picking:
+            self._tell_preview(None)
             return frame
-        return straighten(frame, self._settings, self._warp)
+        out = straighten(frame, self._settings, self._warp)
+        self._tell_preview(self._warp.on_preview)
+        return out
+
+    def _tell_preview(self, matrix):
+        """Clicks and picks on the preview get mapped back through the warp (focus lands on the word you tapped)."""
+        if matrix is not self._told:
+            self._told = matrix
+            self._host.set_preview_warp(self.name, matrix)
 
     def frame_step(self):
         settings = self._settings
@@ -324,3 +347,4 @@ class DeskPlugin(TelescopePlugin):
 
     def shutdown(self):
         self._host.cancel_pick(self.name)
+        self._host.set_preview_warp(self.name, None)

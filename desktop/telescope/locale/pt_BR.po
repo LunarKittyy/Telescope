@@ -115,7 +115,7 @@ msgid "Stop"
 msgstr "Parar"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:614 telescope/app.py:1900 telescope/app.py:1916 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:614 telescope/app.py:1903 telescope/app.py:1919 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "Iniciar"
 
@@ -279,7 +279,7 @@ msgstr "Redimensionar a câmera virtual"
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "O celular enviou dados que esta versão não consegue ler. Atualize ambos os apps para a mesma versão."
 
-#: telescope/app.py:1554 telescope/plugins/preview.py:589
+#: telescope/app.py:1554 telescope/plugins/preview.py:590
 msgid "Show"
 msgstr "Exibir"
 
@@ -299,32 +299,32 @@ msgstr "Este Telescope não tem atalhos."
 msgid "That failed; Copy diagnostics has the details."
 msgstr "A operação falhou; Copiar diagnósticos contém os detalhes."
 
-#: telescope/app.py:1899
+#: telescope/app.py:1902
 msgid "The stream stopped unexpectedly"
 msgstr "A transmissão parou inesperadamente"
 
-#: telescope/app.py:1899 telescope/app.py:1915
+#: telescope/app.py:1902 telescope/app.py:1918
 msgid "Copy diagnostics has the details."
 msgstr "Copiar diagnósticos tem os detalhes."
 
-#: telescope/app.py:1914
+#: telescope/app.py:1917
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "A transmissão de {name} parou inesperadamente"
 
-#: telescope/app.py:1993
+#: telescope/app.py:1996
 msgid "Telescope is still running"
 msgstr "O Telescope ainda está em execução"
 
-#: telescope/app.py:1994
+#: telescope/app.py:1997
 msgid "Streaming continues in the background."
 msgstr "A transmissão continua em segundo plano."
 
-#: telescope/app.py:1995
+#: telescope/app.py:1998
 msgid "It starts streaming by itself when it needs to."
 msgstr "Ele inicia a transmissão sozinho quando necessário."
 
-#: telescope/app.py:1996
+#: telescope/app.py:1999
 msgid "Right-click the tray icon to quit."
 msgstr "Clique com o botão direito no ícone da bandeja do sistema para sair."
 
@@ -392,15 +392,15 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n} %"
 
-#: telescope/overlays.py:401
+#: telescope/overlays.py:445
 msgid "Click a point on the picture. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:403
+#: telescope/overlays.py:447
 msgid "Drag across the picture to mark an area. Esc cancels."
 msgstr ""
 
-#: telescope/overlays.py:404
+#: telescope/overlays.py:448
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr ""
 
@@ -796,7 +796,7 @@ msgstr "Plugins"
 msgid "Updates & About"
 msgstr "Atualizações e Sobre"
 
-#: telescope/plugin.py:487
+#: telescope/plugin.py:493
 msgid "Open settings"
 msgstr "Abrir configurações"
 
@@ -1126,7 +1126,7 @@ msgstr "A Câmera do navegador não está disponível"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Escaneie o código no cartão Câmera do navegador com o dispositivo que deseja usar. A transmissão começa assim que ele se conectar."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:162 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:168 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1742,7 +1742,7 @@ msgstr "Você já pode iniciar a transmissão."
 msgid "Paired with {name}"
 msgstr "Pareado com {name}"
 
-#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:160
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:166
 msgid "Done"
 msgstr "Concluído"
 
@@ -2183,77 +2183,81 @@ msgstr ""
 msgid "Black and white"
 msgstr ""
 
-#: telescope/plugins/desk.py:129 telescope/plugins/desk.py:192 telescope/plugins/desk.py:205
+#: telescope/plugins/desk.py:134 telescope/plugins/desk.py:198 telescope/plugins/desk.py:211
 msgid "Desk and document mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:130
+#: telescope/plugins/desk.py:135
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
 msgstr ""
 
-#: telescope/plugins/desk.py:131
+#: telescope/plugins/desk.py:136
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
 msgstr ""
 
-#: telescope/plugins/desk.py:152
+#: telescope/plugins/desk.py:158
 msgid "Straighten the sheet you marked"
 msgstr ""
 
-#: telescope/plugins/desk.py:154 telescope/plugins/desk.py:207
+#: telescope/plugins/desk.py:160 telescope/plugins/desk.py:213
 msgid "Desk mode"
 msgstr ""
 
-#: telescope/plugins/desk.py:157 telescope/plugins/desk.py:208 telescope/plugins/desk.py:267
+#: telescope/plugins/desk.py:163 telescope/plugins/desk.py:214 telescope/plugins/desk.py:273
 msgid "Mark the sheet"
 msgstr ""
 
-#: telescope/plugins/desk.py:158
+#: telescope/plugins/desk.py:164
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr ""
 
-#: telescope/plugins/desk.py:174
+#: telescope/plugins/desk.py:180
 msgid "Make the writing on the sheet stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:179
+#: telescope/plugins/desk.py:185
 msgid "Writing"
 msgstr ""
 
-#: telescope/plugins/desk.py:193
+#: telescope/plugins/desk.py:199
 msgctxt "search"
 msgid "document paper sheet whiteboard homework perspective straighten keystone scan"
 msgstr ""
 
-#: telescope/plugins/desk.py:195
+#: telescope/plugins/desk.py:201
 msgid "Keep the sheet's shape"
 msgstr ""
 
-#: telescope/plugins/desk.py:196
+#: telescope/plugins/desk.py:202
 msgid "Off stretches the sheet to fill the whole picture"
 msgstr ""
 
-#: telescope/plugins/desk.py:209
+#: telescope/plugins/desk.py:215
 msgid "Make the writing stand out"
 msgstr ""
 
-#: telescope/plugins/desk.py:242
+#: telescope/plugins/desk.py:248
 msgid "Drag the corners onto the sheet's corners, then press Enter."
 msgstr ""
 
-#: telescope/plugins/desk.py:243
+#: telescope/plugins/desk.py:249
 msgid "Start streaming to mark the sheet on the preview."
 msgstr ""
 
-#: telescope/plugins/desk.py:267
+#: telescope/plugins/desk.py:273
 msgid "Mark the sheet again"
 msgstr ""
 
-#: telescope/plugins/desk.py:269
+#: telescope/plugins/desk.py:275
 msgid "Drag the corners on the preview onto the sheet's corners."
 msgstr ""
 
-#: telescope/plugins/desk.py:271
+#: telescope/plugins/desk.py:277
 msgid "Mark the sheet's corners to straighten it."
+msgstr ""
+
+#: telescope/plugins/desk.py:279
+msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
 msgstr ""
 
 #. keep these short, they sit in the slider's narrow readout column
@@ -2983,75 +2987,75 @@ msgstr ""
 "O microfone do celular continua transmitindo e a câmera\n"
 "volta quando algum app a abrir."
 
-#: telescope/plugins/preview.py:363
+#: telescope/plugins/preview.py:364
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Pré-visualização de vídeo"
 
-#: telescope/plugins/preview.py:410 telescope/plugins/preview.py:579
+#: telescope/plugins/preview.py:411 telescope/plugins/preview.py:580
 msgid "Preview"
 msgstr "Pré-visualização"
 
-#: telescope/plugins/preview.py:411
+#: telescope/plugins/preview.py:412
 msgid "The live picture in the middle of the window, and the camera on/off button under it."
 msgstr "A imagem ao vivo no centro da janela e o botão de ligar/desligar a câmera abaixo dela."
 
-#: telescope/plugins/preview.py:412
+#: telescope/plugins/preview.py:413
 msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
 msgstr "Sem ele, a janela não mostra a imagem, mas os apps que usam a câmera virtual continuam a recebê-la."
 
-#: telescope/plugins/preview.py:503 telescope/plugins/preview.py:589
+#: telescope/plugins/preview.py:504 telescope/plugins/preview.py:590
 msgid "Hide"
 msgstr "Ocultar"
 
-#: telescope/plugins/preview.py:507
+#: telescope/plugins/preview.py:508
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "Para de exibir esta pré-visualização. A saída da câmera não muda."
 
-#: telescope/plugins/preview.py:516 telescope/plugins/shortcuts.py:180
+#: telescope/plugins/preview.py:517 telescope/plugins/shortcuts.py:180
 msgid "Phone camera"
 msgstr "Câmera do celular"
 
-#: telescope/plugins/preview.py:527 telescope/plugins/preview.py:583
+#: telescope/plugins/preview.py:528 telescope/plugins/preview.py:584
 msgid "Skeleton"
 msgstr "Esqueleto"
 
-#: telescope/plugins/preview.py:535
+#: telescope/plugins/preview.py:536
 msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
 msgstr "Desenha o esqueleto detectado pelo MediaPipe. Não aparece na saída da câmera."
 
-#: telescope/plugins/preview.py:543 telescope/plugins/preview.py:582
+#: telescope/plugins/preview.py:544 telescope/plugins/preview.py:583
 msgid "Lens outlines"
 msgstr "Contornos das lentes"
 
-#: telescope/plugins/preview.py:557
+#: telescope/plugins/preview.py:558
 msgid "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
 msgstr "Mostra o que as lentes mais longas do celular veem. Não aparece na saída da câmera."
 
-#: telescope/plugins/preview.py:562
+#: telescope/plugins/preview.py:563
 msgid "Pop out"
 msgstr "Destacar janela"
 
-#: telescope/plugins/preview.py:581
+#: telescope/plugins/preview.py:582
 msgid "Show or hide the preview"
 msgstr "Mostrar ou ocultar a pré-visualização"
 
-#: telescope/plugins/preview.py:584
+#: telescope/plugins/preview.py:585
 msgid "Pop out the preview"
 msgstr "Destacar a pré-visualização"
 
-#: telescope/plugins/preview.py:593 telescope/plugins/preview.py:616
+#: telescope/plugins/preview.py:594 telescope/plugins/preview.py:617
 msgid "Preview hidden"
 msgstr "Pré-visualização oculta"
 
-#: telescope/plugins/preview.py:652
+#: telescope/plugins/preview.py:653
 msgid "Turn the phone's camera back on."
 msgstr "Ligar a câmera do celular novamente."
 
-#: telescope/plugins/preview.py:656
+#: telescope/plugins/preview.py:657
 msgid "Turn the phone's camera off. Its mic keeps streaming."
 msgstr "Desligar a câmera do celular. O microfone continua transmitindo."
 
-#: telescope/plugins/preview.py:658
+#: telescope/plugins/preview.py:659
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Iniciar com a câmera do celular desligada, transmitindo apenas o microfone."
 

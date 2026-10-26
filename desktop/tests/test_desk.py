@@ -112,6 +112,11 @@ class _Host:
     def schedule_save(self):
         self.saves += 1
 
+    warp = None
+
+    def set_preview_warp(self, owner, matrix):
+        self.warp = matrix
+
 
 @pytest.fixture
 def desk(qt_widgets):
@@ -174,3 +179,22 @@ def test_a_stream_behind_the_panels_keeps_the_straightening_it_had(desk):
     step = plugin.frame_step()
     plugin.set_config({})
     assert step(_desk_frame())[10, W // 2, 0] > 200
+
+
+def test_the_preview_learns_the_warp_to_map_clicks_back(desk):
+    plugin, host, _bus = desk()
+    plugin.set_config({"on": True, "corners": [list(p) for p in _full(CORNERS)], "keep_shape": False})
+    plugin.process_frame(_desk_frame())
+    tl = host.warp @ (CORNERS[0][0] / W, CORNERS[0][1] / H, 1.0)
+    assert tl[:2] / tl[2] == pytest.approx((0, 0), abs=0.03)  # the sheet's corner lands in the picture's corner
+    plugin.set_config({})
+    plugin.process_frame(_desk_frame())
+    assert host.warp is None
+
+
+def test_a_sheet_pushed_off_the_picture_says_so(desk):
+    plugin, _host, bus = desk()
+    plugin.set_config({"on": True, "corners": [list(p) for p in _full(CORNERS)]})
+    assert plugin._status.isHidden()
+    bus.view_changed.emit(View(zoom=3.0))
+    assert "outside the picture" in plugin._status.text() and not plugin._status.isHidden()

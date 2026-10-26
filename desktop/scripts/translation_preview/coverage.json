@@ -556,6 +556,7 @@
     "[\"\", \"Pan up/down\"]",
     "[\"\", \"Pan\"]",
     "[\"\", \"Panned past what {tele} can see, so it's on {live}. Pan back to switch again.\"]",
+    "[\"\", \"Part of the sheet is outside the picture. Zoom out or mark it again.\"]",
     "[\"\", \"Paste the diagnostics into the report.\"]",
     "[\"\", \"Peaking colour\"]",
     "[\"\", \"Peaking sensitivity\"]",
@@ -5027,6 +5028,19 @@
       "[\"\", \"Mark the sheet\"]",
       "[\"\", \"Mark the sheet's corners to straighten it.\"]",
       "[\"\", \"Off\"]",
+      "[\"\", \"Straighten the sheet you marked\"]",
+      "[\"\", \"Writing\"]"
+    ],
+    "desk-off-picture": [
+      "[\"\", \"Black and white\"]",
+      "[\"\", \"Contrast\"]",
+      "[\"\", \"Desk mode\"]",
+      "[\"\", \"Drag the four corners of the sheet into place on the preview\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"Make the writing on the sheet stand out\"]",
+      "[\"\", \"Mark the sheet again\"]",
+      "[\"\", \"Off\"]",
+      "[\"\", \"Part of the sheet is outside the picture. Zoom out or mark it again.\"]",
       "[\"\", \"Straighten the sheet you marked\"]",
       "[\"\", \"Writing\"]"
     ],
@@ -32871,6 +32885,7 @@
     "preview-desk-corners": 760,
     "desk-straightened": 444,
     "desk-no-corners": 444,
+    "desk-off-picture": 444,
     "desk-not-streaming": 444,
     "browser-waiting": 444,
     "browser-hint-certificate": 444,
@@ -33364,5 +33379,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1304
+  "total": 1305
 }
