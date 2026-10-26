@@ -125,6 +125,65 @@ The desktop checks each `/v1/state` it reads against the settings it last sent (
 
 > **Manual exposure note:** `CONTROL_AE_MODE_OFF` only activates when *both* ISO and shutter are set and the selected camera reports `supportsManualSensor` - `CONTROL_MODE` itself stays `CONTROL_MODE_AUTO` throughout, so autofocus keeps running independently of manual exposure. The desktop app sends both ISO and shutter simultaneously when switching to manual mode.
 
+## Photos: `/v1/still`
+
+A real photo from the phone's camera at full quality, not a frame of the video. A phone that takes these sends `stills: 1` in `/v1/state` (an older one leaves it out and the desktop then offers no photos). Each lens that can take them has a `stills` object in `cameras[]`:
+
+| Field | Meaning |
+|---|---|
+| `formats` | `jpeg` always, then `heic` (Android 10), `ultrahdr` (Ultra HDR JPEG, Android 14) and `raw` (a DNG) where the lens lists them |
+| `width`, `height` | The largest JPEG, which is what a photo is taken at |
+| `maxResWidth`, `maxResHeight` | The JPEG from the maximum resolution sensor mode (Android 12), only when it's bigger. `maxResRaw` is true when RAW works in that mode too |
+| `extensions` | The maker's own modes the lens has through Camera2 extensions (Android 12): `night`, `hdr`, `bokeh` and `auto` |
+| `extensionSizes` | The size each of those modes takes its photos at, like `{"night": {"width": 3840, "height": 2160}}`. Often smaller than `width` and `height` |
+| `exposureMaxNs` | The longest exposure the sensor and its frame duration allow, for long exposures. 0 on a lens without manual exposure |
+| `bracketing`, `focusBracketing` | Exposure bracketing (needs manual exposure) and focus bracketing (needs manual focus) |
+| `noiseReductionHq`, `sharpeningHq`, `hotPixelHq`, `distortionCorrection` | The high quality noise reduction, sharpening and hot pixel modes, and whether distortion correction can be switched |
+| `burstMax` | The most pictures one request takes, counting every burst, bracket and focus step |
+
+A lens of a multi-lens camera has no full resolution mode or maker modes (those belong to the camera as a whole) and its RAW needs Android 12. The phone reads all this once per lens when the stream starts, which is why `stills` can be missing from the first state or two.
+
+### Taking one
+
+`POST /v1/still` with `{"action": "take", ...}` and any of these, all as strings or numbers like `/v1/control`'s params:
+
+| Param | Effect |
+|---|---|
+| `format` | `jpeg`, `heic`, `ultrahdr`, or `none` for RAW only |
+| `raw` | `1` for a DNG as well (from the same exposure as the JPEG) |
+| `quality` | 1-100 for JPEG, HEIC and Ultra HDR, 95 when left out |
+| `max_res` | `1` for the maximum resolution sensor mode (JPEG and RAW only) |
+| `extension` | `night`, `hdr`, `bokeh` or `auto`. JPEG only, and the maker's processing sets its own exposure and focus, so it can't go with RAW, bracketing or a manual exposure |
+| `exposure_ns`, `iso` | A manual exposure, fitted to `exposureMaxNs` and the lens's ISO range. Either one alone takes the other from the stream (as set by hand, or what auto exposure picked) |
+| `bracket_ev` | Exposure steps in EV from that exposure, like `-2,0,2`: up to 9, each between -6 and 6. The exposure time moves first and ISO only where the time runs out |
+| `focus_steps`, `focus_from`, `focus_to` | Focus bracketing: 2-30 pictures from `focus_from` to `focus_to` in diopters (the nearest focus to infinity when left out) |
+| `count` | A burst: everything above taken this many times |
+| `timer_s` | Wait 0-30 seconds before shooting |
+| `rotation` | 0, 90, 180 or 270, written into the JPEG and DNG orientation |
+| `nr_hq`, `edge_hq`, `hot_pixel_hq` | `1` for the high quality mode, ignored by a lens without it |
+| `distortion` | `1` or `0` to switch distortion correction on or off. Left out, the camera does what it does anyway |
+
+Everything else comes from the stream, meaning the lens, zoom and crop, manual exposure, white balance, focus, exposure compensation, OIS and the torch.
+
+The answer is `{"ok": true, "id": "<id>"}`, or `{"ok": false, "error": "...", "code": "..."}` with one of these codes: `unsupported` (the lens can't do what was asked), `bad_option`, `not_ready` (the phone hasn't read the lens yet, or bracketing has no light reading to start from), `busy` (another photo is still being taken, as only one goes at a time) and `camera_off`.
+
+A plain photo goes into the stream's own camera session next to the video and the video doesn't stop for it. Only the first photo makes a hitch of a fraction of a second, while the session is set up again with the photo's output, and the next ones reuse it. When the phone won't take that output next to the stream's, and always for the maker's modes, the photo gets a session of its own and the video pauses for a second or two, plus the exposure. The phone checks with `isSessionConfigurationSupported` where it can (Android 10) and remembers what didn't fit until the stream ends. While a photo is being taken the phone doesn't drop a viewer for sending it no frames.
+
+### Getting the files
+
+`GET /v1/still?id=<id>` says how it's going:
+
+```json
+{"id": "61155b2c22c2ab28", "state": "capturing", "shots": 3, "taken": 1, "paused": false,
+ "files": [{"name": "IMG_20261026_142501_01.dng", "size": 48711980, "type": "image/x-adobe-dng"}]}
+```
+
+`state` goes from `waiting` (the timer, with `countdown_ms` left) to `capturing` and ends at `done` or `failed` (with `error` and `code`: one of the codes above, or `interrupted` when the lens changed, the camera reopened (a new size or codec) or turned off, or the stream stopped, `timeout` and `failed`). A setting that only rebuilds the stream's session (the frame rate, low light, the phone's preview) doesn't end a photo: it carries on, and asks once more for anything the rebuild dropped. Changes the phone makes by itself, like Dynamic's frame rate step or the heat, wait until the photo is done. Every photo ends: it gets 10 s plus 5 s a picture plus its exposures after the timer, and a photo that shot and then hears nothing from the camera for 6 s (plus its longest exposure) has stalled. A stalled photo with any of the best quality modes (`nr_hq`, `edge_hq`, `hot_pixel_hq`) goes again once without them, and photos of that format on that stream leave them out from then on; otherwise it ends with `timeout`. Should the camera thread itself get stuck in the phone's camera service, the phone still reports `timeout` a few seconds after that limit (twice it, with the best quality modes). The best quality modes keep a photo out of the video, which skips that frame. `paused` is true while the video is paused for it, which also covers manual exposures next to the stream that add up to half a second or more, since those frames stay out of the video. `files` lists every file written so far in the order they were taken, and a desktop can start fetching them before the last one is done.
+
+`GET /v1/still/file?id=<id>&n=<index>` sends file `n` (from 0) with its `Content-Length` and `Content-Type`, streamed in pieces since a RAW file is often 50 MB or more. It takes one of the stream slots while it sends, and a download that stops moving for 30 seconds is cut off. Both `GET` requests answer `404` for an `id` or file the phone doesn't have (any more).
+
+`POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. It always answers ok, also for an `id` that's already gone. Otherwise the phone holds on to them in its cache for ten minutes (at most the last four requests and 1 GB) and deletes all of them when the stream stops.
+
 ## `GET /v1/video.udp` (experimental)
 
 The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with **UDP on Wi-Fi** checked and the Light format. With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
