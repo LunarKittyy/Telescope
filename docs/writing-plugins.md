@@ -149,6 +149,12 @@ The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)
 
 Motion needs no download. `host.watch_motion("My plugin", [(0.6, 0.0, 1.0, 1.0)], sensitivity=5)` watches the right part of the picture (zones are 0..1 of the picture as shown at zoom 1, sensitivity goes from 1 to 10) and `bus.motion_seen` fires with the indexes of the zones something moves in whenever that changes. Slow light changes don't count. An empty list of zones stops it.
 
+### Drawing on the preview and picking points there
+
+Anything a plugin draws through `host.add_preview_layer("My plugin", layer)` shows on the preview and never reaches the virtual camera. `layer` is a subclass of `telescope.overlays.PreviewLayer` with up to three methods. `tint(frame)` gets the preview's own scaled-down copy of each frame on the UI thread and can colour it (Cinema tools draws peaking and zebras there). `analyse(frame)` runs on a thread of its own at most `analyse_fps` times a second, for anything slower like a scope, and returns True when the picture should be painted again. `paint(painter, rect)` draws with Qt over the frame, which sits at `rect` on the preview. `host.remove_preview_layer("My plugin")` takes it off again. With the Preview plugin switched off nothing is drawn, which is fine since there's nothing to look at either.
+
+`host.pick_on_preview("My plugin", kind, on_done)` asks the person for a `"point"`, a `"rect"` or a `"quad"` (four corners they drag into place and finish with Enter). While it runs, clicks on the preview go to the pick instead of focusing or panning and Esc or a right click cancels it. `on_done` gets a `telescope.overlays.Pick`, or None if it was cancelled. `Pick.shown` has the points in the frame your `process_frame()` gets and `Pick.picture` is what the preview showed, for reading a colour where someone clicked. `Pick.full` has them in the camera's whole picture before zoom, pan, flip and rotation, which is what to save when the points should stay on the same thing while someone zooms around (`telescope.view.to_shown(host.view(), x, y)` turns them back into frame coordinates). A quad can start from corners you saved with `start=` and you can end it from your own button with `host.finish_pick()`. `bus.preview_pick_changed` says who's picking.
+
 ## Translating your plugin
 
 Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:

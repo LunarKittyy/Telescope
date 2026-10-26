@@ -3829,6 +3829,15 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     assert conn.dropped == [(window._phone.id, False)]
 
 
+def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window):
+    overlays = window.preview_overlays()
+    overlays.attach()
+    got = []
+    assert overlays.start_pick("Test", "quad", got.append)
+    window._bus.device_changed.emit("phone-2")
+    assert got == [None] and overlays.picking() == ""
+
+
 def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
     from types import SimpleNamespace
     from telescope.view import View

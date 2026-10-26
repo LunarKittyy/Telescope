@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.overlays import PreviewLayer, PreviewOverlays
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -324,6 +325,41 @@ class HostVision(Protocol):
         the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
         ...
 
+class HostPreview(Protocol):
+    """Drawing on the preview without it reaching the virtual camera, and asking for points and areas there
+    (telescope.overlays). Nothing shows and no pick starts while the Preview plugin is off."""
+
+    def add_preview_layer(self, owner: str, layer: "PreviewLayer") -> None:
+        """Draw layer (a telescope.overlays.PreviewLayer) on the preview until it's removed; the same owner replaces it."""
+        ...
+
+    def remove_preview_layer(self, owner: str) -> None:
+        """Stop drawing owner's layer."""
+        ...
+
+    def refresh_preview(self) -> None:
+        """Paint the layers again, for one that would draw something else now. Any thread."""
+        ...
+
+    def pick_on_preview(self, owner: str, kind: str, on_done: Callable, start=None, hint: str = "") -> bool:
+        """Ask for a "point", a "rect" or a "quad" (four corners) on the preview: on_done gets a telescope.overlays.Pick,
+        or None when it's cancelled (Esc, another pick, the stream stopping). A quad starts from start (four points in
+        the whole picture, like Pick.full) and ends with Enter or finish_pick. hint replaces the line shown over the
+        picture. False if there's no preview to pick on; a pick already under way is cancelled."""
+        ...
+
+    def finish_pick(self, owner: str) -> bool:
+        """End owner's pick with what it has (a quad as it is now); False if it has nothing yet."""
+        ...
+
+    def cancel_pick(self, owner: str) -> None:
+        """End owner's pick without points (its on_done gets None)."""
+        ...
+
+    def preview_overlays(self) -> "PreviewOverlays":
+        """For whatever shows the preview: the layers and the pick, to draw and pass the mouse to."""
+        ...
+
 
 class HostMotion(Protocol):
     """Something moving in parts of the shown stream's picture (telescope.motion): no download, plain OpenCV."""
@@ -339,7 +375,7 @@ class HostMotion(Protocol):
 
 
 class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostMotion,
-                   Protocol):
+                   HostPreview, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -659,6 +695,8 @@ class EventBus(QObject):
     """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
     forget_source_requested = pyqtSignal(str)
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
+    preview_pick_changed   = pyqtSignal(str)
+    """A pick on the preview started (who asked: host.pick_on_preview's owner) or ended ("")."""
     stream_behind          = pyqtSignal(str, bool)
     """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
     Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught

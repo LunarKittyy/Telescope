@@ -174,3 +174,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
 - [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
 - [ ] Privacy blur with a real phone: a second person walking in gets blurred within a second, you stay sharp, and it stops a few seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
+
+### Preview tools and picture plugins
+
+<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/preview.py -->
+
+- [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.

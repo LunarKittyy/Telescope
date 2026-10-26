@@ -30,6 +30,7 @@ EventBus.phone_ready(QString,bool)
 EventBus.phone_state_updated(PyQt_PyObject)
 EventBus.phone_wanted(bool,bool)
 EventBus.phones_changed(int)
+EventBus.preview_pick_changed(QString)
 EventBus.remembered_sources(QVariantList)
 EventBus.resolution_change_requested(int,int)
 EventBus.setup_guide_requested()
@@ -61,6 +62,13 @@ HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
 HostMotion.motion(self, owner)
 HostMotion.watch_motion(self, owner, zones, sensitivity=5)
+HostPreview.add_preview_layer(self, owner, layer)
+HostPreview.cancel_pick(self, owner)
+HostPreview.finish_pick(self, owner)
+HostPreview.pick_on_preview(self, owner, kind, on_done, start=None, hint='')
+HostPreview.preview_overlays(self)
+HostPreview.refresh_preview(self)
+HostPreview.remove_preview_layer(self, owner)
 HostSettings.apply_preset(self, name, cfg)
 HostSettings.device_config(self, source_id, plugin_name)
 HostSettings.forget_device_settings(self, name)
@@ -139,6 +147,16 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
+Pick(kind, shown, full, picture=None)
+Pick.full
+Pick.kind
+Pick.picture = None
+Pick.shown
+PreviewLayer.analyse(self, frame)
+PreviewLayer.analyse_fps = 0.0
+PreviewLayer.order = 0
+PreviewLayer.paint(self, painter, rect)
+PreviewLayer.tint(self, frame)
 SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='')
 SettingsSection.keywords = ''
 SettingsSection.on_show = None
