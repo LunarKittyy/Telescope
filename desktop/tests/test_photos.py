@@ -150,6 +150,14 @@ def test_the_card_shows_only_what_the_lens_has(card):
     assert plugin._format_combo.count() == 5 and plugin._mode_combo.count() == 5
 
 
+def test_a_lens_switch_brings_that_lenss_options(card):
+    plugin, host, bus, _ = card(FULL)
+    assert plugin._mode_combo.findData("max_res") >= 0
+    host.caps = PLAIN
+    bus.camera_switched.emit({"id": "4"})
+    assert plugin._mode_row.isHidden() and plugin._format_row.isHidden()
+
+
 def test_picking_a_night_mode_hides_what_it_cant_do(card):
     plugin, *_ = card(FULL)
     plugin._mode_combo.setCurrentIndex(plugin._mode_combo.findData("night"))

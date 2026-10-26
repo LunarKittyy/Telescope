@@ -129,6 +129,7 @@ class PhotosPlugin(TelescopePlugin):
         bus.phone_state_updated.connect(lambda _s: self._refresh())
         bus.stream_stopped.connect(self._refresh)
         bus.device_changed.connect(lambda _id: self._refresh())
+        bus.camera_switched.connect(lambda _cam: self._refresh())  # another lens takes other photos
         bus.still_busy_changed.connect(lambda _id, _busy: self._refresh())
 
     # ── Card ──────────────────────────────────────────────────────────────

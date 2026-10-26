@@ -3859,3 +3859,16 @@ def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, mon
     taken["on_done"](StillResult(True, []))
     QCoreApplication.processEvents()
     assert busy[-1] is True
+
+
+def test_photo_options_follow_a_lens_switch(window):
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=None)
+    full = {"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000}
+    window._last_states[window._phone.id] = {"stills": 1, "cameras": [
+        {"id": "1", "current": True, "stills": full},
+        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]}
+    assert window.still_caps().max_res == (8000, 6000)
+    seen = []
+    window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
+    window._bus.camera_switched.emit({"id": "4", "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})
+    assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening

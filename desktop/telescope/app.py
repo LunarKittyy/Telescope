@@ -248,6 +248,7 @@ class TelescopeWindow(QMainWindow):
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
         self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
+        self._bus.camera_switched.connect(self._note_lens)  # before the plugins connect, so still_caps is fresh for them
         # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""
@@ -1664,6 +1665,18 @@ class TelescopeWindow(QMainWindow):
     def still_caps(self, source_id: Optional[str] = None) -> Optional[StillCaps]:
         source = self._still_source(source_id)
         return StillCaps.from_state(self._last_states.get(source.id)) if source is not None else None
+
+    def _note_lens(self, cam: dict):
+        """The panels' stream moved to another lens: its stored state says so, so still_caps describes that lens."""
+        source = self._sessions.focus
+        state = self._last_states.get(source.id) if source is not None else None
+        if not isinstance(state, dict) or not isinstance(cam, dict) or "id" not in cam:
+            return
+        cameras = [(dict(c, **cam, current=True) if c.get("id") == cam["id"] else dict(c, current=False))
+                   if isinstance(c, dict) else c for c in state.get("cameras") or ()]
+        if not any(isinstance(c, dict) and c.get("current") for c in cameras):
+            cameras.append(dict(cam, current=True))
+        self._last_states[source.id] = dict(state, cameras=cameras)
 
     def still_busy(self, source_id: Optional[str] = None) -> bool:
         source = self._still_source(source_id)
