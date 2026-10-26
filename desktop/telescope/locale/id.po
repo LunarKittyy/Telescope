@@ -34,292 +34,292 @@ msgstr "Coba lagi"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: telescope/app.py:432
+#: telescope/app.py:436
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} tidak dimulai"
 
-#: telescope/app.py:433
+#: telescope/app.py:437
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} plugin tidak dimulai"
 
-#: telescope/app.py:434
+#: telescope/app.py:438
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope tetap berfungsi tanpanya. Tab Plugin di Pengaturan menjelaskan masalah yang terjadi."
 
-#: telescope/app.py:436 telescope/app.py:464
+#: telescope/app.py:440 telescope/app.py:468
 msgid "Plugins…"
 msgstr "Plugin…"
 
-#: telescope/app.py:460
+#: telescope/app.py:464
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} dinonaktifkan"
 
-#: telescope/app.py:461
+#: telescope/app.py:465
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Anda menonaktifkan ini di Plugin. Untuk mengembalikannya, buka Plugin di Pengaturan dan aktifkan."
 
-#: telescope/app.py:493
+#: telescope/app.py:497
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Plugin ({n} nonaktif)"
 
-#: telescope/app.py:520
+#: telescope/app.py:524
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Salinan file lama ada di {path}."
 
-#: telescope/app.py:522
+#: telescope/app.py:526
 msgid "Your settings couldn't be read"
 msgstr "Pengaturan Anda tidak dapat dibaca"
 
-#: telescope/app.py:523
+#: telescope/app.py:527
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope dimulai dengan pengaturan default, jadi ponsel yang tersanding perlu disandingkan lagi."
 
-#: telescope/app.py:574 telescope/app.py:575 telescope/widgets/settings_window.py:140
+#: telescope/app.py:578 telescope/app.py:579 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr "Pengaturan"
 
-#: telescope/app.py:584
+#: telescope/app.py:588
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "Streaming kamera lain secara bersamaan, ke kamera virtualnya sendiri"
 
-#: telescope/app.py:585
+#: telescope/app.py:589
 msgid "Add camera"
 msgstr "Tambahkan kamera"
 
-#: telescope/app.py:590 telescope/app.py:610 telescope/plugins/onboarding.py:135
+#: telescope/app.py:594 telescope/app.py:614 telescope/plugins/onboarding.py:135
 msgid "Start streaming"
 msgstr "Mulai streaming"
 
-#: telescope/app.py:605
+#: telescope/app.py:609
 msgid "Start mic only"
 msgstr "Mulai mikrofon saja"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/plugins/shortcuts.py:152
+#: telescope/app.py:612 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr "Stop"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:612 telescope/app.py:1876 telescope/app.py:1892 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "Mulai"
 
-#: telescope/app.py:610
+#: telescope/app.py:614
 msgid "Stop streaming"
 msgstr "Hentikan streaming"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:688 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:659 telescope/app.py:1429 telescope/app.py:1494 telescope/audio.py:688 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
-#: telescope/app.py:661 telescope/plugins/stream_output.py:296
+#: telescope/app.py:665 telescope/plugins/stream_output.py:296
 msgid "FPS"
 msgstr "FPS"
 
-#: telescope/app.py:665
+#: telescope/app.py:669
 msgid "Throughput"
 msgstr "Throughput"
 
-#: telescope/app.py:818
+#: telescope/app.py:822
 msgid "Telescope - Save failed"
 msgstr "Telescope - Gagal menyimpan"
 
-#: telescope/app.py:819
+#: telescope/app.py:823
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Tidak dapat menyimpan pengaturan. Periksa ruang disk dan izin."
 
-#: telescope/app.py:1174
+#: telescope/app.py:1178
 msgid "Reconnecting"
 msgstr "Menghubungkan ulang"
 
-#: telescope/app.py:1176
+#: telescope/app.py:1180
 msgid "Live"
 msgstr "Live"
 
-#: telescope/app.py:1178
+#: telescope/app.py:1182
 msgid "Connecting"
 msgstr "Menghubungkan"
 
-#: telescope/app.py:1182
+#: telescope/app.py:1186
 msgid "Starting"
 msgstr "Memulai"
 
-#: telescope/app.py:1186
+#: telescope/app.py:1190
 msgid "Waiting"
 msgstr "Menunggu"
 
-#: telescope/app.py:1232
+#: telescope/app.py:1236
 msgid "Setting up more virtual cameras…"
 msgstr "Menyiapkan kamera virtual tambahan…"
 
-#: telescope/app.py:1256 telescope/plugins/setup.py:720
+#: telescope/app.py:1260 telescope/plugins/setup.py:720
 msgid "Stop the streams going to them first"
 msgstr "Hentikan stream yang mengarah ke sana terlebih dahulu"
 
-#: telescope/app.py:1256
+#: telescope/app.py:1260
 msgid "There are none to remove"
 msgstr "Tidak ada yang perlu dihapus"
 
-#: telescope/app.py:1284
+#: telescope/app.py:1288
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr "{first} sampai {last}"
 
-#: telescope/app.py:1286
+#: telescope/app.py:1290
 msgid "Set up more virtual cameras"
 msgstr "Siapkan kamera virtual tambahan"
 
-#: telescope/app.py:1287
+#: telescope/app.py:1291
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr "Untuk streaming beberapa kamera sekaligus, Telescope menambahkan kamera virtual tambahan ({names})."
 
-#: telescope/app.py:1288
+#: telescope/app.py:1292
 msgid "This asks for your password."
 msgstr "Tindakan ini meminta kata sandi Anda."
 
-#: telescope/app.py:1288 telescope/plugins/setup.py:722
+#: telescope/app.py:1292 telescope/plugins/setup.py:722
 msgid "Windows asks for permission."
 msgstr "Windows meminta izin."
 
-#: telescope/app.py:1305
+#: telescope/app.py:1309
 msgid "Couldn't add more virtual cameras"
 msgstr "Tidak dapat menambahkan kamera virtual tambahan"
 
-#: telescope/app.py:1323
+#: telescope/app.py:1327
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr "Hanya ponsel yang dapat menonaktifkan kameranya dan tetap streaming mikrofonnya."
 
-#: telescope/app.py:1325
+#: telescope/app.py:1329
 msgid "Only while one camera streams."
 msgstr "Hanya saat satu kamera streaming."
 
-#: telescope/app.py:1327
+#: telescope/app.py:1331
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr "Aktifkan mikrofon ponsel terlebih dahulu. Saat kamera nonaktif, hanya mikrofon yang streaming."
 
-#: telescope/app.py:1329
+#: telescope/app.py:1333
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr "Perbarui Telescope di ponsel untuk menonaktifkan kameranya saat streaming."
 
-#: telescope/app.py:1381
+#: telescope/app.py:1385
 msgid "Turning the phone's camera on…"
 msgstr "Mengaktifkan kamera ponsel…"
 
-#: telescope/app.py:1389
+#: telescope/app.py:1393
 msgid "Streaming the mic, camera off"
 msgstr "Streaming mikrofon, kamera nonaktif"
 
-#: telescope/app.py:1414
+#: telescope/app.py:1418
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: streaming kamera"
 
-#: telescope/app.py:1414
+#: telescope/app.py:1418
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: streaming kamera dan mikrofon"
 
-#: telescope/app.py:1415
+#: telescope/app.py:1419
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: streaming kamera, mikrofon dibisukan"
 
-#: telescope/app.py:1417
+#: telescope/app.py:1421
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: streaming mikrofon, kamera nonaktif (dibisukan)"
 
-#: telescope/app.py:1418
+#: telescope/app.py:1422
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: streaming mikrofon, kamera nonaktif"
 
-#: telescope/app.py:1442
+#: telescope/app.py:1446
 msgid "Stop all but one camera first, then apply again"
 msgstr "Hentikan semua kamera kecuali satu terlebih dahulu, lalu terapkan lagi"
 
-#: telescope/app.py:1454
+#: telescope/app.py:1458
 msgid "Reloading v4l2loopback…"
 msgstr "Memuat ulang v4l2loopback…"
 
-#: telescope/app.py:1472
+#: telescope/app.py:1476
 msgid "Restarting stream…"
 msgstr "Memulai ulang stream…"
 
-#: telescope/app.py:1486
+#: telescope/app.py:1490
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback dimuat ulang: {message}"
 
-#: telescope/app.py:1486
+#: telescope/app.py:1490
 msgid "Canvas updated"
 msgstr "Kanvas diperbarui"
 
-#: telescope/app.py:1490
+#: telescope/app.py:1494
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Gagal memuat ulang: {message}"
 
-#: telescope/app.py:1497 telescope/plugins/setup.py:975
+#: telescope/app.py:1501 telescope/plugins/setup.py:975
 msgid "Resize the virtual camera"
 msgstr "Ubah ukuran kamera virtual"
 
-#: telescope/app.py:1520
+#: telescope/app.py:1524
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Ponsel mengirim data yang tidak dapat dibaca oleh versi ini. Perbarui kedua aplikasi ke versi yang sama."
 
-#: telescope/app.py:1547 telescope/plugins/preview.py:519
+#: telescope/app.py:1551 telescope/plugins/preview.py:519
 msgid "Show"
 msgstr "Tampilkan"
 
-#: telescope/app.py:1548
+#: telescope/app.py:1552
 msgid "Quit"
 msgstr "Keluar"
 
-#: telescope/app.py:1587
+#: telescope/app.py:1591
 msgid "Telescope didn't answer in time."
 msgstr "Telescope tidak merespons tepat waktu."
 
-#: telescope/app.py:1594
+#: telescope/app.py:1598
 msgid "This Telescope has no shortcuts."
 msgstr "Telescope ini tidak memiliki pintasan."
 
-#: telescope/app.py:1597 telescope/plugins/shortcuts.py:380
+#: telescope/app.py:1601 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Tindakan itu gagal; Salin diagnostik memiliki detailnya."
 
-#: telescope/app.py:1871
+#: telescope/app.py:1875
 msgid "The stream stopped unexpectedly"
 msgstr "Stream berhenti secara tak terduga"
 
-#: telescope/app.py:1871 telescope/app.py:1887
+#: telescope/app.py:1875 telescope/app.py:1891
 msgid "Copy diagnostics has the details."
 msgstr "Salin diagnostik memiliki detailnya."
 
-#: telescope/app.py:1886
+#: telescope/app.py:1890
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Stream dari {name} berhenti secara tak terduga"
 
-#: telescope/app.py:1965
+#: telescope/app.py:1969
 msgid "Telescope is still running"
 msgstr "Telescope masih berjalan"
 
-#: telescope/app.py:1966
+#: telescope/app.py:1970
 msgid "Streaming continues in the background."
 msgstr "Streaming berlanjut di latar belakang."
 
-#: telescope/app.py:1967
+#: telescope/app.py:1971
 msgid "It starts streaming by itself when it needs to."
 msgstr "Aplikasi ini mulai streaming dengan sendirinya saat diperlukan."
 
-#: telescope/app.py:1968
+#: telescope/app.py:1972
 msgid "Right-click the tray icon to quit."
 msgstr "Klik kanan ikon baki sistem untuk keluar."
 
@@ -728,7 +728,7 @@ msgstr "Terunduh"
 msgid "{file} failed checksum verification - not registering"
 msgstr "{file} gagal verifikasi checksum - tidak mendaftarkan"
 
-#: telescope/platform/windows.py:248 telescope/plugins/setup.py:890 telescope/widgets/plugins_panel.py:426
+#: telescope/platform/windows.py:248 telescope/plugins/setup.py:890 telescope/widgets/plugins_panel.py:504
 msgid "Installed"
 msgstr "Terinstal"
 
@@ -792,112 +792,112 @@ msgstr "Pembaruan & Tentang"
 msgid "Open settings"
 msgstr "Buka pengaturan"
 
-#: telescope/plugin_loader.py:46
+#: telescope/plugin_loader.py:48
 msgid "Other users on this computer could change it, so it isn't loaded."
 msgstr "Pengguna lain di komputer ini dapat mengubahnya, sehingga tidak dimuat."
 
-#: telescope/plugin_loader.py:47
+#: telescope/plugin_loader.py:49
 msgid "It contains a link to somewhere else, which plugins can't have."
 msgstr "Plugin ini berisi link ke tempat lain, yang tidak diizinkan untuk plugin."
 
-#: telescope/plugin_loader.py:102
+#: telescope/plugin_loader.py:115
 msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
 msgstr "Plugin ini berisi kode terkompilasi (seperti file .pyc). Plugin harus berupa kode sumber."
 
-#: telescope/plugin_loader.py:108 telescope/plugin_loader.py:389
+#: telescope/plugin_loader.py:121 telescope/plugin_loader.py:427
 msgid "It's too big for a plugin (over 500 files or 20 MB)."
 msgstr "Ukurannya terlalu besar untuk sebuah plugin (lebih dari 500 file atau 20 MB)."
 
-#: telescope/plugin_loader.py:184
+#: telescope/plugin_loader.py:202 telescope/plugin_loader.py:264
 msgid "Couldn't save the settings."
 msgstr "Tidak dapat menyimpan pengaturan."
 
-#: telescope/plugin_loader.py:257
+#: telescope/plugin_loader.py:291
 msgid "It's a link to another folder, which plugins can't be."
 msgstr "Ini adalah link ke folder lain, yang tidak diizinkan untuk plugin."
 
-#: telescope/plugin_loader.py:259 telescope/plugin_loader.py:403
+#: telescope/plugin_loader.py:293 telescope/plugin_loader.py:441
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "Folder harus memiliki nama yang sama dengan plugin, hanya menggunakan huruf kecil, angka, dan _ (diawali dengan huruf)."
 
-#: telescope/plugin_loader.py:264
+#: telescope/plugin_loader.py:298
 #, python-brace-format
 msgid "It has no {file}."
 msgstr "Tidak memiliki {file}."
 
-#: telescope/plugin_loader.py:266
+#: telescope/plugin_loader.py:300
 #, python-brace-format
 msgid "Its {file} isn't valid JSON."
 msgstr "{file}-nya bukan JSON yang valid."
 
-#: telescope/plugin_loader.py:268
+#: telescope/plugin_loader.py:302
 #, python-brace-format
 msgid "Its {file} isn't valid."
 msgstr "{file}-nya tidak valid."
 
-#: telescope/plugin_loader.py:281
+#: telescope/plugin_loader.py:316
 msgid "Its files couldn't be read."
 msgstr "File-filenya tidak dapat dibaca."
 
-#: telescope/plugin_loader.py:285
+#: telescope/plugin_loader.py:320
 #, python-brace-format
 msgid "Its {file} has to give the folder's name as \"name\"."
 msgstr "{file}-nya harus mencantumkan nama folder sebagai \"name\"."
 
-#: telescope/plugin_loader.py:287 telescope/plugin_loader.py:406
+#: telescope/plugin_loader.py:322 telescope/plugin_loader.py:456
 msgid "A plugin that comes with Telescope already has that name."
 msgstr "Plugin bawaan Telescope sudah menggunakan nama tersebut."
 
-#: telescope/plugin_loader.py:289
+#: telescope/plugin_loader.py:324
 #, python-brace-format
 msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
 msgstr "Memerlukan Telescope yang lebih baru (API plugin {wanted}; versi ini memiliki {have})."
 
-#: telescope/plugin_loader.py:292
+#: telescope/plugin_loader.py:327
 #, python-brace-format
 msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
 msgstr "Dibuat untuk Telescope versi lama (API plugin {api}) dan memerlukan pembaruan."
 
-#: telescope/plugin_loader.py:295
+#: telescope/plugin_loader.py:330
 #, python-brace-format
 msgid "Its {file} has to name its plugin class as \"class\"."
 msgstr "{file}-nya harus mencantumkan class plugin-nya sebagai \"class\"."
 
-#: telescope/plugin_loader.py:297
+#: telescope/plugin_loader.py:332
 msgid "It has no __init__.py."
 msgstr "Tidak memiliki __init__.py."
 
-#: telescope/plugin_loader.py:316
+#: telescope/plugin_loader.py:351
 msgid "It isn't turned on."
 msgstr "Belum diaktifkan."
 
-#: telescope/plugin_loader.py:336
+#: telescope/plugin_loader.py:371
 #, python-brace-format
 msgid "{name} isn't a TelescopePlugin class."
 msgstr "{name} bukan class TelescopePlugin."
 
-#: telescope/plugin_loader.py:339
+#: telescope/plugin_loader.py:374
 #, python-brace-format
 msgid "Its class has name = {have}; it has to be {want}, as in {file}."
 msgstr "Class-nya memiliki name = {have}; harus {want}, seperti di {file}."
 
-#: telescope/plugin_loader.py:367
+#: telescope/plugin_loader.py:402
 msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
 msgstr "File-filenya telah berubah sejak diaktifkan. Aktifkan lagi jika Anda memercayai versi ini."
 
-#: telescope/plugin_loader.py:395
-msgid "It holds a file with a path that points outside the plugin."
-msgstr "Berisi file dengan path yang mengarah ke luar plugin."
-
-#: telescope/plugin_loader.py:400
-msgid "It has to hold one folder, named as the plugin."
-msgstr "Harus memuat satu folder dengan nama yang sama seperti plugin."
-
-#: telescope/plugin_loader.py:428
+#: telescope/plugin_loader.py:422 telescope/plugin_loader.py:490
 msgid "It isn't a .zip file Telescope can open."
 msgstr "Bukan file .zip yang dapat dibuka oleh Telescope."
 
-#: telescope/plugin_loader.py:437
+#: telescope/plugin_loader.py:433
+msgid "It holds a file with a path that points outside the plugin."
+msgstr "Berisi file dengan path yang mengarah ke luar plugin."
+
+#: telescope/plugin_loader.py:438
+msgid "It has to hold one folder, named as the plugin."
+msgstr "Harus memuat satu folder dengan nama yang sama seperti plugin."
+
+#: telescope/plugin_loader.py:461 telescope/plugin_loader.py:510
 msgid "That isn't a folder in the plugins folder."
 msgstr "Itu bukan folder di dalam folder plugin."
 
@@ -1070,7 +1070,7 @@ msgstr "{n} terhubung"
 msgid "Waiting for a browser"
 msgstr "Menunggu browser"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:1000
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:1006
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1117,7 +1117,7 @@ msgstr "Kamera browser tidak tersedia"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Pindai kode pada kartu Kamera browser dengan perangkat yang akan digunakan. Streaming akan dimulai segera setelah terhubung."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:33
 msgid "Cancel"
 msgstr "Batal"
 
@@ -1663,7 +1663,7 @@ msgstr "Ganti nama"
 msgid "Remove {name}"
 msgstr "Hapus {name}"
 
-#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:262 telescope/plugins/shortcuts.py:691 telescope/widgets/plugins_panel.py:278 telescope/widgets/plugins_panel.py:306 telescope/widgets/plugins_panel.py:357
+#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:262 telescope/plugins/shortcuts.py:691 telescope/widgets/plugins_panel.py:291 telescope/widgets/plugins_panel.py:335 telescope/widgets/plugins_panel.py:427
 msgid "Remove"
 msgstr "Hapus"
 
@@ -1889,7 +1889,7 @@ msgstr "Kamera virtual nonaktif"
 msgid "Switching it on asks for your password."
 msgstr "Mengaktifkannya akan meminta kata sandi Anda."
 
-#: telescope/plugins/connection.py:1313 telescope/widgets/plugins_panel.py:340
+#: telescope/plugins/connection.py:1313 telescope/widgets/plugins_panel.py:370 telescope/widgets/plugins_panel.py:410
 msgid "Switch on"
 msgstr "Aktifkan"
 
@@ -3122,7 +3122,7 @@ msgstr "(beta)"
 msgid "Restart Telescope to switch to it."
 msgstr "Mulai ulang Telescope untuk beralih ke bahasa ini."
 
-#: telescope/plugins/setup.py:456 telescope/widgets/plugins_panel.py:68 telescope/widgets/plugins_panel.py:196 telescope/widgets/vaapi_setup.py:108
+#: telescope/plugins/setup.py:456 telescope/widgets/plugins_panel.py:73 telescope/widgets/plugins_panel.py:204 telescope/widgets/vaapi_setup.py:108
 msgid "Restart now"
 msgstr "Mulai ulang sekarang"
 
@@ -3750,7 +3750,7 @@ msgstr "Saat tidak ada aplikasi memakai kamera, meskipun saya yang memulainya"
 msgid "{n} min"
 msgstr "{n} mnt"
 
-#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1076
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1082
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} dtk"
@@ -4285,7 +4285,7 @@ msgstr "Telescope {version} tersedia"
 msgid "Downloading {percent}%…"
 msgstr "Mengunduh {percent}%…"
 
-#: telescope/plugins/updates.py:226 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
+#: telescope/plugins/updates.py:226 telescope/widgets/plugins_panel.py:243 telescope/widgets/vision_status.py:47
 msgid "Downloading…"
 msgstr "Mengunduh…"
 
@@ -4906,27 +4906,27 @@ msgstr "Diciutkan. Tekan Spasi atau Enter untuk memperluas."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Diperluas. Tekan Spasi atau Enter untuk menciutkan."
 
-#: telescope/widgets/common.py:1082
+#: telescope/widgets/common.py:1088
 #, python-brace-format
 msgid "{q}%: High"
 msgstr "{q}%: Tinggi"
 
-#: telescope/widgets/common.py:1083
+#: telescope/widgets/common.py:1089
 #, python-brace-format
 msgid "{q}%: Balanced"
 msgstr "{q}%: Seimbang"
 
-#: telescope/widgets/common.py:1084
+#: telescope/widgets/common.py:1090
 #, python-brace-format
 msgid "{q}%: Low"
 msgstr "{q}%: Rendah"
 
-#: telescope/widgets/common.py:1085
+#: telescope/widgets/common.py:1091
 #, python-brace-format
 msgid "{q}%: Very low"
 msgstr "{q}%: Sangat rendah"
 
-#: telescope/widgets/common.py:1219
+#: telescope/widgets/common.py:1225
 msgid "Double-click to reset"
 msgstr "Klik dua kali untuk mereset"
 
@@ -4974,286 +4974,341 @@ msgstr "Tidak ada kamera yang tersedia"
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Kuning berarti limiter meredam lonjakan suara keras dan merah berarti suara mengalami clipping (klik untuk menghapus)."
 
-#: telescope/widgets/plugins_panel.py:56
+#: telescope/widgets/plugins_panel.py:61
 msgid "Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way."
 msgstr "Aktifkan atau nonaktifkan bagian dari Telescope. Perubahan akan berlaku saat Telescope dimulai berikutnya, dan pengaturan tetap tersimpan."
 
-#: telescope/widgets/plugins_panel.py:66
+#: telescope/widgets/plugins_panel.py:71
 msgid "Restart Telescope to apply your changes."
 msgstr "Mulai ulang Telescope untuk menerapkan perubahan Anda."
 
-#: telescope/widgets/plugins_panel.py:79
+#: telescope/widgets/plugins_panel.py:84
 msgid "Open plugins folder"
 msgstr "Buka folder plugin"
 
-#: telescope/widgets/plugins_panel.py:81
+#: telescope/widgets/plugins_panel.py:86
 msgid "How plugins work"
 msgstr "Cara kerja plugin"
 
-#: telescope/widgets/plugins_panel.py:122
+#: telescope/widgets/plugins_panel.py:127
 msgid "Turn all back on"
 msgstr "Aktifkan kembali semua"
 
-#: telescope/widgets/plugins_panel.py:122
+#: telescope/widgets/plugins_panel.py:127
 msgid "Switch every built-in plugin back on"
 msgstr "Aktifkan kembali setiap plugin bawaan"
 
-#: telescope/widgets/plugins_panel.py:125
+#: telescope/widgets/plugins_panel.py:130
 msgid "Built in"
 msgstr "Bawaan"
 
-#: telescope/widgets/plugins_panel.py:132
+#: telescope/widgets/plugins_panel.py:137
 msgid "Remove download"
 msgstr "Hapus unduhan"
 
-#: telescope/widgets/plugins_panel.py:133
+#: telescope/widgets/plugins_panel.py:138
 msgid "Delete the download the plugins here use. Switching one on gets it again."
 msgstr "Hapus unduhan yang digunakan plugin di sini. Mengaktifkan salah satunya akan mengunduhnya kembali."
 
-#: telescope/widgets/plugins_panel.py:136
+#: telescope/widgets/plugins_panel.py:141
 msgid "Optional"
 msgstr "Opsional"
 
-#: telescope/widgets/plugins_panel.py:142
+#: telescope/widgets/plugins_panel.py:147
 msgid "Install"
 msgstr "Instal"
 
-#: telescope/widgets/plugins_panel.py:142
+#: telescope/widgets/plugins_panel.py:147
 msgid "Pick a plugin's .zip file. You can also drop one onto this window."
 msgstr "Pilih file .zip plugin. Anda juga dapat menyeretnya ke jendela ini."
 
-#: telescope/widgets/plugins_panel.py:145
+#: telescope/widgets/plugins_panel.py:150
 msgid "Added"
 msgstr "Ditambahkan"
 
-#: telescope/widgets/plugins_panel.py:147
+#: telescope/widgets/plugins_panel.py:152
 msgid "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off."
 msgstr "Belum ada plugin yang ditambahkan. Plugin yang dibagikan orang lain berupa file .zip. Klik Instal dan pilih salah satu atau seret ke jendela ini. Plugin yang ditambahkan awalnya dalam keadaan nonaktif."
 
-#: telescope/widgets/plugins_panel.py:152
+#: telescope/widgets/plugins_panel.py:160
 msgid "Always on"
 msgstr "Selalu aktif"
 
-#: telescope/widgets/plugins_panel.py:169
+#: telescope/widgets/plugins_panel.py:177
 msgctxt "search"
 msgid "plugins extensions addons add ons modules features turn off on disable enable install zip"
 msgstr "plugin ekstensi modul fitur nonaktifkan aktifkan instal zip plugins extensions addons add ons modules features turn off on disable enable install zip"
 
-#: telescope/widgets/plugins_panel.py:196
+#: telescope/widgets/plugins_panel.py:204
 msgid "Start Telescope again to apply your changes"
 msgstr "Mulai ulang Telescope untuk menerapkan perubahan Anda"
 
-#: telescope/widgets/plugins_panel.py:209
+#: telescope/widgets/plugins_panel.py:222
 msgid "Telescope can't work without this one, so it can't be switched off"
 msgstr "Telescope tidak dapat berfungsi tanpanya, sehingga tidak dapat dinonaktifkan"
 
-#: telescope/widgets/plugins_panel.py:214
+#: telescope/widgets/plugins_panel.py:227
 msgid "It comes back after Telescope restarts."
 msgstr "Akan kembali aktif setelah Telescope dimulai ulang."
 
-#: telescope/widgets/plugins_panel.py:216 telescope/widgets/plugins_panel.py:242 telescope/widgets/plugins_panel.py:302
+#: telescope/widgets/plugins_panel.py:229 telescope/widgets/plugins_panel.py:255 telescope/widgets/plugins_panel.py:324
 msgid "It goes away after Telescope restarts."
 msgstr "Akan dinonaktifkan setelah Telescope dimulai ulang."
 
-#: telescope/widgets/plugins_panel.py:232
+#: telescope/widgets/plugins_panel.py:245
 #, python-brace-format
 msgid "The download didn't work. {error}"
 msgstr "Unduhan gagal. {error}"
 
-#: telescope/widgets/plugins_panel.py:234
+#: telescope/widgets/plugins_panel.py:247
 msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
 msgstr "Belum ada unduhan file yang dibutuhkan untuk komputer ini, sehingga tidak dapat diaktifkan."
 
-#: telescope/widgets/plugins_panel.py:237
+#: telescope/widgets/plugins_panel.py:250
 #, python-brace-format
 msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
 msgstr "File unduhannya (sekitar {mb} MB) sudah tidak ada. Nonaktifkan lalu aktifkan lagi untuk mengunduhnya."
 
-#: telescope/widgets/plugins_panel.py:240 telescope/widgets/plugins_panel.py:300
+#: telescope/widgets/plugins_panel.py:253 telescope/widgets/plugins_panel.py:322
 msgid "It starts after Telescope restarts."
 msgstr "Akan aktif setelah Telescope dimulai ulang."
 
-#: telescope/widgets/plugins_panel.py:244
+#: telescope/widgets/plugins_panel.py:257
 #, python-brace-format
 msgid "Switching it on downloads about {mb} MB first."
 msgstr "Mengaktifkannya akan mengunduh sekitar {mb} MB terlebih dahulu."
 
-#: telescope/widgets/plugins_panel.py:255
+#: telescope/widgets/plugins_panel.py:268
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "Ingin mengunduh sekitar {mb} MB?"
 
-#: telescope/widgets/plugins_panel.py:256
+#: telescope/widgets/plugins_panel.py:269
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
 msgstr "{plugin} menggunakan MediaPipe untuk mendeteksi orang di dalam gambar. Fitur ini hadir sebagai unduhan terpisah dari rilis Telescope di GitHub, yang digunakan bersama oleh plugin opsional lainnya."
 
-#: telescope/widgets/plugins_panel.py:259
+#: telescope/widgets/plugins_panel.py:272
 msgid "Download and switch on"
 msgstr "Unduh dan aktifkan"
 
-#: telescope/widgets/plugins_panel.py:270 telescope/widgets/vision_status.py:64
+#: telescope/widgets/plugins_panel.py:283 telescope/widgets/vision_status.py:64
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "Mengunduh… {percent}%"
 
-#: telescope/widgets/plugins_panel.py:276
+#: telescope/widgets/plugins_panel.py:289
 msgid "Remove the download?"
 msgstr "Ingin menghapus unduhan?"
 
-#: telescope/widgets/plugins_panel.py:277
+#: telescope/widgets/plugins_panel.py:290
 #, python-brace-format
 msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
 msgstr "Ini akan mengosongkan sekitar {mb} MB. Mengaktifkan salah satu plugin opsional akan mengunduhnya kembali."
 
-#: telescope/widgets/plugins_panel.py:283 telescope/widgets/plugins_panel.py:363
+#: telescope/widgets/plugins_panel.py:296 telescope/widgets/plugins_panel.py:433
 msgid "Couldn't remove it"
 msgstr "Tidak dapat menghapusnya"
 
-#: telescope/widgets/plugins_panel.py:283
+#: telescope/widgets/plugins_panel.py:296
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope tidak dapat menghapusnya: {error}"
 
-#: telescope/widgets/plugins_panel.py:288
+#: telescope/widgets/plugins_panel.py:301 telescope/widgets/plugins_panel.py:308
 #, python-brace-format
 msgid "By {author}."
 msgstr "Oleh {author}."
 
-#: telescope/widgets/plugins_panel.py:295
+#: telescope/widgets/plugins_panel.py:312
+#, python-brace-format
+msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:317
 msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
 msgstr "Filenya berubah sejak Anda mengaktifkannya, sehingga saat ini dinonaktifkan. Aktifkan kembali jika Anda mempercayai versi ini."
 
-#: telescope/widgets/plugins_panel.py:298 telescope/widgets/plugins_panel.py:314
+#: telescope/widgets/plugins_panel.py:320 telescope/widgets/plugins_panel.py:384
 #, python-brace-format
 msgid "It didn't start ({problem})."
 msgstr "Gagal dimulai ({problem})."
 
-#: telescope/widgets/plugins_panel.py:306
+#. keep the <a href="{url}"> link
+#: telescope/widgets/plugins_panel.py:328
+#, python-brace-format
+msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:335
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Hapus {plugin}"
 
-#: telescope/widgets/plugins_panel.py:317
+#: telescope/widgets/plugins_panel.py:343
+msgid "Check for updates"
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:344
+msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:354
+msgid "Install updates without asking"
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:355
+msgid "Installs new versions of the plugins you switched on and switches them on again."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:356
+msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:364
+msgid "Install plugin updates without asking?"
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:365
+msgid ""
+"Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
+"\n"
+"Whoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:387
 #, python-brace-format
 msgid "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files."
 msgstr "Dimuat dari {folder} oleh dev_desktop.py. Telescope dimulai ulang dengan sendirinya saat Anda menyimpan salah satu filenya."
 
-#: telescope/widgets/plugins_panel.py:320
+#: telescope/widgets/plugins_panel.py:390
 msgid "dev_desktop.py --plugin loads this one, so it's always on"
 msgstr "dev_desktop.py --plugin memuat plugin ini, sehingga selalu aktif"
 
-#: telescope/widgets/plugins_panel.py:327 telescope/widgets/plugins_panel.py:342
+#: telescope/widgets/plugins_panel.py:397 telescope/widgets/plugins_panel.py:412
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "Ingin menonaktifkan {plugin}?"
 
-#: telescope/widgets/plugins_panel.py:329
+#: telescope/widgets/plugins_panel.py:399
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "Pengaturannya tetap tersimpan untuk saat Anda mengaktifkannya kembali."
 
-#: telescope/widgets/plugins_panel.py:330 telescope/widgets/plugins_panel.py:344
+#: telescope/widgets/plugins_panel.py:400 telescope/widgets/plugins_panel.py:414
 msgid "Switch off"
 msgstr "Nonaktifkan"
 
-#: telescope/widgets/plugins_panel.py:338
+#: telescope/widgets/plugins_panel.py:408
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "Ingin mengaktifkan {plugin}?"
 
-#: telescope/widgets/plugins_panel.py:339
+#: telescope/widgets/plugins_panel.py:409
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "Plugin dapat melakukan apa saja di komputer Anda. Hanya aktifkan jika Anda mempercayai sumbernya."
 
-#: telescope/widgets/plugins_panel.py:343
+#: telescope/widgets/plugins_panel.py:413
 msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
 msgstr "Tanpanya, apa pun yang ditambahkan ke Telescope akan hilang. Pengaturannya tetap tersimpan untuk saat Anda mengaktifkannya kembali."
 
-#: telescope/widgets/plugins_panel.py:355
+#: telescope/widgets/plugins_panel.py:425
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "Ingin menghapus {plugin}?"
 
-#: telescope/widgets/plugins_panel.py:356
+#: telescope/widgets/plugins_panel.py:426
 #, python-brace-format
 msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
 msgstr "Foldernya ({folder}) dihapus dari folder plugin. Untuk menggunakannya lagi, Anda harus menambahkannya kembali."
 
-#: telescope/widgets/plugins_panel.py:363
+#: telescope/widgets/plugins_panel.py:433
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope tidak dapat menghapus foldernya: {error}"
 
-#: telescope/widgets/plugins_panel.py:371
+#: telescope/widgets/plugins_panel.py:441
 msgid "Couldn't save that"
 msgstr "Tidak dapat menyimpan perubahan"
 
-#: telescope/widgets/plugins_panel.py:371
+#: telescope/widgets/plugins_panel.py:441
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope tidak dapat menyimpan perubahan: {error}"
 
-#: telescope/widgets/plugins_panel.py:402
+#: telescope/widgets/plugins_panel.py:472
 msgid "Install a plugin"
 msgstr "Instal plugin"
 
-#: telescope/widgets/plugins_panel.py:404
+#: telescope/widgets/plugins_panel.py:474
 msgid "Plugins (*.zip)"
 msgstr "Plugin (*.zip)"
 
-#: telescope/widgets/plugins_panel.py:412
-msgid "Already installed"
-msgstr "Sudah diinstal"
-
-#: telescope/widgets/plugins_panel.py:413
+#: telescope/widgets/plugins_panel.py:484
 #, python-brace-format
-msgid "A plugin called {plugin} is already installed. Remove that one first to put this one in its place."
-msgstr "Plugin bernama {plugin} sudah diinstal. Hapus plugin tersebut terlebih dahulu untuk memasang yang ini."
+msgid "Replace {plugin}?"
+msgstr ""
 
-#: telescope/widgets/plugins_panel.py:417
+#: telescope/widgets/plugins_panel.py:485
+msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:486
+msgid "Replace"
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:490
 msgid "Couldn't install it"
 msgstr "Tidak dapat menginstalnya"
 
-#: telescope/widgets/plugins_panel.py:422
+#: telescope/widgets/plugins_panel.py:495
 msgid "Installed, but it won't load"
 msgstr "Terinstal, tetapi gagal dimuat"
 
-#: telescope/widgets/plugins_panel.py:423
+#: telescope/widgets/plugins_panel.py:496
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} telah diinstal, tetapi belum dapat dijalankan. {problem}"
 
-#: telescope/widgets/plugins_panel.py:427
+#: telescope/widgets/plugins_panel.py:499
+msgid "Replaced"
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:500
+#, python-brace-format
+msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again under Added and restart Telescope."
+msgstr ""
+
+#: telescope/widgets/plugins_panel.py:505
 #, python-brace-format
 msgid "{plugin} is installed but switched off for now. To use it, switch it on under Added and restart Telescope."
 msgstr "{plugin} telah diinstal tetapi saat ini dinonaktifkan. Untuk menggunakannya, aktifkan di bagian Ditambahkan dan mulai ulang Telescope."
 
-#: telescope/widgets/plugins_panel.py:434
+#: telescope/widgets/plugins_panel.py:512
 msgid "Couldn't open it"
 msgstr "Tidak dapat membukanya"
 
-#: telescope/widgets/plugins_panel.py:434
+#: telescope/widgets/plugins_panel.py:512
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope tidak dapat membuat folder plugin-nya: {error}"
 
-#: telescope/widgets/plugins_panel.py:439
+#: telescope/widgets/plugins_panel.py:517
 msgid "Restart Telescope now?"
 msgstr "Ingin mulai ulang Telescope sekarang?"
 
-#: telescope/widgets/plugins_panel.py:440
+#: telescope/widgets/plugins_panel.py:518
 msgid "Streaming stops while Telescope restarts. It takes a few seconds."
 msgstr "Streaming berhenti saat Telescope dimulai ulang. Ini memerlukan beberapa detik."
 
-#: telescope/widgets/plugins_panel.py:441
+#: telescope/widgets/plugins_panel.py:519
 msgid "Restart"
 msgstr "Mulai ulang"
 
-#: telescope/widgets/plugins_panel.py:444
+#: telescope/widgets/plugins_panel.py:522
 msgid "Couldn't restart"
 msgstr "Tidak dapat memulai ulang"
 
-#: telescope/widgets/plugins_panel.py:444
+#: telescope/widgets/plugins_panel.py:522
 msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
 msgstr "Telescope tidak dapat memulai instans baru. Tutup dan buka kembali untuk menerapkan perubahan Anda."
 

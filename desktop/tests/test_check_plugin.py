@@ -83,3 +83,29 @@ def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_
     assert shutdown == [True]
     assert sip.isdeleted(win) and sip.isdeleted(child)
     assert not sip.isdeleted(qapp)
+
+
+def _check_repo(tmp_path, capsys, **manifest) -> str:
+    import importlib.util
+    import json
+    from telescope import plugin_loader
+    spec = importlib.util.spec_from_file_location("check_plugin", DESKTOP / "scripts" / "check_plugin.py")
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    folder = tmp_path / "extra"
+    folder.mkdir()
+    (folder / "plugin.json").write_text(json.dumps({"name": "extra", "api": 1, "class": "P", **manifest}))
+    script.check_repo(folder, plugin_loader.Installed(folder, "extra", version=manifest.get("version", "")))
+    return capsys.readouterr().out
+
+
+@pytest.mark.parametrize("manifest, expect", [
+    ({"repo": "github.com/me/extra"}, '[FAIL] plugin.json: "repo" has to be an https:// address'),
+    ({"repo": "https://github.com/me/extra", "version": "1.0"}, "Telescope can tell people when a new release"),
+    ({"repo": "https://github.com/me/extra"}, 'Give it a "version"'),
+    ({"repo": "https://codeberg.org/me/extra"}, "only follows https://github.com/owner/repo"),
+    ({}, ""),
+])
+def test_repo_is_checked(tmp_path, capsys, manifest, expect):
+    out = _check_repo(tmp_path, capsys, **manifest)
+    assert expect in out and (out if expect else not out)
