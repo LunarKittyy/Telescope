@@ -440,7 +440,7 @@ def test_the_repo_shows_as_a_link_next_to_the_author(qapp, plugins, answers):
            repo="https://github.com/someone/extra")
     dialog = PluginsPanel(_builtins(), set(), {}, lambda: True)
     assert "Does things." in _labels(dialog)
-    (by,) = [lbl for lbl in dialog.findChildren(QLabel) if "github.com" in lbl.text()]
+    (by,) = [lbl for lbl in dialog.findChildren(QLabel) if lbl.text().startswith("By Someone")]
     assert by.text() == 'By Someone &lt;b&gt;. <a href="https://github.com/someone/extra">github.com/someone/extra</a>'
     assert by.openExternalLinks()
 
