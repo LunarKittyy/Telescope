@@ -48,8 +48,8 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
     <td width="33%"><img src="site/media/chroma.webp" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
   </tr>
   <tr>
-    <td><img src="site/media/one-picture.webp" alt="Two phones combined into one picture"><br><b>Several cameras in one picture</b><br>Your face big and the desk in a corner, for apps that take one camera.</td>
-    <td><img src="site/media/desk.webp" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Point the phone at a sheet of paper and calls see it flat.</td>
+    <td><img src="site/media/one-picture.webp" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Side by side, in a grid or in your own layout, for apps that take only one camera.</td>
+    <td><img src="site/media/desk.webp" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straightens anything flat the phone looks at, like a page or a drawing, so calls see it head-on.</td>
     <td><img src="site/media/fun.webp" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Clone party, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>
