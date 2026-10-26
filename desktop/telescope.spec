@@ -20,6 +20,7 @@
 #   - The exe's icon is resources/telescope.ico, the app icon (create_app_icon); scripts/write_icon.py
 #     writes it again if the icon changes.
 
+import importlib.util
 import os
 import sys
 
@@ -29,10 +30,16 @@ sys.path.insert(0, SPECPATH)
 from telescope.updates import LIB_PREFIX  # noqa: E402
 from telescope.version import BUILD  # noqa: E402
 
+# Mic noise reduction loads pyrnnoise's RNNoise DLL itself (telescope/denoise.py), so only the DLL comes along
+_rnnoise = importlib.util.find_spec('pyrnnoise')
+_rnnoise_dll = os.path.join(_rnnoise.submodule_search_locations[0], 'rnnoise.dll') if _rnnoise else ''
+if not os.path.isfile(_rnnoise_dll):
+    raise SystemExit('pyrnnoise is missing: pip install --no-deps -r requirements-nodeps.txt')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[(_rnnoise_dll, 'pyrnnoise')],
     # The Browser camera page, which vision pack this build downloads for Auto framing and Background,
     # and the translations
     datas=[('telescope/web', 'telescope/web'), ('telescope/vision_pack.json', 'telescope'),
