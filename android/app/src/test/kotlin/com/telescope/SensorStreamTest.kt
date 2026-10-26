@@ -141,4 +141,44 @@ class SensorStreamTest {
         assertEquals(0.8f, q[3], 0.0001f)
         assertEquals(4, PhoneSensors.quaternion(floatArrayOf(0.1f, 0.2f, 0.3f, 0.9f, 0f)).size)
     }
+
+    private class Registrations {
+        val on = mutableSetOf<Int>()
+        val log = mutableListOf<String>()
+        val use = SensorUse({ on.add(it); log.add("+$it") }, { on.remove(it); log.add("-$it") })
+    }
+
+    @Test
+    fun `a sensor is registered with the first desktop that needs it and unregistered with the last`() {
+        val r = Registrations()
+        val first = r.use.add(listOf(9))
+        val second = r.use.add(listOf(9, 5))
+        assertEquals(listOf("+9", "+5"), r.log)
+        assertEquals(emptyList<Int>(), r.use.remove(listOf(9), first))
+        assertEquals(setOf(9, 5), r.on)
+        assertEquals(listOf(9, 5), r.use.remove(listOf(9, 5), second))
+        assertTrue(r.on.isEmpty() && r.use.idle())
+        assertEquals(listOf("+9", "+5", "-9", "-5"), r.log)
+    }
+
+    @Test
+    fun `letting go of something never asked for changes nothing`() {
+        val r = Registrations()
+        val g = r.use.add(listOf(9))
+        assertEquals(emptyList<Int>(), r.use.remove(listOf(4), g))
+        assertEquals(setOf(9), r.on)
+    }
+
+    @Test
+    fun `the stream ending turns everything off and a late goodbye can't touch the next stream`() {
+        val r = Registrations()
+        val old = r.use.add(listOf(9, 5))
+        assertEquals(setOf(9, 5), r.use.removeAll().toSet())
+        assertTrue(r.on.isEmpty())
+        val fresh = r.use.add(listOf(9))
+        assertEquals(emptyList<Int>(), r.use.remove(listOf(9, 5), old))  // the old connection's finally, late
+        assertEquals(setOf(9), r.on)
+        assertEquals(listOf(9), r.use.remove(listOf(9), fresh))
+        assertTrue(r.on.isEmpty())
+    }
 }
