@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QLabel, QMenu, QToolButton, QWidget
 import telescope.app as app_module
 import telescope.single_instance as instance_module
 import telescope.sources as sources_module
-from telescope import theme
+from telescope import packets, theme
 from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.session import StreamSession
 
@@ -948,6 +948,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
             self.status = _Signal()
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
             self.started = False
             workers.append(self)
 
@@ -1047,6 +1048,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
             self.status = _Signal()
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
 
         def start(self):
             pass
@@ -1077,6 +1079,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
             self.status.connect(window._on_worker_status)
             self.reconnected = _Signal()
             self.vcam_opened = _Signal()
+            self.packets = packets.Tap()
             self.reconnected.connect(window._on_stream_reconnected)
             self.vcam_opened.connect(window._bus.vcam_opened)
             self.stop_requested = False
@@ -1525,7 +1528,7 @@ def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
     monkeypatch.setattr(
         app_module, "StreamWorker",
         lambda **kwargs: built.append(kwargs) or SimpleNamespace(
-            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(), start=lambda: None,
+            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(), start=lambda: None, packets=packets.Tap(),
         ),
     )
     monkeypatch.setattr(
@@ -2499,6 +2502,7 @@ def camera_env(window, monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs, self.auth = kwargs, kwargs["auth"]
             self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+            self.packets = packets.Tap()
             self.started = self.stopped = False
             workers.append(self)
 
@@ -3827,3 +3831,35 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed(window, monkeypatch):
+    phone = SimpleNamespace(open_reader=None, session=None)
+    monkeypatch.setattr(window, "_active_source", lambda: phone)
+    monkeypatch.setattr(window, "plugin_config", lambda name: {"format": "mjpeg"} if name == "stream_output" else None)
+    assert "Heavy" in window.packets_problem()
+    monkeypatch.setattr(window, "plugin_config", lambda name: {"format": "h264"})
+    assert window.packets_problem() == ""
+    phone.session = SimpleNamespace(url="https://phone/v1/video.mjpeg")
+    assert "Heavy" in window.packets_problem()  # what streams counts, not what's picked for next time
+    phone.session = SimpleNamespace(url="https://phone/v1/video.udp")
+    assert window.packets_problem() == ""
+    browser = SimpleNamespace(open_reader=lambda: None, session=None)
+    monkeypatch.setattr(window, "_active_source", lambda: browser)
+    assert window.packets_problem() != ""
+
+
+def test_taking_packet_steps_off_asks_the_phone_for_a_keyframe(window):
+    sent = []
+    worker = SimpleNamespace(packets=packets.Tap())
+    session = SimpleNamespace(url="https://phone/v1/video.h264", worker=worker,
+                              client=SimpleNamespace(send=lambda **p: sent.append(p)))
+    window._sessions.focus = SimpleNamespace(session=session)
+    window.change_packets("fun", lambda: lambda unit: [])
+    assert worker.packets.step is not None and sent == []
+    window.change_packets("fun", None)
+    assert worker.packets.step is None
+    assert sent == [{"action": "keyframe"}]
+    window.change_packets("fun", None)
+    assert sent == [{"action": "keyframe"}]
+    window._sessions.focus = None

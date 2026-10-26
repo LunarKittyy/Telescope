@@ -49,6 +49,8 @@ class FlowHost(Protocol):
     def apply_state(self, session_id: int, state: dict, source: Source): ...
     def new_worker(self, source: Source, url: str, auth, params: tuple, pipeline: list, canvas: tuple): ...
     def end_worker(self, worker): ...
+    def packet_steps(self) -> dict: ...
+    def ask_keyframe(self, source: Source): ...
 
 
 class StreamFlow:
@@ -215,7 +217,10 @@ class StreamFlow:
             canvas_w, canvas_h = vcam.DEFAULT_SIZE  # an extra camera keeps one size, whatever streams to it
         self.free_vcam_for(source.slot)
         live = source is self.sessions.focus or not self.sessions.streams
-        return self._host.new_worker(source, url, auth, params, self.pipeline(live=live), (canvas_w, canvas_h))
+        worker = self._host.new_worker(source, url, auth, params, self.pipeline(live=live), (canvas_w, canvas_h))
+        if live:
+            worker.packets.set(self._host.packet_steps())
+        return worker
 
     def free_vcam_for(self, slot: int):
         """Whatever holds slot's virtual camera while idle (the wait screen) lets go, for a stream about to open it."""
@@ -339,6 +344,8 @@ class StreamFlow:
                 host.save_profile(old.id, self.followers())  # as it was, before the stop hooks
                 if old.session.worker is not None:
                     old.session.worker.set_pipeline(self.pipeline(live=False))
+                    if old.session.worker.packets.set({}):  # packet steps stay with the panels
+                        host.ask_keyframe(old)
                 self._each_follower("on_focus_lost")  # it streams on, behind
             if old.behind:
                 old.behind = False
@@ -360,6 +367,7 @@ class StreamFlow:
         if session is not None:
             if session.worker is not None:
                 session.worker.set_pipeline(self.pipeline())
+                session.worker.packets.set(host.packet_steps())
             self._each_follower("on_focus_gained", session.url, session.client)
             source.refresh_state(session.id)
             if source.recovering:

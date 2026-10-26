@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 import telescope.app as app_module
+from telescope import packets
 from telescope.plugin import EventBus
 from telescope.plugins.microphone import MicrophonePlugin
 
@@ -375,6 +376,7 @@ class _Cam:
 class _StreamWorker:
     def __init__(self, **kwargs):
         self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+        self.packets = packets.Tap()
 
     def start(self):
         pass

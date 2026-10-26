@@ -215,6 +215,12 @@ class _FlowHost:
     def end_worker(self, worker):
         self._win._end_worker(worker)
 
+    def packet_steps(self) -> dict:
+        return self._win._packet_steps()
+
+    def ask_keyframe(self, source: Source):
+        self._win._ask_keyframe(source)
+
 
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
@@ -235,6 +241,7 @@ class TelescopeWindow(QMainWindow):
         self._bus     = EventBus()
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
+        self._packet_makers: dict = {}  # owner: make_step, on the shown stream's H.264 (HostPackets)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
         self._view.setup(self, self._bus, self._vision)
@@ -1648,6 +1655,34 @@ class TelescopeWindow(QMainWindow):
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def packets_problem(self) -> str:
+        source = self._active_source()
+        if source.open_reader is not None:
+            return tr("Only a phone's stream has the video this needs.")
+        session = source.session
+        heavy = (session.url.endswith(".mjpeg") if session is not None
+                 else (self.plugin_config("stream_output") or {}).get("format") == "mjpeg")
+        return tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with.") if heavy else ""
+
+    def change_packets(self, owner: str, make_step):
+        if make_step is None:
+            self._packet_makers.pop(owner, None)
+        else:
+            self._packet_makers[owner] = make_step
+        source = self._sessions.focus
+        if source is not None and source.session is not None and source.session.worker is not None:
+            if source.session.worker.packets.set(dict(self._packet_makers)):
+                self._ask_keyframe(source)
+
+    def _packet_steps(self) -> dict:
+        return dict(self._packet_makers)
+
+    def _ask_keyframe(self, source: Source):
+        """Steps came off source's H.264: a keyframe from the phone brings back a picture they may have broken."""
+        session = source.session
+        if session is not None and session.client is not None and session.url.endswith((".h264", ".udp")):
+            session.client.send(action="keyframe")
 
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)

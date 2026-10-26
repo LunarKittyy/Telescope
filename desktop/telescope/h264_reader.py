@@ -159,10 +159,11 @@ def _software_codec():
 
 
 class H264Reader:
-    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0):
+    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0, tap=None):
         self.url = url
         self.auth = auth
         self.timeout = timeout
+        self.tap = tap  # the stream's packets.Tap: plugins' steps on each access unit before it's decoded
         self._response = None
         self._codec = None
         self._pending_bytes = 0
@@ -189,7 +190,7 @@ class H264Reader:
             except Exception:
                 pass
             return False
-        self._codec = new_decoder()
+        self._codec = new_decoder(self.tap)
         self._response = resp
         self._pending_bytes = 0
         self._pending_frames = 0
@@ -240,8 +241,9 @@ class Decoder:
     """An H.264 decoder on the graphics card when that's on and works, else in software. A hardware one that errors is
     swapped for software on the spot (the picture resumes at the next keyframe) and not tried again this run."""
 
-    def __init__(self):
+    def __init__(self, tap=None):
         self.hardware: Optional[str] = None
+        self.tap = tap
         self._codec = None
         self._headers = {}
         self._header_tail = b""
@@ -261,9 +263,10 @@ class Decoder:
     def feed(self, data: bytes):
         """(newest BGR frame the data completed or None, how many frames it completed)."""
         self._remember_headers(data)
+        step = self.tap.step if self.tap is not None else None
         try:
             frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven,
-                                           to_bgr=self._to_bgr)
+                                           to_bgr=self._to_bgr, step=step)
             self._hw_proven = self._hw_proven or count > 0
             return frame, count
         except Exception:
@@ -276,7 +279,7 @@ class Decoder:
             self._codec = _software_codec()
             # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
             setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
-            return _decode_counted(self._codec, setup + data, to_bgr=self._to_bgr)
+            return _decode_counted(self._codec, setup + data, to_bgr=self._to_bgr, step=step)
 
     def _remember_headers(self, data: bytes):
         data = self._header_tail + data
@@ -292,8 +295,8 @@ class Decoder:
             self._header_tail = data[-4:]
 
 
-def new_decoder() -> Decoder:
-    return Decoder()
+def new_decoder(tap=None) -> Decoder:
+    return Decoder(tap)
 
 
 def decode_newest(codec, data: bytes):
@@ -309,18 +312,20 @@ def decode_counted(codec, data: bytes):
     return _decode_counted(codec, data)
 
 
-def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False, to_bgr=None):
+def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False, to_bgr=None, step=None):
     newest, count = None, 0
     for packet in codec.parse(data):
-        try:
-            frames = codec.decode(packet)
-        except _av().error.InvalidDataError:
-            if fail_on_invalid:
-                raise  # hardware refusal must reach Decoder's software fallback too
-            continue  # e.g. joined mid-GOP: skip until a keyframe
-        if frames:
-            newest = frames[-1]
-            count += len(frames)
+        # A plugin's step (packets.Tap) gets each access unit and hands back what's decoded in its place
+        for unit in (packet,) if step is None else [_av().Packet(u) for u in step(bytes(packet))]:
+            try:
+                frames = codec.decode(unit)
+            except _av().error.InvalidDataError:
+                if fail_on_invalid:
+                    raise  # hardware refusal must reach Decoder's software fallback too
+                continue  # e.g. joined mid-GOP: skip until a keyframe
+            if frames:
+                newest = frames[-1]
+                count += len(frames)
     if newest is None:
         return None, count
     return (to_bgr(newest) if to_bgr is not None else newest.to_ndarray(format="bgr24")), count

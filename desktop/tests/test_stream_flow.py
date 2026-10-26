@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from telescope import packets
 from telescope.plugin import TelescopePlugin
 from telescope.stream_flow import StreamFlow
 
@@ -37,6 +38,7 @@ class _Plugin(TelescopePlugin):
 class _Worker:
     def __init__(self, live):
         self.live, self.parked, self.stopped = live, False, False
+        self.packets = packets.Tap()
 
     def set_pipeline(self, steps):
         self.live = steps == ["live"]
@@ -108,6 +110,7 @@ class _Host:
         self._plugins, self._sources, self.log = plugins, sources, log
         self.selected = next(iter(sources))
         self.problems, self.saved, self.applied = [], [], []
+        self.packet_makers, self.keyframes = {}, []
         self.ended = []
         self.connection = SimpleNamespace(selected_device=self.selected, select=self._select,
                                           show_selected=lambda _sid: None)
@@ -155,6 +158,12 @@ class _Host:
     def end_worker(self, worker):
         worker.stopped = True
         self.ended.append(worker)
+
+    def packet_steps(self):
+        return dict(self.packet_makers)
+
+    def ask_keyframe(self, source):
+        self.keyframes.append(source.id)
 
     def set_behind(self, behind, source):
         source.behind = behind
@@ -321,3 +330,17 @@ def test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_lat
     for step in StreamFlow(Host()).pipeline():
         frame = step(frame)
     assert order == ["transforms", "added", "added_too", "preview"]
+
+
+def test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe(setup):
+    flow, host, sources, log = setup
+    host.packet_makers = {"fun": lambda: lambda unit: []}
+    _two_streams(flow, host, log)
+    a, b = sources["a"].session.worker, sources["b"].session.worker
+    assert b.packets.step is not None and a.packets.step is None
+    assert host.keyframes == ["a"]  # the panels moved to the new stream
+    host.keyframes.clear()
+    flow.move_focus(sources["a"])
+    assert a.packets.step is not None and b.packets.step is None
+    assert host.keyframes == ["b"]
+

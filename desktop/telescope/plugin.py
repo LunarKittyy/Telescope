@@ -320,7 +320,25 @@ class HostVision(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
+class HostPackets(Protocol):
+    """The shown stream's H.264 before it's decoded, for effects that change the video itself (datamosh). Only a
+    phone's Light stream has it: Heavy is a picture at a time, with no keyframes to work with."""
+
+    def packets_problem(self) -> str:
+        """Why the shown stream's packets can't be changed (Heavy, a browser), or "" when they can, or will once it
+        streams; it can change with stream_transport_changed, source_selected and the stream starting."""
+        ...
+
+    def change_packets(self, owner: str, make_step: Optional[Callable[[], Callable[[bytes], list]]]) -> None:
+        """While set, the shown stream's access units (Annex-B bytes, one frame each) go through a step from
+        make_step(), on the stream's thread, before they're decoded: step(unit) returns the ones to decode in its place
+        ([] drops it). Each stream it's put on gets a fresh step, and it moves with the panels. None takes it off,
+        and the phone is asked for a keyframe so the picture recovers. Nothing extra runs while nobody has one."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostPackets,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
