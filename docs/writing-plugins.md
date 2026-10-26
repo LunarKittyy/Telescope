@@ -146,6 +146,10 @@ Zoom, pan, flip and rotation belong to the window, not to the Transforms card, s
 
 The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second while anything in the picture moves, and about 3 times a second while nothing does. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
 
+## The phone's sensors
+
+A plugin can read the motion and light sensors of the phone the panels show. `host.want_sensors("My plugin", ["orientation", "light"])` asks for them and `host.want_sensors("My plugin", [])` lets go. The phone only runs its sensors while some plugin wants them (it's a battery thing), so remember to let go when your plugin is switched off and in `shutdown()`. `bus.sensors_changed` fires with the source id on every new reading (up to 30 a second) and when the status changes. `host.sensor_reading()` has the newest values: `roll` and `pitch` of the picture as the phone sends it, plus `accelerometer`, `gyroscope`, `magnetometer`, `gravity`, `rotation` and `light`. `host.sensor_status()` says whether they're `off`, `starting`, `on` or `unavailable`, and for that last one why (`not_phone`, `old_phone`, `none` or `failed`, which your plugin words for people). The readings jump around a little, so smooth them before drawing anything.
+
 ## Translating your plugin
 
 Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:

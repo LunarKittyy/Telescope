@@ -22,6 +22,7 @@ from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
 from telescope import plugin_loader
 from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlugin
+from telescope.sensors import SensorHub
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
@@ -225,6 +226,7 @@ class TelescopeWindow(QMainWindow):
     _sig_extras_removed = pyqtSignal(bool, str)
     _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
     _sig_vision_state = pyqtSignal(str)
+    _sig_sensors = pyqtSignal(str)  # a source id, from the sensor reader's thread
 
     def __init__(self):
         super().__init__()
@@ -236,6 +238,12 @@ class TelescopeWindow(QMainWindow):
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._sensors = SensorHub(on_change=self._sig_sensors.emit)  # the shown phone's sensors (HostSensors)
+        self._sig_sensors.connect(self._bus.sensors_changed)
+        self._bus.device_changed.connect(lambda _id: self._sync_sensors())
+        self._bus.stream_started.connect(lambda _url: self._sync_sensors())
+        self._bus.stream_stopped.connect(lambda: self._sync_sensors())
+        self._bus.stream_connected.connect(lambda _id: self._sync_sensors())  # maybe on another route now
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
         self._view.setup(self, self._bus, self._vision)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
@@ -939,6 +947,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s failed to shut down", p.name)
         self._vision.shutdown()
+        self._sensors.shutdown()
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
@@ -1527,6 +1536,7 @@ class TelescopeWindow(QMainWindow):
                 self._flow.move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
         # Plugins get the dict as sent; PhoneState above only checks it
         if source is self._sessions.focus:
+            self._sync_sensors(state)
             self._bus.phone_state_updated.emit(state)
         if source.session is None or source.session.id != session_id:
             return  # something listening (Monitoring, too hot) stopped the stream just now
@@ -1649,6 +1659,26 @@ class TelescopeWindow(QMainWindow):
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
 
+    def want_sensors(self, owner: str, kinds):
+        self._sensors.want(owner, kinds)
+
+    def sensor_status(self, source_id: Optional[str] = None):
+        return self._sensors.status(source_id)
+
+    def sensor_reading(self, source_id: Optional[str] = None):
+        return self._sensors.reading(source_id)
+
+    def _sync_sensors(self, state: Optional[dict] = None):
+        """Point the sensors at the shown stream, as it is now."""
+        source = self._sessions.focus
+        session = source.session if source is not None else None
+        if session is None:
+            self._sensors.follow(None)
+            return
+        ctrl = session.client
+        self._sensors.follow(source.id or "", getattr(ctrl, "base", None), getattr(ctrl, "auth", None),
+                             phone=isinstance(source, PhoneSource), state=state)
+
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)
         if source is not None:
@@ -1694,6 +1724,7 @@ class TelescopeWindow(QMainWindow):
             added += [f"{name} (didn't start)" for name in self._plugin_problems]
             state["Added plugins"] = ", ".join(added)
         state.update(self._vision.diagnostics())
+        state.update(self._sensors.diagnostics())
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())

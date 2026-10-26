@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/state, POST /v1/control;
+// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/audio, GET /v1/sensors, GET /v1/state, POST /v1/control;
 // all require bearer token. Opening a video route tells the service which codec to run.
 class MjpegServer(
     val port: Int,
@@ -27,6 +27,8 @@ class MjpegServer(
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
     val startAudio: () -> MicProblem? = { MicProblem.NO_MIC },
     val stopAudio: () -> Unit = {},
+    // What /v1/sensors streams; null answers it 404 like a phone from before it.
+    val sensors: SensorFeed? = null,
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
     // TLS in the app (PhoneTls); plain sockets only in tests.
@@ -47,6 +49,7 @@ class MjpegServer(
     private var lastLinkSampleMs = 0L
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
     private val audioLock = Any()
+    private val sensorClients = CopyOnWriteArrayList<SensorClient>()
     private val running = AtomicBoolean(false)
     private val wifiViewers = mutableSetOf<Socket>()
 
@@ -173,6 +176,8 @@ class MjpegServer(
             audioClients.forEach { it.close() }
             audioClients.clear()
         }
+        sensorClients.forEach { it.close() }
+        sensorClients.clear()
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -285,6 +290,28 @@ class MjpegServer(
                         }
                     } finally { streamSlots.release() }
                 }
+                "/v1/sensors" -> {
+                    val feed = sensors
+                    if (feed == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    if (!takeStreamSlot()) return
+                    try {
+                        val started = feed.start(SensorKinds.asked(request.query))
+                        try {
+                            if (started.isEmpty()) {
+                                HttpWire.sendError(socket.getOutputStream(), 409, "This phone has none of those sensors", "sensors_none")
+                                return
+                            }
+                            val client = SensorClient(socket, request, feed, started)
+                            sensorClients.add(client)
+                            // Stopped meanwhile: stop() may have gone through the list before this one was in it
+                            if (!running.get()) client.close()
+                            client.stream()
+                            sensorClients.remove(client)
+                        } finally { feed.stop(started) }
+                    } finally { streamSlots.release() }
+                }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
         } catch (_: SocketTimeoutException) {
@@ -345,6 +372,9 @@ class MjpegServer(
         // About 100 ms of video once the kernel doubles it: enough for Wi-Fi's round trips, little to hide in.
         fun dynamicSendBuffer(bps: Double): Int = (bps / 8 * 0.05).toInt().coerceIn(8 * 1024, 640 * 1024)
         const val UNLIMITED_SEND_BUFFER = 1 shl 20    // back from Dynamic; the kernel caps it at its own maximum
+        const val SENSOR_TICK_MS = 33L          // about 30 lines a second at most
+        const val SENSOR_LIGHT_EVERY_MS = 500L
+        const val SENSOR_HEARTBEAT_MS = 1_000L  // a line even when nothing changed, so a computer that's gone shows up as a failed write
     }
 
     inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
@@ -452,6 +482,41 @@ class MjpegServer(
                     out.write(chunk)
                     out.flush()
                     lastWriteAtMs = System.currentTimeMillis()
+                }
+            } catch (_: Exception) {}
+            finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+        }
+
+        fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+    }
+
+    // Writes the newest readings of the kinds it started, only the ones that changed, until the computer goes away.
+    inner class SensorClient(private val socket: Socket, private val request: HttpWire.Request,
+                             private val feed: SensorFeed, private val kinds: Set<String>) {
+        private val alive = AtomicBoolean(true)
+
+        fun stream() {
+            try {
+                val out = openStream(socket)
+                out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${SensorWire.CONTENT_TYPE}\r\n" +
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n" + SensorWire.hello(kinds)).toByteArray(Charsets.UTF_8))
+                out.flush()
+                val sent = mutableMapOf<String, Long>()
+                var lightAt = 0L
+                var lastWrite = System.currentTimeMillis()
+                while (alive.get() && stillPaired(request)) {
+                    Thread.sleep(SENSOR_TICK_MS)
+                    val now = System.currentTimeMillis()
+                    val fresh = feed.latest().filter { (kind, value) ->
+                        kind in kinds && sent[kind] != value.seq &&
+                            (kind != SensorKinds.LIGHT || now - lightAt >= SENSOR_LIGHT_EVERY_MS)
+                    }
+                    if (fresh.isEmpty() && now - lastWrite < SENSOR_HEARTBEAT_MS) continue
+                    fresh.forEach { (kind, value) -> sent[kind] = value.seq }
+                    if (SensorKinds.LIGHT in fresh) lightAt = now
+                    out.write(SensorWire.line(now, fresh).toByteArray(Charsets.UTF_8))
+                    out.flush()
+                    lastWrite = now
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }

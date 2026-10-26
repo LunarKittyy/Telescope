@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QWidget
 from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
+    from telescope.sensors import SensorReading, SensorStatus
     from telescope.view import View
     from telescope.widgets.banner import Issue
 
@@ -320,7 +321,28 @@ class HostVision(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
+class HostSensors(Protocol):
+    """The shown stream's phone's motion and light sensors (telescope.sensors): only streamed while something wants
+    them, and only from the phone the panels show."""
+
+    def want_sensors(self, owner: str, kinds) -> None:
+        """Ask for these kinds (telescope.sensors.KINDS) under owner's name, replacing what owner asked for before; an
+        empty list lets go. The phone streams what anyone wants, and stops once nobody does."""
+        ...
+
+    def sensor_status(self, source_id: Optional[str] = None) -> "SensorStatus":
+        """Where the sensors of source_id's stream (default: the shown one) stand: off, starting, on or unavailable
+        with the reason. Another stream's are always off. sensors_changed says when it changes."""
+        ...
+
+    def sensor_reading(self, source_id: Optional[str] = None) -> Optional["SensorReading"]:
+        """The newest readings from source_id's phone (default: the shown stream's), None while there are none. Safe
+        from any thread."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostSensors,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -579,6 +601,9 @@ class EventBus(QObject):
     only while something wants_people. Check focused_source_id() for the shown stream."""
     vision_state_changed   = pyqtSignal(str)
     """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
+    sensors_changed        = pyqtSignal(str)
+    """A stream's phone sensors (its source id) sent new readings, up to 30 times a second, or host.sensor_status()
+    changed. Only while something wants them."""
     view_status            = pyqtSignal(object)
     """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)

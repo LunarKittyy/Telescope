@@ -24,6 +24,7 @@ EventBus.phone_wanted(bool,bool)
 EventBus.phones_changed(int)
 EventBus.remembered_sources(QVariantList)
 EventBus.resolution_change_requested(int,int)
+EventBus.sensors_changed(QString)
 EventBus.setup_guide_requested()
 EventBus.setup_needed(bool)
 EventBus.source_selected(QString)
@@ -50,6 +51,9 @@ HostCamera.can_turn_camera_off(self)
 HostCamera.is_camera_off_auto(self)
 HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
+HostSensors.sensor_reading(self, source_id=None)
+HostSensors.sensor_status(self, source_id=None)
+HostSensors.want_sensors(self, owner, kinds)
 HostSettings.apply_preset(self, name, cfg)
 HostSettings.device_config(self, source_id, plugin_name)
 HostSettings.forget_device_settings(self, name)
@@ -127,6 +131,22 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
+SensorReading(at=0.0, roll=None, pitch=None, camera='', accelerometer=None, gyroscope=None, magnetometer=None, gravity=None, rotation=None, light=None)
+SensorReading.accelerometer = None
+SensorReading.at = 0.0
+SensorReading.camera = ''
+SensorReading.gravity = None
+SensorReading.gyroscope = None
+SensorReading.light = None
+SensorReading.magnetometer = None
+SensorReading.pitch = None
+SensorReading.roll = None
+SensorReading.rotation = None
+SensorStatus(state='off', kinds=(), streaming=(), reason='')
+SensorStatus.kinds = ()
+SensorStatus.reason = ''
+SensorStatus.state = 'off'
+SensorStatus.streaming = ()
 SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='')
 SettingsSection.keywords = ''
 SettingsSection.on_show = None
