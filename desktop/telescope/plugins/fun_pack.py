@@ -6,7 +6,7 @@ import numpy as np
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QComboBox, QPushButton, QWidget
 
-from telescope import fun_effects
+from telescope import fun_effects, vision
 from telescope.fun_effects import Clones, Look
 from telescope.h264_mosh import Mosh, Mosher
 from telescope.i18n import N_, tr
@@ -272,7 +272,7 @@ class FunPackPlugin(TelescopePlugin):
             effect=effect, plate=self._plate, clones=self._clones, edges=self._value("edges"),
             fade=self._value("fade"), brightness=self._value("brightness"), spread=self._value("spread"),
             across=self._dir_btns["across"].isChecked(), lines=self._lines, heads=self._heads,
-            mask=self._host.person_mask if effect in _EDGES else None, reset=self._reset)
+            mask=self._person_mask if effect in _EDGES else None, reset=self._reset)
         self._mosh = Mosh(True, self._value("smear"), self._mosh.clean)
         if show:
             self._refresh()
@@ -339,6 +339,10 @@ class FunPackPlugin(TelescopePlugin):
             self._grab = None
             self._take(grab, frame, look)
         return self._runner(frame, look)
+
+    def _person_mask(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        # Without the download, asking would only make vision look for it again every few seconds
+        return None if self._host.vision_state() == vision.MISSING else self._host.person_mask(frame)
 
     def _take(self, what: str, frame: np.ndarray, look: Look):
         if what == "plate":
