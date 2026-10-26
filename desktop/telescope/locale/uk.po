@@ -1047,7 +1047,7 @@ msgstr "На яку з адрес цього комп'ютера вказує к
 msgid "Address"
 msgstr "Адреса"
 
-#: telescope/plugins/browser_camera.py:250 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
+#: telescope/plugins/browser_camera.py:250 telescope/plugins/qr_reader.py:154 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
 msgid "Copy"
 msgstr "Копіювати"
 
@@ -3147,6 +3147,77 @@ msgstr "Вимкнути камеру телефону. Його мікрофо�
 #: telescope/plugins/preview.py:659
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Почати з вимкненою камерою телефону, транслюючи лише його мікрофон."
+
+#: telescope/plugins/qr_reader.py:121 telescope/plugins/qr_reader.py:175
+msgid "QR code reader"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:122
+msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:123
+msgid "Without it there's no QR code card and codes in the picture are left alone."
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:149
+msgid "Look for QR codes in the picture"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:151
+msgid "QR codes"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:155
+msgid "Put the last code on the clipboard again"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:167
+msgid "Notify me when a code is read"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:171 telescope/plugins/qr_reader.py:183
+msgid "Hold a QR code up to the camera."
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:175
+msgid "Read QR codes"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:218
+msgid "Found a code. Click Copy to put it on the clipboard."
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:221
+msgid "QR code copied"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:223
+msgid "QR code found"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:223
+msgid "Click Copy on the QR codes card to put it on the clipboard."
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:235
+#, python-brace-format
+msgid "Copied the password for {network}"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:238
+#, python-brace-format
+msgid "Copied the name of {network}, which has no password"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:241
+#, python-brace-format
+msgid "Copied {link}"
+msgstr ""
+
+#: telescope/plugins/qr_reader.py:242
+msgid "Copied the code's text"
+msgstr ""
 
 #: telescope/plugins/setup.py:44
 msgid "Auto (from first frame)"

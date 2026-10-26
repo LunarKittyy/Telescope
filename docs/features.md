@@ -72,6 +72,12 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 - The sheet stays in its own shape with bars beside it. **Keep the sheet's shape** under Video in Settings stretches it over the whole picture instead
 - Each phone remembers its own corners and presets save them too
 
+## QR codes
+
+Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. The code gets a green outline on the preview for a moment and a notification says what was copied (**Notify me when a code is read** turns that off).
+
+Telescope looks about three times a second at a smaller copy away from the stream itself and the picture doesn't slow down for it. The same code isn't copied again until it's been out of view for a few seconds. On Linux with Wayland a window in the background isn't allowed to change the clipboard. When that happens the card says so and **Copy** puts the code there with one click.
+
 ## The vision download
 
 Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.

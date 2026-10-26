@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, desk mode, chroma key, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "chroma_key": "_colour_btn"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "chroma_key": "_colour_btn", "qr_reader": "_notify_switch"}
 
 
 def card_of(win, widget):
@@ -680,6 +680,53 @@ def preview_chroma_key_pick(stack):
     overlays = win.preview_overlays()
     remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
     return preview_stage(stack, win)
+
+
+# ── QR codes ─────────────────────────────────────────────────────────────────
+
+def qr_card(stack, found=None, reached=True):
+    """The QR codes card switched on, after reading found (a code's text) when given."""
+    from PyQt6.QtGui import QGuiApplication
+    win, _source = streaming_window(stack)
+    plugin = plugin_of(win, "qr_reader")
+    plugin.set_config({"on": True, "notify": False})
+    if found is not None:
+        plugin._on_found(found, None)
+        if not reached:
+            QGuiApplication.clipboard().setText("something else")
+        plugin._check()
+    return cards(stack, win, "qr_reader")
+
+
+@scene("qr-waiting", "states", "QR codes · waiting for a code", width=CARD_WIDTH)
+def qr_waiting(stack):
+    return qr_card(stack)
+
+
+@scene("qr-wifi", "main", "QR codes · a Wi-Fi password copied", width=CARD_WIDTH)
+def qr_wifi(stack):
+    return qr_card(stack, "WIFI:T:WPA;S:Cafe Luna;P:hunter22;;")
+
+
+@scene("qr-open-wifi", "states", "QR codes · a Wi-Fi network without a password", width=CARD_WIDTH)
+def qr_open_wifi(stack):
+    return qr_card(stack, "WIFI:T:nopass;S:Library;;")
+
+
+@scene("qr-link", "states", "QR codes · a link copied", width=CARD_WIDTH)
+def qr_link(stack):
+    return qr_card(stack, "https://telescope.webcam")
+
+
+@scene("qr-text", "states", "QR codes · some text copied", width=CARD_WIDTH)
+def qr_text(stack):
+    return qr_card(stack, "Table 12")
+
+
+@scene("qr-not-reached", "states", "QR codes · the clipboard didn't take it (window in the background)",
+       width=CARD_WIDTH)
+def qr_not_reached(stack):
+    return qr_card(stack, "https://telescope.webcam", reached=False)
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

@@ -506,6 +506,13 @@ v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec s
 - Keying waits while its own pick runs, so the screen shows on the preview. The pick samples the median of a small square of `Pick.picture` at `Pick.in_picture` (what the preview showed, after Desk mode's warp too; the last frame before keying without one) and refuses a colour with hardly any colour in it (`keyable()`). `frame_step()` freezes the settings for a stream behind the panels.
 - Config keys: `on`, `screen`, `picked`, `tolerance`, `softness`, `spill`, `background`, `colour`, `picture`. `tests/test_chroma_key.py`.
 
+### `plugins/qr_reader.py`
+**QrReaderPlugin** - QR codes held up to the camera go to the clipboard: a Wi-Fi code's password (`parse_wifi()`, with its backslash escapes) or the network's name without one, else the text as it is. `optional`, `panel_region = "left"`, not in presets.
+- UI: an on switch in the header, a status line with **Copy** once a code was read, and **Notify me when a code is read**.
+- `process_frame` only hands a copy (at most 1280 wide) to a `qr-reader` thread every `_EVERY_S` while none is running; `read_code()` tries `QRCodeDetectorAruco` and `QRCodeDetector` on it and on a half-size copy, since each misses codes the other reads and big ones close up read better small. The result comes back to the UI thread; the same text isn't copied again within `_AGAIN_S` of last seeing it.
+- `_check()` reads the clipboard back `_CHECK_MS` after a copy: Wayland ignores one from a window in the background, and then the card says to click **Copy** (a click gives the window focus, so that one goes through). A `CodeLayer` outlines the code on the preview for `_OUTLINE_S`.
+- Config keys: `on`, `notify`. `tests/test_qr_reader.py`.
+
 ### `plugins/background.py`
 **BackgroundPlugin** - blurs the background or puts a picture behind the person. `optional` and `needs_vision`, so it's off until switched on in Plugins, which downloads the vision pack first. `panel_region = "right"`, after the Camera card; one setting for the whole app (`device_local` is False, so Presets leave it alone).
 - UI: Off / Blur / Picture segments, a Blur strength slider (Blur only), **Choose…** and the picture's name (Picture only), an Edges slider, and a `VisionStatus` line (a missing picture comes first).

@@ -18,6 +18,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
+    from telescope.plugins.qr_reader import QrReaderPlugin
     from telescope.plugins.setup import SetupPlugin
     from telescope.plugins.shortcuts import ShortcutsPlugin
     from telescope.plugins.startup import StartupPlugin
@@ -40,6 +41,7 @@ def builtin_plugins() -> list:
         DeskPlugin(),  # optional, after the view: it straightens the picture as shown
         MicrophonePlugin(),
         PresetsPlugin(),
+        QrReaderPlugin(),  # optional
         PreviewPlugin(),
         OnboardingPlugin(),  # after Preview: the stage starts out making room for the checklist
         MonitoringPlugin(),
