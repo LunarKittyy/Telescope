@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -109,6 +109,17 @@ Photos go to the folder under **Save in** (a Telescope folder in your Pictures b
 Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
+
+## Name tag
+
+Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **Optional** in the Plugins tab of Settings and fill in the **Name tag** card.
+
+- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
+- **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
+- Presets save the tag too. One preset can have it on for a talk and another can leave it off for a chat
+- Names in any script work (Arabic and Hebrew ones start from the right) and anything too long for the picture is cut short with "…"
+- The tag goes on the picture before Telescope fits it to the virtual camera's canvas. With a **Canvas size** of another shape it sits in the corner of the picture rather than of the canvas. A low-resolution stream on a bigger canvas makes its text a little soft too (a higher resolution on the Stream output card helps)
+- **Mirror** on the Transforms card never mirrors the text. If your own preview in a video call shows it backwards, that's the call app mirroring your self view while everyone else sees it the right way round
 
 ## Presets
 

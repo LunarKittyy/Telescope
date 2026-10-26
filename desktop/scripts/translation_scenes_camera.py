@@ -88,7 +88,7 @@ CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
                 "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
                 "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
-                "qr_reader": "_notify_switch", "photos": "_take_btn"}
+                "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit"}
 
 
 def card_of(win, widget):
@@ -449,6 +449,13 @@ def background_unreadable_picture(stack):
             file.write(b"not a picture")
         plugin.set_config({"mode": "picture", "picture": path})
     return background_card(stack, broken)
+
+
+@scene("name-tag", "main", "Name tag · filled in", width=CARD_WIDTH)
+def name_tag_filled(stack):
+    win = ready_window(stack)
+    plugin_of(win, "name_tag").set_config({"on": True, "name": "Alex Rivera", "pronouns": "they/them"})
+    return cards(stack, win, "name_tag")
 
 
 @scene("dialog-background-picture", "dialogs", "Background · choose a picture")

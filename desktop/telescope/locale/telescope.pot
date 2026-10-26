@@ -1558,15 +1558,15 @@ msgstr ""
 msgid "White"
 msgstr ""
 
-#: telescope/plugins/cinema.py:26
+#: telescope/plugins/cinema.py:26 telescope/plugins/name_tag.py:25
 msgid "Small"
 msgstr ""
 
-#: telescope/plugins/cinema.py:26
+#: telescope/plugins/cinema.py:26 telescope/plugins/name_tag.py:25
 msgid "Medium"
 msgstr ""
 
-#: telescope/plugins/cinema.py:26
+#: telescope/plugins/cinema.py:26 telescope/plugins/name_tag.py:25
 msgid "Large"
 msgstr ""
 
@@ -1924,7 +1924,7 @@ msgstr ""
 msgid "Rename phone"
 msgstr ""
 
-#: telescope/plugins/connection.py:492
+#: telescope/plugins/connection.py:492 telescope/plugins/name_tag.py:66
 msgid "Name"
 msgstr ""
 
@@ -2915,6 +2915,92 @@ msgstr ""
 
 #: telescope/plugins/monitoring.py:337
 msgid "Start anyway"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:22
+msgid "Bar"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:22
+msgid "Pill"
+msgstr ""
+
+#. Light and Heavy are the names of the two stream formats
+#: telescope/plugins/name_tag.py:22 telescope/plugins/stream_output.py:236
+msgid "Light"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:22
+msgid "Shadow"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:23
+msgid "Bottom left"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:23
+msgid "Bottom centre"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:24
+msgid "Bottom right"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:24
+msgid "Top left"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:24
+msgid "Top right"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:42 telescope/plugins/name_tag.py:62 telescope/plugins/name_tag.py:97 telescope/plugins/name_tag.py:97
+msgid "Name tag"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:43
+msgid "Puts your name and pronouns in the corner of the picture."
+msgstr ""
+
+#: telescope/plugins/name_tag.py:44
+msgid "Without it there's no Name tag card and nothing is drawn on the picture."
+msgstr ""
+
+#: telescope/plugins/name_tag.py:60
+msgid "Show the name tag on the picture"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:63
+msgctxt "search"
+msgid "lower third caption title label overlay text name pronouns role"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:67
+msgid "Shown next to your name, like she/her or they/them"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:68
+msgid "Pronouns"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:69
+msgid "A smaller line under your name, like your role. Leave it empty for none"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:70
+msgid "Second line"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:72
+msgid "Style"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:74
+msgid "Position"
+msgstr ""
+
+#: telescope/plugins/name_tag.py:76
+msgid "Size"
 msgstr ""
 
 #: telescope/plugins/on_air.py:36
@@ -4849,11 +4935,6 @@ msgstr ""
 
 #: telescope/plugins/stream_output.py:232 telescope/plugins/stream_output.py:300
 msgid "Bitrate"
-msgstr ""
-
-#. Light and Heavy are the names of the two stream formats
-#: telescope/plugins/stream_output.py:236
-msgid "Light"
 msgstr ""
 
 #: telescope/plugins/stream_output.py:237

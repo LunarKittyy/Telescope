@@ -25,8 +25,10 @@ pseudo	out of its box	60
 pseudo	out of its box	95
 pseudo	out of its box	Add phone
 pseudo	out of its box	Auto
+pseudo	out of its box	Bar
 pseudo	out of its box	Black level lock
 pseudo	out of its box	Blur the others
+pseudo	out of its box	Bottom left
 pseudo	out of its box	Change…
 pseudo	out of its box	Choose…
 pseudo	out of its box	False colour
@@ -35,6 +37,7 @@ pseudo	out of its box	Focus peaking
 pseudo	out of its box	Heavy
 pseudo	out of its box	Hold a QR code up to the camera.
 pseudo	out of its box	Manual
+pseudo	out of its box	Medium
 pseudo	out of its box	Notify me when a code is read
 pseudo	out of its box	Off
 pseudo	out of its box	Only on the preview. Apps never see these.

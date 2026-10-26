@@ -202,3 +202,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Chroma key with a real green screen and a real phone: Green keys it cleanly with even light, Picked keys the colour clicked on the preview, Spill takes the green off hair and skin and a picture fills the frame in a call.
 - [ ] QR codes with a real phone: a Wi-Fi code from another phone's share screen puts the password on the clipboard (Linux with the window in front and behind, where Copy has to step in, and Windows) and a printed link code reads from arm's length.
 - [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.
+
+### Name tag
+
+<!-- due: desktop/telescope/name_tag.py desktop/telescope/plugins/name_tag.py -->
+
+- [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
+- [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
