@@ -160,3 +160,10 @@ def test_a_copy_wayland_ignores_says_to_click_copy(reader, qapp, monkeypatch):
     deaf.focused = True
     plugin._copy_btn.click()
     assert deaf.held == "https://example.com" and "example.com" in plugin._status.text()
+
+
+def test_loading_settings_switches_on_once(reader):
+    plugin, host = reader
+    host.saves = 0
+    plugin.set_config({"on": True})
+    assert host.saves == 1 and host.overlays.layers() == [plugin._layer]

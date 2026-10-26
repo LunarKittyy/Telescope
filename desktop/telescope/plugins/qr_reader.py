@@ -269,8 +269,10 @@ class QrReaderPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         self._notify_switch.setChecked(cfg.get("notify") is not False)
+        self._switch.blockSignals(True)
         self._switch.setChecked(cfg.get("on") is True)
-        self._on_switch(self._switch.isChecked())
+        self._switch.blockSignals(False)
+        self._on_switch(self._switch.isChecked())  # once, whether or not the switch moved
 
     def diagnostics(self) -> dict:
         return {"QR code reader": "on" if self._on else "off"}
