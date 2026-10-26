@@ -126,6 +126,26 @@ def test_picking_on_the_preview_keys_that_colour(chroma):
     assert plugin.process_frame(frame)[5, 5].tolist() == list(plugin.get_config()["colour"])
 
 
+def test_a_pick_reads_the_colour_from_what_the_preview_showed(chroma):
+    plugin, host = chroma()
+    plugin.process_frame(np.full((36, 64, 3), 128, np.uint8))  # before the picture got moved around: grey there
+    shown = np.full((20, 40, 3), 128, np.uint8)
+    shown[:, 30:] = (160, 40, 150)  # on the preview the screen sits on the right
+    plugin._pick()
+    host.picks[-1][2](Pick("point", ((0.2, 0.5),), ((0.2, 0.5),), shown, ((0.9, 0.5),)))
+    assert plugin.get_config()["picked"] == [160, 40, 150]
+
+
+def test_keying_waits_while_its_own_pick_runs(chroma):
+    plugin, _host = chroma()
+    plugin.set_config({"on": True})
+    frame = _scene()
+    plugin._bus.preview_pick_changed.emit("chroma_key")
+    assert plugin.process_frame(frame) is frame
+    plugin._bus.preview_pick_changed.emit("")
+    assert plugin.process_frame(frame) is not frame
+
+
 def test_a_grey_pick_is_refused(chroma):
     plugin, host = chroma()
     plugin.process_frame(np.full((36, 64, 3), 128, np.uint8))

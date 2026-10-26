@@ -158,8 +158,10 @@ class ChromaKeyPlugin(TelescopePlugin):
         self._picture_path = ""
         self._picture: Optional[np.ndarray] = None
         self._picture_problem = ""
-        self._last: Optional[np.ndarray] = None  # the last frame before keying, to pick a colour from
+        self._last: Optional[np.ndarray] = None  # the last frame before keying, for a pick without the preview's picture
+        self._picking = False  # keying waits while the screen's colour is picked, so the screen shows to click on
         self._settings = Settings()
+        bus.preview_pick_changed.connect(lambda owner: setattr(self, "_picking", owner == self.name))
 
     # ── Card ──────────────────────────────────────────────────────────────
 
@@ -275,10 +277,16 @@ class ChromaKeyPlugin(TelescopePlugin):
             set_status_kind(self._status, "warn")
 
     def _picked_point(self, pick):
-        frame = self._last
-        if pick is None or frame is None:
+        if pick is None:
             return
-        colour = sample(frame, *pick.shown[0])
+        # What the preview showed is what was clicked on, after every plugin (Desk mode's warp included)
+        if pick.picture is not None and pick.in_picture:
+            frame, (u, v) = pick.picture, pick.in_picture[0]
+        else:
+            frame, (u, v) = self._last, pick.shown[0]
+        if frame is None:
+            return
+        colour = sample(frame, u, v)
         if not keyable(colour):
             self._status.setText(tr("That spot has hardly any colour. Click the screen itself."))
             self._status.setVisible(True)
@@ -343,6 +351,8 @@ class ChromaKeyPlugin(TelescopePlugin):
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         self._last = frame
+        if self._picking:
+            return frame
         return key(frame, self._settings)
 
     def frame_step(self):
