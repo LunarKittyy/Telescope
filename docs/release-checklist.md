@@ -209,3 +209,11 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
 - [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
+
+### Colour grading
+
+<!-- due: desktop/telescope/colour.py desktop/telescope/grade.py desktop/telescope/plugins/colour_grading.py desktop/telescope/widgets/colour_wheel.py desktop/telescope/widgets/curve_editor.py ; packages: opencv-python-headless numpy -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on in **Optional**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.

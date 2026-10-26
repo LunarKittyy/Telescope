@@ -104,6 +104,18 @@ Optional. Switch it on under **Optional** in the Plugins tab of Settings and the
 
 Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](#keyboard-shortcuts), even with Telescope in the background, and a photo taken that way pops up a notification once it's saved.
 
+## Colour grading
+
+An optional plugin for the look of the picture, switched on in Plugins (it needs no download). Like Background it runs on the computer and works with any phone and with Browser camera. Each phone gets its own grade and grades are saved in presets.
+
+**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+
+**Curves** has the RGB curves (all channels together, or red, green and blue on their own) plus Hue vs sat and Hue vs hue. On those two you pull a hue up to give it more colour or turn it towards the next hue along. Pulling it down does the opposite. Click to add a point and drag it, or double-click a point to take it off. In a curve that has keyboard focus **[** and **]** pick a point, the arrows move it and Delete removes it.
+
+**LUT** puts a `.cube` file on top of the grade (1D or 3D, up to 65 points per side) with a Strength slider. **Export grade…** saves the whole grade, LUT included, as a 33 or 65 point `.cube` to get the same look in other software.
+
+**Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it.
+
 ## The vision download
 
 Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
@@ -123,7 +135,7 @@ Optional. It puts your name and pronouns in a corner of the picture, with a smal
 
 ## Presets
 
-The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. Auto framing and Background are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
+The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. Auto framing, Background and Colour grading are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
 
 ## Resolution and FPS
 

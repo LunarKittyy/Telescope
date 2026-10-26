@@ -157,6 +157,10 @@ Anything a plugin draws through `host.add_preview_layer("My plugin", layer)` sho
 
 The stills service takes real photos on the phone for any plugin, with or without the Photos card. `host.still_caps()` is what the shown stream's lens can take (`None` for a phone too old for photos or no stream). `host.take_still(options, folder, on_done, on_progress)` takes one with the options from [the control API](protocol.md#photos-v1still) (`{"format": "jpeg", "count": 5}` is a burst of five) and saves the files in `folder`. `on_done` gets a `StillResult` with the saved paths, or the reason it failed already worded for the person using the app. A phone takes one photo at a time and `take_still` returns False while another plugin's is still going. `bus.still_busy_changed` and `bus.still_saved` tell every plugin when one starts and ends and what it saved.
 
+## Colour
+
+A plugin that changes colours shouldn't touch the pixels in `process_frame()`. It hands the colour pipeline a `ColourStage` from `telescope.colour` instead and Telescope bakes every plugin's stages into one LUT per stream, applied once after all the plugins' frame steps. The stage's function gets an `(n, 3)` array of RGB values from 0 to 1 and returns the changed ones (`per_channel=True` if each channel only depends on itself, which lets a simple grade skip the 3D LUT). `host.set_colour_stage("My plugin", stage)` puts it in, a later call replaces it and `None` takes it out. `order` decides where it goes among other plugins' stages (Colour grading's is 0) and `source_id` ties it to one stream instead of the one the panels show. `host.colour_split("My plugin", 0.5)` shows the picture without the colour stages on the left half of the preview, never in the output.
+
 ## Translating your plugin
 
 Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:

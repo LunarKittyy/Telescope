@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from telescope import dev_profile, diagnostics, theme, vcam
+from telescope import dev_profile, diagnostics, theme, vcam, vision
+from telescope.colour import ColourPipeline
 from telescope.config import load_config, save_config, saveable, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.overlays import PreviewOverlays
@@ -140,7 +141,8 @@ class _FlowHost:
         self.bus = win._bus
 
     def plugins(self) -> list:
-        return [self._win._view] + self._win._plugins  # the view first: it crops before the plugins see a frame
+        # The view first (it crops before the plugins see a frame), the colour pipeline after them
+        return [self._win._view] + self._win._plugins + [self._win._colour]
 
     def plugin(self, name: str):
         return self._win._plugin(name)
@@ -258,6 +260,7 @@ class TelescopeWindow(QMainWindow):
         self._bus.stream_stopped.connect(lambda: self._overlays.cancel_pick())  # a warp stays: only its plugin ends it
         # A pick belongs to the stream it started on: its points mean nothing on another phone's picture
         self._bus.device_changed.connect(lambda _id: self._overlays.cancel_pick())
+        self._colour  = ColourPipeline(self._frame_source_id)  # every plugin's colour changes as one LUT (HostColour)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
@@ -1683,6 +1686,26 @@ class TelescopeWindow(QMainWindow):
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
 
+    def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
+        self._colour.set_stage(owner, stage, order, source_id)
+
+    def colour_split(self, owner: str, position: Optional[float]):
+        self._colour.set_split(owner, position)
+
+    def colour_preview(self, frame):
+        return self._colour.preview(frame)
+
+    def _frame_source_id(self) -> Optional[str]:
+        """From a frame step: the id of the stream whose frame it is (None before its session is there)."""
+        current = vision.current_frame.get()
+        if current is None:
+            return None
+        worker = current[0]
+        for source in list(self._sessions.streams):
+            if getattr(source.session, "worker", None) is worker:
+                return source.id
+        return None
+
     def _still_source(self, source_id: Optional[str]) -> Optional[Source]:
         source = self._sessions.find(self.focused_source_id() if source_id is None else source_id)
         return source if source is not None and source.session is not None else None
@@ -1834,6 +1857,7 @@ class TelescopeWindow(QMainWindow):
             added += [f"{name} (didn't start)" for name in self._plugin_problems]
             state["Added plugins"] = ", ".join(added)
         state.update(self._vision.diagnostics())
+        state.update(self._colour.diagnostics())
         state.update(self._motion.diagnostics())
         for plugin in self._plugins:
             try:

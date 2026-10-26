@@ -15,6 +15,10 @@ pseudo	not translated	GET
 pseudo	not translated	POST
 pseudo	not translated	{"on_air": false}
 pseudo	not translated	{"on_air": true}
+pseudo	out of its box	0
+pseudo	out of its box	0.00
+pseudo	out of its box	0.435
+pseudo	out of its box	1.00
 pseudo	out of its box	100%
 pseudo	out of its box	20[% ~]
 pseudo	out of its box	270°
@@ -52,4 +56,5 @@ pseudo	out of its box	Widen for something in your hand
 pseudo	out of its box	Zebras
 pseudo	out of its box	[1.0× ~]
 pseudo	out of its box	[10 š ~]
+pseudo	out of its box	[100% ~]
 pseudo	out of its box	—

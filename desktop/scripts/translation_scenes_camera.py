@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, colour grading, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -88,7 +88,8 @@ CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
                 "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
                 "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
-                "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit"}
+                "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit",
+                "colour_grading": "_switch"}
 
 
 def card_of(win, widget):
@@ -583,6 +584,124 @@ def photos_failed(stack):
 @scene("photos-old-phone", "states", "Photos · a phone too old for photos", width=CARD_WIDTH)
 def photos_old_phone(stack):
     return photos(stack, stills=None)
+
+
+# ── Colour grading ───────────────────────────────────────────────────────────
+
+_SAMPLE_LUT = "TITLE \"Warm\"\nLUT_3D_SIZE 2\n" + "".join(
+    f"{min(1.0, r * 1.1):.3f} {g:.3f} {b * 0.9:.3f}\n" for b in (0, 1) for g in (0, 1) for r in (0, 1))
+
+
+def grading_card(stack, setup):
+    win = ready_window(stack)
+    plugin = plugin_of(win, "colour_grading")
+    plugin.set_config({"wheels": {"lift": [0.25, -0.2], "gain": [-0.1, 0.3]}, "masters": {"gamma": 0.1},
+                       "temperature": 12, "saturation": 1.15})
+    import tempfile
+    setup(plugin, stack.enter_context(tempfile.TemporaryDirectory(prefix="telescope-translation-luts-")))
+    return cards(stack, win, "colour_grading")
+
+
+def hold_save_dialogs(stack):
+    """Save pickers open at once as real dialogs (in an empty folder) and are kept for the picture; returns the list."""
+    from PyQt6.QtWidgets import QFileDialog
+    held, folder = [], empty_folder(stack)
+
+    def get_save(parent=None, caption="", _directory="", filter="", *_args, **_kwargs):
+        dialog = QFileDialog(parent, caption, folder, filter)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setSidebarUrls([])
+        dialog.setMinimumWidth(760)
+        remember(dialog, "window title", caption)
+        remember(dialog, "file types", filter)
+        held.append(dialog)
+        return "", ""
+
+    patch(stack, QFileDialog, "getSaveFileName", staticmethod(get_save))
+    return held
+
+
+@scene("colour-grading-primaries", "main", "Colour grading · wheels and sliders, comparing", width=CARD_WIDTH)
+def colour_grading_primaries(stack):
+    return grading_card(stack, lambda plugin, _folder: plugin._compare.setChecked(True))
+
+
+@scene("colour-grading-curves", "main", "Colour grading · RGB curves", width=CARD_WIDTH)
+def colour_grading_curves(stack):
+    def curves(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._on_curve(((0.0, 0.0), (0.3, 0.24), (0.7, 0.78), (1.0, 1.0)))
+        plugin._show_curve()
+    return grading_card(stack, curves)
+
+
+@scene("colour-grading-hue-vs-sat", "states", "Colour grading · hue vs saturation curve", width=CARD_WIDTH)
+def colour_grading_hue_vs_sat(stack):
+    def hue(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._pick_curve("hue_sat")
+    return grading_card(stack, hue)
+
+
+@scene("colour-grading-hue-vs-hue", "states", "Colour grading · hue vs hue curve", width=CARD_WIDTH)
+def colour_grading_hue_vs_hue(stack):
+    def hue(plugin, _folder):
+        plugin._show_page("curves")
+        plugin._pick_curve("hue_hue")
+    return grading_card(stack, hue)
+
+
+@scene("colour-grading-lut", "states", "Colour grading · a LUT loaded and the grade exported", width=CARD_WIDTH)
+def colour_grading_lut(stack):
+    def lut(plugin, folder):
+        import os
+        from PyQt6.QtWidgets import QFileDialog
+        path = os.path.join(folder, "Warm look.cube")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write(_SAMPLE_LUT)
+        plugin._show_page("lut")
+        plugin._load_lut(path)
+        out = os.path.join(folder, "Telescope grade.cube")
+        patch(stack, QFileDialog, "getSaveFileName", staticmethod(lambda *_a, **_k: (out, "")))
+        plugin._export()
+    return grading_card(stack, lut)
+
+
+@scene("colour-grading-lut-problem", "states", "Colour grading · a LUT that can't be used", width=CARD_WIDTH)
+def colour_grading_lut_problem(stack):
+    def broken(plugin, folder):
+        import os
+        path = os.path.join(folder, "Film look.cube")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write("LUT_3D_SIZE 129\n")
+        plugin._show_page("lut")
+        plugin._load_lut(path)
+    return grading_card(stack, broken)
+
+
+@scene("dialog-colour-grading-lut", "dialogs", "Colour grading · load a LUT")
+def colour_grading_lut_dialog(stack):
+    held = hold_file_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._choose_lut()
+    return shown(stack, held[-1])
+
+
+@scene("dialog-colour-grading-export", "dialogs", "Colour grading · export the grade")
+def colour_grading_export_dialog(stack):
+    held = hold_save_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._export()
+    return shown(stack, held[-1])
+
+
+@scene("dialog-colour-grading-replace", "dialogs", "Colour grading · replace a LUT file on export")
+def colour_grading_replace_dialog(stack):
+    held = hold_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._may_replace("Telescope grade.cube")
+    return shown(stack, held[-1])
 
 
 # ── Preview ──────────────────────────────────────────────────────────────────

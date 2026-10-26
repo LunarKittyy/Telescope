@@ -2,6 +2,10 @@ BannerAction(label, callback, keeps_banner=False)
 BannerAction.callback
 BannerAction.keeps_banner = False
 BannerAction.label
+ColourStage(fn, per_channel=False, size=33)
+ColourStage.fn
+ColourStage.per_channel = False
+ColourStage.size = 33
 EventBus.add_phone_requested()
 EventBus.camera_on_changed(bool)
 EventBus.camera_switched(PyQt_PyObject)
@@ -62,6 +66,9 @@ HostCamera.can_turn_camera_off(self)
 HostCamera.is_camera_off_auto(self)
 HostCamera.is_camera_on(self)
 HostCamera.set_camera_on(self, on, auto=False)
+HostColour.colour_preview(self, frame)
+HostColour.colour_split(self, owner, position)
+HostColour.set_colour_stage(self, owner, stage, order=0, source_id=None)
 HostMotion.motion(self, owner)
 HostMotion.watch_motion(self, owner, zones, sensitivity=5)
 HostPreview.add_preview_layer(self, owner, layer)
