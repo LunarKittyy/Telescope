@@ -15,6 +15,8 @@ WIDTH = 160  # the grey copy's width
 EVERY_S = 0.1  # how often a stream's frames are looked at
 ADAPT_S = 2.0  # the background takes in changes with this time constant (light drifting, something left behind)
 HOLD_S = 1.0  # a zone counts as moving for this long after it last moved, so a pause in a walk isn't two events
+GAP_S = 1.0  # frames this far apart (the panels came back to a stream, it stalled) start the background over
+CUT = 0.75  # this share of the whole picture changing at once is a cut (another lens, a zoom), not motion
 SENSITIVITY_DEFAULT = 5
 # At sensitivity 1 and 10: how many grey levels a pixel has to change by, and what share of a zone has to change
 _LEVELS = (40, 12)
@@ -83,8 +85,12 @@ class Detector:
             self._background, self._at = frame, now
             return None
         background = self._background
-        lit = float(frame.mean()) / max(float(background.mean()), 1.0)
+        # The median ratio, so a dark coat filling part of the picture doesn't count as the room getting darker
+        lit = float(np.median(frame[::2, ::2] / np.maximum(background[::2, ::2], 1.0)))
         diff = cv2.absdiff(frame, background * lit)
+        if np.count_nonzero(diff > _LEVELS[0]) > CUT * diff.size:
+            self._background, self._at = frame, now
+            return None
         a = 1.0 - math.exp(-max(now - self._at, 0.0) / ADAPT_S)
         self._background = background * lit * (1.0 - a) + frame * a
         self._at = now
@@ -144,14 +150,26 @@ class Motion:
         self._ms: list = []
 
     def watch(self, owner: str, zones, sensitivity: int = SENSITIVITY_DEFAULT):
-        """Look for motion in zones for owner, or stop with no zones."""
+        """Look for motion in zones for owner, or stop with no zones. Each call starts owner over (nothing moving)."""
         zones = clean_zones(zones)
         watches = dict(self._watches)
         if zones:
             watches[owner] = _Watch(zones, *thresholds(sensitivity))
         else:
             watches.pop(owner, None)
+        with self._lock:
+            for sv in self._streams.values():
+                sv.moving.pop(owner, None)
+                sv.last_moved.pop(owner, None)
+                if not self._watches:
+                    sv.detector.reset()  # nobody watched: the background is from long ago
         self._watches = watches
+
+    def reset(self):
+        """Every stream's background starts over (the picture turned, so everything is somewhere else)."""
+        with self._lock:
+            for sv in self._streams.values():
+                sv.detector.reset()
 
     def watching(self) -> bool:
         return bool(self._watches)
@@ -176,6 +194,8 @@ class Motion:
             sv = self._streams.setdefault(key, _Stream())
         if now - sv.at < EVERY_S:
             return
+        if now - sv.at > GAP_S:
+            sv.detector.reset()
         sv.at = now
         t0 = time.perf_counter()
         small = grey(frame)

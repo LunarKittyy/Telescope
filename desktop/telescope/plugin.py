@@ -580,6 +580,9 @@ class EventBus(QObject):
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
     focus_mode_picked      = pyqtSignal(str)
     """A focus mode was picked by hand on the Camera card: "auto", "point" or "manual"."""
+    focus_mode_changed     = pyqtSignal(str)
+    """The Camera card's focus mode is now "auto", "point" or "manual", however it changed (a pick, a preset, the
+    phone's state); also once every plugin is ready."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
     view_dragged           = pyqtSignal(float, float)

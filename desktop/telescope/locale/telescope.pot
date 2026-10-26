@@ -9,323 +9,323 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: telescope/app.py:49
-msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-msgstr ""
-
 #: telescope/app.py:50
-#, python-brace-format
-msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
+msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr ""
 
 #: telescope/app.py:51
 #, python-brace-format
+msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
+msgstr ""
+
+#: telescope/app.py:52
+#, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr ""
 
-#: telescope/app.py:121
+#: telescope/app.py:122
 msgid "Lost the phone - reconnecting"
 msgstr ""
 
-#: telescope/app.py:161 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:162 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr ""
 
-#: telescope/app.py:234
+#: telescope/app.py:235
 msgid "Telescope (dev)"
 msgstr ""
 
-#: telescope/app.py:440
+#: telescope/app.py:441
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/app.py:441
+#: telescope/app.py:442
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/app.py:442
+#: telescope/app.py:443
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/app.py:444 telescope/app.py:472
+#: telescope/app.py:445 telescope/app.py:473
 msgid "Plugins…"
 msgstr ""
 
-#: telescope/app.py:468
+#: telescope/app.py:469
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/app.py:469
+#: telescope/app.py:470
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/app.py:501
+#: telescope/app.py:502
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr ""
 
-#: telescope/app.py:528
+#: telescope/app.py:529
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr ""
 
-#: telescope/app.py:530
+#: telescope/app.py:531
 msgid "Your settings couldn't be read"
 msgstr ""
 
-#: telescope/app.py:531
+#: telescope/app.py:532
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr ""
 
-#: telescope/app.py:582 telescope/app.py:583 telescope/widgets/settings_window.py:140
+#: telescope/app.py:583 telescope/app.py:584 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr ""
 
-#: telescope/app.py:592
+#: telescope/app.py:593
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr ""
 
-#: telescope/app.py:593
+#: telescope/app.py:594
 msgid "Add camera"
 msgstr ""
 
-#: telescope/app.py:598 telescope/app.py:618 telescope/plugins/onboarding.py:135
+#: telescope/app.py:599 telescope/app.py:619 telescope/plugins/onboarding.py:135
 msgid "Start streaming"
 msgstr ""
 
-#: telescope/app.py:613
+#: telescope/app.py:614
 msgid "Start mic only"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:616 telescope/plugins/shortcuts.py:152
+#: telescope/app.py:617 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:616 telescope/app.py:1905 telescope/app.py:1921 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:617 telescope/app.py:1915 telescope/app.py:1931 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr ""
 
-#: telescope/app.py:618
+#: telescope/app.py:619
 msgid "Stop streaming"
 msgstr ""
 
-#: telescope/app.py:663 telescope/app.py:1434 telescope/app.py:1499 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:664 telescope/app.py:1438 telescope/app.py:1503 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr ""
 
-#: telescope/app.py:669 telescope/plugins/stream_output.py:296
+#: telescope/app.py:670 telescope/plugins/stream_output.py:296
 msgid "FPS"
 msgstr ""
 
-#: telescope/app.py:673
+#: telescope/app.py:674
 msgid "Throughput"
 msgstr ""
 
-#: telescope/app.py:826
+#: telescope/app.py:827
 msgid "Telescope - Save failed"
 msgstr ""
 
-#: telescope/app.py:827
+#: telescope/app.py:828
 msgid "Could not save settings. Check disk space and permissions."
 msgstr ""
 
-#: telescope/app.py:1183
+#: telescope/app.py:1187
 msgid "Reconnecting"
 msgstr ""
 
-#: telescope/app.py:1185
+#: telescope/app.py:1189
 msgid "Live"
 msgstr ""
 
-#: telescope/app.py:1187
+#: telescope/app.py:1191
 msgid "Connecting"
 msgstr ""
 
-#: telescope/app.py:1191
+#: telescope/app.py:1195
 msgid "Starting"
 msgstr ""
 
-#: telescope/app.py:1195
+#: telescope/app.py:1199
 msgid "Waiting"
 msgstr ""
 
-#: telescope/app.py:1241
+#: telescope/app.py:1245
 msgid "Setting up more virtual cameras…"
 msgstr ""
 
-#: telescope/app.py:1265 telescope/plugins/setup.py:720
+#: telescope/app.py:1269 telescope/plugins/setup.py:720
 msgid "Stop the streams going to them first"
 msgstr ""
 
-#: telescope/app.py:1265
+#: telescope/app.py:1269
 msgid "There are none to remove"
 msgstr ""
 
-#: telescope/app.py:1293
+#: telescope/app.py:1297
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr ""
 
-#: telescope/app.py:1295
+#: telescope/app.py:1299
 msgid "Set up more virtual cameras"
 msgstr ""
 
-#: telescope/app.py:1296
+#: telescope/app.py:1300
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr ""
 
-#: telescope/app.py:1297
+#: telescope/app.py:1301
 msgid "This asks for your password."
 msgstr ""
 
-#: telescope/app.py:1297 telescope/plugins/setup.py:722
+#: telescope/app.py:1301 telescope/plugins/setup.py:722
 msgid "Windows asks for permission."
 msgstr ""
 
-#: telescope/app.py:1314
+#: telescope/app.py:1318
 msgid "Couldn't add more virtual cameras"
 msgstr ""
 
-#: telescope/app.py:1332
+#: telescope/app.py:1336
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr ""
 
-#: telescope/app.py:1334
+#: telescope/app.py:1338
 msgid "Only while one camera streams."
 msgstr ""
 
-#: telescope/app.py:1336
+#: telescope/app.py:1340
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr ""
 
-#: telescope/app.py:1338
+#: telescope/app.py:1342
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr ""
 
-#: telescope/app.py:1390
+#: telescope/app.py:1394
 msgid "Turning the phone's camera on…"
 msgstr ""
 
-#: telescope/app.py:1398
+#: telescope/app.py:1402
 msgid "Streaming the mic, camera off"
 msgstr ""
 
-#: telescope/app.py:1423
+#: telescope/app.py:1427
 msgid "Telescope: streaming the camera"
 msgstr ""
 
-#: telescope/app.py:1423
+#: telescope/app.py:1427
 msgid "Telescope: streaming the camera and mic"
 msgstr ""
 
-#: telescope/app.py:1424
+#: telescope/app.py:1428
 msgid "Telescope: streaming the camera, mic muted"
 msgstr ""
 
-#: telescope/app.py:1426
+#: telescope/app.py:1430
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr ""
 
-#: telescope/app.py:1427
+#: telescope/app.py:1431
 msgid "Telescope: streaming the mic, camera off"
 msgstr ""
 
-#: telescope/app.py:1451
+#: telescope/app.py:1455
 msgid "Stop all but one camera first, then apply again"
 msgstr ""
 
-#: telescope/app.py:1463
+#: telescope/app.py:1467
 msgid "Reloading v4l2loopback…"
 msgstr ""
 
-#: telescope/app.py:1481
+#: telescope/app.py:1485
 msgid "Restarting stream…"
-msgstr ""
-
-#: telescope/app.py:1495
-#, python-brace-format
-msgid "Loopback reloaded: {message}"
-msgstr ""
-
-#: telescope/app.py:1495
-msgid "Canvas updated"
 msgstr ""
 
 #: telescope/app.py:1499
 #, python-brace-format
+msgid "Loopback reloaded: {message}"
+msgstr ""
+
+#: telescope/app.py:1499
+msgid "Canvas updated"
+msgstr ""
+
+#: telescope/app.py:1503
+#, python-brace-format
 msgid "Reload failed: {message}"
 msgstr ""
 
-#: telescope/app.py:1506 telescope/plugins/setup.py:975
+#: telescope/app.py:1510 telescope/plugins/setup.py:975
 msgid "Resize the virtual camera"
 msgstr ""
 
-#: telescope/app.py:1529
+#: telescope/app.py:1533
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr ""
 
-#: telescope/app.py:1556 telescope/plugins/preview.py:519
+#: telescope/app.py:1560 telescope/plugins/preview.py:519
 msgid "Show"
 msgstr ""
 
-#: telescope/app.py:1557
+#: telescope/app.py:1561
 msgid "Quit"
 msgstr ""
 
-#: telescope/app.py:1596
+#: telescope/app.py:1600
 msgid "Telescope didn't answer in time."
 msgstr ""
 
-#: telescope/app.py:1603
+#: telescope/app.py:1607
 msgid "This Telescope has no shortcuts."
 msgstr ""
 
-#: telescope/app.py:1606 telescope/plugins/shortcuts.py:380
+#: telescope/app.py:1610 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr ""
 
-#: telescope/app.py:1904
+#: telescope/app.py:1914
 msgid "The stream stopped unexpectedly"
 msgstr ""
 
-#: telescope/app.py:1904 telescope/app.py:1920
+#: telescope/app.py:1914 telescope/app.py:1930
 msgid "Copy diagnostics has the details."
 msgstr ""
 
-#: telescope/app.py:1919
+#: telescope/app.py:1929
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr ""
 
-#: telescope/app.py:1998
+#: telescope/app.py:2008
 msgid "Telescope is still running"
 msgstr ""
 
-#: telescope/app.py:1999
+#: telescope/app.py:2009
 msgid "Streaming continues in the background."
 msgstr ""
 
-#: telescope/app.py:2000
+#: telescope/app.py:2010
 msgid "It starts streaming by itself when it needs to."
 msgstr ""
 
-#: telescope/app.py:2001
+#: telescope/app.py:2011
 msgid "Right-click the tray icon to quit."
 msgstr ""
 
@@ -1176,7 +1176,7 @@ msgstr ""
 msgid "{n} m"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:167 telescope/plugins/camera_control.py:342
+#: telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:168 telescope/plugins/camera_control.py:344
 msgid "Camera"
 msgstr ""
 
@@ -1188,226 +1188,226 @@ msgstr ""
 msgid "Without it there's no Camera card and the phone uses its own automatic settings."
 msgstr ""
 
-#: telescope/plugins/camera_control.py:175
+#: telescope/plugins/camera_control.py:176
 msgctxt "camera section"
 msgid "Light"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
+#: telescope/plugins/camera_control.py:177 telescope/plugins/camera_control.py:218 telescope/plugins/camera_control.py:254 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:177 telescope/plugins/camera_control.py:218
+#: telescope/plugins/camera_control.py:178 telescope/plugins/camera_control.py:219
 msgid "Manual"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:184
+#: telescope/plugins/camera_control.py:185
 msgid "Exposure"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:203 telescope/plugins/camera_control.py:348
+#: telescope/plugins/camera_control.py:204 telescope/plugins/camera_control.py:350
 msgid "Shutter"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:215
+#: telescope/plugins/camera_control.py:216
 msgid "Brightness"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:225
+#: telescope/plugins/camera_control.py:226
 msgid "White balance"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:234 telescope/plugins/camera_control.py:354
+#: telescope/plugins/camera_control.py:235 telescope/plugins/camera_control.py:356
 msgid "Temperature"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:245
+#: telescope/plugins/camera_control.py:246
 msgid "Tint G–M"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:252 telescope/plugins/camera_control.py:264
+#: telescope/plugins/camera_control.py:253 telescope/plugins/camera_control.py:266
 msgid "Focus"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:254
+#: telescope/plugins/camera_control.py:255
 msgid "Tap a point"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:256
+#: telescope/plugins/camera_control.py:257
 msgctxt "focus"
 msgid "Manual"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:274
+#: telescope/plugins/camera_control.py:276
 msgid "Distance"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:279
+#: telescope/plugins/camera_control.py:281
 msgid "Image"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:280 telescope/plugins/camera_control.py:361
+#: telescope/plugins/camera_control.py:282 telescope/plugins/camera_control.py:363
 msgid "Stabilization"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:283
+#: telescope/plugins/camera_control.py:285
 msgid "Optical image stabilization"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:286 telescope/plugins/camera_control.py:365
+#: telescope/plugins/camera_control.py:288 telescope/plugins/camera_control.py:367
 msgid "Low light"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:292 telescope/plugins/camera_control.py:364
+#: telescope/plugins/camera_control.py:294 telescope/plugins/camera_control.py:366
 msgid "Black level lock"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:296 telescope/plugins/camera_control.py:366
+#: telescope/plugins/camera_control.py:298 telescope/plugins/camera_control.py:368
 msgid "Torch"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:309 telescope/plugins/camera_control.py:362
+#: telescope/plugins/camera_control.py:311 telescope/plugins/camera_control.py:364
 msgid "Noise reduction"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:316 telescope/plugins/camera_control.py:363
+#: telescope/plugins/camera_control.py:318 telescope/plugins/camera_control.py:365
 msgid "Sharpening"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:344
+#: telescope/plugins/camera_control.py:346
 msgid "Lens"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:345
+#: telescope/plugins/camera_control.py:347
 msgid "Exposure mode"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:350
+#: telescope/plugins/camera_control.py:352
 msgid "Compensation"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:353
+#: telescope/plugins/camera_control.py:355
 msgid "White balance mode"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:356
+#: telescope/plugins/camera_control.py:358
 msgid "Tint"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:357
+#: telescope/plugins/camera_control.py:359
 msgid "Focus mode"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:359
+#: telescope/plugins/camera_control.py:361
 msgid "Focus distance"
-msgstr ""
-
-#: telescope/plugins/camera_control.py:368
-msgctxt "search"
-msgid "exposure manual"
-msgstr ""
-
-#: telescope/plugins/camera_control.py:369
-msgctxt "search"
-msgid "exposure manual speed"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:370
 msgctxt "search"
-msgid "exposure ev brightness"
+msgid "exposure manual"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:371
 msgctxt "search"
-msgid "white balance wb kelvin"
+msgid "exposure manual speed"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:372
 msgctxt "search"
-msgid "white balance wb green magenta"
+msgid "exposure ev brightness"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:373
 msgctxt "search"
-msgid "manual focus"
+msgid "white balance wb kelvin"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:374
 msgctxt "search"
-msgid "flash light"
-msgstr ""
-
-#: telescope/plugins/camera_control.py:374
-msgctxt "search"
-msgid "edge"
+msgid "white balance wb green magenta"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:375
 msgctxt "search"
+msgid "manual focus"
+msgstr ""
+
+#: telescope/plugins/camera_control.py:376
+msgctxt "search"
+msgid "flash light"
+msgstr ""
+
+#: telescope/plugins/camera_control.py:376
+msgctxt "search"
+msgid "edge"
+msgstr ""
+
+#: telescope/plugins/camera_control.py:377
+msgctxt "search"
 msgid "dark night brightness"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:384
+#: telescope/plugins/camera_control.py:386
 msgid "Loading lenses..."
 msgstr ""
 
-#: telescope/plugins/camera_control.py:451
+#: telescope/plugins/camera_control.py:454
 msgid "Unavailable"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:517 telescope/plugins/camera_control.py:759 telescope/plugins/camera_control.py:860
+#: telescope/plugins/camera_control.py:520 telescope/plugins/camera_control.py:773 telescope/plugins/camera_control.py:874
 #, python-brace-format
 msgid "{n} EV"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:552
+#: telescope/plugins/camera_control.py:555
 msgid "Full manual control"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:552
+#: telescope/plugins/camera_control.py:555
 msgid "Limited manual control"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:554
+#: telescope/plugins/camera_control.py:557
 #, python-brace-format
 msgid "Camera level: {level}"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:555
+#: telescope/plugins/camera_control.py:558
 #, python-brace-format
 msgid "Supports: {features}"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:556
+#: telescope/plugins/camera_control.py:559
 #, python-brace-format
 msgid "Not supported: {features}"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:569
+#: telescope/plugins/camera_control.py:572
 msgid "This lens has no manual exposure"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:582
+#: telescope/plugins/camera_control.py:585
 msgid "This lens has no manual white balance"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:595
+#: telescope/plugins/camera_control.py:598
 msgid "This lens has no manual focus"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:601
+#: telescope/plugins/camera_control.py:604
 msgid "This lens has no flash to use as a torch"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:606
+#: telescope/plugins/camera_control.py:609
 msgid "This lens has no optical stabilization"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:709
+#: telescope/plugins/camera_control.py:712
 msgid "Click the preview to focus there"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:710
+#: telescope/plugins/camera_control.py:713
 msgid "This lens can't focus on a point"
 msgstr ""
 
@@ -2002,7 +2002,7 @@ msgstr ""
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:96 telescope/plugins/face_exposure.py:110 telescope/plugins/face_exposure.py:111
+#: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:99 telescope/plugins/face_exposure.py:113 telescope/plugins/face_exposure.py:114
 msgid "Expose for my face"
 msgstr ""
 
@@ -2014,23 +2014,27 @@ msgstr ""
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:94
+#: telescope/plugins/face_exposure.py:97
 msgid "Meter the exposure on your face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:98
-msgid "The phone meters on the point you picked by hand."
-msgstr ""
-
-#: telescope/plugins/face_exposure.py:100
+#: telescope/plugins/face_exposure.py:103
 msgid "Follow my face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:101
+#: telescope/plugins/face_exposure.py:104
 msgid "Go back to metering on your face"
 msgstr ""
 
-#: telescope/plugins/face_exposure.py:141
+#: telescope/plugins/face_exposure.py:144
+msgid "The phone meters on the point you picked by hand."
+msgstr ""
+
+#: telescope/plugins/face_exposure.py:145
+msgid "Focus is on Manual in the Camera card."
+msgstr ""
+
+#: telescope/plugins/face_exposure.py:150
 msgid "This lens can't meter on a point."
 msgstr ""
 
