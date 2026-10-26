@@ -41,6 +41,7 @@ from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_actio
 from telescope.widgets.collapse import Collapsing
 from telescope.widgets.settings_window import SettingsWindow
 from telescope.widgets.tiles import StreamTiles
+from telescope.widgets import vision_download
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
 )
@@ -224,6 +225,12 @@ class _FlowHost:
     def end_worker(self, worker):
         self._win._end_worker(worker)
 
+    def packet_steps(self) -> dict:
+        return self._win._packet_steps()
+
+    def ask_keyframe(self, source: Source):
+        self._win._ask_keyframe(source)
+
 
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
@@ -247,7 +254,10 @@ class TelescopeWindow(QMainWindow):
         self._bus     = EventBus()
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
+        self._packet_makers: dict = {}  # owner: make_step, on the shown stream's H.264 (HostPackets)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._vision_download = vision_download.shared()  # its finished comes from any card or the Plugins dialog
+        self._vision_download.finished.connect(self._on_vision_downloaded)
         self._sensors = SensorHub(on_change=self._sig_sensors.emit)  # the shown phone's sensors (HostSensors)
         self._sig_sensors.connect(self._bus.sensors_changed)
         self._bus.device_changed.connect(lambda _id: self._sync_sensors())
@@ -1712,8 +1722,40 @@ class TelescopeWindow(QMainWindow):
     def person_mask(self, frame):
         return self._vision.person_mask(frame)
 
+    def _on_vision_downloaded(self, error: str):
+        if not error:
+            self._vision.pack_downloaded()
+
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)
+
+    def packets_problem(self) -> str:
+        source = self._active_source()
+        if source.open_reader is not None:
+            return tr("Only a phone's stream has the video this needs.")
+        session = source.session
+        heavy = (session.url.endswith(".mjpeg") if session is not None
+                 else (self.plugin_config("stream_output") or {}).get("format") == "mjpeg")
+        return tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with.") if heavy else ""
+
+    def change_packets(self, owner: str, make_step):
+        if make_step is None:
+            self._packet_makers.pop(owner, None)
+        else:
+            self._packet_makers[owner] = make_step
+        source = self._sessions.focus
+        if source is not None and source.session is not None and source.session.worker is not None:
+            if source.session.worker.packets.set(dict(self._packet_makers)):
+                self._ask_keyframe(source)
+
+    def _packet_steps(self) -> dict:
+        return dict(self._packet_makers)
+
+    def _ask_keyframe(self, source: Source):
+        """Steps came on or off source's H.264: a keyframe gives a new one a start and brings back a picture they broke."""
+        session = source.session
+        if session is not None and session.client is not None and session.url.endswith((".h264", ".udp")):
+            session.client.send(action="keyframe")
 
     def stream_frames(self, copy: bool = False) -> list:
         return self._frames.frames(copy)

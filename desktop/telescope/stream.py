@@ -10,7 +10,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from telescope import h264_reader, vcam, vision
+from telescope import h264_reader, packets, vcam, vision
 from telescope.h264_reader import H264Reader
 from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
@@ -160,6 +160,8 @@ class StreamWorker(QThread):
         self._settle_since: Optional[float] = time.monotonic()
         self._settle_flowing: Optional[float] = None
         self._settle_last_frame = 0.0
+        # Plugins' steps on the H.264 before it's decoded (HostPackets); a phone's Light stream only
+        self.packets = packets.Tap()
         self._photo_until = 0.0  # until then frames stopping is the phone taking a photo, not a dropped stream
 
     def _process(self, frame):
@@ -323,8 +325,9 @@ class StreamWorker(QThread):
 
     def _new_reader(self, url: str):
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
-        reader_cls = H264Reader if url.endswith(".h264") else UdpH264Reader if url.endswith(".udp") else MjpegReader
-        return reader_cls(url, self.auth)
+        if url.endswith((".h264", ".udp")):
+            return (H264Reader if url.endswith(".h264") else UdpH264Reader)(url, self.auth, tap=self.packets)
+        return MjpegReader(url, self.auth)
 
     def _open_cap(self):
         if self._open_reader is not None:

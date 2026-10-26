@@ -16,6 +16,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.desk import DeskPlugin
     from telescope.plugins.face_exposure import FaceExposurePlugin
     from telescope.plugins.framing import FramingPlugin
+    from telescope.plugins.fun_pack import FunPackPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.name_tag import NameTagPlugin
@@ -44,6 +45,7 @@ def builtin_plugins() -> list:
         FaceExposurePlugin(),  # optional, after Camera: it moves the point Tap a point picks
         BackgroundPlugin(),  # optional: off until switched on in Plugins
         ChromaKeyPlugin(),  # optional, next to Background: both swap what's behind you
+        FunPackPlugin(),  # optional, after Background: its effects work on the picture with the background done
         PrivacyBlurPlugin(),  # optional, after Background: it blurs what Background puts together
         PhotosPlugin(),  # optional
         ColourGradingPlugin(),  # optional: off until switched on in Plugins

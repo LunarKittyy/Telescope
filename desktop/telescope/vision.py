@@ -284,6 +284,16 @@ class Vision:
             self._set_state(LOADING)
         threading.Thread(target=self._load, daemon=True, name="vision-load").start()
 
+    def pack_downloaded(self):
+        """The pack was just downloaded: after MISSING it reads OFF again, so the next ask loads it straight away."""
+        with self._lock:
+            if self._closed.is_set() or self._state != MISSING:
+                return
+            self._looked_at = -_LOOK_AGAIN_S
+        self._set_state(OFF)
+        if self._people_wanted:
+            self.load()
+
     def _fail(self, exc: Exception):
         missing = _MISSING_LIBRARY.match(str(exc)) if isinstance(exc, OSError) else None
         # Only the type and a missing library's name: the message can hold a path with the user's name in it

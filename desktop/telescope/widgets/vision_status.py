@@ -13,7 +13,7 @@ class VisionStatus(QWidget):
     def __init__(self, host, bus, parent=None):
         super().__init__(parent)
         self._host = host
-        self._active, self._problem = False, ""
+        self._active, self._problem, self._optional = False, "", False
         self._label = wrapped_note("", "status_warn")
         self._download_btn = QPushButton(tr("Download"))
         self._download_btn.clicked.connect(self._download)
@@ -31,9 +31,10 @@ class VisionStatus(QWidget):
     def text(self) -> str:
         return self._label.text()
 
-    def refresh(self, active: bool, problem: str = ""):
-        """active: the card is switched to something that needs vision; problem: the card's own reason, shown first."""
-        self._active, self._problem = active, problem
+    def refresh(self, active: bool, problem: str = "", optional: bool = False):
+        """active: the card is switched to something that needs vision; problem: the card's own reason, shown first;
+        optional: it works without vision too, only better with it."""
+        self._active, self._problem, self._optional = active, problem, optional
         self._show()
 
     def _show(self):
@@ -45,8 +46,12 @@ class VisionStatus(QWidget):
             text = self._problem
         elif dl.running():
             text = tr("Downloading…")
+        elif state == vision.MISSING and self._optional:
+            text, download = tr("Cleaner edges with a one-time download (about {mb} MB).", mb=dl.size_mb()), dl.available()
         elif state == vision.MISSING:
             text, download = tr("Needs a one-time download (about {mb} MB).", mb=dl.size_mb()), dl.available()
+        elif self._optional:
+            pass
         elif state == vision.FAILED:
             text = tr("MediaPipe didn't load on this computer. Copy diagnostics has the details.")
         elif state == vision.LOADING:

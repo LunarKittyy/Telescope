@@ -1160,6 +1160,11 @@ class CameraStreamService : Service() {
                     ctrl.setCameraOn(params["value"] == "1")
                     ok()
                 }
+                "keyframe" -> {
+                    // A desktop plugin that changed the H.264 before decoding it stopped: this brings the picture back
+                    ctrl.requestKeyFrame()
+                    ok()
+                }
                 else -> err("unknown action '${params["action"]}'")
             }
         } catch (e: Exception) { err(e.message ?: "exception") }

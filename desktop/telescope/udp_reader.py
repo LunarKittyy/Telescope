@@ -231,10 +231,11 @@ class Reassembler:
 
 
 class UdpH264Reader:
-    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0):
+    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0, tap=None):
         self.url = url
         self.auth = auth
         self.timeout = timeout
+        self.tap = tap  # as H264Reader's
         self.last_frame_bytes = 0
         self.last_frame_count = 0
         self._tcp: Optional[H264Reader] = None  # the fallback, once UDP didn't work out
@@ -294,7 +295,7 @@ class UdpH264Reader:
         host = urllib.parse.urlsplit(self.url).hostname
         self._sock, self._response, self._phone = sock, resp, (host, phone_port)
         self._seal_in, self._seal_out = Seal(key, TO_DESKTOP), Seal(key, TO_PHONE)
-        self._codec = h264_reader.new_decoder()
+        self._codec = h264_reader.new_decoder(self.tap)
         self._frames = Reassembler()
         self._received = 0
         self._opened_at = time.monotonic()
@@ -307,7 +308,7 @@ class UdpH264Reader:
         if not self.fell_back:
             self.fell_back = True
             logger.info("UDP video fell back to TCP")
-        self._tcp = H264Reader(self.tcp_url(), self.auth, self.timeout)
+        self._tcp = H264Reader(self.tcp_url(), self.auth, self.timeout, self.tap)
         return self._tcp.open()
 
     def read_packet(self):

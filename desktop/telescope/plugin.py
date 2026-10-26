@@ -334,6 +334,23 @@ class HostVision(Protocol):
         the last people_tracked said; ([], 0) before that. Needs want_people like people_seen."""
         ...
 
+class HostPackets(Protocol):
+    """The shown stream's H.264 before it's decoded, for effects that change the video itself (datamosh). Only a
+    phone's Light stream has it: Heavy is a picture at a time, with no keyframes to work with."""
+
+    def packets_problem(self) -> str:
+        """Why the shown stream's packets can't be changed (Heavy, a browser), or "" when they can, or will once it
+        streams; it can change with stream_transport_changed, source_selected and the stream starting."""
+        ...
+
+    def change_packets(self, owner: str, make_step: Optional[Callable[[], Callable[[bytes], list]]]) -> None:
+        """While set, the shown stream's access units (Annex-B bytes, one frame each) go through a step from
+        make_step(), on the stream's thread, before they're decoded: step(unit) returns the ones to decode in its place
+        ([] drops it). Each stream it's put on gets a fresh step, starting with the stream's SPS and PPS and at a keyframe, and it moves with the panels.
+        None takes it off, and the phone is asked for a keyframe so the picture recovers. Nothing extra runs while nobody has one."""
+        ...
+
+
 @dataclass(frozen=True)
 class StreamFrame:
     """The newest picture of one running stream, as it goes out to its virtual camera (after that stream's plugins)."""
@@ -498,7 +515,8 @@ class HostSensors(Protocol):
 
 
 class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, HostFrames,
-                   HostMotion, HostPreview, HostStills, HostColour, HostSensors, Protocol):
+                   HostMotion, HostPreview, HostStills, HostColour, HostSensors, HostPackets,
+                   Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -775,7 +793,7 @@ class EventBus(QObject):
     """Motion in a watch_motion owner's zones started or stopped: the stream's source id, the owner and the indexes of
     the zones something moves in now."""
     vision_state_changed   = pyqtSignal(str)
-    """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
+    """host.vision_state() changed (MediaPipe loading, ready, missing or failed; off again after the download)."""
     sensors_changed        = pyqtSignal(str)
     """A stream's phone sensors (its source id) sent new readings, up to 30 times a second, or host.sensor_status()
     changed. Only while something wants them."""
