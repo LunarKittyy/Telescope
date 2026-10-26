@@ -96,6 +96,8 @@ Type: files; Name: "{app}\telescope.log"
 ; adb as the app downloads it (desktop/telescope/platform/adb_download.py), and a download cut short
 Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
 Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"
+; The vision download (desktop/telescope/vision_pack.py), which can be fetched again
+Type: filesandordirs; Name: "{localappdata}\Telescope\vision"
 Type: dirifempty; Name: "{localappdata}\Telescope"
 Type: filesandordirs; Name: "{app}\unitycapture"
 Type: dirifempty; Name: "{app}"
