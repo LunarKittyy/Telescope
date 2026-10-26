@@ -596,7 +596,7 @@ class EventBus(QObject):
     """Where the people are in a stream (its source id) as [telescope.vision.Person], in its frame before the view;
     only while something wants_people. Check focused_source_id() for the shown stream."""
     vision_state_changed   = pyqtSignal(str)
-    """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
+    """host.vision_state() changed (MediaPipe loading, ready, missing or failed; off again after the download)."""
     view_status            = pyqtSignal(object)
     """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)

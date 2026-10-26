@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pytest
 
@@ -367,3 +369,79 @@ def test_another_stream_starts_without_the_last_ones_history(card):
     dark = np.full((H, W, 3), 10, np.uint8)
     out = plugin.process_frame(dark)
     assert out.max() < 50  # no band from the stream before
+
+
+class _SegmentingBackend:
+    version = "fake"
+
+    def segmenter(self):
+        return (lambda frame, _ts: np.full(frame.shape[:2], 255, np.uint8)), lambda: None
+
+    def pose(self):
+        return (lambda _frame, _ts: []), lambda: None
+
+
+class _VisionHost(_Host):
+    """A host with a real Vision behind it, whose pack can be downloaded part way through."""
+
+    def __init__(self, bus):
+        super().__init__()
+        self.there, self.backend = False, _SegmentingBackend()
+        self.vision = vision.Vision(on_people=lambda *_: None, on_state=bus.vision_state_changed.emit,
+                                    find=self._find, there=lambda: self.there)
+
+    def _find(self):
+        if not self.there:
+            raise FileNotFoundError("pack not downloaded")
+        return self.backend
+
+    def vision_state(self):
+        return self.vision.state()
+
+    def person_mask(self, frame):
+        return self.vision.person_mask(frame)
+
+    def want_people(self, owner, on):
+        super().want_people(owner, on)
+        self.vision.want_people(owner, on)
+
+
+def _until(qapp, condition, timeout=2.0):
+    end = time.monotonic() + timeout
+    while not condition():
+        assert time.monotonic() < end, "timed out"
+        qapp.processEvents()
+        time.sleep(0.005)
+    qapp.processEvents()
+
+
+@pytest.mark.parametrize("download_from", ["this card", "another card"])
+def test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded(qt_widgets, qapp, download_from):
+    bus = EventBus()
+    host = _VisionHost(bus)
+    plugin = FunPackPlugin()
+    plugin.setup(host, bus)
+    qt_widgets(plugin.create_panel())
+    bus.phones_changed.emit(1)
+    plugin.set_config({})
+    frame = np.zeros((H, W, 3), np.uint8)
+    token = vision.current_frame.set(("phone", 1))
+    try:
+        _pick(plugin, "stick")  # wanting people looks for the pack and finds none
+        _until(qapp, lambda: host.vision._state == vision.MISSING)
+        assert "download" in plugin._status.text()
+        _pick(plugin, "cloak")
+        assert "download" in plugin._status.text()
+        assert plugin._look.mask(frame) is None
+        if download_from == "this card":
+            _pick(plugin, "stick")
+        host.there = True
+        host.vision.pack_downloaded()  # what the window does when the download finishes, whichever card started it
+        _until(qapp, lambda: "download" not in plugin._status.text())
+        _pick(plugin, "cloak")
+        _until(qapp, lambda: plugin._look.mask(frame) is not None)
+        assert host.vision.state() == vision.READY
+        assert plugin._status.isHidden()
+    finally:
+        vision.current_frame.reset(token)
+        host.vision.shutdown()

@@ -33,6 +33,7 @@ from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_actio
 from telescope.widgets.collapse import Collapsing
 from telescope.widgets.settings_window import SettingsWindow
 from telescope.widgets.tiles import StreamTiles
+from telescope.widgets import vision_download
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
 )
@@ -243,6 +244,8 @@ class TelescopeWindow(QMainWindow):
         self._sig_people.connect(self._on_people)
         self._packet_makers: dict = {}  # owner: make_step, on the shown stream's H.264 (HostPackets)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._vision_download = vision_download.shared()  # its finished comes from any card or the Plugins dialog
+        self._vision_download.finished.connect(self._on_vision_downloaded)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
         self._view.setup(self, self._bus, self._vision)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
@@ -1652,6 +1655,10 @@ class TelescopeWindow(QMainWindow):
 
     def person_mask(self, frame):
         return self._vision.person_mask(frame)
+
+    def _on_vision_downloaded(self, error: str):
+        if not error:
+            self._vision.pack_downloaded()
 
     def want_people(self, owner: str, on: bool):
         self._vision.want_people(owner, on)

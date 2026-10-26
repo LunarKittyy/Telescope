@@ -190,6 +190,20 @@ def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
     assert window._panels["left"] == [plugin.panel]
 
 
+def test_a_finished_vision_download_makes_vision_look_for_the_pack_again(window):
+    from telescope import vision
+    from telescope.widgets import vision_download
+    states = []
+    window._bus.vision_state_changed.connect(states.append)
+    window._vision._state = vision.MISSING
+    window._vision._there = lambda: True
+    vision_download.shared().finished.emit("it broke")
+    assert window._vision.state() == vision.MISSING
+    vision_download.shared().finished.emit("")
+    assert window._vision.state() == vision.OFF
+    assert states == [vision.OFF]
+
+
 @pytest.fixture(autouse=True)
 def port_notices(monkeypatch):
     shown = []
