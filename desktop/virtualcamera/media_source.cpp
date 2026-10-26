@@ -244,13 +244,26 @@ HRESULT MediaStream::SetAllocator(IMFVideoSampleAllocator* allocator) {
 // Hands out a frame for each request, no faster than the media type's frame rate.
 void MediaStream::Deliver() {
     using clock = std::chrono::steady_clock;
+    // Other waits round up to Windows' 15.6 ms timer tick, so 60 fps frames came 15.6 or 31.2 ms apart
+    HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     auto next = clock::now();
     std::unique_lock<std::mutex> lock(m_lock);
     while (!m_stopWorker) {
         // Paused, requests wait in the queue until it runs again
         m_wake.wait(lock, [this] { return m_stopWorker || (!m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING); });
         if (m_stopWorker) break;
-        if (m_wake.wait_until(lock, next, [this] { return m_stopWorker; })) break;
+        auto left = std::chrono::duration_cast<std::chrono::duration<LONGLONG, std::ratio<1, 10000000>>>(next - clock::now());
+        LARGE_INTEGER due;
+        due.QuadPart = -left.count();  // negative: relative, in 100 ns units
+        if (left.count() > 0 && timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
+            // Stopping waits for at most this one frame
+            lock.unlock();
+            WaitForSingleObject(timer, INFINITE);
+            lock.lock();
+            if (m_stopWorker) break;
+        } else if (m_wake.wait_until(lock, next, [this] { return m_stopWorker; })) {
+            break;
+        }
         if (m_tokens.empty() || m_state != MF_STREAM_STATE_RUNNING) continue;
         ComPtr<IUnknown> token = m_tokens.front();
         m_tokens.pop_front();
@@ -264,6 +277,7 @@ void MediaStream::Deliver() {
         auto now = clock::now();
         next = (next + period < now) ? now : next + period;  // a late frame doesn't make the next ones rush
     }
+    if (timer) CloseHandle(timer);
 }
 
 HRESULT MediaStream::MakeSample(IUnknown* token) {

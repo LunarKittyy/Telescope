@@ -34,7 +34,7 @@ using Microsoft::WRL::RuntimeClassFlags;
 
 constexpr int kSlots = 4;  // matches vcam.MAX_SLOTS
 // Registered with each camera; Telescope offers to install its own DLL over one with a lower number (MF_VERSION)
-constexpr DWORD kCameraVersion = 1;
+constexpr DWORD kCameraVersion = 2;
 
 extern std::atomic<long> g_objects;  // live objects and server locks, for DllCanUnloadNow
 extern HMODULE g_module;
