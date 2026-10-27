@@ -17,6 +17,7 @@ class _Ctrl:
     def __init__(self, state=None):
         self.sent = []
         self.state = state
+        self.closed = False
 
     def send(self, **params):
         self.sent.append(params)
@@ -271,6 +272,21 @@ def test_another_phone_starting_leaves_the_first_ones_notes_in_reach(card):
     plugin.on_focus_lost()
     plugin.on_focus_gained("https://phone/v1/video", first)
     assert plugin._clear_btn.isEnabled()
+
+
+def test_a_phone_stopped_behind_the_panels_is_forgotten_with_its_notes(card):
+    plugin, _host, bus, _panel = card
+    first = _streaming(plugin)
+    plugin._editor.setPlainText("For the first")
+    plugin._send_btn.click()
+    second = _streaming(plugin)  # the panels move to a second phone
+    first.closed = True  # the first stops while the panels show the second
+    bus.streams_changed.emit(1)
+    assert first not in plugin._sent
+    plugin.on_stream_stop()
+    second.closed = True
+    bus.streams_changed.emit(0)
+    assert plugin._sent == {}
 
 
 def test_sets_are_saved_and_picked(card):

@@ -114,6 +114,7 @@ class NotesPlugin(TelescopePlugin):
         self._first_poll.timeout.connect(self._poll)
         bus.source_selected.connect(self._on_source)
         bus.camera_switched.connect(self._on_lens)
+        bus.streams_changed.connect(self._forget_stopped)
 
     # ── Card ──────────────────────────────────────────────────────────────
 
@@ -386,6 +387,10 @@ class NotesPlugin(TelescopePlugin):
         self._takes_notes, self._front, self._shown = None, None, False
         self._stop_polling()
         self._show()
+
+    def _forget_stopped(self, _count: int = 0):
+        """A stream behind the panels that stopped never gets on_stream_stop here: its closed client goes now."""
+        self._sent = {c: sent for c, sent in self._sent.items() if not getattr(c, "closed", False)}
 
     def on_focus_gained(self, stream_url: str, ctrl):
         self._ctrl = ctrl  # the phone still shows whatever it had: nothing to send again
