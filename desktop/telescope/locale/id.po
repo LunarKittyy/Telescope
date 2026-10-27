@@ -296,11 +296,11 @@ msgstr "Tindakan itu gagal; Salin diagnostik memiliki detailnya."
 
 #: telescope/app.py:1768
 msgid "Only a phone's stream has the video this needs."
-msgstr ""
+msgstr "Hanya stream ponsel yang memiliki video yang diperlukan fitur ini."
 
 #: telescope/app.py:1772
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
-msgstr ""
+msgstr "Memerlukan Ringan: Berat mengirim gambar utuh, tanpa keyframe untuk diproses."
 
 #: telescope/app.py:2180
 msgid "The stream stopped unexpectedly"
@@ -381,52 +381,52 @@ msgstr "Komputer ini tidak dapat menyiapkan koneksi video."
 #: telescope/colour.py:277
 #, python-brace-format
 msgid "Line {line} of the file isn't a colour (three numbers)."
-msgstr ""
+msgstr "Baris {line} pada file bukan warna (tiga angka)."
 
 #: telescope/colour.py:282
 #, python-brace-format
 msgid "Line {line} of the file can't be read."
-msgstr ""
+msgstr "Baris {line} pada file tidak dapat dibaca."
 
 #: telescope/colour.py:284
 msgid "This isn't a .cube LUT: it doesn't say its size."
-msgstr ""
+msgstr "Ini bukan LUT .cube: ukurannya tidak tercantum."
 
 #: telescope/colour.py:286
 #, python-brace-format
 msgid "This LUT has {size} points per side. Telescope takes up to {most}."
-msgstr ""
+msgstr "LUT ini memiliki {size} titik per sisi. Telescope mendukung hingga {most}."
 
 #: telescope/colour.py:289
 #, python-brace-format
 msgid "This LUT's 1D table has {size} entries, which isn't a size Telescope can use."
-msgstr ""
+msgstr "Tabel 1D pada LUT ini memiliki {size} entri, yang bukan ukuran yang dapat digunakan Telescope."
 
 #: telescope/colour.py:292
 #, python-brace-format
 msgid "This LUT should have {expected} colours but has {found}."
-msgstr ""
+msgstr "LUT ini seharusnya memiliki {expected} warna tetapi memiliki {found}."
 
 #: telescope/colour.py:295
 msgid "This LUT has colours that aren't numbers."
-msgstr ""
+msgstr "LUT ini memiliki warna yang bukan angka."
 
 #: telescope/colour.py:307
 msgid "This LUT's DOMAIN_MAX isn't above its DOMAIN_MIN."
-msgstr ""
+msgstr "DOMAIN_MAX pada LUT ini tidak lebih besar dari DOMAIN_MIN-nya."
 
 #: telescope/colour.py:315
 msgid "This file is too big to be a LUT Telescope can use."
-msgstr ""
+msgstr "File ini terlalu besar untuk menjadi LUT yang dapat digunakan Telescope."
 
 #: telescope/denoise.py:88
 msgid "The pyrnnoise package isn't installed."
-msgstr ""
+msgstr "Paket pyrnnoise tidak terinstal."
 
 #: telescope/denoise.py:89
 #, python-brace-format
 msgid "Couldn't load RNNoise: {error}"
-msgstr ""
+msgstr "Tidak dapat memuat RNNoise: {error}"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
 #: telescope/i18n.py:139
@@ -447,15 +447,15 @@ msgstr "{n}%"
 
 #: telescope/overlays.py:458
 msgid "Click a point on the picture. Esc cancels."
-msgstr ""
+msgstr "Klik satu titik pada gambar. Esc untuk membatalkan."
 
 #: telescope/overlays.py:460
 msgid "Drag across the picture to mark an area. Esc cancels."
-msgstr ""
+msgstr "Seret melintasi gambar untuk menandai area. Esc untuk membatalkan."
 
 #: telescope/overlays.py:461
 msgid "Drag the corners into place, then press Enter. Esc cancels."
-msgstr ""
+msgstr "Seret sudut ke posisinya, lalu tekan Enter. Esc untuk membatalkan."
 
 #: telescope/phones.py:284
 msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
@@ -823,7 +823,7 @@ msgstr "Mendaftarkan (diperlukan akses admin)..."
 
 #: telescope/platform/windows.py:495
 msgid "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again"
-msgstr ""
+msgstr "Akses kamera nonaktif di Windows (Pengaturan > Privasi & keamanan > Kamera). Aktifkan, lalu coba lagi"
 
 #: telescope/platform/windows.py:500
 msgid "Downloading driver files..."
@@ -871,27 +871,27 @@ msgstr "Tampilan"
 
 #: telescope/plugin.py:38
 msgid "People"
-msgstr ""
+msgstr "Orang"
 
 #: telescope/plugin.py:39
 msgid "Preview tools"
-msgstr ""
+msgstr "Alat pratinjau"
 
 #: telescope/plugin.py:40
 msgid "On screen"
-msgstr ""
+msgstr "Di layar"
 
 #: telescope/plugin.py:41
 msgid "Sound"
-msgstr ""
+msgstr "Suara"
 
 #: telescope/plugin.py:42
 msgid "Streaming and devices"
-msgstr ""
+msgstr "Streaming dan perangkat"
 
 #: telescope/plugin.py:43
 msgid "Extras"
-msgstr ""
+msgstr "Ekstra"
 
 #: telescope/plugin.py:696
 msgid "Open settings"
@@ -1520,331 +1520,331 @@ msgstr "Lensa ini tidak dapat fokus pada titik"
 
 #: telescope/plugins/chroma_key.py:23 telescope/plugins/cinema.py:29 telescope/plugins/colour_grading.py:29
 msgid "Green"
-msgstr ""
+msgstr "Hijau"
 
 #: telescope/plugins/chroma_key.py:23 telescope/plugins/cinema.py:30 telescope/plugins/colour_grading.py:29
 msgid "Blue"
-msgstr ""
+msgstr "Biru"
 
 #: telescope/plugins/chroma_key.py:24
 msgid "Picked"
-msgstr ""
+msgstr "Dipilih"
 
 #: telescope/plugins/chroma_key.py:25 telescope/plugins/chroma_key.py:208 telescope/widgets/composite_editor.py:648 telescope/widgets/composite_editor.py:731
 msgid "Colour"
-msgstr ""
+msgstr "Warna"
 
 #: telescope/plugins/chroma_key.py:133 telescope/plugins/chroma_key.py:166 telescope/plugins/chroma_key.py:229 telescope/plugins/chroma_key.py:231
 msgid "Chroma key"
-msgstr ""
+msgstr "Chroma key"
 
 #: telescope/plugins/chroma_key.py:134
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr ""
+msgstr "Mengganti layar hijau atau biru di belakang Anda dengan warna atau gambar, tanpa unduhan."
 
 #: telescope/plugins/chroma_key.py:138
 msgid "Without it there's no Chroma key card and a green screen stays green."
-msgstr ""
+msgstr "Tanpanya tidak ada kartu Chroma key dan layar hijau tetap hijau."
 
 #: telescope/plugins/chroma_key.py:164
 msgid "Swap the screen behind you"
-msgstr ""
+msgstr "Ganti layar di belakang Anda"
 
 #: telescope/plugins/chroma_key.py:177
 msgid "Pick the screen's colour from the preview"
-msgstr ""
+msgstr "Pilih warna layar dari pratinjau"
 
 #: telescope/plugins/chroma_key.py:178
 msgid "Screen"
-msgstr ""
+msgstr "Layar"
 
 #: telescope/plugins/chroma_key.py:182
 msgid "Tolerance"
-msgstr ""
+msgstr "Toleransi"
 
 #: telescope/plugins/chroma_key.py:182
 msgid "Higher takes out more shades of the screen"
-msgstr ""
+msgstr "Nilai lebih tinggi menghapus lebih banyak gradasi layar"
 
 #: telescope/plugins/chroma_key.py:184
 msgid "Spill"
-msgstr ""
+msgstr "Spill"
 
 #: telescope/plugins/chroma_key.py:184
 msgid "Takes the screen's colour out of your edges and skin"
-msgstr ""
+msgstr "Menghilangkan warna layar dari tepi tubuh dan kulit Anda"
 
 #: telescope/plugins/chroma_key.py:203
 msgid "Behind you"
-msgstr ""
+msgstr "Di belakang Anda"
 
 #: telescope/plugins/chroma_key.py:206
 msgid "Pick the colour that goes behind you"
-msgstr ""
+msgstr "Pilih warna untuk di belakang Anda"
 
 #: telescope/plugins/chroma_key.py:232
 msgid "Chroma key screen"
-msgstr ""
+msgstr "Layar chroma key"
 
 #: telescope/plugins/chroma_key.py:233
 msgid "Chroma key tolerance"
-msgstr ""
+msgstr "Toleransi chroma key"
 
 #: telescope/plugins/chroma_key.py:266
 msgid "Click the screen behind you on the preview. Esc cancels."
-msgstr ""
+msgstr "Klik layar di belakang Anda pada pratinjau. Esc untuk membatalkan."
 
 #: telescope/plugins/chroma_key.py:267
 msgid "Start streaming to pick the screen's colour on the preview."
-msgstr ""
+msgstr "Mulai streaming untuk memilih warna layar pada pratinjau."
 
 #: telescope/plugins/chroma_key.py:284
 msgid "That spot has hardly any colour. Click the screen itself."
-msgstr ""
+msgstr "Titik tersebut hampir tidak berwarna. Klik layar itu sendiri."
 
 #: telescope/plugins/chroma_key.py:302
 msgid "Colour behind you"
-msgstr ""
+msgstr "Warna di belakang Anda"
 
 #: telescope/plugins/chroma_key.py:333
 msgid "The colour picked from the preview. Click to pick again."
-msgstr ""
+msgstr "Warna yang dipilih dari pratinjau. Klik untuk memilih lagi."
 
 #: telescope/plugins/cinema.py:27
 msgid "Histogram"
-msgstr ""
+msgstr "Histogram"
 
 #: telescope/plugins/cinema.py:27
 msgid "Waveform"
-msgstr ""
+msgstr "Waveform"
 
 #: telescope/plugins/cinema.py:28
 msgid "RGB parade"
-msgstr ""
+msgstr "RGB parade"
 
 #: telescope/plugins/cinema.py:28
 msgid "Vectorscope"
-msgstr ""
+msgstr "Vectorscope"
 
 #: telescope/plugins/cinema.py:29 telescope/plugins/colour_grading.py:29
 msgid "Red"
-msgstr ""
+msgstr "Merah"
 
 #: telescope/plugins/cinema.py:30
 msgid "White"
-msgstr ""
+msgstr "Putih"
 
 #. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
 #: telescope/plugins/cinema.py:32
 msgid "Thirds"
-msgstr ""
+msgstr "Sepertiga"
 
 #. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
 #: telescope/plugins/cinema.py:32
 msgid "Centre cross"
-msgstr ""
+msgstr "Silang tengah"
 
 #. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
 #: telescope/plugins/cinema.py:32
 msgid "4 × 4"
-msgstr ""
+msgstr "4 × 4"
 
 #: telescope/plugins/cinema.py:33
 msgid "Golden ratio"
-msgstr ""
+msgstr "Rasio emas"
 
 #: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Small"
-msgstr ""
+msgstr "Kecil"
 
 #: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Medium"
-msgstr ""
+msgstr "Sedang"
 
 #: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Large"
-msgstr ""
+msgstr "Besar"
 
 #: telescope/plugins/cinema.py:52
 msgid "The level needs a phone's motion sensors."
-msgstr ""
+msgstr "Level memerlukan sensor gerak ponsel."
 
 #: telescope/plugins/cinema.py:53
 msgid "Update Telescope on the phone to use the level."
-msgstr ""
+msgstr "Perbarui Telescope di ponsel untuk menggunakan level."
 
 #: telescope/plugins/cinema.py:54
 msgid "This phone has no motion sensor for the level."
-msgstr ""
+msgstr "Ponsel ini tidak memiliki sensor gerak untuk level."
 
 #: telescope/plugins/cinema.py:55
 msgid "The level works with the phone's own cameras, not an external one."
-msgstr ""
+msgstr "Level berfungsi dengan kamera ponsel itu sendiri, bukan kamera eksternal."
 
 #: telescope/plugins/cinema.py:56
 msgid "Can't reach the phone's motion sensors."
-msgstr ""
+msgstr "Tidak dapat mengakses sensor gerak ponsel."
 
 #: telescope/plugins/cinema.py:62
 msgid "Crushed"
-msgstr ""
+msgstr "Crushed"
 
 #: telescope/plugins/cinema.py:63
 msgid "Too dark"
-msgstr ""
+msgstr "Terlalu gelap"
 
 #: telescope/plugins/cinema.py:65
 msgid "Middle grey"
-msgstr ""
+msgstr "Abu-abu tengah"
 
 #: telescope/plugins/cinema.py:67
 msgid "Skin"
-msgstr ""
+msgstr "Kulit"
 
 #: telescope/plugins/cinema.py:69
 msgid "Nearly clipped"
-msgstr ""
+msgstr "Hampir klip"
 
 #: telescope/plugins/cinema.py:70
 msgid "Clipped"
-msgstr ""
+msgstr "Klip"
 
 #: telescope/plugins/cinema.py:394 telescope/plugins/cinema.py:422 telescope/plugins/cinema.py:464 telescope/plugins/cinema.py:506
 msgid "Cinema tools"
-msgstr ""
+msgstr "Alat sinema"
 
 #: telescope/plugins/cinema.py:395
 msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon."
-msgstr ""
+msgstr "Focus peaking, zebra, false colour, scope, panduan pembingkaian, dan level pada pratinjau, untuk menilai fokus, eksposur, pembingkaian, serta garis horizon yang lurus."
 
 #: telescope/plugins/cinema.py:399
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr ""
+msgstr "Tanpanya tidak ada kartu Alat sinema dan pratinjau hanya menampilkan gambar."
 
 #: telescope/plugins/cinema.py:424 telescope/plugins/cinema.py:508
 msgid "Focus peaking"
-msgstr ""
+msgstr "Focus peaking"
 
 #: telescope/plugins/cinema.py:425
 msgid "Outline what's sharp"
-msgstr ""
+msgstr "Beri garis pada bagian yang tajam"
 
 #: telescope/plugins/cinema.py:426 telescope/plugins/cinema.py:509
 msgid "Zebras"
-msgstr ""
+msgstr "Zebra"
 
 #: telescope/plugins/cinema.py:427
 msgid "Stripe what's about to clip to white"
-msgstr ""
+msgstr "Beri garis pada bagian yang hampir klip ke putih"
 
 #: telescope/plugins/cinema.py:428 telescope/plugins/cinema.py:510
 msgid "False colour"
-msgstr ""
+msgstr "False colour"
 
 #: telescope/plugins/cinema.py:429
 msgid "Colour the picture by how bright it is"
-msgstr ""
+msgstr "Warnai gambar berdasarkan tingkat kecerahannya"
 
 #: telescope/plugins/cinema.py:430 telescope/plugins/cinema.py:511
 msgid "Level"
-msgstr ""
+msgstr "Level"
 
 #: telescope/plugins/cinema.py:431
 msgid "Show the horizon from the phone's motion sensors"
-msgstr ""
+msgstr "Tampilkan garis horizon dari sensor gerak ponsel"
 
 #: telescope/plugins/cinema.py:441
 msgid "Lines to help frame the shot"
-msgstr ""
+msgstr "Garis untuk membantu membingkai gambar"
 
 #: telescope/plugins/cinema.py:446 telescope/plugins/cinema.py:512
 msgid "Guides"
-msgstr ""
+msgstr "Panduan"
 
 #: telescope/plugins/cinema.py:454 telescope/plugins/cinema.py:513
 msgid "Scope"
-msgstr ""
+msgstr "Scope"
 
 #: telescope/plugins/cinema.py:455
 msgid "Only on the preview. Apps never see these."
-msgstr ""
+msgstr "Hanya pada pratinjau. Aplikasi tidak pernah melihatnya."
 
 #: telescope/plugins/cinema.py:465
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
-msgstr ""
+msgstr "fokus fokus peaking zebra warna semu false colour scope waveform parade vectorscope histogram eksposur monitor kisi panduan aturan sepertiga rasio emas komposisi pembingkaian focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 
 #: telescope/plugins/cinema.py:476
 msgid "Peaking colour"
-msgstr ""
+msgstr "Warna peaking"
 
 #: telescope/plugins/cinema.py:481
 msgid "Higher outlines softer edges too"
-msgstr ""
+msgstr "Nilai lebih tinggi juga menandai tepi yang lebih halus"
 
 #: telescope/plugins/cinema.py:484
 msgid "Peaking sensitivity"
-msgstr ""
+msgstr "Sensitivitas peaking"
 
 #: telescope/plugins/cinema.py:489
 msgid "How bright something has to be to get stripes"
-msgstr ""
+msgstr "Tingkat kecerahan minimal untuk menampilkan garis"
 
 #: telescope/plugins/cinema.py:492
 msgid "Zebras from"
-msgstr ""
+msgstr "Zebra mulai dari"
 
 #: telescope/plugins/cinema.py:501
 msgid "Scope size"
-msgstr ""
+msgstr "Ukuran scope"
 
 #: telescope/plugins/colour_grading.py:25
 msgid "LUT files (*.cube)"
-msgstr ""
+msgstr "File LUT (*.cube)"
 
 #: telescope/plugins/colour_grading.py:26
 msgid "33-point LUT (*.cube)"
-msgstr ""
+msgstr "LUT 33 titik (*.cube)"
 
 #: telescope/plugins/colour_grading.py:26
 msgid "65-point LUT (*.cube)"
-msgstr ""
+msgstr "LUT 65 titik (*.cube)"
 
 #: telescope/plugins/colour_grading.py:27
 msgid "Primaries"
-msgstr ""
+msgstr "Primer"
 
 #: telescope/plugins/colour_grading.py:27
 msgid "Curves"
-msgstr ""
+msgstr "Kurva"
 
 #: telescope/plugins/colour_grading.py:27 telescope/plugins/colour_grading.py:272
 msgid "LUT"
-msgstr ""
+msgstr "LUT"
 
 #: telescope/plugins/colour_grading.py:28
 msgid "RGB"
-msgstr ""
+msgstr "RGB"
 
 #: telescope/plugins/colour_grading.py:28
 msgid "Hue vs sat"
-msgstr ""
+msgstr "Hue vs sat"
 
 #: telescope/plugins/colour_grading.py:28
 msgid "Hue vs hue"
-msgstr ""
+msgstr "Hue vs hue"
 
 #: telescope/plugins/colour_grading.py:29
 msgid "All"
-msgstr ""
+msgstr "Semua"
 
 #: telescope/plugins/colour_grading.py:31
 msgid "Lift"
-msgstr ""
+msgstr "Lift"
 
 #: telescope/plugins/colour_grading.py:31
 msgid "Gamma"
-msgstr ""
+msgstr "Gamma"
 
 #: telescope/plugins/colour_grading.py:31 telescope/plugins/microphone.py:256 telescope/plugins/microphone.py:395
 msgid "Gain"
@@ -1852,121 +1852,121 @@ msgstr "Gain"
 
 #: telescope/plugins/colour_grading.py:31
 msgid "Offset"
-msgstr ""
+msgstr "Offset"
 
 #: telescope/plugins/colour_grading.py:32
 msgid "Shadows: colour and level, with white staying put"
-msgstr ""
+msgstr "Bayangan: warna dan level, dengan putih tetap di tempat"
 
 #: telescope/plugins/colour_grading.py:33
 msgid "Midtones: colour and brightness, with black and white staying put"
-msgstr ""
+msgstr "Midtone: warna dan kecerahan, dengan hitam dan putih tetap di tempat"
 
 #: telescope/plugins/colour_grading.py:34
 msgid "Highlights: colour and level, with black staying put"
-msgstr ""
+msgstr "Highlight: warna dan level, dengan hitam tetap di tempat"
 
 #: telescope/plugins/colour_grading.py:35
 msgid "Everything: colour and level"
-msgstr ""
+msgstr "Semua: warna dan level"
 
 #: telescope/plugins/colour_grading.py:38
 msgid "Warmer or cooler"
-msgstr ""
+msgstr "Lebih hangat atau lebih dingin"
 
 #: telescope/plugins/colour_grading.py:39
 msgid "More magenta or more green"
-msgstr ""
+msgstr "Lebih magenta atau lebih hijau"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #: telescope/plugins/colour_grading.py:40 telescope/plugins/desk.py:21
 msgid "Contrast"
-msgstr ""
+msgstr "Kontras"
 
 #: telescope/plugins/colour_grading.py:40
 msgid "Spreads the tones apart around the pivot"
-msgstr ""
+msgstr "Merentangkan nada warna di sekitar pivot"
 
 #: telescope/plugins/colour_grading.py:41
 msgid "Pivot"
-msgstr ""
+msgstr "Pivot"
 
 #: telescope/plugins/colour_grading.py:41
 msgid "The level contrast turns around"
-msgstr ""
+msgstr "Level acuan perubahan kontras"
 
 #: telescope/plugins/colour_grading.py:42
 msgid "Saturation"
-msgstr ""
+msgstr "Saturasi"
 
 #: telescope/plugins/colour_grading.py:42
 msgid "How colourful the picture is"
-msgstr ""
+msgstr "Tingkat kepekatan warna pada gambar"
 
 #: telescope/plugins/colour_grading.py:43
 msgid "Shadows"
-msgstr ""
+msgstr "Bayangan"
 
 #: telescope/plugins/colour_grading.py:43
 msgid "Brightens or darkens the darker parts"
-msgstr ""
+msgstr "Mencerahkan atau menggelapkan bagian yang lebih gelap"
 
 #: telescope/plugins/colour_grading.py:44
 msgid "Highlights"
-msgstr ""
+msgstr "Highlight"
 
 #: telescope/plugins/colour_grading.py:44
 msgid "Brightens or darkens the brighter parts"
-msgstr ""
+msgstr "Mencerahkan atau menggelapkan bagian yang lebih terang"
 
 #: telescope/plugins/colour_grading.py:89
 msgid "Telescope can't open that file."
-msgstr ""
+msgstr "Telescope tidak dapat membuka file tersebut."
 
 #: telescope/plugins/colour_grading.py:98 telescope/plugins/colour_grading.py:126 telescope/plugins/colour_grading.py:128 telescope/plugins/colour_grading.py:293 telescope/plugins/colour_grading.py:294
 msgid "Colour grading"
-msgstr ""
+msgstr "Colour grading"
 
 #: telescope/plugins/colour_grading.py:99
 msgid "Colour wheels, curves and LUT files for the look of the picture."
-msgstr ""
+msgstr "Roda warna, kurva, dan file LUT untuk mengatur tampilan gambar."
 
 #: telescope/plugins/colour_grading.py:102
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr ""
+msgstr "Tanpanya tidak ada kartu Colour grading dan gambar tetap menggunakan warna bawaan kamera."
 
 #: telescope/plugins/colour_grading.py:125
 msgid "Switch the grade off to see the camera's own colours"
-msgstr ""
+msgstr "Nonaktifkan grading untuk melihat warna asli kamera"
 
 #: telescope/plugins/colour_grading.py:132
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
-msgstr ""
+msgstr "Di sebelah kiri garis, pratinjau menampilkan gambar tanpa grading (aplikasi selalu menerima hasil grading)"
 
 #: telescope/plugins/colour_grading.py:135
 msgid "Compare"
-msgstr ""
+msgstr "Bandingkan"
 
 #: telescope/plugins/colour_grading.py:136
 msgid "Where the line between before and after is"
-msgstr ""
+msgstr "Posisi garis antara sebelum dan sesudah"
 
 #: telescope/plugins/colour_grading.py:139
 msgid "Split"
-msgstr ""
+msgstr "Pemisah"
 
 #: telescope/plugins/colour_grading.py:149
 msgid "Reset the grade"
-msgstr ""
+msgstr "Reset grading"
 
 #: telescope/plugins/colour_grading.py:214
 #, python-brace-format
 msgid "{wheel} colour"
-msgstr ""
+msgstr "Warna {wheel}"
 
 #: telescope/plugins/colour_grading.py:238 telescope/plugins/colour_grading.py:251
 msgid "Curve"
-msgstr ""
+msgstr "Kurva"
 
 #: telescope/plugins/colour_grading.py:247 telescope/plugins/updates.py:77
 msgid "Channel"
@@ -1974,140 +1974,140 @@ msgstr "Kanal"
 
 #: telescope/plugins/colour_grading.py:260
 msgid "Load…"
-msgstr ""
+msgstr "Muat…"
 
 #: telescope/plugins/colour_grading.py:261
 msgid "Pick a .cube LUT to put on top of the grade"
-msgstr ""
+msgstr "Pilih LUT .cube untuk diterapkan di atas grading"
 
 #: telescope/plugins/colour_grading.py:263 telescope/plugins/colour_grading.py:484
 msgid "No LUT loaded"
-msgstr ""
+msgstr "Belum ada LUT"
 
 #: telescope/plugins/colour_grading.py:265
 msgid "Take the LUT off"
-msgstr ""
+msgstr "Hapus LUT"
 
 #: telescope/plugins/colour_grading.py:273
 msgid "How much of the LUT's look goes on the picture"
-msgstr ""
+msgstr "Seberapa kuat tampilan LUT diterapkan pada gambar"
 
 #: telescope/plugins/colour_grading.py:276
 msgid "Strength"
-msgstr ""
+msgstr "Intensitas"
 
 #: telescope/plugins/colour_grading.py:281
 msgid "Export grade…"
-msgstr ""
+msgstr "Ekspor grade…"
 
 #: telescope/plugins/colour_grading.py:282
 msgid "Save the grade, LUT included, as a .cube file for other apps"
-msgstr ""
+msgstr "Simpan grade, termasuk LUT, sebagai file .cube untuk aplikasi lain"
 
 #: telescope/plugins/colour_grading.py:287
 msgid "Export"
-msgstr ""
+msgstr "Ekspor"
 
 #: telescope/plugins/colour_grading.py:295
 msgid "Compare before and after"
-msgstr ""
+msgstr "Bandingkan sebelum dan sesudah"
 
 #: telescope/plugins/colour_grading.py:385
 msgid "Load a LUT"
-msgstr ""
+msgstr "Muat LUT"
 
 #: telescope/plugins/colour_grading.py:405 telescope/plugins/colour_grading.py:425
 msgid "Export the grade"
-msgstr ""
+msgstr "Ekspor grade"
 
 #: telescope/plugins/colour_grading.py:418
 msgid "Telescope couldn't save the LUT there."
-msgstr ""
+msgstr "Telescope tidak dapat menyimpan LUT di sana."
 
 #: telescope/plugins/colour_grading.py:421
 #, python-brace-format
 msgid "Saved {file}."
-msgstr ""
+msgstr "{file} disimpan."
 
 #: telescope/plugins/colour_grading.py:426
 #, python-brace-format
 msgid "{file} is already there. Replace it?"
-msgstr ""
+msgstr "{file} sudah ada. Ingin menggantinya?"
 
 #: telescope/plugins/colour_grading.py:427 telescope/widgets/plugins_panel.py:874
 msgid "Replace"
-msgstr ""
+msgstr "Ganti"
 
 #: telescope/plugins/colour_grading.py:478
 msgid "Up gives a hue more colour, down takes it out."
-msgstr ""
+msgstr "Ke atas menambah warna pada rona, ke bawah menguranginya."
 
 #: telescope/plugins/colour_grading.py:479
 msgid "Up turns a hue towards the next one along, down towards the one before."
-msgstr ""
+msgstr "Ke atas menggeser rona ke rona berikutnya, ke bawah ke rona sebelumnya."
 
 #: telescope/plugins/composite.py:35
 msgid "Several cameras in one picture"
-msgstr ""
+msgstr "Beberapa kamera dalam satu gambar"
 
 #: telescope/plugins/composite.py:36
 msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
-msgstr ""
+msgstr "Menempatkan stream yang dijalankan berdampingan atau satu di dalam yang lain ke satu kamera virtual."
 
 #: telescope/plugins/composite.py:40
 msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr ""
+msgstr "Tanpanya, tidak ada kartu Satu gambar dan setiap stream hanya dikirim ke kameranya sendiri."
 
 #: telescope/plugins/composite.py:266
 msgid "Send the streams out as one picture"
-msgstr ""
+msgstr "Kirim stream sebagai satu gambar"
 
 #: telescope/plugins/composite.py:268 telescope/plugins/composite.py:285 telescope/plugins/composite.py:287
 msgid "One picture"
-msgstr ""
+msgstr "Satu gambar"
 
 #: telescope/plugins/composite.py:272 telescope/widgets/composite_editor.py:507
 msgid "Not saved"
-msgstr ""
+msgstr "Belum disimpan"
 
 #: telescope/plugins/composite.py:273
 msgid "A layout you saved in the editor"
-msgstr ""
+msgstr "Tata letak yang disimpan di editor"
 
 #: telescope/plugins/composite.py:275 telescope/widgets/composite_editor.py:503 telescope/widgets/composite_editor.py:508
 msgid "Layout"
-msgstr ""
+msgstr "Tata letak"
 
 #: telescope/plugins/composite.py:276
 msgid "Edit picture…"
-msgstr ""
+msgstr "Edit gambar…"
 
 #: telescope/plugins/composite.py:288
 msgid "Picture layout"
-msgstr ""
+msgstr "Tata letak gambar"
 
 #: telescope/plugins/composite.py:323
 msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
-msgstr ""
+msgstr "Belum ada apa pun di gambar. Tambahkan stream dengan Edit gambar."
 
 #: telescope/plugins/composite.py:325
 msgid "It takes over once two of its streams are running."
-msgstr ""
+msgstr "Akan mengambil alih setelah dua stream berjalan."
 
 #: telescope/plugins/composite.py:327
 #, python-brace-format
 msgid "It goes out on {camera}, and no stream goes there now."
-msgstr ""
+msgstr "Dikeluarkan di {camera}, dan tidak ada stream di sana sekarang."
 
 #: telescope/plugins/composite.py:329
 #, python-brace-format
 msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr ""
+msgstr "Dikeluarkan di {camera} setelah stream di sana mengirim gambar."
 
 #: telescope/plugins/composite.py:331
 #, python-brace-format
 msgid "Goes out on {camera}."
-msgstr ""
+msgstr "Dikeluarkan di {camera}."
 
 #: telescope/plugins/connection.py:80
 msgid "Computer"
@@ -2721,54 +2721,54 @@ msgstr "Ponsel bernama {name} disandingkan sebagai ponsel baru. Hal ini terjadi 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #: telescope/plugins/desk.py:21
 msgid "Black and white"
-msgstr ""
+msgstr "Hitam putih"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
 #: telescope/plugins/desk.py:23
 msgid "A4"
-msgstr ""
+msgstr "A4"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
 #: telescope/plugins/desk.py:23
 msgid "Letter"
-msgstr ""
+msgstr "Letter"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
 #: telescope/plugins/desk.py:23
 msgid "Square"
-msgstr ""
+msgstr "Persegi"
 
 #: telescope/plugins/desk.py:24
 msgid "Fill the picture"
-msgstr ""
+msgstr "Penuhi gambar"
 
 #: telescope/plugins/desk.py:200 telescope/plugins/desk.py:290
 msgid "Desk and document mode"
-msgstr ""
+msgstr "Mode meja dan dokumen"
 
 #: telescope/plugins/desk.py:201
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
-msgstr ""
+msgstr "Meluruskan kertas yang ditandai pada pratinjau dan dapat memperjelas tulisan di atasnya."
 
 #: telescope/plugins/desk.py:205
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr ""
+msgstr "Tanpanya, tidak ada kartu Mode meja dan gambar tetap seperti yang dilihat kamera."
 
 #: telescope/plugins/desk.py:228
 msgid "Straighten the sheet you marked"
-msgstr ""
+msgstr "Luruskan kertas yang ditandai"
 
 #: telescope/plugins/desk.py:230 telescope/plugins/desk.py:292
 msgid "Desk mode"
-msgstr ""
+msgstr "Mode meja"
 
 #: telescope/plugins/desk.py:233 telescope/plugins/desk.py:293 telescope/plugins/desk.py:366
 msgid "Mark the sheet"
-msgstr ""
+msgstr "Tandai kertas"
 
 #: telescope/plugins/desk.py:234
 msgid "Drag the four corners of the sheet into place on the preview"
-msgstr ""
+msgstr "Tarik keempat sudut kertas ke posisinya pada pratinjau"
 
 #: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171
 msgid "Reset"
@@ -2776,19 +2776,19 @@ msgstr "Reset"
 
 #: telescope/plugins/desk.py:245
 msgid "Put the width and height back to 100%"
-msgstr ""
+msgstr "Kembalikan lebar dan tinggi ke 100%"
 
 #: telescope/plugins/desk.py:250
 msgid "Make the writing on the sheet stand out"
-msgstr ""
+msgstr "Perjelas tulisan pada kertas"
 
 #: telescope/plugins/desk.py:252
 msgid "Writing"
-msgstr ""
+msgstr "Tulisan"
 
 #: telescope/plugins/desk.py:253
 msgid "Auto works the shape out from the corners"
-msgstr ""
+msgstr "Otomatis menentukan bentuk dari sudut-sudutnya"
 
 #: telescope/plugins/desk.py:255 telescope/plugins/stream_output.py:184
 msgid "Shape"
@@ -2796,91 +2796,91 @@ msgstr "Bentuk"
 
 #: telescope/plugins/desk.py:258 telescope/plugins/transforms.py:249 telescope/plugins/transforms.py:280
 msgid "Width"
-msgstr ""
+msgstr "Lebar"
 
 #: telescope/plugins/desk.py:258
 msgid "Stretch the sheet sideways if it still looks squashed"
-msgstr ""
+msgstr "Regangkan kertas ke samping jika masih terlihat pipih"
 
 #: telescope/plugins/desk.py:259 telescope/plugins/transforms.py:251 telescope/plugins/transforms.py:282
 msgid "Height"
-msgstr ""
+msgstr "Tinggi"
 
 #: telescope/plugins/desk.py:259
 msgid "Stretch the sheet up and down if it still looks squashed"
-msgstr ""
+msgstr "Regangkan kertas ke atas dan bawah jika masih terlihat pipih"
 
 #: telescope/plugins/desk.py:294
 msgid "Make the writing stand out"
-msgstr ""
+msgstr "Perjelas tulisan"
 
 #: telescope/plugins/desk.py:295
 msgid "Sheet shape"
-msgstr ""
+msgstr "Bentuk kertas"
 
 #: telescope/plugins/desk.py:334
 msgid "Drag the corners onto the sheet's corners, then press Enter."
-msgstr ""
+msgstr "Tarik sudut-sudut ke sudut kertas, lalu tekan Enter."
 
 #: telescope/plugins/desk.py:335
 msgid "Start streaming to mark the sheet on the preview."
-msgstr ""
+msgstr "Mulai streaming untuk menandai kertas pada pratinjau."
 
 #: telescope/plugins/desk.py:366
 msgid "Mark the sheet again"
-msgstr ""
+msgstr "Tandai kertas lagi"
 
 #: telescope/plugins/desk.py:373
 msgid "Drag the corners on the preview onto the sheet's corners."
-msgstr ""
+msgstr "Tarik sudut-sudut pada pratinjau ke sudut kertas."
 
 #: telescope/plugins/desk.py:375
 msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
-msgstr ""
+msgstr "Sudut-sudut tersebut menumpuk atau sejajar sehingga tidak digunakan. Tandai kertas lagi dengan satu titik di setiap sudutnya."
 
 #: telescope/plugins/desk.py:378
 msgid "Mark the sheet's corners to straighten it."
-msgstr ""
+msgstr "Tandai sudut-sudut kertas untuk meluruskannya."
 
 #: telescope/plugins/desk.py:380
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
-msgstr ""
+msgstr "Sebagian kertas berada di luar gambar. Perkecil zoom atau tandai lagi."
 
 #: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:105 telescope/plugins/face_exposure.py:119 telescope/plugins/face_exposure.py:120
 msgid "Expose for my face"
-msgstr ""
+msgstr "Eksposur wajah saya"
 
 #: telescope/plugins/face_exposure.py:67
 msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
-msgstr ""
+msgstr "Memindahkan titik pengukuran ponsel ke wajah Anda agar tetap terang apa pun di belakang Anda."
 
 #: telescope/plugins/face_exposure.py:70
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr ""
+msgstr "Tanpanya, tidak ada kartu Eksposur wajah saya dan ponsel mengukur titik yang diketuk atau seluruh gambar."
 
 #: telescope/plugins/face_exposure.py:103
 msgid "Meter the exposure on your face"
-msgstr ""
+msgstr "Ukur eksposur pada wajah"
 
 #: telescope/plugins/face_exposure.py:109
 msgid "Follow my face"
-msgstr ""
+msgstr "Ikuti wajah saya"
 
 #: telescope/plugins/face_exposure.py:110
 msgid "Go back to metering on your face"
-msgstr ""
+msgstr "Kembali ukur eksposur pada wajah"
 
 #: telescope/plugins/face_exposure.py:150
 msgid "The phone meters on the point you picked by hand."
-msgstr ""
+msgstr "Ponsel mengukur pada titik yang Anda pilih secara manual."
 
 #: telescope/plugins/face_exposure.py:151
 msgid "Focus is on Manual in the Camera card."
-msgstr ""
+msgstr "Fokus diatur ke Manual di kartu Kamera."
 
 #: telescope/plugins/face_exposure.py:156
 msgid "This lens can't meter on a point."
-msgstr ""
+msgstr "Lensa ini tidak dapat mengukur pada satu titik."
 
 #. keep these short, they sit in the slider's narrow readout column
 #: telescope/plugins/framing.py:23
@@ -3033,193 +3033,193 @@ msgstr "Ada hal lain yang menggerakkan zoom dan geser."
 
 #: telescope/plugins/fun_pack.py:27
 msgid "Clone party"
-msgstr ""
+msgstr "Pesta klona"
 
 #: telescope/plugins/fun_pack.py:28
 msgid "Invisibility cloak"
-msgstr ""
+msgstr "Jubah tembus pandang"
 
 #: telescope/plugins/fun_pack.py:29
 msgid "Light painting"
-msgstr ""
+msgstr "Lukisan cahaya"
 
 #: telescope/plugins/fun_pack.py:30
 msgid "Slit-scan"
-msgstr ""
+msgstr "Slit-scan"
 
 #: telescope/plugins/fun_pack.py:31
 msgid "Stick figure"
-msgstr ""
+msgstr "Orang lidi"
 
 #: telescope/plugins/fun_pack.py:32
 msgid "Game Boy"
-msgstr ""
+msgstr "Game Boy"
 
 #: telescope/plugins/fun_pack.py:33
 msgid "1998 webcam"
-msgstr ""
+msgstr "Webcam 1998"
 
 #: telescope/plugins/fun_pack.py:34
 msgid "VHS"
-msgstr ""
+msgstr "VHS"
 
 #: telescope/plugins/fun_pack.py:35
 msgid "CRT"
-msgstr ""
+msgstr "CRT"
 
 #: telescope/plugins/fun_pack.py:36
 msgid "ASCII"
-msgstr ""
+msgstr "ASCII"
 
 #: telescope/plugins/fun_pack.py:37
 msgid "Datamosh"
-msgstr ""
+msgstr "Datamosh"
 
 #: telescope/plugins/fun_pack.py:40
 msgid "Add a clone, move somewhere else and add another."
-msgstr ""
+msgstr "Tambahkan klona, pindah ke tempat lain, lalu tambahkan lagi."
 
 #: telescope/plugins/fun_pack.py:41
 msgid "Take the empty room, then step back in."
-msgstr ""
+msgstr "Ambil gambar ruangan kosong, lalu masuk kembali."
 
 #: telescope/plugins/fun_pack.py:42
 msgid "Move a torch or a phone screen around in the dark."
-msgstr ""
+msgstr "Gerakkan lampu senter atau layar ponsel di tempat gelap."
 
 #: telescope/plugins/fun_pack.py:43
 msgid "Each band of the picture runs a little behind the one before."
-msgstr ""
+msgstr "Setiap pita gambar berjalan sedikit di belakang pita sebelumnya."
 
 #: telescope/plugins/fun_pack.py:44
 msgid "A stick figure takes your place."
-msgstr ""
+msgstr "Orang lidi menggantikan posisi Anda."
 
 #: telescope/plugins/fun_pack.py:45
 msgid "Move around and the picture smears instead of refreshing."
-msgstr ""
+msgstr "Bergeraklah dan gambar akan mencoreng alih-alih diperbarui."
 
 #: telescope/plugins/fun_pack.py:88 telescope/plugins/fun_pack.py:135 telescope/plugins/fun_pack.py:204
 msgid "Fun pack"
-msgstr ""
+msgstr "Fun pack"
 
 #: telescope/plugins/fun_pack.py:89
 msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh."
-msgstr ""
+msgstr "Efek seru: klona, jubah tembus pandang, lukisan cahaya, tampilan retro, dan datamosh."
 
 #: telescope/plugins/fun_pack.py:93
 msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr ""
+msgstr "Tanpanya, tidak ada kartu Fun pack dan gambar tidak memiliki efek apa pun."
 
 #: telescope/plugins/fun_pack.py:145
 msgid "Effect"
-msgstr ""
+msgstr "Efek"
 
 #: telescope/plugins/fun_pack.py:149 telescope/plugins/fun_pack.py:207 telescope/plugins/fun_pack.py:355
 msgid "Take the empty room"
-msgstr ""
+msgstr "Ambil gambar ruangan kosong"
 
 #: telescope/plugins/fun_pack.py:150
 msgid "Step out of the picture: it's taken after a short countdown"
-msgstr ""
+msgstr "Keluarlah dari gambar: gambar akan diambil setelah hitungan mundur singkat"
 
 #: telescope/plugins/fun_pack.py:152 telescope/plugins/fun_pack.py:208 telescope/plugins/fun_pack.py:357
 msgid "Add a clone"
-msgstr ""
+msgstr "Tambahkan klona"
 
 #: telescope/plugins/fun_pack.py:153
 msgid "Get in place: you're copied after a short countdown"
-msgstr ""
+msgstr "Bersiaplah di posisi: Anda akan disalin setelah hitungan mundur singkat"
 
 #: telescope/plugins/fun_pack.py:155
 msgid "Clear"
-msgstr ""
+msgstr "Bersihkan"
 
 #: telescope/plugins/fun_pack.py:157
 msgid "Clean up"
-msgstr ""
+msgstr "Bersihkan"
 
 #: telescope/plugins/fun_pack.py:158
 msgid "Let the next keyframe through so the picture comes back"
-msgstr ""
+msgstr "Lewatkan keyframe berikutnya agar gambar kembali normal"
 
 #: telescope/plugins/fun_pack.py:170
 msgid "Trails"
-msgstr ""
+msgstr "Jejak"
 
 #: telescope/plugins/fun_pack.py:170
 msgid "How long the light trails last"
-msgstr ""
+msgstr "Berapa lama jejak cahaya bertahan"
 
 #: telescope/plugins/fun_pack.py:171
 msgid "How bright a light has to be to paint"
-msgstr ""
+msgstr "Tingkat terang cahaya agar dapat melukis"
 
 #: telescope/plugins/fun_pack.py:172
 msgid "Spread"
-msgstr ""
+msgstr "Rentang"
 
 #: telescope/plugins/fun_pack.py:172
 msgid "Frames between one end of the picture and the other"
-msgstr ""
+msgstr "Jumlah frame antara satu sisi gambar dan sisi lainnya"
 
 #: telescope/plugins/fun_pack.py:173
 msgid "Smear"
-msgstr ""
+msgstr "Corengan"
 
 #: telescope/plugins/fun_pack.py:173
 msgid "Plays each frame's motion this many extra times"
-msgstr ""
+msgstr "Memutar gerakan setiap frame sekian kali lebih banyak"
 
 #: telescope/plugins/fun_pack.py:187
 msgid "Down"
-msgstr ""
+msgstr "Ke bawah"
 
 #: telescope/plugins/fun_pack.py:187
 msgid "Across"
-msgstr ""
+msgstr "Menyamping"
 
 #: telescope/plugins/fun_pack.py:193
 msgid "Direction"
-msgstr ""
+msgstr "Arah"
 
 #: telescope/plugins/fun_pack.py:206
 msgid "Fun pack effect"
-msgstr ""
+msgstr "Efek Fun pack"
 
 #: telescope/plugins/fun_pack.py:209
 msgid "Clean up the datamosh"
-msgstr ""
+msgstr "Bersihkan datamosh"
 
 #: telescope/plugins/fun_pack.py:210
 msgid "Datamosh smear"
-msgstr ""
+msgstr "Corengan datamosh"
 
 #: telescope/plugins/fun_pack.py:256
 msgid "Take the empty room first, so you can be cut out."
-msgstr ""
+msgstr "Ambil gambar ruangan kosong terlebih dahulu agar Anda dapat dipisahkan."
 
 #: telescope/plugins/fun_pack.py:353
 #, python-brace-format
 msgid "Taking it in {n}…"
-msgstr ""
+msgstr "Mengambil dalam {n}…"
 
 #: telescope/plugins/fun_pack.py:354
 msgid "Take the empty room again"
-msgstr ""
+msgstr "Ambil gambar ruangan kosong lagi"
 
 #: telescope/plugins/fun_pack.py:356
 #, python-brace-format
 msgid "Copying you in {n}…"
-msgstr ""
+msgstr "Menyalin Anda dalam {n}…"
 
 #: telescope/plugins/fun_pack.py:374
 msgid "The picture changed, so take the empty room again."
-msgstr ""
+msgstr "Gambar berubah, ambil gambar ruangan kosong lagi."
 
 #: telescope/plugins/fun_pack.py:376
 msgid "Take the empty room first."
-msgstr ""
+msgstr "Ambil gambar ruangan kosong terlebih dahulu."
 
 #: telescope/plugins/microphone.py:72
 #, python-brace-format
@@ -3280,7 +3280,7 @@ msgstr "Level otomatis"
 
 #: telescope/plugins/microphone.py:278
 msgid "Takes out typing, fans and room hiss."
-msgstr ""
+msgstr "Menghilangkan suara ketikan, kipas, dan desis ruangan."
 
 #: telescope/plugins/microphone.py:302
 #, python-brace-format
@@ -3560,11 +3560,11 @@ msgstr "Tetap mulai"
 
 #: telescope/plugins/name_tag.py:22
 msgid "Bar"
-msgstr ""
+msgstr "Bilah"
 
 #: telescope/plugins/name_tag.py:22
 msgid "Pill"
-msgstr ""
+msgstr "Kapsul"
 
 #. Light and Heavy are the names of the two stream formats
 #: telescope/plugins/name_tag.py:22 telescope/plugins/stream_output.py:239
@@ -3573,400 +3573,400 @@ msgstr "Ringan"
 
 #: telescope/plugins/name_tag.py:22
 msgid "Shadow"
-msgstr ""
+msgstr "Bayangan"
 
 #: telescope/plugins/name_tag.py:23
 msgid "Bottom left"
-msgstr ""
+msgstr "Kiri bawah"
 
 #: telescope/plugins/name_tag.py:23
 msgid "Bottom centre"
-msgstr ""
+msgstr "Tengah bawah"
 
 #: telescope/plugins/name_tag.py:24
 msgid "Bottom right"
-msgstr ""
+msgstr "Kanan bawah"
 
 #: telescope/plugins/name_tag.py:24
 msgid "Top left"
-msgstr ""
+msgstr "Kiri atas"
 
 #: telescope/plugins/name_tag.py:24
 msgid "Top right"
-msgstr ""
+msgstr "Kanan atas"
 
 #: telescope/plugins/name_tag.py:42 telescope/plugins/name_tag.py:66 telescope/plugins/name_tag.py:101 telescope/plugins/name_tag.py:101
 msgid "Name tag"
-msgstr ""
+msgstr "Tag nama"
 
 #: telescope/plugins/name_tag.py:43
 msgid "Puts your name and pronouns in the corner of the picture."
-msgstr ""
+msgstr "Menampilkan nama dan kata ganti Anda di sudut gambar."
 
 #: telescope/plugins/name_tag.py:47
 msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr ""
+msgstr "Tanpanya, tidak ada kartu Tag nama dan tidak ada yang ditampilkan pada gambar."
 
 #: telescope/plugins/name_tag.py:64
 msgid "Show the name tag on the picture"
-msgstr ""
+msgstr "Tampilkan tag nama pada gambar"
 
 #: telescope/plugins/name_tag.py:67
 msgctxt "search"
 msgid "lower third caption title label overlay text name pronouns role"
-msgstr ""
+msgstr "sepertiga bawah takarir keterangan judul label hamparan teks tulisan nama kata ganti pronomina peran jabatan posisi lower third caption title label overlay text name pronouns role"
 
 #: telescope/plugins/name_tag.py:71
 msgid "Shown next to your name, like she/her or they/them"
-msgstr ""
+msgstr "Ditampilkan di samping nama Anda, seperti she/her atau they/them"
 
 #: telescope/plugins/name_tag.py:72
 msgid "Pronouns"
-msgstr ""
+msgstr "Kata ganti"
 
 #: telescope/plugins/name_tag.py:73
 msgid "A smaller line under your name, like your role. Leave it empty for none"
-msgstr ""
+msgstr "Baris lebih kecil di bawah nama Anda, seperti jabatan. Biarkan kosong jika tidak ada"
 
 #: telescope/plugins/name_tag.py:74
 msgid "Second line"
-msgstr ""
+msgstr "Baris kedua"
 
 #: telescope/plugins/name_tag.py:76
 msgid "Style"
-msgstr ""
+msgstr "Gaya"
 
 #: telescope/plugins/name_tag.py:78
 msgid "Position"
-msgstr ""
+msgstr "Posisi"
 
 #: telescope/plugins/name_tag.py:80
 msgid "Size"
-msgstr ""
+msgstr "Ukuran"
 
 #: telescope/plugins/notes.py:29
 msgid "By hand"
-msgstr ""
+msgstr "Manual"
 
 #: telescope/plugins/notes.py:56
 msgid "Notes only work with a phone as the camera."
-msgstr ""
+msgstr "Catatan hanya berfungsi dengan ponsel sebagai kamera."
 
 #: telescope/plugins/notes.py:58
 msgid "Update Telescope on the phone to show notes there."
-msgstr ""
+msgstr "Perbarui Telescope di ponsel untuk menampilkan catatan di sana."
 
 #: telescope/plugins/notes.py:60
 msgid "These notes are too long to send to the phone."
-msgstr ""
+msgstr "Catatan ini terlalu panjang untuk dikirim ke ponsel."
 
 #: telescope/plugins/notes.py:62
 msgid "Start streaming to send the notes to the phone."
-msgstr ""
+msgstr "Mulai streaming untuk mengirim catatan ke ponsel."
 
 #: telescope/plugins/notes.py:65
 msgid "Switch to the front camera to have the phone's screen facing you."
-msgstr ""
+msgstr "Beralih ke kamera depan agar layar ponsel menghadap Anda."
 
 #: telescope/plugins/notes.py:66
 msgid "Send to phone puts them on its screen right under the camera."
-msgstr ""
+msgstr "Kirim ke ponsel akan menampilkannya di layar tepat di bawah kamera."
 
 #: telescope/plugins/notes.py:69
 msgid "The notes were closed on the phone. Send again to show them."
-msgstr ""
+msgstr "Catatan ditutup di ponsel. Kirim lagi untuk menampilkannya."
 
 #: telescope/plugins/notes.py:71
 msgid "The notes show up on the phone once you close its preview."
-msgstr ""
+msgstr "Catatan muncul di ponsel setelah pratinjaunya ditutup."
 
 #: telescope/plugins/notes.py:72
 msgid "Open Telescope on the phone to see the notes."
-msgstr ""
+msgstr "Buka Telescope di ponsel untuk melihat catatan."
 
 #: telescope/plugins/notes.py:74
 msgid "The notes are up but the phone streams from its back camera."
-msgstr ""
+msgstr "Catatan sudah tampil, tetapi ponsel streaming dari kamera belakangnya."
 
 #: telescope/plugins/notes.py:76
 msgid "Send again to show your changes on the phone."
-msgstr ""
+msgstr "Kirim lagi untuk menampilkan perubahan di ponsel."
 
 #: telescope/plugins/notes.py:77
 msgid "The notes are on the phone's screen."
-msgstr ""
+msgstr "Catatan tampil di layar ponsel."
 
 #: telescope/plugins/notes.py:86 telescope/plugins/notes.py:124 telescope/plugins/notes.py:144 telescope/plugins/notes.py:205
 msgid "Notes"
-msgstr ""
+msgstr "Catatan"
 
 #: telescope/plugins/notes.py:87
 msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
-msgstr ""
+msgstr "Menampilkan catatan di layar ponsel tepat di bawah kamera, untuk dibaca sambil menatap mata lawan bicara."
 
 #: telescope/plugins/notes.py:90
 msgid "Without it there's no Notes card and the phone never shows notes."
-msgstr ""
+msgstr "Tanpanya, kartu Catatan tidak ada dan ponsel tidak pernah menampilkan catatan."
 
 #: telescope/plugins/notes.py:128
 msgid "Your saved notes"
-msgstr ""
+msgstr "Catatan tersimpan"
 
 #: telescope/plugins/notes.py:130
 msgid "New notes"
-msgstr ""
+msgstr "Catatan baru"
 
 #: telescope/plugins/notes.py:132
 msgid "Delete these notes"
-msgstr ""
+msgstr "Hapus permanen catatan ini"
 
 #: telescope/plugins/notes.py:143
 msgid "Type or paste your notes. Next and Previous move one line at a time."
-msgstr ""
+msgstr "Ketik atau tempel catatan Anda. Berikutnya dan Sebelumnya berpindah satu baris setiap kali."
 
 #: telescope/plugins/notes.py:153
 msgid "How big the notes are on the phone"
-msgstr ""
+msgstr "Ukuran catatan di ponsel"
 
 #: telescope/plugins/notes.py:156
 msgid "Text size"
-msgstr ""
+msgstr "Ukuran teks"
 
 #: telescope/plugins/notes.py:166
 msgid "Scroll"
-msgstr ""
+msgstr "Gulir"
 
 #: telescope/plugins/notes.py:177
 msgctxt "notes"
 msgid "Previous"
-msgstr ""
+msgstr "Sebelumnya"
 
 #: telescope/plugins/notes.py:178
 msgid "Back to the line before"
-msgstr ""
+msgstr "Kembali ke baris sebelumnya"
 
 #: telescope/plugins/notes.py:180 telescope/plugins/notes.py:294
 msgid "Play"
-msgstr ""
+msgstr "Putar"
 
 #: telescope/plugins/notes.py:182
 msgid "Start or pause scrolling on the phone"
-msgstr ""
+msgstr "Mulai atau jeda pengguliran di ponsel"
 
 #: telescope/plugins/notes.py:184
 msgctxt "notes"
 msgid "Next"
-msgstr ""
+msgstr "Berikutnya"
 
 #: telescope/plugins/notes.py:185
 msgid "On to the next line"
-msgstr ""
+msgstr "Lanjut ke baris berikutnya"
 
 #: telescope/plugins/notes.py:189
 msgid "Send to phone"
-msgstr ""
+msgstr "Kirim ke ponsel"
 
 #: telescope/plugins/notes.py:192
 msgid "Clear from phone"
-msgstr ""
+msgstr "Hapus dari ponsel"
 
 #: telescope/plugins/notes.py:207
 msgid "Send notes"
-msgstr ""
+msgstr "Kirim catatan"
 
 #: telescope/plugins/notes.py:208
 msgid "Clear notes"
-msgstr ""
+msgstr "Hapus catatan"
 
 #: telescope/plugins/notes.py:209
 msgid "Next line"
-msgstr ""
+msgstr "Baris berikutnya"
 
 #: telescope/plugins/notes.py:210
 msgid "Previous line"
-msgstr ""
+msgstr "Baris sebelumnya"
 
 #: telescope/plugins/notes.py:211
 msgid "Scroll notes"
-msgstr ""
+msgstr "Gulir catatan"
 
 #: telescope/plugins/notes.py:212
 msgid "playing"
-msgstr ""
+msgstr "memutar"
 
 #: telescope/plugins/notes.py:212
 msgid "paused"
-msgstr ""
+msgstr "dijeda"
 
 #: telescope/plugins/notes.py:213
 msgid "Notes scroll speed"
-msgstr ""
+msgstr "Kecepatan gulir catatan"
 
 #: telescope/plugins/notes.py:234
 #, python-brace-format
 msgid "Notes {n}"
-msgstr ""
+msgstr "Catatan {n}"
 
 #: telescope/plugins/notes.py:294
 msgid "Pause"
-msgstr ""
+msgstr "Jeda"
 
 #: telescope/plugins/on_air.py:36
 msgid "An app is using the camera"
-msgstr ""
+msgstr "Aplikasi sedang menggunakan kamera"
 
 #: telescope/plugins/on_air.py:37
 msgid "An app is using the camera or the mic is live"
-msgstr ""
+msgstr "Aplikasi sedang menggunakan kamera atau mikrofon aktif"
 
 #: telescope/plugins/on_air.py:38
 msgid "Telescope's mic is live"
-msgstr ""
+msgstr "Mikrofon Telescope aktif"
 
 #: telescope/plugins/on_air.py:39
 msgid "Telescope is streaming"
-msgstr ""
+msgstr "Telescope sedang streaming"
 
 #: telescope/plugins/on_air.py:55 telescope/plugins/on_air.py:386
 msgid "On Air sign"
-msgstr ""
+msgstr "Tanda On Air"
 
 #: telescope/plugins/on_air.py:56
 msgid "Shows the people around you that you're on a call, on another device's screen or through a smart home light."
-msgstr ""
+msgstr "Memberi tahu orang di sekitar bahwa Anda sedang melakukan panggilan, di layar perangkat lain atau melalui lampu smart home."
 
 #: telescope/plugins/on_air.py:60
 msgid "Without it there's no On Air tab in Settings and no sign or webhook."
-msgstr ""
+msgstr "Tanpanya, tidak ada tab On Air di Pengaturan dan tidak ada tanda atau webhook."
 
 #: telescope/plugins/on_air.py:151 telescope/plugins/on_air.py:313 telescope/plugins/on_air.py:493
 msgid "On air"
-msgstr ""
+msgstr "On air"
 
 #: telescope/plugins/on_air.py:151 telescope/plugins/on_air.py:493
 msgid "Off air"
-msgstr ""
+msgstr "Off air"
 
 #: telescope/plugins/on_air.py:152 telescope/plugins/on_air.py:323
 msgid "On Air"
-msgstr ""
+msgstr "On Air"
 
 #: telescope/plugins/on_air.py:180
 msgid "Enter an address starting with http:// or https:// first."
-msgstr ""
+msgstr "Masukkan alamat yang diawali dengan http:// atau https:// terlebih dahulu."
 
 #: telescope/plugins/on_air.py:183
 msgid "Sending…"
-msgstr ""
+msgstr "Mengirim…"
 
 #: telescope/plugins/on_air.py:192
 msgid "It went through."
-msgstr ""
+msgstr "Berhasil terkirim."
 
 #: telescope/plugins/on_air.py:193
 #, python-brace-format
 msgid "It didn't go through: {error}"
-msgstr ""
+msgstr "Gagal terkirim: {error}"
 
 #: telescope/plugins/on_air.py:207
 msgid "The On Air webhook didn't go through"
-msgstr ""
+msgstr "Webhook On Air gagal terkirim"
 
 #: telescope/plugins/on_air.py:207
 #, python-brace-format
 msgid "It answered: {error}"
-msgstr ""
+msgstr "Respons: {error}"
 
 #: telescope/plugins/on_air.py:315
 msgid "Open the On Air settings"
-msgstr ""
+msgstr "Buka pengaturan On Air"
 
 #: telescope/plugins/on_air.py:324
 msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
-msgstr ""
+msgstr "tanda on air lampu sibuk panggilan rapat jangan ganggu rumah pintar on air sign busy light call meeting do not disturb webhook home assistant smart home"
 
 #: telescope/plugins/on_air.py:387
 msgid "Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."
-msgstr ""
+msgstr "Beri tahu orang di sekitar bahwa Anda sedang melakukan panggilan. Tampilkan di tablet dekat pintu, kendalikan lampu smart home dengan webhook, atau keduanya."
 
 #: telescope/plugins/on_air.py:390
 msgid "Now"
-msgstr ""
+msgstr "Saat ini"
 
 #: telescope/plugins/on_air.py:396
 msgid "The mic counts while it streams and isn't muted"
-msgstr ""
+msgstr "Mikrofon terhitung saat streaming dan tidak dibisukan"
 
 #: telescope/plugins/on_air.py:399
 msgid "On air when"
-msgstr ""
+msgstr "On air saat"
 
 #: telescope/plugins/on_air.py:404
 msgid "Make a new link; the old one stops working"
-msgstr ""
+msgstr "Buat tautan baru; tautan lama akan berhenti berfungsi"
 
 #: telescope/plugins/on_air.py:406
 msgid "Sign on another device"
-msgstr ""
+msgstr "Tanda di perangkat lain"
 
 #: telescope/plugins/on_air.py:407
 msgctxt "search"
 msgid "tablet phone screen page link qr code"
-msgstr ""
+msgstr "tablet ponsel layar halaman tautan kode qr phone screen page link qr code"
 
 #: telescope/plugins/on_air.py:408
 msgid "Show the sign on a web page"
-msgstr ""
+msgstr "Tampilkan tanda di halaman web"
 
 #: telescope/plugins/on_air.py:421
 msgid "Which of this computer's addresses the link points to"
-msgstr ""
+msgstr "Alamat komputer ini yang dituju oleh tautan"
 
 #: telescope/plugins/on_air.py:436
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
-msgstr ""
+msgstr "Buka tautan di browser pada perangkat apa pun dalam jaringan yang sama dan ketuk halaman untuk beralih ke layar penuh. Tautan tetap sama setelah Telescope dimulai ulang."
 
 #: telescope/plugins/on_air.py:444
 msgid "Webhook"
-msgstr ""
+msgstr "Webhook"
 
 #: telescope/plugins/on_air.py:445
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
-msgstr ""
+msgstr "lampu smart home rumah pintar permintaan otomatisasi smart home light home assistant url http request automation"
 
 #: telescope/plugins/on_air.py:446
 msgid "Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."
-msgstr ""
+msgstr "Mengirim permintaan setiap kali Anda beralih ke on air atau off air, untuk hub smart home atau apa pun yang menerimanya."
 
 #: telescope/plugins/on_air.py:461
 msgid "Method"
-msgstr ""
+msgstr "Metode"
 
 #: telescope/plugins/on_air.py:464 telescope/plugins/on_air.py:468
 msgid "POST sends it as the body, GET adds it to the address"
-msgstr ""
+msgstr "POST mengirimkannya sebagai body, GET menambahkannya ke alamat"
 
 #: telescope/plugins/on_air.py:465
 msgid "Going on air"
-msgstr ""
+msgstr "Saat on air"
 
 #: telescope/plugins/on_air.py:469
 msgid "Going off air"
-msgstr ""
+msgstr "Saat off air"
 
 #: telescope/plugins/on_air.py:470
 msgid "Test on"
-msgstr ""
+msgstr "Uji on"
 
 #: telescope/plugins/on_air.py:470
 msgid "Test off"
-msgstr ""
+msgstr "Uji off"
 
 #: telescope/plugins/on_air.py:487
 msgid "The address has to start with http:// or https://"
-msgstr ""
+msgstr "Alamat harus diawali dengan http:// atau https://"
 
 #: telescope/plugins/onboarding.py:29
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
@@ -4071,120 +4071,120 @@ msgstr "Terinstal. Buka Telescope di ponsel untuk langkah berikutnya."
 
 #: telescope/plugins/photos.py:21
 msgid "JPEG"
-msgstr ""
+msgstr "JPEG"
 
 #: telescope/plugins/photos.py:21
 msgid "HEIC"
-msgstr ""
+msgstr "HEIC"
 
 #: telescope/plugins/photos.py:21
 msgid "Ultra HDR"
-msgstr ""
+msgstr "Ultra HDR"
 
 #: telescope/plugins/photos.py:21
 msgid "RAW (DNG)"
-msgstr ""
+msgstr "RAW (DNG)"
 
 #: telescope/plugins/photos.py:22
 msgid "RAW and JPEG"
-msgstr ""
+msgstr "RAW dan JPEG"
 
 #: telescope/plugins/photos.py:23
 msgid "Normal"
-msgstr ""
+msgstr "Normal"
 
 #: telescope/plugins/photos.py:23
 msgid "Full resolution"
-msgstr ""
+msgstr "Resolusi penuh"
 
 #: telescope/plugins/photos.py:23
 msgid "Night"
-msgstr ""
+msgstr "Malam"
 
 #: telescope/plugins/photos.py:23
 msgid "HDR"
-msgstr ""
+msgstr "HDR"
 
 #: telescope/plugins/photos.py:24
 msgid "Bokeh"
-msgstr ""
+msgstr "Bokeh"
 
 #: telescope/plugins/photos.py:26
 msgid "Single"
-msgstr ""
+msgstr "Tunggal"
 
 #: telescope/plugins/photos.py:26
 msgid "Burst"
-msgstr ""
+msgstr "Burst"
 
 #: telescope/plugins/photos.py:26
 msgid "Exposure bracket"
-msgstr ""
+msgstr "Bracket eksposur"
 
 #: telescope/plugins/photos.py:27
 msgid "Focus bracket"
-msgstr ""
+msgstr "Bracket fokus"
 
 #: telescope/plugins/photos.py:29
 msgid "3 photos, 1 EV apart"
-msgstr ""
+msgstr "3 foto, selisih 1 EV"
 
 #: telescope/plugins/photos.py:29
 msgid "3 photos, 2 EV apart"
-msgstr ""
+msgstr "3 foto, selisih 2 EV"
 
 #: telescope/plugins/photos.py:30
 msgid "5 photos, 1 EV apart"
-msgstr ""
+msgstr "5 foto, selisih 1 EV"
 
 #: telescope/plugins/photos.py:30
 msgid "7 photos, 1 EV apart"
-msgstr ""
+msgstr "7 foto, selisih 1 EV"
 
 #: telescope/plugins/photos.py:34
 msgid "As the camera does it"
-msgstr ""
+msgstr "Sesuai bawaan kamera"
 
 #: telescope/plugins/photos.py:34
 msgid "On"
-msgstr ""
+msgstr "Aktif"
 
 #: telescope/plugins/photos.py:110
 msgid "Like the video"
-msgstr ""
+msgstr "Sama seperti video"
 
 #: telescope/plugins/photos.py:110 telescope/plugins/photos.py:209
 #, python-brace-format
 msgid "{seconds} s"
-msgstr ""
+msgstr "{seconds} s"
 
 #: telescope/plugins/photos.py:115 telescope/plugins/photos.py:142 telescope/plugins/photos.py:249
 msgid "Photos"
-msgstr ""
+msgstr "Foto"
 
 #: telescope/plugins/photos.py:116
 msgid "Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them."
-msgstr ""
+msgstr "Mengambil foto berkualitas penuh di ponsel, termasuk RAW dan mode Malam ponsel jika tersedia."
 
 #: telescope/plugins/photos.py:119
 msgid "Without it there's no Photos card and no Take photo shortcut."
-msgstr ""
+msgstr "Tanpanya, kartu Foto dan pintasan Ambil foto tidak ada."
 
 #: telescope/plugins/photos.py:145 telescope/plugins/photos.py:251
 msgid "Take photo"
-msgstr ""
+msgstr "Ambil foto"
 
 #: telescope/plugins/photos.py:146
 msgid "Take a photo on the phone with the settings below"
-msgstr ""
+msgstr "Ambil foto di ponsel dengan pengaturan di bawah ini"
 
 #: telescope/plugins/photos.py:148
 msgid "Open folder"
-msgstr ""
+msgstr "Buka folder"
 
 #: telescope/plugins/photos.py:149
 msgid "Show the photos taken last"
-msgstr ""
+msgstr "Tampilkan foto yang terakhir diambil"
 
 #: telescope/plugins/photos.py:164 telescope/plugins/stream_output.py:300
 msgid "Format"
@@ -4192,128 +4192,128 @@ msgstr "Format"
 
 #: telescope/plugins/photos.py:172
 msgid "Quality"
-msgstr ""
+msgstr "Kualitas"
 
 #: telescope/plugins/photos.py:176
 msgid "The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot"
-msgstr ""
+msgstr "Mode Malam, HDR, dan Bokeh bawaan produsen ponsel menjeda video saat mengambil foto"
 
 #: telescope/plugins/photos.py:177
 msgid "Mode"
-msgstr ""
+msgstr "Mode"
 
 #: telescope/plugins/photos.py:181
 msgid "Shots"
-msgstr ""
+msgstr "Bidikan"
 
 #: telescope/plugins/photos.py:185
 msgid "How many"
-msgstr ""
+msgstr "Jumlah"
 
 #: telescope/plugins/photos.py:193
 msgid "Bracket"
-msgstr ""
+msgstr "Bracket"
 
 #: telescope/plugins/photos.py:196
 msgid "Photos from the nearest focus to the farthest, for focus stacking"
-msgstr ""
+msgstr "Foto dari fokus terdekat hingga terjauh, untuk focus stacking"
 
 #: telescope/plugins/photos.py:198
 msgid "Steps"
-msgstr ""
+msgstr "Langkah"
 
 #: telescope/plugins/photos.py:202
 msgid "A long exposure keeps the video's ISO and the video stops while the shutter is open"
-msgstr ""
+msgstr "Eksposur panjang mempertahankan ISO video dan video berhenti saat shutter terbuka"
 
 #: telescope/plugins/photos.py:213
 msgid "Timer"
-msgstr ""
+msgstr "Timer"
 
 #: telescope/plugins/photos.py:215
 msgid "Best quality noise reduction and sharpening"
-msgstr ""
+msgstr "Pengurangan noise dan penajaman kualitas terbaik"
 
 #: telescope/plugins/photos.py:216
 msgid "Takes a little longer and only changes the photo, not the video"
-msgstr ""
+msgstr "Memerlukan waktu sedikit lebih lama dan hanya memengaruhi foto, bukan video"
 
 #: telescope/plugins/photos.py:226
 msgid "Distortion fix"
-msgstr ""
+msgstr "Koreksi distorsi"
 
 #: telescope/plugins/photos.py:230
 msgid "Change…"
-msgstr ""
+msgstr "Ubah…"
 
 #: telescope/plugins/photos.py:231
 msgid "Where photos are saved"
-msgstr ""
+msgstr "Lokasi penyimpanan foto"
 
 #: telescope/plugins/photos.py:237
 msgid "Save in"
-msgstr ""
+msgstr "Simpan di"
 
 #: telescope/plugins/photos.py:252
 msgid "Photo mode"
-msgstr ""
+msgstr "Mode foto"
 
 #: telescope/plugins/photos.py:253
 msgid "Photo timer"
-msgstr ""
+msgstr "Timer foto"
 
 #: telescope/plugins/photos.py:331
 msgid "Start streaming to take photos."
-msgstr ""
+msgstr "Mulai streaming untuk mengambil foto."
 
 #: telescope/plugins/photos.py:332
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
-msgstr ""
+msgstr "Ponsel ini belum dapat mengambil foto dari Telescope. Perbarui aplikasi di ponsel."
 
 #: telescope/plugins/photos.py:347 telescope/stills.py:35
 msgid "The phone is already taking a photo."
-msgstr ""
+msgstr "Ponsel sedang mengambil foto."
 
 #: telescope/plugins/photos.py:349 telescope/plugins/photos.py:360
 msgid "Taking the photo…"
-msgstr ""
+msgstr "Mengambil foto…"
 
 #: telescope/plugins/photos.py:354
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
-msgstr ""
+msgstr "Mengambil foto dalam {seconds} s"
 
 #: telescope/plugins/photos.py:356
 #, python-brace-format
 msgid "Photo {n} of {total}"
-msgstr ""
+msgstr "Foto {n} dari {total}"
 
 #: telescope/plugins/photos.py:358
 msgid "Taking the photo, the video is paused…"
-msgstr ""
+msgstr "Mengambil foto, video dijeda…"
 
 #: telescope/plugins/photos.py:368
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
-msgstr[0] ""
+msgstr[0] "Tersimpan {name} dan {n} lainnya"
 
 #: telescope/plugins/photos.py:369
 #, python-brace-format
 msgid "Saved {name}"
-msgstr ""
+msgstr "Tersimpan {name}"
 
 #: telescope/plugins/photos.py:372
 msgid "Photo saved"
-msgstr ""
+msgstr "Foto disimpan"
 
 #: telescope/plugins/photos.py:374 telescope/stills.py:39
 msgid "The phone couldn't take the photo."
-msgstr ""
+msgstr "Ponsel tidak dapat mengambil foto."
 
 #: telescope/plugins/photos.py:389
 msgid "Save photos in"
-msgstr ""
+msgstr "Simpan foto di"
 
 #: telescope/plugins/presets.py:60 telescope/plugins/presets.py:156 telescope/plugins/presets.py:170
 msgid "Presets"
@@ -4530,127 +4530,127 @@ msgstr "Mulai dengan kamera ponsel nonaktif, hanya streaming mikrofonnya."
 #. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
 #: telescope/plugins/privacy_blur.py:26
 msgid "Blur the others"
-msgstr ""
+msgstr "Buramkan orang lain"
 
 #. what happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture
 #: telescope/plugins/privacy_blur.py:26
 msgid "Blur all but me"
-msgstr ""
+msgstr "Buramkan semua kecuali saya"
 
 #: telescope/plugins/privacy_blur.py:27
 msgid "Show the wait screen"
-msgstr ""
+msgstr "Tampilkan layar tunggu"
 
 #: telescope/plugins/privacy_blur.py:121 telescope/plugins/privacy_blur.py:157 telescope/plugins/privacy_blur.py:179
 msgid "Privacy blur"
-msgstr ""
+msgstr "Buram privasi"
 
 #: telescope/plugins/privacy_blur.py:122
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in."
-msgstr ""
+msgstr "Memburamkan orang lain, semua kecuali Anda, atau menampilkan layar tunggu saat orang lain masuk."
 
 #: telescope/plugins/privacy_blur.py:126
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
-msgstr ""
+msgstr "Tanpa plugin ini, kartu Buram privasi tidak akan ada dan tidak ada yang disembunyikan saat seseorang masuk."
 
 #: telescope/plugins/privacy_blur.py:155
 msgid "Blur automatically when a second person shows up"
-msgstr ""
+msgstr "Buramkan otomatis saat orang kedua muncul"
 
 #: telescope/plugins/privacy_blur.py:165
 msgid "What happens while someone else is in the picture"
-msgstr ""
+msgstr "Yang terjadi saat orang lain ada di gambar"
 
 #: telescope/plugins/privacy_blur.py:168 telescope/plugins/privacy_blur.py:181
 msgid "Blur now"
-msgstr ""
+msgstr "Buramkan"
 
 #: telescope/plugins/privacy_blur.py:170
 msgid "Blur by hand until you click again"
-msgstr ""
+msgstr "Buramkan manual sampai Anda mengeklik lagi"
 
 #: telescope/plugins/privacy_blur.py:182
 msgid "Privacy blur when someone walks in"
-msgstr ""
+msgstr "Buram privasi saat seseorang masuk"
 
 #: telescope/plugins/privacy_blur.py:183
 msgid "Privacy blur: what happens"
-msgstr ""
+msgstr "Buram privasi: yang terjadi"
 
 #: telescope/plugins/privacy_blur.py:289
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
-msgstr ""
+msgstr "Jika Layar tunggu dinonaktifkan di Plugin, seluruh gambar akan diburamkan sebagai gantinya."
 
 #: telescope/plugins/qr_reader.py:177 telescope/plugins/qr_reader.py:235
 msgid "QR code reader"
-msgstr ""
+msgstr "Pembaca kode QR"
 
 #: telescope/plugins/qr_reader.py:178
 msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
-msgstr ""
+msgstr "Menyalin kode QR yang Anda arahkan ke kamera, atau kata sandi dari kode Wi-Fi."
 
 #: telescope/plugins/qr_reader.py:182
 msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr ""
+msgstr "Tanpa plugin ini, kartu Kode QR tidak akan ada dan kode di dalam gambar akan dibiarkan."
 
 #: telescope/plugins/qr_reader.py:209
 msgid "Look for QR codes in the picture"
-msgstr ""
+msgstr "Cari kode QR di dalam gambar"
 
 #: telescope/plugins/qr_reader.py:211
 msgid "QR codes"
-msgstr ""
+msgstr "Kode QR"
 
 #: telescope/plugins/qr_reader.py:215
 msgid "Put the last code on the clipboard again"
-msgstr ""
+msgstr "Salin lagi kode terakhir ke papan klip"
 
 #: telescope/plugins/qr_reader.py:227
 msgid "Notify me when a code is read"
-msgstr ""
+msgstr "Beri tahu saya saat kode terbaca"
 
 #: telescope/plugins/qr_reader.py:231 telescope/plugins/qr_reader.py:244
 msgid "Hold a QR code up to the camera."
-msgstr ""
+msgstr "Arahkan kode QR ke kamera."
 
 #: telescope/plugins/qr_reader.py:235
 msgid "Read QR codes"
-msgstr ""
+msgstr "Baca kode QR"
 
 #: telescope/plugins/qr_reader.py:284
 msgid "Found a code. Click Copy to put it on the clipboard."
-msgstr ""
+msgstr "Kode ditemukan. Klik Salin untuk menyalinnya ke papan klip."
 
 #: telescope/plugins/qr_reader.py:287
 msgid "QR code copied"
-msgstr ""
+msgstr "Kode QR disalin"
 
 #: telescope/plugins/qr_reader.py:289
 msgid "QR code found"
-msgstr ""
+msgstr "Kode QR ditemukan"
 
 #: telescope/plugins/qr_reader.py:289
 msgid "Click Copy on the QR codes card to put it on the clipboard."
-msgstr ""
+msgstr "Klik Salin di kartu Kode QR untuk menyalinnya ke papan klip."
 
 #: telescope/plugins/qr_reader.py:301
 #, python-brace-format
 msgid "Copied the password for {network}"
-msgstr ""
+msgstr "Kata sandi untuk {network} disalin"
 
 #: telescope/plugins/qr_reader.py:304
 #, python-brace-format
 msgid "Copied the name of {network}, which has no password"
-msgstr ""
+msgstr "Nama {network} disalin, yang tidak memiliki kata sandi"
 
 #: telescope/plugins/qr_reader.py:307
 #, python-brace-format
 msgid "Copied {link}"
-msgstr ""
+msgstr "{link} disalin"
 
 #: telescope/plugins/qr_reader.py:308
 msgid "Copied the code's text"
-msgstr ""
+msgstr "Teks kode disalin"
 
 #: telescope/plugins/setup.py:44
 msgid "Auto (from first frame)"
@@ -5153,11 +5153,11 @@ msgstr "Instal ulang"
 
 #: telescope/plugins/setup.py:760
 msgid "Update ready"
-msgstr ""
+msgstr "Pembaruan siap"
 
 #: telescope/plugins/setup.py:760
 msgid "Some apps can't see it"
-msgstr ""
+msgstr "Beberapa aplikasi tidak dapat melihatnya"
 
 #: telescope/plugins/setup.py:761 telescope/plugins/updates.py:193
 msgid "Update"
@@ -5165,7 +5165,7 @@ msgstr "Perbarui"
 
 #: telescope/plugins/setup.py:762
 msgid "Installs the camera every Windows 11 app can see (Windows asks for admin access once)."
-msgstr ""
+msgstr "Menginstal kamera yang dapat dilihat semua aplikasi Windows 11 (Windows meminta akses admin satu kali)."
 
 #: telescope/plugins/setup.py:768
 msgid "Reinstall for a security fix"
@@ -5880,7 +5880,7 @@ msgstr "Transformasi"
 
 #: telescope/plugins/transforms.py:132
 msgid "Zoom, pan, flip, rotate and stretch the picture."
-msgstr ""
+msgstr "Zoom, geser, balik, putar, dan regangkan gambar."
 
 #: telescope/plugins/transforms.py:136
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
@@ -5888,7 +5888,7 @@ msgstr "Tanpanya, kartu Transformasi tidak ada dan gambar keluar persis seperti 
 
 #: telescope/plugins/transforms.py:171
 msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
-msgstr ""
+msgstr "Kembalikan balik, rotasi, zoom, geser, dan regangan ke default"
 
 #: telescope/plugins/transforms.py:177
 msgid "Mirror"
@@ -5931,11 +5931,11 @@ msgstr "Geser"
 
 #: telescope/plugins/transforms.py:249
 msgid "Stretch or squish the picture sideways"
-msgstr ""
+msgstr "Regangkan atau pipihkan gambar ke samping"
 
 #: telescope/plugins/transforms.py:251
 msgid "Stretch or squish the picture up and down"
-msgstr ""
+msgstr "Regangkan atau pipihkan gambar ke atas dan ke bawah"
 
 #: telescope/plugins/transforms.py:269
 msgid "Flip horizontal"
@@ -5985,12 +5985,12 @@ msgstr "pembingkaian geser pindah framing move"
 #: telescope/plugins/transforms.py:292
 msgctxt "search"
 msgid "stretch squish aspect wide"
-msgstr ""
+msgstr "regang regangkan pipih pipihkan aspek lebar horizontal stretch squish aspect wide"
 
 #: telescope/plugins/transforms.py:293
 msgctxt "search"
 msgid "stretch squish aspect tall"
-msgstr ""
+msgstr "regang regangkan pipih pipihkan aspek tinggi vertikal stretch squish aspect tall"
 
 #: telescope/plugins/transforms.py:360
 msgid "Zoomed on this computer: this lens can't zoom itself"
@@ -6528,7 +6528,7 @@ msgstr "Ini bisa memakan waktu satu menit selagi Windows menjalankan pemindaian 
 #. title of a message box shown when Telescope is opened straight from its zip without extracting it
 #: telescope/splash.py:96
 msgid "Extract Telescope first"
-msgstr ""
+msgstr "Ekstrak Telescope terlebih dahulu"
 
 #: telescope/splash.py:97
 msgid ""
@@ -6536,50 +6536,53 @@ msgid ""
 "\n"
 "Right-click the zip, choose Extract All, and open Telescope from the extracted folder."
 msgstr ""
+"Telescope tidak dapat dijalankan dari dalam zip.\n"
+"\n"
+"Klik kanan file zip, pilih Ekstrak Semua, dan buka Telescope dari folder hasil ekstraksi."
 
 #: telescope/stills.py:32
 msgid "This phone's camera can't take that photo."
-msgstr ""
+msgstr "Kamera ponsel ini tidak dapat mengambil foto tersebut."
 
 #: telescope/stills.py:33
 msgid "The phone didn't accept those photo settings."
-msgstr ""
+msgstr "Ponsel tidak menerima pengaturan foto tersebut."
 
 #: telescope/stills.py:34
 msgid "The phone isn't ready for photos yet. Try again in a moment."
-msgstr ""
+msgstr "Ponsel belum siap untuk mengambil foto. Coba lagi sebentar lagi."
 
 #: telescope/stills.py:36
 msgid "The phone's camera is off."
-msgstr ""
+msgstr "Kamera ponsel nonaktif."
 
 #: telescope/stills.py:37
 msgid "The photo was interrupted by a change to the camera."
-msgstr ""
+msgstr "Pengambilan foto terganggu oleh perubahan pada kamera."
 
 #: telescope/stills.py:38
 msgid "The phone took too long to take the photo."
-msgstr ""
+msgstr "Ponsel membutuhkan waktu terlalu lama untuk mengambil foto."
 
 #: telescope/stills.py:40
 msgid "Lost the phone while it was taking the photo."
-msgstr ""
+msgstr "Koneksi ke ponsel terputus saat mengambil foto."
 
 #: telescope/stills.py:41
 msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr ""
+msgstr "Ponsel membatalkan pengambilan foto, mungkin karena stream terhenti."
 
 #: telescope/stills.py:42
 msgid "Telescope couldn't save the photo."
-msgstr ""
+msgstr "Telescope tidak dapat menyimpan foto."
 
 #: telescope/stills.py:43
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
-msgstr ""
+msgstr "Ponsel ini tidak dapat mengambil foto dari Telescope. Perbarui aplikasi di ponsel."
 
 #: telescope/stream.py:356
 msgid "The video is paused while the phone takes a photo"
-msgstr ""
+msgstr "Video dijeda saat ponsel mengambil foto"
 
 #: telescope/stream.py:358
 msgid "Stream dropped - reconnecting"
@@ -6787,7 +6790,7 @@ msgstr "Diperluas. Tekan Spasi atau Enter untuk menciutkan."
 
 #: telescope/widgets/colour_wheel.py:32
 msgid "Drag towards a colour to add it. Double-click to reset."
-msgstr ""
+msgstr "Seret ke arah warna untuk menambahkannya. Klik dua kali untuk mereset."
 
 #: telescope/widgets/common.py:1097
 #, python-brace-format
@@ -6815,188 +6818,188 @@ msgstr "Klik dua kali untuk mereset"
 
 #: telescope/widgets/composite_editor.py:36
 msgid "Move"
-msgstr ""
+msgstr "Pindahkan"
 
 #: telescope/widgets/composite_editor.py:36
 msgid "Scale"
-msgstr ""
+msgstr "Skala"
 
 #: telescope/widgets/composite_editor.py:36
 msgid "Stretch"
-msgstr ""
+msgstr "Regangkan"
 
 #: telescope/widgets/composite_editor.py:36
 msgid "Crop"
-msgstr ""
+msgstr "Pangkas"
 
 #: telescope/widgets/composite_editor.py:61
 msgid "Picture preview"
-msgstr ""
+msgstr "Pratinjau gambar"
 
 #: telescope/widgets/composite_editor.py:183
 #, python-brace-format
 msgid "{name} isn't streaming"
-msgstr ""
+msgstr "{name} tidak streaming"
 
 #: telescope/widgets/composite_editor.py:298
 #, python-brace-format
 msgid "{mode}, no snapping"
-msgstr ""
+msgstr "{mode}, tanpa snapping"
 
 #: telescope/widgets/composite_editor.py:414 telescope/widgets/composite_editor.py:418
 msgid "Edit picture"
-msgstr ""
+msgstr "Edit gambar"
 
 #: telescope/widgets/composite_editor.py:418
 msgid "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping."
-msgstr ""
+msgstr "Seret stream untuk memindahkannya dan tuas untuk mengubah ukuran. Tahan Shift untuk meregangkannya, Alt untuk memangkas sisi tersebut, dan Ctrl untuk mencegah snapping."
 
 #: telescope/widgets/composite_editor.py:470
 msgid "Start from"
-msgstr ""
+msgstr "Mulai dari"
 
 #: telescope/widgets/composite_editor.py:474
 msgid "Side by side"
-msgstr ""
+msgstr "Berdampingan"
 
 #: telescope/widgets/composite_editor.py:474
 msgid "Big and small"
-msgstr ""
+msgstr "Besar dan kecil"
 
 #: telescope/widgets/composite_editor.py:475
 msgid "Grid"
-msgstr ""
+msgstr "Kisi"
 
 #: telescope/widgets/composite_editor.py:478
 msgid "Start again with the running streams laid out like this"
-msgstr ""
+msgstr "Mulai lagi dengan stream yang sedang berjalan diatur seperti ini"
 
 #: telescope/widgets/composite_editor.py:501
 msgid "Save as…"
-msgstr ""
+msgstr "Simpan sebagai…"
 
 #: telescope/widgets/composite_editor.py:501
 msgid "Keep this picture under a name"
-msgstr ""
+msgstr "Simpan gambar ini dengan sebuah nama"
 
 #: telescope/widgets/composite_editor.py:510
 msgid "Rename…"
-msgstr ""
+msgstr "Ganti nama…"
 
 #: telescope/widgets/composite_editor.py:510
 msgid "Rename this layout"
-msgstr ""
+msgstr "Ganti nama tata letak ini"
 
 #: telescope/widgets/composite_editor.py:512
 msgid "Delete this layout"
-msgstr ""
+msgstr "Hapus permanen tata letak ini"
 
 #: telescope/widgets/composite_editor.py:530 telescope/widgets/composite_editor.py:532
 #, python-brace-format
 msgid "Layout {n}"
-msgstr ""
+msgstr "Tata letak {n}"
 
 #: telescope/widgets/composite_editor.py:536
 msgid "Save layout"
-msgstr ""
+msgstr "Simpan tata letak"
 
 #: telescope/widgets/composite_editor.py:550
 msgid "Replace layout"
-msgstr ""
+msgstr "Ganti tata letak"
 
 #: telescope/widgets/composite_editor.py:551
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
-msgstr ""
+msgstr "Sudah ada tata letak bernama \"{name}\". Ingin menggantinya?"
 
 #: telescope/widgets/composite_editor.py:558
 msgid "Rename layout"
-msgstr ""
+msgstr "Ganti nama tata letak"
 
 #: telescope/widgets/composite_editor.py:574
 msgid "Streams"
-msgstr ""
+msgstr "Stream"
 
 #: telescope/widgets/composite_editor.py:579
 msgid "Start two or more streams to put them together. The + next to Stop adds one."
-msgstr ""
+msgstr "Mulai dua stream atau lebih untuk menggabungkannya. Tanda + di samping Stop akan menambahkan stream."
 
 #: telescope/widgets/composite_editor.py:597
 #, python-brace-format
 msgid "{name} (not streaming)"
-msgstr ""
+msgstr "{name} (tidak streaming)"
 
 #: telescope/widgets/composite_editor.py:620
 msgid "Fit its shape"
-msgstr ""
+msgstr "Sesuaikan bentuknya"
 
 #: telescope/widgets/composite_editor.py:621
 msgid "Make the box the stream's own shape again, with nothing cropped or stretched"
-msgstr ""
+msgstr "Kembalikan kotak ke bentuk asli stream, tanpa ada yang dipangkas atau diregangkan"
 
 #: telescope/widgets/composite_editor.py:623
 msgid "Picked stream"
-msgstr ""
+msgstr "Stream yang dipilih"
 
 #: telescope/widgets/composite_editor.py:630
 msgid "Stream"
-msgstr ""
+msgstr "Stream"
 
 #: telescope/widgets/composite_editor.py:634
 msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
-msgstr ""
+msgstr "Gulir di atas stream untuk memperbesar dan seret dengan tombol kanan mouse untuk menggeser tampilan"
 
 #: telescope/widgets/composite_editor.py:644
 msgid "Border"
-msgstr ""
+msgstr "Garis tepi"
 
 #: telescope/widgets/composite_editor.py:645
 msgid "Border colour"
-msgstr ""
+msgstr "Warna garis tepi"
 
 #: telescope/widgets/composite_editor.py:654
 msgid "Corners"
-msgstr ""
+msgstr "Sudut"
 
 #: telescope/widgets/composite_editor.py:655
 msgid "Send back"
-msgstr ""
+msgstr "Ke belakang"
 
 #: telescope/widgets/composite_editor.py:657
 msgid "Bring forward"
-msgstr ""
+msgstr "Ke depan"
 
 #: telescope/widgets/composite_editor.py:661
 msgid "Order"
-msgstr ""
+msgstr "Urutan"
 
 #: telescope/widgets/composite_editor.py:663
 msgid "Click a stream in the picture to change it."
-msgstr ""
+msgstr "Klik stream pada gambar untuk mengubahnya."
 
 #: telescope/widgets/composite_editor.py:728
 msgid "Background colour"
-msgstr ""
+msgstr "Warna latar belakang"
 
 #: telescope/widgets/composite_editor.py:734
 msgid "Picture…"
-msgstr ""
+msgstr "Gambar…"
 
 #: telescope/widgets/composite_editor.py:735
 msgid "Put a picture behind the streams instead of the colour"
-msgstr ""
+msgstr "Gunakan gambar di belakang stream sebagai pengganti warna"
 
 #: telescope/widgets/composite_editor.py:737
 msgid "No picture"
-msgstr ""
+msgstr "Tanpa gambar"
 
 #: telescope/widgets/composite_editor.py:749
 msgid "Background picture"
-msgstr ""
+msgstr "Gambar latar belakang"
 
 #: telescope/widgets/composite_editor.py:781
 msgid "None"
-msgstr ""
+msgstr "Tidak ada"
 
 #: telescope/widgets/controls.py:292
 msgid "Drag to move the view. Double-click to centre it."
@@ -7008,11 +7011,11 @@ msgstr "Salin perintah, untuk ditempel di terminal"
 
 #: telescope/widgets/curve_editor.py:30
 msgid "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset."
-msgstr ""
+msgstr "Klik untuk menambahkan titik dan seret. Klik dua kali titik untuk menghapusnya, atau klik kurva untuk mereset."
 
 #: telescope/widgets/curve_editor.py:31
 msgid "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset."
-msgstr ""
+msgstr "Klik rona untuk menambahkan titik dan seret. Klik dua kali titik untuk menghapusnya, atau klik kurva untuk mereset."
 
 #. part of a camera lens name on a lens button, like "Auto 24mm" (the multi-lens camera itself)
 #: telescope/widgets/lens_panel.py:20
@@ -7069,31 +7072,31 @@ msgstr "Aktifkan kembali setiap plugin bawaan"
 
 #: telescope/widgets/plugins_panel.py:235 telescope/widgets/plugins_panel.py:236
 msgid "Search plugins"
-msgstr ""
+msgstr "Cari plugin"
 
 #: telescope/widgets/plugins_panel.py:244
 msgctxt "plugins"
 msgid "All"
-msgstr ""
+msgstr "Semua"
 
 #: telescope/widgets/plugins_panel.py:244
 msgctxt "plugins"
 msgid "On"
-msgstr ""
+msgstr "Aktif"
 
 #: telescope/widgets/plugins_panel.py:245
 msgctxt "plugins"
 msgid "Off"
-msgstr ""
+msgstr "Nonaktif"
 
 #: telescope/widgets/plugins_panel.py:247
 #, python-brace-format
 msgid "Show: {which}"
-msgstr ""
+msgstr "Tampilkan: {which}"
 
 #: telescope/widgets/plugins_panel.py:272
 msgid "Show all plugins"
-msgstr ""
+msgstr "Tampilkan semua plugin"
 
 #: telescope/widgets/plugins_panel.py:285
 msgid "Open plugins folder"
@@ -7111,11 +7114,11 @@ msgstr "Mulai ulang Telescope untuk menerapkan perubahan Anda"
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
-msgstr[0] ""
+msgstr[0] "Mulai ulang untuk menerapkan {n} perubahan"
 
 #: telescope/widgets/plugins_panel.py:483
 msgid "Waits for a restart"
-msgstr ""
+msgstr "Menunggu mulai ulang"
 
 #: telescope/widgets/plugins_panel.py:505
 msgid "Telescope can't work without this one, so it can't be switched off"
@@ -7123,7 +7126,7 @@ msgstr "Telescope tidak dapat berfungsi tanpanya, sehingga tidak dapat dinonakti
 
 #: telescope/widgets/plugins_panel.py:506
 msgid "Required"
-msgstr ""
+msgstr "Wajib"
 
 #: telescope/widgets/plugins_panel.py:523
 #, python-brace-format
@@ -7141,7 +7144,7 @@ msgstr "File unduhannya (sekitar {mb} MB) sudah tidak ada. Nonaktifkan lalu akti
 
 #: telescope/widgets/plugins_panel.py:530
 msgid "Needs the vision download"
-msgstr ""
+msgstr "Perlu unduhan vision"
 
 #: telescope/widgets/plugins_panel.py:543
 msgid "Remove download"
@@ -7153,12 +7156,12 @@ msgstr "Hapus unduhan yang digunakan plugin di sini. Mengaktifkan salah satunya 
 
 #: telescope/widgets/plugins_panel.py:557
 msgid "There's no vision download for this computer yet."
-msgstr ""
+msgstr "Belum ada unduhan vision untuk komputer ini."
 
 #: telescope/widgets/plugins_panel.py:558
 #, python-brace-format
 msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
-msgstr ""
+msgstr "Mengaktifkan salah satunya akan mengunduh sekitar {mb} MB terlebih dahulu, satu kali untuk semuanya."
 
 #: telescope/widgets/plugins_panel.py:563
 #, python-brace-format
@@ -7205,7 +7208,7 @@ msgstr "Oleh {author}."
 #: telescope/widgets/plugins_panel.py:606
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
-msgstr ""
+msgstr "Diperbarui ke {version} secara otomatis. Versi baru akan berjalan setelah Telescope dimulai ulang."
 
 #: telescope/widgets/plugins_panel.py:612
 msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
@@ -7220,7 +7223,7 @@ msgstr "Gagal dimulai ({problem})."
 #: telescope/widgets/plugins_panel.py:622
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
-msgstr ""
+msgstr "Versi {version} telah dirilis. <a href=\"{url}\">Unduh dari halaman rilisnya</a> dan instal di sini untuk menggantikan versi ini."
 
 #: telescope/widgets/plugins_panel.py:626
 msgid "Added"
@@ -7242,11 +7245,11 @@ msgstr "dev_desktop.py --plugin memuat plugin ini, sehingga selalu aktif"
 
 #: telescope/widgets/plugins_panel.py:647
 msgid "Being written"
-msgstr ""
+msgstr "Sedang ditulis"
 
 #: telescope/widgets/plugins_panel.py:663
 msgid "Added plugins"
-msgstr ""
+msgstr "Plugin yang ditambahkan"
 
 #: telescope/widgets/plugins_panel.py:667
 msgid "Install"
@@ -7262,31 +7265,31 @@ msgstr "Belum ada plugin yang ditambahkan. Plugin yang dibagikan orang lain beru
 
 #: telescope/widgets/plugins_panel.py:677
 msgid "Plugins you add are listed with the others, marked Added."
-msgstr ""
+msgstr "Plugin yang Anda tambahkan dicantumkan bersama yang lain, ditandai Ditambahkan."
 
 #: telescope/widgets/plugins_panel.py:698
 msgid "Check for updates"
-msgstr ""
+msgstr "Periksa pembaruan"
 
 #: telescope/widgets/plugins_panel.py:699
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
-msgstr ""
+msgstr "Memeriksa versi baru sekali sehari untuk plugin yang ditambahkan yang memublikasikan rilis di GitHub dan mencantumkannya di sini. Tidak ada yang diunduh."
 
 #: telescope/widgets/plugins_panel.py:709
 msgid "Install updates without asking"
-msgstr ""
+msgstr "Instal pembaruan tanpa bertanya"
 
 #: telescope/widgets/plugins_panel.py:710
 msgid "Installs new versions of the plugins you switched on and switches them on again."
-msgstr ""
+msgstr "Menginstal versi baru plugin yang Anda aktifkan dan mengaktifkannya kembali."
 
 #: telescope/widgets/plugins_panel.py:711
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
-msgstr ""
+msgstr "Berbahaya! Siapa pun yang mengontrol repo plugin dapat menjalankan kode baru di komputer ini setiap kali mereka memublikasikan rilis."
 
 #: telescope/widgets/plugins_panel.py:719
 msgid "Install plugin updates without asking?"
-msgstr ""
+msgstr "Ingin menginstal pembaruan plugin tanpa bertanya?"
 
 #: telescope/widgets/plugins_panel.py:720
 msgid ""
@@ -7294,25 +7297,28 @@ msgid ""
 "\n"
 "Whoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that."
 msgstr ""
+"Telescope akan menginstal versi baru dari plugin yang Anda aktifkan dan ikut mengaktifkannya, tanpa menunjukkannya kepada Anda terlebih dahulu.\n"
+"\n"
+"Siapa pun yang mengontrol repo plugin di GitHub (pembuatnya, atau siapa pun yang dapat mengakses akun mereka) dapat menjalankan kode baru di komputer ini setiap kali mereka memublikasikan rilis. Hanya aktifkan opsi ini jika Anda memercayai mereka semua."
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: telescope/widgets/plugins_panel.py:769
 #, python-brace-format
 msgid "{on} of {total} on"
-msgstr ""
+msgstr "{on} dari {total} aktif"
 
 #: telescope/widgets/plugins_panel.py:775
 #, python-brace-format
 msgid "No plugins match “{text}”."
-msgstr ""
+msgstr "Tidak ada plugin yang cocok dengan “{text}”."
 
 #: telescope/widgets/plugins_panel.py:777
 msgid "Every plugin is switched on."
-msgstr ""
+msgstr "Semua plugin aktif."
 
 #: telescope/widgets/plugins_panel.py:779
 msgid "No plugin is switched on."
-msgstr ""
+msgstr "Tidak ada plugin yang aktif."
 
 #: telescope/widgets/plugins_panel.py:785 telescope/widgets/plugins_panel.py:800
 #, python-brace-format
@@ -7375,11 +7381,11 @@ msgstr "Plugin (*.zip)"
 #: telescope/widgets/plugins_panel.py:872
 #, python-brace-format
 msgid "Replace {plugin}?"
-msgstr ""
+msgstr "Ingin mengganti {plugin}?"
 
 #: telescope/widgets/plugins_panel.py:873
 msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
-msgstr ""
+msgstr "Versi di dalam .zip ini akan menggantikannya dengan pengaturan yang sama. Seperti plugin apa pun yang Anda tambahkan, plugin ini awalnya berstatus nonaktif."
 
 #: telescope/widgets/plugins_panel.py:878
 msgid "Couldn't install it"
@@ -7396,17 +7402,17 @@ msgstr "{plugin} telah diinstal, tetapi belum dapat dijalankan. {problem}"
 
 #: telescope/widgets/plugins_panel.py:887
 msgid "Replaced"
-msgstr ""
+msgstr "Diganti"
 
 #: telescope/widgets/plugins_panel.py:888
 #, python-brace-format
 msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
-msgstr ""
+msgstr "{plugin} {version} sudah diinstal tetapi dinonaktifkan untuk saat ini. Untuk menggunakannya, aktifkan kembali dan mulai ulang Telescope."
 
 #: telescope/widgets/plugins_panel.py:893
 #, python-brace-format
 msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
-msgstr ""
+msgstr "{plugin} sudah diinstal tetapi dinonaktifkan untuk saat ini. Untuk menggunakannya, aktifkan dan mulai ulang Telescope."
 
 #: telescope/widgets/plugins_panel.py:900
 msgid "Couldn't open it"
@@ -7609,7 +7615,7 @@ msgstr "Unduh"
 #: telescope/widgets/vision_status.py:51
 #, python-brace-format
 msgid "Cleaner edges with a one-time download (about {mb} MB)."
-msgstr ""
+msgstr "Tepi lebih rapi dengan unduhan satu kali (sekitar {mb} MB)."
 
 #: telescope/widgets/vision_status.py:53
 #, python-brace-format

@@ -119,6 +119,7 @@
     <string name="preview_stream_starting">La transmisión se está iniciando. Intenta de nuevo en un momento.</string>
     <string name="preview_no_cameras">No se encontraron cámaras.</string>
     <string name="preview_may_stretch">La vista previa puede verse estirada - no se pudo leer la información de la cámara.</string>
+    <string name="notes_close">Cerrar las notas</string>
     <string name="notif_channel_streaming">Transmisión</string>
     <string name="notif_channel_streaming_desc">Se muestra mientras la cámara está transmitiendo a tu computadora</string>
     <string name="notif_channel_waiting">Esperando a la computadora</string>
