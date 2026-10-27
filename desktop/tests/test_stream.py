@@ -870,6 +870,18 @@ def test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route(qapp, mon
     assert moved == ["https://127.0.0.1:41000/v1/video"]
 
 
+def test_a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken(qapp, monkeypatch):
+    new = _Live(2)
+    worker, moved, failed = _handover_worker(monkeypatch, new)
+    assert worker.hand_over("https://127.0.0.1:41000/v1/video")
+    assert _until(lambda: worker._handover_ready is not None)
+    worker.request_stop()
+    start = stream.time.monotonic()
+    worker.join_handover()
+    assert stream.time.monotonic() - start < 1.0  # the GUI thread waits on this when it ends the worker
+    assert new.released and moved == [] and failed == []
+
+
 def test_sources_from_plugins_dont_hand_over():
     worker = stream.StreamWorker("url", None, None, 30, open_reader=lambda: _Capture())
     assert not worker.hand_over("https://127.0.0.1:41000/v1/video")

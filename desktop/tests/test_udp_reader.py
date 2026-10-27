@@ -331,3 +331,20 @@ def _short_timeout(init):
     def wrapped(self, url, auth, timeout=1.0):
         init(self, url, auth, timeout)
     return wrapped
+
+
+def test_a_session_whose_hello_doesnt_parse_is_closed_before_falling_back():
+    class Resp:
+        headers = {"Content-Type": "application/x-telescope-udp"}
+        closed = False
+
+        def readline(self, _limit):
+            return b'{"key": "bm90IGEga2V5"\n'  # cut short
+
+        def close(self):
+            self.closed = True
+    resp = Resp()
+    auth = type("Auth", (), {"headers": lambda self: {}, "open": lambda self, req, timeout: resp})()
+    reader = UdpH264Reader("https://127.0.0.1:1/v1/video.udp", auth)
+    assert not reader._open_udp()
+    assert resp.closed  # otherwise the phone holds the session and a stream slot until it times out

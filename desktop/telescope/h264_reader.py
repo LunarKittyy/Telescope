@@ -244,8 +244,8 @@ class Decoder:
     def __init__(self, tap=None):
         self.hardware: Optional[str] = None
         self.tap = tap
-        if tap is not None:
-            tap.restart()  # steps carry state from the decoder before, which would hold this one's keyframes back
+        # Steps of its own: ones that fed another decoder would hold this one's keyframes back
+        self._steps = tap.open() if tap is not None else None
         self._codec = None
         self._headers = {}
         self._header_tail = b""
@@ -266,7 +266,7 @@ class Decoder:
     def feed(self, data: bytes):
         """(newest BGR frame the data completed or None, how many frames it completed)."""
         self._remember_headers(data)
-        step = self.tap.step if self.tap is not None else None
+        step = self._steps.step if self._steps is not None else None
         if step is not self._step:
             self._step = step
             if step is not None:  # TCP sends SPS and PPS only when joining, and a step put on later needs them
@@ -285,8 +285,8 @@ class Decoder:
             self.hardware = None
             self._codec = _software_codec()
             if self.tap is not None:
-                self.tap.restart()  # the old steps have already seen this data
-                self._step = step = self.tap.step
+                self._steps = self.tap.open()  # the old steps have already seen this data
+                self._step = step = self._steps.step
             # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
             setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
             return _decode_counted(self._codec, setup + data, to_bgr=self._to_bgr, step=step)

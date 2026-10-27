@@ -346,4 +346,4 @@ def test_the_software_fallback_gives_steps_each_unit_once(hardware):
     assert dec.hardware == "cuda"
     frame, _count = h264_reader.decode_counted(dec, b"".join(_packets([60, 120])))
     assert frame is not None and dec.hardware is None
-    assert len(seen) == 3 and len(seen[-1]) == 2  # a fresh step for the software decoder, given each unit once
+    assert len(seen) == 2 and len(seen[-1]) == 2  # a fresh step for the software decoder, given each unit once

@@ -1,10 +1,11 @@
 """Plugins changing a stream's H.264 before it's decoded (HostPackets): each stream's tap, and what's safe to hand back.
 
-A decoder only looks at Tap.step, which stays None while nobody changes that stream's packets, so it costs nothing then.
+A decoder only looks at its Steps.step, which stays None while nobody changes that stream's packets, so it costs nothing then.
 """
 
 import logging
 import threading
+import weakref
 from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
@@ -14,32 +15,50 @@ FAILS_BEFORE_SKIP = 30
 
 
 class Tap:
-    """The packet steps of one stream (its StreamWorker's). Set from the GUI thread, read on the decoder's."""
+    """The packet steps of one stream (its StreamWorker's). Set from the GUI thread; each decoder feeds its own Steps,
+    since a step's state belongs to the decoder it fed (a hand-over decodes a second route next to the first)."""
 
     def __init__(self):
-        self.step: Optional[Callable[[bytes], list]] = None
-        self._steps: dict = {}  # owner: its step on this stream
-        self._makers: dict = {}  # owner: make_step, for restart()
+        self._makers: dict = {}  # owner: make_step
+        self._open: weakref.WeakSet = weakref.WeakSet()  # every decoder's Steps
         self._lock = threading.Lock()
 
     def set(self, makers: dict) -> bool:
-        """The steps from {owner: make_step}: an owner new here gets a fresh one from make_step(), one already on keeps
-        its own, and {} takes them all off. True if any came on or off: a new step needs a keyframe to start from (the
-        stream's parameters come with it), and the picture needs one to recover from a step that came off."""
+        """The steps from {owner: make_step}: an owner new here gets a fresh one from make_step() in each decoder, one
+        already on keeps its own, and {} takes them all off. True if any came on or off: a new step needs a keyframe
+        to start from (the stream's parameters come with it), and the picture needs one to recover from a step that
+        came off."""
         with self._lock:
-            changed = makers.keys() != self._steps.keys()
+            changed = makers.keys() != self._makers.keys()
             self._makers = dict(makers)
-            self._steps = {owner: self._steps.get(owner) or guarded(owner, make()) for owner, make in makers.items()}
-            self.step = chain(list(self._steps.values())) if self._steps else None
+            for steps in list(self._open):
+                steps.update(self._makers)
         return changed
 
-    def restart(self):
-        """Fresh steps from each owner's make_step, for a new decoder: a step's state belongs to the decoder it fed."""
+    @property
+    def on(self) -> bool:
+        """Whether any plugin changes this stream's packets."""
+        return bool(self._makers)
+
+    def open(self) -> "Steps":
+        """Fresh steps from each owner's make_step, for a new decoder, kept up to date by set()."""
+        steps = Steps()
         with self._lock:
-            if not self._makers:
-                return
-            self._steps = {owner: guarded(owner, make()) for owner, make in self._makers.items()}
-            self.step = chain(list(self._steps.values()))
+            steps.update(self._makers)
+            self._open.add(steps)
+        return steps
+
+
+class Steps:
+    """One decoder's packet steps from a Tap. The decoder only looks at step, None while nobody changes packets."""
+
+    def __init__(self):
+        self.step: Optional[Callable[[bytes], list]] = None
+        self._steps: dict = {}  # owner: its step here
+
+    def update(self, makers: dict):
+        self._steps = {owner: self._steps.get(owner) or guarded(owner, make()) for owner, make in makers.items()}
+        self.step = chain(list(self._steps.values())) if self._steps else None
 
 
 def guarded(name: str, step: Callable[[bytes], list]) -> Callable[[bytes], list]:
