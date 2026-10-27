@@ -27,7 +27,7 @@ The rules for texts in the code and how a person translates by hand are in [docs
 
 ## Who does what
 
-These are the current picks. When the models change keep the shape: a fast model with good language knowledge drafts, a model with a good ear reviews prose, a careful one looks only at the units with fields and plurals.
+Picks as of October 2026. When the models change keep the shape: a fast model with good language knowledge drafts, a model with a good ear reviews prose, a careful one looks only at the units with fields and plurals.
 
 | Job | Default | Step up to | Why |
 |---|---|---|---|
