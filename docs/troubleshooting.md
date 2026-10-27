@@ -46,7 +46,7 @@ The driver isn't registered. Open **Virtual camera & phone** in Settings and rei
 **Windows 11: an app doesn't list Telescope**
 Open **Virtual camera & phone** in Settings. If the Driver row says **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
 
-**Windows 11: the camera shows Telescope's lens without "Waiting for camera"**
+**Windows 11: the camera shows Telescope's lens while Telescope is closed**
 Telescope isn't running, or it's still starting. The camera stays in every app's list even with Telescope closed and shows the default wait screen without that line until Telescope sends it something. Open Telescope and your wait screen or your phone takes over.
 
 **Windows 11: keep using the older driver**
