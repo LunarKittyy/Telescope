@@ -256,6 +256,28 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     win.close()
 
 
+def test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away(qapp, plugins, answers):
+    for n in range(40):
+        _added(plugins, f"extra{n}")
+    panel = PluginsPanel([*_builtins(), _Optional("framing", "Auto framing")], {"connection", "camera_control", "presets"},
+                         {}, lambda: True, download=_Download())
+    win = SettingsWindow([SettingsSection("plugins", panel, on_show=panel.refresh)])
+    win.resize(700, 500)
+    win.show()
+    bar = win._pages[0].verticalScrollBar()
+    for _ in range(40):
+        QTest.qWait(100)
+        if bar.maximum() > 0:
+            break
+    assert bar.value() == 0
+    box = _boxes(panel)["Auto framing"]
+    box.setFocus()  # as a click leaves it: hiding it during the rebuild used to hand focus down the list
+    box.click()
+    QTest.qWait(200)
+    assert bar.value() == 0
+    win.close()
+
+
 def test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch(qapp, plugins, answers, tmp_path,
                                                                           monkeypatch):
     work = tmp_path / "work"
