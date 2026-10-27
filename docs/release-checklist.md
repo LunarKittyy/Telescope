@@ -152,7 +152,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Starting, stopping and the camera button
 
-<!-- due: desktop/telescope/plugins/startup.py desktop/telescope/plugins/wait_screen.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/plugins/microphone.py -->
+<!-- due: desktop/telescope/plugins/startup.py desktop/telescope/plugins/wait_screen.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/plugins/microphone.py android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt -->
 
 - [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream, Stop keeps it stopped until the phone leaves and comes back and closing the window keeps it in the tray.
 - [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream and closing it stops it 15 s later.
@@ -163,6 +163,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back and if another app holds the camera it stays off with a banner saying so.
 - [ ] Wait screen: a chosen image and a GIF reach apps and Mirror flips them. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
 - [ ] Tray minimise and restore work.
+- [ ] Phone app Black screen: while streaming, tap it next to Preview. The screen goes pure black at the lowest brightness without the status and nav bars and the stream doesn't stutter going in or out. One tap shows the hint, a double tap or Back brings the app back and the brightness returns. Stopping the stream from the computer, the power button or the Home button also bring it back.
 
 ### Browser camera
 
