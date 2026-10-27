@@ -254,7 +254,7 @@ def test_install_driver_shows_progress_then_ready(monkeypatch, windows_dialog):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     seen = []
 
-    def install(progress_cb=None):
+    def install(devices=1, progress_cb=None):
         progress_cb("Registering (admin access required)...")
         seen.append(windows_dialog._uc_status_lbl.text())
         return True, "Installed"
@@ -265,9 +265,20 @@ def test_install_driver_shows_progress_then_ready(monkeypatch, windows_dialog):
     assert windows_dialog._uc_btn.text() == "Reinstall"
 
 
+@pytest.mark.parametrize("ready,devices", [((), 1), ((1, 2, 3), 4)])
+def test_reinstalling_the_driver_keeps_the_extra_cameras(monkeypatch, windows_dialog, ready, devices):
+    monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
+    monkeypatch.setattr(setup_mod.vcam, "slot_ready", lambda n: n in ready)
+    asked = []
+    monkeypatch.setattr(setup_mod, "install_camera",
+                        lambda devices=1, progress_cb=None: asked.append(devices) or (True, "Installed"))
+    windows_dialog._install_uc()
+    assert asked == [devices]
+
+
 def test_install_driver_failure_offers_a_retry(monkeypatch, windows_dialog):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "install_camera", lambda progress_cb=None: (False, "offline"))
+    monkeypatch.setattr(setup_mod, "install_camera", lambda devices=1, progress_cb=None: (False, "offline"))
     windows_dialog._install_uc()
     assert windows_dialog._uc_status_lbl.text() == "Failed: offline"
     assert windows_dialog._uc_btn.text() == "Retry"
@@ -494,7 +505,7 @@ def test_max_gain_buttons_apply_straight_away(qapp):
 def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(setup_mod, "install_camera",
-                        lambda progress_cb=None: (_ for _ in ()).throw(PermissionError("read-only folder")))
+                        lambda devices=1, progress_cb=None: (_ for _ in ()).throw(PermissionError("read-only folder")))
     windows_dialog._install_uc()
     assert windows_dialog._uc_btn.isEnabled()
     assert "read-only folder" in windows_dialog._uc_status_lbl.text()

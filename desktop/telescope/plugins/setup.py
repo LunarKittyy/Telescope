@@ -835,7 +835,9 @@ class AdvancedSettings(QWidget):
 
         def worker():
             try:
-                ok, msg = install_camera(progress_cb=self._sig_uc_msg.emit)
+                # The Windows 11 camera takes away cameras past the count asked for, so extras set up earlier stay
+                extras = any(vcam.slot_ready(n) for n in range(1, vcam.MAX_SLOTS))
+                ok, msg = install_camera(vcam.MAX_SLOTS if extras else 1, progress_cb=self._sig_uc_msg.emit)
             except Exception as exc:  # always report back, or the button stays off until a restart
                 logger.exception("Driver install failed")
                 ok, msg = False, str(exc)
