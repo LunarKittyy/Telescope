@@ -141,6 +141,14 @@ def apply_line(reading: SensorReading, line: dict, now: float) -> SensorReading:
     return replace(reading, at=now, **changes) if changes else reading
 
 
+def _only(reading: SensorReading, kinds: tuple) -> SensorReading:
+    """reading without the kinds that aren't streamed any more."""
+    gone: dict = {k: None for k in _VECTORS + ("light",) if k not in kinds}
+    if "orientation" not in kinds:
+        gone.update(roll=None, pitch=None, camera="", orientation_at=0.0)
+    return replace(reading, **gone)
+
+
 class _Target:
     """The stream the hub follows: the one the panels show."""
 
@@ -380,6 +388,8 @@ class SensorHub:
             self._state, self._reason = state, reason
             if not kinds:
                 self._reading = None
+            elif self._reading is not None:
+                self._reading = _only(self._reading, kinds)
             after = (self._state, self._reason, self._streaming)
             source_id = target.source_id if target is not None else None
         if stop is not None:

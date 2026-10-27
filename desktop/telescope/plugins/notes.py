@@ -94,9 +94,7 @@ class NotesPlugin(TelescopePlugin):
     def setup(self, host, bus):
         self._host, self._bus = host, bus
         self._ctrl = None  # the shown stream's control client
-        self._sent_ctrl = None  # where the notes went, while the phone has them
-        self._sent_text = ""
-        self._sent_at = 0.0
+        self._sent: dict = {}  # control client: (text, time.monotonic() sent), for each phone that has notes up
         self._takes_notes: Optional[bool] = None  # None: not known yet
         self._shown = False
         self._closed = False  # closed on the phone (Back or its close button) since they were sent
@@ -314,7 +312,7 @@ class NotesPlugin(TelescopePlugin):
         self._play_btn.setChecked(False)  # starts at the top, waiting for Play
         self._ctrl.send(**self._style())
         self._ctrl.send(action="notes", text=text)
-        self._sent_ctrl, self._sent_text, self._sent_at = self._ctrl, text, time.monotonic()
+        self._sent[self._ctrl] = (text, time.monotonic())
         self._shown = True  # until the phone says otherwise; it opens them right away when Telescope is on screen
         self._closed = self._preview = False
         self._timer.start()
@@ -325,7 +323,8 @@ class NotesPlugin(TelescopePlugin):
         if self._ctrl is not None and self._sendable():
             self._ctrl.send(action="notes", text="")
         self._play_btn.setChecked(False)
-        self._sent_ctrl, self._sent_text, self._shown = None, "", False
+        self._sent.pop(self._ctrl, None)
+        self._shown = False
         self._closed = self._preview = False
         self._show()
 
@@ -338,7 +337,10 @@ class NotesPlugin(TelescopePlugin):
             self._ctrl.send(**self._style())
 
     def _is_sent(self) -> bool:
-        return self._ctrl is not None and self._sent_ctrl is self._ctrl
+        return self._ctrl is not None and self._ctrl in self._sent
+
+    def _sent_text(self) -> str:
+        return self._sent[self._ctrl][0] if self._is_sent() else ""
 
     def _on_lens(self, cam: dict):
         if isinstance(cam, dict) and cam.get("facing"):
@@ -360,7 +362,7 @@ class NotesPlugin(TelescopePlugin):
         sent = self._is_sent()
         status, kind = notes_status(
             streaming=self._ctrl is not None, phone=self._source == "", takes_notes=self._takes_notes,
-            too_long=too_long, sent=sent, shown=self._shown, front=self._front, edited=sent and text != self._sent_text,
+            too_long=too_long, sent=sent, shown=self._shown, front=self._front, edited=sent and text != self._sent_text(),
             closed=self._closed, preview=self._preview)
         self._status.setText(status)
         set_status_kind(self._status, kind)
@@ -374,14 +376,11 @@ class NotesPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
-        if self._sent_ctrl is not None and self._sent_ctrl is not ctrl:
-            self._sent_ctrl = None  # another phone, or a new stream: what was sent went with the old one
         self._timer.start()
         self._show()
 
     def on_stream_stop(self):
-        if self._sent_ctrl is self._ctrl:
-            self._sent_ctrl, self._sent_text = None, ""  # the phone takes the notes down when its stream ends
+        if self._sent.pop(self._ctrl, None) is not None:  # the phone takes the notes down when its stream ends
             self._play_btn.setChecked(False)
         self._ctrl = None
         self._takes_notes, self._front, self._shown = None, None, False
@@ -408,7 +407,7 @@ class NotesPlugin(TelescopePlugin):
         if ctrl is None:
             self._stop_polling()
             return
-        if self._takes_notes is not None and self._sent_ctrl is not ctrl:
+        if self._takes_notes is not None and ctrl not in self._sent:
             return  # nothing to follow until notes are sent
 
         def fetch():
@@ -431,10 +430,11 @@ class NotesPlugin(TelescopePlugin):
             self._closed = bool(state.get("notes_closed"))  # older phones leave these out
             self._preview = bool(state.get("notes_preview"))
             lost = self._takes_notes and not state.get("notes")
-            if lost and time.monotonic() - self._sent_at > _RESEND_AFTER_S:
+            text, sent_at = self._sent[self._ctrl]
+            if lost and time.monotonic() - sent_at > _RESEND_AFTER_S:
                 self._ctrl.send(**self._style())
-                self._ctrl.send(action="notes", text=self._sent_text)
-                self._sent_at = time.monotonic()
+                self._ctrl.send(action="notes", text=text)
+                self._sent[self._ctrl] = (text, time.monotonic())
         self._show()
 
     def _stop_polling(self):

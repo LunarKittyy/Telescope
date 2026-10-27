@@ -286,6 +286,7 @@ class Stills:
         heard = begun = moved = time.monotonic()
         last = None  # what the phone said last, to tell a photo that's getting on from one that's stuck
         stall_after = _STALL_S + exposure_seconds(options)
+        longest = _LONGEST_S + exposure_seconds(options)  # a batch of long exposures can take longer than that alone
         try:
             folder.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -343,7 +344,7 @@ class Stills:
                 if state == "failed":
                     return StillResult.failed(str(status.get("code") or "failed"), str(status.get("error") or ""), saved)
                 return StillResult(True, saved)
-            if time.monotonic() - begun > _LONGEST_S or time.monotonic() - moved > stall_after:
+            if time.monotonic() - begun > longest or time.monotonic() - moved > stall_after:
                 logger.warning("Photo %s got nowhere on the phone (%s), giving up on it", sid, state)
                 self._forget(ctrl, sid)
                 return StillResult.failed("timeout", "", saved)

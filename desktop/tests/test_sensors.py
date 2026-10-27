@@ -129,6 +129,22 @@ def test_readings_come_in_after_hello_and_only_for_that_stream(hub):
     assert "phone" in hub.changes
 
 
+def test_a_kind_nobody_wants_any_more_leaves_the_reading(hub):
+    auth = FakeAuth()
+    hub.follow("phone", "https://p/v1", auth, state={"sensors": ALL})
+    hub.want("level", ["orientation"])
+    hub.want("meter", ["light"])
+    assert wait_for(lambda: len(auth.live()) == 1)
+    resp = auth.live()[0][1]
+    resp.send({"version": 1, "sensors": ["orientation", "light"]})
+    resp.send({"t": 1, "orientation": {"roll": 3.5, "pitch": -1.0, "camera": "0"}, "light": 120.0})
+    assert wait_for(lambda: hub.reading() is not None and hub.reading().roll == 3.5)
+    hub.want("level", [])
+    reading = hub.reading()
+    assert reading.roll is None and reading.pitch is None and reading.orientation_at == 0.0
+    assert reading.light == 120.0
+
+
 def test_an_old_phone_is_unavailable_with_a_reason_and_never_asked(hub):
     auth = FakeAuth()
     hub.want("level", ["orientation"])

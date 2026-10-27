@@ -536,6 +536,13 @@ def test_clearing_the_address_ends_the_retries_and_the_banner(make):
     assert plugin.diagnostics()["On Air webhook"] == "not set"
 
 
+def test_an_address_half_typed_is_a_problem_not_a_crash(make):
+    assert on_air.webhook_problem("http://[")
+    plugin, host, bus = make()
+    plugin.set_webhook(url="http://[")  # an IPv6 address on its way in
+    assert not plugin.webhook_ready()
+
+
 def test_a_newer_change_replaces_the_retries(make):
     plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
     old = _state_tag(plugin)

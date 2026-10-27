@@ -239,6 +239,40 @@ def test_moving_to_another_stream_and_back_sends_nothing_again(card):
     assert plugin._clear_btn.isEnabled()
 
 
+def test_notes_on_one_phone_can_still_be_cleared_after_sending_to_another(card):
+    plugin, _host, _bus, _panel = card
+    first = _streaming(plugin)
+    plugin._editor.setPlainText("For the first")
+    plugin._send_btn.click()
+    plugin.on_focus_lost()
+    second = _Ctrl()
+    plugin.on_focus_gained("https://other/v1/video", second)
+    plugin._editor.setPlainText("For the second")
+    plugin._send_btn.click()
+    plugin.on_focus_lost()
+    plugin.on_focus_gained("https://phone/v1/video", first)
+    assert plugin._clear_btn.isEnabled() and plugin._next_btn.isEnabled()
+    plugin._next_btn.click()
+    assert first.sent[-1] == {"action": "notes_scroll", "by": 1}
+    plugin._clear_btn.click()
+    assert first.sent[-1] == {"action": "notes", "text": ""}
+    plugin.on_focus_lost()
+    plugin.on_focus_gained("https://other/v1/video", second)
+    assert plugin._clear_btn.isEnabled()  # the second still has its own
+
+
+def test_another_phone_starting_leaves_the_first_ones_notes_in_reach(card):
+    plugin, _host, _bus, _panel = card
+    first = _streaming(plugin)
+    plugin._editor.setPlainText("For the first")
+    plugin._send_btn.click()
+    _streaming(plugin)  # a second phone starts and the panels move to it
+    assert not plugin._clear_btn.isEnabled()
+    plugin.on_focus_lost()
+    plugin.on_focus_gained("https://phone/v1/video", first)
+    assert plugin._clear_btn.isEnabled()
+
+
 def test_sets_are_saved_and_picked(card):
     plugin, host, _bus, _panel = card
     plugin._editor.setPlainText("Monday standup\n- wins")

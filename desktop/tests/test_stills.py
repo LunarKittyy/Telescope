@@ -296,6 +296,13 @@ def test_a_slow_download_doesnt_count_as_the_photo_standing_still(tmp_path, phon
     assert result.ok and len(result.files) == 2
 
 
+def test_a_long_exposure_batch_gets_its_exposures_on_top_of_the_longest_wait(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_LONGEST_S", 0)  # 60 shots of 30 s outlast the usual 15 minutes
+    p = phone(polls=2)
+    result, _ = _take(Stills(), p, tmp_path, options={"format": "jpeg", "exposure_ns": 5_000_000_000})
+    assert result.ok and len(result.files) == 2
+
+
 def test_a_long_exposure_gets_its_exposure_on_top_of_the_stall_time():
     assert stills_module.exposure_seconds({"format": "jpeg"}) == 0
     assert stills_module.exposure_seconds({"exposure_ns": 30_000_000_000}) == 30
