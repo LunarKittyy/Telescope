@@ -3968,6 +3968,35 @@ def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypa
     assert window.tracked_people() == ([], 0)
 
 
+def test_stopping_a_stream_forgets_who_it_was_tracking(window):
+    import time
+    from telescope.vision import Person
+    person = Person({"nose": (0.3, 0.3, 0.99), "left_shoulder": (0.35, 0.45, 0.99),
+                     "right_shoulder": (0.25, 0.45, 0.99)})
+
+    class Worker:
+        def __init__(self):
+            self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+            self.packets = packets.Tap()
+
+        def request_stop(self):
+            pass
+
+        def wait(self, timeout):
+            return True
+
+    worker = Worker()
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=None, worker=worker)
+    sid = window._phone.id or ""
+    for _ in range(3):
+        window._on_people(worker, [person])
+    assert window._tracking.last(sid, time.monotonic())[1] == 1
+    window._flow.stop()
+    # Started again straight away, the first person seen has to be confirmed again, not inherit the old id
+    assert window._tracking.last(sid, time.monotonic()) == ([], 0)
+    assert window._tracking.update(sid, [person], time.monotonic()) == ([], 0)
+
+
 def test_a_lens_switch_starts_motion_over(window, monkeypatch):
     from telescope.motion import LENS_SETTLE_S
     resets = []

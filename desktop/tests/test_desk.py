@@ -298,6 +298,19 @@ def test_the_preview_learns_the_warp_to_map_clicks_back(desk):
     assert host.warp is None
 
 
+def test_switching_off_and_on_again_tells_the_preview_the_warp_again(desk):
+    plugin, host, _bus = desk()
+    plugin.set_config({"on": True, "corners": [list(p) for p in _full(CORNERS)], "shape": "fill"})
+    plugin.process_frame(_desk_frame())
+    assert host.warp is not None
+    plugin._switch.setChecked(False)
+    plugin.process_frame(_desk_frame())
+    assert host.warp is None
+    plugin._switch.setChecked(True)  # the same sheet, so the same warp
+    plugin.process_frame(_desk_frame())
+    assert host.warp is not None  # or clicks and picks land beside what's shown
+
+
 def test_a_sheet_pushed_off_the_picture_says_so(desk):
     plugin, _host, bus = desk()
     plugin.set_config({"on": True, "corners": [list(p) for p in _full(CORNERS)]})

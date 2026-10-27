@@ -159,7 +159,7 @@ class Warp:
     def get(self, settings: Settings, w: int, h: int) -> Optional[tuple]:
         """(matrix, (x, y, width, height)) for a w x h frame, or None while there's nothing to straighten."""
         if not settings.on or settings.corners is None:
-            self.on_preview = None
+            self._key, self.on_preview = None, None  # worked out again when it comes back on, on_preview included
             return None
         key = (settings.corners, settings.shape, settings.stretch, settings.view, w, h)
         if key != self._key:

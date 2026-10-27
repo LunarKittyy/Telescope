@@ -301,6 +301,10 @@ class OnAirPlugin(TelescopePlugin):
             self.webhook_on = on
         if off is not None:
             self.webhook_off = off
+        if not self.webhook_ready() and (self._webhook_failing or self._retry_timer.isActive()):
+            self._retry_timer.stop()  # nothing left to send to: a failure from before can't keep its banner up
+            self._retries, self._webhook_failing = 0, False
+            self._host.clear_issue(ISSUE)
         self._host.schedule_save()
 
     # ── UI ────────────────────────────────────────────────────────────────

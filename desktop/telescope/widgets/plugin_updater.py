@@ -45,6 +45,7 @@ class PluginUpdater(QObject):
         self._cache = plugin_updates.Cache()
         self._thread: Optional[threading.Thread] = None
         self.updated: dict = {}  # plugin name: the version auto-update installed this run
+        self._failed: dict = {}  # plugin name: the release tag whose download failed this run (the next start tries again)
         self._done.connect(self._on_done)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.maybe_check)
@@ -91,11 +92,11 @@ class PluginUpdater(QObject):
     def _run(self, repos: set, auto: list):
         extra = {"opener": self._opener} if self._opener else {}
         cache = plugin_updates.check(repos, plugin_updates.Cache(self._cache.path), **extra)
-        downloads, failed = {}, False
+        downloads = {}
         for name, repo, installed in auto:
             release = cache.release(repo)
             if (release is None or not plugin_updates.is_newer(release.tag, installed)
-                    or cache.auto_installed.get(name) == release.tag):
+                    or release.tag in (cache.auto_installed.get(name), self._failed.get(name))):
                 continue
             asset = release.zip_for(name)
             if asset is None:
@@ -107,10 +108,7 @@ class PluginUpdater(QObject):
             except plugin_updates.DownloadError as exc:
                 logger.info("Couldn't update %s: %s", name, exc)
                 shutil.rmtree(folder, ignore_errors=True)
-                cache.auto_installed[name] = release.tag  # not downloaded again every hour
-                failed = True
-        if failed:
-            cache.save()  # the GUI thread only writes it once this thread is done
+                self._failed[name] = release.tag  # not downloaded again every hour, but a network blip isn't for good
         try:
             self._done.emit(cache, downloads)
         except RuntimeError:  # the window went away first

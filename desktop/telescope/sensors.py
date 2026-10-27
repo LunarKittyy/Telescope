@@ -141,6 +141,14 @@ def apply_line(reading: SensorReading, line: dict, now: float) -> SensorReading:
     return replace(reading, at=now, **changes) if changes else reading
 
 
+def _only(reading: SensorReading, kinds: tuple) -> SensorReading:
+    """reading without the kinds that aren't streamed any more."""
+    gone: dict = {k: None for k in _VECTORS + ("light",) if k not in kinds}
+    if "orientation" not in kinds:
+        gone.update(roll=None, pitch=None, camera="", orientation_at=0.0)
+    return replace(reading, **gone)
+
+
 class _Target:
     """The stream the hub follows: the one the panels show."""
 
@@ -303,7 +311,7 @@ class SensorHub:
     def follow(self, source_id: Optional[str], base: Optional[str] = None, auth=None, phone: bool = True,
                state: Optional[dict] = None):
         """The panels show source_id's stream (None: no stream), reached at base (the phone's https://.../v1). state:
-        its /v1/state when one just came in."""
+        its /v1/state when one just came in ({} when it didn't answer)."""
         changed_source = None
         with self._lock:
             target = self._target
@@ -318,7 +326,7 @@ class SensorHub:
                 self._reading = None
             else:
                 target.base, target.auth, target.phone = base, auth, phone
-            if self._target is not None and state is not None:
+            if self._target is not None and state:  # {} is a /v1/state that didn't answer, not an old phone
                 offered = state.get("sensors")
                 self._target.old = not isinstance(offered, list)
                 self._target.offered = tuple(k for k in offered if k in KINDS) if isinstance(offered, list) else ()
@@ -380,6 +388,8 @@ class SensorHub:
             self._state, self._reason = state, reason
             if not kinds:
                 self._reading = None
+            elif self._reading is not None:
+                self._reading = _only(self._reading, kinds)
             after = (self._state, self._reason, self._streaming)
             source_id = target.source_id if target is not None else None
         if stop is not None:

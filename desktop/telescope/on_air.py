@@ -100,7 +100,10 @@ def webhook_problem(url: str) -> str:
     """Why url can't be used as a webhook (English, for the log and tests), or "" when it can."""
     if not url:
         return "no address"
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return "it can't be read as an address"  # "http://[" while an IPv6 address is being typed
     if parts.scheme not in ("http", "https"):
         return "it has to start with http:// or https://"
     if not parts.hostname:
