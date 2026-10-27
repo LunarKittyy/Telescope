@@ -431,6 +431,23 @@ def test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched(monkeypatc
     assert seen == [False]
 
 
+def test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture(monkeypatch):
+    closed = []
+    k32 = types.SimpleNamespace(
+        OpenEventW=lambda *_a: 7,  # an app has the camera open, so the event stays
+        WaitForSingleObject=lambda *_a: 0x102,
+        CloseHandle=lambda h: closed.append(h),
+    )
+    for fn in vars(k32).values():
+        fn.restype = fn.argtypes = None
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_a, **_k: k32, raising=False)
+    monkeypatch.setattr(vcam, "_uc_object_name", lambda kind: "UnityCapture_" + kind)
+    installed = iter([False, False, True])
+    monkeypatch.setattr(vcam, "_use_mf", lambda _slot: next(installed))
+    vcam.CameraWatch(lambda _w: None)._watch_uc(threading.Event())
+    assert closed == [7]
+
+
 @pytest.mark.skipif(not vcam.IS_LINUX, reason="v4l2loopback")
 def test_linux_watch_retries_while_the_device_is_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(vcam, "V4L2_PHONE_DEV", str(tmp_path / "video99"))
