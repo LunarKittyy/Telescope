@@ -13,7 +13,8 @@ import struct
 import sys
 from pathlib import Path
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+if sys.platform != "win32":
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # Qt's offscreen platform on Windows has no fonts at all
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2  # noqa: E402
@@ -66,6 +67,9 @@ def build() -> bytes:
     p.end()
     lens_y, lens_uv = nv12(vcam._to_rgb(image))
 
+    from PyQt6.QtGui import QFontMetrics
+    if not all(QFontMetrics(vcam.name_font(NAME_SCALE)).inFont(ch) for ch in "Telescope"):
+        raise SystemExit("No font here can draw the name: it would show as boxes")
     room, name_h = round(NAME_ROOM * NAME_SCALE), round(vcam.SCREEN_NAME_HEIGHT * NAME_SCALE)
     image, p = canvas(room, name_h, "#000000")
     vcam.paint_name(p, 0, NAME_SCALE, room, "#ffffff")

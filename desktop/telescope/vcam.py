@@ -366,16 +366,21 @@ def paint_lens(p, centre: tuple, k: float, width: int, height: int):
     p.drawEllipse(c + QPointF(26 * k, 30 * k), 5 * k, 5 * k)
 
 
-def paint_name(p, top: float, k: float, width: int, colour: str):
-    """"Telescope", centred across width with its top at top."""
-    from PyQt6.QtCore import QRectF, Qt
-    from PyQt6.QtGui import QColor, QFont
+def name_font(k: float):
+    from PyQt6.QtGui import QFont
     name = QFont()
     name.setFamilies(["Inter Display", "Inter", "Segoe UI", "sans-serif"])
     name.setPixelSize(round(SCREEN_NAME_PX * k))
     name.setWeight(QFont.Weight.Bold)
     name.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, -1.5 * k)
-    p.setFont(name)
+    return name
+
+
+def paint_name(p, top: float, k: float, width: int, colour: str):
+    """"Telescope", centred across width with its top at top."""
+    from PyQt6.QtCore import QRectF, Qt
+    from PyQt6.QtGui import QColor
+    p.setFont(name_font(k))
     p.setPen(QColor(colour))
     p.drawText(QRectF(0, top, width, SCREEN_NAME_HEIGHT * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
                "Telescope")

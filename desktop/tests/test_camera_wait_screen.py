@@ -38,7 +38,10 @@ int main(int, char** argv) {
 
 @pytest.fixture(scope="module")
 def resource(qapp):
-    return writer.build()
+    try:
+        return writer.build()
+    except SystemExit as e:  # Qt's offscreen platform on Windows, which the tests run on, has no fonts
+        pytest.skip(str(e))
 
 
 def header_fields() -> list:
