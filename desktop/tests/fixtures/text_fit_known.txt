@@ -15,6 +15,7 @@ pseudo	not translated	GET
 pseudo	not translated	POST
 pseudo	not translated	{"on_air": false}
 pseudo	not translated	{"on_air": true}
+pseudo	not translated	Phone Camera 2, Phone Camera 3, Phone Camera 4
 pseudo	out of its box	0
 pseudo	out of its box	0.00
 pseudo	out of its box	0.435

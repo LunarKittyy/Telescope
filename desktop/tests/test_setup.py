@@ -547,11 +547,12 @@ def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
     plugin._on_show()
     assert not dialog._extras_row.isHidden() and dialog._extras_btn.isEnabled()
     assert dialog._extras_lbl.text() == f"{setup_mod.vcam.slot_label(1)}, {setup_mod.vcam.slot_label(2)}"
+    assert not dialog._extras_lbl.isHidden()
 
     dialog._extras_btn.click()
     ready.clear()
     host.removals[0](True, "")
-    assert dialog._extras_lbl.text() == "Removed" and dialog._extras_btn.isHidden()
+    assert dialog._extras_lbl.text() == "Removed" and not dialog._extras_lbl.isHidden() and dialog._extras_btn.isHidden()
     dialog.close()
 
     host.streams, ready = 2, {1}

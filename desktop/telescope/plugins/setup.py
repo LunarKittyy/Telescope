@@ -714,6 +714,7 @@ class AdvancedSettings(QWidget):
             text = ", ".join(vcam.slot_label(n) for n in extras)
         set_status_kind(self._extras_lbl, kind)
         self._extras_lbl.setText(text)
+        self._extras_lbl.setVisible(bool(text))  # setting_row hides the line while it's empty
         self._extras_row.setVisible(bool(extras) or kind != "status_dim")
         self._extras_btn.setVisible(bool(extras))
         self._extras_btn.setEnabled(bool(extras) and not busy and self._on_remove_extras is not None)
@@ -725,6 +726,7 @@ class AdvancedSettings(QWidget):
     def _remove_extras(self):
         self._extras_btn.setEnabled(False)
         self._extras_lbl.setText(tr("Removing…"))
+        self._extras_lbl.setVisible(True)
         self._on_remove_extras(self._on_extras_removed)
 
     def _on_extras_removed(self, ok: bool, msg: str):
