@@ -1204,6 +1204,14 @@ class CameraSessionController(
         return StillExposure(e, s)
     }
 
+    // The shutter the stream's requests set by hand, which a photo's shot without its own exposure keeps; 0 = auto
+    fun manualShutterNs(): Long {
+        val cam = currentCamera ?: return 0L
+        val shutter = currentShutterNs ?: return 0L
+        if (currentIso == null || !cam.supportsManualSensor) return 0L
+        return CameraRequestSelection.clamp(shutter, cam.shutterMinNs, cam.shutterMaxNs)
+    }
+
     // A request with the stream's settings (lens, zoom, exposure, white balance, focus, torch)
     fun stillRequest(device: CameraDevice, template: Int): CaptureRequest.Builder =
         device.createCaptureRequest(template).also { applyControls(it, cameraFps()) }

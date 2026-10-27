@@ -1209,7 +1209,7 @@ class CameraStreamService : Service() {
         val cam = ctrl.snapshot().currentCamera ?: return refuse("camera_off", "The camera isn't running")
         val caps = stillCaps[cam.id] ?: return if (cam.id in stillCapsRead) refuse("unsupported", "This lens can't take photos")
             else refuse("not_ready", "The phone is still finding out what this lens can do")
-        val request = when (val parsed = StillOptions.parse(params, caps, ctrl.streamExposure())) {
+        val request = when (val parsed = StillOptions.parse(params, caps, ctrl.streamExposure(), ctrl.manualShutterNs())) {
             is StillOptions.Parsed.Refused -> return refuse(parsed.code, parsed.text)
             is StillOptions.Parsed.Ok -> parsed.request
         }
