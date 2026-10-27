@@ -111,20 +111,9 @@ body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 .star p { margin-top: 6px; color: var(--ink-muted); font-size: 0.95rem; }
 .aside-line { margin-top: 44px; max-width: 40em; color: var(--ink-muted); }
 
-/* the real apps: the desktop window, with the phone over its bottom right corner */
+/* the lens switch on the real Camera card */
+.clip.lens-clip { width: 86%; margin: 48px 0 0 auto; }
 .showcase-head { max-width: 40em; margin-left: auto; margin-right: clamp(0px, 8vw, 120px); }
-.shots { position: relative; margin: 48px 0 0; padding: 0 0 4% 0; }
-.shot { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
-.shot img { -webkit-user-drag: none; user-select: none; display: block; width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: inherit; }
-.shot:focus-visible { outline: 2px solid var(--lavender); outline-offset: 4px; }
-.shots .lens-clip { width: 80%; }
-.shot-desktop { border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
-.shots .shot-phone { position: absolute; right: 1%; bottom: 0; width: 16.5%; border-radius: 16px; }
-.shot-phone img { border-color: rgba(255, 255, 255, 0.18); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
-/* a clicked screenshot floats from its spot to the middle of the screen */
-.zoom-veil { position: fixed; inset: 0; z-index: 20; background: rgba(9, 11, 14, 0.8); opacity: 0; pointer-events: none; transition: opacity 300ms ease-out; cursor: zoom-out; }
-.zoom-veil.on { opacity: 1; pointer-events: auto; }
-.zoomed { -webkit-user-drag: none; user-select: none; position: fixed; z-index: 21; margin: 0; transform-origin: 0 0; transition: transform 380ms cubic-bezier(.2, .7, .2, 1); border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65); cursor: zoom-out; }
 
 /* setup: the clip with its three steps under it like chapters on a player */
 .clip { margin: 0; position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: var(--night-raised); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
@@ -210,9 +199,7 @@ body.static .band, body.static .quiet, body.static .landing { min-height: 0; }
   .star::before { top: 5px; }
   .star:not(:last-child)::after { top: 29px; bottom: 7px; left: 5.5px; right: auto; width: 1px; height: auto; }
   .showcase-head { margin: 0; }
-  .shots { padding: 0 0 22% 0; }
-  .shots .lens-clip { width: 100%; }
-  .shots .shot-phone { width: 28%; right: 4%; }
+  .clip.lens-clip { width: 100%; }
   .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; margin-top: 8px; }
   .steps li { padding: 0 0 0 20px; }
   .steps li::before { top: 4px; bottom: 4px; left: 0; right: auto; width: 2px; height: auto; }
@@ -236,7 +223,6 @@ body.static .band, body.static .quiet, body.static .landing { min-height: 0; }
   .tile, .tile.big, .tile.half { grid-column: span 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .zoomed, .zoom-veil { transition: none; }
   .scroll-hint svg { animation: none; }
 }
 

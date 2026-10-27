@@ -142,44 +142,4 @@
     video.addEventListener("seeked", mark);
     mark();
   }
-
-  // Screenshots: a click floats one to the middle of the screen, and any click, Esc or scroll puts it back
-  const veil = document.createElement("div");
-  veil.className = "zoom-veil";
-  document.body.append(veil);
-  let zoom = null;
-  const placeOver = (el, r, box) => { el.style.transform = `translate(${r.left - box.left}px, ${r.top - box.top}px) scale(${r.width / box.width})`; };
-  const closeZoom = () => {
-    if (!zoom) return;
-    const { clone, img, btn, box } = zoom;
-    zoom = null;
-    placeOver(clone, img.getBoundingClientRect(), box);
-    veil.classList.remove("on");
-    const done = () => { clone.remove(); img.style.visibility = ""; };
-    clone.addEventListener("transitionend", done, { once: true });
-    setTimeout(done, 450);
-    btn.focus({ preventScroll: true });
-  };
-  for (const btn of $$(".shot")) btn.addEventListener("click", () => {
-    const img = $("img", btn), r = img.getBoundingClientRect();
-    const ratio = img.naturalWidth / img.naturalHeight || r.width / r.height;
-    const w = Math.min(innerWidth * 0.92, innerHeight * 0.88 * ratio), h = w / ratio;
-    const box = { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2, width: w };
-    const clone = img.cloneNode();
-    clone.className = "zoomed";
-    clone.removeAttribute("width"); clone.removeAttribute("height");
-    Object.assign(clone.style, { left: box.left + "px", top: box.top + "px", width: w + "px", height: h + "px", borderRadius: getComputedStyle(btn).borderRadius });
-    placeOver(clone, r, box);
-    document.body.append(clone);
-    img.style.visibility = "hidden";
-    clone.getBoundingClientRect();
-    clone.style.transform = "none";
-    veil.classList.add("on");
-    clone.addEventListener("click", closeZoom);
-    zoom = { clone, img, btn, box, y: scrollY };
-  });
-  veil.addEventListener("click", closeZoom);
-  addEventListener("keydown", e => { if (e.key === "Escape") closeZoom(); });
-  addEventListener("scroll", () => { if (zoom && Math.abs(scrollY - zoom.y) > 40) closeZoom(); }, { passive: true });
-  addEventListener("resize", closeZoom);
 })();
