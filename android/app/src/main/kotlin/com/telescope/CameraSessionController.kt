@@ -1238,7 +1238,8 @@ class CameraSessionController(
     fun stillBusy(busy: Boolean) {
         if (busy) { photoHold.start(); return }
         val held = photoHold.end()
-        if (held.isNotEmpty()) post { if (!photoHold.busy) held.forEach { it() } }
+        // A photo that began before this runs holds each change again, rather than dropping it
+        if (held.isNotEmpty()) post { held.forEach { it() } }
     }
 
     // Closes the stream's session so StillCapture can run its own; false when there's no camera to do it on
