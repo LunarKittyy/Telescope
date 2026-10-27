@@ -747,6 +747,7 @@ def main():
             results.append(("FAIL", fn.__name__, f"{type(e).__name__}: {e}"))
         print(f"{results[-1][0]:<5} {fn.__name__:<26} {results[-1][2]}", flush=True)
     adb("forward", "--remove", f"tcp:{FORWARD_PORT}")
+    app_stop()  # a copy left running holds the single-instance lock and the next run would talk to it
     failed = sum(r[0] == "FAIL" for r in results)
     print(f"\n{len(results) - failed} of {len(results)} passed or skipped, {failed} failed")
     return 1 if failed else 0
