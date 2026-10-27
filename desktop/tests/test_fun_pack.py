@@ -317,6 +317,21 @@ def test_the_empty_room_and_a_clone_are_taken_from_the_next_frame(card, qapp):
     assert plugin._look.clones is None
 
 
+@pytest.mark.parametrize("ticks", [1, 3])  # mid countdown, and counted down with the frame not taken yet
+def test_switching_camera_calls_off_taking_the_empty_room(card, qapp, ticks):
+    plugin, _host, bus, _panel = card()
+    _pick(plugin, "cloak")
+    plugin._start_countdown("plate")
+    for _ in range(ticks):
+        plugin._tick()
+    bus.device_changed.emit("other")  # the panels show another camera now, with its own settings
+    for _ in range(3 - ticks):  # the rest of the countdown
+        plugin._tick()
+    plugin.process_frame(_room())
+    qapp.processEvents()
+    assert plugin._look.plate is None and plugin._plate_btn.text() == "Take the empty room"
+
+
 def test_a_clone_without_the_empty_room_or_vision_says_what_to_do(card, qapp):
     plugin, host, _bus, _panel = card()
     _pick(plugin, "clones")
