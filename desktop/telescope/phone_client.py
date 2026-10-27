@@ -153,6 +153,11 @@ class PhoneControlClient:
         for params in settings:
             self.send(**params)
 
+    @property
+    def closed(self) -> bool:
+        """Whether close() was called: its stream is over."""
+        return self._closed
+
     def close(self):
         """Stop accepting requests and cancel queued ones (device switch cleanup)."""
         if self._closed:

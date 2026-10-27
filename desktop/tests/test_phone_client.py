@@ -131,7 +131,9 @@ def test_requests_carry_bearer_token(recording_server, make_client):
 
 def test_close_stops_accepting_new_requests(recording_server, make_client):
     client = make_client()
+    assert not client.closed
     client.close()
+    assert client.closed
     client._thread.join(5)
     assert not client._thread.is_alive()
     client.send(action="iso", value=1)
