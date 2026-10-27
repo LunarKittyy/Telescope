@@ -64,7 +64,7 @@ def test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older():
     frames = Frames()
     frames.set_streams([("a", "A", worker)])
     seen = frames.frame("a")
-    assert seen.age(seen.time + 5) == 5
+    assert seen.age(seen.time + 5) == pytest.approx(5)  # (t + 5) - t isn't exactly 5 for every t
     assert frames.frame("a").number == seen.number  # nothing new came
 
 
