@@ -77,18 +77,16 @@ import socket
 import sys
 from PyQt6.QtWidgets import QApplication
 import main
-QApplication.exec = lambda self: 0
+# Checked where the app would start its loop: letting main() return drops its window under live threads (a crash on Windows)
+def window_up(self):
+    print('loaded', [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if name in sys.modules], flush=True)
+    os._exit(0)
+QApplication.exec = window_up
 main.acquire_single_instance = lambda **kwargs: socket.socket()
 main.listen_for_raise = lambda *args, **kwargs: None
 sys.argv = ['main.py']
-try:
-    main.main()
-except SystemExit:
-    pass
-print('loaded', [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if name in sys.modules], flush=True)
-os._exit(0)  # the window is still up, and tearing Qt down at exit isn't what's under test
-""", exit_code=False)
-    # Judged by what it printed: on Windows, exiting under a live window and its threads can crash after that
+main.main()
+""")
     assert "loaded []" in result.stdout, result.stdout + result.stderr
 
 
