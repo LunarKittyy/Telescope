@@ -1204,6 +1204,14 @@ class CameraSessionController(
         return StillExposure(e, s)
     }
 
+    // The shutter the stream's requests set by hand, which a photo's shot without its own exposure keeps; 0 = auto
+    fun manualShutterNs(): Long {
+        val cam = currentCamera ?: return 0L
+        val shutter = currentShutterNs ?: return 0L
+        if (currentIso == null || !cam.supportsManualSensor) return 0L
+        return CameraRequestSelection.clamp(shutter, cam.shutterMinNs, cam.shutterMaxNs)
+    }
+
     // A request with the stream's settings (lens, zoom, exposure, white balance, focus, torch)
     fun stillRequest(device: CameraDevice, template: Int): CaptureRequest.Builder =
         device.createCaptureRequest(template).also { applyControls(it, cameraFps()) }
@@ -1238,7 +1246,8 @@ class CameraSessionController(
     fun stillBusy(busy: Boolean) {
         if (busy) { photoHold.start(); return }
         val held = photoHold.end()
-        if (held.isNotEmpty()) post { if (!photoHold.busy) held.forEach { it() } }
+        // A photo that began before this runs holds each change again, rather than dropping it
+        if (held.isNotEmpty()) post { held.forEach { it() } }
     }
 
     // Closes the stream's session so StillCapture can run its own; false when there's no camera to do it on

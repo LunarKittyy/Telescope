@@ -81,4 +81,20 @@ class StillRebuildTest {
         hold.end().forEach { it() }
         assertEquals(1, rebuilds)
     }
+
+    @Test
+    fun `changes let go of as the next photo starts wait for that one`() {
+        // The controller runs what the first photo held a moment later: a second photo may have begun meanwhile
+        val hold = PhotoHold<() -> Unit>()
+        var applied = 0
+        fun change() { if (!hold.hold("thermal") { change() }) applied++ }
+        hold.start()
+        change()
+        val released = hold.end()
+        hold.start()
+        released.forEach { it() }
+        assertEquals(0, applied)
+        hold.end().forEach { it() }
+        assertEquals(1, applied)
+    }
 }

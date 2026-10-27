@@ -159,6 +159,7 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         NotesBoard.setShown(false)
         NotesBoard.removeListener(this)
         getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(displays)
+        jump?.cancel()
         stopTicking()
         super.onStop()
     }
@@ -238,7 +239,10 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         Choreographer.getInstance().removeFrameCallback(tick)
     }
 
-    private fun resumeTicking() { if (state.scrolls) startTicking() }
+    // Not once stopped: a jump ending or a late layout would scroll a screen nobody sees
+    private fun resumeTicking() {
+        if (state.scrolls && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) startTicking()
+    }
 
     private fun drag(e: MotionEvent): Boolean {
         when (e.actionMasked) {

@@ -231,6 +231,21 @@ class StillOptionsTest {
     }
 
     @Test
+    fun `shots that keep the video's own long shutter get its time`() {
+        val params = mapOf("format" to "jpeg", "count" to "2")
+        val parsed = StillOptions.parse(params, full, base, videoShutterNs = 10_000_000_000L)
+        val req = (parsed as StillOptions.Parsed.Ok).request
+        assertEquals(10_000L, req.longestExposureMs)
+        assertFalse(StillTiming.stalled(StillTiming.STALL_MS + 10_000L, 0L, req))
+        assertEquals(StillTiming.SETUP_MS + 20_000L + 2 * StillTiming.SHOT_MS, StillTiming.limitMs(req))
+        // The video keeps its frames: they're its own exposure
+        assertFalse(req.pausesVideo)
+        // Their own exposure wins over the video's
+        val own = (StillOptions.parse(params + ("exposure_ns" to "1000000000"), full, base, 10_000_000_000L) as StillOptions.Parsed.Ok).request
+        assertEquals(1_000L, own.longestExposureMs)
+    }
+
+    @Test
     fun `the best quality modes can be dropped for a second go, which the backstop leaves room for`() {
         val best = ok(mapOf("format" to "heic", "nr_hq" to "1", "edge_hq" to "1", "hot_pixel_hq" to "1"))
         assertTrue(best.hq)

@@ -60,17 +60,18 @@ data class StillRequest(
     val edgeHq: Boolean,
     val hotPixelHq: Boolean,
     val distortion: Boolean?,   // null = what the camera does anyway
+    val videoExposureNs: Long = 0L,  // the video's shutter set by hand, which shots without their own take; 0 = auto
 ) {
     // The lens's own session can't hold these next to the stream: the video pauses while it shoots.
     val ownSession: Boolean get() = extension != null
     // Each picture's file count: RAW and a processed one come from the same exposure
     val filesPerShot: Int get() = (if (raw) 1 else 0) + (if (format != null) 1 else 0)
     // How long the sensor is busy, for the job's time limit
-    val exposureMs: Long get() = shots.sumOf { (it.exposureNs ?: 0L) / 1_000_000L }
+    val exposureMs: Long get() = shots.sumOf { (it.exposureNs ?: videoExposureNs) / 1_000_000L }
     // Shot next to the stream, manual exposures leave the video out, so long ones freeze it noticeably: reported as paused
-    val pausesVideo: Boolean get() = ownSession || exposureMs >= StillOptions.PAUSE_MS
+    val pausesVideo: Boolean get() = ownSession || shots.sumOf { (it.exposureNs ?: 0L) / 1_000_000L } >= StillOptions.PAUSE_MS
     // The longest single picture's exposure, which it may take on top of the usual time
-    val longestExposureMs: Long get() = shots.maxOfOrNull { (it.exposureNs ?: 0L) / 1_000_000L } ?: 0L
+    val longestExposureMs: Long get() = shots.maxOfOrNull { (it.exposureNs ?: videoExposureNs) / 1_000_000L } ?: 0L
     // Any best quality mode, which some phones stall on with a HEIC output
     val hq: Boolean get() = nrHq || edgeHq || hotPixelHq
     fun withoutHq(): StillRequest = copy(nrHq = false, edgeHq = false, hotPixelHq = false)
@@ -118,7 +119,8 @@ object StillOptions {
 
     private fun refuse(code: String, text: String) = Parsed.Refused(code, text)
 
-    fun parse(params: Map<String, String>, caps: StillCaps, base: StillExposure?): Parsed {
+    // videoShutterNs: the video's shutter when it's set by hand (0 = auto), which shots without their own exposure keep
+    fun parse(params: Map<String, String>, caps: StillCaps, base: StillExposure?, videoShutterNs: Long = 0L): Parsed {
         val format = params["format"]?.takeIf { it.isNotEmpty() && it != "none" }
         val raw = params["raw"] == "1"
         if (format == null && !raw) return refuse("bad_option", "Ask for a format or RAW")
@@ -192,6 +194,7 @@ object StillOptions {
             timerMs = timer * 1000L, rotation = rotation,
             nrHq = params["nr_hq"] == "1" && caps.nrHq, edgeHq = params["edge_hq"] == "1" && caps.edgeHq,
             hotPixelHq = params["hot_pixel_hq"] == "1" && caps.hotPixelHq, distortion = distortion,
+            videoExposureNs = videoShutterNs.coerceAtLeast(0L),
         ))
     }
 
