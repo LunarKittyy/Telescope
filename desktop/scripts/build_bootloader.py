@@ -62,7 +62,8 @@ telescope_lib_folder_missing(const char *executable)
     wcscpy(slash + 1, TELESCOPE_LIB_PATTERN);
     search = FindFirstFileExW(pattern, FindExInfoBasic, &found, FindExSearchLimitToDirectories, NULL, 0);
     if (search == INVALID_HANDLE_VALUE) {
-        return 1;
+        /* Only a search that found nothing: anything else (a path too long, no right to list) lets it start as before */
+        return GetLastError() == ERROR_FILE_NOT_FOUND;
     }
     do {
         if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
