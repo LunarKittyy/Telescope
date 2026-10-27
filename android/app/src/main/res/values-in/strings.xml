@@ -118,6 +118,7 @@
     <string name="preview_stream_starting">Stream sedang dimulai. Coba lagi sebentar.</string>
     <string name="preview_no_cameras">Tidak ada kamera yang ditemukan.</string>
     <string name="preview_may_stretch">Pratinjau mungkin terlihat meregang - tidak dapat membaca info kamera.</string>
+    <string name="notes_close">Tutup catatan</string>
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Ditampilkan saat kamera sedang streaming ke komputer Anda</string>
     <string name="notif_channel_waiting">Menunggu komputer</string>

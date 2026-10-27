@@ -119,6 +119,7 @@
     <string name="preview_stream_starting">Strömmen startar. Försök igen om ett ögonblick.</string>
     <string name="preview_no_cameras">Inga kameror hittades.</string>
     <string name="preview_may_stretch">Förhandsvisningen kan se utdragen ut - kunde inte läsa kamerainformationen.</string>
+    <string name="notes_close">Stäng anteckningarna</string>
     <string name="notif_channel_streaming">Strömning</string>
     <string name="notif_channel_streaming_desc">Visas medan kameran strömmar till din dator</string>
     <string name="notif_channel_waiting">Väntar på datorn</string>
