@@ -994,10 +994,10 @@ def preview_pick_corners(stack):
 
 # ── Cinema tools ─────────────────────────────────────────────────────────────
 
-@scene("cinema-tools", "main", "Cinema tools · focus peaking and a waveform", width=CARD_WIDTH)
+@scene("cinema-tools", "main", "Cinema tools · focus peaking, thirds and a waveform", width=CARD_WIDTH)
 def cinema_tools(stack):
     win, _source = streaming_window(stack)
-    plugin_of(win, "cinema").set_config({"peaking": True, "scope": "waveform"})
+    plugin_of(win, "cinema").set_config({"peaking": True, "guides": "thirds", "scope": "waveform"})
     return cards(stack, win, "cinema")
 
 

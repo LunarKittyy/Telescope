@@ -1,5 +1,5 @@
-"""Cinema tools: false colour, zebras and focus peaking on the preview's copy, the level guide, and the card that
-switches them."""
+"""Cinema tools: false colour, zebras and focus peaking on the preview's copy, the framing guides, the level guide, and
+the card that switches them."""
 
 import cv2
 import numpy as np
@@ -8,7 +8,7 @@ import pytest
 from telescope.overlays import PreviewOverlays
 from telescope.plugin import EventBus
 from telescope.plugins.cinema import (
-    FALSE_COLOURS, CinemaLayer, CinemaPlugin, Level, LevelFilter, Look, false_colour, level_line, paint_level,
+    FALSE_COLOURS, GUIDE_LINES, GUIDES, CinemaLayer, CinemaPlugin, Level, LevelFilter, Look, false_colour, level_line, paint_level,
     peaking_mask, shown_roll, zebra_mask,
 )
 from telescope.sensors import SensorReading, SensorStatus
@@ -155,13 +155,17 @@ def test_settings_round_trip_and_bad_values_fall_back(cinema):
     plugin.set_config({"peaking": True, "scope": "vectorscope", "peaking_colour": "blue", "peaking_level": 9,
                        "zebra_level": 80, "scope_size": "large"})
     assert plugin.get_config() == {"peaking": True, "zebras": False, "false_colour": False, "level": False,
-                                   "scope": "vectorscope",
+                                   "scope": "vectorscope", "guides": "off",
                                    "peaking_colour": "blue", "peaking_level": 9, "zebra_level": 80,
                                    "scope_size": "large"}
     assert plugin._scope_combo.currentData() == "vectorscope" and plugin._colour_btns["blue"].isChecked()
     plugin.set_config({"scope": "oscilloscope", "peaking_colour": "plaid", "zebra_level": 3, "peaking_level": "x"})
     cfg = plugin.get_config()
     assert (cfg["scope"], cfg["peaking_colour"], cfg["zebra_level"], cfg["peaking_level"]) == ("off", "red", 70, 5)
+    plugin.set_config({"guides": "golden"})
+    assert plugin.get_config()["guides"] == "golden" and plugin._guides_combo.currentData() == "golden"
+    plugin.set_config({"guides": "spiral"})
+    assert plugin.get_config()["guides"] == "off"
 
 
 def test_the_settings_window_changes_what_the_layer_draws(cinema):
@@ -179,8 +183,45 @@ def test_the_settings_window_changes_what_the_layer_draws(cinema):
 def test_diagnostics_say_what_is_on(cinema):
     plugin, _host = cinema
     assert plugin.diagnostics() == {"Cinema tools": "nothing on"}
-    plugin.set_config({"zebras": True, "scope": "parade"})
-    assert plugin.diagnostics() == {"Cinema tools": "zebras, parade"}
+    plugin.set_config({"zebras": True, "scope": "parade", "guides": "thirds"})
+    assert plugin.diagnostics() == {"Cinema tools": "zebras, parade, thirds guides"}
+
+
+# ── Framing guides ───────────────────────────────────────────────────────────
+
+def test_every_guide_in_the_list_has_lines():
+    assert {key for key, _text in GUIDES} == {"off", *GUIDE_LINES}
+
+
+def test_guides_alone_put_the_layer_on_and_leave_the_picture_alone(cinema):
+    plugin, host = cinema
+    plugin._guides_combo.setCurrentIndex(plugin._guides_combo.findData("thirds"))
+    assert host.overlays.layers() == [plugin._layer] and plugin._layer.look.guides == "thirds"
+    frame = np.random.default_rng(1).integers(0, 255, (360, 640, 3), np.uint8)
+    assert plugin._layer.tint(frame) is frame
+    plugin._guides_combo.setCurrentIndex(plugin._guides_combo.findData("off"))
+    assert host.overlays.layers() == []
+
+
+@pytest.mark.parametrize("guides, shares", [("thirds", (1 / 3, 2 / 3)), ("cross", (0.5,)),
+                                            ("golden", (0.382, 0.618))])
+def test_the_guides_draw_where_they_should(qt_widgets, guides, shares):
+    from PyQt6.QtCore import QRectF
+    from PyQt6.QtGui import QImage, QPainter
+    w, h = 600, 300
+    image = QImage(w, h, QImage.Format.Format_RGB32)
+    image.fill(0)
+    layer = CinemaLayer()
+    layer.look = Look(guides=guides)
+    p = QPainter(image)
+    layer.paint(p, QRectF(0, 0, w, h))
+    p.end()
+    row = [image.pixelColor(x, h // 7).red() for x in range(w)]
+    lit = [x for x, v in enumerate(row) if v > 100]
+    assert len(lit) == len(shares)
+    for x, share in zip(lit, shares):
+        assert abs(x - w * share) <= 1.5
+    assert image.pixelColor(w // 7, h // 7).red() == 0
 
 
 # ── Level guide ──────────────────────────────────────────────────────────────

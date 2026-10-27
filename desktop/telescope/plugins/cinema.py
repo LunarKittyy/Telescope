@@ -1,4 +1,4 @@
-"""Cinema tools: focus peaking, zebras, false colour, scopes and a level guide, drawn on the preview only
+"""Cinema tools: focus peaking, zebras, false colour, scopes, framing guides and a level guide, drawn on the preview only
 (telescope.overlays)."""
 import math
 import time
@@ -28,6 +28,13 @@ SCOPES = (("off", N_("Off")), ("histogram", N_("Histogram")), ("waveform", N_("W
           ("parade", N_("RGB parade")), ("vectorscope", N_("Vectorscope")))
 PEAKING_COLOURS = (("red", N_("Red"), (40, 40, 255)), ("green", N_("Green"), (60, 255, 60)),
                    ("blue", N_("Blue"), (255, 120, 40)), ("white", N_("White"), (255, 255, 255)))
+# Translators: framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
+GUIDES = (("off", N_("Off")), ("thirds", N_("Thirds")), ("cross", N_("Centre cross")), ("4x4", N_("4 × 4")),
+          ("golden", N_("Golden ratio")))
+_PHI = (1 + math.sqrt(5)) / 2
+# Where each guide's lines go across the width and down the height, as shares of the picture
+GUIDE_LINES = {"thirds": (1 / 3, 2 / 3), "cross": (0.5,), "4x4": (0.25, 0.5, 0.75),
+               "golden": (1 - 1 / _PHI, 1 / _PHI)}
 SIZES = (("small", N_("Small"), 0.26), ("medium", N_("Medium"), 0.36), ("large", N_("Large"), 0.5))
 _SCOPE_FPS = 12  # scopes are worked out this often, off the stream thread
 _ZEBRA_PERIOD = 8  # px, one black and one clear stripe
@@ -196,9 +203,11 @@ class Look:
     zebra_level: int = 95
     scope_size: str = "medium"
     level: bool = False
+    guides: str = "off"
 
     def any(self) -> bool:
-        return self.peaking or self.zebras or self.false_colour or self.scope != "off" or self.level
+        return self.peaking or self.zebras or self.false_colour or self.scope != "off" or self.level or \
+            self.guides != "off"
 
 
 class CinemaLayer(PreviewLayer):
@@ -219,6 +228,8 @@ class CinemaLayer(PreviewLayer):
 
     def tint(self, frame: np.ndarray) -> np.ndarray:
         look = self.look
+        if not (look.zebras or look.peaking or look.false_colour):
+            return frame  # only lines drawn over it in paint(): no need to judge the picture
         h, w = frame.shape[:2]
         # Judged on a copy at most _WORK_WIDTH wide, so a full screen pop-out costs about what the card does
         small = scopes.shrink(frame, _WORK_WIDTH)
@@ -264,6 +275,8 @@ class CinemaLayer(PreviewLayer):
     def paint(self, p: QPainter, rect: QRectF):
         look = self.look
         self.painted_at = time.monotonic()
+        if look.guides in GUIDE_LINES:
+            paint_guides(p, rect, GUIDE_LINES[look.guides])
         if look.false_colour:
             self._paint_legend(p, rect)
         level = self.level
@@ -309,6 +322,22 @@ class CinemaLayer(PreviewLayer):
 
 _LEVEL_GREEN = QColor(90, 225, 120)
 _LEVEL_WHITE = QColor(255, 255, 255, 225)
+
+
+def paint_guides(p: QPainter, rect: QRectF, shares: tuple):
+    """Lines across and down the picture at shares of it, white with a faint dark edge so they show on any picture."""
+    lines = []
+    for share in shares:
+        x = round(rect.x() + rect.width() * share) + 0.5
+        y = round(rect.y() + rect.height() * share) + 0.5
+        lines += [(QPointF(x, rect.top()), QPointF(x, rect.bottom())), (QPointF(rect.left(), y), QPointF(rect.right(), y))]
+    p.save()
+    p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+    for colour, width in ((QColor(0, 0, 0, 70), 3.0), (QColor(255, 255, 255, 150), 1.0)):
+        p.setPen(QPen(colour, width))
+        for a, b in lines:
+            p.drawLine(a, b)
+    p.restore()
 
 
 def level_line(rect: QRectF, roll: float) -> tuple:
@@ -363,8 +392,8 @@ def paint_level(p: QPainter, rect: QRectF, level: Level):
 class CinemaPlugin(TelescopePlugin):
     name = "cinema"
     title = N_("Cinema tools")
-    about = N_("Focus peaking, zebras, false colour, scopes and a level on the preview, for judging focus, exposure "
-               "and a straight horizon.")
+    about = N_("Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging "
+               "focus, exposure, framing and a straight horizon.")
     category = "preview"
     icon = "focus"
     when_off = N_("Without it there's no Cinema tools card and the preview shows just the picture.")
@@ -406,6 +435,15 @@ class CinemaPlugin(TelescopePlugin):
         self._level_note = wrapped_note("")
         self._level_note.hide()
         lay.addWidget(self._level_note)
+        self._guides_combo = NoScrollComboBox()
+        self._guides_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._guides_combo.setMinimumContentsLength(8)
+        self._guides_combo.setToolTip(tr("Lines to help frame the shot"))
+        for key, text in GUIDES:
+            self._guides_combo.addItem(tr(text), key)
+            self._guides_combo.setItemData(self._guides_combo.count() - 1, text, SHORTCUT_VALUE_ROLE)
+        self._guides_combo.currentIndexChanged.connect(self._changed)
+        lay.addLayout(_row(tr("Guides"), self._guides_combo, stretch=True))
         self._scope_combo = NoScrollComboBox()
         self._scope_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self._scope_combo.setMinimumContentsLength(8)  # a long name can't widen the card; the list opens wide enough
@@ -425,7 +463,7 @@ class CinemaPlugin(TelescopePlugin):
         lay = card_layout(card)
         add_card_header(lay, tr("Cinema tools"), self.icon, hue=self.category)
         keywords(card, tr("focus peaking zebras false colour color scopes waveform parade vectorscope histogram "
-                          "exposure monitor", ctx="search"))
+                          "exposure monitor grid guides rule of thirds golden ratio composition framing", ctx="search"))
         outer.addWidget(card)
 
         self._colour_btns = {}
@@ -471,6 +509,7 @@ class CinemaPlugin(TelescopePlugin):
             button_action("cinema.zebras", tr("Zebras"), g, self._zebras_switch),
             button_action("cinema.false_colour", tr("False colour"), g, self._false_switch),
             button_action("cinema.level", tr("Level"), g, self._level_switch),
+            choice_action("cinema.guides", tr("Guides"), g, combo=self._guides_combo),
             choice_action("cinema.scope", tr("Scope"), g, combo=self._scope_combo),
         ]
 
@@ -482,7 +521,8 @@ class CinemaPlugin(TelescopePlugin):
     def _changed(self, *_):
         look = replace(self._layer.look, peaking=self._peaking_switch.isChecked(),
                        zebras=self._zebras_switch.isChecked(), false_colour=self._false_switch.isChecked(),
-                       scope=self._scope_combo.currentData() or "off", level=self._level_switch.isChecked())
+                       scope=self._scope_combo.currentData() or "off", level=self._level_switch.isChecked(),
+                       guides=self._guides_combo.currentData() or "off")
         if self._settings_built():
             look = replace(look, peaking_colour=self._checked(self._colour_btns, look.peaking_colour),
                            peaking_level=self._peaking_slider.value(), zebra_level=self._zebra_slider.value(),
@@ -582,14 +622,15 @@ class CinemaPlugin(TelescopePlugin):
     def get_config(self) -> dict:
         look = self._layer.look
         return {"peaking": look.peaking, "zebras": look.zebras, "false_colour": look.false_colour,
-                "level": look.level, "scope": look.scope, "peaking_colour": look.peaking_colour, "peaking_level": look.peaking_level,
-                "zebra_level": look.zebra_level, "scope_size": look.scope_size}
+                "level": look.level, "scope": look.scope, "guides": look.guides, "peaking_colour": look.peaking_colour,
+                "peaking_level": look.peaking_level, "zebra_level": look.zebra_level, "scope_size": look.scope_size}
 
     def set_config(self, cfg: dict):
         look = Look(
             peaking=cfg.get("peaking") is True, zebras=cfg.get("zebras") is True,
             false_colour=cfg.get("false_colour") is True, level=cfg.get("level") is True,
             scope=cfg.get("scope") if cfg.get("scope") in dict(SCOPES) else "off",
+            guides=cfg.get("guides") if cfg.get("guides") in dict(GUIDES) else "off",
             peaking_colour=cfg.get("peaking_colour") if cfg.get("peaking_colour") in
             {key for key, *_ in PEAKING_COLOURS} else "red",
             peaking_level=clamped_int(cfg.get("peaking_level"), 5, 1, 10),
@@ -601,9 +642,10 @@ class CinemaPlugin(TelescopePlugin):
             switch.blockSignals(True)
             switch.setChecked(on)
             switch.blockSignals(False)
-        self._scope_combo.blockSignals(True)
-        self._scope_combo.setCurrentIndex(max(0, self._scope_combo.findData(look.scope)))
-        self._scope_combo.blockSignals(False)
+        for combo, key in ((self._scope_combo, look.scope), (self._guides_combo, look.guides)):
+            combo.blockSignals(True)
+            combo.setCurrentIndex(max(0, combo.findData(key)))
+            combo.blockSignals(False)
         self._set_look(look)
         self._show_settings()
 
@@ -611,7 +653,8 @@ class CinemaPlugin(TelescopePlugin):
         look = self._layer.look
         on = [name for name, used in (("peaking", look.peaking), ("zebras", look.zebras),
                                       ("false colour", look.false_colour), (look.scope, look.scope != "off"),
-                                      ("level", look.level)) if used]
+                                      ("level", look.level), (f"{look.guides} guides", look.guides != "off"))
+              if used]
         return {"Cinema tools": ", ".join(on) or "nothing on"}
 
     def shutdown(self):

@@ -29,6 +29,7 @@ def fake_worker_class():
         reconnected = pyqtSignal()
         vcam_opened = pyqtSignal(int, int)
         last_arrival_fps = 0.0
+        camera_size = None
 
         def __init__(self, *args, **kwargs):
             from telescope import packets
