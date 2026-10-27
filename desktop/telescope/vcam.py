@@ -289,11 +289,36 @@ def _fit_image(img, width: int, height: int) -> np.ndarray:
     return _to_rgb(canvas)
 
 
-def _default_screen(width: int, height: int) -> np.ndarray:
-    """The lens from the project banner, centred (calls crop tiles to squares and circles), with the name under it."""
-    from PyQt6.QtCore import QPointF, QRectF, Qt
-    from PyQt6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPen, QRadialGradient
-    from telescope.theme import ACCENT, ACCENT_SOFT, BG, SURFACE, SURFACE_SUNK, TEXT, TEXT_DIM
+# The default screen in the project banner's units, which the Windows 11 camera's DLL lays out by too (wait_screen.cpp)
+SCREEN_WIDTH = 500       # the ticks' span, at most SCREEN_WIDTH_SHARE of the width
+SCREEN_WIDTH_SHARE = 0.8
+SCREEN_LENS = 500        # the lens alone, and with the name under it, at most SCREEN_HEIGHT_SHARE of the height
+SCREEN_HEIGHT_SHARE = 0.82
+SCREEN_WITH_NAME = 654
+SCREEN_CENTRE = 250      # the lens's centre below the top of the group
+SCREEN_NAME_TOP = 290    # the name's top below the lens's centre
+SCREEN_NAME_HEIGHT = 70
+SCREEN_NAME_PX = 56      # the name's font size, left out below SCREEN_NAME_MIN_PX
+SCREEN_NAME_MIN_PX = 14
+SCREEN_REACH = 460       # nothing drawn further than this from the lens's centre: the outer ring and the glow
+
+
+def screen_layout(width: int, height: int) -> tuple:
+    """(scale in pixels per banner unit, the lens's centre, whether the name fits under it) for a width x height screen."""
+    fit = lambda group_h: min(width * SCREEN_WIDTH_SHARE / SCREEN_WIDTH, height * SCREEN_HEIGHT_SHARE / group_h)  # noqa: E731
+    k = fit(SCREEN_WITH_NAME)
+    with_name = SCREEN_NAME_PX * k >= SCREEN_NAME_MIN_PX
+    if not with_name:
+        k = fit(SCREEN_LENS)
+    group_h = (SCREEN_WITH_NAME if with_name else SCREEN_LENS) * k
+    return k, (width / 2, (height - group_h) / 2 + SCREEN_CENTRE * k), with_name
+
+
+def paint_lens(p, centre: tuple, k: float, width: int, height: int):
+    """The lens from the project banner, with its glow over the whole width x height."""
+    from PyQt6.QtCore import QPointF, Qt
+    from PyQt6.QtGui import QBrush, QColor, QPen, QRadialGradient
+    from telescope.theme import ACCENT, ACCENT_SOFT, SURFACE, SURFACE_SUNK
 
     def colour(hex_: str, alpha: float = 1.0) -> QColor:
         c = QColor(hex_)
@@ -306,20 +331,7 @@ def _default_screen(width: int, height: int) -> np.ndarray:
             g.setColorAt(at, c)
         return QBrush(g)
 
-    canvas = QImage(width, height, QImage.Format.Format_RGB888)
-    canvas.fill(QColor(BG))
-    p = QPainter(canvas)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    # Banner units to pixels: the ticks span 500 units and the text 114 more under them, dropped when too small to read.
-    fit = lambda group_h: min(width * 0.8 / 500, height * 0.82 / group_h)  # noqa: E731
-    k = fit(654)
-    with_text = 56 * k >= 14
-    if not with_text:
-        k = fit(500)
-    group_h = (654 if with_text else 500) * k
-    c = QPointF(width / 2, (height - group_h) / 2 + 250 * k)
-
+    c = QPointF(*centre)
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(radial(c, 420 * k, [(0, colour("#6a58cf", 0.34)), (0.55, colour("#6a58cf", 0.08)),
                                    (1, colour("#6a58cf", 0))]))
@@ -353,20 +365,43 @@ def _default_screen(width: int, height: int) -> np.ndarray:
     p.setBrush(colour("#ffffff", 0.10))
     p.drawEllipse(c + QPointF(26 * k, 30 * k), 5 * k, 5 * k)
 
-    if not with_text:
-        p.end()
-        return _to_rgb(canvas)
-    name, note = QFont(), QFont()
+
+def paint_name(p, top: float, k: float, width: int, colour: str):
+    """"Telescope", centred across width with its top at top."""
+    from PyQt6.QtCore import QRectF, Qt
+    from PyQt6.QtGui import QColor, QFont
+    name = QFont()
     name.setFamilies(["Inter Display", "Inter", "Segoe UI", "sans-serif"])
-    name.setPixelSize(round(56 * k))
+    name.setPixelSize(round(SCREEN_NAME_PX * k))
     name.setWeight(QFont.Weight.Bold)
     name.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, -1.5 * k)
+    p.setFont(name)
+    p.setPen(QColor(colour))
+    p.drawText(QRectF(0, top, width, SCREEN_NAME_HEIGHT * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+               "Telescope")
+
+
+def _default_screen(width: int, height: int) -> np.ndarray:
+    """The lens from the project banner, centred (calls crop tiles to squares and circles), with the name under it."""
+    from PyQt6.QtCore import QRectF, Qt
+    from PyQt6.QtGui import QColor, QFont, QImage, QPainter
+    from telescope.theme import BG, TEXT, TEXT_DIM
+
+    canvas = QImage(width, height, QImage.Format.Format_RGB888)
+    canvas.fill(QColor(BG))
+    p = QPainter(canvas)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    k, centre, with_name = screen_layout(width, height)
+    paint_lens(p, centre, k, width, height)
+    if not with_name:
+        p.end()
+        return _to_rgb(canvas)
+    top = centre[1] + SCREEN_NAME_TOP * k
+    paint_name(p, top, k, width, TEXT)
+    note = QFont()
     note.setFamilies(["Inter", "Segoe UI", "sans-serif"])
     note.setPixelSize(max(9, round(22 * k)))
-    top = c.y() + 290 * k
-    p.setFont(name)
-    p.setPen(QColor(TEXT))
-    p.drawText(QRectF(0, top, width, 70 * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, "Telescope")
     p.setFont(note)
     p.setPen(QColor(TEXT_DIM))
     p.drawText(QRectF(0, top + 74 * k, width, 40 * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,

@@ -47,7 +47,7 @@ For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. 
 
 ## The Windows 11 camera
 
-The camera Telescope installs on Windows 11 is a small C++ DLL in `desktop/virtualcamera/` (how it works is in [Architecture](architecture.md#the-windows-11-camera)). Builds need Visual Studio 2022 or its Build Tools with the C++ workload, a Windows 11 SDK and CMake (the C++ workload ships one). From `desktop/` in a Developer PowerShell:
+The camera Telescope installs on Windows 11 is a small C++ DLL in `desktop/virtualcamera/` (how it works is in [Architecture](architecture.md#the-windows-11-camera)). Builds need Visual Studio 2022 or its Build Tools with the C++ workload, a Windows 11 SDK, CMake (the C++ workload ships one) and Python with the desktop's requirements, since the build renders the camera's wait screen with the app's own code (`scripts/write_camera_wait_screen.py`). From `desktop/` in a Developer PowerShell:
 
 ```powershell
 cmake -S virtualcamera -B virtualcamera/build -A x64
