@@ -23,7 +23,7 @@ MAGIC = 0x53575354  # "TSWS"
 VERSION = 1
 LENS_SCALE = 1.4  # pixels per banner unit: the lens is sharp up to 1080p and resized up beyond
 NAME_SCALE = 3.0  # the name's edges show more, so it's kept sharper
-NAME_SPAN = 400   # banner units across the name's mask, wider than "Telescope"
+NAME_ROOM = 1000  # banner units across the canvas the name is drawn on, before its mask is cut to it
 
 
 def nv12(rgb: np.ndarray) -> tuple:
@@ -66,13 +66,17 @@ def build() -> bytes:
     p.end()
     lens_y, lens_uv = nv12(vcam._to_rgb(image))
 
-    name_w, name_h = round(NAME_SPAN * NAME_SCALE), round(vcam.SCREEN_NAME_HEIGHT * NAME_SCALE)
-    image, p = canvas(name_w, name_h, "#000000")
-    vcam.paint_name(p, 0, NAME_SCALE, name_w, "#ffffff")
+    room, name_h = round(NAME_ROOM * NAME_SCALE), round(vcam.SCREEN_NAME_HEIGHT * NAME_SCALE)
+    image, p = canvas(room, name_h, "#000000")
+    vcam.paint_name(p, 0, NAME_SCALE, room, "#ffffff")
     p.end()
-    mask = np.ascontiguousarray(vcam._to_rgb(image)[..., 0])
-    if mask[:, 0].any() or mask[:, -1].any():
-        raise SystemExit("The name doesn't fit its mask: raise NAME_SPAN")
+    mask = vcam._to_rgb(image)[..., 0]
+    used = np.flatnonzero(mask.any(axis=0))
+    if not len(used) or used[0] == 0 or used[-1] == room - 1:
+        raise SystemExit("The name doesn't fit its canvas: raise NAME_ROOM")
+    reach = max(room // 2 - used[0], used[-1] + 1 - room // 2) + 2  # cut evenly, so the mask stays centred on the name
+    mask = np.ascontiguousarray(mask[:, room // 2 - reach:room // 2 + reach])
+    name_w = mask.shape[1]
 
     header = struct.pack(
         "<22I", MAGIC, VERSION, *solid(BG), *solid(TEXT),
