@@ -1011,9 +1011,10 @@ msgstr "इसमें प्लगइन के नाम वाला एक 
 msgid "That isn't a folder in the plugins folder."
 msgstr "यह प्लगइन्स फ़ोल्डर में कोई फ़ोल्डर नहीं है."
 
+#. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:21 telescope/plugins/browser_camera.py:302 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:27 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40 telescope/plugins/fun_pack.py:26 telescope/plugins/photos.py:34 telescope/plugins/photos.py:209
+#: telescope/plugins/background.py:21 telescope/plugins/browser_camera.py:302 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:27 telescope/plugins/cinema.py:32 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40 telescope/plugins/fun_pack.py:26 telescope/plugins/photos.py:34 telescope/plugins/photos.py:209
 msgid "Off"
 msgstr "बंद"
 
@@ -1638,140 +1639,167 @@ msgstr ""
 msgid "White"
 msgstr ""
 
-#: telescope/plugins/cinema.py:31 telescope/plugins/name_tag.py:25
+#. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
+#: telescope/plugins/cinema.py:32
+msgid "Thirds"
+msgstr ""
+
+#. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
+#: telescope/plugins/cinema.py:32
+msgid "Centre cross"
+msgstr ""
+
+#. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
+#: telescope/plugins/cinema.py:32
+msgid "4 × 4"
+msgstr ""
+
+#: telescope/plugins/cinema.py:33
+msgid "Golden ratio"
+msgstr ""
+
+#: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Small"
 msgstr ""
 
-#: telescope/plugins/cinema.py:31 telescope/plugins/name_tag.py:25
+#: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Medium"
 msgstr ""
 
-#: telescope/plugins/cinema.py:31 telescope/plugins/name_tag.py:25
+#: telescope/plugins/cinema.py:38 telescope/plugins/name_tag.py:25
 msgid "Large"
 msgstr ""
 
-#: telescope/plugins/cinema.py:45
+#: telescope/plugins/cinema.py:52
 msgid "The level needs a phone's motion sensors."
 msgstr ""
 
-#: telescope/plugins/cinema.py:46
+#: telescope/plugins/cinema.py:53
 msgid "Update Telescope on the phone to use the level."
 msgstr ""
 
-#: telescope/plugins/cinema.py:47
+#: telescope/plugins/cinema.py:54
 msgid "This phone has no motion sensor for the level."
 msgstr ""
 
-#: telescope/plugins/cinema.py:48
+#: telescope/plugins/cinema.py:55
 msgid "The level works with the phone's own cameras, not an external one."
 msgstr ""
 
-#: telescope/plugins/cinema.py:49
+#: telescope/plugins/cinema.py:56
 msgid "Can't reach the phone's motion sensors."
 msgstr ""
 
-#: telescope/plugins/cinema.py:55
+#: telescope/plugins/cinema.py:62
 msgid "Crushed"
 msgstr ""
 
-#: telescope/plugins/cinema.py:56
+#: telescope/plugins/cinema.py:63
 msgid "Too dark"
 msgstr ""
 
-#: telescope/plugins/cinema.py:58
+#: telescope/plugins/cinema.py:65
 msgid "Middle grey"
 msgstr ""
 
-#: telescope/plugins/cinema.py:60
+#: telescope/plugins/cinema.py:67
 msgid "Skin"
 msgstr ""
 
-#: telescope/plugins/cinema.py:62
+#: telescope/plugins/cinema.py:69
 msgid "Nearly clipped"
 msgstr ""
 
-#: telescope/plugins/cinema.py:63
+#: telescope/plugins/cinema.py:70
 msgid "Clipped"
 msgstr ""
 
-#: telescope/plugins/cinema.py:365 telescope/plugins/cinema.py:393 telescope/plugins/cinema.py:426 telescope/plugins/cinema.py:468
+#: telescope/plugins/cinema.py:394 telescope/plugins/cinema.py:422 telescope/plugins/cinema.py:464 telescope/plugins/cinema.py:506
 msgid "Cinema tools"
 msgstr ""
 
-#: telescope/plugins/cinema.py:366
-msgid "Focus peaking, zebras, false colour, scopes and a level on the preview, for judging focus, exposure and a straight horizon."
+#: telescope/plugins/cinema.py:395
+msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon."
 msgstr ""
 
-#: telescope/plugins/cinema.py:370
+#: telescope/plugins/cinema.py:399
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
 msgstr ""
 
-#: telescope/plugins/cinema.py:395 telescope/plugins/cinema.py:470
+#: telescope/plugins/cinema.py:424 telescope/plugins/cinema.py:508
 msgid "Focus peaking"
 msgstr ""
 
-#: telescope/plugins/cinema.py:396
+#: telescope/plugins/cinema.py:425
 msgid "Outline what's sharp"
 msgstr ""
 
-#: telescope/plugins/cinema.py:397 telescope/plugins/cinema.py:471
+#: telescope/plugins/cinema.py:426 telescope/plugins/cinema.py:509
 msgid "Zebras"
 msgstr ""
 
-#: telescope/plugins/cinema.py:398
+#: telescope/plugins/cinema.py:427
 msgid "Stripe what's about to clip to white"
 msgstr ""
 
-#: telescope/plugins/cinema.py:399 telescope/plugins/cinema.py:472
+#: telescope/plugins/cinema.py:428 telescope/plugins/cinema.py:510
 msgid "False colour"
 msgstr ""
 
-#: telescope/plugins/cinema.py:400
+#: telescope/plugins/cinema.py:429
 msgid "Colour the picture by how bright it is"
 msgstr ""
 
-#: telescope/plugins/cinema.py:401 telescope/plugins/cinema.py:473
+#: telescope/plugins/cinema.py:430 telescope/plugins/cinema.py:511
 msgid "Level"
 msgstr ""
 
-#: telescope/plugins/cinema.py:402
+#: telescope/plugins/cinema.py:431
 msgid "Show the horizon from the phone's motion sensors"
 msgstr ""
 
-#: telescope/plugins/cinema.py:416 telescope/plugins/cinema.py:474
+#: telescope/plugins/cinema.py:441
+msgid "Lines to help frame the shot"
+msgstr ""
+
+#: telescope/plugins/cinema.py:446 telescope/plugins/cinema.py:512
+msgid "Guides"
+msgstr ""
+
+#: telescope/plugins/cinema.py:454 telescope/plugins/cinema.py:513
 msgid "Scope"
 msgstr ""
 
-#: telescope/plugins/cinema.py:417
+#: telescope/plugins/cinema.py:455
 msgid "Only on the preview. Apps never see these."
 msgstr ""
 
-#: telescope/plugins/cinema.py:427
+#: telescope/plugins/cinema.py:465
 msgctxt "search"
-msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor"
+msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 msgstr ""
 
-#: telescope/plugins/cinema.py:438
+#: telescope/plugins/cinema.py:476
 msgid "Peaking colour"
 msgstr ""
 
-#: telescope/plugins/cinema.py:443
+#: telescope/plugins/cinema.py:481
 msgid "Higher outlines softer edges too"
 msgstr ""
 
-#: telescope/plugins/cinema.py:446
+#: telescope/plugins/cinema.py:484
 msgid "Peaking sensitivity"
 msgstr ""
 
-#: telescope/plugins/cinema.py:451
+#: telescope/plugins/cinema.py:489
 msgid "How bright something has to be to get stripes"
 msgstr ""
 
-#: telescope/plugins/cinema.py:454
+#: telescope/plugins/cinema.py:492
 msgid "Zebras from"
 msgstr ""
 
-#: telescope/plugins/cinema.py:463
+#: telescope/plugins/cinema.py:501
 msgid "Scope size"
 msgstr ""
 
@@ -6715,7 +6743,7 @@ msgstr "इंस्टॉलर रुक गया (कोड {code}), इस�
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया, लेकिन इसका फ़ोल्डर वहां नहीं था जहां उम्मीद थी. इसे स्टार्ट मेन्यू से खोलें."
 
-#: telescope/vcam.py:373
+#: telescope/vcam.py:413
 msgid "Waiting for camera"
 msgstr "कैमरे का इंतज़ार किया जा रहा है"
 
