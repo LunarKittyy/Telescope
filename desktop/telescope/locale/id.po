@@ -1707,7 +1707,7 @@ msgstr "Hampir klip"
 
 #: telescope/plugins/cinema.py:70
 msgid "Clipped"
-msgstr "Klip"
+msgstr "Clipped"
 
 #: telescope/plugins/cinema.py:394 telescope/plugins/cinema.py:422 telescope/plugins/cinema.py:464 telescope/plugins/cinema.py:506
 msgid "Cinema tools"
@@ -3718,7 +3718,7 @@ msgstr "Catatan baru"
 
 #: telescope/plugins/notes.py:132
 msgid "Delete these notes"
-msgstr "Hapus permanen catatan ini"
+msgstr "Hapus catatan ini"
 
 #: telescope/plugins/notes.py:143
 msgid "Type or paste your notes. Next and Previous move one line at a time."
@@ -6892,7 +6892,7 @@ msgstr "Ganti nama tata letak ini"
 
 #: telescope/widgets/composite_editor.py:512
 msgid "Delete this layout"
-msgstr "Hapus permanen tata letak ini"
+msgstr "Hapus tata letak ini"
 
 #: telescope/widgets/composite_editor.py:530 telescope/widgets/composite_editor.py:532
 #, python-brace-format

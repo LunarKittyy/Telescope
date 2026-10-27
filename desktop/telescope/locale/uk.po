@@ -310,7 +310,7 @@ msgstr "Потрібне відео є лише в трансляції з те�
 
 #: telescope/app.py:1772
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
-msgstr "Потрібен «Легкий»: «Важкий» надсилає цілі картинки, а ключових кадрів, з якими можна працювати, немає."
+msgstr "Потрібен «Легкий»: «Важкий» надсилає цілі зображення, а ключових кадрів, з якими можна працювати, немає."
 
 #: telescope/app.py:2180
 msgid "The stream stopped unexpectedly"
@@ -457,11 +457,11 @@ msgstr "{n} %"
 
 #: telescope/overlays.py:458
 msgid "Click a point on the picture. Esc cancels."
-msgstr "Клацніть точку на картинці. Esc скасовує."
+msgstr "Клацніть точку на зображенні. Esc скасовує."
 
 #: telescope/overlays.py:460
 msgid "Drag across the picture to mark an area. Esc cancels."
-msgstr "Потягніть по картинці, щоб позначити область. Esc скасовує."
+msgstr "Потягніть по зображенню, щоб позначити область. Esc скасовує."
 
 #: telescope/overlays.py:461
 msgid "Drag the corners into place, then press Enter. Esc cancels."
@@ -833,7 +833,7 @@ msgstr "Реєстрація (потрібні права адміністрат
 
 #: telescope/platform/windows.py:495
 msgid "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again"
-msgstr "Доступ до камери вимкнено у Windows (Налаштування > Приватність і безпека > Камера). Увімкніть його, а потім спробуйте знову"
+msgstr "Доступ до камери вимкнено у Windows (Параметри > Конфіденційність і безпека > Камера). Увімкніть його, а потім спробуйте знову"
 
 #: telescope/platform/windows.py:500
 msgid "Downloading driver files..."
@@ -1089,7 +1089,7 @@ msgstr "Процесор пристрою не встигає обробляти
 
 #: telescope/plugins/browser_camera.py:46
 msgid "The browser is lowering the picture to fit the connection or the bitrate for this resolution."
-msgstr "Браузер погіршує картинку, щоб підлаштуватися під з'єднання або бітрейт для цієї роздільної здатності."
+msgstr "Браузер погіршує зображення, щоб підлаштуватися під з'єднання або бітрейт для цієї роздільної здатності."
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: telescope/plugins/browser_camera.py:51 telescope/plugins/on_air.py:44
@@ -1729,7 +1729,7 @@ msgstr "Фокус-пікінг, зебра, хибні кольори, віде
 
 #: telescope/plugins/cinema.py:399
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "Без нього немає картки «Кіноінструменти», а попередній перегляд показує лише картинку."
+msgstr "Без нього немає картки «Кіноінструменти», а попередній перегляд показує лише зображення."
 
 #: telescope/plugins/cinema.py:424 telescope/plugins/cinema.py:508
 msgid "Focus peaking"
@@ -1753,7 +1753,7 @@ msgstr "Хибні кольори"
 
 #: telescope/plugins/cinema.py:429
 msgid "Colour the picture by how bright it is"
-msgstr "Забарвлює картинку залежно від її яскравості"
+msgstr "Забарвлює зображення залежно від його яскравості"
 
 #: telescope/plugins/cinema.py:430 telescope/plugins/cinema.py:511
 msgid "Level"
@@ -1911,7 +1911,7 @@ msgstr "Насиченість"
 
 #: telescope/plugins/colour_grading.py:42
 msgid "How colourful the picture is"
-msgstr "Наскільки барвистою є картинка"
+msgstr "Наскільки барвистим є зображення"
 
 #: telescope/plugins/colour_grading.py:43
 msgid "Shadows"
@@ -1939,11 +1939,11 @@ msgstr "Корекція кольору"
 
 #: telescope/plugins/colour_grading.py:99
 msgid "Colour wheels, curves and LUT files for the look of the picture."
-msgstr "Колірні круги, криві та файли LUT для вигляду картинки."
+msgstr "Колірні круги, криві та файли LUT для вигляду зображення."
 
 #: telescope/plugins/colour_grading.py:102
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "Без нього немає картки «Корекція кольору», а картинка зберігає кольори камери."
+msgstr "Без нього немає картки «Корекція кольору», а зображення зберігає кольори камери."
 
 #: telescope/plugins/colour_grading.py:125
 msgid "Switch the grade off to see the camera's own colours"
@@ -1951,7 +1951,7 @@ msgstr "Вимкніть корекцію кольору, щоб побачит�
 
 #: telescope/plugins/colour_grading.py:132
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
-msgstr "Ліворуч від лінії попередній перегляд показує картинку без корекції (програми завжди отримують її скоригованою)"
+msgstr "Ліворуч від лінії попередній перегляд показує зображення без корекції (програми завжди отримують його скоригованим)"
 
 #: telescope/plugins/colour_grading.py:135
 msgid "Compare"
@@ -2000,7 +2000,7 @@ msgstr "Прибрати LUT"
 
 #: telescope/plugins/colour_grading.py:273
 msgid "How much of the LUT's look goes on the picture"
-msgstr "Наскільки вигляд LUT накладається на картинку"
+msgstr "Наскільки вигляд LUT накладається на зображення"
 
 #: telescope/plugins/colour_grading.py:276
 msgid "Strength"
@@ -2058,7 +2058,7 @@ msgstr "Вгору зміщує відтінок до наступного, вн
 
 #: telescope/plugins/composite.py:35
 msgid "Several cameras in one picture"
-msgstr "Кілька камер на одній картинці"
+msgstr "Кілька камер в одному зображенні"
 
 #: telescope/plugins/composite.py:36
 msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
@@ -2066,15 +2066,15 @@ msgstr "Розміщує потоки, які ви запускаєте, пор�
 
 #: telescope/plugins/composite.py:40
 msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "Без нього немає картки «Одна картинка», а кожен потік потрапляє лише на власну камеру."
+msgstr "Без нього немає картки «Одне зображення», а кожен потік потрапляє лише на власну камеру."
 
 #: telescope/plugins/composite.py:266
 msgid "Send the streams out as one picture"
-msgstr "Виводити потоки як одну картинку"
+msgstr "Виводити потоки як одне зображення"
 
 #: telescope/plugins/composite.py:268 telescope/plugins/composite.py:285 telescope/plugins/composite.py:287
 msgid "One picture"
-msgstr "Одна картинка"
+msgstr "Одне зображення"
 
 #: telescope/plugins/composite.py:272 telescope/widgets/composite_editor.py:507
 msgid "Not saved"
@@ -2090,15 +2090,15 @@ msgstr "Макет"
 
 #: telescope/plugins/composite.py:276
 msgid "Edit picture…"
-msgstr "Редагувати картинку…"
+msgstr "Редагувати зображення…"
 
 #: telescope/plugins/composite.py:288
 msgid "Picture layout"
-msgstr "Макет картинки"
+msgstr "Макет зображення"
 
 #: telescope/plugins/composite.py:323
 msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
-msgstr "На картинці ще нічого немає. Додайте до неї потоки через «Редагувати картинку»."
+msgstr "На зображенні ще нічого немає. Додайте до нього потоки через «Редагувати зображення»."
 
 #: telescope/plugins/composite.py:325
 msgid "It takes over once two of its streams are running."
@@ -2112,7 +2112,7 @@ msgstr "Він виводиться на {camera}, і зараз туди не �
 #: telescope/plugins/composite.py:329
 #, python-brace-format
 msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "Він виводиться на {camera}, щойно потік там надішле картинку."
+msgstr "Він виводиться на {camera}, щойно потік там надішле зображення."
 
 #: telescope/plugins/composite.py:331
 #, python-brace-format
@@ -2750,7 +2750,7 @@ msgstr "Квадрат"
 
 #: telescope/plugins/desk.py:24
 msgid "Fill the picture"
-msgstr "Заповнити картинку"
+msgstr "Заповнити зображення"
 
 #: telescope/plugins/desk.py:200 telescope/plugins/desk.py:290
 msgid "Desk and document mode"
@@ -2762,7 +2762,7 @@ msgstr "Вирівнює аркуш паперу, який ви позначил
 
 #: telescope/plugins/desk.py:205
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "Без нього немає картки «Режим столу», а картинка залишається такою, якою її бачить камера."
+msgstr "Без нього немає картки «Режим столу», а зображення залишається таким, яким його бачить камера."
 
 #: telescope/plugins/desk.py:228
 msgid "Straighten the sheet you marked"
@@ -2854,7 +2854,7 @@ msgstr "Позначте кути аркуша, щоб вирівняти йог
 
 #: telescope/plugins/desk.py:380
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
-msgstr "Частина аркуша опинилася за межами картинки. Зменште масштаб або позначте його знову."
+msgstr "Частина аркуша опинилася за межами зображення. Зменште масштаб або позначте його знову."
 
 #: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:105 telescope/plugins/face_exposure.py:119 telescope/plugins/face_exposure.py:120
 msgid "Expose for my face"
@@ -2866,7 +2866,7 @@ msgstr "Переміщує точку заміру телефону на ваш�
 
 #: telescope/plugins/face_exposure.py:70
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "Без нього немає картки «Експозиція за обличчям», а телефон заміряє точку дотику або всю картинку."
+msgstr "Без нього немає картки «Експозиція за обличчям», а телефон заміряє точку дотику або все зображення."
 
 #: telescope/plugins/face_exposure.py:103
 msgid "Meter the exposure on your face"
@@ -3099,7 +3099,7 @@ msgstr "Рухайте ліхтариком або екраном телефон
 
 #: telescope/plugins/fun_pack.py:43
 msgid "Each band of the picture runs a little behind the one before."
-msgstr "Кожна смуга картинки трохи відстає від попередньої."
+msgstr "Кожна смуга зображення трохи відстає від попередньої."
 
 #: telescope/plugins/fun_pack.py:44
 msgid "A stick figure takes your place."
@@ -3107,7 +3107,7 @@ msgstr "Схематичний чоловічок займає ваше місц
 
 #: telescope/plugins/fun_pack.py:45
 msgid "Move around and the picture smears instead of refreshing."
-msgstr "Рухайтеся, і картинка розмазуватиметься замість оновлення."
+msgstr "Рухайтеся, і зображення розмазуватиметься замість оновлення."
 
 #: telescope/plugins/fun_pack.py:88 telescope/plugins/fun_pack.py:135 telescope/plugins/fun_pack.py:204
 msgid "Fun pack"
@@ -3119,7 +3119,7 @@ msgstr "Кумедні ефекти: клони, плащ-невидимка, м
 
 #: telescope/plugins/fun_pack.py:93
 msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "Без нього немає картки «Набір розваг», а на картинці немає ефектів."
+msgstr "Без нього немає картки «Набір розваг», а на зображенні немає ефектів."
 
 #: telescope/plugins/fun_pack.py:145
 msgid "Effect"
@@ -3131,7 +3131,7 @@ msgstr "Зняти порожню кімнату"
 
 #: telescope/plugins/fun_pack.py:150
 msgid "Step out of the picture: it's taken after a short countdown"
-msgstr "Вийдіть із картинки: знімок буде зроблено після короткого відліку"
+msgstr "Вийдіть із кадру: знімок буде зроблено після короткого відліку"
 
 #: telescope/plugins/fun_pack.py:152 telescope/plugins/fun_pack.py:208 telescope/plugins/fun_pack.py:357
 msgid "Add a clone"
@@ -3151,7 +3151,7 @@ msgstr "Відновити"
 
 #: telescope/plugins/fun_pack.py:158
 msgid "Let the next keyframe through so the picture comes back"
-msgstr "Пропустити наступний ключовий кадр, щоб картинка відновилася"
+msgstr "Пропустити наступний ключовий кадр, щоб зображення відновилося"
 
 #: telescope/plugins/fun_pack.py:170
 msgid "Trails"
@@ -3171,7 +3171,7 @@ msgstr "Розкид"
 
 #: telescope/plugins/fun_pack.py:172
 msgid "Frames between one end of the picture and the other"
-msgstr "Кількість кадрів між одним краєм картинки та іншим"
+msgstr "Кількість кадрів між одним краєм зображення та іншим"
 
 #: telescope/plugins/fun_pack.py:173
 msgid "Smear"
@@ -3225,7 +3225,7 @@ msgstr "Копіювання через {n}…"
 
 #: telescope/plugins/fun_pack.py:374
 msgid "The picture changed, so take the empty room again."
-msgstr "Картинка змінилася, тому зніміть порожню кімнату знову."
+msgstr "Зображення змінилося, тому зніміть порожню кімнату знову."
 
 #: telescope/plugins/fun_pack.py:376
 msgid "Take the empty room first."
@@ -3611,15 +3611,15 @@ msgstr "Плашка з ім'ям"
 
 #: telescope/plugins/name_tag.py:43
 msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "Розміщує ваше ім'я та займенники в кутку картинки."
+msgstr "Розміщує ваше ім'я та займенники в кутку зображення."
 
 #: telescope/plugins/name_tag.py:47
 msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "Без нього немає картки «Плашка з ім'ям», і на картинці нічого не відображається."
+msgstr "Без нього немає картки «Плашка з ім'ям», і на зображенні нічого не відображається."
 
 #: telescope/plugins/name_tag.py:64
 msgid "Show the name tag on the picture"
-msgstr "Показувати плашку з ім'ям на картинці"
+msgstr "Показувати плашку з ім'ям на зображенні"
 
 #: telescope/plugins/name_tag.py:67
 msgctxt "search"
@@ -4481,7 +4481,7 @@ msgstr "Живе зображення посередині вікна та кн�
 
 #: telescope/plugins/preview.py:416
 msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
-msgstr "Без нього у вікні не показується картинка, але додатки, що використовують віртуальну камеру, все одно її отримують."
+msgstr "Без нього у вікні не показується зображення, але додатки, що використовують віртуальну камеру, все одно його отримують."
 
 #: telescope/plugins/preview.py:506 telescope/plugins/preview.py:592
 msgid "Hide"
@@ -4571,7 +4571,7 @@ msgstr "Автоматично розмивати, коли в кадрі з'я�
 
 #: telescope/plugins/privacy_blur.py:165
 msgid "What happens while someone else is in the picture"
-msgstr "Що відбувається, коли на картинці є хтось інший"
+msgstr "Що відбувається, коли в кадрі є хтось інший"
 
 #: telescope/plugins/privacy_blur.py:168 telescope/plugins/privacy_blur.py:181
 msgid "Blur now"
@@ -4591,7 +4591,7 @@ msgstr "Приватне розмиття: що відбувається"
 
 #: telescope/plugins/privacy_blur.py:289
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
-msgstr "Якщо «Екран очікування» вимкнено у Плагінах, натомість розмивається вся картинка."
+msgstr "Якщо «Екран очікування» вимкнено у Плагінах, натомість розмивається все зображення."
 
 #: telescope/plugins/qr_reader.py:177 telescope/plugins/qr_reader.py:235
 msgid "QR code reader"
@@ -4603,11 +4603,11 @@ msgstr "Копіює QR-код, який ви підносите до камер
 
 #: telescope/plugins/qr_reader.py:182
 msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr "Без нього немає картки «QR-коди», а коди на картинці ігноруються."
+msgstr "Без нього немає картки «QR-коди», а коди на зображенні ігноруються."
 
 #: telescope/plugins/qr_reader.py:209
 msgid "Look for QR codes in the picture"
-msgstr "Шукати QR-коди на картинці"
+msgstr "Шукати QR-коди на зображенні"
 
 #: telescope/plugins/qr_reader.py:211
 msgid "QR codes"
@@ -5892,11 +5892,11 @@ msgstr "Трансформація"
 
 #: telescope/plugins/transforms.py:132
 msgid "Zoom, pan, flip, rotate and stretch the picture."
-msgstr "Масштабувати, панорамувати, перевертати, повертати й розтягувати картинку."
+msgstr "Масштабувати, панорамувати, перевертати, повертати й розтягувати зображення."
 
 #: telescope/plugins/transforms.py:136
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
-msgstr "Без нього картка «Трансформація» буде відсутня, а картинка транслюватиметься саме так, як її надсилає телефон."
+msgstr "Без нього картка «Трансформація» буде відсутня, а зображення транслюватиметься саме так, як його надсилає телефон."
 
 #: telescope/plugins/transforms.py:171
 msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
@@ -5943,11 +5943,11 @@ msgstr "Панорамувати"
 
 #: telescope/plugins/transforms.py:249
 msgid "Stretch or squish the picture sideways"
-msgstr "Розтягнути або стиснути картинку по горизонталі"
+msgstr "Розтягнути або стиснути зображення по горизонталі"
 
 #: telescope/plugins/transforms.py:251
 msgid "Stretch or squish the picture up and down"
-msgstr "Розтягнути або стиснути картинку по вертикалі"
+msgstr "Розтягнути або стиснути зображення по вертикалі"
 
 #: telescope/plugins/transforms.py:269
 msgid "Flip horizontal"
@@ -6850,7 +6850,7 @@ msgstr "Обрізати"
 
 #: telescope/widgets/composite_editor.py:61
 msgid "Picture preview"
-msgstr "Попередній перегляд картинки"
+msgstr "Попередній перегляд зображення"
 
 #: telescope/widgets/composite_editor.py:183
 #, python-brace-format
@@ -6864,7 +6864,7 @@ msgstr "{mode}, без прив'язки"
 
 #: telescope/widgets/composite_editor.py:414 telescope/widgets/composite_editor.py:418
 msgid "Edit picture"
-msgstr "Редагувати картинку"
+msgstr "Редагувати зображення"
 
 #: telescope/widgets/composite_editor.py:418
 msgid "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping."
@@ -6896,7 +6896,7 @@ msgstr "Зберегти як…"
 
 #: telescope/widgets/composite_editor.py:501
 msgid "Keep this picture under a name"
-msgstr "Зберегти цю картинку під назвою"
+msgstr "Зберегти це зображення під назвою"
 
 #: telescope/widgets/composite_editor.py:510
 msgid "Rename…"
@@ -6991,7 +6991,7 @@ msgstr "Порядок"
 
 #: telescope/widgets/composite_editor.py:663
 msgid "Click a stream in the picture to change it."
-msgstr "Клацніть потік на картинці, щоб змінити його."
+msgstr "Клацніть потік на зображенні, щоб змінити його."
 
 #: telescope/widgets/composite_editor.py:728
 msgid "Background colour"
@@ -7189,7 +7189,7 @@ msgstr "Завантажити приблизно {mb} МБ?"
 #: telescope/widgets/plugins_panel.py:564
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
-msgstr "{plugin} використовує MediaPipe для виявлення людей на картинці. Він постачається як окреме завантаження з релізів Telescope на GitHub, спільне для інших додаткових плагінів."
+msgstr "{plugin} використовує MediaPipe для виявлення людей на зображенні. Він постачається як окреме завантаження з релізів Telescope на GitHub, спільне для інших додаткових плагінів."
 
 #: telescope/widgets/plugins_panel.py:567
 msgid "Download and switch on"
@@ -7287,7 +7287,7 @@ msgstr "Плагіни, які ви додаєте, відображаються
 
 #: telescope/widgets/plugins_panel.py:698
 msgid "Check for updates"
-msgstr "Перевірити наявність оновлень"
+msgstr "Перевіряти наявність оновлень"
 
 #: telescope/widgets/plugins_panel.py:699
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."

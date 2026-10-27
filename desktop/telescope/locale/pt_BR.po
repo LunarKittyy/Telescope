@@ -305,7 +305,7 @@ msgstr "Apenas a transmissão de um celular tem o vídeo de que isso precisa."
 
 #: telescope/app.py:1772
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
-msgstr "Precisa do Leve: o Pesado envia fotos inteiras, sem quadros-chave para trabalhar."
+msgstr "Precisa do Leve: o Pesado envia imagens inteiras, sem quadros-chave para trabalhar."
 
 #: telescope/app.py:2180
 msgid "The stream stopped unexpectedly"
@@ -452,11 +452,11 @@ msgstr "{n} %"
 
 #: telescope/overlays.py:458
 msgid "Click a point on the picture. Esc cancels."
-msgstr "Clique em um ponto da foto. Esc cancela."
+msgstr "Clique em um ponto da imagem. Esc cancela."
 
 #: telescope/overlays.py:460
 msgid "Drag across the picture to mark an area. Esc cancels."
-msgstr "Arraste pela foto para marcar uma área. Esc cancela."
+msgstr "Arraste pela imagem para marcar uma área. Esc cancela."
 
 #: telescope/overlays.py:461
 msgid "Drag the corners into place, then press Enter. Esc cancels."
@@ -1024,11 +1024,11 @@ msgstr "Desfoque"
 
 #: telescope/plugins/background.py:21 telescope/plugins/background.py:120 telescope/plugins/chroma_key.py:25 telescope/plugins/chroma_key.py:220 telescope/widgets/composite_editor.py:482 telescope/widgets/composite_editor.py:745
 msgid "Picture"
-msgstr "Foto"
+msgstr "Imagem"
 
 #: telescope/plugins/background.py:22 telescope/plugins/chroma_key.py:26 telescope/widgets/composite_editor.py:25
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
-msgstr "Fotos (*.png *.jpg *.jpeg *.webp *.bmp)"
+msgstr "Imagens (*.png *.jpg *.jpeg *.webp *.bmp)"
 
 #: telescope/plugins/background.py:65 telescope/plugins/background.py:89 telescope/plugins/background.py:100 telescope/plugins/background.py:140 telescope/plugins/background.py:142 telescope/widgets/composite_editor.py:727
 msgid "Background"
@@ -1036,7 +1036,7 @@ msgstr "Plano de fundo"
 
 #: telescope/plugins/background.py:66
 msgid "Blurs the background behind you or swaps it for a picture."
-msgstr "Desfoca o fundo atrás de você ou o substitui por uma foto."
+msgstr "Desfoca o fundo atrás de você ou o substitui por uma imagem."
 
 #: telescope/plugins/background.py:70
 msgid "Without it there's no Background card and the background stays as the camera sees it."
@@ -1048,11 +1048,11 @@ msgstr "Escolher…"
 
 #: telescope/plugins/background.py:112 telescope/plugins/chroma_key.py:212
 msgid "Pick the picture that goes behind you"
-msgstr "Escolha a foto que ficará atrás de você"
+msgstr "Escolha a imagem que ficará atrás de você"
 
 #: telescope/plugins/background.py:114 telescope/plugins/background.py:178 telescope/plugins/chroma_key.py:214 telescope/plugins/chroma_key.py:321
 msgid "No picture yet"
-msgstr "Nenhuma foto ainda"
+msgstr "Nenhuma imagem ainda"
 
 #: telescope/plugins/background.py:127 telescope/plugins/chroma_key.py:183 telescope/plugins/fun_pack.py:169
 msgid "How soft the edge around you is"
@@ -1068,15 +1068,15 @@ msgstr "Desfoque de fundo"
 
 #: telescope/plugins/background.py:167 telescope/plugins/chroma_key.py:309
 msgid "Choose a picture"
-msgstr "Escolha uma foto"
+msgstr "Escolha uma imagem"
 
 #: telescope/plugins/background.py:177 telescope/plugins/chroma_key.py:320
 msgid "Telescope can't open that picture."
-msgstr "O Telescope não consegue abrir essa foto."
+msgstr "O Telescope não consegue abrir essa imagem."
 
 #: telescope/plugins/background.py:204 telescope/plugins/chroma_key.py:338
 msgid "Choose a picture to put behind you."
-msgstr "Escolha uma foto para colocar atrás de você."
+msgstr "Escolha uma imagem para colocar atrás de você."
 
 #: telescope/plugins/browser_camera.py:44
 msgid "The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate."
@@ -1545,7 +1545,7 @@ msgstr "Chroma key"
 
 #: telescope/plugins/chroma_key.py:134
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr "Substitui uma tela verde ou azul atrás de você por uma cor ou foto, sem nenhum download."
+msgstr "Substitui uma tela verde ou azul atrás de você por uma cor ou imagem, sem nenhum download."
 
 #: telescope/plugins/chroma_key.py:138
 msgid "Without it there's no Chroma key card and a green screen stays green."
@@ -1724,7 +1724,7 @@ msgstr "Focus peaking, zebras, cores falsas, scopes, guias de enquadramento e um
 
 #: telescope/plugins/cinema.py:399
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "Sem ele, não há o cartão Ferramentas de cinema e a pré-visualização mostra apenas a foto."
+msgstr "Sem ele, não há o cartão Ferramentas de cinema e a pré-visualização mostra apenas a imagem."
 
 #: telescope/plugins/cinema.py:424 telescope/plugins/cinema.py:508
 msgid "Focus peaking"
@@ -1748,7 +1748,7 @@ msgstr "Falsa cor"
 
 #: telescope/plugins/cinema.py:429
 msgid "Colour the picture by how bright it is"
-msgstr "Colore a foto de acordo com o brilho"
+msgstr "Colore a imagem de acordo com o brilho"
 
 #: telescope/plugins/cinema.py:430 telescope/plugins/cinema.py:511
 msgid "Level"
@@ -1906,7 +1906,7 @@ msgstr "Saturação"
 
 #: telescope/plugins/colour_grading.py:42
 msgid "How colourful the picture is"
-msgstr "O quanto a foto é colorida"
+msgstr "O quanto a imagem é colorida"
 
 #: telescope/plugins/colour_grading.py:43
 msgid "Shadows"
@@ -1934,11 +1934,11 @@ msgstr "Gradação de cor"
 
 #: telescope/plugins/colour_grading.py:99
 msgid "Colour wheels, curves and LUT files for the look of the picture."
-msgstr "Círculos cromáticos, curvas e arquivos LUT para o visual da foto."
+msgstr "Círculos cromáticos, curvas e arquivos LUT para o visual da imagem."
 
 #: telescope/plugins/colour_grading.py:102
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "Sem ele, não há o cartão Gradação de cor e a foto mantém as cores da câmera."
+msgstr "Sem ele, não há o cartão Gradação de cor e a imagem mantém as cores da câmera."
 
 #: telescope/plugins/colour_grading.py:125
 msgid "Switch the grade off to see the camera's own colours"
@@ -1946,7 +1946,7 @@ msgstr "Desligue a gradação para ver as próprias cores da câmera"
 
 #: telescope/plugins/colour_grading.py:132
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
-msgstr "À esquerda da linha, a pré-visualização mostra a foto sem a gradação (os apps sempre recebem a imagem com gradação)"
+msgstr "À esquerda da linha, a pré-visualização mostra a imagem sem a gradação (os apps sempre a recebem com gradação)"
 
 #: telescope/plugins/colour_grading.py:135
 msgid "Compare"
@@ -1995,7 +1995,7 @@ msgstr "Remover o LUT"
 
 #: telescope/plugins/colour_grading.py:273
 msgid "How much of the LUT's look goes on the picture"
-msgstr "O quanto do visual do LUT é aplicado à foto"
+msgstr "O quanto do visual do LUT é aplicado à imagem"
 
 #: telescope/plugins/colour_grading.py:276
 msgid "Strength"
@@ -2053,7 +2053,7 @@ msgstr "Para cima move o matiz em direção ao próximo, para baixo em direção
 
 #: telescope/plugins/composite.py:35
 msgid "Several cameras in one picture"
-msgstr "Várias câmeras em uma só foto"
+msgstr "Várias câmeras em uma só imagem"
 
 #: telescope/plugins/composite.py:36
 msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
@@ -2061,15 +2061,15 @@ msgstr "Coloca as transmissões ativas lado a lado ou uma dentro da outra, em um
 
 #: telescope/plugins/composite.py:40
 msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "Sem ele, não há o cartão Uma foto e cada transmissão vai apenas para sua própria câmera."
+msgstr "Sem ele, não há o cartão Uma imagem e cada transmissão vai apenas para sua própria câmera."
 
 #: telescope/plugins/composite.py:266
 msgid "Send the streams out as one picture"
-msgstr "Enviar as transmissões como uma só foto"
+msgstr "Enviar as transmissões como uma só imagem"
 
 #: telescope/plugins/composite.py:268 telescope/plugins/composite.py:285 telescope/plugins/composite.py:287
 msgid "One picture"
-msgstr "Uma foto"
+msgstr "Uma imagem"
 
 #: telescope/plugins/composite.py:272 telescope/widgets/composite_editor.py:507
 msgid "Not saved"
@@ -2085,15 +2085,15 @@ msgstr "Layout"
 
 #: telescope/plugins/composite.py:276
 msgid "Edit picture…"
-msgstr "Editar foto…"
+msgstr "Editar imagem…"
 
 #: telescope/plugins/composite.py:288
 msgid "Picture layout"
-msgstr "Layout da foto"
+msgstr "Layout da imagem"
 
 #: telescope/plugins/composite.py:323
 msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
-msgstr "Ainda não há nada na foto. Adicione transmissões com Editar foto."
+msgstr "Ainda não há nada na imagem. Adicione transmissões com Editar imagem."
 
 #: telescope/plugins/composite.py:325
 msgid "It takes over once two of its streams are running."
@@ -2107,7 +2107,7 @@ msgstr "É transmitida em {camera}, e nenhuma transmissão vai para lá agora."
 #: telescope/plugins/composite.py:329
 #, python-brace-format
 msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "É transmitida em {camera} assim que a transmissão enviar uma foto."
+msgstr "É transmitida em {camera} assim que a transmissão enviar uma imagem."
 
 #: telescope/plugins/composite.py:331
 #, python-brace-format
@@ -2745,7 +2745,7 @@ msgstr "Quadrado"
 
 #: telescope/plugins/desk.py:24
 msgid "Fill the picture"
-msgstr "Preencher a foto"
+msgstr "Preencher a imagem"
 
 #: telescope/plugins/desk.py:200 telescope/plugins/desk.py:290
 msgid "Desk and document mode"
@@ -2757,7 +2757,7 @@ msgstr "Endireita uma folha de papel marcada na pré-visualização e pode desta
 
 #: telescope/plugins/desk.py:205
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "Sem ele, não há o cartão Modo mesa e a foto fica do jeito que a câmera a vê."
+msgstr "Sem ele, não há o cartão Modo mesa e a imagem fica do jeito que a câmera a vê."
 
 #: telescope/plugins/desk.py:228
 msgid "Straighten the sheet you marked"
@@ -2849,7 +2849,7 @@ msgstr "Marque os cantos da folha para endireitá-la."
 
 #: telescope/plugins/desk.py:380
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
-msgstr "Parte da folha está fora da foto. Diminua o zoom ou marque-a novamente."
+msgstr "Parte da folha está fora da imagem. Diminua o zoom ou marque-a novamente."
 
 #: telescope/plugins/face_exposure.py:66 telescope/plugins/face_exposure.py:105 telescope/plugins/face_exposure.py:119 telescope/plugins/face_exposure.py:120
 msgid "Expose for my face"
@@ -2861,7 +2861,7 @@ msgstr "Move o ponto de medição do celular para o seu rosto para manter você 
 
 #: telescope/plugins/face_exposure.py:70
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "Sem ele, não há o cartão Exposição no meu rosto e o celular faz a medição no ponto onde você toca ou na foto inteira."
+msgstr "Sem ele, não há o cartão Exposição no meu rosto e o celular faz a medição no ponto onde você toca ou na imagem inteira."
 
 #: telescope/plugins/face_exposure.py:103
 msgid "Meter the exposure on your face"
@@ -3094,7 +3094,7 @@ msgstr "Mova uma lanterna ou a tela de um celular no escuro."
 
 #: telescope/plugins/fun_pack.py:43
 msgid "Each band of the picture runs a little behind the one before."
-msgstr "Cada faixa da foto fica um pouco atrás da anterior."
+msgstr "Cada faixa da imagem fica um pouco atrás da anterior."
 
 #: telescope/plugins/fun_pack.py:44
 msgid "A stick figure takes your place."
@@ -3102,7 +3102,7 @@ msgstr "Um boneco de palito toma o seu lugar."
 
 #: telescope/plugins/fun_pack.py:45
 msgid "Move around and the picture smears instead of refreshing."
-msgstr "Mova-se e a foto borra em vez de atualizar."
+msgstr "Mova-se e a imagem borra em vez de atualizar."
 
 #: telescope/plugins/fun_pack.py:88 telescope/plugins/fun_pack.py:135 telescope/plugins/fun_pack.py:204
 msgid "Fun pack"
@@ -3114,7 +3114,7 @@ msgstr "Efeitos divertidos: clones, capa de invisibilidade, pintura com luz, vis
 
 #: telescope/plugins/fun_pack.py:93
 msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "Sem ele, não há o cartão Pacote de diversão e a foto fica sem efeitos."
+msgstr "Sem ele, não há o cartão Pacote de diversão e a imagem fica sem efeitos."
 
 #: telescope/plugins/fun_pack.py:145
 msgid "Effect"
@@ -3126,7 +3126,7 @@ msgstr "Capturar ambiente vazio"
 
 #: telescope/plugins/fun_pack.py:150
 msgid "Step out of the picture: it's taken after a short countdown"
-msgstr "Saia da foto: a captura é feita após uma breve contagem regressiva"
+msgstr "Saia da imagem: a captura é feita após uma breve contagem regressiva"
 
 #: telescope/plugins/fun_pack.py:152 telescope/plugins/fun_pack.py:208 telescope/plugins/fun_pack.py:357
 msgid "Add a clone"
@@ -3146,7 +3146,7 @@ msgstr "Restaurar"
 
 #: telescope/plugins/fun_pack.py:158
 msgid "Let the next keyframe through so the picture comes back"
-msgstr "Libera o próximo quadro-chave para que a foto volte"
+msgstr "Libera o próximo quadro-chave para que a imagem volte"
 
 #: telescope/plugins/fun_pack.py:170
 msgid "Trails"
@@ -3166,7 +3166,7 @@ msgstr "Dispersão"
 
 #: telescope/plugins/fun_pack.py:172
 msgid "Frames between one end of the picture and the other"
-msgstr "Quadros entre uma ponta da foto e a outra"
+msgstr "Quadros entre uma ponta da imagem e a outra"
 
 #: telescope/plugins/fun_pack.py:173
 msgid "Smear"
@@ -3220,7 +3220,7 @@ msgstr "Copiando você em {n}…"
 
 #: telescope/plugins/fun_pack.py:374
 msgid "The picture changed, so take the empty room again."
-msgstr "A foto mudou; capture o ambiente vazio novamente."
+msgstr "A imagem mudou; capture o ambiente vazio novamente."
 
 #: telescope/plugins/fun_pack.py:376
 msgid "Take the empty room first."
@@ -3606,15 +3606,15 @@ msgstr "Crachá"
 
 #: telescope/plugins/name_tag.py:43
 msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "Coloca seu nome e pronomes no canto da foto."
+msgstr "Coloca seu nome e pronomes no canto da imagem."
 
 #: telescope/plugins/name_tag.py:47
 msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "Sem ele, não há o cartão Crachá e nada é desenhado na foto."
+msgstr "Sem ele, não há o cartão Crachá e nada é desenhado na imagem."
 
 #: telescope/plugins/name_tag.py:64
 msgid "Show the name tag on the picture"
-msgstr "Exibir o crachá na foto"
+msgstr "Exibir o crachá na imagem"
 
 #: telescope/plugins/name_tag.py:67
 msgctxt "search"
@@ -6842,7 +6842,7 @@ msgstr "Cortar"
 
 #: telescope/widgets/composite_editor.py:61
 msgid "Picture preview"
-msgstr "Pré-visualização da foto"
+msgstr "Pré-visualização da imagem"
 
 #: telescope/widgets/composite_editor.py:183
 #, python-brace-format
@@ -6856,7 +6856,7 @@ msgstr "{mode}, sem encaixe"
 
 #: telescope/widgets/composite_editor.py:414 telescope/widgets/composite_editor.py:418
 msgid "Edit picture"
-msgstr "Editar foto"
+msgstr "Editar imagem"
 
 #: telescope/widgets/composite_editor.py:418
 msgid "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping."
@@ -6888,7 +6888,7 @@ msgstr "Salvar como…"
 
 #: telescope/widgets/composite_editor.py:501
 msgid "Keep this picture under a name"
-msgstr "Salvar esta foto com um nome"
+msgstr "Salvar esta imagem com um nome"
 
 #: telescope/widgets/composite_editor.py:510
 msgid "Rename…"
@@ -6983,7 +6983,7 @@ msgstr "Ordem"
 
 #: telescope/widgets/composite_editor.py:663
 msgid "Click a stream in the picture to change it."
-msgstr "Clique em uma transmissão na foto para alterá-la."
+msgstr "Clique em uma transmissão na imagem para alterá-la."
 
 #: telescope/widgets/composite_editor.py:728
 msgid "Background colour"
@@ -6991,19 +6991,19 @@ msgstr "Cor de fundo"
 
 #: telescope/widgets/composite_editor.py:734
 msgid "Picture…"
-msgstr "Foto…"
+msgstr "Imagem…"
 
 #: telescope/widgets/composite_editor.py:735
 msgid "Put a picture behind the streams instead of the colour"
-msgstr "Colocar uma foto atrás das transmissões em vez da cor"
+msgstr "Colocar uma imagem atrás das transmissões em vez da cor"
 
 #: telescope/widgets/composite_editor.py:737
 msgid "No picture"
-msgstr "Sem foto"
+msgstr "Sem imagem"
 
 #: telescope/widgets/composite_editor.py:749
 msgid "Background picture"
-msgstr "Foto de fundo"
+msgstr "Imagem de fundo"
 
 #: telescope/widgets/composite_editor.py:781
 msgid "None"

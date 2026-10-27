@@ -7253,7 +7253,7 @@ msgstr "dev_desktop.py --plugin laddar det här tillägget, så det är alltid p
 
 #: telescope/widgets/plugins_panel.py:647
 msgid "Being written"
-msgstr "Skrivs"
+msgstr "Under utveckling"
 
 #: telescope/widgets/plugins_panel.py:663
 msgid "Added plugins"
