@@ -1,6 +1,7 @@
 """Finding webcams, picking how to capture from them and reading their frames (telescope/webcams.py)."""
 
 import os
+import sys
 from types import SimpleNamespace
 
 import cv2
@@ -9,6 +10,8 @@ import pytest
 
 from telescope import webcams
 from telescope.webcams import Choice, Device, LinuxScanner, Mode, WebcamReader, choose
+
+linux_only = pytest.mark.skipif(sys.platform == "win32", reason="sysfs, /dev and /proc are Linux's")
 
 
 # ── Choosing a mode ──────────────────────────────────────────────────────────
@@ -179,6 +182,7 @@ def _scanner(sysfs, answers, opened, keys=None, allow_loopback=False):
                         stable_keys=lambda: keys or {})
 
 
+@linux_only
 def test_scanning_lists_capture_nodes_and_skips_the_rest(sysfs):
     _node(sysfs, "video0", "HD Webcam")
     _node(sysfs, "video1", "HD Webcam")  # its metadata node: no capture
@@ -194,6 +198,7 @@ def test_scanning_lists_capture_nodes_and_skips_the_rest(sysfs):
     assert "video10" not in opened and "video11" not in opened  # loopback devices aren't even opened
 
 
+@linux_only
 def test_a_node_is_only_opened_again_once_it_was_replaced(sysfs):
     folder = _node(sysfs, "video0", "HD Webcam")
     opened = []
@@ -211,6 +216,7 @@ def test_a_node_is_only_opened_again_once_it_was_replaced(sysfs):
     assert [d.name for d in scanner.scan()] == ["Brio"]
 
 
+@linux_only
 def test_a_node_that_cant_be_opened_is_tried_again(sysfs):
     _node(sysfs, "video0", "HD Webcam")
     opened = []
@@ -221,6 +227,7 @@ def test_a_node_that_cant_be_opened_is_tried_again(sysfs):
     assert len(scanner.scan()) == 1
 
 
+@linux_only
 def test_other_loopback_cameras_can_be_let_in_for_testing_but_never_telescopes(sysfs):
     _node(sysfs, "video10", "Fake Webcam", loopback=True)
     _node(sysfs, "video11", "Phone Camera", loopback=True)
@@ -264,6 +271,7 @@ def test_windows_lists_qt_cameras_by_their_media_foundation_index(monkeypatch):
     assert choose(found[0].modes, (1920, 1080), 30) == Choice("MJPG", 1920, 1080, 30.0)
 
 
+@linux_only
 def test_who_uses_finds_the_program_holding_the_device(tmp_path):
     proc = tmp_path / "proc"
     (proc / "123" / "fd").mkdir(parents=True)
@@ -296,7 +304,7 @@ class _Capture:
         self.released = True
 
 
-DEV = Device("cam", "HD Webcam", "/dev/null", C920)
+DEV = Device("cam", "HD Webcam", __file__, C920)  # a path that exists, like a plugged-in camera's node
 FRAME = np.zeros((720, 1280, 3), np.uint8)
 
 
