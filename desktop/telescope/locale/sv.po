@@ -25,7 +25,7 @@ msgstr "Telefonen blev för varm och sänkte bildfrekvensen till {fps} fps tills
 msgid "Lost the phone - reconnecting"
 msgstr "Tappade kontakten med telefonen - återansluter"
 
-#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1080 telescope/plugins/connection.py:1124 telescope/plugins/connection.py:1275 telescope/plugins/connection.py:1311 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Försök igen"
 
@@ -126,7 +126,7 @@ msgstr "Stoppa strömning"
 msgid "Not streaming"
 msgstr "Strömmar inte"
 
-#: telescope/app.py:726 telescope/plugins/stream_output.py:299
+#: telescope/app.py:726 telescope/plugins/stream_output.py:319
 msgid "FPS"
 msgstr "FPS"
 
@@ -1160,11 +1160,11 @@ msgstr "Länk"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Storleken som webbläsaren skickar; en kamera som inte klarar den skickar det den kan"
 
-#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:190 telescope/plugins/stream_output.py:298
+#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:192 telescope/plugins/stream_output.py:318
 msgid "Resolution"
 msgstr "Upplösning"
 
-#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:197
+#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:199
 msgid "Frame rate"
 msgstr "Bildfrekvens"
 
@@ -1203,7 +1203,7 @@ msgstr "Prova en lägre upplösning eller bildfrekvens på kortet Webbläsarkame
 msgid "The device's browser can't send any faster."
 msgstr "Enhetens webbläsare kan inte skicka snabbare."
 
-#: telescope/plugins/browser_camera.py:386 telescope/plugins/stream_output.py:626
+#: telescope/plugins/browser_camera.py:386 telescope/plugins/stream_output.py:647
 msgid "Can't keep up"
 msgstr "Hinner inte med"
 
@@ -1304,7 +1304,7 @@ msgid "Light"
 msgstr "Ljus"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:747 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:659
+#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:745 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:680
 msgid "Auto"
 msgstr "Auto"
 
@@ -2221,7 +2221,7 @@ msgstr "Bara USB"
 msgid "Wi-Fi only"
 msgstr "Bara Wi-Fi"
 
-#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:683 telescope/plugins/connection.py:1129 telescope/plugins/connection.py:1293 telescope/plugins/onboarding.py:186
+#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:681 telescope/plugins/connection.py:1109 telescope/plugins/connection.py:1266 telescope/plugins/onboarding.py:186
 msgid "Add phone"
 msgstr "Lägg till telefon"
 
@@ -2295,7 +2295,7 @@ msgstr "Parkopplad med {name}"
 msgid "Done"
 msgstr "Klar"
 
-#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:821
+#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:801
 msgid "Your phones"
 msgstr "Dina telefoner"
 
@@ -2344,7 +2344,7 @@ msgstr "Stäng"
 msgid "Phone · {ip}"
 msgstr "Telefon · {ip}"
 
-#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:790 telescope/plugins/connection.py:805 telescope/plugins/monitoring.py:86 telescope/plugins/monitoring.py:297
+#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:770 telescope/plugins/connection.py:785 telescope/plugins/monitoring.py:86 telescope/plugins/monitoring.py:297
 msgid "Phone"
 msgstr "Telefon"
 
@@ -2408,211 +2408,198 @@ msgstr "Telefoner och anslutning"
 msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
 msgstr "Parkoppla telefoner, välja en och ansluta till den via Wi-Fi eller USB."
 
-#: telescope/plugins/connection.py:683
+#: telescope/plugins/connection.py:681
 msgid "Pair a phone over Wi-Fi or USB"
 msgstr "Parkoppla en telefon via Wi-Fi eller USB"
 
-#: telescope/plugins/connection.py:685
+#: telescope/plugins/connection.py:683
 msgid "Connection"
 msgstr "Anslutning"
 
-#: telescope/plugins/connection.py:686
+#: telescope/plugins/connection.py:684
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Öppna eller stäng kom igång-guiden: den virtuella kameran, telefonappen och parkopplingen"
 
-#: telescope/plugins/connection.py:688 telescope/plugins/onboarding.py:81
+#: telescope/plugins/connection.py:686 telescope/plugins/onboarding.py:81
 msgid "Setup guide"
 msgstr "Kom igång-guide"
 
-#: telescope/plugins/connection.py:723
+#: telescope/plugins/connection.py:721
 msgid "Switch to USB"
 msgstr "Byt till USB"
 
-#: telescope/plugins/connection.py:724
+#: telescope/plugins/connection.py:722
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Telefonen kopplades in; återanslut via kabeln"
 
-#: telescope/plugins/connection.py:728 telescope/plugins/connection.py:911 telescope/plugins/connection.py:1296
+#: telescope/plugins/connection.py:726 telescope/plugins/connection.py:891 telescope/plugins/connection.py:1269
 msgid "Update over USB"
 msgstr "Uppdatera via USB"
 
-#: telescope/plugins/connection.py:741
+#: telescope/plugins/connection.py:739
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Automatiskt: USB när telefonen är inkopplad, annars Wi-Fi."
 
-#: telescope/plugins/connection.py:755
+#: telescope/plugins/connection.py:753
 msgid "Connect via"
 msgstr "Anslut via"
 
-#. Heavy is the name of a stream format, as the Stream output card shows it
-#: telescope/plugins/connection.py:762
-msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
-msgstr "Kan jämna ut fördröjningstoppar på belastat Wi-Fi. Tung använder fortfarande TCP."
-
-#: telescope/plugins/connection.py:763 telescope/plugins/connection.py:769
-msgid "UDP on Wi-Fi"
-msgstr "UDP på Wi-Fi"
-
-#: telescope/plugins/connection.py:772
-msgid "Experimental"
-msgstr "Experimentellt"
-
-#: telescope/plugins/connection.py:803 telescope/plugins/connection.py:852 telescope/plugins/connection.py:1128
+#: telescope/plugins/connection.py:783 telescope/plugins/connection.py:832 telescope/plugins/connection.py:1108
 msgid "No phone yet"
 msgstr "Ingen telefon än"
 
-#: telescope/plugins/connection.py:804
+#: telescope/plugins/connection.py:784
 msgid "Which phone to stream from"
 msgstr "Vilken telefon du strömmar från"
 
-#: telescope/plugins/connection.py:820
+#: telescope/plugins/connection.py:800
 msgid "Your phones: add, rename, remove"
 msgstr "Dina telefoner: lägg till, byt namn, ta bort"
 
-#: telescope/plugins/connection.py:854 telescope/plugins/connection.py:871
+#: telescope/plugins/connection.py:834 telescope/plugins/connection.py:851
 msgctxt "status"
 msgid "Streaming"
 msgstr "Strömmar"
 
-#: telescope/plugins/connection.py:855
+#: telescope/plugins/connection.py:835
 #, python-brace-format
 msgid "Waiting for {source}…"
 msgstr "Väntar på {source}…"
 
-#: telescope/plugins/connection.py:857
+#: telescope/plugins/connection.py:837
 #, python-brace-format
 msgid "{source}, no phone needed"
 msgstr "{source}, ingen telefon behövs"
 
-#: telescope/plugins/connection.py:869
+#: telescope/plugins/connection.py:849
 msgid "Reconnecting…"
 msgstr "Återansluter…"
 
-#: telescope/plugins/connection.py:874
+#: telescope/plugins/connection.py:854
 msgid "Streaming over USB"
 msgstr "Strömmar via USB"
 
-#: telescope/plugins/connection.py:874
+#: telescope/plugins/connection.py:854
 msgid "Streaming over Wi-Fi"
 msgstr "Strömmar via Wi-Fi"
 
-#: telescope/plugins/connection.py:876 telescope/plugins/microphone.py:531
+#: telescope/plugins/connection.py:856 telescope/plugins/microphone.py:531
 msgid "Connecting…"
 msgstr "Ansluter…"
 
-#: telescope/plugins/connection.py:895
+#: telescope/plugins/connection.py:875
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "Använder inte USB: {reason}."
 
-#: telescope/plugins/connection.py:900
+#: telescope/plugins/connection.py:880
 msgid "Updating the phone app over USB…"
 msgstr "Uppdaterar telefonappen via USB…"
 
-#: telescope/plugins/connection.py:907
+#: telescope/plugins/connection.py:887
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Telescope-appen på {phone} är äldre än den här."
 
-#: telescope/plugins/connection.py:911 telescope/plugins/connection.py:1296
+#: telescope/plugins/connection.py:891 telescope/plugins/connection.py:1269
 msgid "Update this app"
 msgstr "Uppdatera den här appen"
 
-#: telescope/plugins/connection.py:950
+#: telescope/plugins/connection.py:930
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Kunde inte uppdatera telefonappen: {error}"
 
-#: telescope/plugins/connection.py:959
+#: telescope/plugins/connection.py:939
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Telefonappen har uppdaterats. Öppna Telescope på telefonen."
 
-#: telescope/plugins/connection.py:1090
+#: telescope/plugins/connection.py:1070
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "Kan inte nå {phone} via USB"
 
-#: telescope/plugins/connection.py:1091
+#: telescope/plugins/connection.py:1071
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Kan inte nå {phone} via Wi-Fi"
 
-#: telescope/plugins/connection.py:1092
+#: telescope/plugins/connection.py:1072
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "Kan inte nå {phone}"
 
-#: telescope/plugins/connection.py:1095
+#: telescope/plugins/connection.py:1075
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "Kontrollera kabeln och att Telescope-appen är öppen på telefonen."
 
-#: telescope/plugins/connection.py:1096
+#: telescope/plugins/connection.py:1076
 msgid "Check that it's on the same network as this computer."
 msgstr "Kontrollera att den är på samma nätverk som den här datorn."
 
-#: telescope/plugins/connection.py:1099
+#: telescope/plugins/connection.py:1079
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "Strömmar fortfarande via {now}, så Anslut via står kvar på {kept}."
 
-#: telescope/plugins/connection.py:1128
+#: telescope/plugins/connection.py:1108
 msgid "Add a phone to stream from."
 msgstr "Lägg till en telefon att strömma från."
 
-#: telescope/plugins/connection.py:1142 telescope/plugins/connection.py:1161
+#: telescope/plugins/connection.py:1122 telescope/plugins/connection.py:1141
 msgid "Can't connect to the phone"
 msgstr "Kan inte ansluta till telefonen"
 
-#: telescope/plugins/connection.py:1143
+#: telescope/plugins/connection.py:1123
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb kunde inte öppna en anslutning till telefonen. Koppla ur den, koppla in den igen och försök igen."
 
-#: telescope/plugins/connection.py:1300
+#: telescope/plugins/connection.py:1273
 msgid "Switch to Automatic"
 msgstr "Byt till Automatiskt"
 
-#: telescope/plugins/connection.py:1315
+#: telescope/plugins/connection.py:1288
 msgid "Virtual camera is set up differently"
 msgstr "Den virtuella kameran är inställd på ett annat sätt"
 
-#: telescope/plugins/connection.py:1316
+#: telescope/plugins/connection.py:1289
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback är laddad, men utan {device}: en annan app har ställt in den med andra inställningar. Stäng den appen och kör det här för att lämna över den till Telescope:"
 
-#: telescope/plugins/connection.py:1323
+#: telescope/plugins/connection.py:1296
 msgid "The virtual camera is off"
 msgstr "Den virtuella kameran är av"
 
-#: telescope/plugins/connection.py:1323
+#: telescope/plugins/connection.py:1296
 msgid "Switching it on asks for your password."
 msgstr "Du behöver ange ditt lösenord för att slå på den."
 
-#: telescope/plugins/connection.py:1324 telescope/widgets/plugins_panel.py:725 telescope/widgets/plugins_panel.py:798
+#: telescope/plugins/connection.py:1297 telescope/widgets/plugins_panel.py:725 telescope/widgets/plugins_panel.py:798
 msgid "Switch on"
 msgstr "Slå på"
 
-#: telescope/plugins/connection.py:1334 telescope/plugins/connection.py:1344
+#: telescope/plugins/connection.py:1307 telescope/plugins/connection.py:1317
 msgid "Set up the virtual camera"
 msgstr "Ställ in den virtuella kameran"
 
-#: telescope/plugins/connection.py:1337
+#: telescope/plugins/connection.py:1310
 msgid "Couldn't set up the virtual camera"
 msgstr "Kunde inte ställa in den virtuella kameran"
 
-#: telescope/plugins/connection.py:1345
+#: telescope/plugins/connection.py:1318
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Telescope behöver slå på sin virtuella kamera först. Du behöver ange ditt lösenord."
 
-#: telescope/plugins/connection.py:1346
+#: telescope/plugins/connection.py:1319
 msgid "Also switch it on at every startup"
 msgstr "Slå också på den vid varje start"
 
-#: telescope/plugins/connection.py:1389
+#: telescope/plugins/connection.py:1362
 msgid "Lost the connection to the phone. Try again."
 msgstr "Tappade anslutningen till telefonen. Försök igen."
 
-#: telescope/plugins/connection.py:1392 telescope/plugins/connection.py:1464
+#: telescope/plugins/connection.py:1365 telescope/plugins/connection.py:1437
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -2622,24 +2609,24 @@ msgstr ""
 "\n"
 "Klicka på Lägg till telefon för att parkoppla den igen."
 
-#: telescope/plugins/connection.py:1395
+#: telescope/plugins/connection.py:1368
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "Kunde inte nå telefonen. Öppna Telescope på den och försök igen."
 
-#: telescope/plugins/connection.py:1402
+#: telescope/plugins/connection.py:1375
 msgid "Starting the phone's camera..."
 msgstr "Startar telefonens kamera..."
 
-#: telescope/plugins/connection.py:1424 telescope/plugins/connection.py:1430
+#: telescope/plugins/connection.py:1397 telescope/plugins/connection.py:1403
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "Tappade kontakten med telefonen medan kameran startade."
 
-#: telescope/plugins/connection.py:1432
+#: telescope/plugins/connection.py:1405
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "Telefonen tystnade ett ögonblick, väntar fortfarande... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1439
+#: telescope/plugins/connection.py:1412
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -2649,17 +2636,17 @@ msgstr ""
 "\n"
 "Kontrollera om det finns en behörighetsfråga eller ett fel på telefonen."
 
-#: telescope/plugins/connection.py:1443
+#: telescope/plugins/connection.py:1416
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "Telefonens kamera öppnas... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1444
+#: telescope/plugins/connection.py:1417
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "Väntar på telefonens kamera... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1445
+#: telescope/plugins/connection.py:1418
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -2669,7 +2656,7 @@ msgstr ""
 "\n"
 "Försök igen. Om det händer igen, öppna Telescope på telefonen."
 
-#: telescope/plugins/connection.py:1459
+#: telescope/plugins/connection.py:1432
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -2679,7 +2666,7 @@ msgstr ""
 "\n"
 "Öppna appen på telefonen och tillåt kamerabehörigheten."
 
-#: telescope/plugins/connection.py:1461
+#: telescope/plugins/connection.py:1434
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -2689,7 +2676,7 @@ msgstr ""
 "\n"
 "Försök igen om ett ögonblick."
 
-#: telescope/plugins/connection.py:1462
+#: telescope/plugins/connection.py:1435
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -2699,25 +2686,25 @@ msgstr ""
 "\n"
 "Ta fram Telescope på telefonen och försök igen."
 
-#: telescope/plugins/connection.py:1466
+#: telescope/plugins/connection.py:1439
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "Telefonen vägrade starta strömningen ({error})."
 
-#: telescope/plugins/connection.py:1466
+#: telescope/plugins/connection.py:1439
 msgid "unknown error"
 msgstr "okänt fel"
 
-#: telescope/plugins/connection.py:1618
+#: telescope/plugins/connection.py:1591
 msgid "Same phone?"
 msgstr "Samma telefon?"
 
-#: telescope/plugins/connection.py:1619
+#: telescope/plugins/connection.py:1592
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Är det här {name} igen?"
 
-#: telescope/plugins/connection.py:1620
+#: telescope/plugins/connection.py:1593
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "En telefon som heter {name} parkopplades som en ny telefon. Det händer när Telescope har installerats om på den eller dess data har rensats. Väljer du Ja flyttas inställningar och förinställningar för {name} över till den, och den gamla posten tas bort."
@@ -2794,7 +2781,7 @@ msgstr "Text"
 msgid "Auto works the shape out from the corners"
 msgstr "Auto räknar ut formen från hörnen"
 
-#: telescope/plugins/desk.py:255 telescope/plugins/stream_output.py:184
+#: telescope/plugins/desk.py:255 telescope/plugins/stream_output.py:186
 msgid "Shape"
 msgstr "Form"
 
@@ -3571,7 +3558,7 @@ msgid "Pill"
 msgstr "Piller"
 
 #. Light and Heavy are the names of the two stream formats
-#: telescope/plugins/name_tag.py:22 telescope/plugins/stream_output.py:239
+#: telescope/plugins/name_tag.py:22 telescope/plugins/stream_output.py:259
 msgid "Light"
 msgstr "Lätt"
 
@@ -4190,7 +4177,7 @@ msgstr "Öppna mapp"
 msgid "Show the photos taken last"
 msgstr "Visa de senast tagna fotona"
 
-#: telescope/plugins/photos.py:164 telescope/plugins/stream_output.py:300
+#: telescope/plugins/photos.py:164 telescope/plugins/stream_output.py:320
 msgid "Format"
 msgstr "Format"
 
@@ -5704,150 +5691,162 @@ msgstr "Längst till höger är Dynamisk, som anpassar sig efter vad din anslutn
 msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
 msgstr "Appen på den här telefonen är för gammal för Dynamisk och använder Auto tills den uppdateras."
 
-#: telescope/plugins/stream_output.py:39
+#: telescope/plugins/stream_output.py:33
+msgid "Sends Light over UDP instead of TCP on Wi-Fi. It can stutter more than TCP, so try it and see."
+msgstr ""
+
+#: telescope/plugins/stream_output.py:40
 msgid "Good for most calls"
 msgstr "Bra för de flesta samtal"
 
-#: telescope/plugins/stream_output.py:40
+#: telescope/plugins/stream_output.py:41
 msgid "Sharper, more data"
 msgstr "Skarpare, mer data"
 
-#: telescope/plugins/stream_output.py:43
+#: telescope/plugins/stream_output.py:44
 msgid "H.264 from the phone's hardware encoder, like video calls use."
 msgstr "H.264 från telefonens hårdvarukodare, som i videosamtal."
 
-#: telescope/plugins/stream_output.py:44
+#: telescope/plugins/stream_output.py:45
 msgid "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
 msgstr "MJPEG: varje bildruta är en hel JPEG. Flera gånger mer data än Lätt, skarpare vid snabba rörelser."
 
-#: telescope/plugins/stream_output.py:94
+#: telescope/plugins/stream_output.py:95
 msgid "The phone's H.264 encoder stopped"
 msgstr "Telefonens H.264-kodare slutade fungera"
 
-#: telescope/plugins/stream_output.py:96
+#: telescope/plugins/stream_output.py:97
 #, python-brace-format
 msgid "H.264 isn't available at {size} on this phone"
 msgstr "H.264 är inte tillgängligt vid {size} på den här telefonen"
 
-#: telescope/plugins/stream_output.py:98
+#: telescope/plugins/stream_output.py:99
 #, python-brace-format
 msgid "The camera can't feed H.264 at {size} on this phone"
 msgstr "Kameran kan inte mata H.264 vid {size} på den här telefonen"
 
-#: telescope/plugins/stream_output.py:100
+#: telescope/plugins/stream_output.py:101
 #, python-brace-format
 msgid "H.264 at {size} stopped the camera on this phone"
 msgstr "H.264 vid {size} stoppade kameran på den här telefonen"
 
-#: telescope/plugins/stream_output.py:139 telescope/plugins/stream_output.py:180 telescope/plugins/stream_output.py:295
+#: telescope/plugins/stream_output.py:140 telescope/plugins/stream_output.py:182 telescope/plugins/stream_output.py:315
 msgid "Stream output"
 msgstr "Utgående ström"
 
-#: telescope/plugins/stream_output.py:140
+#: telescope/plugins/stream_output.py:141
 msgid "The resolution, frame rate and format of the stream."
 msgstr "Strömmens upplösning, bildfrekvens och format."
 
-#: telescope/plugins/stream_output.py:144
+#: telescope/plugins/stream_output.py:145
 msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
 msgstr "Utan det finns inte kortet Utgående ström och strömmarna använder den storlek och det format som telefonen väljer."
 
-#: telescope/plugins/stream_output.py:200
+#: telescope/plugins/stream_output.py:202
 msgid "The phone's capture rate and the virtual camera's. Lower saves data and battery."
 msgstr "Telefonens och den virtuella kamerans bildfrekvens. Lägre sparar data och batteri."
 
-#: telescope/plugins/stream_output.py:223 telescope/plugins/stream_output.py:301
+#: telescope/plugins/stream_output.py:225 telescope/plugins/stream_output.py:321
 msgid "JPEG quality"
 msgstr "JPEG-kvalitet"
 
-#: telescope/plugins/stream_output.py:235 telescope/plugins/stream_output.py:303
+#: telescope/plugins/stream_output.py:237 telescope/plugins/stream_output.py:323
 msgid "Bitrate"
 msgstr "Bithastighet"
 
-#: telescope/plugins/stream_output.py:240
+#: telescope/plugins/stream_output.py:243 telescope/plugins/stream_output.py:249
+msgid "UDP on Wi-Fi"
+msgstr "UDP på Wi-Fi"
+
+#: telescope/plugins/stream_output.py:252
+msgid "Experimental"
+msgstr "Experimentellt"
+
+#: telescope/plugins/stream_output.py:260
 msgid "Heavy"
 msgstr "Tung"
 
-#: telescope/plugins/stream_output.py:297
+#: telescope/plugins/stream_output.py:317
 msgid "Aspect ratio"
 msgstr "Bildförhållande"
 
-#: telescope/plugins/stream_output.py:338
+#: telescope/plugins/stream_output.py:358
 msgid "Switch to Heavy"
 msgstr "Byt till Tung"
 
-#: telescope/plugins/stream_output.py:340
+#: telescope/plugins/stream_output.py:360
 #, python-brace-format
 msgid "{error}. It's set back to {size}, the last size that worked."
 msgstr "{error}. Storleken är återställd till {size}, den senaste som fungerade."
 
-#: telescope/plugins/stream_output.py:342
+#: telescope/plugins/stream_output.py:362
 #, python-brace-format
 msgid "Start at {size}"
 msgstr "Starta med {size}"
 
-#: telescope/plugins/stream_output.py:344
+#: telescope/plugins/stream_output.py:364
 #, python-brace-format
 msgid "{error}. Try a lower resolution or FPS, or switch to Heavy."
 msgstr "{error}. Prova en lägre upplösning eller FPS, eller byt till Tung."
 
-#: telescope/plugins/stream_output.py:345
+#: telescope/plugins/stream_output.py:365
 msgid "Too much for the phone's H.264 encoder"
 msgstr "För mycket för telefonens H.264-kodare"
 
-#: telescope/plugins/stream_output.py:350
+#: telescope/plugins/stream_output.py:370
 msgid "Switched to Heavy"
 msgstr "Bytte till Tung"
 
-#: telescope/plugins/stream_output.py:350
+#: telescope/plugins/stream_output.py:370
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Du kan prova Lätt igen i Utgående ström."
 
-#: telescope/plugins/stream_output.py:578
+#: telescope/plugins/stream_output.py:598
 msgid "H.264. Needs PyAV on this computer (pip install av)."
 msgstr "H.264. Kräver PyAV på den här datorn (pip install av)."
 
-#: telescope/plugins/stream_output.py:580
+#: telescope/plugins/stream_output.py:600
 msgid "H.264. This phone has no H.264 encoder."
 msgstr "H.264. Den här telefonen har ingen H.264-kodare."
 
-#: telescope/plugins/stream_output.py:615
+#: telescope/plugins/stream_output.py:636
 msgid "Try Light or lower quality."
 msgstr "Prova Lätt eller lägre kvalitet."
 
-#: telescope/plugins/stream_output.py:615
+#: telescope/plugins/stream_output.py:636
 msgid "Switch to Light"
 msgstr "Byt till Lätt"
 
-#: telescope/plugins/stream_output.py:617
+#: telescope/plugins/stream_output.py:638
 msgid "Try a lower resolution or FPS."
 msgstr "Prova en lägre upplösning eller FPS."
 
-#: telescope/plugins/stream_output.py:619
+#: telescope/plugins/stream_output.py:640
 msgid "Try Dynamic or lower quality."
 msgstr "Prova Dynamisk eller lägre kvalitet."
 
-#: telescope/plugins/stream_output.py:620
+#: telescope/plugins/stream_output.py:641
 msgid "Switch to Dynamic"
 msgstr "Byt till Dynamisk"
 
-#: telescope/plugins/stream_output.py:622
+#: telescope/plugins/stream_output.py:643
 msgid "Try lower quality."
 msgstr "Prova lägre kvalitet."
 
-#: telescope/plugins/stream_output.py:634
+#: telescope/plugins/stream_output.py:655
 msgid "The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most."
 msgstr "Telefonens Wi-Fi-signal är svag. Det hjälper mest att flytta den närmare routern eller ansluta en kabel."
 
-#: telescope/plugins/stream_output.py:637
+#: telescope/plugins/stream_output.py:658
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr "Telefonen är på 2,4 GHz-Wi-Fi, som är långsammare och ofta överbelastat. Ett 5 GHz-nätverk eller en kabel hjälper mest."
 
-#: telescope/plugins/stream_output.py:659
+#: telescope/plugins/stream_output.py:680
 msgid "Dynamic"
 msgstr "Dynamisk"
 
-#: telescope/plugins/stream_output.py:716
+#: telescope/plugins/stream_output.py:749
 #, python-brace-format
 msgid "{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS."
 msgstr "{quality}. Pricken ({default} %) rekommenderas: högre kostar mycket mer data för nästan ingen synlig skillnad. På långsamt Wi-Fi: sänk den eller FPS."
@@ -7637,3 +7636,6 @@ msgstr "MediaPipe kunde inte laddas på den här datorn. Detaljerna får du med 
 #: telescope/widgets/vision_status.py:59
 msgid "Getting ready…"
 msgstr "Förbereder…"
+
+#~ msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
+#~ msgstr "Kan jämna ut fördröjningstoppar på belastat Wi-Fi. Tung använder fortfarande TCP."

@@ -68,5 +68,5 @@ When you add a rule that a test could check, add the test too.
 Don't add to this list without a good reason.
 
 - The window talks to a few built-in plugins directly through `_plugin(name)`: Connection (the picked phone, waking it, routes), Setup (canvas size), Stream output (stream size) and Shortcuts (`--action`). Only Connection is required, so the window checks the others are there
-- Connection reads Stream output's `format` with `plugin_config` to pick the phone's video URL
+- Connection reads Stream output's `format`, `bitrate_mbps` and `udp` with `plugin_config` to pick the phone's video URL
 - Presets saves and loads other plugins' settings through `plugin_config` and `apply_preset`, which is what Presets is for

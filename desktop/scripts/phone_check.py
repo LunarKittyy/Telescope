@@ -282,14 +282,14 @@ class Check:
         finally:
             UdpH264Reader._open_udp, h264_reader_class().open = open_udp, open_tcp
             del connection.on_stream_start
-            self.connection._udp_cb.setChecked(False)
+            self.win._plugin("stream_output")._udp_cb.setChecked(False)
         return ok
 
     def thin_run(self, mode: str, args, states: list) -> bool:
         output = self.win._plugin("stream_output")
         cfg = output.get_config()
-        output.set_config({**cfg, "format": "h264", "bitrate_mbps": -1 if mode.startswith("dynamic") else 0})
-        self.connection._udp_cb.setChecked(mode.endswith("udp"))
+        output.set_config({**cfg, "format": "h264", "bitrate_mbps": -1 if mode.startswith("dynamic") else 0,
+                           "udp": mode.endswith("udp")})
         self.reader, self.ctrl = None, None
         import telescope.udp_reader as udp_reader
         udp_reader._UDP_FAILED.clear()  # a mode that collapsed on UDP shouldn't send the next one to TCP

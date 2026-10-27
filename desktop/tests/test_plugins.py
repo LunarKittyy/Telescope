@@ -462,6 +462,7 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
         "jpeg_quality": 77,
         "format": "h264",  # Light is the default
         "bitrate_mbps": 0,
+        "udp": False,  # experimental, off unless switched on
         "resolution": "854 x 480",
     }
 
@@ -1094,6 +1095,22 @@ def test_light_is_the_default_and_switching_reconnects(stream_output, monkeypatc
 
     plugin._fmt_h264.click()
     assert plugin.stream_format() == "h264" and host.reconnects == 2
+
+
+def test_udp_is_an_experimental_switch_for_light_that_presets_leave_alone(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    changes = []
+    plugin._bus.stream_transport_changed.connect(lambda: changes.append(1))
+    plugin._show_format()
+    assert not plugin._udp_cb.isChecked() and plugin._udp_row.isHidden() is False
+    plugin._udp_cb.setChecked(True)
+    assert plugin.get_config()["udp"] is True and changes == [1] and host.reconnects == 0  # Connection decides
+    plugin.apply_preset({"format": "h264"})  # a preset saved before the switch moved here
+    assert plugin._udp_cb.isChecked()
+    plugin.set_config({})  # another phone without it saved
+    assert not plugin._udp_cb.isChecked()
+    plugin._fmt_mjpeg.click()
+    assert plugin._udp_row.isHidden()  # Heavy always goes over TCP
 
 
 def test_a_phone_without_an_encoder_quietly_gets_heavy(stream_output, monkeypatch):

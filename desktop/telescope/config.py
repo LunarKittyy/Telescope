@@ -64,7 +64,7 @@ def load_config(strict: bool = False) -> dict:
         _backup_invalid_file(path, data)
         return _empty()
 
-    return _validate_sections(raw)
+    return _move_udp_switch(_validate_sections(raw))
 
 
 def save_config(cfg: dict) -> bool:
@@ -186,6 +186,32 @@ def _upgrade_from_v2(cfg):
     return cfg
 
 
+# LEGACY MIGRATION PATH: configs from 4.3 and earlier; remove once the next stable release has been out a while.
+def _move_udp_switch(cfg: dict) -> dict:
+    """UDP on Wi-Fi moved from Connection to each phone's Stream output. It was always off unless someone switched it
+    on, so an on carries over to every phone."""
+    conn = cfg["plugin_configs"].get("connection")
+    if not isinstance(conn, dict) or "udp" not in conn:
+        return cfg
+    cfg = dict(cfg, plugin_configs=dict(cfg["plugin_configs"], connection=dict(conn)))
+    if cfg["plugin_configs"]["connection"].pop("udp") is not True:
+        return cfg
+    phones = conn.get("phones")
+    ids = {p.get("id") for p in phones if isinstance(p, dict)} if isinstance(phones, list) else set()
+    devices = dict(cfg["devices"])
+    for pid in (ids | set(devices)) - {None}:
+        if not isinstance(pid, str):
+            continue
+        dev = dict(devices.get(pid, {}))
+        pcfg = dict(dev.get("plugin_configs", {}))
+        out = pcfg.get("stream_output")
+        pcfg["stream_output"] = dict(out if isinstance(out, dict) else {}, udp=True)
+        dev["plugin_configs"] = pcfg
+        devices[pid] = dev
+    cfg["devices"] = devices
+    return cfg
+
+
 def _is_whole_config_valid(cfg) -> bool:
     if not isinstance(cfg, dict):
         return False
@@ -244,4 +270,4 @@ def _migrate(cfg: dict) -> dict:
     cfg = _upgrade_from_v2(cfg)  # LEGACY MIGRATION PATH
     if not _is_whole_config_valid(cfg):
         return _empty()
-    return _validate_sections(cfg)
+    return _move_udp_switch(_validate_sections(cfg))

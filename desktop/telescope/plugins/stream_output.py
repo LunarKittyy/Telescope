@@ -4,7 +4,7 @@ import urllib.parse
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QButtonGroup, QHBoxLayout, QStyle, QStyleOptionViewItem, QWidget,
+    QApplication, QButtonGroup, QHBoxLayout, QLabel, QStyle, QStyleOptionViewItem, QWidget,
 )
 
 from telescope import h264_reader
@@ -13,10 +13,10 @@ from telescope.shortcuts import SHORTCUT_VALUE_ROLE, choice_action, slider_actio
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
-    ComboItemDelegate, NoScrollSlider, add_card_header, control_row_widget, card_layout, create_card, dim_until_paired, quality_label,
-    slider_row, value_label,
+    ROW_HEIGHT, ComboItemDelegate, NoScrollSlider, Switch, add_card_header, control_row_widget, card_layout, create_card,
+    dim_until_paired, quality_label, slider_row, ui_px, value_label,
 )
-from telescope.widgets.controls import ChoiceTile, OptionCard, option_row
+from telescope.widgets.controls import ChoiceTile, OptionCard, Tag, option_row
 from telescope.i18n import N_, percent, tr
 
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
@@ -30,6 +30,7 @@ _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
 _BITRATE_TIP = N_("All the way right is Dynamic, which adjusts to what your connection can handle.")
 _NO_DYNAMIC_TIP = N_("This phone's app is too old for Dynamic and uses Auto until it's updated.")
+_UDP_TIP = N_("Sends Light over UDP instead of TCP on Wi-Fi. It can stutter more than TCP, so try it and see.")
 
 FORMAT_MJPEG = "mjpeg"
 FORMAT_H264  = "h264"
@@ -159,6 +160,7 @@ class StreamOutputPlugin(TelescopePlugin):
         # Last resolution this device used or picked; survives stream stop and device switches.
         self._saved_resolution_text = None
         self._format = FORMAT_H264
+        self._udp = False  # experimental: Light over UDP on Wi-Fi, which Connection reads from this config
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
         self._h264_profile = None  # what the phone's encoder runs ("high", "baseline", "auto"); older phones don't say
@@ -234,6 +236,24 @@ class StreamOutputPlugin(TelescopePlugin):
         self._bitrate_row = control_row_widget(
             tr("Bitrate"), slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
         lay.addWidget(self._bitrate_row)
+
+        self._udp_cb = Switch("")
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.setToolTip(tr(_UDP_TIP))
+        self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
+        self._udp_cb.toggled.connect(self._on_udp)
+        self._udp_row = QWidget()
+        udp_lay = QHBoxLayout(self._udp_row)
+        udp_lay.setContentsMargins(0, 0, 0, 0)
+        udp_lay.setSpacing(8)
+        udp_name = QLabel(tr("UDP on Wi-Fi"))
+        udp_name.setMinimumHeight(ui_px(ROW_HEIGHT))
+        udp_lay.addWidget(udp_name)
+        udp_lay.addWidget(Tag(tr("Experimental"), "warn"))
+        udp_lay.addStretch(1)
+        udp_lay.addWidget(self._udp_cb)
+        self._udp_row.setToolTip(self._udp_cb.toolTip())
+        lay.addWidget(self._udp_row)
 
         # Translators: Light and Heavy are the names of the two stream formats
         self._fmt_h264 = OptionCard(tr("Light"), tr(_FORMAT_NOTES[FORMAT_H264]), "bolt")
@@ -583,6 +603,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._fmt_h264.setToolTip(tip)
         self._quality_row.setVisible(not h264)
         self._bitrate_row.setVisible(h264)
+        self._udp_row.setVisible(h264)  # Heavy always goes over TCP
 
     def _on_format_clicked(self, btn):
         self._host.clear_issue("h264")
@@ -667,6 +688,18 @@ class StreamOutputPlugin(TelescopePlugin):
         self._host.schedule_save()
         self._bus.stream_transport_changed.emit()
 
+    def _on_udp(self, on: bool):
+        if on == self._udp:
+            return
+        self._udp = on
+        self._host.schedule_save()
+        self._bus.stream_transport_changed.emit()
+
+    def _show_udp(self):
+        self._udp_cb.blockSignals(True)
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.blockSignals(False)
+
     def _fps(self) -> int:
         return self._fps_combo.currentData() or _DEFAULT_FPS
 
@@ -750,6 +783,7 @@ class StreamOutputPlugin(TelescopePlugin):
             "jpeg_quality": self._quality_slider.value(),
             "format":       self._format,
             "bitrate_mbps": _DYNAMIC if self._dynamic() else self._bitrate_slider.value(),
+            "udp":          self._udp,
         }
         if self._ctrl is not None and self._res_combo.currentData() is not None:
             self._saved_resolution_text = self._res_combo.currentText()  # stopped, a pick or preset already set it
@@ -760,6 +794,8 @@ class StreamOutputPlugin(TelescopePlugin):
     def apply_preset(self, cfg: dict):
         """Load a preset's settings and, while streaming, send them."""
         old_format = self.stream_format()
+        if "udp" not in cfg:
+            cfg = dict(cfg, udp=self._udp)  # presets from before it moved here keep the transport as it is
         self.set_config(cfg)
         if self._phone_codecs and FORMAT_H264 not in self._phone_codecs:
             self._format = FORMAT_MJPEG  # a preset without a format can't ask this phone for Light
@@ -800,5 +836,7 @@ class StreamOutputPlugin(TelescopePlugin):
         mbps = int(cfg.get("bitrate_mbps", 0) or 0)
         self._bitrate_slider.setValue(_DYNAMIC_POS if mbps == _DYNAMIC else max(0, min(_MAX_BITRATE_MBPS, mbps)))
         self._bitrate_slider.blockSignals(False)
+        self._udp = cfg.get("udp") is True
+        self._show_udp()
         self._show_bitrate()
         self._show_format()

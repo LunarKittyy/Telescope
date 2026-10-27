@@ -347,3 +347,27 @@ def test_a_reset_is_reported_once_with_where_the_copy_went(config_home):
     notice = config_home.take_reset_notice()
     assert notice and ".invalid-" in notice
     assert config_home.take_reset_notice() is None
+
+
+def test_udp_switched_on_in_connection_moves_to_every_phones_stream_output(config_home):
+    phones = [{"id": "a"}, {"id": "b"}]
+    config_home.config_path().parent.mkdir(parents=True, exist_ok=True)
+    config_home.config_path().write_text(json.dumps({
+        "version": 3, "selected_device": "a",
+        "plugin_configs": {"connection": {"udp": True, "phones": phones}},
+        "devices": {"a": {"plugin_configs": {"stream_output": {"format": "h264", "bitrate_mbps": 20}}}},
+    }))
+    cfg = config_home.load_config()
+    assert cfg["plugin_configs"]["connection"] == {"phones": phones}
+    assert cfg["devices"]["a"]["plugin_configs"]["stream_output"] == {"format": "h264", "bitrate_mbps": 20, "udp": True}
+    assert cfg["devices"]["b"]["plugin_configs"]["stream_output"] == {"udp": True}
+
+
+def test_udp_left_off_in_connection_is_just_dropped(config_home):
+    config_home.config_path().parent.mkdir(parents=True, exist_ok=True)
+    config_home.config_path().write_text(json.dumps({
+        "version": 3, "selected_device": None, "plugin_configs": {"connection": {"udp": False, "phones": [{"id": "a"}]}},
+        "devices": {},
+    }))
+    cfg = config_home.load_config()
+    assert cfg["plugin_configs"]["connection"] == {"phones": [{"id": "a"}]} and cfg["devices"] == {}
