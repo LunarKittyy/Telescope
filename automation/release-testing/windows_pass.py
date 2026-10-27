@@ -111,7 +111,7 @@ while (-not (Test-Path '{WORK}\job.done') -and (Get-Date) -lt $end) {{ Start-Sle
 Unregister-ScheduledTask {TASK} -Confirm:$false
 if (-not (Test-Path '{WORK}\job.done')) {{ "JOB FAILED: timed out after {timeout}s" }}
 Get-Content '{WORK}\job.out' -Raw -ErrorAction SilentlyContinue
-""", timeout=timeout + 60)
+""", timeout=timeout + 120)  # room for the job's own timeout to be reported, even on a busy machine
         if "JOB FAILED:" in out:
             raise Fail(out[out.index("JOB FAILED:") + 12:].strip())
         return out
@@ -145,24 +145,41 @@ foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes'
     Get-ChildItem "$view\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance" -ErrorAction SilentlyContinue |
         Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } | Remove-Item -Recurse -Force
 }
+# The Windows 11 camera: its cameras go with its registration (Frame Server keeps the DLL loaded, so the folder may stay)
+$vcam = "$env:ProgramFiles\Telescope\VirtualCamera\TelescopeCamera.dll"
+if (Test-Path $vcam) { Start-Process "$env:windir\System32\regsvr32.exe" '/s', '/u', "`"$vcam`"" -Wait }
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:ProgramFiles\Telescope", $app, "$env:APPDATA\Telescope",
     "$env:LOCALAPPDATA\Telescope", "$env:TEMP\Telescope", "$HOME\Downloads\Telescope*", "<<uninstall>>"
 Remove-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Run Telescope -ErrorAction SilentlyContinue
 Get-NetFirewallRule | Where-Object DisplayName -like '*telescope*' | Remove-NetFirewallRule
 """.replace("<<uninstall>>", UNINSTALL_KEY)
 
-# The names DirectShow lists video capture devices under (what OBS, Zoom and browsers show), 64 and 32-bit
+# The cameras apps see: what DirectShow lists UnityCapture under, 64 and 32-bit, and the Windows 11 camera's ("mf")
 CAMERAS = r"""
 foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes') {
     $bits = if ($view -like '*WOW6432Node*') { 32 } else { 64 }
     Get-ChildItem "$view\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance" -ErrorAction SilentlyContinue |
         ForEach-Object { "$bits " + (Get-ItemProperty $_.PSPath).FriendlyName }
 }
+# The Windows 11 camera (desktop/virtualcamera): a software device per camera, named in its device interface (Windows
+# adds " (Windows Virtual Camera)" to the name it was given)
+Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceClasses\{e5323777-f976-4f5b-9b55-b94699c46e44}' -ErrorAction SilentlyContinue |
+    Where-Object PSChildName -like '*VCAMDEVAPI*' | ForEach-Object { Get-ChildItem -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } |
+    ForEach-Object { "mf " + ((Get-ItemProperty -LiteralPath "$($_.PSPath)\Device Parameters" -ErrorAction SilentlyContinue).FriendlyName -replace ' \(Windows Virtual Camera\)$') }
 """
+
+# The Windows build: from 22000 (Windows 11) Telescope installs its own camera rather than UnityCapture
+WINDOWS_11 = 22000
 
 
 def clean(a):
     a.win.admin(CLEAN)
+
+
+def windows_11(a) -> bool:
+    if a.build_number is None:
+        a.build_number = int(a.win.admin("[Environment]::OSVersion.Version.Build"))
+    return a.build_number >= WINDOWS_11
 
 
 def win_now(a) -> str:
@@ -391,10 +408,15 @@ if (-not (Wait-Until { (Get-Texts) -match "^Installed" } 120 1)) { throw "the ch
     asked = elevations(a, since)
     need(asked == ["powershell.exe from TelescopeDesktop.exe"], f"expected one admin prompt for Windows PowerShell, got {asked or 'none'}")
     cameras = a.win.admin(CAMERAS).splitlines()
-    need("64 Telescope" in cameras and "32 Telescope" in cameras, f"DirectShow lists {cameras or 'no cameras'}")
-    owner = a.win.admin(r'(Get-Acl "$env:ProgramFiles\Telescope\UnityCapture").Owner')
-    need(owner.endswith("Administrators"), f"Program Files\\Telescope\\UnityCapture is owned by {owner or 'nobody (missing)'}")
-    return "OBS, Zoom and browsers see it as Telescope"
+    if windows_11(a):
+        need(cameras == ["mf Telescope"], f"expected just the Windows 11 camera, apps see {cameras or 'no cameras'}")
+        folder = "VirtualCamera"
+    else:
+        need("64 Telescope" in cameras and "32 Telescope" in cameras, f"DirectShow lists {cameras or 'no cameras'}")
+        folder = "UnityCapture"
+    owner = a.win.admin(rf'(Get-Acl "$env:ProgramFiles\Telescope\{folder}").Owner')
+    need(owner.endswith("Administrators"), f"Program Files\\Telescope\\{folder} is owned by {owner or 'nobody (missing)'}")
+    return "every app sees it as Telescope" if windows_11(a) else "OBS, Zoom and browsers see it as Telescope"
 
 
 def open_dialog_watched(a, opener: str, title: str) -> list:
@@ -460,7 +482,7 @@ Press-Control "Settings" "Button"
 Press-Control "Virtual camera & phone" "ListItem"
 Start-Sleep 3
 $texts = Get-Texts
-foreach ($t in "Ready", "Reinstall for a security fix", "Not installed") { if ($texts -contains $t) { "ROW $t" } }
+foreach ($t in "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed") { if ($texts -contains $t) { "ROW $t" } }
 $texts | Where-Object { $_ -like "Apps list it as*" } | ForEach-Object { "ROW $_" }
 """)
     rows = [line[4:] for line in out.splitlines() if line.startswith("ROW ")]
@@ -469,21 +491,62 @@ $texts | Where-Object { $_ -like "Apps list it as*" } | ForEach-Object { "ROW $_
 
 def register_driver(a, folder: str, name: str):
     """Register UnityCapture from folder under name, the way an older Telescope did."""
-    a.win.admin(ps(r"""
+    out = a.win.admin(ps(r"""
 foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes') {
     Get-ChildItem "$view\CLSID" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } | Remove-Item -Recurse -Force
     Get-ChildItem "$view\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance" -ErrorAction SilentlyContinue |
         Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } | Remove-Item -Recurse -Force
 }
 foreach ($pair in @(@("$env:windir\System32\regsvr32.exe", 'UnityCaptureFilter64.dll'), @("$env:windir\SysWOW64\regsvr32.exe", 'UnityCaptureFilter32.dll'))) {
-    Start-Process $pair[0] -ArgumentList '/s', ('"/i:UnityCaptureName=' + <<name>> + '"'), ('"' + (Join-Path "<<folder>>" $pair[1]) + '"') -Wait
+    $p = Start-Process $pair[0] -ArgumentList '/s', ('"/i:UnityCaptureName=' + <<name>> + '"'), ('"' + (Join-Path "<<folder>>" $pair[1]) + '"') -Wait -PassThru
+    if ($p.ExitCode -ne 0) { "REGSVR32 $($pair[1]) $($p.ExitCode)" }
 }""", name=name).replace("<<folder>>", folder))
+    need("REGSVR32" not in out, f"couldn't register UnityCapture from {folder}: {out}")
+
+
+def remove_mf_camera(a):
+    """Take the Windows 11 camera away again, to see what an older Telescope's UnityCapture alone looks like."""
+    a.win.admin(r"""
+$vcam = "$env:ProgramFiles\Telescope\VirtualCamera\TelescopeCamera.dll"
+if (Test-Path $vcam) { Start-Process "$env:windir\System32\regsvr32.exe" '/s', '/u', "`"$vcam`"" -Wait }
+""")
+
+
+def driver_older_versions_11(a):
+    """Windows 11: an older Telescope's UnityCapture, however it was registered, gets replaced by the Windows 11 camera."""
+    notes = []
+    for folder, name, note in ((r"$env:LOCALAPPDATA\Programs\Telescope\unitycapture", "Telescope", "from the app folder"),
+                               (r"$env:ProgramFiles\Telescope\UnityCapture", "Unity Video Capture", "under its own name")):
+        remove_mf_camera(a)
+        if folder.startswith("$env:ProgramFiles"):  # where Telescope 3.1.2 and later put it
+            copied = a.win.admin(r"""
+$dir = "$env:ProgramFiles\Telescope\UnityCapture"; New-Item -ItemType Directory -Force $dir | Out-Null
+Copy-Item "$env:LOCALAPPDATA\Programs\Telescope\unitycapture\UnityCaptureFilter*.dll" $dir -Force
+Get-ChildItem $dir -Filter "UnityCaptureFilter*.dll" | ForEach-Object { "$($_.Name) $($_.Length)" }""")
+            need(len(copied.split()) == 4, f"couldn't copy UnityCapture into Program Files: {copied or 'nothing there'}")
+        register_driver(a, folder, name)
+        row = driver_row(a)
+        need(row == "Some apps can't see it",
+             f"with UnityCapture registered {note} the row says {row!r} and apps see {a.win.admin(CAMERAS).splitlines()}")
+        since = win_now(a)
+        a.win.desktop('Press-Control "Driver" "Button"; Wait-Until { (Get-Texts) -contains "Ready" } 120 1 | Out-Null')
+        asked = elevations(a, since)
+        need(asked == ["powershell.exe from TelescopeDesktop.exe"], f"Update asked for admin {len(asked)} times: {asked}")
+        row = driver_row(a)
+        cameras = a.win.admin(CAMERAS).splitlines()
+        need(row == "Ready" and cameras == ["mf Telescope"],
+             f"after Update from UnityCapture {note} the row says {row!r} and apps see {cameras}")
+        notes.append(note)
+    a.win.desktop('Close-Window "Settings"')
+    return "Update replaces UnityCapture " + " and ".join(notes) + " with the Windows 11 camera"
 
 
 @check
 def driver_older_versions(a):
     need_installed(a, a.build, "clean_install")
     open_app(a)
+    if windows_11(a):
+        return driver_older_versions_11(a)
     notes = []
     # 3.1.1 and older registered the driver straight from the app folder, which the user's programs can write to
     register_driver(a, r"$env:LOCALAPPDATA\Programs\Telescope\unitycapture", "Telescope")
@@ -634,7 +697,10 @@ while ((Get-Date) -lt $deadline) {
     left = a.win.admin(rf"""
 Start-Sleep 3
 if (Test-Path "{APP}") {{ "app folder" }}
-if (Test-Path "$env:ProgramFiles\Telescope") {{ "Program Files\Telescope" }}
+# A DLL Frame Server still has loaded goes at the next restart, which the uninstaller queues
+$pending = @((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager').PendingFileRenameOperations)
+$stays = @(Get-ChildItem "$env:ProgramFiles\Telescope" -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object {{ $pending -notcontains ('\??\' + $_.FullName) }})
+if ((Test-Path "$env:ProgramFiles\Telescope") -and ($stays -or $pending -notcontains "\??\$env:ProgramFiles\Telescope")) {{ "Program Files\Telescope" }}
 if (Test-Path "{MENU}") {{ "Start menu entry" }}
 if (-not (Test-Path "$env:APPDATA\Telescope")) {{ "settings were deleted" }}
 """ + CAMERAS.replace('"$bits " +', '"camera " +'))
@@ -821,6 +887,7 @@ def main():
     if not a.build or not a.ssh:
         parser.error("the release folder and --ssh are needed")
     a.win = Windows(a.ssh)
+    a.build_number = None
     a.win.put((HERE / "windows" / "ui.ps1").read_bytes(), rf"{WORK}\ui.ps1")
     # UAC prompts sit on the secure desktop where nothing can press them: elevate without asking for the run and
     # count elevations from the security log instead
