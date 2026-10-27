@@ -45,7 +45,7 @@ function start() {
 
   // ── Star trails: every star is a ribbon arc around the travel axis, turned by uTime and stretched by speed ──
   const TRAIL_SEGS = 14;
-  const STAR_COUNT = innerWidth < 700 ? 2600 : 4200;
+  const STAR_COUNT = innerWidth < 700 ? 3200 : 5300;
   const trails = (() => {
     const verts = STAR_COUNT * (TRAIL_SEGS + 1) * 2;
     const star = new Float32Array(verts * 4), along = new Float32Array(verts * 2), tone = new Float32Array(verts);
@@ -56,7 +56,7 @@ function start() {
     for (let s = 0; s < STAR_COUNT; s++) {
       const r = 3.2 + Math.pow(rand(), 0.75) * 78;
       const theta = rand() * Math.PI * 2;
-      const z = 24 - rand() * 470;
+      const z = 24 - rand() * 600;
       const mag = Math.pow(rand(), 3.2);
       const t = rand();
       for (let k = 0; k <= TRAIL_SEGS; k++) {
@@ -199,7 +199,9 @@ function start() {
   lens.add(pupil);
 
   // ── Planets ──
+  // Fades in as real transparency, so the stars behind show through until the planet is fully there
   const planetMat = (mode, cols, atmo, seed) => new THREE.ShaderMaterial({
+    transparent: true,
     uniforms: {
       uA: { value: hex(cols[0]) }, uB: { value: hex(cols[1]) }, uC: { value: hex(cols[2]) }, uAtmo: { value: hex(atmo) },
       uLight: { value: LIGHT }, uSeed: { value: seed }, uTime: { value: 0 }, uFade: { value: 1 },
@@ -256,7 +258,7 @@ function start() {
         lit += uC * lights * (1.0 - smoothstep(-0.25, 0.05, ndl)) * 1.4;
         float rim = pow(1.0 - max(dot(N0, V), 0.0), 2.6);
         lit += uAtmo * rim * (0.15 + day * 0.85);
-        gl_FragColor = vec4(mix(vec3(0.059, 0.071, 0.086), lit, uFade), 1.0);
+        gl_FragColor = vec4(lit, uFade);
       }`,
   });
   // Atmosphere: glow by how close each view ray passes the planet, so it fades out instead of ending in a hard ring
@@ -290,174 +292,6 @@ function start() {
     return stop;
   };
 
-  // ── Small models: painted parts lit like the planet they stand on, and helpers to build them ──
-  // Each stop shares where its planet is, so its parts get light bounced up from the ground and shade where they touch it
-  const ground = () => ({ center: new THREE.Vector3(), r: { value: 1 } });
-  const paint = (g, tint, { color, wear, glow = null, rough = 0.45, scale = 3, slit = 0, ribs = 0, bump = 0 }) => new THREE.ShaderMaterial({
-    side: THREE.DoubleSide,
-    defines: { SLIT: slit, RIBS: ribs },
-    uniforms: {
-      uC: { value: hex(color) }, uW: { value: hex(wear) }, uE: { value: hex(glow ?? "#000000") }, uGlow: { value: glow ? 1 : 0 },
-      uBounce: { value: hex(tint.bounce) }, uRim: { value: hex(tint.rim) }, uLight: { value: LIGHT }, uCenter: { value: g.center }, uR: g.r,
-      uRough: { value: rough }, uScale: { value: scale }, uSlit: { value: 0.3 }, uBump: { value: bump }, uFade: { value: 1 },
-    },
-    vertexShader: `varying vec3 vN; varying vec3 vW; varying vec3 vObj;
-      void main() { vObj = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: NOISE + /* glsl */`
-      uniform vec3 uC, uW, uE, uBounce, uRim, uLight, uCenter; uniform float uGlow, uR, uRough, uScale, uSlit, uBump, uFade; uniform mat4 modelMatrix;
-      // Fine grain like a powder coat, small enough that it breaks up highlights without bending the shape
-      float grain(vec3 p) { return noise(p * 7.0) * 0.6 + noise(p * 17.0) * 0.4; }
-      varying vec3 vN; varying vec3 vW; varying vec3 vObj;
-      float seam(float x, float w) { return 1.0 - smoothstep(0.0, w, 0.5 - abs(fract(x) - 0.5)); }
-      void main() {
-        #if SLIT > 0
-          vec3 sp = normalize(vObj);
-          #if SLIT == 1
-            if (sp.z > 0.0 && abs(sp.x) < uSlit) discard;
-          #elif SLIT == 2
-            if (!(sp.z > -0.01 && sp.x < 0.01 && sp.x > -uSlit - 0.03)) discard;
-          #else
-            if (!(sp.z > -0.01 && sp.x > -0.01 && sp.x < uSlit + 0.03)) discard;
-          #endif
-        #endif
-        vec3 N = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0);
-        if (uBump > 0.0) {
-          vec3 bp = vObj * uScale; float be = 0.01, b0 = grain(bp);
-          vec3 bg = mat3(modelMatrix) * ((vec3(grain(bp + vec3(be, 0.0, 0.0)), grain(bp + vec3(0.0, be, 0.0)), grain(bp + vec3(0.0, 0.0, be))) - b0) / be);
-          N = normalize(N - (bg - dot(bg, N) * N) * uBump);
-        }
-        vec3 V = normalize(cameraPosition - vW), up = normalize(vW - uCenter);
-        float wear = smoothstep(0.42, 0.8, fbm(vObj * uScale));
-        vec3 base = mix(uC, uW, wear * 0.25) * (0.97 + 0.06 * noise(vObj * uScale * 8.0));
-        #if RIBS
-          vec3 rp = normalize(vObj);
-          base *= 1.0 - 0.22 * max(seam(atan(rp.z, rp.x) * 8.0 / 6.2832, 0.025), seam(asin(clamp(rp.y, -1.0, 1.0)) * 2.0 / 1.5708 + 0.5, 0.03));
-        #endif
-        if (!gl_FrontFacing) base *= 0.3;
-        float ndl = dot(N, uLight);
-        float sun = smoothstep(-0.2, 0.25, dot(up, uLight));
-        float diff = smoothstep(-0.3, 0.85, ndl);
-        float h = length(vW - uCenter) - uR;
-        float ao = mix(0.3, 1.0, smoothstep(0.0, 0.45, h));
-        float rough = clamp(uRough + wear * 0.35, 0.0, 1.0);
-        float spec = pow(max(dot(N, normalize(uLight + V)), 0.0), mix(90.0, 6.0, rough)) * (1.0 - rough) * 1.3 * step(0.0, ndl);
-        float fres = pow(1.0 - max(dot(N, V), 0.0), 3.5);
-        vec3 c = base * (0.035 + diff * 0.95 * sun) * ao
-               + base * uBounce * (0.1 + max(-dot(N, up), 0.0) * 0.55) * sun * ao
-               + vec3(1.0, 0.96, 1.0) * spec * sun
-               + uRim * fres * (0.06 + 0.32 * sun)
-               + uE * uGlow;
-        gl_FragColor = vec4(mix(vec3(0.059, 0.071, 0.086), c, uFade), 1.0);
-      }`,
-  });
-  // The front of every telescope is the Telescope lens: lavender ring, dark pupil, a small glint
-  const lensMat = (radius, glow) => new THREE.ShaderMaterial({
-    uniforms: { uRR: { value: radius }, uGlow: glow, uFade: { value: 1 } },
-    vertexShader: `varying vec2 vP; void main() { vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: /* glsl */`
-      uniform float uRR, uGlow, uFade; varying vec2 vP;
-      void main() {
-        vec2 p = vP / uRR; float d = length(p);
-        vec3 ring = mix(vec3(0.804, 0.769, 0.98), vec3(0.667, 0.612, 0.961), clamp(length(p - vec2(-0.32, 0.37)) / 1.37, 0.0, 1.0));
-        vec2 q = p / 0.45;
-        vec3 pupil = mix(vec3(0.086, 0.102, 0.125), vec3(0.039, 0.047, 0.059), clamp(length(q - vec2(0.2, -0.25)) / 1.25, 0.0, 1.0));
-        vec2 gv = (q - vec2(-0.33, 0.36)) * mat2(0.88, -0.47, 0.47, 0.88) / vec2(0.22, 0.15);
-        pupil = mix(pupil, vec3(1.0), (1.0 - smoothstep(0.85, 1.0, length(gv))) * 0.25);
-        vec3 c = mix(ring * (0.5 + 0.6 * uGlow), pupil, 1.0 - smoothstep(0.43, 0.46, d));
-        c *= 1.0 - 0.65 * smoothstep(0.86, 1.0, d);
-        gl_FragColor = vec4(mix(vec3(0.059, 0.071, 0.086), c, uFade), 1.0);
-      }`,
-  });
-  // Each stop gets its own set, since two stops can be fading at the same time
-  const kit = (g, tint) => ({
-    g, tint, glow: { value: 0.45 },
-    shell: paint(g, tint, { color: "#e4e0ef", wear: "#a29bbd", rough: 0.55, scale: 6, bump: 0.004 }),
-    metal: paint(g, tint, { color: "#363b4b", wear: "#1d212b", rough: 0.45, scale: 7, bump: 0.005 }),
-    accent: paint(g, tint, { color: "#aa9cf5", wear: "#7566c9", rough: 0.45, scale: 6, bump: 0.004 }),
-    rubber: paint(g, tint, { color: "#1b1e25", wear: "#121419", rough: 0.85, scale: 9 }),
-    lamp: paint(g, tint, { color: "#3b3550", wear: "#2a2639", glow: "#8a78f0", rough: 0.4 }),
-  });
-  const Y = new THREE.Vector3(0, 1, 0);
-  const add = (geo, mat, parent, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
-  const lathe = (pts, mat, parent, segs = 48) => add(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), segs), mat, parent);
-  const rod = (from, to, r1, r2, mat, parent) => {
-    const d = to.clone().sub(from);
-    const m = add(new THREE.CylinderGeometry(r2, r1, d.length(), 14), mat, parent);
-    m.position.copy(from).addScaledVector(d, 0.5);
-    m.quaternion.setFromUnitVectors(Y, d.normalize());
-    return m;
-  };
-  // A chunky refractor on a fork mount, pointing along +z. elMax is how far it may tilt up, which sets how tall the fork
-  // is so the back of the tube always clears it. floor(s) is the ground height s away from the centre, for the feet.
-  const telescope = (k, { len, rad: r, legs = 0, elMax = 0.65, floor = () => 0 }) => {
-    const root = new THREE.Group();
-    const az = new THREE.Group();
-    root.add(az);
-    if (legs) {
-      // Three thick legs meeting in a rounded head
-      az.position.y = legs;
-      lathe([[0.001, -0.55 * r], [0.4 * r, -0.5 * r], [0.62 * r, -0.3 * r], [0.66 * r, 0], [0.001, 0]], k.metal, root, 32).position.y = legs;
-      for (let i = 0; i < 3; i++) {
-        const a = i / 3 * Math.PI * 2 + 0.5, s = legs * 0.6;
-        const top = new THREE.Vector3(Math.cos(a) * 0.32 * r, legs - 0.3 * r, Math.sin(a) * 0.32 * r);
-        const foot = new THREE.Vector3(Math.cos(a) * s, floor(s) + 0.1 * r, Math.sin(a) * s);
-        rod(top, foot, 0.17 * r, 0.11 * r, k.metal, root);
-        add(new THREE.SphereGeometry(0.16 * r, 16, 10), k.rubber, root).position.copy(foot);
-      }
-    }
-    lathe([[0.001, 0], [0.78 * r, 0], [0.88 * r, 0.09 * r], [0.88 * r, 0.22 * r], [0.74 * r, 0.34 * r], [0.001, 0.34 * r]], k.metal, az, 40);
-    // One-piece fork with thick, rounded arms
-    const off = len * 0.25, backLen = len / 2 - off + 0.4 * r;
-    const armH = backLen * Math.sin(elMax) + 1.25 * r * Math.cos(elMax) + 0.12 * r;
-    const ri = 1.26 * r, wall = 0.36 * r, ro = ri + wall, th = 0.36 * r, top = 0.1 * r, c = 0.3 * r;
-    const shape = new THREE.Shape();
-    shape.moveTo(-ro, top);
-    shape.lineTo(-ro, -armH - th + c); shape.quadraticCurveTo(-ro, -armH - th, -ro + c, -armH - th);
-    shape.lineTo(ro - c, -armH - th); shape.quadraticCurveTo(ro, -armH - th, ro, -armH - th + c);
-    shape.lineTo(ro, top); shape.absarc((ro + ri) / 2, top, wall / 2, 0, Math.PI, false);
-    shape.lineTo(ri, -armH + c); shape.quadraticCurveTo(ri, -armH, ri - c, -armH);
-    shape.lineTo(-ri + c, -armH); shape.quadraticCurveTo(-ri, -armH, -ri, -armH + c);
-    shape.lineTo(-ri, top); shape.absarc(-(ro + ri) / 2, top, wall / 2, 0, Math.PI, false);
-    const depth = 0.62 * r, bevel = 0.1 * r;
-    const forkGeo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 20 });
-    forkGeo.translate(0, 0, -depth / 2);
-    const axisY = 0.34 * r + bevel + th + armH;
-    add(forkGeo, k.metal, az, 0, axisY, 0);
-    const alt = new THREE.Group();
-    alt.position.y = axisY;
-    az.add(alt);
-    // Axle through the arms, finished with a rounded lavender cap on each side
-    rod(new THREE.Vector3(-ro, 0, 0), new THREE.Vector3(ro, 0, 0), 0.2 * r, 0.2 * r, k.metal, alt);
-    for (const s of [-1, 1]) {
-      const cap = lathe([[0.001, 0], [0.4 * r, 0], [0.4 * r, 0.08 * r], [0.3 * r, 0.2 * r], [0.001, 0.24 * r]], k.accent, alt, 32);
-      cap.position.x = s * (ro + bevel - 0.02 * r);
-      cap.rotation.z = -s * Math.PI / 2;
-    }
-    // The tube: a rounded back, a slight taper, one wide band, and a dew shield with a thick lip
-    const tube = new THREE.Group();
-    tube.rotation.x = Math.PI / 2;
-    tube.position.z = off;
-    alt.add(tube);
-    const h = len / 2, dew = 0.9 * r;
-    lathe([
-      [0.001, -h - 0.4 * r], [0.38 * r, -h - 0.36 * r], [0.66 * r, -h - 0.24 * r], [0.84 * r, -h - 0.06 * r], [0.9 * r, -h + 0.1 * r],
-      [r, h - 0.2 * r], [1.14 * r, h - 0.08 * r], [1.18 * r, h + 0.04 * r], [1.18 * r, h + dew - 0.1 * r], [1.15 * r, h + dew - 0.02 * r],
-      [1.08 * r, h + dew], [1.02 * r, h + dew - 0.06 * r], [1.02 * r, h], [0.001, h],
-    ], k.shell, tube, 64);
-    lathe([[0.95 * r, -0.28 * r], [1.04 * r, -0.22 * r], [1.04 * r, 0.22 * r], [0.95 * r, 0.28 * r]], k.accent, tube, 64).position.y = -h * 0.1;
-    const face = add(new THREE.CircleGeometry(1.02 * r, 48), lensMat(1.02 * r, k.glow), tube, 0, h + 0.006, 0);
-    face.rotation.x = -Math.PI / 2;
-    return { root, az, alt };
-  };
-  // Stand something on a sphere at direction n, turned so its +z faces `look` along the ground
-  const plant = (obj, parent, R, n, look, sink) => {
-    n = n.clone().normalize();
-    obj.position.copy(n).multiplyScalar(R - sink);
-    obj.quaternion.setFromUnitVectors(Y, n);
-    const l = look.clone().applyQuaternion(obj.quaternion.clone().invert());
-    obj.rotateY(Math.atan2(l.x, l.z));
-    parent.add(obj);
-  };
   const glowTex = (() => {
     const c = document.createElement("canvas");
     c.width = c.height = 64;
@@ -530,44 +364,61 @@ function start() {
     };
   });
 
-  // 2: lenses, a small world with three telescopes, one for each lens, slewing between targets
+  // 2: lenses, a small lavender world
   makeStop(group => {
-    const R = 6.4, SINK = 0.08;
+    const R = 6.4;
     const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), planetMat(1, ["#4a3d99", "#8e80e0", "#cfc6fb"], "#b5a8ff", 8.3));
     group.add(body, atmosphere(R, "#a090ff"));
-    const g = ground(), k = kit(g, { bounce: "#8e80e0", rim: "#b5a8ff" });
-    // Ground height under a tripod foot, measured from the planted origin
-    const floor = s => Math.sqrt(R * R - s * s) - (R - SINK);
-    // Facing the camera, which sees this planet from the right and in front
-    const toCam = new THREE.Vector3(0.55, 0.1, 0.83);
-    const scopes = [
-      { n: [0.2, 0.97, 0.22], len: 2.8, rad: 0.33, legs: 1.0 },
-      { n: [-0.2, 0.95, 0.3], len: 1.7, rad: 0.28, legs: 0.74 },
-      { n: [-0.55, 0.78, 0.32], len: 1.0, rad: 0.3, legs: 0.56 },
-    ].map((o, i) => {
-      const s = telescope(k, { ...o, elMax: 0.62, floor });
-      plant(s.root, group, R, new THREE.Vector3(...o.n), toCam, SINK);
-      // A few pointing targets each, as offsets from facing the camera
-      const targets = [0, 1, 2, 3].map(j => ({ az: Math.sin(i * 7.1 + j * 3.3) * 0.9, el: 0.12 + 0.48 * (0.5 + 0.5 * Math.sin(i * 4.7 + j * 2.1)) }));
-      return { ...s, targets, phase: i * 2.3 };
-    });
-    const PERIOD = 6;
+    return { body, R, tick(t) { body.rotation.y = t * 0.02; body.material.uniforms.uTime.value = t; } };
+  });
+
+  // 3: setup, a small icy world with one moon on a slow orbit
+  makeStop(group => {
+    const R = 5.2, D = R * 2.1;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), planetMat(0, ["#2f4a5c", "#6f9bb0", "#d4e6ee"], "#8fc4dd", 11.7));
+    group.add(body, atmosphere(R, "#8fc4dd"));
+    const orbit = new THREE.Group();
+    orbit.rotation.set(0.3, 0, 0.18);
+    orbit.add(orbitLine(D, 0.1));
+    const m = moon(0.6, ["#5b6470", "#97a1ad", "#d0d6de"], 4.4);
+    orbit.add(m);
+    group.add(orbit);
     return {
       body, R,
       tick(t) {
-        group.getWorldPosition(g.center);
-        g.r.value = R * group.scale.x;
-        for (const s of scopes) {
-          const time = Math.max(0, t) + s.phase, step = Math.floor(time / PERIOD), f = smooth(clamp01((time % PERIOD) / 2.4));
-          const from = s.targets[step % 4], to = s.targets[(step + 1) % 4];
-          s.az.rotation.y = from.az + (to.az - from.az) * f;
-          s.alt.rotation.x = -(from.el + (to.el - from.el) * f);
-        }
+        body.rotation.y = t * 0.025;
+        const a = 2.2 + t * 0.05;
+        m.position.set(Math.cos(a) * D, 0, Math.sin(a) * D);
       },
     };
   });
 
-  // 3: set and forget, a ringed giant with an observatory that opens when you arrive and closes when you leave
+  // 4: plugins, two small worlds circling each other, one cool and one warm
+  makeStop(group => {
+    const R = 6;
+    const pair = new THREE.Group();
+    pair.rotation.set(0.35, 0, -0.25);
+    group.add(pair);
+    const cool = new THREE.Mesh(new THREE.SphereGeometry(3.4, 80, 56), planetMat(1, ["#33405e", "#7486b4", "#c9d3ef"], "#98a9e0", 2.6));
+    const warm = new THREE.Mesh(new THREE.SphereGeometry(2.5, 80, 56), planetMat(0, ["#6b3f52", "#c27f8f", "#f0cfc4"], "#e6a2b4", 9.9));
+    const coolAt = new THREE.Group(), warmAt = new THREE.Group();
+    coolAt.add(cool, atmosphere(3.4, "#98a9e0"));
+    warmAt.add(warm, atmosphere(2.5, "#e6a2b4"));
+    pair.add(coolAt, warmAt, orbitLine(5.6, 0.08));
+    return {
+      body: cool, R,
+      tick(t) {
+        // The heavier one swings less, around the shared middle
+        const a = 0.6 + t * 0.07;
+        coolAt.position.set(-Math.cos(a) * 2.4, 0, -Math.sin(a) * 2.4);
+        warmAt.position.set(Math.cos(a) * 3.2, 0, Math.sin(a) * 3.2);
+        cool.rotation.y = t * 0.05;
+        warm.rotation.y = -t * 0.08;
+      },
+    };
+  });
+
+  // 5: set and forget, a ringed giant
   makeStop(group => {
     const R = 8;
     const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), planetMat(2, ["#4f4380", "#9d90c4", "#cdbba8"], "#a898e0", 5.5));
@@ -592,73 +443,26 @@ function start() {
     tilt.add(ring);
     group.add(tilt);
 
-    // A domed observatory whose slit shutters slide apart like barn doors
-    const g = ground(), tint = { bounce: "#9d90c4", rim: "#b3a3e8" }, k = kit(g, tint);
-    const obs = new THREE.Group();
-    const DRUM = 0.78;
-    lathe([[0.001, -0.3], [1.08, -0.3], [1.08, -0.08], [1.0, -0.02], [1.0, DRUM - 0.05], [1.045, DRUM - 0.02], [1.045, DRUM + 0.02], [1.0, DRUM + 0.03]], k.shell, obs, 72);
-    const lamp = add(new THREE.TorusGeometry(1.005, 0.022, 8, 120), k.lamp, obs, 0, DRUM * 0.62, 0);
-    lamp.rotation.x = Math.PI / 2;
-    add(new THREE.CylinderGeometry(1.01, 1.01, 0.46, 12, 1, true, -0.2, 0.4), k.metal, obs, 0, 0.21, 0);
-    const domeY = DRUM + 0.03;
-    const dome = paint(g, tint, { color: "#e4e0ef", wear: "#a29bbd", rough: 0.3, scale: 3, slit: 1, ribs: 1 });
-    add(new THREE.SphereGeometry(1.0, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2), dome, obs, 0, domeY, 0);
-    // Rails along the edges give the slit a frame and the doors a visible thickness
-    const SLIT = 0.3, EDGE = SLIT + 0.03;
-    const rail = (pt, mat, parent, r = 0.022) => {
-      const curve = new THREE.Curve();
-      curve.getPoint = (t, out = new THREE.Vector3()) => out.copy(pt(t));
-      return add(new THREE.TubeGeometry(curve, 40, r, 10, false), mat, parent);
-    };
-    const meridian = (x, R) => t => { const a = t * Math.PI / 2, q = Math.sqrt(1 - x * x) * R; return new THREE.Vector3(x * R, Math.sin(a) * q, Math.cos(a) * q); };
-    const overTop = (x0, x1, R) => t => { const x = x0 + (x1 - x0) * t; return new THREE.Vector3(x * R, Math.sqrt(1 - x * x) * R, 0); };
-    const frame = new THREE.Group();
-    frame.position.y = domeY;
-    obs.add(frame);
-    for (const x of [-SLIT, SLIT]) rail(meridian(x, 1.0), k.metal, frame);
-    rail(overTop(-SLIT, SLIT, 1.0), k.metal, frame);
-    const edge = paint(g, tint, { color: "#b3a8e4", wear: "#8d80c8", rough: 0.3, scale: 3 });
-    const doors = [2, 3].map(slit => {
-      const s = slit === 2 ? -1 : 1;
-      const door = new THREE.Group();
-      door.position.y = domeY;
-      obs.add(door);
-      add(new THREE.SphereGeometry(1.05, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2), paint(g, tint, { color: "#bfb5ea", wear: "#8d80c8", rough: 0.3, scale: 3, slit, ribs: 1 }), door);
-      rail(meridian(0, 1.05), edge, door, 0.026);
-      rail(meridian(s * EDGE, 1.05), edge, door, 0.026);
-      rail(overTop(s * EDGE, 0, 1.05), edge, door, 0.026);
-      return { door, s };
-    });
-    // The telescope rides up from inside the drum and tilts out through the slit
-    const scope = telescope(k, { len: 1.0, rad: 0.17, elMax: 0.75 });
-    obs.add(scope.root);
-    obs.scale.setScalar(1.55);
-    const inv = tilt.quaternion.clone().invert();
-    plant(obs, tilt, R, new THREE.Vector3(-0.32, 0.84, 0.42).applyQuaternion(inv), new THREE.Vector3(-0.45, 0.2, 0.89).applyQuaternion(inv), 0.12);
-    let awake = 0;
     return {
       body, R,
-      tick(t, { dt, here }) {
+      tick(t) {
         body.material.uniforms.uTime.value = t;
         group.getWorldPosition(ringMat.uniforms.uCenter.value);
-        g.center.copy(ringMat.uniforms.uCenter.value);
-        g.r.value = R * group.scale.x;
         // The shadow is worked out in world space, so it shrinks with the planet on narrow screens
         ringMat.uniforms.uShadowR.value = R * group.scale.x;
-        // Wakes up once you're at this stop and goes back to sleep after you leave
-        awake = Math.min(1, Math.max(0, awake + (here > 0.5 ? 1 : -1) * dt * 0.5));
-        const open = smooth(clamp01(awake * 1.8)), raise = smooth(clamp01(awake * 1.8 - 0.7)), lit = smooth(clamp01(awake * 2.5 - 1.4));
-        for (const { door, s } of doors) door.rotation.y = s * open * 0.75;
-        scope.root.position.y = 0.05 + raise * 0.55;
-        scope.alt.rotation.x = -raise * (0.68 + 0.06 * Math.sin(t * 0.4));
-        scope.az.rotation.y = raise * 0.12 * Math.sin(t * 0.23);
-        k.lamp.uniforms.uGlow.value = lit * 1.2;
-        k.glow.value = 0.2 + lit * 0.8;
       },
     };
   });
 
-  // 4: home, a big world you arrive over, with a lit night side
+  // 6: questions, a small dusky world
+  makeStop(group => {
+    const R = 4.6;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), planetMat(1, ["#4a2f48", "#93617f", "#e2bfc9"], "#d79ab8", 6.6));
+    group.add(body, atmosphere(R, "#d79ab8"));
+    return { body, R, tick(t) { body.rotation.y = -t * 0.02; } };
+  });
+
+  // 7: home, a big world you arrive over, with a lit night side
   makeStop(group => {
     const R = 40;
     const body = new THREE.Mesh(new THREE.SphereGeometry(R, 160, 120), planetMat(3, ["#1b2148", "#3b3f6e", "#cdb8ff"], "#8f9cff", 4.4));
@@ -666,8 +470,34 @@ function start() {
     return { body, R, tick(t) { body.rotation.y = t * 0.008; body.material.uniforms.uTime.value = t; } };
   });
 
+  // ── Nebulae: faint dust far behind everything, so it only grows a little over the whole trip ──
+  const nebula = (color, seed, size, x, y, z, strength) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uC: { value: hex(color) }, uSeed: { value: seed }, uK: { value: strength }, uTime: { value: 0 } },
+      vertexShader: `varying vec2 vU; void main() { vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: NOISE + `uniform vec3 uC; uniform float uSeed, uK, uTime; varying vec2 vU;
+        void main() {
+          vec3 p = vec3(vU * 1.6, uSeed) + vec3(uTime * 0.004, 0.0, 0.0);
+          vec2 warp = vec2(fbm(p + 3.1), fbm(p + 7.7)) - 0.5;
+          float d = fbm(vec3(vU * 2.2 + warp * 1.8, uSeed));
+          float edge = 1.0 - smoothstep(0.35, 1.0, length(vU + warp * 0.4));
+          float a = smoothstep(0.42, 0.85, d) * edge;
+          gl_FragColor = vec4(uC * a * uK, 1.0); }`,
+    }));
+    m.position.set(x, y, z);
+    m.renderOrder = -1;
+    scene.add(m);
+    return m;
+  };
+  const nebulae = [
+    nebula("#7b6cd9", 1.3, 520, -230, 70, -820, 0.16),
+    nebula("#4f8fae", 5.8, 420, 260, -90, -760, 0.11),
+    nebula("#b56d93", 9.2, 380, 90, 170, -880, 0.09),
+  ];
+
   // ── Where everything sits for the current screen shape ──
-  const STOP_GAP = 80, PLANET_AHEAD = 32;
+  const STOP_GAP = 64, PLANET_AHEAD = 32;
   const stations = [];
   let viewW = 0, viewH = 0;
   let halfW = 10, halfH = 10, narrow = false;
@@ -693,7 +523,7 @@ function start() {
     viewW = w; viewH = h;
     const D = PLANET_AHEAD;
     const place = [
-      { side: 1, k: 0.6 }, { side: -1, k: 0.7 }, { side: 1, k: 0.68 }, { home: true },
+      { side: 1, k: 0.96 }, { side: -1, k: 0.92 }, { side: 1, k: 0.9 }, { side: -1, k: 0.9 }, { side: 1, k: 1.02 }, { side: -1, k: 0.9 }, { home: true },
     ];
     planets.forEach((p, i) => {
       const z = -STOP_GAP * (i + 1) + 10;
@@ -720,9 +550,9 @@ function start() {
   const hermite = (f, m0, m1) => { const f2 = f * f, f3 = f2 * f; return 3 * f2 - 2 * f3 + m0 * (f3 - 2 * f2 + f) + m1 * (f3 - f2); };
   // The first leg eases into the pupil at this point of the scroll and glides through it at a steady pace
   const PUPIL_AT = 0.45, PUPIL_PACE = 0.55;
-  // Camera position for a point on the trip
+  // Camera position for a point on the trip, in straight legs at the pace of the scroll (the spring below rounds the corners)
   const pose = (p, out) => {
-    const i = Math.min(stations.length - 2, Math.floor(p)), u = clamp01(p - i), f = smooth(u);
+    const i = Math.min(stations.length - 2, Math.max(0, Math.floor(p) || 0)), u = clamp01(p - i), f = u;
     const a = stations[i], b = stations[i + 1];
     if (i === 0) {
       // The lens sits at z = 0; the pace through it is a share of the average speed over the whole leg
@@ -797,6 +627,7 @@ function start() {
       }
       p.tick(t, { dt, fade, here: clamp01(1 - Math.abs(cur.z - p.station) / 14) });
     }
+    for (const n of nebulae) n.material.uniforms.uTime.value = t;
     renderer.render(scene, camera);
   };
   renderer.setAnimationLoop(tick);

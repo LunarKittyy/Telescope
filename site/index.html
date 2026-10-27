@@ -57,9 +57,10 @@
     </svg>
   </a>
   <nav aria-label="Site">
+    <a href="#setup">Setup</a>
+    <a href="#plugins">Plugins</a>
     <a href="compare.html">Compare</a>
     <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/README.md">Docs</a>
-    <a href="https://github.com/LunarKittyy/Telescope/releases">Releases</a>
     <a href="https://github.com/LunarKittyy/Telescope">GitHub</a>
   </nav>
 </header>
@@ -79,78 +80,108 @@
     </svg>
     <div class="copy">
       <h1>Telescope</h1>
-      <p class="tagline"><span>Use your phone as a webcam.</span> <span>Every lens, full manual control.</span></p>
+      <p class="tagline">Use your phone as a webcam, with every lens and full manual control.</p>
       <p class="free">Free and open source. No watermark, no ads, no account.</p>
       <div class="downloads" id="downloads">
         <div class="dl-row">
-          <a class="dl" data-os="windows" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe">Windows</a>
-          <a class="dl" data-os="linux" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz">Linux</a>
+          <a class="dl" data-os="windows" data-primary="Download for Windows" data-other="Windows" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe">Windows</a>
+          <a class="dl" data-os="linux" data-primary="Download for Linux" data-other="Linux" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz">Linux</a>
+          <a class="dl" data-os="android" data-primary="Download the Android app" data-other="Android app" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk">Android app</a>
         </div>
-        <p class="dl-note">Use the Android app for every lens and full manual control, or any phone, tablet or laptop straight from its browser with nothing to install.</p>
+        <p class="dl-note">The desktop app puts the phone app on your Android phone for you. Any other phone, tablet or laptop works straight from its browser with nothing to install.</p>
       </div>
     </div>
     <a class="scroll-hint" href="#connect" aria-label="Scroll down to see more"><span>Scroll</span><svg viewBox="-40 30 80 20" aria-hidden="true"></svg></a>
   </section>
-  <section class="stop side-left" id="connect" aria-labelledby="connect-h">
-    <div class="copy">
-      <h2 id="connect-h">To your other apps, it's just a webcam</h2>
-      <ol class="chart">
-        <li class="star"><h3>Your phone</h3><p>Sends video and sound over USB or Wi&#8209;Fi, encrypted</p></li>
-        <li class="star"><h3>Your computer</h3><p>Shows up as a webcam and a microphone</p></li>
-        <li class="star"><h3>Your apps</h3><p>Discord, Zoom, OBS, or anything else that uses a webcam</p></li>
-      </ol>
-      <dl class="facts">
-        <div><dt>No app needed</dt><dd>Scan a code with a phone, a tablet or an old laptop and it streams straight from the browser.</dd></div>
-        <div><dt>Up to four cameras at once</dt><dd>Each one is its own webcam, so for example your phone can be the main angle and an old tablet the second one in OBS.</dd></div>
-      </dl>
-    </div>
+
+  <section class="stop band" id="connect" aria-labelledby="connect-h">
+    <h2 id="connect-h">Your other apps see an ordinary webcam</h2>
+    <ol class="chart">
+      <li class="star"><h3>Your phone</h3><p>Sends video and sound over USB or Wi&#8209;Fi, encrypted</p></li>
+      <li class="star"><h3>Your computer</h3><p>Shows up as a webcam and a microphone</p></li>
+      <li class="star"><h3>Your apps</h3><p>Discord, Zoom, OBS, or anything else that uses a webcam</p></li>
+    </ol>
+    <p class="aside-line">No Android phone? Scan a code with any phone, tablet or old laptop and it streams from the browser. Up to four cameras can run at once, each as its own webcam.</p>
   </section>
 
-  <section class="stop side-right" id="controls" aria-labelledby="controls-h">
-    <div class="copy wide">
-      <h2 id="controls-h">Every setting, live from your computer</h2>
-      <p class="lede">Pick the lens and set exposure, white balance and focus in the desktop app while it streams.</p>
-      <figure class="shots">
-        <button class="shot shot-desktop" type="button" aria-label="Enlarge the desktop app screenshot"><img src="shots/desktop.webp" draggable="false" alt="The Telescope desktop app streaming from a Pixel 9 Pro on the Tele 5x lens, with exposure set by hand" width="2400" height="1350" decoding="async"></button>
-        <button class="shot shot-phone" type="button" aria-label="Enlarge the phone app screenshot"><img src="shots/phone.webp" draggable="false" alt="The Telescope phone app while it streams" width="540" height="1200" decoding="async"></button>
+  <section class="stop showcase" id="controls" aria-labelledby="controls-h">
+    <div class="showcase-head">
+      <h2 id="controls-h">Change the lens and settings from your computer</h2>
+      <p class="lede">Switch between the ultra-wide, main and telephoto lens and set exposure, white balance and focus in the desktop app while it streams.</p>
+    </div>
+    <figure class="shots">
+      <div class="clip lens-clip"><video src="media/lenses.mp4" poster="media/lenses-poster.webp" muted loop playsinline preload="metadata" aria-label="Switching between the 13 mm ultra-wide, 24 mm main and 113 mm telephoto lens on the desktop app's Camera card"></video></div>
+      <button class="shot shot-phone" type="button" aria-label="Enlarge the phone app screenshot"><img src="shots/phone.webp" draggable="false" alt="The Telescope phone app while it streams" width="540" height="1200" decoding="async"></button>
+    </figure>
+  </section>
+
+  <section class="stop setup-run" id="setup" aria-labelledby="setup-h">
+    <h2 id="setup-h">Up and running in about two minutes</h2>
+    <div class="setup-stage">
+      <figure class="clip setup-clip">
+        <video data-steps src="media/setup.mp4" poster="media/setup-poster.webp" muted loop playsinline preload="metadata" aria-label="The desktop app's checklist, the phone scanning the pairing code and a video call picking Telescope as its camera"></video>
       </figure>
+      <ol class="steps">
+        <li data-at="0"><h3>Get the desktop app</h3><p>On Windows run the installer (it installs only for your user and needs no admin). On Linux extract it and run <code>./start.sh</code>.</p></li>
+        <li data-at="0.132"><h3>Follow the checklist</h3><p>It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.</p></li>
+        <li data-at="0.61"><h3>Pick it in your app</h3><p>Choose <b>Telescope</b> (Windows) or <b>Phone Camera</b> (Linux) as the camera, like any other webcam.</p></li>
+      </ol>
+    </div>
+    <div class="setup-after">
+      <div class="downloads" data-clone="downloads"></div>
+      <details class="linux-needs">
+        <summary>What Linux needs</summary>
+        <p>Python 3.12 or newer and <code>v4l2loopback</code> for the virtual camera. USB also needs <code>adb</code> but Wi&#8209;Fi works without it.</p>
+        <span class="cmd-label">Debian and Ubuntu</span>
+        <div class="cmd"><code>sudo apt install <span class="nw">v4l2loopback-dkms</span></code><button class="copy-btn" type="button">Copy</button></div>
+        <span class="cmd-label">Fedora and Nobara (Fedora needs <a href="https://rpmfusion.org/">RPM Fusion</a> first)</span>
+        <div class="cmd"><code>sudo dnf install v4l2loopback</code><button class="copy-btn" type="button">Copy</button></div>
+        <p class="more-link"><a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/setup.md#linux">Manual setup</a> covers other distros and Ubuntu 22.04's older Python.</p>
+      </details>
     </div>
   </section>
 
-  <section class="stop side-left" id="more" aria-labelledby="more-h">
-    <div class="copy">
-      <h2 id="more-h">Set it up once, then forget about it</h2>
-      <dl class="facts">
-        <div><dt>Starts when you need it</dt><dd>Streaming can start by itself when an app opens the camera, and stop once nothing's using it.</dd></div>
-        <div><dt>Remembers each phone</dt><dd>Save setups as presets, lens included, and switch between them in one click.</dd></div>
-        <div><dt>Updates in one click</dt><dd>Both apps tell you when there's a new version.</dd></div>
-        <div><dt>Stays between your devices</dt><dd>No account, no cloud, no tracking in the apps. Video goes straight from your phone to your computer, encrypted, and the apps only go online to check for updates, or to fetch adb or VB-Cable when you ask. <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md#privacy">How that works</a></dd></div>
-      </dl>
+  <section class="stop plugins" id="plugins" aria-labelledby="plugins-h">
+    <div class="plugins-head">
+      <h2 id="plugins-h">Plugins for work and for fun</h2>
+      <p class="lede">Most of the desktop app is plugins. Switch on the ones you want and leave the rest off, or install ones other people made.</p>
     </div>
+    <ul class="gallery">
+      <li class="tile big"><div class="tile-media" data-src="media/framing.mp4"></div><h3>Auto framing</h3><p>Zooms and pans to keep you in the shot, and frames two people together.</p></li>
+      <li class="tile"><div class="tile-media" data-src="media/chroma.mp4"></div><h3>Background and Chroma key</h3><p>Blur the room or swap it out, with or without a green screen.</p></li>
+      <li class="tile"><div class="tile-media" data-src="media/desk.mp4"></div><h3>Desk mode</h3><p>Straightens anything flat the phone looks at, like a page, a drawing or a whiteboard, so calls see it head-on.</p></li>
+      <li class="tile half"><div class="tile-media" data-src="media/fun.mp4"></div><h3>Fun pack</h3><p>Clone party, an invisibility cloak, light painting, VHS, a 1998 webcam and lots more.</p></li>
+      <li class="tile half"><div class="tile-media" data-src="media/grading.mp4"></div><h3>Colour grading</h3><p>Lift, gamma and gain wheels, with a grade saved for each phone.</p></li>
+      <li class="tile half"><div class="tile-media" data-src="media/one-picture.mp4"></div><h3>Several cameras in one picture</h3><p>Put the cameras you run side by side, in a grid or in your own layout, for apps that take only one camera.</p></li>
+      <li class="tile half note"><h3>And more</h3><p>Privacy blur, a Name tag, Notes next to the lens, an On Air sign, QR codes, Cinema tools and full quality Photos.</p><p><a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md">Everything Telescope can do</a></p></li>
+    </ul>
   </section>
 
-  <section class="stop landing" id="setup" aria-labelledby="setup-h">
+  <section class="stop quiet" id="more" aria-labelledby="more-h">
+    <h2 id="more-h">Little to look after once it's set up</h2>
+    <dl class="facts">
+      <div><dt>Starts when you need it</dt><dd>Streaming can start by itself when an app opens the camera, and stop once nothing's using it.</dd></div>
+      <div><dt>Remembers each phone</dt><dd>Save setups as presets, lens included, and switch between them in one click.</dd></div>
+      <div><dt>Updates in one click</dt><dd>Both apps tell you when there's a new version.</dd></div>
+      <div><dt>Stays between your devices</dt><dd>No account, no cloud, no tracking in the apps. Video goes straight from your phone to your computer, encrypted, and the apps only go online to check for updates, or to fetch adb or VB-Cable when you ask. <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md#privacy">How that works</a></dd></div>
+    </dl>
+  </section>
+
+  <section class="stop faq" id="faq" aria-labelledby="faq-h">
+    <h2 id="faq-h">Questions people ask</h2>
+    <details><summary>Is it actually free?</summary><p>Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chip in anyway, there's <a href="https://ko-fi.com/lunarkittyy">Ko-fi</a>.</p></details>
+    <details><summary>Will it work with Discord, Zoom, Teams, OBS or my browser?</summary><p>If it can use a webcam, yes. Telescope shows up there as an ordinary camera and you pick it like any other one.</p></details>
+    <details><summary>I have an iPhone or a Mac.</summary><p>The phone app is Android only, but <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md#browser-camera">Browser camera</a> streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.</p></details>
+    <details><summary>Will it work on my phone?</summary><p>It needs Android 8 or newer. <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/device-compatibility.md">Device compatibility</a> lists what's been tested, and if yours isn't there <a href="https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility">let me know how it went</a>.</p></details>
+    <p class="also"><a href="compare.html">How it compares</a> with DroidCam, Iriun and Camo.</p>
+  </section>
+
+  <section class="stop landing" id="get" aria-labelledby="get-h">
     <div class="copy full">
-      <h2 id="setup-h">Setting it up</h2>
+      <h2 id="get-h">Give it a try</h2>
       <p class="lede">Free and open source, under the <a href="https://github.com/LunarKittyy/Telescope/blob/master/LICENSE">AGPL-3.0</a>.</p>
       <div class="downloads" data-clone="downloads"></div>
-      <div class="setup">
-        <div>
-          <h3>On Windows</h3>
-          <p>Run <code>TelescopeSetup.exe</code>. It installs for just your user, no admin needed. Rather not install? Grab <code>Telescope-windows-portable.zip</code> from the <a href="https://github.com/LunarKittyy/Telescope/releases/latest">release page</a> instead.</p>
-          <h3 class="gap">On Linux</h3>
-          <p>Extract the tarball and run <code>./start.sh</code>. Install <code>v4l2loopback</code> first, since the virtual camera runs on it:</p>
-          <span class="cmd-label">Debian and Ubuntu</span>
-          <div class="cmd"><code>sudo apt install <span class="nw">v4l2loopback-dkms</span></code><button class="copy-btn" type="button">Copy</button></div>
-          <span class="cmd-label">Fedora and Nobara (Fedora needs <a href="https://rpmfusion.org/">RPM Fusion</a> first)</span>
-          <div class="cmd"><code>sudo dnf install v4l2loopback</code><button class="copy-btn" type="button">Copy</button></div>
-        </div>
-        <div>
-          <h3>Then follow the app</h3>
-          <p>On first launch it walks you through the virtual camera, installing the phone app (or <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk">download the APK</a> yourself) and pairing. Once it streams, pick <b>Telescope</b> (Windows) or <b>Phone Camera</b> (Linux) as the camera in your other apps.</p>
-          <p class="stuck">Stuck? <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md">Troubleshooting</a> covers the common problems, and you can ask in <a href="https://github.com/LunarKittyy/Telescope/discussions">Discussions</a>.</p>
-        </div>
-      </div>
+      <p class="stuck">Stuck? <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md">Troubleshooting</a> covers the common problems, and you can ask in <a href="https://github.com/LunarKittyy/Telescope/discussions">Discussions</a>.</p>
       <footer class="foot">
         <p>Telescope by LunarKittyy</p>
         <nav aria-label="Footer">

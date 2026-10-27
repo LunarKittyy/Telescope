@@ -1,73 +1,60 @@
-# Telescope
+<p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam, with every lens and full manual control. The desktop app streaming from a phone, with the phone app next to it." width="720"></p>
 
-<p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam. Every lens, full manual control. Android to Linux and Windows." width="720"></p>
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/endpoint?url=https://telescope.webcam/release.json" alt="Release"></a>
+  <a href="../../releases"><img src="https://img.shields.io/endpoint?url=https://telescope.webcam/downloads.json" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-orange" alt="License"></a>
+  <a href="https://ko-fi.com/lunarkittyy"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
+</p>
 
-[![Release](https://img.shields.io/endpoint?url=https://telescope.webcam/release.json)](../../releases/latest)
-[![Downloads](https://img.shields.io/endpoint?url=https://telescope.webcam/downloads.json)](../../releases)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
+<p align="center">Telescope turns your Android phone into a webcam for your Linux or Windows computer.<br>Every lens on it works, from the ultra-wide to the telephoto, and it's free with no watermark, no ads and no account.</p>
 
-Telescope turns your Android phone into a webcam for your Linux or Windows computer and lets you use any of its lenses like telephoto or ultra-wide.
+<p align="center">
+  <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
+  <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
+  <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
+</p>
 
-<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
-<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
-<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
+## Up and running in about two minutes
 
-- Shows up as a normal webcam in Discord, Zoom, OBS and anything else. The phone's mic can be your [microphone](docs/features.md#microphone) too
-- [Pick the lens](docs/features.md#camera-control) and set exposure, focus and white balance remotely from the computer
-- Connects over [USB or Wi-Fi](docs/features.md#phones-pairing-and-connection), transfers data [encrypted](docs/features.md#privacy)
-- Can [start streaming on its own](docs/features.md#system-integration) when an app opens the camera and stop again once nothing's using it
-- A built-in [updater](docs/features.md#updates) lets you install new versions in one click
+<p align="center"><img src="site/media/setup.webp" alt="The desktop app's checklist, the phone scanning the pairing code and a video call picking Telescope as its camera" width="800"></p>
 
-<p align="center"><img src="site/shots/desktop.webp" alt="The Telescope desktop app streaming from a Pixel 9 Pro on the Tele 5x lens, with exposure set by hand" width="800"></p>
+1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux extract the tarball and run `./start.sh`.
+2. **Follow the checklist it opens with.** It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.
+3. **Pick the camera in your app.** It's called **Telescope** on Windows and **Phone Camera** on Linux, in Discord, Zoom, OBS or anything else that takes a webcam.
 
-It's free, all of it: no watermark, no ads, no account, no Pro version. Here's [how it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo.
-
-## Quick Start
-
-You'll need a PC running Linux or Windows and a phone. With the Android app you get every lens and full manual control. Without the app, [Browser camera](docs/features.md#browser-camera) streams from any phone, tablet or laptop straight from its browser with nothing to install.
-
-### 1. 🖥️ Get the desktop app
-
-**🪟 Windows**
-
-Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs only for your user and doesn't need admin.
-
-Rather not install anything? `Telescope-windows-portable.zip` has the same app. Extract it and run `TelescopeDesktop.exe`, keeping it in its folder since the `lib-...` folder next to it is part of the app.
-
-**🐧 Linux**
-
-Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it and run `./start.sh`. You need:
+<details>
+<summary>What Linux needs</summary>
 
 - **Python 3.12 or newer**
-- **`v4l2loopback`** from your distro (the virtual camera runs on it)
-- **`adb`** for USB only. Wi-Fi works without it
+- **`v4l2loopback`** from your distro, for the virtual camera (`sudo apt install v4l2loopback-dkms` on Debian and Ubuntu, `sudo dnf install v4l2loopback` on Fedora with [RPM Fusion](https://rpmfusion.org/))
+- **`adb`** only if you want USB. Wi-Fi works without it
 
-[Manual setup](docs/setup.md#linux) has the install commands for each distro, plus fixes for Ubuntu 22.04's older Python and Fedora without RPM Fusion.
+[Manual setup](docs/setup.md#linux) has the rest, including Ubuntu 22.04's older Python.
+</details>
 
-### 2. ✅ Follow the checklist
+No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with nothing to install.
 
-On first launch, the middle of the window is a checklist:
+## More than a webcam
 
-1. **Virtual camera** - on Windows, click **Install driver**. On Linux it checks for the package above and names it if it's missing.
-2. **Phone app** - scan the code with your phone's camera to download `Telescope.apk`, then open it to install. (Your phone asks to allow "install from this source" the first time.)
-3. **Add your phone** - open Telescope on the phone and click **Add phone**. Then tap **Scan pairing code** on the phone, or plug it in over USB and allow [USB debugging](https://developer.android.com/studio/debug/dev-options#enable) when the phone asks.
-4. **Start streaming** - click **Start streaming** in the top right corner. The phone's camera wakes up on its own.
+Plug the phone in or use Wi-Fi and run up to four phones at once, each as its own webcam. The phone's mic can be your microphone too.
 
-After the first stream, the checklist is replaced by the video.
+<table>
+  <tr>
+    <td width="33%"><img src="site/media/pro.webp" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in your phone's camera app.</td>
+    <td width="33%"><img src="site/media/framing.webp" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zooms and pans to keep you in the shot.</td>
+    <td width="33%"><img src="site/media/chroma.webp" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
+  </tr>
+  <tr>
+    <td><img src="site/media/one-picture.webp" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Side by side, in a grid or in your own layout, for apps that take only one camera.</td>
+    <td><img src="site/media/desk.webp" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straightens anything flat the phone looks at, like a page or a drawing, so calls see it head-on.</td>
+    <td><img src="site/media/fun.webp" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Clone party, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
+  </tr>
+</table>
 
-### 3. 📷 Use it as a webcam
+Most of these are plugins you switch on when you want them, along with Colour grading, Privacy blur, a Name tag, Notes next to the lens and others. You can install plugins other people made too.
 
-In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam.
-
-Telescope uses USB when the phone is plugged in and Wi-Fi otherwise. The Connection panel shows which one and **Connect via** can force either.
-
-> [!NOTE]
-> Use only on a trusted network, or enable **Local only - USB** in the Android app. See [Privacy](docs/features.md#privacy) for the full security model.
-
-That's all most people need. The full feature list, troubleshooting and everything else is in [the docs](docs/README.md).
-
-Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.
+[Everything Telescope can do](docs/features.md) is in the docs, along with [how it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo.
 
 ## Questions people ask
 
@@ -80,7 +67,7 @@ Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chi
 <details>
 <summary><b>Does my video go through someone's server?</b></summary>
 
-No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Details in [Privacy](docs/features.md#privacy).
+No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Use it only on a network you trust or switch on **Local only - USB** in the Android app. Details in [Privacy](docs/features.md#privacy).
 </details>
 
 <details>
@@ -96,15 +83,15 @@ The phone app is Android only, but [Browser camera](docs/features.md#browser-cam
 </details>
 
 <details>
-<summary><b>Can I use more than one phone?</b></summary>
-
-Up to four at once, each its own webcam. Nice for a second angle in OBS.
-</details>
-
-<details>
 <summary><b>Will it work on my phone?</b></summary>
 
 It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [let me know how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
+</details>
+
+<details>
+<summary><b>Rather not install anything on Windows?</b></summary>
+
+`Telescope-windows-portable.zip` on the [releases page](../../releases) has the same app. Extract it and run `TelescopeDesktop.exe`, keeping it in its folder since the `lib-...` folder next to it is part of the app.
 </details>
 
 <details>
@@ -113,24 +100,13 @@ It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md
 Yes, I use AI agents for a big part of the project. The code is generated but what Telescope does and how it should behave is my design, and testing on real hardware is also mostly done by me (automated tests aside).
 </details>
 
----
-
-## Docs
-
-- [Features](docs/features.md): everything Telescope can do
-- [Troubleshooting](docs/troubleshooting.md): common problems and their fixes
-- [Manual setup](docs/setup.md): the virtual camera and drivers by hand
-- [All docs](docs/README.md), including the protocol and how it's built
+Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report. [Troubleshooting](docs/troubleshooting.md) covers the common problems.
 
 ## Helping out
 
-Device reports, bug reports with a diagnostics report, and pull requests are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the details.
-
-## License
+Device reports, bug reports with a diagnostics report and pull requests are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the details and [the docs](docs/README.md) explain how it's built.
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](LICENSE). [Licenses](docs/licenses.md) explains what that means for you and lists the third-party parts it uses.
-
-## Star history
 
 <a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
   <picture>
