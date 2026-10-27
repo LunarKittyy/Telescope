@@ -500,6 +500,14 @@ def test_the_windows_11_camera_is_copied_checked_and_registered_as_admin(monkeyp
     assert "'/u'" in script[unregister_uc:]  # the old camera goes only once the new one is in
 
 
+def test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy(tmp_path):
+    script = windows._mf_install_script(tmp_path, "AB" * 32, uc_dir=tmp_path / "unitycapture")
+    copy, check = script.index("Copy-Item -LiteralPath $from"), script.index("Get-Sha256 $copy")
+    assert script.index("'/n', '/i:1'") < copy < check < script.rindex("'/u'")
+    assert windows._EXPECTED_SHA256["UnityCaptureFilter64.dll"] in script
+    assert "$from" not in windows._mf_install_script(tmp_path, "AB" * 32)
+
+
 def test_an_update_renames_a_loaded_dll_out_of_the_way(monkeypatch, tmp_path):
     script = windows._mf_install_script(tmp_path, "AB" * 32)
     rename = script.index("Move-Item -LiteralPath $target")

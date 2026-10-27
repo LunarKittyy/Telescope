@@ -129,14 +129,30 @@ def _elevated_install_script(src: Path, devices: int = 1, reset: bool = False) -
     return _admin_install_script(src, "UnityCapture", _EXPECTED_SHA256, register)
 
 
-def _mf_install_script(src: Path, digest: str, devices: int = 1) -> str:
+def _mf_install_script(src: Path, digest: str, devices: int = 1, uc_dir: Optional[Path] = None) -> str:
     """Runs as admin: the Windows 11 camera's DLL into Program Files\\Telescope\\VirtualCamera, set up from there for
-    devices cameras, and then UnityCapture unregistered, as apps would list Telescope twice."""
+    devices cameras, and then UnityCapture unregistered, as apps would list Telescope twice. uc_dir: the folder an older
+    Telescope registered UnityCapture from, if not Program Files."""
+    uc = "; ".join(f"{_ps_quote(name)} = {_ps_quote(h)}" for name, h in _EXPECTED_SHA256.items())
+    # Registered from a folder this user can change: unregistered from a checked copy, never run from there
+    from_user_folder = f"""$from = Join-Path {_ps_quote(uc_dir)} $name
+            if (-not (Test-Path -LiteralPath $from)) {{ continue }}
+            $old = $copy = Join-Path $dst ($name + '.' + [guid]::NewGuid() + '.old')
+            Copy-Item -LiteralPath $from -Destination $copy -Force
+            if ((Get-Sha256 $copy) -ne $uc[$name]) {{ Remove-Item -LiteralPath $copy -Force; continue }}""" if uc_dir else "continue"
     register = f"""$p = Start-Process $regsvr32 -ArgumentList '/s', '/n', '/i:{int(devices)}', ('"' + (Join-Path $dst {_ps_quote(MF_DLL)}) + '"') -Wait -PassThru
 if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
-foreach ($name in 'UnityCaptureFilter64.dll', 'UnityCaptureFilter32.dll') {{
-    $old = Join-Path (Join-Path $telescope 'UnityCapture') $name
-    if (Test-Path -LiteralPath $old) {{ Start-Process $regsvr32 -ArgumentList '/s', '/u', ('"' + $old + '"') -Wait }}
+$uc = @{{ {uc} }}
+foreach ($name in $uc.Keys) {{
+    try {{
+        $old = Join-Path (Join-Path $telescope 'UnityCapture') $name
+        $copy = $null
+        if (-not (Test-Path -LiteralPath $old)) {{
+            {from_user_folder}
+        }}
+        Start-Process $regsvr32 -ArgumentList '/s', '/u', ('"' + $old + '"') -Wait
+        if ($copy) {{ Remove-Item -LiteralPath $copy -Force -ErrorAction SilentlyContinue }}
+    }} catch {{ }}  # the new camera is in either way
 }}"""
     return _admin_install_script(src, "VirtualCamera", {MF_DLL: digest}, register)
 
@@ -460,7 +476,10 @@ def register_mf_camera(devices: int = 1) -> tuple:
     """Install the Windows 11 camera as admin, with devices cameras to stream to: (ok, message, exit code or None)."""
     src = mf_camera_dir()
     # Hashed here and checked again as admin on the copy in Program Files, the one that gets registered
-    return _run_as_admin(_mf_install_script(src, _sha256(src / MF_DLL).upper(), devices))
+    # UnityCapture registered by Telescope before 3.1.2 from the app's folder goes too
+    reg = _uc_registration()
+    uc_dir = reg[1] if reg is not None and reg[1] != protected_unitycapture_dir() else None
+    return _run_as_admin(_mf_install_script(src, _sha256(src / MF_DLL).upper(), devices, uc_dir))
 
 
 def install_camera(devices: int = 1, reset: bool = False, progress_cb=None) -> tuple:
