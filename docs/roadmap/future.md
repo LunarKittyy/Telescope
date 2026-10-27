@@ -14,7 +14,7 @@ Big, mostly the corner finding and the clean-up. Worth seeing first whether peop
 
 More ideas for plugins that start out off, for people who want more out of their webcam than a picture. Most of them need no new dependencies (numpy, OpenCV, PyAV and Qt are already there and the vision download already exists). Same rule as the Camera card. If the phone's camera exposes something, Telescope uses it.
 
-Most of what they need underneath got built as host services along with the plugins in [the next release](next.md). One is still open:
+Most of what they need underneath got built as host services along with the plugins in [4.3](4.3.md). One is still open:
 
 - **Lining up and stacking frames.** OpenCV's `phaseCorrelate` and friends. Used by the stargazer and maybe a denoised "hold still" scan in document mode
 
@@ -74,3 +74,11 @@ Before writing it a few things need trying on real links:
 - Whether Browser camera works over a 100.x address
 
 Small to write. The testing is the work.
+
+## Doing the picture work on the GPU
+
+Only H.264 decoding uses the graphics card now. Everything after it (transforms, Colour grading, Chroma key, the combined picture, the wait screen and the conversion for the virtual camera) runs on the CPU with NumPy and OpenCV. An earlier GPU rewrite measured slower than this, since every step that copied a frame up to the card and back cost more than it saved. 4.3 added a lot of per-pixel work though, and the colour pipeline went with OpenCV after an OpenGL path measured 2.8 ms a 1080p frame against about 5 ms (the Windows VM only got a broken GL context).
+
+It only pays off if a frame stays on the card from the decoder to one copy back at the end, which is no more copies than now. The virtual camera on both systems needs the frame in RAM anyway, and so do plugins that read it (people tracking, QR codes, Desk mode's corners), which would force a copy back in the middle. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
+
+Measure before building anything. Run `scripts/bench_frames.py` with a heavy stack (1080p60 with Colour grading, Privacy blur and two cameras in one picture) on a weak laptop. If that stays well under the 16 ms a frame gets at 60 fps there's nothing to do. If not, move only the biggest cost to the GPU as one step that copies back once and measure that. Big if it goes further than one step.
