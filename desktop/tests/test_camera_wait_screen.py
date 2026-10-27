@@ -82,7 +82,10 @@ def test_the_dll_lays_it_out_like_the_app(resource, tmp_path, size):
         app = vcam._default_screen(w, h)
     app = cv2.cvtColor(cv2.cvtColor(app, cv2.COLOR_RGB2YUV_I420), cv2.COLOR_YUV2RGB_I420)
     diff = np.abs(dll.astype(int) - app.astype(int))
-    assert diff.mean() < 1.0 and np.percentile(diff, 99) < 12  # only the name's edges differ much
+    k, (_x, cy), _with_name = vcam.screen_layout(w, h)
+    name_top = int(cy + vcam.SCREEN_NAME_TOP * k)
+    assert diff[:name_top].mean() < 1.0 and np.percentile(diff[:name_top], 99) < 8
+    assert diff[name_top:].mean() < 3.0  # the name resized from its mask, which hints differently in some fonts
 
 
 @pytest.mark.skipif(compiler() is None, reason="no C++ compiler")
