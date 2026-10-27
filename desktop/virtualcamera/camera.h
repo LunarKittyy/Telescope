@@ -34,7 +34,7 @@ using Microsoft::WRL::RuntimeClassFlags;
 
 constexpr int kSlots = 4;  // matches vcam.MAX_SLOTS
 // Registered with each camera; Telescope offers to install its own DLL over one with a lower number (MF_VERSION)
-constexpr DWORD kCameraVersion = 2;
+constexpr DWORD kCameraVersion = 3;
 
 extern std::atomic<long> g_objects;  // live objects and server locks, for DllCanUnloadNow
 extern HMODULE g_module;
@@ -54,7 +54,7 @@ public:
     ~FrameChannel() { Close(); }
     void Open(int slot, UINT32 width, UINT32 height, UINT32 fps);
     void Close();
-    // Writes the newest frame as NV12 into dst, or the idle colour while Telescope sends nothing.
+    // Writes the newest frame as NV12 into dst, or the wait screen while Telescope sends nothing.
     void Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height);
 
 private:
@@ -64,6 +64,7 @@ private:
     SharedHeader* m_header = nullptr;
     std::vector<BYTE> m_frame;
     std::vector<BYTE> m_copy;
+    std::vector<BYTE> m_idle;  // the wait screen at the size the app picked
     UINT64 m_counter = 0;
     ULONGLONG m_changedAt = 0;
     bool m_have = false;
