@@ -235,8 +235,11 @@ def test_other_loopback_cameras_can_be_let_in_for_testing_but_never_telescopes(s
 
 
 def test_windows_lists_qt_cameras_by_their_media_foundation_index(monkeypatch):
-    from PyQt6 import QtMultimedia
-    from PyQt6.QtMultimedia import QVideoFrameFormat
+    import sys
+    from enum import Enum
+
+    class QVideoFrameFormat:  # Qt Multimedia itself needs libpulse on Linux, which CI lacks
+        PixelFormat = Enum("PixelFormat", "Format_Jpeg Format_NV12")
 
     def fmt(pixel, w, h, lo, hi):
         return SimpleNamespace(resolution=lambda: SimpleNamespace(width=lambda: w, height=lambda: h),
@@ -250,7 +253,8 @@ def test_windows_lists_qt_cameras_by_their_media_foundation_index(monkeypatch):
                camera("Integrated Camera", b"\\\\?\\usb#1", [fmt(nv12, 1280, 720, 30, 30), fmt(jpeg, 1920, 1080, 5, 30)]),
                camera("OBS Virtual Camera", b"o", []),
                camera("Cam Link 4K", b"\\\\?\\usb#2", [fmt(nv12, 1920, 1080, 59.94, 59.94)])]
-    monkeypatch.setattr(QtMultimedia, "QMediaDevices", SimpleNamespace(videoInputs=lambda: cameras))
+    monkeypatch.setitem(sys.modules, "PyQt6.QtMultimedia", SimpleNamespace(
+        QMediaDevices=SimpleNamespace(videoInputs=lambda: cameras), QVideoFrameFormat=QVideoFrameFormat))
     monkeypatch.setattr(webcams.vcam, "IS_LINUX", False)
     found = webcams.scan_windows()
     assert [(d.name, d.location) for d in found] == [("Integrated Camera", 1), ("Cam Link 4K", 3)]
