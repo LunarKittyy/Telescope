@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Telescope compared with DroidCam, Iriun and Camo</title>
-<meta name="description" content="How Telescope stacks up against DroidCam, Iriun and Camo for using a phone as a webcam: price, watermarks, manual controls and which computers each one runs on, checked against each app's own pages.">
+<title>How Telescope compares with DroidCam, Iriun and Camo</title>
+<meta name="description" content="How Telescope compares with DroidCam, Iriun and Camo for using a phone as a webcam: what the paid versions add, free resolution, watermarks, manual controls, effects and which computers each one runs on, checked against each app's own pages.">
 <link rel="canonical" href="https://telescope.webcam/compare.html">
 <meta name="theme-color" content="#0f1216">
 <meta property="og:type" content="website">
@@ -38,35 +38,42 @@
 </header>
 
 <main class="page">
-  <h1>Telescope next to the others</h1>
-  <p class="lede">DroidCam, Iriun and Camo have been around for years and they're good apps. Here's how they line up with Telescope on the things people usually ask about. Everything about them comes from their own websites and app store pages, linked at the bottom.</p>
+  <h1>How Telescope compares</h1>
+  <p class="lede">DroidCam, Iriun and Camo each keep something for their paid version, like HD, manual controls or a picture without a watermark. In Telescope all of it is free. The table goes by each app's own website and store pages, linked at the bottom.</p>
 
   <div class="table-wrap" role="region" aria-labelledby="table-cap" tabindex="0">
     <table class="compare">
-      <caption id="table-cap">What the free version gets you</caption>
+      <caption id="table-cap">What's free and what isn't</caption>
       <thead>
         <tr><th scope="col"></th><th scope="col" class="us">Telescope</th><th scope="col">DroidCam</th><th scope="col">Iriun</th><th scope="col">Camo</th></tr>
       </thead>
       <tbody>
         <tr>
-          <th scope="row">Price</th>
-          <td data-label="Telescope" class="us">Free, all of it</td>
-          <td data-label="DroidCam">Free at standard definition (640x480), Pro upgrade for HD</td>
-          <td data-label="Iriun">Free, Pro version available</td>
-          <td data-label="Camo">Free up to 720p, Pro for more</td>
+          <th scope="row">Behind the paywall</th>
+          <td data-label="Telescope" class="us">Nothing, the whole app is free</td>
+          <td data-label="DroidCam">HD without a watermark, manual camera controls, no ads</td>
+          <td data-label="Iriun">No watermark, manual ISO, exposure and white balance, no ads</td>
+          <td data-label="Camo">4K, 60 fps and Smart Zoom</td>
+        </tr>
+        <tr>
+          <th scope="row">Free resolution</th>
+          <td data-label="Telescope" class="us">Up to 4K</td>
+          <td data-label="DroidCam">640x480 (HD has a watermark)</td>
+          <td data-label="Iriun">Up to 4K, with a watermark</td>
+          <td data-label="Camo">Up to 720p</td>
         </tr>
         <tr>
           <th scope="row">Watermark on the free version</th>
           <td data-label="Telescope" class="us">None</td>
-          <td data-label="DroidCam">On HD video until you buy Pro</td>
-          <td data-label="Iriun">Yes, Pro removes it</td>
+          <td data-label="DroidCam">On HD video</td>
+          <td data-label="Iriun">Yes</td>
           <td data-label="Camo">None</td>
         </tr>
         <tr>
           <th scope="row">Ads on the free version</th>
           <td data-label="Telescope" class="us">None</td>
-          <td data-label="DroidCam">Yes, Pro removes them</td>
-          <td data-label="Iriun">Yes, Pro removes them</td>
+          <td data-label="DroidCam">Yes</td>
+          <td data-label="Iriun">Yes</td>
           <td data-label="Camo">None</td>
         </tr>
         <tr>
@@ -74,7 +81,14 @@
           <td data-label="Telescope" class="us">Free</td>
           <td data-label="DroidCam">Pro</td>
           <td data-label="Iriun">Pro</td>
-          <td data-label="Camo">Not stated</td>
+          <td data-label="Camo">Free</td>
+        </tr>
+        <tr>
+          <th scope="row">Effects and add-ons</th>
+          <td data-label="Telescope" class="us">A plugin system, with auto framing, background blur, chroma key, desk mode, fun effects and more built in</td>
+          <td data-label="DroidCam">Overlays and lower-thirds</td>
+          <td data-label="Iriun">Pinch zoom and mirroring</td>
+          <td data-label="Camo">Background blur and replace, scenes and AR effects</td>
         </tr>
         <tr>
           <th scope="row">Computer</th>
@@ -104,9 +118,9 @@
       <h2>Where Telescope is different</h2>
       <ul class="ticks">
         <li><b>Every lens.</b> Pick the ultra-wide, main or telephoto sensor yourself. Zooming in hops over to the telephoto once the framing fits, which is why it gets sharper instead of blurrier.</li>
-        <li><b>Full manual control</b> of ISO, shutter, focus, white balance and noise reduction, live from the desktop and not locked behind a Pro version.</li>
-        <li><b>Up to four phones at once</b>, each showing up as its own webcam.</li>
-        <li><b>Starts automatically</b> when an app opens the camera if you want it to, and stops once nothing's using it.</li>
+        <li><b>Full manual control</b> of ISO, shutter, focus, white balance and noise reduction, live from the desktop.</li>
+        <li><b>As much or as little as you want.</b> Most of the desktop app is plugins. Switch off what you don't need and what's left is a webcam that handles exposure and focus on auto and can start whenever an app opens it. Or, if you like to tinker, keep it all on, with auto framing, chroma key, colour grading and the rest, and write a plugin of your own in Python when something's missing.</li>
+        <li><b>Up to four angles at once</b> from phones, tablets or laptops, each showing up as its own webcam.</li>
         <li><b>No account, no cloud, no tracking in the apps.</b> Video goes straight from phone to computer, encrypted. The apps only go online to check GitHub for updates, or to fetch adb or VB-Cable when you ask.</li>
         <li><b>Made on Linux.</b> The phone's mic shows up as Telescope Microphone through PulseAudio or PipeWire, with nothing extra to install on most desktops.</li>
       </ul>
@@ -115,8 +129,7 @@
       <h2>Where the others win</h2>
       <ul class="ticks plain">
         <li><b>iPhone app and macOS.</b> Telescope's phone app is Android only and the desktop app runs on Windows and Linux. On an iPhone, <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md#browser-camera">Browser camera</a> works with no install, but a native app does more.</li>
-        <li><b>Years of polish.</b> They've had a lot more time and a lot more phones to test on.</li>
-        <li><b>DroidCam's OBS plugin</b> feeds OBS directly, with no virtual camera in between.</li>
+        <li><b>Tested on more phones.</b> They've been around for years and an unusual phone is more likely to work first time with them.</li>
       </ul>
       <p class="aside">Something here out of date or wrong? <a href="https://github.com/LunarKittyy/Telescope/issues">Open an issue</a> and I'll fix it.</p>
     </div>
@@ -131,7 +144,7 @@
 
   <footer class="foot sources">
     <div>
-      <p>Checked on 10 October 2026 against each vendor's own pages. Prices and tiers change, so their sites have the final word.</p>
+      <p>Checked on 27 October 2026 against each vendor's own pages. Prices and tiers change, so their sites have the final word.</p>
       <ul>
         <li>DroidCam: <a href="https://droidcam.app/">droidcam.app</a>, <a href="https://play.google.com/store/apps/details?id=com.dev47apps.obsdroidcam">Google Play listing</a></li>
         <li>Iriun: <a href="https://iriun.com/">iriun.com</a>, <a href="https://play.google.com/store/apps/details?id=com.jacksoftw.webcam">Google Play listing</a></li>
