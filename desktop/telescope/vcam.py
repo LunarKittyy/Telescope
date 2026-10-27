@@ -925,6 +925,8 @@ class CameraWatch(_Held):
                     stop.wait(0.5)  # one sighting is enough; don't wake for every frame the app asks for
                 elif time.monotonic() - last_seen > WATCH_LINGER:
                     self._report(False)
+                if _use_mf(0):  # the Windows 11 camera went in while an app had this one open
+                    return
         finally:
             if handle is not None:
                 k32.CloseHandle(handle)
