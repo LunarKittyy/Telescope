@@ -197,7 +197,7 @@ class StillCapture(
         waiting?.let { w -> handler()?.removeCallbacks(w.go); jobs.fail(w.id, "interrupted", "The stream stopped before the photo"); onBusy(false) }
         waiting = null
         current?.let { end(it, "interrupted", "The stream stopped during the photo", restore = false) }
-        kept?.close()
+        kept?.let(::closeAfterWrites)
         kept = null
     }
 
@@ -237,13 +237,13 @@ class StillCapture(
                 return
             }
             // Readers that dropped out of the session (a reopen, a paused photo) can go now
-            if (old != null && !controller.stillOutputsInSession(old.stills)) { old.close(); kept = null }
+            if (old != null && !controller.stillOutputsInSession(old.stills)) { closeAfterWrites(old); kept = null }
             if (refusal in refused) { alone(r); return }
             val fresh = makeOutputs(request, caps, key)
             if (controller.stillsFit(fresh.stills) == false) { fresh.close(); refused += refusal; alone(r); return }
             controller.useStillOutputs(fresh.stills) { ok ->
                 // The session has let go of the old ones either way: in it now are the new ones or none
-                kept?.close()
+                kept?.let(::closeAfterWrites)
                 kept = if (ok) fresh else null
                 if (!ok) { fresh.close(); if (r.active) refused += refusal }
                 if (!r.active) return@useStillOutputs
@@ -254,6 +254,11 @@ class StillCapture(
             onError("still.begin", e)
             end(r, "failed", "The phone couldn't take the photo")
         }
+    }
+
+    // Images still being written hold their reader's buffers, so the readers close after them
+    private fun closeAfterWrites(outputs: Outputs) {
+        try { writer.execute { outputs.close() } } catch (_: Exception) { outputs.close() }
     }
 
     // The camera thread's limit for the photo, from now
@@ -835,9 +840,7 @@ class StillCapture(
         r.extension = null
         if (ext != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) try { (ext as CameraExtensionSession).close() } catch (_: Exception) {}
         r.meter?.close()
-        // Images still being written hold their reader's buffers, so the readers close after them
-        val ownOutputs = r.own
-        if (ownOutputs != null) try { writer.execute { ownOutputs.close() } } catch (_: Exception) { ownOutputs.close() }
+        r.own?.let(::closeAfterWrites)
         if (r.paused && restore) controller.resumeAfterStill(r.generation)
         // Changes Dynamic or the heat held back for the photo go ahead now
         if (current == null) controller.stillBusy(false)
