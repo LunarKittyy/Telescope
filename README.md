@@ -15,8 +15,6 @@
   <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
 </p>
 
-<p align="center"><img src="site/media/lenses.webp" alt="Switching between the ultra-wide, main and telephoto lens from the desktop app" width="800"></p>
-
 ## Up and running in about two minutes
 
 <p align="center"><img src="site/media/setup.webp" alt="The desktop app's checklist, the phone scanning the pairing code and a video call picking Telescope as its camera" width="800"></p>
