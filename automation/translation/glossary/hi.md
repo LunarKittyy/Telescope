@@ -1,6 +1,6 @@
 # Hindi glossary and style
 
-The terms agreed when this language was first drafted (October 2026), built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
+The agreed terms for this language, built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
 
 Avoid: संगणक, दूरभाष, चलभाष, अनुप्रयोग, अधोभारण, उद्भारण, संचिका, दृश्यपटल, चलचित्र, छायाचित्र, ध्वनिग्राही, जालस्थल, अंतर्जाल, तू, तुम, हार्डवेयर त्वरण
 

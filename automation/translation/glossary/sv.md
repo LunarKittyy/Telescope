@@ -1,6 +1,6 @@
 # Swedish glossary and style
 
-The terms agreed when both apps were first translated (October 2026, by three models and the maintainer). Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
+The agreed terms for Swedish. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
 
 Avoid: ladda ned, mick, endast, denna, detta, dessa, erhålla, tillhandahålla, hårdvaruaccelerering
 

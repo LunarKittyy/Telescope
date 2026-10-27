@@ -1,6 +1,6 @@
 # Spanish (neutral Latin American, understood in Spain too) glossary and style
 
-The terms agreed when this language was first drafted (October 2026), built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
+The agreed terms for this language, built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
 
 Avoid: remover, salvar, soportar, librería, customizar, resetear, accesar, performancia, cliquear, ordenador, fichero
 
@@ -68,7 +68,8 @@ Avoid: remover, salvar, soportar, librería, customizar, resetear, accesar, perf
 | Transforms (card) | Transformaciones |
 | Mirror / Flip / Upside down / Rotation / Zoom / Pan | Reflejar / Voltear / De cabeza / Rotación / Zoom / Panorámica |
 | background blur / Blur | desenfoque de fondo / Desenfoque |
-| Image (camera section) / Picture | Imagen / Foto |
+| Image (camera section) / Picture | Imagen / Imagen (the live video picture is never Foto) |
+| photo (a real photo, the Photos plugin) | foto |
 | lens / telephoto / main camera | lente / teleobjetivo / cámara principal |
 | Stream output | Salida de transmisión |
 | JPEG quality / bitrate | calidad JPEG / tasa de bits |
