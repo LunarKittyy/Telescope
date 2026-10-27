@@ -8,6 +8,7 @@ Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKit
 - [Video and quality](#video-and-quality)
 - [Camera controls](#camera-controls)
 - [Browser camera](#browser-camera)
+- [Webcams](#webcams)
 - [Shortcuts](#shortcuts)
 - [Plugins and extra downloads](#plugins-and-extra-downloads)
 - [Updates](#updates)
@@ -172,6 +173,20 @@ The video goes over WebRTC on UDP ports picked each time, which a strict firewal
 
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
+
+## Webcams
+
+**A webcam isn't in the phone picker**
+Check that **Webcams** is on in Plugins and that the camera works in another app. On Linux your user needs access to `/dev/video*` (usually the `video` group). A camera that only offers H.264 or another format OpenCV can't read is left out. Virtual cameras, like OBS Virtual Camera, are left out on purpose.
+
+**"Another app is using the webcam"**
+On Linux only one app can stream from a webcam at a time. Close the camera in the app named in the banner (a browser tab with a call or a camera test page counts too). Telescope keeps trying and starts streaming the moment it's free. On Windows the banner can't name the app, so check what has the camera open.
+
+**The picture is choppy or the frame rate is low**
+Try a lower resolution or frame rate on the Webcam card. In dim light many webcams slow down to get a brighter picture. A camera behind a USB hub shared with other busy devices can also run out of bandwidth. Plugging it straight into the computer helps then.
+
+**A camera in webcam mode or behind a capture card shows a black picture**
+Check its HDMI output is clean (no menus on top) and set to a resolution the capture card takes, then pick that resolution on the card.
 
 ## Shortcuts
 

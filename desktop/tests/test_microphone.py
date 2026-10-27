@@ -186,6 +186,28 @@ def test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts(qapp):
     assert p._action_btn.text() == "Get VB-Cable" and not p._action_row.isHidden()
 
 
+def test_a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True})
+    ctrl = _Ctrl()
+    ctrl.audio = False  # a webcam
+    p.on_stream_start("webcam:", ctrl)
+    assert _Worker.made == []
+    assert "call app" in p._status.text()
+
+
+def test_a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is(qapp):
+    p = _plugin(_Backend())
+    p._bus.source_selected.emit("webcam:usb-c920")
+    assert p._toggle_lbl.text() == "Camera mic"
+    assert not p._toggle.isEnabled()
+    assert "call app" in p._status.text()
+    p._bus.source_selected.emit("browser:b1")
+    assert p._toggle_lbl.text() == "Browser mic" and p._toggle.isEnabled()
+    p._bus.source_selected.emit("")
+    assert p._toggle_lbl.text() == "Phone mic"
+
+
 def test_phone_refusal_is_shown(qapp):
     p = _plugin(_Backend())
     p.set_config({"enabled": True})

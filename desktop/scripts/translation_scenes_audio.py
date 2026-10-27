@@ -167,6 +167,16 @@ mic_scene("mic-ready", "Microphone · on, waiting for a stream", lambda stack: m
 mic_scene("mic-browser", "Microphone · browser as the source", lambda stack: browser_mic(stack))
 
 
+mic_scene("mic-webcam", "Microphone · webcam streaming", lambda stack: webcam_mic(stack))
+
+
+def webcam_mic(stack):
+    plugin = mic_card(stack)
+    plugin.bus.source_selected.emit("webcam:x")
+    plugin.on_stream_start("webcam:", SimpleNamespace(base="webcam:", auth=None, audio=False))
+    return plugin
+
+
 def browser_mic(stack):
     plugin = mic_card(stack)
     plugin.bus.source_selected.emit("browser:x")

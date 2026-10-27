@@ -34,6 +34,7 @@ from telescope.widgets.level_meter import FLOOR_DB, LevelMeter
 from telescope.i18n import N_, and_list, tr
 
 logger = logging.getLogger(__name__)
+_NO_MIC_NOTE = N_("This camera's microphone isn't passed on. Pick it in your call app instead.")
 
 METER_MS = 33
 GAIN_MIN_DB = -24
@@ -185,7 +186,7 @@ class MicrophonePlugin(TelescopePlugin):
         bus.limiter_changed.connect(self._on_limiter)
         bus.device_changed.connect(self._sync_place)
         bus.source_selected.connect(self._on_source_selected)
-        self._phone_picked = True  # a browser's mic is called by what it is
+        self._picked = ""  # the source picked: a browser's mic is called by what it is, and a webcam's isn't brought over
         bus.streams_changed.connect(self._sync_place)
         self._enabled = False
         self._handing_on = False  # its stream stopped with the mic on while others carry on: the next one gets it on
@@ -417,6 +418,9 @@ class MicrophonePlugin(TelescopePlugin):
 
     def _refresh(self):
         self._show_mute()
+        if self._source_kind() == "other":
+            self._show(tr(_NO_MIC_NOTE))
+            return
         if not self._enabled:
             self._show("")
             return
@@ -452,15 +456,30 @@ class MicrophonePlugin(TelescopePlugin):
         self._toggle.setChecked(self._enabled and self._elsewhere is None)
         self._toggle.blockSignals(False)
         shown = self._host.focused_source_id()
-        self._toggle.setEnabled(self._elsewhere is None or self._host.is_streaming_from(shown))
+        self._toggle.setEnabled((self._elsewhere is None or self._host.is_streaming_from(shown))
+                                and self._source_kind() != "other")
 
     def _on_source_selected(self, sid: str):
-        self._phone_picked = not sid
+        self._picked = sid
         if hasattr(self, "_toggle_lbl"):
             self._show_source_words()
+            self._show_toggle()
+            self._refresh()
+
+    def _source_kind(self) -> str:
+        """"phone", "browser" (Browser camera's ids), or "other": a webcam, whose mic isn't brought over."""
+        sid = self._picked
+        return "phone" if not sid else ("browser" if sid == "browser" or sid.startswith("browser:") else "other")
 
     def _show_source_words(self):
-        phone, name = self._phone_picked, self._backend.pick_name
+        if self._source_kind() == "other":
+            self._toggle_lbl.setText(tr("Camera mic"))
+            self._toggle.setAccessibleName(tr("Camera microphone"))
+            self._toggle.setToolTip(tr(_NO_MIC_NOTE))
+            if hasattr(self, "_gain_slider"):
+                self._gain_slider.setToolTip("")
+            return
+        phone, name = self._source_kind() == "phone", self._backend.pick_name
         self._toggle_lbl.setText(tr("Phone mic") if phone else tr("Browser mic"))
         self._toggle.setAccessibleName(tr("Phone microphone") if phone else tr("Browser microphone"))
         self._toggle.setToolTip(
@@ -500,6 +519,9 @@ class MicrophonePlugin(TelescopePlugin):
         if self._worker is not None or self._preparing or self._ctrl is None or not self._enabled:
             return
         if self._backend.problem():
+            return
+        if getattr(self._ctrl, "audio", True) is False:  # a webcam: its mic is picked in the call app
+            self._show(tr(_NO_MIC_NOTE))
             return
         self._gen += 1
         self._preparing = True

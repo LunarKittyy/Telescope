@@ -21,6 +21,13 @@ if sys.argv[1:] == [WARM_UP]:
         pass
     sys.exit(0)
 
+# Read by OpenCV as it loads, for webcams: one that stops sending drops after 3 s rather than 10
+os.environ.setdefault("OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT", "3")
+# Media Foundation's hardware transforms can make opening some webcams take many seconds
+os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
+if sys.platform == "win32":
+    os.environ.setdefault("QT_MEDIA_BACKEND", "windows")  # the webcam list needs no FFmpeg, which the bundle leaves out
+
 APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
 # Before anything else is imported: an update that was cut short may leave files that don't import together.
 _after_update = "--after-update" in sys.argv[1:]

@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, colour grading, photos, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, chroma key, QR codes, framing, transforms, preview, stream output, background, colour grading, photos, presets, wait screen, browser camera, webcams: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
+                "browser_camera": "_card", "webcam": "_card", "cinema": "_scope_combo", "desk": "_mark_btn", "face_exposure": "_switch",
                 "privacy_blur": "_now_btn", "chroma_key": "_colour_btn",
                 "qr_reader": "_notify_switch", "photos": "_take_btn", "name_tag": "_name_edit",
                 "colour_grading": "_switch", "notes": "_editor",
@@ -1438,6 +1438,82 @@ def phones_browser(stack):
     phones = FakePhones()
     phones.remembered = plugin.remembered()
     return shown(stack, connection.PhonesDialog(phones))
+
+
+# ── Webcams ──────────────────────────────────────────────────────────────────
+
+WEBCAM_KEY = "usb-hd-webcam"
+
+
+def webcam_window(stack, streaming=False, state=None):
+    """The window with a webcam plugged in and picked; streaming says it streams, state what its stream reported."""
+    from telescope.webcams import Device, Mode
+    win = ready_window(stack)
+    plugin = plugin_of(win, "webcam")
+    modes = (Mode("YUYV", 640, 480, (30.0,)), Mode("MJPG", 1280, 720, (30.0, 60.0)), Mode("MJPG", 1920, 1080, (30.0,)))
+    plugin._scan = lambda: [Device(WEBCAM_KEY, "HD Pro Webcam C920", "/dev/video0", modes)]
+    plugin.rescan()
+    sid = "webcam:" + WEBCAM_KEY
+    if streaming:
+        streams = win.is_streaming_from
+        patch(stack, win, "is_streaming_from", lambda source_id: source_id == sid or streams(source_id))
+    plugin_of(win, "connection").select(sid)
+    if state:
+        plugin._on_reported(WEBCAM_KEY, *state)
+    plugin._render()
+    return win, plugin
+
+
+def _webcam_scene(id, title, banners=False, **kwargs):
+    def build(stack):
+        win, _plugin = webcam_window(stack, **kwargs)
+        return cards(stack, win, "webcam", banners=banners)
+    scene(id, "main" if id == "webcam-picked" else "states", title, width=BANNER_WIDTH if banners else CARD_WIDTH)(build)
+
+
+for _id, _title, _kwargs in (
+        ("webcam-picked", "Webcam · picked, not streaming", {}),
+        ("webcam-streaming", "Webcam · streaming", {"streaming": True, "state": ("ok", "1920×1080, MJPEG, 30 fps")}),
+        ("webcam-starting", "Webcam · opening the camera", {"streaming": True}),
+        ("webcam-unplugged", "Webcam · unplugged while streaming", {"streaming": True, "state": ("gone", "")}),
+        ("webcam-silent", "Webcam · open but sending nothing", {"streaming": True, "state": ("silent", "")}),
+        ("webcam-busy-app", "Webcam · another app has it", {"streaming": True, "state": ("busy", "zoom"),
+                                                            "banners": True}),
+        ("webcam-busy", "Webcam · in use, app not known", {"streaming": True, "state": ("busy", ""), "banners": True})):
+    _webcam_scene(_id, _title, **_kwargs)
+
+
+@scene("webcam-start-unplugged", "states", "Webcam · Start after it was unplugged", width=1300)
+def webcam_start_unplugged(stack):
+    win, plugin = webcam_window(stack)
+    src = plugin._sources[WEBCAM_KEY]
+    plugin._devices = {}
+    plugin.prepare(src)
+    return full_window(stack, win)
+
+
+def _webcam_status_scene(index, text_name, title):
+    def build(stack):
+        from telescope import webcams
+        win, _plugin = webcam_window(stack, streaming=True)
+        win._set_status(i18n.tr(getattr(webcams, text_name)), "warn")  # what the stream worker says while it waits
+        return full_window(stack, win)
+    scene(f"webcam-waiting-{index}", "states", f"Webcam · status line while {title}", width=1300)(build)
+
+
+for _index, (_name, _title) in enumerate((("GONE_TEXT", "unplugged"), ("BUSY_TEXT", "another app has it"),
+                                          ("NO_FRAMES_TEXT", "it sends nothing")), 1):
+    _webcam_status_scene(_index, _name, _title)
+
+
+@scene("webcam-cant-reach", "states", "Webcam · gone for a while", width=BANNER_WIDTH)
+def webcam_cant_reach(stack):
+    from telescope.widgets.banner import Issue
+    win, plugin = webcam_window(stack, streaming=True, state=("gone", ""))
+    src = win._source_by_id("webcam:" + WEBCAM_KEY)
+    win.show_issue(f"stopped:{src.id}", Issue(i18n.tr("Can't reach {name}", name=src.name), i18n.tr(src.lost_hint),
+                                              kind="warn"))  # as Source._show_unreachable words it
+    return cards(stack, win, "webcam", banners=True)
 
 
 # ── Wait screen ──────────────────────────────────────────────────────────────

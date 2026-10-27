@@ -209,3 +209,10 @@ def _on_air_sign_stays_local(monkeypatch):
     """A window that runs the On Air sign listens on a free localhost port, not on the network at 8768."""
     from telescope.on_air import OnAirServer
     monkeypatch.setattr(OnAirServer.__init__, "__defaults__", (0, "127.0.0.1"))
+
+
+@pytest.fixture(autouse=True)
+def _no_real_webcams(monkeypatch):
+    """Webcams plugged into this machine stay out of the tests: the Webcam plugin finds none unless a test gives some."""
+    import telescope.plugins.webcam as webcam
+    monkeypatch.setattr(webcam, "default_scanner", lambda: lambda: [])

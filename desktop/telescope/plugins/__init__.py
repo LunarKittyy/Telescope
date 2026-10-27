@@ -35,6 +35,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.transforms import TransformsPlugin
     from telescope.plugins.updates import UpdatesPlugin
     from telescope.plugins.wait_screen import WaitScreenPlugin
+    from telescope.plugins.webcam import WebcamPlugin
 
     # Frames go through them by frame_stage (plugin.FRAME_STAGES), in this order within a stage
     return [
@@ -42,6 +43,7 @@ def builtin_plugins() -> list:
         ConnectionPlugin(),
         CameraControlPlugin(),
         BrowserCameraPlugin(),  # after Camera: its card takes that place while it's picked
+        WebcamPlugin(),  # the same, while a webcam is picked
         CinemaPlugin(),  # optional, under Camera: what it shows is for judging the camera's settings
         FaceExposurePlugin(),  # optional, after Camera: it moves the point Tap a point picks
         BackgroundPlugin(),  # optional: off until switched on in Plugins

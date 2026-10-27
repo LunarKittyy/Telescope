@@ -198,6 +198,8 @@ def main_window(stack, tray=False, phone=True):
             plugin._backend_factory = lambda: None
         elif plugin.name == "on_air":
             quiet_sign(plugin)
+        elif plugin.name == "webcam":
+            plugin._scanner = lambda: []  # this computer's webcams stay out of the picture
         win.register_plugin(plugin)
     win.apply_saved_config()
     if phone:
