@@ -491,6 +491,9 @@ def install_camera(devices: int = 1, reset: bool = False, progress_cb=None) -> t
         ok, msg, code = register_mf_camera(devices)
         if ok or code != _EXIT_REGSVR32:
             return ok, msg
+        if mf_registered(0):  # the cameras there stay as they were, so UnityCapture would list Telescope twice
+            return False, (tr("Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, "
+                              "then try again") if camera_access_off() else msg)
         logger.warning("Windows didn't take the Windows 11 camera (%s); installing UnityCapture instead", msg)
     if not unitycapture_downloaded(unitycapture_dir()):
         if progress_cb:
@@ -501,6 +504,17 @@ def install_camera(devices: int = 1, reset: bool = False, progress_cb=None) -> t
     if progress_cb:
         progress_cb(tr("Registering (admin access required)..."))
     return register_unitycapture(devices, reset)
+
+
+def camera_access_off() -> bool:
+    """Whether Windows' camera access switch is off for the whole computer, which also stops cameras being removed."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam") as k:
+            return winreg.QueryValueEx(k, "Value")[0] == "Deny"
+    except (OSError, ImportError):
+        return False
 
 
 def camera_installed() -> bool:

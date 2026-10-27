@@ -436,6 +436,23 @@ INSTALL.add("error", "Setup · Windows driver: error while running as admin", ho
 INSTALL.add("timeout", "Setup · Windows driver: timed out", how="all", files=True, exit_code="timeout")
 
 
+def camera_access_off(stack):
+    """Install driver over Windows 11 cameras Windows won't change, as camera access is off for the whole computer."""
+    from telescope.platform import windows
+    fake_windows(stack, files=True, registered=True)
+    settings, panel, _win = advanced(stack, "devices", windows=True, adb=True)
+    for name, value in (("mf_installable", lambda: True), ("mf_registered", lambda slot=0: True),
+                        ("camera_access_off", lambda: True),
+                        ("register_mf_camera", lambda devices: (False, "refused", windows._EXIT_REGSVR32))):
+        stack.enter_context(mock.patch.object(windows, name, value))
+    panel._install_uc()
+    return finish(settings)
+
+
+setup_scene("setup-install-driver-camera-access-off", "states",
+            "Setup · Windows driver: camera access is off, so Windows won't change the cameras")(camera_access_off)
+
+
 def no_folder(stack):
     """Install driver where the folder for the driver files can't be made."""
     fake_windows(stack, folder="/proc/telescope/unitycapture")

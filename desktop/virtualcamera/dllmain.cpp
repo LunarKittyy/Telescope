@@ -78,6 +78,16 @@ HRESULT RegisterClsid(int slot) {
     return HRESULT_FROM_WIN32(status);
 }
 
+bool ClsidRegistered(int slot) {
+    wchar_t clsid[40], key[128];
+    StringFromGUID2(kClsids[slot], clsid, ARRAYSIZE(clsid));
+    swprintf_s(key, L"SOFTWARE\\Classes\\CLSID\\%s", clsid);
+    HKEY handle = nullptr;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &handle) != ERROR_SUCCESS) return false;
+    RegCloseKey(handle);
+    return true;
+}
+
 void UnregisterClsid(int slot) {
     wchar_t clsid[40], key[128];
     StringFromGUID2(kClsids[slot], clsid, ARRAYSIZE(clsid));
@@ -104,18 +114,25 @@ HRESULT AddCamera(int slot) {
     return hr;
 }
 
-void RemoveCamera(int slot) {
+// Its CLSID goes only with the camera, so one Windows won't remove (camera access off) keeps working
+HRESULT RemoveCamera(int slot, bool ours) {
     ComPtr<IMFVirtualCamera> camera;
     HRESULT hr = CreateCamera(slot, &camera);
     if (SUCCEEDED(hr)) hr = camera->Remove();
     if (camera) camera->Shutdown();
     Log(L"removing camera %d: 0x%08x", slot, hr);
+    if (hr == MF_E_INVALIDREQUEST || !ours) hr = S_OK;  // there wasn't one
+    if (SUCCEEDED(hr)) UnregisterClsid(slot);
+    return hr;
 }
 
 // count cameras afterwards: the first count slots are set up and the rest removed
 HRESULT SetUpCameras(int count) {
     HRESULT hr = MFStartup(MF_VERSION, MFSTARTUP_LITE);
     if (FAILED(hr)) return hr;
+    bool ours[kSlots];  // with camera access off Remove fails for cameras that were never added too
+    for (int slot = 0; slot < kSlots; slot++) ours[slot] = ClsidRegistered(slot);
+    HRESULT removed = S_OK;
     int done = 0;
     for (int slot = 0; slot < kSlots && SUCCEEDED(hr); slot++) {
         if (slot < count) {
@@ -123,19 +140,17 @@ HRESULT SetUpCameras(int count) {
             if (SUCCEEDED(hr)) hr = AddCamera(slot);
             if (SUCCEEDED(hr)) done = slot + 1;
         } else {
-            RemoveCamera(slot);
-            UnregisterClsid(slot);
+            HRESULT result = RemoveCamera(slot, ours[slot]);
+            if (SUCCEEDED(removed)) removed = result;
         }
     }
     if (FAILED(hr)) {
-        // Windows wouldn't take one (camera access blocked, Frame Server off): none stay, so Telescope uses UnityCapture for all
-        for (int slot = 0; slot <= done && slot < kSlots; slot++) {
-            RemoveCamera(slot);
-            UnregisterClsid(slot);
-        }
+        // Windows wouldn't take one: what this call added goes, and with camera access off the failed Start made one too
+        for (int slot = 0; slot <= done && slot < kSlots; slot++) RemoveCamera(slot, true);
     }
     MFShutdown();
-    return hr;
+    // One left behind fails regsvr32 too, so the uninstaller and the app know it's still there
+    return FAILED(hr) ? hr : removed;
 }
 
 }  // namespace

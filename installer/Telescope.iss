@@ -186,16 +186,21 @@ var
 begin
   Script := '';
   if Camera then
-    // Files a camera app still has open go at the next restart, the way setups replace locked files
-    Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
+    // Files a camera app still has open go at the next restart, the way setups replace locked files. A Windows 11 camera
+    // Windows wouldn't remove (camera access off) keeps its folder so it still works, and the script exits with 21
+    Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; $keep = $null; ' +
       '$rs = Join-Path $env:windir ''Sysnative\regsvr32.exe''; if (-not (Test-Path -LiteralPath $rs)) { $rs = Join-Path $env:windir ''System32\regsvr32.exe'' }; ' +
       'foreach ($n in ''UnityCapture\UnityCaptureFilter64.dll'', ''UnityCapture\UnityCaptureFilter32.dll'', ''VirtualCamera\TelescopeCamera.dll'') { ' +
-      '$d = Join-Path $uc $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
-      'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ' +
-      'if (Test-Path -LiteralPath $uc) { ' +
+      '$d = Join-Path $uc $n; if (Test-Path -LiteralPath $d) { ' +
+      '$r = Start-Process $rs -ArgumentList ''/s'', ''/u'', ([char]34 + $d + [char]34) -Wait -PassThru; ' +
+      'if ($r.ExitCode -and $n -like ''VirtualCamera\*'') { $keep = Split-Path $d } } }; ' +
+      '$gone = if ($keep) { @(Get-ChildItem -LiteralPath $uc -Force | Where-Object { $_.FullName -ne $keep }) } else { @(Get-Item -LiteralPath $uc) }; ' +
+      'foreach ($g in $gone) { Remove-Item -LiteralPath $g.FullName -Recurse -Force -ErrorAction SilentlyContinue }; ' +
+      '$left = @(foreach ($g in $gone) { if (Test-Path -LiteralPath $g.FullName) { ' +
+      '@(Get-ChildItem -LiteralPath $g.FullName -Recurse -Force | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $g.FullName) } }); ' +
+      'if ($left) { ' +
       '$k = ''HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager''; $p = @(); ' +
       '$old = (Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).PendingFileRenameOperations; if ($old) { $p += $old }; ' +
-      '$left = @(Get-ChildItem -LiteralPath $uc -Recurse -Force | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $uc); ' +
       'foreach ($i in $left) { $p += ''\??\'' + $i.FullName; $p += '''' }; ' +
       'Set-ItemProperty -LiteralPath $k -Name PendingFileRenameOperations -Type MultiString -Value ([string[]]$p) }; ';
   Script := Script +
@@ -203,17 +208,33 @@ begin
     PsQuote(ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe')) + '); ' +
     'Get-NetFirewallApplicationFilter | Where-Object { $ours -contains $_.Program } | Get-NetFirewallRule | ' +
     'Remove-NetFirewallRule';
+  if Camera then
+    Script := Script + '; if ($keep) { exit 21 }';
   // Not {sysnative}: UAC can't find that path. This PowerShell is 32-bit like the uninstaller, hence {commonpf64} and Sysnative regsvr32
   repeat
     if ShellExec('runas', ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
                  '-NoProfile -NonInteractive -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated,
                  ResultCode) then
-      Exit;
-    Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
-  until not Camera or UninstallSilent() or
-        (MsgBox('The Telescope camera is still installed because Windows didn''t get admin permission to remove it.' + #13#10#13#10 +
-                'You can try again, or remove it later by installing Telescope again and uninstalling it.',
-                mbError, MB_RETRYCANCEL) <> IDRETRY);
+    begin
+      if not Camera or (ResultCode <> 21) then
+        Exit;
+      Log('Windows didn''t remove the Windows 11 camera');
+      if UninstallSilent() or
+         (MsgBox('Windows didn''t remove the Telescope camera. That happens when camera access is off in Settings > Privacy & security > Camera.' + #13#10#13#10 +
+                 'Turn it on and try again, or remove the camera later by installing Telescope again and uninstalling it.',
+                 mbError, MB_RETRYCANCEL) <> IDRETRY) then
+        Exit;
+    end
+    else
+    begin
+      Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
+      if not Camera or UninstallSilent() or
+         (MsgBox('The Telescope camera is still installed because Windows didn''t get admin permission to remove it.' + #13#10#13#10 +
+                 'You can try again, or remove it later by installing Telescope again and uninstalling it.',
+                 mbError, MB_RETRYCANCEL) <> IDRETRY) then
+        Exit;
+    end;
+  until False;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
