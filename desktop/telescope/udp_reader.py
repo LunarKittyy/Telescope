@@ -276,6 +276,7 @@ class UdpH264Reader:
     def _open_udp(self) -> bool:
         self._close_udp()
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        resp = None
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 << 20)
             sock.bind(("0.0.0.0", 0))
@@ -283,13 +284,14 @@ class UdpH264Reader:
             req = urllib.request.Request(f"{self.url}?port={sock.getsockname()[1]}", headers=self.auth.headers())
             resp = self.auth.open(req, timeout=self.timeout)
             if "application/x-telescope-udp" not in resp.headers.get("Content-Type", ""):
-                resp.close()
                 raise OSError("not a UDP session")
             hello = json.loads(resp.readline(4096))
             key = base64.b64decode(hello["key"])
             phone_port = int(hello["port"])
         except Exception as e:
             logger.info("UDP video didn't start (%s); using TCP", e)
+            if resp is not None:
+                resp.close()  # the phone holds the session (and a stream slot) while it's open
             sock.close()
             return False
         host = urllib.parse.urlsplit(self.url).hostname

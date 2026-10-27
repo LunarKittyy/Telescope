@@ -3909,9 +3909,9 @@ def test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe(window):
                               client=SimpleNamespace(send=lambda **p: sent.append(p)))
     window._sessions.focus = SimpleNamespace(session=session)
     window.change_packets("fun", lambda: lambda unit: [])
-    assert worker.packets.step is not None and sent == [{"action": "keyframe"}]
+    assert worker.packets.on and sent == [{"action": "keyframe"}]
     window.change_packets("fun", None)
-    assert worker.packets.step is None
+    assert not worker.packets.on
     assert sent == [{"action": "keyframe"}] * 2
     window.change_packets("fun", None)
     assert sent == [{"action": "keyframe"}] * 2

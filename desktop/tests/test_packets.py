@@ -98,7 +98,7 @@ def test_a_step_that_hands_back_the_wrong_thing_is_ignored():
 def test_steps_run_one_after_the_other():
     tap = packets.Tap()
     tap.set({"a": lambda: lambda u: [u, u], "b": lambda: lambda u: [u + b"!"]})
-    assert tap.step(b"x") == [b"x!", b"x!"]
+    assert tap.open().step(b"x") == [b"x!", b"x!"]
 
 
 def test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so():
@@ -108,11 +108,13 @@ def test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so():
         made.append(1)
         return lambda u: [u]
     one, two = packets.Tap(), packets.Tap()
+    steps = one.open()
     assert one.set({"fun": make})
     assert not one.set({"fun": make})  # already on: it keeps its step
     assert two.set({"fun": make})
+    two.open()
     assert len(made) == 2
-    assert one.set({}) and one.step is None
+    assert one.set({}) and steps.step is None
     assert not one.set({})
 
 
@@ -136,22 +138,19 @@ def test_the_stream_worker_gives_its_tap_to_light_readers_only():
     assert not hasattr(worker._new_reader("https://phone/v1/video.mjpeg"), "tap")
 
 
-def test_restart_gives_every_owner_a_fresh_step():
+def test_each_open_gives_every_owner_a_fresh_step():
     made = []
 
     def make():
         made.append(1)
         return lambda u: [u]
     tap = packets.Tap()
-    tap.restart()
-    assert tap.step is None and not made
+    assert tap.open().step is None and not made
     tap.set({"fun": make})
-    before = tap.step
-    tap.restart()
-    assert len(made) == 2 and tap.step is not before
+    one, two = tap.open(), tap.open()
+    assert len(made) == 2 and one.step is not two.step
     tap.set({})
-    tap.restart()
-    assert tap.step is None and len(made) == 2
+    assert one.step is None and two.step is None and len(made) == 2
 
 
 def test_a_new_decoder_starts_its_steps_afresh():
@@ -159,4 +158,18 @@ def test_a_new_decoder_starts_its_steps_afresh():
     tap = _tap(lambda: made.append(1) or (lambda u: [u]))
     new_decoder(tap)
     new_decoder(tap)
-    assert len(made) == 3
+    assert len(made) == 2
+
+
+def test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps():
+    from telescope.h264_mosh import Mosh, Mosher
+    settings = Mosh(drop_keyframes=True)
+    tap = _tap(lambda: Mosher(lambda: settings))
+    running = new_decoder(tap)
+    stream = _stream(list(range(40, 120, 5)))
+    _frame, count = decode_counted(running, stream)
+    assert count > 0
+    new = new_decoder(tap)  # the new route's, decoding next to it until it has proven itself
+    decode_counted(running, stream)  # the old route carries on meanwhile
+    _frame, count = decode_counted(new, stream)
+    assert count > 0  # its own Mosher lets its first keyframe through

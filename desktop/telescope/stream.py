@@ -287,7 +287,11 @@ class StreamWorker(QThread):
                 taken = threading.Event()
                 with self._handover_lock:
                     self._handover_ready = (reader, url, taken)
-                if taken.wait(HANDOVER_TAKE_S):
+                give_up = time.monotonic() + HANDOVER_TAKE_S
+                while not taken.wait(0.1):
+                    if self._stop_flag or time.monotonic() >= give_up:
+                        break  # a stop waits for this thread (join_handover), so it doesn't wait out the rest
+                else:
                     return
                 with self._handover_lock:
                     if self._handover_ready is not None and self._handover_ready[2] is taken:
