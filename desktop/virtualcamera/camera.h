@@ -63,6 +63,7 @@ private:
     HANDLE m_map = nullptr;
     SharedHeader* m_header = nullptr;
     std::vector<BYTE> m_frame;
+    std::vector<BYTE> m_copy;
     UINT64 m_counter = 0;
     ULONGLONG m_changedAt = 0;
     bool m_have = false;

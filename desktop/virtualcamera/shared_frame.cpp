@@ -77,11 +77,12 @@ bool FrameChannel::ReadNewest(UINT32 width, UINT32 height) {
     }
     size_t bytes = static_cast<size_t>(width) * height * 3 / 2;
     if (bytes > kDataCapacity) return false;
-    m_frame.resize(bytes);
+    m_copy.resize(bytes);  // copied aside, so a torn copy never replaces the last good frame
     MemoryBarrier();
-    memcpy(m_frame.data(), reinterpret_cast<BYTE*>(m_header) + kDataOffset, bytes);
+    memcpy(m_copy.data(), reinterpret_cast<BYTE*>(m_header) + kDataOffset, bytes);
     MemoryBarrier();
     if (header->frame_counter != before) return false;  // written over while being copied
+    m_frame.swap(m_copy);
     m_counter = before;
     m_have = true;
     m_changedAt = GetTickCount64();
