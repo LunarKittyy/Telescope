@@ -2,7 +2,7 @@
 
 Planned in October 2026 after 4.3.1. PyAV 19 is left over from 4.3.
 
-- [ ] [Translations for the 4.3 plugins](#translations-for-the-43-plugins)
+- [x] [Translations for the 4.3 plugins](#translations-for-the-43-plugins)
 - [ ] [PyAV 19](#pyav-19)
 
 ## Translations for the 4.3 plugins
