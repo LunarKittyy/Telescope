@@ -22,37 +22,55 @@ DESKTOP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(DESKTOP))
 
 from telescope import i18n, splash  # noqa: E402
+from update_guard import LIB_PREFIX  # noqa: E402
 
-# The check goes at the end of the onedir branch that works out the lib folder, before the splash is set up
-ANCHOR = """        if (pyi_security_verify_onedir_application_home_dir_permissions(pyi_ctx) != true) {
-            return -1;
-        }
+# The check goes before the PKG archive is read: Defender can still be scanning an exe Windows just extracted, and
+# PyInstaller's launcher can't read its archive meanwhile
+ANCHOR = """    /* Resolve main PKG archive - embedded or side-loaded. */
 """
 
-CHECK = """
-#if defined(_WIN32)
-        /* Telescope: opened from inside a zip, Windows extracts only this exe, without its lib folder */
-        if (telescope_lib_folder_missing(pyi_ctx->application_home_dir)) {
-            telescope_say_extract_first();
-            return -1;
-        }
+CHECK = """#if defined(_WIN32)
+    /* Telescope: opened from inside a zip, Windows extracts only this exe, without its lib folder */
+    if (telescope_lib_folder_missing(pyi_ctx->executable_filename)) {
+        telescope_say_extract_first();
+        return -1;
+    }
 #endif
+
 """
 
 FUNCTIONS = """
 #if defined(_WIN32)
 #include "telescope_extract_first.h"
 
+/* No lib-<build> folder next to the exe (update_guard.LIB_PREFIX) */
 static int
-telescope_lib_folder_missing(const char *folder)
+telescope_lib_folder_missing(const char *executable)
 {
-    wchar_t folder_w[PYI_PATH_MAX];
-    DWORD attributes;
-    if (pyi_win32_utf8_to_wcs(folder, folder_w, PYI_PATH_MAX) == NULL) {
+    wchar_t pattern[PYI_PATH_MAX];
+    wchar_t *slash;
+    WIN32_FIND_DATAW found;
+    HANDLE search;
+    int missing = 1;
+    if (pyi_win32_utf8_to_wcs(executable, pattern, PYI_PATH_MAX) == NULL) {
         return 0;
     }
-    attributes = GetFileAttributesW(folder_w);
-    return attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+    slash = wcsrchr(pattern, L'\\\\');
+    if (slash == NULL || (size_t)(slash - pattern) + 1 + wcslen(TELESCOPE_LIB_PATTERN) >= PYI_PATH_MAX) {
+        return 0;
+    }
+    wcscpy(slash + 1, TELESCOPE_LIB_PATTERN);
+    search = FindFirstFileExW(pattern, FindExInfoBasic, &found, FindExSearchLimitToDirectories, NULL, 0);
+    if (search == INVALID_HANDLE_VALUE) {
+        return 1;
+    }
+    do {
+        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            missing = 0;
+        }
+    } while (missing && FindNextFileW(search, &found));
+    FindClose(search);
+    return missing;
 }
 
 /* The first of Windows' display languages with a translation: "pt-BR" takes pt-BR, then pt */
@@ -115,6 +133,7 @@ def texts_header() -> str:
     i18n.load(i18n.SOURCE_LANGUAGE, qt=False)
     rows = [f"    {{{c_string(lang.replace('_', '-'))}, {c_string(title)}, {c_string(text)}}}," for lang, (title, text) in rows]
     return ("/* Written by Telescope's scripts/build_bootloader.py */\n"
+            f"#define TELESCOPE_LIB_PATTERN {c_string(LIB_PREFIX + '*')}\n"
             "struct telescope_text { const wchar_t *lang, *title, *text; };\n"
             "static const struct telescope_text TELESCOPE_TEXTS[] = {\n" + "\n".join(rows) + "\n};\n"
             "#define TELESCOPE_TEXT_COUNT (sizeof(TELESCOPE_TEXTS) / sizeof(TELESCOPE_TEXTS[0]))\n")
@@ -144,7 +163,7 @@ def patch(source: Path):
     if "telescope_lib_folder_missing" not in code:
         if code.count(ANCHOR) != 1 or code.count(MAIN_DECL) != 1:
             raise SystemExit(f"{main} changed: the extract-first check needs a new place")
-        code = code.replace(ANCHOR, ANCHOR + CHECK).replace(MAIN_DECL, FUNCTIONS + "\n" + MAIN_DECL)
+        code = code.replace(ANCHOR, CHECK + ANCHOR).replace(MAIN_DECL, FUNCTIONS + "\n" + MAIN_DECL)
         main.write_text(code, encoding="utf-8")
     (src / "telescope_extract_first.h").write_text(texts_header(), encoding="utf-8")
 
