@@ -1453,15 +1453,17 @@ def test_udp_is_used_on_wifi_only_when_switched_on_and_dynamic_only_where_the_ph
     _streaming_over(plugin, USB)
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")  # off by default
 
-    host.configs["stream_output"] = {"format": "h264", "udp": True}  # switched on in Stream output
-    assert "udp" not in plugin.get_config()
+    [section] = plugin.create_settings_sections()  # in the Settings window, not on the card
+    assert section.tab == "streaming" and not plugin._udp_cb.isChecked()
+    plugin._udp_cb.setChecked(True)
+    assert plugin.get_config()["udp"] is True
     assert plugin.adopt_stream_route(WIFI, "id-a") == "https://10.0.0.5:8080/v1/video.udp"
     assert plugin.adopt_stream_route(USB, "id-a").endswith("/v1/video.h264")  # a cable: TCP
     plugin._holds["id-a"] = (WIFI, None)
     assert plugin.prepare_stream_route(USB, "id-a").endswith("/v1/video.h264")  # handing over to the cable too
     plugin.drop_stream_route("id-a")
 
-    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": -1, "udp": True}  # an older phone measures TCP's queue
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": -1}  # an older phone measures TCP's queue
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")
     plugin._apply_resolution(Resolution(READY, WIFI, udp_dynamic=True))  # a newer one runs it from our reports
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.udp")
@@ -1469,10 +1471,8 @@ def test_udp_is_used_on_wifi_only_when_switched_on_and_dynamic_only_where_the_ph
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.udp")
     plugin._apply_resolution(Resolution(READY, WIFI))  # downgraded
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")
-    host.configs["stream_output"] = {"format": "mjpeg", "udp": True}
+    host.configs["stream_output"] = {"format": "mjpeg"}
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video")  # Heavy is never UDP
-    host.configs.pop("stream_output")  # Stream output switched off: TCP
-    assert not plugin._path_for(WIFI, "/v1/video.h264", "id-a").endswith(".udp")
 
 
 def test_udp_switch_reconnects_a_running_wifi_stream(plugin_env, monkeypatch):
@@ -1481,8 +1481,7 @@ def test_udp_switch_reconnects_a_running_wifi_stream(plugin_env, monkeypatch):
     host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
     plugin._stream_route = WIFI
     plugin.on_stream_start("https://phone/v1/video.h264", None)
-    host.configs["stream_output"]["udp"] = True
-    plugin._bus.stream_transport_changed.emit()
+    plugin._on_udp(True)
     assert host.reconnects == 1
 
 
@@ -1491,7 +1490,8 @@ def test_dynamic_keeps_udp_on_a_phone_that_runs_it_there(plugin_env, monkeypatch
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
     _add(plugin)
     plugin._apply_resolution(Resolution(READY, WIFI, udp_dynamic=True))
-    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0, "udp": True}
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
+    plugin._udp = True
     plugin._stream_route = WIFI
     plugin.on_stream_start("https://phone/v1/video.udp", None)
     host.configs["stream_output"]["bitrate_mbps"] = -1
@@ -1502,9 +1502,14 @@ def test_dynamic_keeps_udp_on_a_phone_that_runs_it_there(plugin_env, monkeypatch
 def test_dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone(plugin_env, monkeypatch):
     plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
-    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0, "udp": True}
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
+    plugin._udp = True
     plugin._stream_route = WIFI
     plugin.on_stream_start("https://phone/v1/video.udp", None)
     host.configs["stream_output"]["bitrate_mbps"] = -1
     plugin._bus.stream_transport_changed.emit()
     assert host.reconnects == 1
+
+    plugin.create_settings_sections()
+    plugin.set_config({**plugin.get_config(), "udp": False})
+    assert not plugin._udp_cb.isChecked()

@@ -194,7 +194,7 @@ The desktop gives up on a photo whose status hasn't moved for 45 s plus its expo
 
 ## `GET /v1/video.udp` (experimental)
 
-The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with the Light format and **UDP on Wi-Fi** switched on in Stream output (off by default). With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
+The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with the Light format and **UDP on Wi-Fi** switched on in Settings (off by default). With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
 
 - The desktop opens a UDP socket and asks `GET /v1/video.udp?port=<its port>`. Over the phone's loopback (USB) the answer is `409`, since there's nothing to gain there.
 - The reply is `application/x-telescope-udp`, and its first line is JSON: `{"key": <32 random bytes, base64>, "port": <the phone's UDP port>}`. The request then stays open as the session: the phone writes `\n` every second, and when either side closes it, the UDP stream ends too. The key comes over the pinned HTTPS connection, so it's as private as the token.

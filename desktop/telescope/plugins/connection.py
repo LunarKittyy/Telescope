@@ -39,13 +39,13 @@ from telescope.platform import (
 from telescope.platform.linux import (
     CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
 )
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.shortcuts import choice_action
 from telescope.session_client import (
     PING_PORT, START_FAST_POLL_FOR, START_FAST_POLL_INTERVAL, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS,
     PhoneSessionClient, clean_name,
 )
-from telescope.widgets.controls import RoundIcon, hairline, setting_row
+from telescope.widgets.controls import RoundIcon, Tag, hairline, setting_row
 from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
     set_button_icon,
@@ -63,6 +63,9 @@ from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
+# Translators: Light is the name of a stream format, as the Stream output card shows it
+_UDP_SUB = N_("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it "
+             "and see.")
 _STATUS_POLL_MS = 3_000     # idle re-check of the selected phone, only while the window is on screen
 _CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
 _HELD_POLL_S = 60           # tray, after starting once the phone was ready: only its going away matters
@@ -553,8 +556,10 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_id: Optional[str] = None
         self._active_key: Optional[str] = None
         self._route_pref = ROUTE_AUTO
+        self._udp = False  # experimental H.264 over UDP on Wi-Fi
         self._transport_udp = False
         self._udp_dynamic: set = set()  # phones that run Dynamic over UDP, from their last ping
+        self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
         self._computer_id = secrets.token_hex(16)
@@ -765,6 +770,28 @@ class ConnectionPlugin(TelescopePlugin):
         self._usb_watch_timer.timeout.connect(self._watch_usb)
         self._render()
         return card
+
+    def create_settings_sections(self) -> list:
+        self._settings_card = card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, tr("Connection"), self.icon, hue=self.category)
+        self._udp_cb = Switch()
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
+        self._udp_cb.toggled.connect(self._on_udp)
+        control = QHBoxLayout()
+        control.setSpacing(8)
+        control.addWidget(Tag(tr("Experimental"), "warn"))
+        control.addWidget(self._udp_cb)
+        strip, _ = setting_row(tr("UDP on Wi-Fi"), tr(_UDP_SUB), control,
+                               keywords=tr("udp tcp transport network lag freezes stutter wifi", ctx="search"))
+        lay.addWidget(strip)
+        return [SettingsSection("streaming", card, on_show=self._show_udp)]
+
+    def _show_udp(self):
+        self._udp_cb.blockSignals(True)
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.blockSignals(False)
 
     def create_actions(self) -> list:
         return [choice_action("phone.pick", tr("Phone"), "Telescope", combo=self._phone_combo)]
@@ -1237,6 +1264,13 @@ class ConnectionPlugin(TelescopePlugin):
         self._render()
         return url
 
+    def _on_udp(self, on: bool):
+        if on == self._udp:
+            return
+        self._udp = on
+        self._host.schedule_save()
+        self._refresh_transport()
+
     def _refresh_transport(self):
         route = self._stream_route
         if not self._streaming or route is None or route.kind != "wifi" or self._video_path() != "/v1/video.h264":
@@ -1246,11 +1280,11 @@ class ConnectionPlugin(TelescopePlugin):
             self._host.reconnect_stream()
 
     def _path_for(self, route: Route, path: str, pid: Optional[str] = None) -> str:
-        """The H.264 path over UDP where it applies: Wi-Fi and switched on in Stream output. Dynamic only on a phone that runs it from
+        """The H.264 path over UDP where it applies: Wi-Fi and switched on. Dynamic only on a phone that runs it from
         this desktop's reports; an older one measures its TCP queue, so Dynamic stays on TCP there."""
         out = self._host.plugin_config("stream_output") or {}
         dynamic_ok = out.get("bitrate_mbps") != -1 or pid in self._udp_dynamic
-        if path == "/v1/video.h264" and route.kind == "wifi" and out.get("udp") is True and dynamic_ok:
+        if path == "/v1/video.h264" and route.kind == "wifi" and self._udp and dynamic_ok:
             return "/v1/video.udp"
         return path
 
@@ -1729,6 +1763,7 @@ class ConnectionPlugin(TelescopePlugin):
             "computer_id": self._computer_id,
             "computer_name": self._computer_name,
             "route": self._route_pref,
+            "udp": self._udp,
             "phones": [p.to_dict() for p in self._phones],
             "selected_phone": self._selected_id,
         }
@@ -1742,6 +1777,9 @@ class ConnectionPlugin(TelescopePlugin):
             self._computer_name = clean_name(name)
         route = cfg.get("route")
         self._route_pref = route if route in (ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI) else ROUTE_AUTO
+        self._udp = cfg.get("udp") is True
+        if self._udp_cb is not None:
+            self._show_udp()
         self._phones = []
         raw_phones = cfg.get("phones")
         for raw in raw_phones if isinstance(raw_phones, list) else []:
