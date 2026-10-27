@@ -114,8 +114,7 @@ HRESULT AddCamera(int slot) {
     return hr;
 }
 
-// Its CLSID goes only with the camera: one Windows wouldn't remove (camera access off) keeps working and can go later.
-// ours: its CLSID was registered before, as with camera access off Remove fails for cameras that were never added too
+// Its CLSID goes only with the camera, so one Windows won't remove (camera access off) keeps working
 HRESULT RemoveCamera(int slot, bool ours) {
     ComPtr<IMFVirtualCamera> camera;
     HRESULT hr = CreateCamera(slot, &camera);
@@ -131,7 +130,7 @@ HRESULT RemoveCamera(int slot, bool ours) {
 HRESULT SetUpCameras(int count) {
     HRESULT hr = MFStartup(MF_VERSION, MFSTARTUP_LITE);
     if (FAILED(hr)) return hr;
-    bool ours[kSlots];
+    bool ours[kSlots];  // with camera access off Remove fails for cameras that were never added too
     for (int slot = 0; slot < kSlots; slot++) ours[slot] = ClsidRegistered(slot);
     HRESULT removed = S_OK;
     int done = 0;
@@ -146,9 +145,8 @@ HRESULT SetUpCameras(int count) {
         }
     }
     if (FAILED(hr)) {
-        // Windows wouldn't take one (camera access blocked, Frame Server off): none stay that can go, so UnityCapture takes over.
-        // With camera access off the Start that failed still made its camera, and Windows won't remove that one either
-        for (int slot = 0; slot <= done && slot < kSlots; slot++) RemoveCamera(slot, ours[slot] || slot == done);
+        // Windows wouldn't take one: what this call added goes, and with camera access off the failed Start made one too
+        for (int slot = 0; slot <= done && slot < kSlots; slot++) RemoveCamera(slot, true);
     }
     MFShutdown();
     // One left behind fails regsvr32 too, so the uninstaller and the app know it's still there
