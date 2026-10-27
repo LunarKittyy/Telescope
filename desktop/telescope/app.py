@@ -1253,8 +1253,6 @@ class TelescopeWindow(QMainWindow):
             # Dropping the last reference to a running QThread aborts the app, so hold it until it ends.
             self._orphans.add(worker)
             worker.finished.connect(lambda w=worker: self._orphans.discard(w))
-        if source is not None:
-            self._colour.drop_stream(source.id)  # after the wait, so its last frame doesn't pin the Lut again
 
     # ── Several streams: which one the panels show ────────────────────────
 
@@ -1815,6 +1813,7 @@ class TelescopeWindow(QMainWindow):
         for sid in self._tracked - streaming:
             self._tracking.drop(sid)
         self._tracked &= streaming
+        self._colour.set_streams(s.id for s in self._sessions.streams)
 
     def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
         self._colour.set_stage(owner, stage, order, source_id)

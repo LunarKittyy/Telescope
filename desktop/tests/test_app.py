@@ -3997,6 +3997,30 @@ def test_stopping_a_stream_forgets_who_it_was_tracking(window):
     assert window._tracking.update(sid, [person], time.monotonic()) == ([], 0)
 
 
+def test_stopping_a_stream_lets_go_of_its_colour_lut(window):
+    from telescope.colour import ColourStage
+
+    class Worker:
+        def __init__(self):
+            self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+            self.packets = packets.Tap()
+
+        def request_stop(self):
+            pass
+
+        def wait(self, timeout):
+            return True
+
+    window._phone.id = sid = "phone-1"
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=None, worker=Worker())
+    window._on_streams_changed()
+    stages = (ColourStage(lambda x: 1 - x, per_channel=True),)
+    window._colour.lut(stages, sid)
+    assert window._colour.settle() and window._colour.lut(stages, sid) is window._colour._current[sid]
+    window._flow.stop()
+    assert sid not in window._colour._current
+
+
 def test_a_lens_switch_starts_motion_over(window, monkeypatch):
     from telescope.motion import LENS_SETTLE_S
     resets = []

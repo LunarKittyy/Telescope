@@ -356,6 +356,7 @@ class ColourPipeline(TelescopePlugin):
         self._baked: dict = {}  # tuple of stages: Lut or None, the newest last
         self._current: dict = {}  # stream key: the Lut its frames got last, until the one for new stages is baked
         self._wanted: dict = {}  # stream key: stages waiting for the baking thread
+        self._gone: set = set()  # keys of streams that stopped, which mustn't pin a Lut in _current again
         self._bake_lock = threading.Lock()
         self._baking: Optional[threading.Thread] = None
         self._idle = threading.Event()
@@ -409,6 +410,8 @@ class ColourPipeline(TelescopePlugin):
         if not stages:
             return None
         with self._bake_lock:
+            if key in self._gone:
+                return self._baked.get(stages)  # a stopped stream's last frames: whatever's there, nothing kept
             if stages in self._baked:
                 lut = self._current[key] = self._baked.pop(stages)
                 self._baked[stages] = lut  # the newest last again
@@ -449,11 +452,15 @@ class ColourPipeline(TelescopePlugin):
                 if not self._wanted:
                     self._idle.set()
 
-    def drop_stream(self, key):
-        """key's stream stopped: the Lut it showed no longer has to stay baked."""
+    def set_streams(self, keys):
+        """GUI thread: the keys of the streams running now. A stream that stopped lets go of its Lut, and a frame of
+        it still on its way doesn't hold on to it again until it streams again."""
+        keys = set(keys)
         with self._bake_lock:
-            self._current.pop(key, None)
-            self._wanted.pop(key, None)
+            self._gone = (self._gone | set(self._current) | set(self._wanted)) - keys - {None}
+            for key in self._gone:
+                self._current.pop(key, None)
+                self._wanted.pop(key, None)
 
     def settle(self, timeout: float = 5.0) -> bool:
         """Wait until nothing waits to be baked (tests); False if it still does after timeout seconds."""
