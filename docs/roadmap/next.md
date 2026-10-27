@@ -1,18 +1,10 @@
 # Next release
 
-Planned in October 2026 after 4.2, starting with a 4.2.1 for the Windows zip. The first two were left over from 4.2. Most of the optional plugins from [Some day](future.md) then got built in one go at the end of October, along with what they needed underneath.
+Planned in October 2026 after 4.3. The first two were left over from 4.3.
 
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
 - [ ] [PyAV 19](#pyav-19)
-- [x] [A shorter release checklist](#a-shorter-release-checklist)
-- [x] [Mic noise reduction](#mic-noise-reduction)
-- [x] [A Windows 11 camera every app can see](#a-windows-11-camera-every-app-can-see)
-- [x] [Dynamic over UDP](#dynamic-over-udp)
-- [x] [Plugin updates](#plugin-updates)
-- [x] [Host services for the optional plugins](#host-services-for-the-optional-plugins)
-- [x] [Optional plugins](#optional-plugins)
-- [x] [A Plugins tab for thirty plugins](#a-plugins-tab-for-thirty-plugins)
-- [x] [Cleaning up after the batch](#cleaning-up-after-the-batch)
+- [ ] [The wait screen with the app closed on Windows 11](#the-wait-screen-with-the-app-closed-on-windows-11)
 
 ## Saying to extract the Windows zip first
 
@@ -26,61 +18,10 @@ A small launcher exe that checks for its `lib` folder before starting the real o
 
 Needs Python 3.12, which 4.2 brought in. aiortc 1.15 still declares `av<18` which we get around with `--no-deps`. aiortc's main branch already allows `av<20` but there's no release with it yet. Wait for that release, then drop the `--no-deps` workaround if it's no longer needed. PyAV 19 has API changes too. Check browser video and audio and hardware decoding on a real device. The draft PR is #273.
 
-## A shorter release checklist
+## The wait screen with the app closed on Windows 11
 
-`docs/release-checklist.md` grew to about 120 items and running all of it by hand every release isn't realistic anymore. The goal is to test just as much while only asking a person for what needs a real phone or real ears and eyes.
+While the app isn't running the Windows 11 camera shows a plain dark picture in the app's background colour. It falls back to the same picture when frames stop for 3 seconds. Now that the camera is Telescope's own DLL it could show the default wait screen there instead and a call that opens the camera before Telescope starts would see the lens and the name rather than black.
 
-- [x] Drop the lines CI already proves (tests, smoke checks, the unzipped copy move, the driver install) and add CI checks for the rest of that kind. That's the APK signed with the same key as the last release, both bundles carrying the notices and the APK, About showing `VERSION`.
-- [x] Unit tests for the items that are really logic (Settings search, the Start failure banners, alerts firing once, Start and Stop automation timing, the heat note, the phone's Status card, the remote start toast, Show all and Remove all, the updater's no-downgrade and resume paths).
-- [x] One script in `automation/release-testing` that runs the emulator and Linux pass, and one for the Windows VM pass, each printing pass or fail per item (`emulator_pass.py` and `windows_pass.py`).
-- [x] A script that lists which checklist sections are due since the last tag, from the files that changed. It has to judge widely what a change can reach (a bug in shared code can break a section whose files didn't change), and when unsure it lists the section.
-- [x] What stays manual is a short pass on a real phone (camera controls and lenses, latency and a long run, Wi-Fi to USB handover, the mic on both platforms, OBS and Zoom, the vision effects) plus whatever the script says is due.
+The Windows build would render the screen with the same `_default_screen()` the app uses (`desktop/telescope/vcam.py`) and put it in `TelescopeCamera.dll` as a resource. That way the two can't drift apart. The DLL fills the frame with the background colour and scales the lens and name onto it for whatever size the app picked. It leaves out the "Waiting for camera" line, since the camera service has no way to know the user's language and an English line would sit untranslated in every other one. The app still shows the translated line once it runs.
 
-## Mic noise reduction
-
-RNNoise on the desktop cleans up typing, fans and room hiss the same way on every phone, Browser camera's mic included. It's a switch on the Microphone card and runs in the mic's writer loop in `desktop/telescope/audio.py`.
-
-## A Windows 11 camera every app can see
-
-On Windows 11 the virtual camera now goes through `MFCreateVirtualCamera` (a small native DLL in `desktop/virtualcamera/`), which Media Foundation apps see too. Windows 10 keeps UnityCapture.
-
-## Dynamic over UDP
-
-UDP on Wi-Fi and Dynamic work together now. Over UDP, Dynamic steps the bitrate down from how often the desktop has to ask for lost pieces again, an earlier sign than the phone's send queue backing up. On a real phone over a link held to 4 Mbps it settled at 2.7 to 2.9 Mbps with under 1% loss.
-
-## Plugin updates
-
-Installing a new `.zip` of a plugin replaces the old one and keeps its settings. `plugin.json` can carry a `repo` link that the Plugins tab shows next to the author, with an optional check for new GitHub releases. Installing updates without asking is a separate switch with a warning around it.
-
-## Host services for the optional plugins
-
-What several plugins needed got built once as host services (see `desktop/ARCHITECTURE.md`): motion zones (`motion.py`), calm people tracking (`people.py`), drawing and picking on the preview (`overlays.py` and `scopes.py`), frames from other streams (`frames.py`), full-quality photos from the phone (`stills.py` and `/v1/still`), the phone's motion and light sensors (`sensors.py` and `/v1/sensors`), the colour pipeline (`colour.py`) and the stream's H.264 before it's decoded (`packets.py`).
-
-The colour pipeline went with OpenCV instead of OpenGL. An OpenGL path measured 2.8 ms a 1080p frame but needs a GL 3.3 context per stream thread (the Windows VM only got a broken one). OpenCV in four bands takes about 5 ms and works everywhere. Lining up and stacking frames wasn't needed yet and stays in [Some day](future.md).
-
-## Optional plugins
-
-All start out off and most need no download:
-
-- **Cinema tools** with focus peaking, zebras, false colour, a histogram, waveform, RGB parade, vectorscope and a level from the phone's sensors, on the preview only
-- **Colour grading** with wheels, curves, a before and after split, `.cube` LUTs in and out, a grade per phone that presets carry
-- **Chroma key**, **Expose for my face**, **Privacy blur** (the "blur when someone else shows up" idea), **Desk mode** with Width and Height for a sheet that isn't A4-shaped and **Photos** with RAW, HEIC, Ultra HDR, the full sensor resolution, Night and the other Camera2 extensions, long exposures and bracketing
-- **Several cameras in one picture** with an editor that resizes, stretches and crops the way OBS does
-- The smaller ones: **QR codes**, **On Air sign**, **Name tag** and **Notes next to the lens**
-- **Fun pack** with datamosh through the packet hook
-
-Transforms also got a stretch for squishing or widening the picture. HEIC on the vivo V2413 crashes the phone's camera service (the photo fails and the stream recovers), left as a known limit since it's the maker's camera code.
-
-## A Plugins tab for thirty plugins
-
-With around thirty plugins the old list in registration order was hard to scan. The Plugins tab is now a grid of tiles in groups (Camera, Look, People, Preview tools, On screen, Sound, Streaming and devices, Extras) with its own search and one restart bar at the bottom. Each group has a colour that its cards in the main window share, and the side columns sort cards by group under the pinned ones (Connection, Stream output, Transforms, Camera).
-
-## Cleaning up after the batch
-
-Built in parallel, the plugins needed a pass to fit together:
-
-- Settings that belong to one camera stay with it when several stream at once (the Fun pack, Name tag and others) and presets carry them
-- Frames go through named stages (view, geometry, reading, background, effects, colour, privacy, overlay, combine, cover, final) instead of the order plugins happen to be registered in. That moved Colour grading before the Name tag, the Wait screen and the combined picture
-- A code health pass shared copied helpers and fixed what it found. A performance pass added `scripts/bench_frames.py` and sped up the slow spots
-- The desktop tests now fail a test that leaves a thread or timer running, which is what made Qt crash in later tests on CI
-
+A picture of your own would need the DLL to read a file a normal user can write, from inside a system service. That's for later, as raw pixels with a checked header and never a PNG or GIF parser. Linux can't do any of this (v4l2loopback only shows what a running app writes). Small to medium, mostly `desktop/virtualcamera/media_source.cpp` and the CMake build.
