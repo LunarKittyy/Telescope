@@ -149,6 +149,9 @@ def instrument(stack):
     from telescope import ip_utils
     sample = [ip_utils.PairingAddress("192.168.1.20", "Wi-Fi", "lan"), ip_utils.PairingAddress("100.64.0.7", "tailscale0", "tailscale")]
     stack.enter_context(patch.object(ip_utils, "get_pairing_addresses", lambda: list(sample)))
+    # One extra camera set up on every machine, never this computer's own (a scene can still set its own)
+    from telescope import vcam
+    stack.enter_context(patch.object(vcam, "slot_ready", lambda slot: slot == 1))
 
     def translate(text, /, ctx="", **values):
         return Tagged(original_tr(text, ctx=ctx, **values), text, ctx, values)
