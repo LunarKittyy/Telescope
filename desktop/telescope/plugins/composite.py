@@ -12,6 +12,7 @@ import time
 from dataclasses import replace
 from typing import Optional
 
+import numpy as np
 from PyQt6.QtWidgets import QComboBox, QSizePolicy, QWidget
 
 from telescope import vcam
@@ -51,6 +52,7 @@ class CompositePlugin(TelescopePlugin):
         self._camera_size: Optional[tuple] = None  # what that camera opened at, for Auto canvas size
         self._compositor = Compositor()
         self._main_frame: Optional[tuple] = None  # (frame, time) the target stream had before the picture
+        self._handed = None  # what this step last handed on in the target stream, picture or not
         self._editor = None
         self._last_picture_at = 0.0
         self._fallback_key = None  # the frames the clock last drew from, so it doesn't draw the same picture again
@@ -76,11 +78,11 @@ class CompositePlugin(TelescopePlugin):
         now = time.monotonic()
         self._main_frame = (frame, now)
         frames = self.frames(frame, now)
-        if self._compositor.live_tiles(frames) < 2:
-            return frame
-        out = self._compositor.render(frames)
+        out = self._compositor.render(frames) if self._compositor.live_tiles(frames) >= 2 else None
         if out is None:
+            self._handed = frame
             return frame
+        self._handed = out
         self._last_picture_at = now
         self._fallback_key = None
         return out
@@ -109,6 +111,9 @@ class CompositePlugin(TelescopePlugin):
         current = self._host.stream_frame(target)
         if current is None:  # its camera is off, or it hasn't sent a frame yet
             return False
+        handed = self._handed
+        if handed is None or not np.may_share_memory(current.frame, handed):
+            return False  # a later step changed what it sent (the wait screen covers it): drawing would undo that
         frames = self.frames(None, now)
         key = frozenset((sid, number) for sid, (_frame, number) in frames.items())
         others = {sid: src for sid, src in frames.items() if sid != target}
@@ -168,7 +173,7 @@ class CompositePlugin(TelescopePlugin):
         size = tuple(on_camera[1:]) if on_camera is not None and on_camera[1] and on_camera[2] else None
         if target != self._target:
             self._target = target
-            self._main_frame = None  # another stream's frame isn't this one's
+            self._main_frame = self._handed = None  # another stream's frame isn't this one's
             self._fallback_key = None
             if target is not None:
                 self._wake_clock()

@@ -477,6 +477,7 @@ def test_while_the_telescope_stream_stalls_the_others_keep_moving(plugin):
     host.current = "a"
     main = _solid((255, 0, 0), (90, 160))
     t0 = time.monotonic()
+    host.frames[0] = StreamFrame("a", "Phone A", plugin.process_frame(main), 1, t0)  # the picture a sent out
     plugin._main_frame = (main, t0)
     assert not plugin.draw_stalled(t0 + 0.03)  # a is on time: its own frame steps draw the picture
     assert plugin.draw_stalled(t0 + 0.1)
@@ -493,6 +494,24 @@ def test_while_the_telescope_stream_stalls_the_others_keep_moving(plugin):
     assert plugin.draw_stalled(t0 + composite.STALE_S + 1)
     out = host.replaced[-1][1]
     assert out[90, 40].tolist() == list(composite.bgr(composite.DEFAULT_BACKGROUND))
+
+
+def test_a_covered_stream_stays_covered_while_it_stalls(plugin):
+    _two_streams(plugin)
+    host = plugin._host
+    host.current = "a"
+    main = _solid((255, 0, 0), (90, 160))
+    t0 = time.monotonic()
+    picture = plugin.process_frame(main)
+    plugin._main_frame = (main, t0)
+    host.frames[0] = StreamFrame("a", "Phone A", picture, 1, t0)  # what a sent out: the picture, uncovered
+    assert plugin.draw_stalled(t0 + 0.1)
+    host.replaced.clear()
+    plugin.process_frame(main)
+    plugin._main_frame = (main, t0)
+    host.frames[0] = StreamFrame("a", "Phone A", np.zeros_like(picture), 1, t0)  # the wait screen covered it
+    host.frames[1] = StreamFrame("b", "Phone B", _solid((0, 255, 255), (90, 160)), 3, t0 + 0.1)
+    assert not plugin.draw_stalled(t0 + 0.2) and host.replaced == []
 
 
 def test_the_stall_clock_draws_nothing_without_another_stream_or_a_frame(plugin):

@@ -270,6 +270,10 @@ class FunPackPlugin(TelescopePlugin):
 
     def _new_source(self):
         self._runner = fun_effects.Runner()  # slit-scan history and light trails belong to the stream before
+        if self._counting or self._grab:  # the room or clone was for the stream before, not this one's next frame
+            self._timer.stop()
+            self._counting, self._grab = "", None
+            self._show()
         self._drop_taken()
 
     def _clear(self):
