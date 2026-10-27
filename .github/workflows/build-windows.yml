@@ -61,13 +61,6 @@ jobs:
           python-version: '3.14'
           cache: pip
 
-      # The Windows 11 camera's media source (desktop/virtualcamera), which the app installs from its own folder
-      - name: Build the Windows 11 camera
-        working-directory: desktop
-        run: |
-          cmake -S virtualcamera -B virtualcamera/build -A x64
-          cmake --build virtualcamera/build --config Release
-
       - name: Install dependencies and PyInstaller
         working-directory: desktop
         run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
@@ -81,6 +74,14 @@ jobs:
       - name: Install aiortc and pyrnnoise
         working-directory: desktop
         run: pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
+
+      # The Windows 11 camera's media source (desktop/virtualcamera), which the app installs from its own folder.
+      # Its wait screen is rendered with the app's own code, so it's built once the dependencies are in
+      - name: Build the Windows 11 camera
+        working-directory: desktop
+        run: |
+          cmake -S virtualcamera -B virtualcamera/build -A x64
+          cmake --build virtualcamera/build --config Release
 
       - name: Run tests
         working-directory: desktop

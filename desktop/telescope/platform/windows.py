@@ -363,7 +363,7 @@ def uc_is_registered() -> bool:
 
 MF_DLL = "TelescopeCamera.dll"
 MF_MIN_BUILD = 22000  # MFCreateVirtualCamera arrived with Windows 11
-MF_VERSION = 2        # kCameraVersion in virtualcamera/camera.h: raise both when an installed DLL needs replacing
+MF_VERSION = 3        # kCameraVersion in virtualcamera/camera.h: raise both when an installed DLL needs replacing
 # One per camera slot, as in virtualcamera/dllmain.cpp
 MF_CLSIDS = (
     "{D1063481-2B46-4750-8A9D-85F69573355A}",

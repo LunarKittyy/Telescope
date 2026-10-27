@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "wait_screen.h"
 
 #include <sddl.h>
 #include <stdio.h>
@@ -9,15 +10,30 @@ namespace telescope {
 namespace {
 
 constexpr ULONGLONG kStaleMs = 3000;  // Telescope sends at least once a second, so this long without a frame means it's gone
-// The idle colour: the app's background (#0f1216) in BT.601 limited range
+// The idle colour, for a DLL without its wait screen: the app's background (#0f1216) in BT.601 limited range
 constexpr BYTE kIdleY = 31, kIdleU = 130, kIdleV = 126;
 // Full access for the system, Frame Server's account and admins; read and write for people signed in at the computer
 constexpr wchar_t kSecurity[] = L"D:P(A;;GA;;;SY)(A;;GA;;;LS)(A;;GA;;;BA)(A;;GRGW;;;IU)S:(ML;;NW;;;ME)";
+
+// The wait screen built in by write_camera_wait_screen.py, laid out for width x height; empty if it isn't there
+std::vector<BYTE> WaitScreen(UINT32 width, UINT32 height) {
+    std::vector<BYTE> nv12;
+    HRSRC found = FindResourceW(g_module, MAKEINTRESOURCEW(kWaitScreenResource), RT_RCDATA);
+    HGLOBAL loaded = found ? LoadResource(g_module, found) : nullptr;
+    const void* data = loaded ? LockResource(loaded) : nullptr;
+    if (!data || !ComposeWaitScreen(static_cast<const uint8_t*>(data), SizeofResource(g_module, found), width, height,
+                                    nv12)) {
+        Log(L"no wait screen for %ux%u, showing the idle colour", width, height);
+        nv12.clear();
+    }
+    return nv12;
+}
 
 }  // namespace
 
 void FrameChannel::Open(int slot, UINT32 width, UINT32 height, UINT32 fps) {
     Close();
+    m_idle = WaitScreen(width, height);  // before the shared memory, which an app can read the camera without
     wchar_t name[64];
     swprintf_s(name, L"%s%d", kSharedName, slot);
     PSECURITY_DESCRIPTOR sd = nullptr;
@@ -93,9 +109,14 @@ void FrameChannel::Fill(BYTE* dst, LONG pitch, UINT32 width, UINT32 height) {
     ReadNewest(width, height);
     if (m_header) InterlockedIncrement64(reinterpret_cast<volatile LONG64*>(&m_header->consumer_heartbeat));
     BYTE* uv = dst + static_cast<size_t>(pitch) * height;
-    if (m_have && m_frame.size() == static_cast<size_t>(width) * height * 3 / 2 &&
-        GetTickCount64() - m_changedAt < kStaleMs) {
-        const BYTE* src = m_frame.data();
+    size_t bytes = static_cast<size_t>(width) * height * 3 / 2;
+    const BYTE* src = nullptr;
+    if (m_have && m_frame.size() == bytes && GetTickCount64() - m_changedAt < kStaleMs) {
+        src = m_frame.data();
+    } else if (m_idle.size() == bytes) {
+        src = m_idle.data();
+    }
+    if (src) {
         for (UINT32 row = 0; row < height; row++) memcpy(dst + row * static_cast<size_t>(pitch), src + row * width, width);
         src += static_cast<size_t>(width) * height;
         for (UINT32 row = 0; row < height / 2; row++) memcpy(uv + row * static_cast<size_t>(pitch), src + row * width, width);
