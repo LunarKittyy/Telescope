@@ -449,6 +449,12 @@ class ColourPipeline(TelescopePlugin):
                 if not self._wanted:
                     self._idle.set()
 
+    def drop_stream(self, key):
+        """key's stream stopped: the Lut it showed no longer has to stay baked."""
+        with self._bake_lock:
+            self._current.pop(key, None)
+            self._wanted.pop(key, None)
+
     def settle(self, timeout: float = 5.0) -> bool:
         """Wait until nothing waits to be baked (tests); False if it still does after timeout seconds."""
         return self._idle.wait(timeout)
