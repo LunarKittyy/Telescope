@@ -139,6 +139,7 @@
     "[\"\", \"By\"]",
     "[\"\", \"CRT\"]",
     "[\"\", \"Calm\"]",
+    "[\"\", \"Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again\"]",
     "[\"\", \"Camera level: {level}\"]",
     "[\"\", \"Camera off\\n\\nNo app was using the camera, so it turned off.\\nThe phone's mic is still streaming, and the camera\\ncomes back when an app opens it.\"]",
     "[\"\", \"Camera off\\n\\nThe phone's mic is still streaming.\\nStop streaming ends it.\"]",
@@ -32830,6 +32831,29 @@
       "[\"\", \"Virtual camera & phone\"]",
       "[\"\", \"Virtual camera\"]"
     ],
+    "setup-install-driver-camera-access-off": [
+      "[\"\", \"Audio\"]",
+      "[\"\", \"Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again\"]",
+      "[\"\", \"Choose APK...\"]",
+      "[\"\", \"Driver\"]",
+      "[\"\", \"Failed: {message}\"]",
+      "[\"\", \"General\"]",
+      "[\"\", \"Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged in over USB.\"]",
+      "[\"\", \"Keyboard shortcuts\"]",
+      "[\"\", \"None came with this app\"]",
+      "[\"\", \"On Air\"]",
+      "[\"\", \"Phone app\"]",
+      "[\"\", \"Plugins\"]",
+      "[\"\", \"Ready\"]",
+      "[\"\", \"Retry\"]",
+      "[\"\", \"Search settings\"]",
+      "[\"\", \"Settings\"]",
+      "[\"\", \"Streaming\"]",
+      "[\"\", \"Updates & About\"]",
+      "[\"\", \"Video\"]",
+      "[\"\", \"Virtual camera & phone\"]",
+      "[\"\", \"Virtual camera\"]"
+    ],
     "setup-install-driver-no-folder": [
       "[\"\", \"Audio\"]",
       "[\"\", \"Choose APK...\"]",
@@ -58881,6 +58905,7 @@
     "setup-install-driver-unsafe": 940,
     "setup-install-driver-error": 940,
     "setup-install-driver-timeout": 940,
+    "setup-install-driver-camera-access-off": 940,
     "setup-install-driver-no-folder": 940,
     "setup-adb-finding": 940,
     "setup-adb-downloading": 940,
@@ -59218,5 +59243,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1768
+  "total": 1769
 }

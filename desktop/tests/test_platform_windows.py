@@ -466,8 +466,19 @@ def test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture(mon
 
 def test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera(monkeypatch):
     calls = _install_calls(monkeypatch, (False, "refused", windows._EXIT_REGSVR32))
+    monkeypatch.setattr(windows, "mf_registered", lambda slot=0: False)
     assert windows.install_camera() == (True, "Installed")
     assert calls == [("mf", 1), ("download",), ("uc", 1, False)]
+
+
+@pytest.mark.parametrize("access_off", [True, False])
+def test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top(monkeypatch, access_off):
+    calls = _install_calls(monkeypatch, (False, "refused", windows._EXIT_REGSVR32))
+    monkeypatch.setattr(windows, "mf_registered", lambda slot=0: True)
+    monkeypatch.setattr(windows, "camera_access_off", lambda: access_off)
+    ok, msg = windows.install_camera(1, reset=True)
+    assert not ok and ("Camera access is off" in msg) == access_off and (msg == "refused") != access_off
+    assert calls == [("mf", 1)]
 
 
 @pytest.mark.parametrize("code", [1, None, windows._EXIT_UNSAFE_FOLDER])
