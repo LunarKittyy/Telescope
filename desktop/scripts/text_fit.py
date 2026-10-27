@@ -420,12 +420,14 @@ def _quiet_system():
     from telescope.plugins import on_air
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.updates import UpdatesPlugin
+    from telescope import vcam
     with contextlib.ExitStack() as stack:
         for target, name, value in (
             (app_module.QSystemTrayIcon, "isSystemTrayAvailable", lambda: False),
             (app_module, "save_config", lambda _cfg: True),  # each language starts from the same settings
             (connection, "LanDiscovery", _Held),
             (connection, "stop_adb_server", lambda: None),
+            (vcam, "slot_ready", lambda _slot: False),  # not this computer's own cameras
             (setup, "uc_registered_name", lambda: None),
             (setup, "uc_in_app_folder", lambda: False),
             (connection.ConnectionPlugin, "_spawn_resolve", lambda self, *a: None),
