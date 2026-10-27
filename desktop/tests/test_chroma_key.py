@@ -168,6 +168,9 @@ def test_without_a_stream_the_card_says_to_start_one(chroma):
     plugin, _host = chroma(can_pick=False)
     plugin._pick()
     assert "Start streaming" in plugin._status.text() and not plugin._status.isHidden()
+    plugin.set_config({"picked": [200, 40, 160]})
+    plugin._screen_btns["picked"].click()  # picking again, with a colour picked before
+    assert "Start streaming" in plugin._status.text() and not plugin._status.isHidden()
 
 
 def test_settings_round_trip_and_bad_values_fall_back(chroma):

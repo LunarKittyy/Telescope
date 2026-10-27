@@ -216,6 +216,22 @@ def test_baked_luts_in_use_stay_and_a_hit_keeps_one_longer(monkeypatch):
     assert shown in pipeline._baked and o[3] in pipeline._baked and len(pipeline._baked) == 4
 
 
+def test_a_stopped_streams_lut_isnt_kept_from_the_cache_limit(monkeypatch):
+    monkeypatch.setattr(colour, "_KEEP_BAKED", 2)
+    pipeline = ColourPipeline(lambda: "a", bake_inline=True)
+    grades = [(ColourStage(lambda x, v=v: x * 0 + v, per_channel=True),) for v in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)]
+    for sid, stages in zip("abcd", grades):
+        pipeline.lut(stages, sid)
+    pipeline.set_streams(["d"])  # the others stopped
+    pipeline.lut(grades[0], "a")  # a last frame of one of them, still on its way
+    pipeline.lut(grades[4], "d")
+    pipeline.lut(grades[5], "d")
+    assert set(pipeline._baked) == {grades[4], grades[5]} and set(pipeline._current) == {"d"}
+    pipeline.set_streams(["a", "d"])  # streaming again
+    pipeline.lut(grades[0], "a")
+    assert pipeline._current["a"] is pipeline._baked[grades[0]]
+
+
 def test_a_bake_that_fails_doesnt_leave_the_baking_thread_stuck(monkeypatch):
     pipeline = ColourPipeline(lambda: "phone")
     calls = []

@@ -251,14 +251,15 @@ class ChromaKeyPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def _set_screen(self, screen: str):
-        if screen == "picked":
+        if screen == "picked" and self._picked is None:  # nothing picked yet: stay on what it was until one comes in
+            self._screen_btns[self._screen].setChecked(True)
             self._pick()
-            if self._picked is None:  # nothing picked yet: stay on what it was until a colour comes in
-                self._screen_btns[self._screen].setChecked(True)
-                return
+            return
         self._screen = screen
         self._screen_btns[screen].setChecked(True)
         self._changed()
+        if screen == "picked":
+            self._pick()  # after _changed, whose status would hide why a pick couldn't start
 
     def _pick(self):
         if not self._host.pick_on_preview(self.name, "point", self._picked_point,

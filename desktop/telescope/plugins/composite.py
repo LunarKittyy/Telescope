@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QComboBox, QSizePolicy, QWidget
 
 from telescope import vcam
 from telescope.composite import (
-    MAX_LAYOUTS, MAX_NAME, STALE_S, Compositor, Layout, clean_layout, clean_layouts, layout_dict, same_arrangement,
+    MAX_LAYOUTS, STALE_S, Compositor, Layout, clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, choice_action
@@ -216,7 +216,7 @@ class CompositePlugin(TelescopePlugin):
 
     def save_layout(self, name: str) -> str:
         """Save the picture as it is under name, replacing one of the same name; the name it got, "" for none."""
-        name = "".join(c for c in name if c.isprintable() and c not in "<>")[:MAX_NAME].strip()
+        name = clean_name(name)
         if not name:
             return ""
         layout = replace(self._layout, name=name)
@@ -231,7 +231,7 @@ class CompositePlugin(TelescopePlugin):
         return name
 
     def rename_layout(self, old: str, new: str):
-        new = "".join(c for c in new if c.isprintable() and c not in "<>")[:MAX_NAME].strip()
+        new = clean_name(new)
         if not new or new == old:
             return
         self._layouts = [saved for saved in self._layouts if saved.name != new]

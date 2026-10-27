@@ -1813,6 +1813,7 @@ class TelescopeWindow(QMainWindow):
         for sid in self._tracked - streaming:
             self._tracking.drop(sid)
         self._tracked &= streaming
+        self._colour.set_streams(s.id for s in self._sessions.streams)
 
     def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
         self._colour.set_stage(owner, stage, order, source_id)

@@ -535,7 +535,7 @@ class CompositeEditor(PlacedDialog):
         current = self._model.layout().name
         name, ok = QInputDialog.getText(self, tr("Save layout"), tr("Name:"), QLineEdit.EchoMode.Normal,
                                         current or self._unused_name())
-        name = name.strip()
+        name = composite.clean_name(name)  # as it'll be saved, so a name that only matches once tidied up still asks
         if not ok or not name:
             return
         if name != current and not self._may_replace(name):
@@ -556,7 +556,7 @@ class CompositeEditor(PlacedDialog):
         if old not in self._model.names():
             return
         name, ok = QInputDialog.getText(self, tr("Rename layout"), tr("Name:"), QLineEdit.EchoMode.Normal, old)
-        name = name.strip()
+        name = composite.clean_name(name)
         if not ok or not name or name == old or not self._may_replace(name):
             return
         self._model.rename_layout(old, name)

@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 from PyQt6.QtCore import QSignalBlocker, Qt
@@ -507,7 +508,9 @@ class ColourGradingPlugin(TelescopePlugin):
         for name in g.WHEELS:
             raw = wheels_raw.get(name)
             x, y = (raw if isinstance(raw, (list, tuple)) and len(raw) == 2 else (0.0, 0.0))
-            wheels[name] = (_number(x, 0.0, -1.0, 1.0), _number(y, 0.0, -1.0, 1.0))
+            x, y = _number(x, 0.0, -1.0, 1.0), _number(y, 0.0, -1.0, 1.0)
+            r = math.hypot(x, y)
+            wheels[name] = (x / r, y / r) if r > 1 else (x, y)  # on the rim, as the wheel shows it
         masters = {name: _number(masters_raw.get(name), g.MASTER_DEFAULT[name], *g.MASTER_RANGE[name])
                    for name in g.WHEELS}
         values = {}
