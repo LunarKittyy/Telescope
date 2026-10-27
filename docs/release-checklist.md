@@ -42,7 +42,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Windows packaging
 
-<!-- due: installer/** desktop/telescope.spec desktop/scripts/write_camera_wait_screen.py desktop/resources/** desktop/unitycapture/** desktop/virtualcamera/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
+<!-- due: installer/** desktop/telescope.spec desktop/scripts/build_bootloader.py desktop/scripts/write_camera_wait_screen.py desktop/resources/** desktop/unitycapture/** desktop/virtualcamera/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
 
 `windows_pass.py` checks the rest of Windows packaging. These need a real phone:
 

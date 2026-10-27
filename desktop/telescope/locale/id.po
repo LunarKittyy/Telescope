@@ -26,7 +26,7 @@ msgstr "Ponsel menjadi panas dan menurunkan frame rate ke {fps} fps untuk saat i
 msgid "Lost the phone - reconnecting"
 msgstr "Koneksi ke ponsel terputus - menghubungkan ulang"
 
-#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:827 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -162,7 +162,7 @@ msgstr "Menunggu"
 msgid "Setting up more virtual cameras…"
 msgstr "Menyiapkan kamera virtual tambahan…"
 
-#: telescope/app.py:1363 telescope/plugins/setup.py:721
+#: telescope/app.py:1363 telescope/plugins/setup.py:722
 msgid "Stop the streams going to them first"
 msgstr "Hentikan stream yang mengarah ke sana terlebih dahulu"
 
@@ -188,7 +188,7 @@ msgstr "Untuk streaming beberapa kamera sekaligus, Telescope menambahkan kamera 
 msgid "This asks for your password."
 msgstr "Tindakan ini meminta kata sandi Anda."
 
-#: telescope/app.py:1395 telescope/plugins/setup.py:723
+#: telescope/app.py:1395 telescope/plugins/setup.py:724
 msgid "Windows asks for permission."
 msgstr "Windows meminta izin."
 
@@ -266,7 +266,7 @@ msgstr "Kanvas diperbarui"
 msgid "Reload failed: {message}"
 msgstr "Gagal memuat ulang: {message}"
 
-#: telescope/app.py:1604 telescope/plugins/setup.py:991
+#: telescope/app.py:1604 telescope/plugins/setup.py:993
 msgid "Resize the virtual camera"
 msgstr "Ubah ukuran kamera virtual"
 
@@ -789,7 +789,7 @@ msgstr "Terunduh"
 msgid "{file} failed checksum verification - not registering"
 msgstr "{file} gagal verifikasi checksum - tidak mendaftarkan"
 
-#: telescope/platform/windows.py:296 telescope/plugins/setup.py:904 telescope/widgets/plugins_panel.py:892
+#: telescope/platform/windows.py:296 telescope/plugins/setup.py:906 telescope/widgets/plugins_panel.py:892
 msgid "Installed"
 msgstr "Terinstal"
 
@@ -2102,7 +2102,7 @@ msgstr "Hentikan di sana atau pada ponsel, lalu coba lagi."
 msgid "Checking…"
 msgstr "Memeriksa…"
 
-#: telescope/plugins/connection.py:117 telescope/plugins/setup.py:752 telescope/plugins/setup.py:772 telescope/plugins/setup.py:796 telescope/plugins/setup.py:853
+#: telescope/plugins/connection.py:117 telescope/plugins/setup.py:754 telescope/plugins/setup.py:774 telescope/plugins/setup.py:798 telescope/plugins/setup.py:855
 msgid "Ready"
 msgstr "Siap"
 
@@ -2321,7 +2321,7 @@ msgstr "Ponsel"
 msgid "Rename {name}"
 msgstr "Ganti nama {name}"
 
-#: telescope/plugins/connection.py:473 telescope/plugins/presets.py:188 telescope/plugins/setup.py:780
+#: telescope/plugins/connection.py:473 telescope/plugins/presets.py:188 telescope/plugins/setup.py:782
 msgid "Rename"
 msgstr "Ganti nama"
 
@@ -3988,7 +3988,7 @@ msgstr "Periksa lagi"
 msgid "Other apps see Telescope as a webcam through this driver. Installing it needs admin access."
 msgstr "Aplikasi lain melihat Telescope sebagai webcam melalui driver ini. Penginstalannya memerlukan akses admin."
 
-#: telescope/plugins/onboarding.py:160 telescope/plugins/setup.py:229 telescope/plugins/setup.py:788
+#: telescope/plugins/onboarding.py:160 telescope/plugins/setup.py:229 telescope/plugins/setup.py:790
 msgid "Install driver"
 msgstr "Instal driver"
 
@@ -4033,7 +4033,7 @@ msgstr "Gagal menginstal: {detail}"
 msgid "Installing over USB…"
 msgstr "Menginstal via USB…"
 
-#: telescope/plugins/onboarding.py:283 telescope/plugins/setup.py:885
+#: telescope/plugins/onboarding.py:283 telescope/plugins/setup.py:887
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "Tidak ada ponsel yang ditemukan via USB. Sambungkan ponsel dan izinkan Debugging USB saat diminta oleh ponsel."
 
@@ -5052,7 +5052,7 @@ msgstr "Selesai - kanvas diperbarui."
 msgid "Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."
 msgstr "Gagal: modul masih digunakan. Tutup OBS dan aplikasi lain yang menggunakan kamera virtual, lalu coba lagi."
 
-#: telescope/plugins/setup.py:577 telescope/plugins/setup.py:858
+#: telescope/plugins/setup.py:577 telescope/plugins/setup.py:860
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "Gagal: {message}"
@@ -5098,132 +5098,132 @@ msgstr "Dibongkar - {message}"
 msgid "Working..."
 msgstr "Memproses..."
 
-#: telescope/plugins/setup.py:722
+#: telescope/plugins/setup.py:723
 msgid "Back to just the one camera; Add camera sets them up again."
 msgstr "Kembali ke satu kamera saja; Tambahkan kamera untuk menyiapkannya lagi."
 
-#: telescope/plugins/setup.py:723
+#: telescope/plugins/setup.py:724
 msgid "Asks for your password."
 msgstr "Meminta kata sandi Anda."
 
-#: telescope/plugins/setup.py:727
+#: telescope/plugins/setup.py:728
 msgid "Removing…"
 msgstr "Menghapus…"
 
-#: telescope/plugins/setup.py:732
+#: telescope/plugins/setup.py:734
 msgid "Removed"
 msgstr "Dihapus"
 
-#: telescope/plugins/setup.py:736
+#: telescope/plugins/setup.py:738
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "Gagal menghapusnya: {message}"
 
-#: telescope/plugins/setup.py:753 telescope/plugins/setup.py:767 telescope/plugins/setup.py:773 telescope/plugins/setup.py:854
+#: telescope/plugins/setup.py:755 telescope/plugins/setup.py:769 telescope/plugins/setup.py:775 telescope/plugins/setup.py:856
 msgid "Reinstall"
 msgstr "Instal ulang"
 
-#: telescope/plugins/setup.py:758
+#: telescope/plugins/setup.py:760
 msgid "Update ready"
 msgstr ""
 
-#: telescope/plugins/setup.py:758
+#: telescope/plugins/setup.py:760
 msgid "Some apps can't see it"
 msgstr ""
 
-#: telescope/plugins/setup.py:759 telescope/plugins/updates.py:193
+#: telescope/plugins/setup.py:761 telescope/plugins/updates.py:193
 msgid "Update"
 msgstr "Perbarui"
 
-#: telescope/plugins/setup.py:760
+#: telescope/plugins/setup.py:762
 msgid "Installs the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr ""
 
-#: telescope/plugins/setup.py:766
+#: telescope/plugins/setup.py:768
 msgid "Reinstall for a security fix"
 msgstr "Instal ulang untuk perbaikan keamanan"
 
-#: telescope/plugins/setup.py:768
+#: telescope/plugins/setup.py:770
 msgid "Moves the driver into Program Files (Windows asks for admin access once)."
 msgstr "Memindahkan driver ke Program Files (Windows meminta akses admin sekali)."
 
-#: telescope/plugins/setup.py:779
+#: telescope/plugins/setup.py:781
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "Aplikasi mencantumkannya sebagai “{name}”"
 
-#: telescope/plugins/setup.py:781
+#: telescope/plugins/setup.py:783
 #, python-brace-format
 msgid "Register it again as “{name}”"
 msgstr "Daftarkan ulang sebagai “{name}”"
 
-#: telescope/plugins/setup.py:787
+#: telescope/plugins/setup.py:789
 msgid "Not installed"
 msgstr "Tidak terinstal"
 
-#: telescope/plugins/setup.py:787
+#: telescope/plugins/setup.py:789
 msgid "Not installed (Install driver downloads it first)"
 msgstr "Tidak terinstal (Instal driver mengunduhnya terlebih dahulu)"
 
-#: telescope/plugins/setup.py:799
+#: telescope/plugins/setup.py:801
 msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
 msgstr "Tidak ditemukan. Penyandingan dan penginstalan via USB membutuhkannya; Wi-Fi tidak."
 
-#: telescope/plugins/setup.py:821
+#: telescope/plugins/setup.py:823
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "Siap (adb {version}, dari Google)"
 
-#: telescope/plugins/setup.py:822
+#: telescope/plugins/setup.py:824
 msgid "Ready (adb, from Google)"
 msgstr "Siap (adb, dari Google)"
 
-#: telescope/plugins/setup.py:824
+#: telescope/plugins/setup.py:826
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "Siap (adb {version})"
 
-#: telescope/plugins/setup.py:824
+#: telescope/plugins/setup.py:826
 msgid "Ready (adb)"
 msgstr "Siap (adb)"
 
-#: telescope/plugins/setup.py:859
+#: telescope/plugins/setup.py:861
 msgid "Retry"
 msgstr "Coba lagi"
 
-#: telescope/plugins/setup.py:866
+#: telescope/plugins/setup.py:868
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "Penginstalan via USB memerlukan adb. Klik Dapatkan adb di bawah Kamera virtual di atas."
 
-#: telescope/plugins/setup.py:868
+#: telescope/plugins/setup.py:870
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "Penginstalan via USB memerlukan adb. Instal dari paket distro Anda."
 
-#: telescope/plugins/setup.py:874
+#: telescope/plugins/setup.py:876
 msgid "Select APK"
 msgstr "Pilih APK"
 
-#: telescope/plugins/setup.py:875
+#: telescope/plugins/setup.py:877
 msgid "Android Package (*.apk)"
 msgstr "Paket Android (*.apk)"
 
-#: telescope/plugins/setup.py:891
+#: telescope/plugins/setup.py:893
 msgid "Select device"
 msgstr "Pilih ponsel"
 
-#: telescope/plugins/setup.py:892
+#: telescope/plugins/setup.py:894
 msgid "More than one phone is plugged in. Which one should get the app?"
 msgstr "Lebih dari satu ponsel terhubung. Ponsel mana yang akan menerima aplikasi ini?"
 
-#: telescope/plugins/setup.py:900
+#: telescope/plugins/setup.py:902
 msgid "Installing..."
 msgstr "Menginstal..."
 
-#: telescope/plugins/setup.py:916
+#: telescope/plugins/setup.py:918
 msgid "Advanced settings"
 msgstr "Pengaturan lanjutan"
 
-#: telescope/plugins/setup.py:917
+#: telescope/plugins/setup.py:919
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "Kamera virtual, ukurannya, kamera tambahan, batas video dan mikrofon, serta tab Pembaruan & Tentang."
 
@@ -6496,6 +6496,18 @@ msgstr "Memulai Telescope…"
 #: telescope/splash.py:54
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Ini bisa memakan waktu satu menit selagi Windows menjalankan pemindaian keamanan."
+
+#. title of a message box shown when Telescope is opened straight from its zip without extracting it
+#: telescope/splash.py:96
+msgid "Extract Telescope first"
+msgstr ""
+
+#: telescope/splash.py:97
+msgid ""
+"Telescope can't start from inside the zip.\n"
+"\n"
+"Right-click the zip, choose Extract All, and open Telescope from the extracted folder."
+msgstr ""
 
 #: telescope/stills.py:32
 msgid "This phone's camera can't take that photo."

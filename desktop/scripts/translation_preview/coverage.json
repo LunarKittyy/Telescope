@@ -362,6 +362,7 @@
     "[\"\", \"Exposure, white balance, focus, lenses and the phone camera's other settings.\"]",
     "[\"\", \"External\"]",
     "[\"\", \"Extra cameras\"]",
+    "[\"\", \"Extract Telescope first\"]",
     "[\"\", \"Extras\"]",
     "[\"\", \"FFmpeg's development files\"]",
     "[\"\", \"FPS\"]",
@@ -1088,6 +1089,7 @@
     "[\"\", \"Telescope - Video Preview\"]",
     "[\"\", \"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\\\"{url}\\\">read it here</a>.<br><br>Wi-Fi works without it.\"]",
     "[\"\", \"Telescope can't open that picture.\"]",
+    "[\"\", \"Telescope can't start from inside the zip.\\n\\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder.\"]",
     "[\"\", \"Telescope can't start\"]",
     "[\"\", \"Telescope can't work without this one, so it can't be switched off\"]",
     "[\"\", \"Telescope couldn't ask for your password here. Run this in a terminal, then try again.\"]",
@@ -46094,6 +46096,10 @@
       "[\"\", \"Starting Telescope…\"]",
       "[\"\", \"This can take a minute while Windows runs a security scan.\"]"
     ],
+    "launcher-extract-first": [
+      "[\"\", \"Extract Telescope first\"]",
+      "[\"\", \"Telescope can't start from inside the zip.\\n\\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder.\"]"
+    ],
     "main-plugins-off": [
       "[\"\", \", \"]",
       "[\"\", \"1998 webcam\"]",
@@ -59075,6 +59081,7 @@
     "notify-idle-stop": 400,
     "notify-idle-stop-minutes": 400,
     "splash-windows": 420,
+    "launcher-extract-first": 400,
     "main-plugins-off": 1300,
     "main-streaming-narrow": 560,
     "main-streaming-tiles": 1300,
@@ -59245,5 +59252,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1769
+  "total": 1771
 }

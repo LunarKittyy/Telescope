@@ -544,6 +544,18 @@ def splash_screen(stack):
     return shown(stack, label)
 
 
+@scene("launcher-extract-first", "states", "Opened from inside the zip · Windows")
+def extract_first(stack):
+    """The box the launcher shows instead of starting, built from splash.extract_first() (scripts/build_bootloader.py)."""
+    from PyQt6.QtWidgets import QMessageBox
+    from telescope import splash
+    title, text = splash.extract_first()
+    box = QMessageBox(QMessageBox.Icon.Warning, title, text)
+    remember(box, "window title", title)
+    remember(box, "text", text)
+    return shown(stack, box)
+
+
 @scene("main-plugins-off", "main", "Main window · plugins turned off")
 def plugins_turned_off(stack):
     """The banner listing the plugins switched off: the list joins their names with the commas and the 'and'."""

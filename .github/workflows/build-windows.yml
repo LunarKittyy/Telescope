@@ -65,6 +65,12 @@ jobs:
         working-directory: desktop
         run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
 
+      # PyInstaller with its launcher built from source, plus a check that says to extract the zip first when
+      # TelescopeDesktop.exe is opened from inside it without its lib folder
+      - name: Build PyInstaller's launcher
+        working-directory: desktop
+        run: python scripts/build_bootloader.py ../bootloader
+
       - name: Install aiortc and pyrnnoise
         working-directory: desktop
         run: pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
@@ -142,6 +148,9 @@ jobs:
               if ($LASTEXITCODE) { $missing += "a pyrnnoise/rnnoise.dll that loads" }
             }
           }
+          # The launcher from build_bootloader.py, not PyInstaller's own
+          $exe = [IO.File]::ReadAllBytes("bundle/TelescopeDesktop.exe")
+          if (-not [Text.Encoding]::Unicode.GetString($exe).Contains("Extract Telescope first")) { $missing += "the launcher that says to extract the zip first" }
           # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
           if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }
           if ($missing) {

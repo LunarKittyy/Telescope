@@ -26,7 +26,7 @@ msgstr "फ़ोन गर्म हो गया और उसने अभी
 msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:827 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:885 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
@@ -167,7 +167,7 @@ msgstr "इंतज़ार में"
 msgid "Setting up more virtual cameras…"
 msgstr "और वर्चुअल कैमरे सेट किए जा रहे हैं…"
 
-#: telescope/app.py:1363 telescope/plugins/setup.py:721
+#: telescope/app.py:1363 telescope/plugins/setup.py:722
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
@@ -193,7 +193,7 @@ msgstr "एक साथ कई कैमरे स्ट्रीम करन�
 msgid "This asks for your password."
 msgstr "यह आपका पासवर्ड मांगेगा."
 
-#: telescope/app.py:1395 telescope/plugins/setup.py:723
+#: telescope/app.py:1395 telescope/plugins/setup.py:724
 msgid "Windows asks for permission."
 msgstr "Windows अनुमति मांगता है."
 
@@ -271,7 +271,7 @@ msgstr "कैनवस अपडेट हुआ"
 msgid "Reload failed: {message}"
 msgstr "दोबारा लोड होना विफल रहा: {message}"
 
-#: telescope/app.py:1604 telescope/plugins/setup.py:991
+#: telescope/app.py:1604 telescope/plugins/setup.py:993
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
@@ -794,7 +794,7 @@ msgstr "डाउनलोड हो गया"
 msgid "{file} failed checksum verification - not registering"
 msgstr "{file} चेकसम सत्यापन में विफल रहा - रजिस्टर नहीं किया जा रहा है"
 
-#: telescope/platform/windows.py:296 telescope/plugins/setup.py:904 telescope/widgets/plugins_panel.py:892
+#: telescope/platform/windows.py:296 telescope/plugins/setup.py:906 telescope/widgets/plugins_panel.py:892
 msgid "Installed"
 msgstr "इंस्टॉल हो गया"
 
@@ -2107,7 +2107,7 @@ msgstr "इसे वहां या फ़ोन पर रोकें, फ�
 msgid "Checking…"
 msgstr "जांच की जा रही है…"
 
-#: telescope/plugins/connection.py:117 telescope/plugins/setup.py:752 telescope/plugins/setup.py:772 telescope/plugins/setup.py:796 telescope/plugins/setup.py:853
+#: telescope/plugins/connection.py:117 telescope/plugins/setup.py:754 telescope/plugins/setup.py:774 telescope/plugins/setup.py:798 telescope/plugins/setup.py:855
 msgid "Ready"
 msgstr "तैयार"
 
@@ -2326,7 +2326,7 @@ msgstr "फ़ोन"
 msgid "Rename {name}"
 msgstr "{name} का नाम बदलें"
 
-#: telescope/plugins/connection.py:473 telescope/plugins/presets.py:188 telescope/plugins/setup.py:780
+#: telescope/plugins/connection.py:473 telescope/plugins/presets.py:188 telescope/plugins/setup.py:782
 msgid "Rename"
 msgstr "नाम बदलें"
 
@@ -3993,7 +3993,7 @@ msgstr "फिर से जांचें"
 msgid "Other apps see Telescope as a webcam through this driver. Installing it needs admin access."
 msgstr "अन्य ऐप इस ड्राइवर के ज़रिए Telescope को वेबकैम के रूप में देखते हैं. इसे इंस्टॉल करने के लिए एडमिन ऐक्सेस चाहिए."
 
-#: telescope/plugins/onboarding.py:160 telescope/plugins/setup.py:229 telescope/plugins/setup.py:788
+#: telescope/plugins/onboarding.py:160 telescope/plugins/setup.py:229 telescope/plugins/setup.py:790
 msgid "Install driver"
 msgstr "ड्राइवर इंस्टॉल करें"
 
@@ -4038,7 +4038,7 @@ msgstr "इंस्टॉल नहीं हुआ: {detail}"
 msgid "Installing over USB…"
 msgstr "USB से इंस्टॉल हो रहा है…"
 
-#: telescope/plugins/onboarding.py:283 telescope/plugins/setup.py:885
+#: telescope/plugins/onboarding.py:283 telescope/plugins/setup.py:887
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "USB पर कोई फ़ोन नहीं मिला. इसे प्लग इन करें और फ़ोन द्वारा पूछे जाने पर USB डीबगिंग की अनुमति दें."
 
@@ -5058,7 +5058,7 @@ msgstr "हो गया - कैनवस अपडेट हो गया."
 msgid "Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."
 msgstr "विफल रहा: मॉड्यूल अभी भी इस्तेमाल में है. OBS और वर्चुअल कैमरा इस्तेमाल करने वाले किसी भी अन्य ऐप को बंद करें, फिर कोशिश करें."
 
-#: telescope/plugins/setup.py:577 telescope/plugins/setup.py:858
+#: telescope/plugins/setup.py:577 telescope/plugins/setup.py:860
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "विफल रहा: {message}"
@@ -5104,132 +5104,132 @@ msgstr "अनलोड हो गया - {message}"
 msgid "Working..."
 msgstr "काम जारी है..."
 
-#: telescope/plugins/setup.py:722
+#: telescope/plugins/setup.py:723
 msgid "Back to just the one camera; Add camera sets them up again."
 msgstr "वापस सिर्फ़ एक कैमरे पर; 'कैमरा जोड़ें' उन्हें फिर से सेट करता है."
 
-#: telescope/plugins/setup.py:723
+#: telescope/plugins/setup.py:724
 msgid "Asks for your password."
 msgstr "आपसे पासवर्ड मांगता है."
 
-#: telescope/plugins/setup.py:727
+#: telescope/plugins/setup.py:728
 msgid "Removing…"
 msgstr "हटाया जा रहा है…"
 
-#: telescope/plugins/setup.py:732
+#: telescope/plugins/setup.py:734
 msgid "Removed"
 msgstr "हटा दिया गया"
 
-#: telescope/plugins/setup.py:736
+#: telescope/plugins/setup.py:738
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "उन्हें हटाया नहीं जा सका: {message}"
 
-#: telescope/plugins/setup.py:753 telescope/plugins/setup.py:767 telescope/plugins/setup.py:773 telescope/plugins/setup.py:854
+#: telescope/plugins/setup.py:755 telescope/plugins/setup.py:769 telescope/plugins/setup.py:775 telescope/plugins/setup.py:856
 msgid "Reinstall"
 msgstr "फिर से इंस्टॉल करें"
 
-#: telescope/plugins/setup.py:758
+#: telescope/plugins/setup.py:760
 msgid "Update ready"
 msgstr ""
 
-#: telescope/plugins/setup.py:758
+#: telescope/plugins/setup.py:760
 msgid "Some apps can't see it"
 msgstr ""
 
-#: telescope/plugins/setup.py:759 telescope/plugins/updates.py:193
+#: telescope/plugins/setup.py:761 telescope/plugins/updates.py:193
 msgid "Update"
 msgstr "अपडेट करें"
 
-#: telescope/plugins/setup.py:760
+#: telescope/plugins/setup.py:762
 msgid "Installs the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr ""
 
-#: telescope/plugins/setup.py:766
+#: telescope/plugins/setup.py:768
 msgid "Reinstall for a security fix"
 msgstr "सुरक्षा सुधार के लिए फिर से इंस्टॉल करें"
 
-#: telescope/plugins/setup.py:768
+#: telescope/plugins/setup.py:770
 msgid "Moves the driver into Program Files (Windows asks for admin access once)."
 msgstr "ड्राइवर को Program Files में ले जाता है (Windows एक बार एडमिन ऐक्सेस मांगता है)."
 
-#: telescope/plugins/setup.py:779
+#: telescope/plugins/setup.py:781
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "ऐप इसे इस नाम से दिखाते हैं: “{name}”"
 
-#: telescope/plugins/setup.py:781
+#: telescope/plugins/setup.py:783
 #, python-brace-format
 msgid "Register it again as “{name}”"
 msgstr "इसे फिर से इस नाम से रजिस्टर करें: “{name}”"
 
-#: telescope/plugins/setup.py:787
+#: telescope/plugins/setup.py:789
 msgid "Not installed"
 msgstr "इंस्टॉल नहीं है"
 
-#: telescope/plugins/setup.py:787
+#: telescope/plugins/setup.py:789
 msgid "Not installed (Install driver downloads it first)"
 msgstr "इंस्टॉल नहीं है ('ड्राइवर इंस्टॉल करें' पहले इसे डाउनलोड करता है)"
 
-#: telescope/plugins/setup.py:799
+#: telescope/plugins/setup.py:801
 msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
 msgstr "नहीं मिला. USB से पेयरिंग और इंस्टॉल करने के लिए इसकी ज़रूरत होती है; Wi-Fi के लिए नहीं."
 
-#: telescope/plugins/setup.py:821
+#: telescope/plugins/setup.py:823
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "तैयार (adb {version}, Google से)"
 
-#: telescope/plugins/setup.py:822
+#: telescope/plugins/setup.py:824
 msgid "Ready (adb, from Google)"
 msgstr "तैयार (adb, Google से)"
 
-#: telescope/plugins/setup.py:824
+#: telescope/plugins/setup.py:826
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "तैयार (adb {version})"
 
-#: telescope/plugins/setup.py:824
+#: telescope/plugins/setup.py:826
 msgid "Ready (adb)"
 msgstr "तैयार (adb)"
 
-#: telescope/plugins/setup.py:859
+#: telescope/plugins/setup.py:861
 msgid "Retry"
 msgstr "फिर कोशिश करें"
 
-#: telescope/plugins/setup.py:866
+#: telescope/plugins/setup.py:868
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "USB से इंस्टॉल करने के लिए adb चाहिए. ऊपर वर्चुअल कैमरा के तहत 'adb पाएं' पर क्लिक करें."
 
-#: telescope/plugins/setup.py:868
+#: telescope/plugins/setup.py:870
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "USB से इंस्टॉल करने के लिए adb चाहिए. इसे अपने डिस्ट्रो के पैकेज से इंस्टॉल करें."
 
-#: telescope/plugins/setup.py:874
+#: telescope/plugins/setup.py:876
 msgid "Select APK"
 msgstr "APK चुनें"
 
-#: telescope/plugins/setup.py:875
+#: telescope/plugins/setup.py:877
 msgid "Android Package (*.apk)"
 msgstr "Android पैकेज (*.apk)"
 
-#: telescope/plugins/setup.py:891
+#: telescope/plugins/setup.py:893
 msgid "Select device"
 msgstr "डिवाइस चुनें"
 
-#: telescope/plugins/setup.py:892
+#: telescope/plugins/setup.py:894
 msgid "More than one phone is plugged in. Which one should get the app?"
 msgstr "एक से ज़्यादा फ़ोन जुड़े हुए हैं. किस फ़ोन में ऐप इंस्टॉल करना है?"
 
-#: telescope/plugins/setup.py:900
+#: telescope/plugins/setup.py:902
 msgid "Installing..."
 msgstr "इंस्टॉल हो रहा है..."
 
-#: telescope/plugins/setup.py:916
+#: telescope/plugins/setup.py:918
 msgid "Advanced settings"
 msgstr "उन्नत सेटिंग्स"
 
-#: telescope/plugins/setup.py:917
+#: telescope/plugins/setup.py:919
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "वर्चुअल कैमरा, इसका साइज़, अतिरिक्त कैमरे, वीडियो और माइक्रोफ़ोन की सीमाएं, और 'अपडेट और परिचय' टैब."
 
@@ -6504,6 +6504,18 @@ msgstr "Telescope शुरू हो रहा है…"
 #: telescope/splash.py:54
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows के सुरक्षा स्कैन करने तक इसमें एक मिनट लग सकता है।"
+
+#. title of a message box shown when Telescope is opened straight from its zip without extracting it
+#: telescope/splash.py:96
+msgid "Extract Telescope first"
+msgstr ""
+
+#: telescope/splash.py:97
+msgid ""
+"Telescope can't start from inside the zip.\n"
+"\n"
+"Right-click the zip, choose Extract All, and open Telescope from the extracted folder."
+msgstr ""
 
 #: telescope/stills.py:32
 msgid "This phone's camera can't take that photo."

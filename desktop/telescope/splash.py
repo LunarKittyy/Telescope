@@ -89,6 +89,16 @@ def _seconds_since_launch() -> float:
     return ticks / 10_000_000
 
 
+def extract_first() -> tuple:
+    """Title and text of the box the launcher shows when it's opened from inside the zip, before Python can start:
+    scripts/build_bootloader.py builds them into it in every language."""
+    # Translators: title of a message box shown when Telescope is opened straight from its zip without extracting it
+    title = tr("Extract Telescope first")
+    text = tr("Telescope can't start from inside the zip.\n\n"
+              "Right-click the zip, choose Extract All, and open Telescope from the extracted folder.")
+    return title, text
+
+
 def close():
     splash = _splash()
     if splash is not None:

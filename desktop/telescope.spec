@@ -18,6 +18,8 @@
 #   - Windows checks every program file it hasn't seen before when it first loads, and that takes seconds per file
 #     (minutes for the first start after an install). So the bundle holds as few files as it can: zeroconf runs as
 #     plain Python instead of its ~18 compiled modules, and what the app never uses is left out (see below).
+#   - build-windows.yml installs PyInstaller with a launcher built by scripts/build_bootloader.py, which says to
+#     extract the zip first when the exe is opened from inside it. A stock PyInstaller builds a working app without that.
 #   - The exe's icon is resources/telescope.ico, the app icon (create_app_icon); scripts/write_icon.py
 #     writes it again if the icon changes.
 
