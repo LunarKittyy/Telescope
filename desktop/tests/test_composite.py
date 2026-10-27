@@ -381,6 +381,7 @@ class _Host:
         return next((sf for sf in self.frames if sf.source_id == source_id), None)
 
     def replace_frame(self, source_id, frame, number):
+        # Like StreamWorker's: what goes out next changes, stream_frame() keeps the stream's own frame
         if self.newer:
             return False
         self.replaced.append((source_id, frame, number))
@@ -785,3 +786,29 @@ def test_through_real_workers_the_main_stream_sends_the_picture_and_the_other_it
     assert plugin.draw_stalled(time.monotonic() + 1.0)
     assert a.latest_frame()[90, 280].tolist() == [0, 255, 255] and frames.frame("a").number == number
     assert not frames.replace_frame("a", out, number - 1) and not frames.replace_frame("gone", out, number)
+    for i, colour in enumerate(((255, 0, 255), (255, 255, 0), (0, 0, 255))):  # a long stall: b keeps moving on a's camera
+        b._publish(3 + i, _solid(colour, (90, 160)))
+        assert plugin.draw_stalled(time.monotonic() + 1.0 + i * 0.5)
+        assert a.latest_frame()[90, 280].tolist() == list(colour) and frames.frame("a").number == number
+
+
+def test_through_real_workers_a_covered_stream_stays_covered_while_it_stalls(plugin):
+    import telescope.stream as stream
+    from telescope.frames import Frames
+    frames = Frames()
+    for name in ("stream_frames", "frame_source", "stream_frame", "replace_frame"):
+        setattr(plugin._host, name, {"stream_frames": frames.frames, "frame_source": frames.source_of_current,
+                                     "stream_frame": frames.frame, "replace_frame": frames.replace_frame}[name])
+    wait_screen = np.full((180, 320, 3), 77, np.uint8)
+    a = stream.StreamWorker("url", None, None, 30, [plugin.frame_step(), lambda frame: wait_screen])  # the cover stage
+    b = stream.StreamWorker("url", None, None, 30, [plugin.frame_step()])
+    frames.set_streams([("a", "Phone A", a), ("b", "Phone B", b)])
+    plugin.set_layout(Layout(tiles=(Tile("a", "", 0.0, 0.0, 0.5, 1.0), Tile("b", "", 0.5, 0.0, 0.5, 1.0))))
+    plugin._switch.setChecked(True)
+    b._publish(1, _solid((0, 255, 0), (90, 160)))
+    a._publish(1, _solid((255, 0, 0), (90, 160)))
+    assert a.latest_frame() is wait_screen
+    for i in range(3):
+        b._publish(2 + i, _solid((0, 255, 255), (90, 160)))
+        assert not plugin.draw_stalled(time.monotonic() + 1.0 + i * 0.5)
+        assert a.latest_frame() is wait_screen
