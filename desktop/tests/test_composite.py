@@ -712,6 +712,24 @@ def test_renaming_onto_another_layouts_name_asks_first(editor, plugin, monkeypat
     assert plugin.names() == ["One"] and len(plugin.layout().tiles) == 1
 
 
+def test_a_name_that_only_matches_once_tidied_up_still_asks_first(editor, plugin, monkeypatch):
+    from telescope.widgets import composite_editor
+    from PyQt6.QtWidgets import QMessageBox
+    long_name = "A" * composite.MAX_NAME
+    plugin.save_layout(long_name)
+    plugin.set_layout(Layout("", (Tile("a"),)))
+    plugin.save_layout("Two")
+    editor.reload()
+    asked = []
+    monkeypatch.setattr(composite_editor.QMessageBox, "question",
+                        lambda *a: asked.append(a) or QMessageBox.StandardButton.No)
+    for typed, button in ((long_name + " too", editor._save_btn), ("<" + long_name + ">", editor._rename_btn)):
+        asked.clear()
+        monkeypatch.setattr(composite_editor.QInputDialog, "getText", lambda *a, typed=typed: (typed, True))
+        button.click()
+        assert asked and plugin.names() == [long_name, "Two"]
+
+
 def test_the_picked_streams_border_corners_and_order_change_from_the_side(editor, plugin):
     plugin.set_layout(Layout(tiles=(Tile("a", "", 0.0, 0.0, 1.0, 1.0), Tile("b", "", 0.6, 0.6, 0.3, 0.3))))
     editor.view.select(1)

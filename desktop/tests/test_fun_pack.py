@@ -94,6 +94,28 @@ def test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again():
     assert cleared[42, 22, 0] == 10
 
 
+def test_long_light_trails_still_fade_all_the_way():
+    dark = np.full((H, W, 3), 5, np.uint8)
+    lit = dark.copy()
+    lit[40:44, 20:24] = 255
+    look = Look("light", fade=10)
+    runner = fx.Runner()
+    runner(lit, look)
+    for _ in range(3000):
+        after = runner(dark, look)
+    assert after[42, 22, 0] == 5  # rounding used to leave a ghost of the trail behind for good
+
+
+def test_the_1998_webcam_hands_out_a_new_frame_each_time():
+    frame = _with_person(_room(), 60, 100)
+    big = np.ascontiguousarray(np.repeat(np.repeat(frame, 4, axis=0), 4, axis=1))
+    runner = fx.Runner()
+    shown = [runner(big, Look("webcam")) for _ in range(2)]
+    shown[-1][:] = 0  # a later stage drawing on it in place, like the name tag
+    held = runner(big, Look("webcam"))  # every other frame repeats the last at 15 frames a second
+    assert held is not shown[-1] and held.any()
+
+
 def test_slit_scan_shows_the_bottom_of_the_picture_from_further_back():
     frames = [np.full((H, W, 3), i * 10, np.uint8) for i in range(25)]
     out = _run(Look("slit", spread=20), frames)[-1]

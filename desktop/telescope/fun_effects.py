@@ -143,7 +143,8 @@ class LightPainting:
             self._trail = lights
         else:
             keep = 0.80 + look.fade * 0.019  # 1: gone in about half a second, 10: hangs around for seconds
-            self._trail = cv2.max(cv2.convertScaleAbs(self._trail, alpha=keep), lights)
+            # At least a level off each time: rounding alone would keep a faint trail for good at long fades
+            self._trail = cv2.max(cv2.subtract(cv2.convertScaleAbs(self._trail, alpha=keep), 1), lights)
         return cv2.max(frame, self._trail)
 
 
@@ -231,15 +232,16 @@ class Webcam1998:
     WIDTH = 320
 
     def __init__(self):
-        self._held: Optional[np.ndarray] = None
+        self._held: Optional[tuple] = None  # (the small picture, the frame size it was made for)
         self._odd = False
         self._rng = np.random.default_rng()
 
     def __call__(self, frame: np.ndarray, look: Look) -> np.ndarray:
         self._odd = not self._odd
-        if self._odd and self._held is not None and self._held.shape == frame.shape:
-            return self._held
         h, w = frame.shape[:2]
+        if self._odd and self._held is not None and self._held[1] == frame.shape:
+            # Scaled up again, not handed out twice: later stages may draw on what they get, like the name tag
+            return cv2.resize(self._held[0], (w, h), interpolation=cv2.INTER_NEAREST)
         sw, sh = self.WIDTH, max(1, round(h * self.WIDTH / w))
         small = cv2.resize(frame, (sw, sh), interpolation=cv2.INTER_AREA)
         small = cv2.convertScaleAbs(small, alpha=0.8, beta=28)  # washed out
@@ -248,8 +250,8 @@ class Webcam1998:
         small = np.clip(small.astype(np.int16) + noise[..., None], 0, 255).astype(np.uint8)
         _ok, jpeg = cv2.imencode(".jpg", small, (cv2.IMWRITE_JPEG_QUALITY, 12))
         small = cv2.imdecode(jpeg, cv2.IMREAD_COLOR)
-        self._held = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
-        return self._held
+        self._held = (small, frame.shape)
+        return cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
 
 
 class Vhs:

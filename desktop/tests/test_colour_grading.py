@@ -118,7 +118,7 @@ def test_odd_saved_settings_load_as_something_sensible(card, cfg):
     assert -100 <= out["temperature"] <= 100 and 0 <= out["contrast"] <= 2
     assert out["curves"]["all"][0][0] == 0.0 and out["curves"]["all"][-1][0] == 1.0
     x, y = out["wheels"]["lift"]
-    assert -1 <= x <= 1 and -1 <= y <= 1
+    assert x * x + y * y <= 1 + 1e-6  # inside the wheel, where its puck can show it
     plugin._grade(lattice(3))  # still a working grade
 
 

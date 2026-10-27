@@ -79,6 +79,11 @@ def _text(value, limit: int) -> str:
     return "".join(c for c in value if c.isprintable() and c not in "<>")[:limit].strip() if isinstance(value, str) else ""
 
 
+def clean_name(name) -> str:
+    """A layout's name as it's saved: printable, no < or >, at most MAX_NAME long."""
+    return _text(name, MAX_NAME)
+
+
 def clean_tile(raw) -> Optional[Tile]:
     if not isinstance(raw, dict) or not isinstance(raw.get("source_id"), str):
         return None
