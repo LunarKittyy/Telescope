@@ -128,18 +128,21 @@
     seen.observe(v);
   }
 
-  // The setup steps light up along with the part of the clip that shows them
+  // The setup steps light up along with the part of the clip that shows them. data-at lists the seconds where
+  // each step starts, so the first one can take over again while the clip heads back to its start
   for (const video of $$("video[data-steps]")) {
     const steps = $$("li[data-at]", video.closest("section"));
-    const mark = () => {
-      const at = video.duration ? video.currentTime / video.duration : 0;
-      let on = 0;
-      steps.forEach((s, i) => { if (at >= +s.dataset.at) on = i; });
+    const starts = steps.map(s => s.dataset.at.split(" ").map(Number));
+    const show = () => {
+      const at = video.currentTime;
+      let on = 0, latest = -1;
+      starts.forEach((list, i) => { for (const t of list) if (t <= at && t > latest) { latest = t; on = i; } });
       steps.forEach((s, i) => s.classList.toggle("now", i === on));
-      if (!video.paused) requestAnimationFrame(mark);
     };
-    video.addEventListener("play", mark);
-    video.addEventListener("seeked", mark);
-    mark();
+    // Every frame while it plays, and timeupdate as a fallback for when frames aren't being drawn
+    const loop = () => { show(); if (!video.paused) requestAnimationFrame(loop); };
+    video.addEventListener("play", loop);
+    for (const ev of ["seeked", "timeupdate"]) video.addEventListener(ev, show);
+    show();
   }
 })();
