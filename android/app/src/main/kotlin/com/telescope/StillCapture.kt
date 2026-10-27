@@ -476,12 +476,14 @@ class StillCapture(
         }.build()
     }
 
-    private fun buildShot(r: Run, device: CameraDevice, shot: StillShot, index: Int, streamTargets: Boolean): CaptureRequest {
+    // only: just this photo output, for a picture whose buffer the camera lost
+    private fun buildShot(r: Run, device: CameraDevice, shot: StillShot, index: Int, streamTargets: Boolean,
+                          only: Surface? = null): CaptureRequest {
         val req = r.request
         return controller.stillRequest(device, CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-            r.outputs!!.list.forEach { addTarget(it.reader.surface) }
+            if (only != null) addTarget(only) else r.outputs!!.list.forEach { addTarget(it.reader.surface) }
             // A long or bracketed exposure would flash through the video: those frames stay out of it
-            if (streamTargets && shot.exposureNs == null) controller.stillStreamTargets().forEach { addTarget(it) }
+            if (only == null && streamTargets && shot.exposureNs == null) controller.stillStreamTargets().forEach { addTarget(it) }
             set(CaptureRequest.JPEG_QUALITY, req.quality.toByte())
             set(CaptureRequest.JPEG_ORIENTATION, req.rotation)
             if (req.nrHq) set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY)
@@ -574,7 +576,8 @@ class StillCapture(
             if (!mine()) return
             val index = request.tag as? Int ?: return
             if (r.outputs?.list?.none { it.reader.surface == target } != false) return
-            if (r.tries[index] < 1) { r.tries[index]++; retry(r, index); return }
+            // Only the lost picture again: the others of this shot are saved, and a second copy would count towards the files
+            if (r.tries[index] < 1) { r.tries[index]++; retry(r, index, only = target); return }
             stalled(r)
         }
 
@@ -660,10 +663,14 @@ class StillCapture(
         return r.active
     }
 
-    private fun retry(r: Run, index: Int) {
+    private fun retry(r: Run, index: Int, only: Surface? = null) {
         val session = r.target ?: return
         try {
-            session.capture(r.requests[index]!!, shotCallback(r, r.round), handler())
+            val request = if (only == null) r.requests[index]!! else {
+                val device = controller.stillDevice() ?: return end(r, "camera_off", "The camera isn't running")
+                buildShot(r, device, r.request.shots[index], index, streamTargets = false, only = only)
+            }
+            session.capture(request, shotCallback(r, r.round), handler())
         } catch (e: Exception) {
             if (lostSession(r, session)) return
             onError("still.retry", e)
