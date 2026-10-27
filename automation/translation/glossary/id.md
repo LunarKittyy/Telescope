@@ -1,6 +1,6 @@
 # Indonesian glossary and style
 
-The terms agreed when this language was first drafted (October 2026), built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
+The agreed terms for this language, built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
 
 Avoid: kamu, kau, gawai, peranti, mengalirkan, aliran, bungkam, aplikasikan, pengandar, tetikus, peladen, surel
 

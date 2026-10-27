@@ -1,6 +1,6 @@
 # Brazilian Portuguese glossary and style
 
-The terms agreed when this language was first drafted (October 2026), built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
+The agreed terms for this language, built from the Swedish glossary's term list. Use them in every text. If one seems wrong, keep it and raise an objection with the reason. Never change a term silently.
 
 Avoid: utilizador, ecrã, ficheiro, telemóvel, rato, descarregar, descarregamento, carregar (para botões), efectuar, efetuar, realizar (em vez do verbo direto), customizar, suportar (como falso cognato de compatibilidade), resumir (como falso cognato de retomar), aplicação
 
@@ -69,7 +69,8 @@ Avoid: utilizador, ecrã, ficheiro, telemóvel, rato, descarregar, descarregamen
 | Transforms (card) | Transformações |
 | Mirror / Flip / Upside down / Rotation / Zoom / Pan | Espelhar / Inverter / De ponta-cabeça / Rotação / Zoom / Panorâmica |
 | background blur / Blur | desfoque de fundo / Desfoque |
-| Image (camera section) / Picture | Imagem / Foto |
+| Image (camera section) / Picture | Imagem / Imagem (the live video picture is never Foto) |
+| photo (a real photo, the Photos plugin) | foto |
 | lens / telephoto / main camera | lente / teleobjetiva / câmera principal |
 | Stream output | Saída da transmissão |
 | JPEG quality / bitrate | qualidade do JPEG / taxa de bits |

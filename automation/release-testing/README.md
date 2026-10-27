@@ -39,7 +39,7 @@ What the VM needs:
 
 Things to know:
 - First start times only mean something on a fresh snapshot. Defender scans files the first time they run, which is most of the slowness the first start check is about. A VM that already ran nearly the same files (any other Telescope build) starts it in a couple of seconds. That's why the first start comes right after the install, before the update checks bring in other builds.
-- On a freshly restored snapshot the first start check sometimes never gets past finding Telescope's window, though the window is up and responding (4 of 6 tries on 4.3.0 nightlies). The desktop job is stuck in UI Automation, not Telescope. Run `--only clean_install first_start` again.
+- On a freshly restored snapshot the first start check sometimes never gets past finding Telescope's window, though the window is up and responding (more often than not). The desktop job is stuck in UI Automation, not Telescope. Run `--only clean_install first_start` again.
 - The update checks land on whatever the channel's newest build is, which isn't necessarily the build being checked once newer nightlies are out. A run that overlaps a nightly being published can fail them; run those checks again with `--only`.
 - On Windows 11 the camera checks expect Telescope's own camera (`desktop/virtualcamera`), not UnityCapture. The older-driver check registers UnityCapture the way older versions did and expects Update to replace it. On Windows 10 they check UnityCapture as before.
 - **Get adb** stays skipped unless you pass `--agree-adb-licence`, since it means accepting Google's SDK licence in the app.
