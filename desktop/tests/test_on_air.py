@@ -527,6 +527,15 @@ def test_a_failed_state_is_sent_again_with_backoff_until_it_works(make):
     assert not timer.isActive() and ISSUE not in host.issues
 
 
+def test_clearing_the_address_ends_the_retries_and_the_banner(make):
+    plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
+    plugin._on_webhook_done(_state_tag(plugin), "Connection refused")
+    assert ISSUE in host.issues and plugin._retry_timer.isActive()
+    plugin.set_webhook(url="")
+    assert ISSUE not in host.issues and not plugin._retry_timer.isActive()
+    assert plugin.diagnostics()["On Air webhook"] == "not set"
+
+
 def test_a_newer_change_replaces_the_retries(make):
     plugin, host, bus = make({"webhook_url": "http://hub.local/hook"})
     old = _state_tag(plugin)

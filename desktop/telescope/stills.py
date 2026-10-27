@@ -336,6 +336,7 @@ class Stills:
                     return StillResult.failed("save", "", saved)
                 saved.append(str(path))
                 fetched += 1
+                heard = moved = time.monotonic()  # a download that took a while is the phone answering, not stuck
                 report()
             if state in ("done", "failed") and fetched >= len(files):
                 self._forget(ctrl, sid)

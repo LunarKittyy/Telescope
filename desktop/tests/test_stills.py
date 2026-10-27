@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
@@ -81,10 +82,12 @@ def test_reasons_are_worded_here_and_unknown_ones_keep_the_phones_english():
 class _Phone:
     """/v1/still as the phone serves it: a photo that takes a couple of polls and leaves the files given."""
 
-    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False, unreachable=False, dropped=False):
+    def __init__(self, files=None, polls=2, start=None, fail=None, missing=False, unreachable=False, dropped=False,
+                 early=False):
         self.files = files if files is not None else {"IMG_1.jpg": b"jpeg" * 100, "IMG_2.dng": b"dng!" * 5000}
         self.polls, self.start, self.fail, self.missing, self.unreachable = polls, start, fail, missing, unreachable
         self.dropped = dropped
+        self.early = early  # the first file is ready while the rest are still being taken
         self.posts, self.forgotten = [], []
         phone = self
 
@@ -125,7 +128,8 @@ class _Phone:
                     return self._json({"error": "Not Found"}, 404)
                 phone.polls -= 1
                 done = phone.polls <= 0
-                files = [{"name": k, "size": len(v), "type": "image/jpeg"} for k, v in phone.files.items()] if done else []
+                files = [{"name": k, "size": len(v), "type": "image/jpeg"} for k, v in phone.files.items()]
+                files = files if done else files[:1] if phone.early else []
                 state = ("failed" if phone.fail else "done") if done else "capturing"
                 self._json({"id": "abc", "state": state, "shots": 2, "taken": 2 if done else 1, "files": files,
                             **({"code": phone.fail, "error": "English"} if phone.fail and done else {})})
@@ -281,6 +285,15 @@ def test_a_photo_that_stops_moving_on_the_phone_is_given_up_on_and_forgotten(tmp
     result, progress = _take(Stills(), p, tmp_path)
     assert result.code == "timeout" and "too long" in result.error and p.forgotten == ["abc"]
     assert progress and progress[-1].state == "capturing"
+
+
+def test_a_slow_download_doesnt_count_as_the_photo_standing_still(tmp_path, phone, monkeypatch):
+    monkeypatch.setattr(stills_module, "_STALL_S", 0.5)
+    p = phone(polls=2, early=True)
+    real = Stills._fetch
+    monkeypatch.setattr(Stills, "_fetch", lambda self, *a: time.sleep(0.8) or real(self, *a))  # a big RAW over Wi-Fi
+    result, _ = _take(Stills(), p, tmp_path)
+    assert result.ok and len(result.files) == 2
 
 
 def test_a_long_exposure_gets_its_exposure_on_top_of_the_stall_time():

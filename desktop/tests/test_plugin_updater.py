@@ -55,9 +55,10 @@ class _Reply(io.BytesIO):
 
 
 class _GitHub:
-    def __init__(self, tag="v1.1", data=None, offline=False, corrupt=False):
+    def __init__(self, tag="v1.1", data=None, offline=False, corrupt=False, offline_downloads=False):
         self.data = _zip_bytes() if data is None else data
         self.tag, self.offline, self.corrupt, self.asked = tag, offline, corrupt, []
+        self.offline_downloads = offline_downloads
 
     def __call__(self, url, timeout, headers=None):
         self.asked.append(url)
@@ -67,6 +68,8 @@ class _GitHub:
             return _Reply(json.dumps({"tag_name": self.tag, "html_url": f"{REPO_URL}/releases/tag/{self.tag}", "assets": [
                 {"name": "extra.zip", "size": len(self.data), "browser_download_url": f"{REPO_URL}/x/extra.zip",
                  "digest": "sha256:" + hashlib.sha256(self.data).hexdigest()}]}).encode())
+        if self.offline_downloads:
+            raise urllib.error.URLError("offline")
         return _Reply(b"x" * len(self.data) if self.corrupt else self.data)
 
 
@@ -157,6 +160,18 @@ def test_a_download_that_fails_isnt_tried_again_every_hour(qapp, plugins):
     _check(qapp, updater)  # the next hourly tick, the release still cached as newer
     assert [u for u in github.asked if u.endswith("extra.zip")] == [f"{REPO_URL}/x/extra.zip"]
     assert _item(plugins).version == "1.0" and updater.newer(_item(plugins)).tag == "v1.1"
+
+
+def test_a_download_that_failed_is_tried_again_after_a_restart(qapp, plugins):
+    _install(plugins)
+    plugin_loader.set_plugin_switch("auto_update", True)
+    _check(qapp, PluginUpdater(opener=_GitHub(offline_downloads=True)))  # the connection dropped mid-download
+    assert _item(plugins).version == "1.0"
+    updater = PluginUpdater(opener=_GitHub())
+    updater._cache.repos.clear()
+    updater._cache.save()  # a day later
+    _check(qapp, updater)
+    assert _item(plugins).version == "1.1"
 
 
 def test_a_release_whose_zip_isnt_newer_isnt_installed(qapp, plugins):

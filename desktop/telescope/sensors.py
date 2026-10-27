@@ -303,7 +303,7 @@ class SensorHub:
     def follow(self, source_id: Optional[str], base: Optional[str] = None, auth=None, phone: bool = True,
                state: Optional[dict] = None):
         """The panels show source_id's stream (None: no stream), reached at base (the phone's https://.../v1). state:
-        its /v1/state when one just came in."""
+        its /v1/state when one just came in ({} when it didn't answer)."""
         changed_source = None
         with self._lock:
             target = self._target
@@ -318,7 +318,7 @@ class SensorHub:
                 self._reading = None
             else:
                 target.base, target.auth, target.phone = base, auth, phone
-            if self._target is not None and state is not None:
+            if self._target is not None and state:  # {} is a /v1/state that didn't answer, not an old phone
                 offered = state.get("sensors")
                 self._target.old = not isinstance(offered, list)
                 self._target.offered = tuple(k for k in offered if k in KINDS) if isinstance(offered, list) else ()

@@ -139,6 +139,17 @@ def test_an_old_phone_is_unavailable_with_a_reason_and_never_asked(hub):
     assert auth.opened == []
 
 
+def test_a_state_that_couldnt_be_fetched_isnt_taken_for_an_old_phone(hub):
+    auth = FakeAuth()
+    hub.want("level", ["orientation"])
+    hub.follow("phone", "https://p/v1", auth, state={"sensors": ALL})
+    assert wait_for(lambda: len(auth.live()) == 1)
+    hub.follow("phone", "https://p/v1", auth, state={})  # what the window passes on when /v1/state didn't answer
+    assert hub.status().reason != "old_phone" and hub.status().kinds == tuple(ALL)
+    time.sleep(0.05)
+    assert len(auth.live()) == 1
+
+
 def test_a_phone_answering_404_is_taken_for_an_old_one(hub):
     hub.want("level", ["orientation"])
     hub.follow("phone", "https://p/v1", FakeAuth(refuse=404), state={"sensors": ALL})

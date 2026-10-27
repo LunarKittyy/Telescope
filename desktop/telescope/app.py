@@ -267,6 +267,7 @@ class TelescopeWindow(QMainWindow):
         self._stills  = Stills()  # full-quality photos on the phone (HostStills)
         self._sig_still.connect(lambda callback, value: callback(value))
         self._tracking = PeopleTracking()  # people_seen made steady (HostVision.tracked_people)
+        self._tracked: set = set()  # the source ids it has tracked people for, to drop once they stop streaming
         self._motion = Motion(on_change=self._sig_motion.emit)  # (HostMotion)
         self._sig_motion.connect(self._on_motion)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
@@ -309,7 +310,7 @@ class TelescopeWindow(QMainWindow):
         self._sources: dict[str, Source] = {}
         self._flow = StreamFlow(_FlowHost(self))  # starting, stopping and focus; its Sessions has the state
         self._frames = Frames()  # every stream's newest frame, for plugins (HostFrames)
-        self._flow.sessions.changed = self._share_streams
+        self._flow.sessions.changed = self._on_streams_changed
         self._camera_on_shown = True  # what camera_on_changed last said, to catch a pick with another camera choice
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
 
@@ -1805,6 +1806,14 @@ class TelescopeWindow(QMainWindow):
         self._frames.set_streams((s.id, s.name, s.session.worker) for s in self._sessions.streams
                                  if s.session is not None)
 
+    def _on_streams_changed(self):
+        self._share_streams()
+        # A stream that stopped is forgotten before its worker ends, so _end_worker can't tell whose it was
+        streaming = {s.id or "" for s in self._sessions.streams}
+        for sid in self._tracked - streaming:
+            self._tracking.drop(sid)
+        self._tracked &= streaming
+
     def set_colour_stage(self, owner: str, stage, order: int = 0, source_id: Optional[str] = None):
         self._colour.set_stage(owner, stage, order, source_id)
 
@@ -1919,6 +1928,7 @@ class TelescopeWindow(QMainWindow):
         source = self._sessions.by_worker(worker)
         if source is not None:
             self._bus.people_seen.emit(source.id or "", people)
+            self._tracked.add(source.id or "")
             tracks, count = self._tracking.update(source.id or "", people, time.monotonic())
             self._bus.people_tracked.emit(source.id or "", tracks, count)
 
