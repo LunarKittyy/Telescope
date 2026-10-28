@@ -46,3 +46,15 @@ impl PluginFolder {
         (loaded, failed)
     }
 }
+
+/// Services::plugins for the binary: every added plugin that's switched on, and any being written (TELESCOPE_DEV_PLUGINS), loaded afresh
+/// each time the shell builds its plugins. reserved are the built-in plugins' names; lang picks each plugin's locale/<lang>.po.
+pub fn factory(reserved: Vec<String>, lang: String) -> telescope_core::services::PluginFactory {
+    Box::new(move || {
+        let (loaded, failed) = PluginFolder::app(reserved.clone()).load_enabled(&lang);
+        for plugin in failed {
+            log::warn!("Plugin {} didn't start: {}", plugin.name, plugin.error);
+        }
+        loaded
+    })
+}
