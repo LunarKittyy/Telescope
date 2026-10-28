@@ -21,7 +21,7 @@ Not tested at all: mDNS discovery against a real phone (the code is there, the f
 
 ## Measurements
 
-This machine: Ryzen 7 9800X3D, AMD graphics, Fedora (Nobara) with KDE on Wayland, FFmpeg 8.1. Each streaming row is 30 s sampled after 10 s of streaming, with `ffmpeg` reading the virtual camera the whole time the way a video call would. CPU is percent of one core and memory covers the whole process. `tools/measure.py` does all of it.
+The test machine: an 8-core desktop Ryzen with AMD graphics, Linux with KDE on Wayland, FFmpeg 8.1. Each streaming row is 30 s sampled after 10 s of streaming, with `ffmpeg` reading the virtual camera the whole time the way a video call would. CPU is percent of one core and memory covers the whole process. `tools/measure.py` does all of it.
 
 | | Rust window | Rust window, VA-API | Rust, no window | Python app |
 |---|---|---|---|---|
