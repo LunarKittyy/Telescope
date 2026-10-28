@@ -202,7 +202,13 @@ impl Codec {
         let mut src = self.frame;
         if Hw::from_pixel_format((*src).format).is_some() {
             ff::av_frame_unref(self.sw_frame);
-            let r = ff::av_hwframe_transfer_data(self.sw_frame, src, 0);
+            // Ask for I420 so the driver converts while it copies; one that only gives NV12 is split below
+            (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
+            let mut r = ff::av_hwframe_transfer_data(self.sw_frame, src, 0);
+            if r < 0 {
+                ff::av_frame_unref(self.sw_frame);
+                r = ff::av_hwframe_transfer_data(self.sw_frame, src, 0);
+            }
             if r < 0 {
                 return Err(Fault::Broken(format!("couldn't copy the picture off the card: {}", err_text(r))));
             }

@@ -560,9 +560,19 @@ mod bench {
         for hardware in [false, true] {
             let mut dec = H264::new(hardware, None).unwrap();
             let start = Instant::now();
-            let frames: u32 = packets.iter().map(|p| dec.feed(p).1).sum();
+            let mut last = None;
+            let frames: u32 = packets.iter().map(|p| {
+                let (f, n) = dec.feed(p);
+                last = f.or(last.take());
+                n
+            }).sum();
             let ms = start.elapsed().as_secs_f64() * 1000.0 / frames as f64;
-            println!("{:?}: {frames} frames at 1080p, {ms:.2} ms each, hardware failed: {}", dec.hw(), hardware_failed());
+            // The same picture either way: luma and chroma of the last frame
+            let f = last.unwrap();
+            let (y, u, v) = f.i420_planes().unwrap();
+            let avg = |p: &[u8]| p.iter().map(|&b| b as u64).sum::<u64>() / p.len() as u64;
+            println!("{:?}: {frames} frames at 1080p, {ms:.2} ms each, hardware failed: {}, last frame Y/U/V {}/{}/{}",
+                     dec.hw(), hardware_failed(), avg(y), avg(u), avg(v));
         }
     }
 }
