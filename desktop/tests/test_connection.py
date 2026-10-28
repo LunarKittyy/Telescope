@@ -38,8 +38,10 @@ class _Host:
         self.starts = 0
         self.again = []  # the source each Try again was for
         self.configs = {}
+        self.focused = None
+
     def focused_source_id(self):
-        return None
+        return self.focused
 
     def plugin_config(self, name):
         return self.configs.get(name)
@@ -1430,6 +1432,28 @@ def test_re_pairing_the_streaming_phone_reconnects_with_the_new_token(plugin_env
     assert host.reconnects == 1
     _add(plugin, pid="id-b", name="Other")  # pairing a different phone doesn't touch the stream
     assert host.reconnects == 1
+
+
+def test_pairing_while_the_shown_card_streams_leaves_the_stream_alone(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    plugin._streaming = host.streaming = True
+    host.focused = "id-a"
+    host.switches.clear()
+    _add(plugin, pid="id-b", name="B")
+    assert plugin.selected_device == "id-a"
+    assert host.streaming and host.stops == 0 and host.switches == []
+    assert [plugin._phone_combo.itemText(i) for i in range(plugin._phone_combo.count())] == ["A", "B"]
+    assert plugin._phone_combo.currentText() == "A"
+
+
+def test_pairing_while_idle_still_picks_the_new_phone(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    host.focused = "id-a"
+    _add(plugin, pid="id-b", name="B")
+    assert plugin.selected_device == "id-b"
+    assert plugin._phone_combo.currentText() == "B"
 
 
 def test_card_says_connecting_until_the_first_frame(plugin_env):

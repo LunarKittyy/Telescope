@@ -74,7 +74,7 @@ Those networks usually block devices from talking to each other. Nothing can wor
 The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same.
 
 **Plugged in but USB pairing doesn't happen**
-The USB line in the Add phone dialog says which of these is in the way: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
+Click the phone's **Pair** button under USB in the Add phone dialog first, it doesn't pair by itself. If it still doesn't, the USB line says which of these is in the way: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
 
 **"Google wouldn't send adb to this computer" (Windows)**
 Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.

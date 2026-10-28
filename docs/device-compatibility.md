@@ -26,7 +26,7 @@ Tried Telescope on a phone that isn't here? [Tell me how it went](https://github
 
 | Column | It passes when |
 |---|---|
-| USB pairing | With Add phone open, plugging in pairs the phone on USB only and an authenticated stream works |
+| USB pairing | With Add phone open, plugging in and clicking **Pair** pairs the phone on USB only and an authenticated stream works |
 | Wi-Fi pairing | QR pairing works over Wi-Fi without USB |
 | Lens selection | Every physical lens (wide, main, telephoto) shows up and switching changes the video feed, not just digital zoom |
 | Zoom on Auto | Zooming past the lens marks switches to the telephoto (the dot next to the zoom turns lavender) and the picture gets sharper |

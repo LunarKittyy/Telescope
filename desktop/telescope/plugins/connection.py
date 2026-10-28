@@ -1,6 +1,6 @@
 """Paired phones, how to reach them, and pairing new ones.
 
-The user-facing model: you add phones (one dialog: scan a code, or just plug in over USB), pick which
+The user-facing model: you add phones (one dialog: scan a code, or plug in over USB and pick it), pick which
 one to use, and press Start. How it's reached is decided per connection by phones.RouteResolver:
 USB whenever this phone answers over a cable, Wi-Fi otherwise, with the reason shown next to the
 route and a one-click override. Tokens, ports and adb forwards never reach the UI.
@@ -33,7 +33,8 @@ from telescope.phones import (
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
 )
 from telescope.platform import (
-    IS_LINUX, IS_WINDOWS, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
+    IS_LINUX, IS_WINDOWS, adb_available, adb_broadcast_pair, adb_device_models, adb_device_states, adb_forward_auto,
+    adb_install, adb_model,
     adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path, stop_adb_server,
 )
 from telescope.platform.linux import (
@@ -72,6 +73,7 @@ _HELD_POLL_S = 60           # tray, after starting once the phone was ready: onl
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _USB_SIT_OUT_S = 10         # USB that just failed a stream isn't tried again for this long, so it can't flap
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
+_PAIR_PICK_ROWS = 4         # Add phone dialog: Pair buttons shown before the rest scroll
 
 _MAX_REMEMBERED_IPS = 8     # a phone's addresses kept for Wi-Fi probes, newest last
 
@@ -169,11 +171,11 @@ _ROUTE_CHOICES = ((ROUTE_AUTO, N_("Automatic")), (ROUTE_USB, N_("USB only")), (R
 
 class _PairSignals(QObject):
     paired = pyqtSignal(object)        # PairingResult
-    usb_state = pyqtSignal(object)     # list of (serial, state) from adb
+    usb_state = pyqtSignal(object)     # list of (serial, state, model) from adb
 
 
 class AddPhoneDialog(PlacedDialog):
-    """One way in: scan the code over Wi-Fi, or plug the phone in and it pairs over USB by itself."""
+    """Scan the code over Wi-Fi, or plug the phone in and pick it. USB never pairs by itself, or a phone left plugged in would beat the one being scanned."""
 
     def __init__(self, parent, computer_id: str, computer_name: str, on_paired):
         super().__init__(parent)
@@ -185,6 +187,10 @@ class AddPhoneDialog(PlacedDialog):
         self._server: Optional[PairingServer] = None
         self._reversed: set = set()          # serials with an adb reverse to the pairing server
         self._last_broadcast: dict = {}      # serial -> monotonic time of last pairing broadcast
+        self._usb_states: list = []          # what adb saw last
+        self._models: dict = {}              # serial -> the phone's model name, asked once (poll thread only)
+        self._chosen: Optional[str] = None   # serial of the plugged-in phone picked to pair
+        self._shown_picks: tuple = ()
         self._done = False
         self._signals = _PairSignals()
         self._signals.paired.connect(self._on_paired_signal)
@@ -210,7 +216,25 @@ class AddPhoneDialog(PlacedDialog):
         set_status_kind(self._usb_lbl, "status_dim")
         self._usb_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
         self._usb_lbl.linkActivated.connect(self._get_adb)
-        self._usb_row = control_row_widget("USB", self._usb_lbl, stretch=True)
+        usb_col = QWidget()
+        usb_lay = QVBoxLayout(usb_col)
+        usb_lay.setContentsMargins(0, 0, 0, 0)
+        usb_lay.addWidget(self._usb_lbl)
+        # A Pair button for each plugged-in phone, scrolling past a few so a pile of them can't grow the dialog
+        self._picks_area = QScrollArea()
+        self._picks_area.setWidgetResizable(True)
+        self._picks_area.setFrameShape(QFrame.Shape.NoFrame)
+        self._picks_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._picks_area.setStyleSheet("QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget "
+                                       "{ background: transparent; }")
+        picks = QWidget()
+        self._usb_picks = QVBoxLayout(picks)
+        self._usb_picks.setContentsMargins(0, 0, 0, 0)
+        self._usb_picks.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._picks_area.setWidget(picks)
+        self._picks_area.hide()
+        usb_lay.addWidget(self._picks_area)
+        self._usb_row = control_row_widget("USB", usb_col, stretch=True)
         lay.addWidget(self._usb_row)
         self._adb_download = AdbDownload(self)
         self._adb_download.progress.connect(lambda msg: self._set_usb(html.escape(msg), "status_dim"))
@@ -258,7 +282,7 @@ class AddPhoneDialog(PlacedDialog):
         if self._adb_download.running:  # reopened mid-download: its progress shows on the next step
             self._set_usb(tr("Getting adb from Google…"), "status_dim")
         elif adb_available():
-            self._set_usb(tr("Plug the phone in with a USB cable and it pairs by itself."), "status_dim")
+            self._set_usb(tr("Or plug the phone in with a USB cable to pair it over USB."), "status_dim")
             self._usb_timer.start(_PAIR_USB_POLL_MS)
             self._poll_usb()
         elif IS_WINDOWS:
@@ -298,11 +322,16 @@ class AddPhoneDialog(PlacedDialog):
         self._reversed.clear()
 
     def _poll_usb(self):
-        signals = self._signals
+        signals, models = self._signals, self._models
 
         def work():
+            states = adb_device_models()
+            for serial, state, model in states:
+                if state == "device" and serial not in models:
+                    models[serial] = adb_model(serial) or model
+            states = [(serial, state, models.get(serial, model)) for serial, state, model in states]
             try:
-                signals.usb_state.emit(adb_device_states())
+                signals.usb_state.emit(states)
             except RuntimeError:
                 pass
         threading.Thread(target=work, daemon=True).start()
@@ -310,30 +339,68 @@ class AddPhoneDialog(PlacedDialog):
     def _on_usb_state(self, states: list):
         if self._server is None or self._server.offer is None or self._done:
             return
-        usable = [s for s, state in states if state == "device"]
-        if not usable:
-            if any(state == "unauthorized" for _s, state in states):
-                self._set_usb(tr("Phone plugged in. Allow USB debugging in the prompt on the phone."), "status_warn")
-            else:
-                self._set_usb(tr("Plug the phone in with a USB cable and it pairs by itself."), "status_dim")
+        self._usb_states = states
+        usable = [(serial, model or serial) for serial, state, model in states if state == "device"]
+        if self._chosen not in {serial for serial, _name in usable}:
+            self._chosen = None
+        if self._chosen is not None:
+            phone = dict(usable)[self._chosen]
+            self._set_usb(tr("Pairing {phone}. Keep Telescope open on it until it's done.", phone=phone), "status_dim")
+            self._send_offer(self._chosen)
+        elif usable:
+            self._set_usb(tr("Pick a phone below to pair it over USB."), "status_dim")
+        elif any(state == "unauthorized" for _s, state, _m in states):
+            self._set_usb(tr("Phone plugged in. Allow USB debugging in the prompt on the phone."), "status_warn")
+        else:
+            self._set_usb(tr("Or plug the phone in with a USB cable to pair it over USB."), "status_dim")
+        self._show_picks(usable)  # last, so the dialog fits the text just set
+
+    def _show_picks(self, usable: list):
+        picks = tuple(usable) + (self._chosen,)
+        if picks == self._shown_picks:
             return
-        self._set_usb(tr("Phone plugged in. Keep Telescope open on it; pairing…"), "status_dim")
+        self._shown_picks = picks
+        while self._usb_picks.count():
+            item = self._usb_picks.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        for serial, name in usable:
+            btn = QPushButton(tr("Pair {phone}", phone=name))
+            btn.setEnabled(serial != self._chosen)
+            btn.clicked.connect(lambda _checked=False, serial=serial: self._pick(serial))
+            self._usb_picks.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+        if usable:
+            # Pinned rather than left to the layout: buttons added to a shown dialog only count once they show
+            rows = min(len(usable), _PAIR_PICK_ROWS)
+            spacing = max(self._usb_picks.spacing(), 0)
+            height = rows * self._usb_picks.itemAt(0).widget().sizeHint().height() + (rows - 1) * spacing
+            self._picks_area.setFixedHeight(height)
+        self._picks_area.setVisible(bool(usable))
+        self.adjustSize()
+
+    def _pick(self, serial: str):
+        if self._done:
+            return
+        self._chosen = serial
+        self._last_broadcast.pop(serial, None)
+        self._on_usb_state(self._usb_states)
+
+    def _send_offer(self, serial: str):
+        # Re-sent every few seconds: the broadcast only lands while the app is on screen.
+        now = time.monotonic()
+        if now - self._last_broadcast.get(serial, -1e9) < 4:
+            return
+        self._last_broadcast[serial] = now
         offer = self._server.offer
         payload_b64 = base64.b64encode(offer.usb_payload.encode()).decode()
-        now = time.monotonic()
-        for serial in usable:
-            # Re-sent every few seconds: the broadcast only lands while the app is on screen.
-            if now - self._last_broadcast.get(serial, 0) < 4:
-                continue
-            self._last_broadcast[serial] = now
-            first = serial not in self._reversed
-            self._reversed.add(serial)
+        first = serial not in self._reversed
+        self._reversed.add(serial)
 
-            def send(serial=serial, first=first):
-                if first:
-                    adb_reverse(offer.port, serial=serial)
-                adb_broadcast_pair(payload_b64, serial=serial)
-            threading.Thread(target=send, daemon=True).start()
+        def send():
+            if first:
+                adb_reverse(offer.port, serial=serial)
+            adb_broadcast_pair(payload_b64, serial=serial)
+        threading.Thread(target=send, daemon=True).start()
 
     def _set_usb(self, text: str, kind: str):
         self._usb_lbl.setText(text)
@@ -350,6 +417,7 @@ class AddPhoneDialog(PlacedDialog):
                 item.widget().deleteLater()
         self._wifi_row.setVisible(False)
         self._usb_row.setVisible(False)
+        self._show_picks([])
         self._subtitle.setText(tr("You can start streaming now."))
         self._result_lbl.setText(tr("Paired with {name}", name=result.name))
         self._result_lbl.setVisible(True)
@@ -1628,7 +1696,11 @@ class ConnectionPlugin(TelescopePlugin):
                 self._take_over(old, phone)
             else:
                 self._phones.append(phone)
-        self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        shown = self._host.focused_source_id() or self._selected_id
+        if shown in (None, result.phone_id) or not self._host.is_streaming_from(shown):
+            self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        else:
+            self._refresh_combo()  # the shown card streams: the new phone waits in the list, the stream carries on
         if self._no_phone_issue is not None:  # a Start pressed before there was a phone left it up
             self._host.clear_issue("start", self._no_phone_issue)
             self._no_phone_issue = None

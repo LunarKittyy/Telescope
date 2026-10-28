@@ -297,6 +297,9 @@ def pair_over_usb():
     click("Add phone")
 
     def paired():
+        # A plugged-in phone only pairs once its Pair button is clicked
+        drv("[QTest.mouseClick(b, Qt.MouseButton.LeftButton) for d in dialogs('AddPhoneDialog') "
+            "for b in buttons(d, 'Pair ') if b.isEnabled()]")
         drv("answer('Yes')")
         return drv("print(next((l for d in dialogs('AddPhoneDialog') for l in labels(d) if 'Paired with' in l), ''))").strip()
     said = wait_for(paired, 30, 2)

@@ -742,15 +742,18 @@
     "[\"\", \"Opening Telescope when you sign in, and Automatic streaming.\"]",
     "[\"\", \"Optical image stabilization\"]",
     "[\"\", \"Option\"]",
+    "[\"\", \"Or plug the phone in with a USB cable to pair it over USB.\"]",
     "[\"\", \"Order\"]",
     "[\"\", \"Other apps see Telescope as a webcam through this driver. Installing it needs admin access.\"]",
     "[\"\", \"Outline what's sharp\"]",
     "[\"\", \"POST sends it as the body, GET adds it to the address\"]",
     "[\"\", \"Pair a phone over Wi-Fi or USB\"]",
     "[\"\", \"Pair another phone\"]",
+    "[\"\", \"Pair {phone}\"]",
     "[\"\", \"Paired with {name}\"]",
     "[\"\", \"Paired.\"]",
     "[\"\", \"Pairing phones, picking one and connecting to it over Wi-Fi or USB.\"]",
+    "[\"\", \"Pairing {phone}. Keep Telescope open on it until it's done.\"]",
     "[\"\", \"Pan left/right\"]",
     "[\"\", \"Pan up/down\"]",
     "[\"\", \"Pan\"]",
@@ -770,7 +773,6 @@
     "[\"\", \"Phone camera: on\"]",
     "[\"\", \"Phone mic\"]",
     "[\"\", \"Phone plugged in. Allow USB debugging in the prompt on the phone.\"]",
-    "[\"\", \"Phone plugged in. Keep Telescope open on it; pairing…\"]",
     "[\"\", \"Phone went quiet for a moment, still waiting... ({seconds}s)\"]",
     "[\"\", \"Phone · {ip}\"]",
     "[\"\", \"Phone\"]",
@@ -785,6 +787,7 @@
     "[\"\", \"Pick a .cube LUT to put on top of the grade\"]",
     "[\"\", \"Pick a control and the key for it\"]",
     "[\"\", \"Pick a control, what the key does to it, then press the key.\"]",
+    "[\"\", \"Pick a phone below to pair it over USB.\"]",
     "[\"\", \"Pick a plugin's .zip file. You can also drop one onto this window.\"]",
     "[\"\", \"Pick an adb.exe or platform-tools zip you already have\"]",
     "[\"\", \"Pick the colour that goes behind you\"]",
@@ -801,7 +804,6 @@
     "[\"\", \"Pivot\"]",
     "[\"\", \"Play\"]",
     "[\"\", \"Plug it in, or pick another camera.\"]",
-    "[\"\", \"Plug the phone in with a USB cable and it pairs by itself.\"]",
     "[\"\", \"Plugins (*.zip)\"]",
     "[\"\", \"Plugins you add are listed with the others, marked Added.\"]",
     "[\"\", \"Plugins\"]",
@@ -3157,7 +3159,7 @@
       "[\"\", \"Cancel\"]",
       "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
-      "[\"\", \"Plug the phone in with a USB cable and it pairs by itself.\"]"
+      "[\"\", \"Or plug the phone in with a USB cable to pair it over USB.\"]"
     ],
     "dialog-add-phone-done": [
       "[\"\", \"Add a phone\"]",
@@ -32219,7 +32221,7 @@
       "[\"\", \"Add phone\"]",
       "[\"\", \"Cancel\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
-      "[\"\", \"Plug the phone in with a USB cable and it pairs by itself.\"]",
+      "[\"\", \"Or plug the phone in with a USB cable to pair it over USB.\"]",
       "[\"\", \"This computer isn't on a network right now, so pair over USB.\"]"
     ],
     "dialog-add-phone-windows-no-adb": [
@@ -32262,13 +32264,23 @@
       "[\"\", \"Open Telescope on the phone first.\"]",
       "[\"\", \"Phone plugged in. Allow USB debugging in the prompt on the phone.\"]"
     ],
+    "dialog-add-phone-usb-pick": [
+      "[\"\", \"Add a phone\"]",
+      "[\"\", \"Add phone\"]",
+      "[\"\", \"Cancel\"]",
+      "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
+      "[\"\", \"Open Telescope on the phone first.\"]",
+      "[\"\", \"Pair {phone}\"]",
+      "[\"\", \"Pick a phone below to pair it over USB.\"]"
+    ],
     "dialog-add-phone-usb-pairing": [
       "[\"\", \"Add a phone\"]",
       "[\"\", \"Add phone\"]",
       "[\"\", \"Cancel\"]",
       "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
-      "[\"\", \"Phone plugged in. Keep Telescope open on it; pairing…\"]"
+      "[\"\", \"Pair {phone}\"]",
+      "[\"\", \"Pairing {phone}. Keep Telescope open on it until it's done.\"]"
     ],
     "dialog-add-phone-usb-unplugged": [
       "[\"\", \"Add a phone\"]",
@@ -32276,7 +32288,7 @@
       "[\"\", \"Cancel\"]",
       "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
-      "[\"\", \"Plug the phone in with a USB cable and it pairs by itself.\"]"
+      "[\"\", \"Or plug the phone in with a USB cable to pair it over USB.\"]"
     ],
     "dialog-phones-with-browser": [
       "[\"\", \"Add phone\"]",
@@ -60488,7 +60500,7 @@
     "settings-plugins": 940,
     "settings-about": 940,
     "dialog-add-phone": 460,
-    "dialog-add-phone-usb": 460,
+    "dialog-add-phone-usb": 464,
     "dialog-add-phone-done": 460,
     "dialog-phones": 460,
     "dialog-phone-remove": 400,
@@ -60848,14 +60860,15 @@
     "connection-vcam-off": 1300,
     "connection-vcam-terminal": 1300,
     "connection-vcam-failed": 1300,
-    "dialog-add-phone-no-network": 460,
+    "dialog-add-phone-no-network": 464,
     "dialog-add-phone-windows-no-adb": 460,
     "dialog-add-phone-getting-adb": 460,
     "dialog-add-phone-copying-adb": 460,
     "dialog-add-phone-adb-failed": 460,
     "dialog-add-phone-usb-unauthorized": 460,
+    "dialog-add-phone-usb-pick": 460,
     "dialog-add-phone-usb-pairing": 460,
-    "dialog-add-phone-usb-unplugged": 460,
+    "dialog-add-phone-usb-unplugged": 464,
     "dialog-phones-with-browser": 460,
     "dialog-phones-none": 460,
     "dialog-phones-unnamed-computer": 460,
@@ -61255,5 +61268,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1816
+  "total": 1818
 }
