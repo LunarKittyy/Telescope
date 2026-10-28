@@ -3401,7 +3401,7 @@
 "test_platform.py::test_run_reports_a_command_that_cant_run_as_a_failure" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run_reports_a_command_that_cant_run_as_a_failure" }
 "test_platform.py::test_run_returns_process_result" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run_returns_process_result" }
 "test_platform.py::test_telescope_starts_adbs_server_as_its_own_child_once" = { status = "ported", rust = "rust/crates/link/src/adb.rs::telescope_starts_adbs_server_as_its_own_child_once" }
-"test_platform.py::test_the_windows_job_fails_softly_elsewhere" = { status = "todo" }
+"test_platform.py::test_the_windows_job_fails_softly_elsewhere" = { status = "ported", rust = "rust/crates/link/src/winjob.rs::the_windows_job_fails_softly_elsewhere" }
 "test_platform.py::test_with_serial" = { status = "ported", rust = "rust/crates/link/src/adb.rs::with_serial" }
 "test_platform_linux.py::test_adding_cameras_runs_one_privileged_script" = { status = "todo" }
 "test_platform_linux.py::test_adding_cameras_without_the_tool_says_what_to_install" = { status = "todo" }
@@ -6024,7 +6024,7 @@
 "platform:windows.py:use_mf" = { status = "todo" }
 "platform:windows.py:warn_running_from_archive" = { status = "todo" }
 "platform:windows.py:windows_build" = { status = "todo" }
-"platform:winjob.py:kill_with_us" = { status = "todo" }
+"platform:winjob.py:kill_with_us" = { status = "ported", rust = "rust/crates/link/src/winjob.rs::kill_with_us", note = "Windows only, not compiled for Windows yet" }
 "port:telescope/platform/__init__.py:ADB_PORT=5037" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ADB_PORT" }
 "registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "todo" }
 "registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "todo" }

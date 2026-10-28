@@ -158,7 +158,10 @@ pub fn ensure_adb_server() {
             // "nodaemon" keeps the server in this process instead of the detached copy adb forks by default
             command.args(["nodaemon", "server"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
             hide_window(&mut command);
-            command.spawn().ok()
+            let child = command.spawn().ok()?;
+            // A crash then takes the server along too, so its folder isn't left locked
+            crate::winjob::kill_with_us(&child);
+            Some(child)
         }, adb_exe());
     }
 }

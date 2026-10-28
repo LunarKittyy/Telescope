@@ -15,5 +15,6 @@ pub mod service;
 pub mod session_client;
 pub mod udp;
 pub mod util;
+pub mod winjob;
 
 pub use service::LinkService;
