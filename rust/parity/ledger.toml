@@ -1041,31 +1041,31 @@
 "Video" = { status = "todo" }
 "Virtual camera & phone" = { status = "todo" }
 # ── plugin_loader
-"A plugin that comes with Telescope already has that name." = { status = "todo" }
-"Couldn't save the settings." = { status = "todo" }
-"It contains a link to somewhere else, which plugins can't have." = { status = "todo" }
-"It contains compiled code (like .pyc files). Plugins have to be source code." = { status = "todo" }
-"It has no __init__.py." = { status = "todo" }
-"It has no {file}." = { status = "todo" }
-"It has to hold one folder, named as the plugin." = { status = "todo" }
-"It holds a file with a path that points outside the plugin." = { status = "todo" }
-"It isn't a .zip file Telescope can open." = { status = "todo" }
-"It isn't turned on." = { status = "todo" }
-"It needs a newer Telescope (plugin API {wanted}; this one has {have})." = { status = "todo" }
-"It was made for an older Telescope (plugin API {api}) and needs an update." = { status = "todo" }
-"It's a link to another folder, which plugins can't be." = { status = "todo" }
-"It's too big for a plugin (over 500 files or 20 MB)." = { status = "todo" }
-"Its class has name = {have}; it has to be {want}, as in {file}." = { status = "todo" }
-"Its files changed since it was turned on. Turn it on again if you trust this version." = { status = "todo" }
-"Its files couldn't be read." = { status = "todo" }
-"Its {file} has to give the folder's name as \"name\"." = { status = "todo" }
-"Its {file} has to name its plugin class as \"class\"." = { status = "todo" }
-"Its {file} isn't valid JSON." = { status = "todo" }
-"Its {file} isn't valid." = { status = "todo" }
-"Other users on this computer could change it, so it isn't loaded." = { status = "todo" }
-"That isn't a folder in the plugins folder." = { status = "todo" }
-"The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)." = { status = "todo" }
-"{name} isn't a TelescopePlugin class." = { status = "todo" }
+"A plugin that comes with Telescope already has that name." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Couldn't save the settings." = { status = "ported", rust = "crates/plugin-host/src/switches.rs" }
+"It contains a link to somewhere else, which plugins can't have." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It contains compiled code (like .pyc files). Plugins have to be source code." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It has no __init__.py." = { status = "dropped", reason = "Lua plugins start from main.lua; a missing one is \"It has no {file}.\"" }
+"It has no {file}." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It has to hold one folder, named as the plugin." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It holds a file with a path that points outside the plugin." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It isn't a .zip file Telescope can open." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It isn't turned on." = { status = "ported", rust = "crates/plugin-host/src/load.rs" }
+"It needs a newer Telescope (plugin API {wanted}; this one has {have})." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It was made for an older Telescope (plugin API {api}) and needs an update." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It's a link to another folder, which plugins can't be." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"It's too big for a plugin (over 500 files or 20 MB)." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Its class has name = {have}; it has to be {want}, as in {file}." = { status = "dropped", reason = "Lua plugins have no class; the name comes from plugin.json alone" }
+"Its files changed since it was turned on. Turn it on again if you trust this version." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Its files couldn't be read." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Its {file} has to give the folder's name as \"name\"." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Its {file} has to name its plugin class as \"class\"." = { status = "dropped", reason = "Lua plugins have no class" }
+"Its {file} isn't valid JSON." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Its {file} isn't valid." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"Other users on this computer could change it, so it isn't loaded." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"That isn't a folder in the plugins folder." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"{name} isn't a TelescopePlugin class." = { status = "dropped", reason = "Lua plugins have no class; main.lua not returning a table gets its own text" }
 # ── presets
 "Apply a preset" = { status = "todo" }
 "Delete" = { status = "todo" }
@@ -2356,11 +2356,11 @@
 "test_camera_control.py::test_the_focus_mode_is_published_however_it_changes" = { status = "todo" }
 "test_camera_control.py::test_unknown_hardware_level_passes_through_verbatim" = { status = "todo" }
 # ── check
-"test_check_plugin.py::test_a_broken_plugin_gets_each_problem_with_its_own_traceback" = { status = "todo" }
-"test_check_plugin.py::test_a_plugin_that_wont_load_says_why" = { status = "todo" }
-"test_check_plugin.py::test_checker_destroys_its_window_before_releasing_qt" = { status = "todo" }
-"test_check_plugin.py::test_repo_is_checked" = { status = "todo" }
-"test_check_plugin.py::test_the_example_plugin_passes" = { status = "todo" }
+"test_check_plugin.py::test_a_broken_plugin_gets_each_problem_with_its_own_traceback" = { status = "ported", rust = "crates/plugin-host/tests/lua.rs::a_broken_plugin_gets_each_problem_with_where_it_is" }
+"test_check_plugin.py::test_a_plugin_that_wont_load_says_why" = { status = "ported", rust = "crates/plugin-host/tests/lua.rs::a_plugin_that_wont_load_says_why" }
+"test_check_plugin.py::test_checker_destroys_its_window_before_releasing_qt" = { status = "dropped", reason = "Qt object lifetime; check-plugin builds no window" }
+"test_check_plugin.py::test_repo_is_checked" = { status = "ported", rust = "crates/plugin-host/tests/lua.rs::repo_is_checked" }
+"test_check_plugin.py::test_the_example_plugin_passes" = { status = "ported", rust = "crates/plugin-host/tests/lua.rs::the_example_plugins_pass" }
 # ── chroma_key
 "test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "todo" }
 "test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "todo" }
@@ -3461,17 +3461,17 @@
 "test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "todo" }
 "test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "todo" }
 # ── plugin
-"test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "todo" }
-"test_plugin_i18n.py::test_a_broken_file_leaves_the_plugin_in_english_and_still_loading" = { status = "todo" }
-"test_plugin_i18n.py::test_a_broken_plural_rule_or_field_shows_english_instead_of_failing" = { status = "todo" }
-"test_plugin_i18n.py::test_a_plugin_with_a_catalog_shows_its_texts_in_the_language" = { status = "todo" }
-"test_plugin_i18n.py::test_a_plugin_with_another_language_only_has_english" = { status = "todo" }
-"test_plugin_i18n.py::test_a_plugin_without_a_catalog_stays_in_english_but_gets_telescopes_words" = { status = "todo" }
-"test_plugin_i18n.py::test_a_text_the_plugin_hasnt_translated_falls_back_to_telescope_then_english" = { status = "todo" }
-"test_plugin_i18n.py::test_an_empty_or_fuzzy_translation_counts_as_missing" = { status = "todo" }
-"test_plugin_i18n.py::test_everything_is_english_in_english" = { status = "todo" }
-"test_plugin_i18n.py::test_one_plugin_doesnt_see_anothers_texts" = { status = "todo" }
-"test_plugin_i18n.py::test_the_region_falls_back_to_the_language_and_a_new_language_reloads" = { status = "todo" }
+"test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "ported", rust = "crates/plugin-host/tests/lua.rs::the_plugin_api_only_changes_on_purpose", note = "freezes HOST_API, HOOKS, Lua globals, events and permissions in tests/plugin_api.txt" }
+"test_plugin_i18n.py::test_a_broken_file_leaves_the_plugin_in_english_and_still_loading" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_broken_file_leaves_the_plugin_in_english_and_still_loading" }
+"test_plugin_i18n.py::test_a_broken_plural_rule_or_field_shows_english_instead_of_failing" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_broken_plural_rule_or_field_shows_english_instead_of_failing" }
+"test_plugin_i18n.py::test_a_plugin_with_a_catalog_shows_its_texts_in_the_language" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_plugin_with_a_catalog_shows_its_texts_in_the_language" }
+"test_plugin_i18n.py::test_a_plugin_with_another_language_only_has_english" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_plugin_with_another_language_only_has_english" }
+"test_plugin_i18n.py::test_a_plugin_without_a_catalog_stays_in_english_but_gets_telescopes_words" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_plugin_without_a_catalog_stays_in_english_but_gets_telescopes_words" }
+"test_plugin_i18n.py::test_a_text_the_plugin_hasnt_translated_falls_back_to_telescope_then_english" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::a_text_the_plugin_hasnt_translated_falls_back_to_telescope_then_english" }
+"test_plugin_i18n.py::test_an_empty_or_fuzzy_translation_counts_as_missing" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::an_empty_or_fuzzy_translation_counts_as_missing" }
+"test_plugin_i18n.py::test_everything_is_english_in_english" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::everything_is_english_in_english" }
+"test_plugin_i18n.py::test_one_plugin_doesnt_see_anothers_texts" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::one_plugin_doesnt_see_anothers_texts" }
+"test_plugin_i18n.py::test_the_region_falls_back_to_the_language_and_a_new_language_reloads" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::the_region_falls_back_to_the_language_and_a_new_language_reloads" }
 "test_plugin_i18n.py::test_the_script_extracts_and_updates_a_plugins_own_catalogs" = { status = "todo" }
 "test_plugin_i18n.py::test_the_script_wants_a_plugins_folder" = { status = "todo" }
 "test_plugin_removal.py::test_a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them" = { status = "todo" }
@@ -3481,75 +3481,75 @@
 "test_plugin_removal.py::test_every_card_and_section_in_the_window_folds" = { status = "todo" }
 "test_plugin_removal.py::test_only_connection_is_required" = { status = "todo" }
 "test_plugin_removal.py::test_the_app_starts_streams_and_quits_without_any_one_optional_plugin" = { status = "todo" }
-"test_plugin_updater.py::test_a_download_that_failed_is_tried_again_after_a_restart" = { status = "todo" }
-"test_plugin_updater.py::test_a_download_that_fails_isnt_tried_again_every_hour" = { status = "todo" }
-"test_plugin_updater.py::test_a_newer_release_is_only_mentioned_by_default" = { status = "todo" }
-"test_plugin_updater.py::test_a_release_auto_update_tried_isnt_downloaded_again" = { status = "todo" }
-"test_plugin_updater.py::test_a_release_whose_zip_isnt_newer_isnt_installed" = { status = "todo" }
-"test_plugin_updater.py::test_auto_update_leaves_a_plugin_thats_off_alone" = { status = "todo" }
-"test_plugin_updater.py::test_auto_update_refuses_a_zip_holding_another_plugin" = { status = "todo" }
-"test_plugin_updater.py::test_offline_nothing_happens_and_nothing_is_said" = { status = "todo" }
-"test_plugin_updater.py::test_with_auto_update_on_a_plugin_thats_on_is_replaced_and_stays_on" = { status = "todo" }
-"test_plugin_updater.py::test_with_the_check_off_github_isnt_asked" = { status = "todo" }
-"test_plugin_updates.py::test_a_403_with_retry_after_is_a_rate_limit" = { status = "todo" }
-"test_plugin_updates.py::test_a_429_waits_as_long_as_it_says_within_reason" = { status = "todo" }
-"test_plugin_updates.py::test_a_broken_cache_file_is_no_checks_yet" = { status = "todo" }
-"test_plugin_updates.py::test_a_clock_set_back_doesnt_leave_it_waiting_for_days" = { status = "todo" }
-"test_plugin_updates.py::test_a_download_is_checked_against_its_size_and_digest" = { status = "todo" }
-"test_plugin_updates.py::test_a_release_is_found_kept_and_not_asked_for_again_the_same_day" = { status = "todo" }
-"test_plugin_updates.py::test_a_reply_that_isnt_a_release_is_ignored" = { status = "todo" }
-"test_plugin_updates.py::test_a_repo_github_refuses_only_skips_that_repo" = { status = "todo" }
-"test_plugin_updates.py::test_a_repo_without_releases_is_nothing_to_say" = { status = "todo" }
-"test_plugin_updates.py::test_a_server_error_waits_for_every_repo" = { status = "todo" }
-"test_plugin_updates.py::test_asking_again_sends_the_etag_and_a_304_keeps_what_was_found" = { status = "todo" }
-"test_plugin_updates.py::test_assets_that_arent_plugin_zips_from_github_are_left_out" = { status = "todo" }
-"test_plugin_updates.py::test_offline_it_waits_longer_each_time_and_never_raises" = { status = "todo" }
-"test_plugin_updates.py::test_only_github_repos_are_followed" = { status = "todo" }
-"test_plugin_updates.py::test_rate_limited_it_waits_until_github_says_and_stops_asking" = { status = "todo" }
-"test_plugin_updates.py::test_the_right_zip_is_picked_for_the_plugin" = { status = "todo" }
-"test_plugin_updates.py::test_the_wait_stops_at_a_day" = { status = "todo" }
-"test_plugin_updates.py::test_versions_compare_by_their_numbers" = { status = "todo" }
+"test_plugin_updater.py::test_a_download_that_failed_is_tried_again_after_a_restart" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::a_download_that_failed_is_tried_again_after_a_restart" }
+"test_plugin_updater.py::test_a_download_that_fails_isnt_tried_again_every_hour" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::a_download_that_fails_isnt_tried_again_every_hour" }
+"test_plugin_updater.py::test_a_newer_release_is_only_mentioned_by_default" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::a_newer_release_is_only_mentioned_by_default" }
+"test_plugin_updater.py::test_a_release_auto_update_tried_isnt_downloaded_again" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::a_release_auto_update_tried_isnt_downloaded_again" }
+"test_plugin_updater.py::test_a_release_whose_zip_isnt_newer_isnt_installed" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::a_release_whose_zip_isnt_newer_isnt_installed" }
+"test_plugin_updater.py::test_auto_update_leaves_a_plugin_thats_off_alone" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::auto_update_leaves_a_plugin_thats_off_alone" }
+"test_plugin_updater.py::test_auto_update_refuses_a_zip_holding_another_plugin" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::auto_update_refuses_a_zip_holding_another_plugin" }
+"test_plugin_updater.py::test_offline_nothing_happens_and_nothing_is_said" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::offline_nothing_happens_and_nothing_is_said" }
+"test_plugin_updater.py::test_with_auto_update_on_a_plugin_thats_on_is_replaced_and_stays_on" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::with_auto_update_on_a_plugin_thats_on_is_replaced_and_stays_on" }
+"test_plugin_updater.py::test_with_the_check_off_github_isnt_asked" = { status = "ported", rust = "crates/plugin-host/tests/updater.rs::with_the_check_off_github_isnt_asked" }
+"test_plugin_updates.py::test_a_403_with_retry_after_is_a_rate_limit" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_403_with_retry_after_is_a_rate_limit" }
+"test_plugin_updates.py::test_a_429_waits_as_long_as_it_says_within_reason" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_429_waits_as_long_as_it_says_within_reason" }
+"test_plugin_updates.py::test_a_broken_cache_file_is_no_checks_yet" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_broken_cache_file_is_no_checks_yet" }
+"test_plugin_updates.py::test_a_clock_set_back_doesnt_leave_it_waiting_for_days" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_clock_set_back_doesnt_leave_it_waiting_for_days" }
+"test_plugin_updates.py::test_a_download_is_checked_against_its_size_and_digest" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_download_is_checked_against_its_size_and_digest" }
+"test_plugin_updates.py::test_a_release_is_found_kept_and_not_asked_for_again_the_same_day" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_release_is_found_kept_and_not_asked_for_again_the_same_day" }
+"test_plugin_updates.py::test_a_reply_that_isnt_a_release_is_ignored" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_reply_that_isnt_a_release_is_ignored" }
+"test_plugin_updates.py::test_a_repo_github_refuses_only_skips_that_repo" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_repo_github_refuses_only_skips_that_repo" }
+"test_plugin_updates.py::test_a_repo_without_releases_is_nothing_to_say" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_repo_without_releases_is_nothing_to_say" }
+"test_plugin_updates.py::test_a_server_error_waits_for_every_repo" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::a_server_error_waits_for_every_repo" }
+"test_plugin_updates.py::test_asking_again_sends_the_etag_and_a_304_keeps_what_was_found" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::asking_again_sends_the_etag_and_a_304_keeps_what_was_found" }
+"test_plugin_updates.py::test_assets_that_arent_plugin_zips_from_github_are_left_out" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::assets_that_arent_plugin_zips_from_github_are_left_out" }
+"test_plugin_updates.py::test_offline_it_waits_longer_each_time_and_never_raises" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::offline_it_waits_longer_each_time_and_never_raises" }
+"test_plugin_updates.py::test_only_github_repos_are_followed" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::only_github_repos_are_followed" }
+"test_plugin_updates.py::test_rate_limited_it_waits_until_github_says_and_stops_asking" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::rate_limited_it_waits_until_github_says_and_stops_asking" }
+"test_plugin_updates.py::test_the_right_zip_is_picked_for_the_plugin" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::the_right_zip_is_picked_for_the_plugin" }
+"test_plugin_updates.py::test_the_wait_stops_at_a_day" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::the_wait_stops_at_a_day" }
+"test_plugin_updates.py::test_versions_compare_by_their_numbers" = { status = "ported", rust = "crates/plugin-host/tests/updates.rs::versions_compare_by_their_numbers" }
 # ── plugin_loader
-"test_plugin_loader.py::test_a_bad_zip_leaves_the_installed_one_alone" = { status = "todo" }
-"test_plugin_loader.py::test_a_built_in_name_cant_be_installed" = { status = "todo" }
-"test_plugin_loader.py::test_a_built_in_name_cant_be_taken" = { status = "todo" }
-"test_plugin_loader.py::test_a_class_with_another_name_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_file_inside_other_users_can_change_is_caught" = { status = "todo" }
-"test_plugin_loader.py::test_a_folder_without_a_manifest_or_with_a_bad_name_is_listed_with_why" = { status = "todo" }
-"test_plugin_loader.py::test_a_link_inside_a_plugin_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_manifest_that_doesnt_fit_says_why" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_being_written_loads_from_its_folder_and_stays_on_when_it_changes" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_being_written_stands_in_for_an_installed_copy" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_being_written_that_cant_load_says_why" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_is_off_until_switched_on_then_loads" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_other_users_can_change_isnt_loaded" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_that_changed_after_it_was_switched_on_stays_off" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_that_exits_on_import_doesnt_end_telescope" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugin_that_raises_on_import_is_reported_not_raised" = { status = "todo" }
-"test_plugin_loader.py::test_a_plugins_own_modules_dont_shadow_anything" = { status = "todo" }
-"test_plugin_loader.py::test_a_pyc_next_to_the_source_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_swap_that_fails_leaves_the_old_one_switched_on" = { status = "todo" }
-"test_plugin_loader.py::test_a_zip_installs_switched_off" = { status = "todo" }
-"test_plugin_loader.py::test_a_zip_that_could_write_elsewhere_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_zip_thats_not_a_zip_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_zip_too_big_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_a_zip_with_another_plugin_installs_next_to_it" = { status = "todo" }
-"test_plugin_loader.py::test_built_in_plugins_switch_off_and_back_on" = { status = "todo" }
-"test_plugin_loader.py::test_compiled_code_left_in_a_plugin_never_runs" = { status = "todo" }
-"test_plugin_loader.py::test_group_write_is_fine_when_the_group_is_the_users_own" = { status = "todo" }
-"test_plugin_loader.py::test_installing_over_one_already_there_needs_replace" = { status = "todo" }
-"test_plugin_loader.py::test_one_that_was_on_and_got_a_bad_file_says_why_it_didnt_start" = { status = "todo" }
-"test_plugin_loader.py::test_plugins_being_written_need_a_dev_profile" = { status = "todo" }
-"test_plugin_loader.py::test_pycache_doesnt_count_as_a_change" = { status = "todo" }
-"test_plugin_loader.py::test_removing_deletes_the_folder_and_its_switch" = { status = "todo" }
-"test_plugin_loader.py::test_removing_refuses_a_folder_outside_the_plugins_folder" = { status = "todo" }
-"test_plugin_loader.py::test_replacing_a_link_is_refused" = { status = "todo" }
-"test_plugin_loader.py::test_replacing_an_identical_copy_still_switches_it_off" = { status = "todo" }
-"test_plugin_loader.py::test_replacing_keeps_the_settings_and_switches_it_off" = { status = "todo" }
-"test_plugin_loader.py::test_replacing_leaves_the_update_switches_alone" = { status = "todo" }
-"test_plugin_loader.py::test_repo_is_shown_only_when_its_a_plain_https_address" = { status = "todo" }
-"test_plugin_loader.py::test_the_switches_survive_a_settings_save" = { status = "todo" }
-"test_plugin_loader.py::test_the_zips_plugin_name_can_be_read_first" = { status = "todo" }
+"test_plugin_loader.py::test_a_bad_zip_leaves_the_installed_one_alone" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_bad_zip_leaves_the_installed_one_alone" }
+"test_plugin_loader.py::test_a_built_in_name_cant_be_installed" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_built_in_name_cant_be_installed" }
+"test_plugin_loader.py::test_a_built_in_name_cant_be_taken" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_built_in_name_cant_be_taken" }
+"test_plugin_loader.py::test_a_class_with_another_name_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_main_that_doesnt_return_a_table_is_refused" }
+"test_plugin_loader.py::test_a_file_inside_other_users_can_change_is_caught" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_file_inside_other_users_can_change_is_caught" }
+"test_plugin_loader.py::test_a_folder_without_a_manifest_or_with_a_bad_name_is_listed_with_why" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_folder_without_a_manifest_or_with_a_bad_name_is_listed_with_why" }
+"test_plugin_loader.py::test_a_link_inside_a_plugin_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_link_inside_a_plugin_is_refused" }
+"test_plugin_loader.py::test_a_manifest_that_doesnt_fit_says_why" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_manifest_that_doesnt_fit_says_why" }
+"test_plugin_loader.py::test_a_plugin_being_written_loads_from_its_folder_and_stays_on_when_it_changes" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_being_written_loads_from_its_folder_and_stays_on_when_it_changes" }
+"test_plugin_loader.py::test_a_plugin_being_written_stands_in_for_an_installed_copy" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_being_written_stands_in_for_an_installed_copy" }
+"test_plugin_loader.py::test_a_plugin_being_written_that_cant_load_says_why" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_being_written_that_cant_load_says_why" }
+"test_plugin_loader.py::test_a_plugin_is_off_until_switched_on_then_loads" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_is_off_until_switched_on_then_loads" }
+"test_plugin_loader.py::test_a_plugin_other_users_can_change_isnt_loaded" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_other_users_can_change_isnt_loaded" }
+"test_plugin_loader.py::test_a_plugin_that_changed_after_it_was_switched_on_stays_off" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_that_changed_after_it_was_switched_on_stays_off" }
+"test_plugin_loader.py::test_a_plugin_that_exits_on_import_doesnt_end_telescope" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_that_tries_to_exit_only_fails_itself" }
+"test_plugin_loader.py::test_a_plugin_that_raises_on_import_is_reported_not_raised" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugin_that_raises_on_load_is_reported_not_raised" }
+"test_plugin_loader.py::test_a_plugins_own_modules_dont_shadow_anything" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_plugins_own_modules_load_and_nothing_else_does" }
+"test_plugin_loader.py::test_a_pyc_next_to_the_source_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::compiled_files_next_to_the_source_are_refused" }
+"test_plugin_loader.py::test_a_swap_that_fails_leaves_the_old_one_switched_on" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_swap_that_fails_leaves_the_old_one_switched_on" }
+"test_plugin_loader.py::test_a_zip_installs_switched_off" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_zip_installs_switched_off" }
+"test_plugin_loader.py::test_a_zip_that_could_write_elsewhere_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_zip_that_could_write_elsewhere_is_refused" }
+"test_plugin_loader.py::test_a_zip_thats_not_a_zip_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_zip_thats_not_a_zip_is_refused" }
+"test_plugin_loader.py::test_a_zip_too_big_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_zip_too_big_is_refused" }
+"test_plugin_loader.py::test_a_zip_with_another_plugin_installs_next_to_it" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::a_zip_with_another_plugin_installs_next_to_it" }
+"test_plugin_loader.py::test_built_in_plugins_switch_off_and_back_on" = { status = "ported", rust = "crates/plugin-host/src/switches.rs::built_in_plugins_switch_off_and_back_on" }
+"test_plugin_loader.py::test_compiled_code_left_in_a_plugin_never_runs" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::compiled_code_never_runs" }
+"test_plugin_loader.py::test_group_write_is_fine_when_the_group_is_the_users_own" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::group_write_is_fine_when_the_group_is_the_users_own" }
+"test_plugin_loader.py::test_installing_over_one_already_there_needs_replace" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::installing_over_one_already_there_needs_replace" }
+"test_plugin_loader.py::test_one_that_was_on_and_got_a_bad_file_says_why_it_didnt_start" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::one_that_was_on_and_got_a_bad_file_says_why_it_didnt_start" }
+"test_plugin_loader.py::test_plugins_being_written_need_a_dev_profile" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::plugins_being_written_need_a_dev_profile" }
+"test_plugin_loader.py::test_pycache_doesnt_count_as_a_change" = { status = "dropped", reason = "Lua plugins leave no compiled caches; Telescope only loads their source text" }
+"test_plugin_loader.py::test_removing_deletes_the_folder_and_its_switch" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::removing_deletes_the_folder_and_its_switch" }
+"test_plugin_loader.py::test_removing_refuses_a_folder_outside_the_plugins_folder" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::removing_refuses_a_folder_outside_the_plugins_folder" }
+"test_plugin_loader.py::test_replacing_a_link_is_refused" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::replacing_a_link_is_refused" }
+"test_plugin_loader.py::test_replacing_an_identical_copy_still_switches_it_off" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::replacing_an_identical_copy_still_switches_it_off" }
+"test_plugin_loader.py::test_replacing_keeps_the_settings_and_switches_it_off" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::replacing_keeps_the_settings_and_switches_it_off" }
+"test_plugin_loader.py::test_replacing_leaves_the_update_switches_alone" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::replacing_leaves_the_update_switches_alone" }
+"test_plugin_loader.py::test_repo_is_shown_only_when_its_a_plain_https_address" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::repo_is_shown_only_when_its_a_plain_https_address" }
+"test_plugin_loader.py::test_the_switches_survive_a_settings_save" = { status = "ported", rust = "crates/plugin-host/src/switches.rs::the_switches_survive_a_settings_save" }
+"test_plugin_loader.py::test_the_zips_plugin_name_can_be_read_first" = { status = "ported", rust = "crates/plugin-host/src/package_tests.rs::the_zips_plugin_name_can_be_read_first" }
 # ── plugins
 "test_plugins.py::test_a_lens_without_the_live_size_sends_the_size_it_falls_back_to" = { status = "todo" }
 "test_plugins.py::test_a_new_aspect_ratio_keeps_the_height_rather_than_jumping_to_the_largest" = { status = "todo" }
@@ -5661,7 +5661,7 @@
 "devices" = { status = "todo" }
 "output_slots" = { status = "todo" }
 "plugin_configs" = { status = "todo" }
-"plugins" = { status = "todo" }
+"plugins" = { status = "ported", rust = "crates/plugin-host/src/switches.rs", note = "the plugin switches (off, noticed, added, on, check_updates, auto_update)" }
 "selected_device" = { status = "todo" }
 "version" = { status = "todo" }
 
@@ -6043,10 +6043,10 @@
 "run:telescope/platform/virtual_mic.py:remove_stale_source:run:pactl list" = { status = "todo" }
 "run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "todo" }
 # ── plugin_loader
-"folder:telescope/plugin_loader.py:_clear_caches:shutil.rmtree" = { status = "todo" }
-"folder:telescope/plugin_loader.py:install_zip:shutil.rmtree" = { status = "todo" }
-"folder:telescope/plugin_loader.py:install_zip:tempfile.mkdtemp" = { status = "todo" }
-"folder:telescope/plugin_loader.py:remove:shutil.rmtree" = { status = "todo" }
+"folder:telescope/plugin_loader.py:_clear_caches:shutil.rmtree" = { status = "dropped", reason = "no __pycache__ to clear for Lua plugins" }
+"folder:telescope/plugin_loader.py:install_zip:shutil.rmtree" = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"folder:telescope/plugin_loader.py:install_zip:tempfile.mkdtemp" = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
+"folder:telescope/plugin_loader.py:remove:shutil.rmtree" = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
 # ── pyav_vaapi
 "folder:telescope/pyav_vaapi.py:_swap_in_staged:shutil.rmtree" = { status = "todo" }
 "folder:telescope/pyav_vaapi.py:build:shutil.rmtree" = { status = "todo" }
@@ -6103,9 +6103,9 @@
 "path:/sys/class/video4linux" = { status = "todo" }
 "path:/sys/devices" = { status = "todo" }
 # ── widgets
-"folder:telescope/widgets/plugin_updater.py:_on_done:shutil.rmtree" = { status = "todo" }
-"folder:telescope/widgets/plugin_updater.py:_run:shutil.rmtree" = { status = "todo" }
-"folder:telescope/widgets/plugin_updater.py:_run:tempfile.mkdtemp" = { status = "todo" }
+"folder:telescope/widgets/plugin_updater.py:_on_done:shutil.rmtree" = { status = "ported", rust = "crates/plugin-host/src/updater.rs" }
+"folder:telescope/widgets/plugin_updater.py:_run:shutil.rmtree" = { status = "ported", rust = "crates/plugin-host/src/updater.rs" }
+"folder:telescope/widgets/plugin_updater.py:_run:tempfile.mkdtemp" = { status = "ported", rust = "crates/plugin-host/src/updater.rs" }
 "folder:telescope/widgets/plugins_panel.py:_add_zip:Path.home" = { status = "todo" }
 "run:telescope/widgets/plugins_panel.py:__init__:QDesktopServices.openUrl:<QUrl(DOCS_URL)>" = { status = "todo" }
 "run:telescope/widgets/plugins_panel.py:_open_folder:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(folder))>" = { status = "todo" }
