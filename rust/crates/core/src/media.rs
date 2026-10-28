@@ -177,3 +177,71 @@ pub struct DecodingStatus {
     /// A graphics card decoder failed this run, so decoding stays in software until restart.
     pub hardware_failed: bool,
 }
+
+/// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is
+/// dropped, so a slow decoder skips frames instead of letting them queue up as lag.
+pub struct Newest<T> {
+    item: std::sync::Mutex<(Option<T>, bool)>,
+    ready: std::sync::Condvar,
+}
+
+impl<T> Default for Newest<T> {
+    fn default() -> Self {
+        Newest { item: std::sync::Mutex::new((None, false)), ready: std::sync::Condvar::new() }
+    }
+}
+
+impl<T> Newest<T> {
+    /// Replaces whatever is waiting.
+    pub fn put(&self, item: T) {
+        self.item.lock().unwrap().0 = Some(item);
+        self.ready.notify_one();
+    }
+
+    /// No more items come; take() hands out what's left, then None.
+    pub fn finish(&self) {
+        self.item.lock().unwrap().1 = true;
+        self.ready.notify_all();
+    }
+
+    /// The newest item, waiting for one; None once finished and nothing is left.
+    pub fn take(&self) -> Option<T> {
+        let mut st = self.item.lock().unwrap();
+        loop {
+            if let Some(item) = st.0.take() {
+                return Some(item);
+            }
+            if st.1 {
+                return None;
+            }
+            st = self.ready.wait(st).unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn newest_hands_over_only_the_latest_item() {
+        let newest = Newest::default();
+        newest.put("old");
+        newest.put("new");
+        newest.finish();
+        assert_eq!(newest.take(), Some("new"));
+        assert_eq!(newest.take(), None);
+    }
+
+    #[test]
+    fn a_waiting_taker_wakes_for_an_item_or_the_end() {
+        let newest = std::sync::Arc::new(Newest::default());
+        let n = newest.clone();
+        let taker = std::thread::spawn(move || (n.take(), n.take()));
+        std::thread::sleep(Duration::from_millis(20));
+        newest.put(1);
+        std::thread::sleep(Duration::from_millis(20));
+        newest.finish();
+        assert_eq!(taker.join().unwrap(), (Some(1), None));
+    }
+}
