@@ -23,7 +23,8 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
     private val hintStatus: TextView = overlay.findViewById(R.id.blackStatus)
     private val fadeHint = Runnable {
         state.hintGone()
-        hint.animate().alpha(0f).setDuration(FADE_MS)
+        // Android raises this to the lowest brightness the screen allows; the screen stays on (FLAG_KEEP_SCREEN_ON)
+        hint.animate().alpha(0f).setDuration(FADE_MS).withEndAction { setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF) }
     }
     private val back = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = leave()
@@ -49,8 +50,6 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
-        // Android raises this to the lowest brightness the screen allows; the screen stays on (FLAG_KEEP_SCREEN_ON)
-        setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF)
         hideUnderneath()
         showHint()
     }
@@ -82,6 +81,7 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
         hintStatus.text = status()
         hint.animate().cancel()
         hint.alpha = 1f
+        setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)  // dims again once the hint has faded, so it stays readable
         overlay.removeCallbacks(fadeHint)
         overlay.postDelayed(fadeHint, BlackScreenState.HINT_MS)
     }

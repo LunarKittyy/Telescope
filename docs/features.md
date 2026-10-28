@@ -296,7 +296,7 @@ Optional. It lets the people you live with know you're on a call without you hav
 - A new IP address from the router breaks nothing, since the phone announces itself on the network
 - On a slow Wi-Fi stream the note tells you when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
 - The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
-- **Black screen** next to Preview in the phone app turns the screen black and the brightness all the way down while the stream carries on. It saves battery on an OLED screen and some phones are less likely to close Telescope while it's on screen than with the screen off. Double tap or press Back to get the app back. A single tap shows the stream's status for a few seconds
+- **Black screen** next to Preview in the phone app turns the screen black while the stream carries on, and turns the brightness all the way down once its status text has faded. It saves battery on an OLED screen and some phones are less likely to close Telescope while it's on screen than with the screen off. Double tap or press Back to get the app back. A single tap shows the stream's status for a few seconds, at normal brightness so it's readable
 - Camera, output, transform and alert settings are saved per phone and so are picture effects like Background or the Fun pack. Connection settings and the canvas are shared
 
 ## Privacy
