@@ -26,7 +26,7 @@ The switch leaves the Connection card for the Streaming tab of the Settings wind
 
 ## Black screen on the phone
 
-A button next to Preview in the phone app turns the screen black while the camera keeps going, like the one on Browser camera's page. Double tap wakes it. Some phones' power saving still kills the stream now and then even with battery optimisation off. An app that stays on screen should get killed less often (the screen being black saves battery on OLED phones too). Merged in #383, and #385 keeps TalkBack on the black screen while it's up.
+A button next to Preview in the phone app turns the screen black while the camera keeps going, like the one on Browser camera's page. Double tap wakes it. Some phones' power saving still kills the stream now and then even with battery optimisation off. An app that stays on screen should get killed less often (the screen being black saves battery on OLED phones too). Merged in #383, and #385 stops TalkBack from reaching the controls under it.
 
 ## PyAV 19
 
