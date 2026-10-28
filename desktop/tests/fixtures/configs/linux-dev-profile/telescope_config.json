@@ -1,0 +1,372 @@
+{
+  "version": 3,
+  "selected_device": "00000000-0000-4000-8000-000000000001",
+  "plugin_configs": {
+    "setup": {
+      "canvas_preset": "Auto (from first frame)",
+      "custom_canvas_w": 1920,
+      "custom_canvas_h": 1080,
+      "max_zoom": 10,
+      "max_gain": 12,
+      "limiter": true,
+      "hw_decode": false,
+      "power_saving": false,
+      "plugin_hues": true,
+      "language": ""
+    },
+    "connection": {
+      "computer_id": "00000000000000000000000000000009",
+      "computer_name": "desk-pc",
+      "route": "auto",
+      "udp": false,
+      "phones": [
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "name": "Pixel 8",
+          "token": "fake-pairing-token-05xxxxxxxxxxxxxxxxxxxxxx",
+          "ips": [
+            "192.168.1.21",
+            "100.64.0.7"
+          ],
+          "active_ip": null,
+          "cert_sha256": "0606060606060606060606060606060606060606060606060606060606060606"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Galaxy S10+",
+          "token": "fake-pairing-token-07xxxxxxxxxxxxxxxxxxxxxx",
+          "ips": [
+            "192.168.1.20"
+          ],
+          "active_ip": "192.168.1.20",
+          "cert_sha256": "0808080808080808080808080808080808080808080808080808080808080808"
+        }
+      ],
+      "selected_phone": "00000000-0000-4000-8000-000000000001"
+    },
+    "browser_camera": {
+      "size": "720p",
+      "fps": 30,
+      "address": "192.168.1.10",
+      "known": {}
+    },
+    "preview": {
+      "lens_boxes": false,
+      "skeleton": false
+    },
+    "onboarding": {
+      "streamed": true
+    },
+    "updates": {
+      "channel": "stable",
+      "auto_check": true,
+      "last_check": 0.0,
+      "keep_portable": false
+    },
+    "wait_screen": {
+      "image": null,
+      "mirror": false,
+      "last_size": [
+        1920,
+        1080
+      ]
+    },
+    "shortcuts": {
+      "bindings": [],
+      "notify": false
+    },
+    "startup": {
+      "start_on": "off",
+      "stop_idle": "off",
+      "stop_delay_s": 15,
+      "notify_stop": true
+    },
+    "fun_pack": {
+      "effect": "off",
+      "across": false,
+      "edges": 4,
+      "fade": 5,
+      "brightness": 6,
+      "spread": 16,
+      "smear": 1
+    },
+    "face_exposure": {
+      "on": false
+    },
+    "name_tag": {
+      "on": false,
+      "name": "Sam",
+      "pronouns": "they/them",
+      "second": "",
+      "style": "bar",
+      "position": "bottom_left",
+      "size": "medium"
+    },
+    "composite": {
+      "on": true,
+      "layout": {
+        "name": "",
+        "background": "#15151a",
+        "picture": "",
+        "tiles": [
+          {
+            "source_id": "browser:000000000000000000000004",
+            "name": "Chrome on Android",
+            "x": 0.0,
+            "y": 0.0,
+            "w": 1.0,
+            "h": 1.0,
+            "zoom": 1.0,
+            "cx": 0.5,
+            "cy": 0.5,
+            "border": 0,
+            "border_colour": "#ffffff",
+            "radius": 0,
+            "crop_l": 0.0,
+            "crop_t": 0.0,
+            "crop_r": 0.0,
+            "crop_b": 0.0,
+            "stretch": false
+          },
+          {
+            "source_id": "00000000-0000-4000-8000-000000000002",
+            "name": "Pixel 8",
+            "x": 0.71,
+            "y": 0.6866666666666666,
+            "w": 0.26,
+            "h": 0.26,
+            "zoom": 1.0,
+            "cx": 0.5,
+            "cy": 0.5,
+            "border": 4,
+            "border_colour": "#ffffff",
+            "radius": 24,
+            "crop_l": 0.0,
+            "crop_t": 0.0,
+            "crop_r": 0.0,
+            "crop_b": 0.0,
+            "stretch": false
+          }
+        ]
+      },
+      "layouts": []
+    },
+    "on_air": {
+      "trigger": "camera_mic",
+      "page": true,
+      "token": "fake-on-air-10xxxxxxxxxx",
+      "address": "192.168.1.10",
+      "webhook_url": "",
+      "webhook_method": "POST",
+      "webhook_on": "",
+      "webhook_off": ""
+    },
+    "privacy_blur": {
+      "on": false,
+      "mode": "others"
+    },
+    "photos": {
+      "format": "jpeg",
+      "quality": 95,
+      "mode": "normal",
+      "shots": "single",
+      "burst": 5,
+      "bracket": "5x1",
+      "focus_steps": 20,
+      "exposure_s": 0,
+      "timer": 0,
+      "best": true,
+      "distortion": "camera",
+      "folder": "/home/sam/Pictures/Telescope"
+    },
+    "notes": {
+      "sets": [
+        "hi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\nhi there uwu\n",
+        "whats up",
+        "crazy stuffs"
+      ],
+      "current": 0,
+      "size": 55,
+      "speed": 5,
+      "scroll": "hand"
+    },
+    "qr_reader": {
+      "on": false,
+      "notify": true
+    },
+    "webcam": {
+      "cameras": {}
+    }
+  },
+  "devices": {
+    "browser": {
+      "plugin_configs": {
+        "camera_control": {
+          "exp_manual": false,
+          "iso": 71,
+          "shutter_ns": 100000.00000000001,
+          "ois": true,
+          "focus_manual": false,
+          "focus_diopters": 0.0,
+          "wb_manual": false,
+          "wb_kelvin": 5500,
+          "wb_tint": 0,
+          "ae_comp": 0,
+          "nr_mode": 1,
+          "edge_mode": 1,
+          "bll": false,
+          "low_light": false,
+          "lens": null
+        }
+      }
+    },
+    "00000000-0000-4000-8000-000000000002": {
+      "plugin_configs": {
+        "camera_control": {
+          "exp_manual": false,
+          "iso": 71,
+          "shutter_ns": 100000.00000000001,
+          "ois": true,
+          "focus_manual": false,
+          "focus_diopters": 0.0,
+          "wb_manual": false,
+          "wb_kelvin": 5500,
+          "wb_tint": 0,
+          "ae_comp": 0,
+          "nr_mode": 1,
+          "edge_mode": 1,
+          "bll": false,
+          "low_light": false,
+          "lens": "0"
+        },
+        "chroma_key": {
+          "on": false,
+          "screen": "green",
+          "picked": null,
+          "tolerance": 40,
+          "softness": 30,
+          "spill": 60,
+          "background": "colour",
+          "colour": [
+            40,
+            34,
+            30
+          ],
+          "picture": ""
+        },
+        "stream_output": {
+          "fps": 30,
+          "jpeg_quality": 85,
+          "format": "h264",
+          "bitrate_mbps": 0,
+          "resolution": "1920 x 1080"
+        },
+        "transforms": {
+          "flip_h": false,
+          "flip_v": false,
+          "rotation": "None",
+          "zoom": 1.0,
+          "pan_x": 0.0,
+          "pan_y": 0.0,
+          "stretch_x": 1.0,
+          "stretch_y": 1.0
+        },
+        "microphone": {
+          "enabled": false,
+          "gain_db": 0,
+          "auto_level": false,
+          "noise_reduction": false
+        },
+        "presets": {
+          "presets": []
+        },
+        "monitoring": {
+          "battery_alert": 20,
+          "temp_alert": 45,
+          "battery_notify": true,
+          "battery_stop": false,
+          "temp_notify": true,
+          "temp_stop": false
+        }
+      }
+    },
+    "00000000-0000-4000-8000-000000000001": {
+      "plugin_configs": {
+        "camera_control": {
+          "exp_manual": false,
+          "iso": 71,
+          "shutter_ns": 100000.00000000001,
+          "ois": true,
+          "focus_manual": false,
+          "focus_diopters": 0.0,
+          "wb_manual": false,
+          "wb_kelvin": 5500,
+          "wb_tint": 0,
+          "ae_comp": 0,
+          "nr_mode": 1,
+          "edge_mode": 1,
+          "bll": false,
+          "low_light": false,
+          "lens": null
+        },
+        "chroma_key": {
+          "on": false,
+          "screen": "green",
+          "picked": null,
+          "tolerance": 40,
+          "softness": 30,
+          "spill": 60,
+          "background": "colour",
+          "colour": [
+            40,
+            34,
+            30
+          ],
+          "picture": ""
+        },
+        "stream_output": {
+          "fps": 30,
+          "jpeg_quality": 85,
+          "format": "h264",
+          "bitrate_mbps": 0
+        },
+        "transforms": {
+          "flip_h": false,
+          "flip_v": false,
+          "rotation": "None",
+          "zoom": 1.0,
+          "pan_x": 0.0,
+          "pan_y": 0.0,
+          "stretch_x": 1.0,
+          "stretch_y": 1.0
+        },
+        "presets": {
+          "presets": []
+        },
+        "monitoring": {
+          "battery_alert": 20,
+          "temp_alert": 45,
+          "battery_notify": true,
+          "battery_stop": false,
+          "temp_notify": true,
+          "temp_stop": false
+        }
+      }
+    }
+  },
+  "collapsed": [],
+  "plugins": {
+    "off": [],
+    "noticed": [],
+    "added": {},
+    "on": [
+      "chroma_key",
+      "composite",
+      "qr_reader"
+    ]
+  },
+  "output_slots": {
+    "00000000-0000-4000-8000-000000000003": 1,
+    "00000000-0000-4000-8000-000000000001": 1
+  }
+}

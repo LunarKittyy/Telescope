@@ -184,6 +184,22 @@ def quiet_system(stack, tray=False):
                                               lambda: Path(tempfile.gettempdir()) / "telescope-preview" / "no-unitycapture"))
 
 
+def quiet_plugin(plugin):
+    """plugin, kept away from this computer's screen, mic, global shortcuts, webcams and network."""
+    if plugin.name == "wait_screen":
+        plugin._screen, plugin._watch_cls, plugin._extra_screen = _Held(), _Held, _Held
+    elif plugin.name == "microphone":
+        plugin._backend = _MicBackend()
+    elif plugin.name == "shortcuts":
+        plugin._backend_factory = lambda: None
+    elif plugin.name == "on_air":
+        quiet_sign(plugin)
+    elif plugin.name == "webcam":
+        plugin._scanner = lambda: []  # this computer's webcams stay out of the picture
+        plugin._controls_for = lambda device: None  # and their settings stay untouched
+    return plugin
+
+
 def main_window(stack, tray=False, phone=True):
     """The real window with every built-in plugin registered, like text_fit builds it."""
     from PyQt6.QtWidgets import QApplication
@@ -193,18 +209,7 @@ def main_window(stack, tray=False, phone=True):
     quiet_system(stack, tray)
     win = TelescopeWindow()
     for plugin in builtin_plugins():
-        if plugin.name == "wait_screen":
-            plugin._screen, plugin._watch_cls, plugin._extra_screen = _Held(), _Held, _Held
-        elif plugin.name == "microphone":
-            plugin._backend = _MicBackend()
-        elif plugin.name == "shortcuts":
-            plugin._backend_factory = lambda: None
-        elif plugin.name == "on_air":
-            quiet_sign(plugin)
-        elif plugin.name == "webcam":
-            plugin._scanner = lambda: []  # this computer's webcams stay out of the picture
-            plugin._controls_for = lambda device: None  # and their settings stay untouched
-        win.register_plugin(plugin)
+        win.register_plugin(quiet_plugin(plugin))
     win.apply_saved_config()
     if phone:
         connection = next(p for p in win._plugins if p.name == "connection")

@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "selected_device": "Pixel 8",
+  "plugin_configs": {
+    "setup": {
+      "canvas_preset": "720p 16:9 - 1280 x 720",
+      "max_zoom": 8
+    },
+    "connection": {
+      "ip": "192.168.1.21",
+      "token": "old-token"
+    },
+    "updates": {
+      "channel": "nightly",
+      "auto_check": true
+    }
+  },
+  "devices": {
+    "Pixel 8": {
+      "active_ip": "192.168.1.21",
+      "plugin_configs": {
+        "transforms": {
+          "flip_h": true
+        }
+      }
+    }
+  }
+}
