@@ -54,7 +54,7 @@ impl Catalog {
                 header = entry.forms.first().cloned().unwrap_or_default();
                 continue;
             }
-            if entry.fuzzy || entry.forms.iter().all(String::is_empty) {
+            if entry.fuzzy || entry.obsolete || entry.forms.iter().all(String::is_empty) {
                 continue;
             }
             entries.insert((entry.ctx, entry.msgid), entry.forms);
@@ -135,16 +135,23 @@ fn field_names(text: &str) -> Vec<String> {
     out
 }
 
-#[derive(Debug, Default)]
-struct Entry {
-    ctx: String,
-    msgid: String,
-    forms: Vec<String>,
-    fuzzy: bool,
+/// One entry of a .po file.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PoEntry {
+    pub ctx: String,
+    pub msgid: String,
+    /// msgid_plural, "" for a text without plural forms.
+    pub plural: String,
+    pub forms: Vec<String>,
+    pub fuzzy: bool,
+    /// A #~ entry kept for reuse, not used for translating.
+    pub obsolete: bool,
+    /// Where the text is used, from its #: lines.
+    pub locations: Vec<String>,
 }
 
 /// The entries of a .po file (i18n.read_po), strictly: a line it doesn't understand makes the file broken.
-fn read_po(text: &str) -> Result<Vec<Entry>, String> {
+pub fn read_po(text: &str) -> Result<Vec<PoEntry>, String> {
     #[derive(Clone, Copy, PartialEq)]
     enum Field {
         Ctx,
@@ -153,11 +160,12 @@ fn read_po(text: &str) -> Result<Vec<Entry>, String> {
         Str(usize),
     }
     let mut entries = Vec::new();
-    let mut entry = Entry::default();
+    let mut entry = PoEntry::default();
+    let mut pending_locations: Vec<String> = Vec::new();
     let mut started = false;
     let mut field: Option<Field> = None;
     let mut flags_fuzzy = false;
-    fn push(entries: &mut Vec<Entry>, entry: &mut Entry, started: &mut bool) {
+    fn push(entries: &mut Vec<PoEntry>, entry: &mut PoEntry, started: &mut bool) {
         if *started {
             entries.push(std::mem::take(entry));
         }
@@ -165,6 +173,7 @@ fn read_po(text: &str) -> Result<Vec<Entry>, String> {
     }
     for (number, raw) in text.lines().enumerate() {
         let mut line = raw.trim();
+        let obsolete = line.starts_with("#~");
         if let Some(rest) = line.strip_prefix("#~") {
             line = rest.trim();
             // An obsolete entry: read for its shape, then dropped
@@ -184,6 +193,9 @@ fn read_po(text: &str) -> Result<Vec<Entry>, String> {
             }
             if let Some(flags) = comment.strip_prefix(',') {
                 flags_fuzzy |= flags.split(',').any(|f| f.trim() == "fuzzy");
+            }
+            if let Some(places) = comment.strip_prefix(':') {
+                pending_locations.extend(places.split_whitespace().map(str::to_string));
             }
             continue;
         }
@@ -210,6 +222,8 @@ fn read_po(text: &str) -> Result<Vec<Entry>, String> {
         }
         if !started {
             entry.fuzzy = std::mem::take(&mut flags_fuzzy);
+            entry.locations = std::mem::take(&mut pending_locations);
+            entry.obsolete = obsolete;
             started = true;
         }
         field = Some(next);
@@ -219,17 +233,64 @@ fn read_po(text: &str) -> Result<Vec<Entry>, String> {
             }
         }
         append(&mut entry, next, &unquote(rest).ok_or_else(bad)?);
-        fn append(entry: &mut Entry, f: Field, s: &str) {
+        fn append(entry: &mut PoEntry, f: Field, s: &str) {
             match f {
                 Field::Ctx => entry.ctx += s,
                 Field::Id => entry.msgid += s,
-                Field::IdPlural => {}
+                Field::IdPlural => entry.plural += s,
                 Field::Str(i) => entry.forms[i] += s,
             }
         }
     }
     push(&mut entries, &mut entry, &mut started);
     Ok(entries)
+}
+
+/// A .po file: comment lines, the header (the empty msgid's msgstr) and the entries. Obsolete entries go last as #~.
+pub fn write_po(comments: &[String], header: &str, entries: &[PoEntry]) -> String {
+    let mut out: String = comments.iter().map(|c| format!("# {c}\n")).collect();
+    out += "msgid \"\"\nmsgstr \"\"\n";
+    for line in header.split_inclusive('\n') {
+        out += &format!("{}\n", quote(line));
+    }
+    for e in entries.iter().filter(|e| !e.obsolete).chain(entries.iter().filter(|e| e.obsolete)) {
+        let p = if e.obsolete { "#~ " } else { "" };
+        out += "\n";
+        if !e.locations.is_empty() && !e.obsolete {
+            out += &format!("#: {}\n", e.locations.join(" "));
+        }
+        if e.fuzzy {
+            out += "#, fuzzy\n";
+        }
+        if !e.ctx.is_empty() {
+            out += &format!("{p}msgctxt {}\n", quote(&e.ctx));
+        }
+        out += &format!("{p}msgid {}\n", quote(&e.msgid));
+        if e.plural.is_empty() {
+            out += &format!("{p}msgstr {}\n", quote(e.forms.first().map_or("", String::as_str)));
+        } else {
+            out += &format!("{p}msgid_plural {}\n", quote(&e.plural));
+            for (i, f) in e.forms.iter().enumerate() {
+                out += &format!("{p}msgstr[{i}] {}\n", quote(f));
+            }
+        }
+    }
+    out
+}
+
+fn quote(s: &str) -> String {
+    let mut out = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => out += "\\\"",
+            '\\' => out += "\\\\",
+            '\n' => out += "\\n",
+            '\t' => out += "\\t",
+            '\r' => out += "\\r",
+            c => out.push(c),
+        }
+    }
+    out + "\""
 }
 
 /// A "quoted" .po string with its escapes undone.

@@ -254,7 +254,14 @@ trn("{n} face", "{n} faces", faces)            -- anything with a number in it
 local TITLE = N_("My overlay")                 -- marked here, translated with tr(TITLE) where it shows
 ```
 
-Each language is a `.po` file in a `locale` folder inside your plugin, like `locale/sv.po` for Swedish. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](../../docs/translating.md) explains the `.po` format.
+Each language is a `.po` file in a `locale` folder inside your plugin, like `locale/sv.po` for Swedish. From `rust/` in a Telescope checkout:
+
+```bash
+cargo run -p telescope-plugin-host --bin plugin-texts -- extract path/to/my_plugin     # finds your texts and writes locale/my_plugin.pot
+cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/my_plugin      # starts locale/sv.po
+```
+
+Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use stay as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](../../docs/translating.md) explains the `.po` format.
 
 A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files, so people have to switch it on again after you change one.
 

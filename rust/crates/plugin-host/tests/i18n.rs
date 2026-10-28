@@ -148,3 +148,31 @@ fn everything_is_english_in_english() {
     let folder = add(&scratch_dir("i18n"), "cats", Some(&po(SV)), "sv.po");
     assert_eq!(texts(&folder, "en")[0], "Hello");
 }
+
+#[test]
+fn the_script_extracts_and_updates_a_plugins_own_catalogs() {
+    use telescope_plugin_host::texts::{self, Target};
+    let folder = add(&scratch_dir("i18n"), "cats", None, "");
+    let target = Target::new(&folder).unwrap();
+    assert!(texts::new(&target, "sv").unwrap_err().contains("run extract first"), "nothing extracted yet");
+    texts::extract(&target).unwrap();
+    let template = telescope_plugin_host::i18n::read_po(&std::fs::read_to_string(folder.join("locale/cats.pot")).unwrap()).unwrap();
+    let mut ids: Vec<&str> = template.iter().map(|e| e.msgid.as_str()).filter(|m| !m.is_empty()).collect();
+    ids.sort();
+    assert_eq!(ids, ["Camera", "Hello", "Hi {who}", "Not translated", "{n} cat"]);
+    assert!(template.iter().filter(|e| !e.msgid.is_empty()).all(|e| e.locations[0].starts_with("cats/")));
+    texts::new(&target, "sv").unwrap();
+    let po = folder.join("locale/sv.po");
+    let text = std::fs::read_to_string(&po).unwrap().replace("msgid \"Hello\"\nmsgstr \"\"", "msgid \"Hello\"\nmsgstr \"Hej\"");
+    std::fs::write(&po, text).unwrap();
+    texts::extract(&target).unwrap();
+    assert!(texts::status(&target).unwrap().contains("sv: 1/5 translated"), "keeps the translation it was given");
+    assert_eq!(texts(&folder, "sv")[0], "Hej");
+}
+
+#[test]
+fn the_script_wants_a_plugins_folder() {
+    let dir = scratch_dir("i18n");
+    add(&dir, "cats", None, "");
+    assert!(telescope_plugin_host::texts::Target::new(&dir).is_err());
+}

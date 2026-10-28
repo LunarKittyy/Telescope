@@ -12,6 +12,7 @@ pub mod package;
 pub mod switches;
 pub mod testing;
 pub mod text;
+pub mod texts;
 pub mod updater;
 pub mod updates;
 

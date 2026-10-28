@@ -3472,8 +3472,8 @@
 "test_plugin_i18n.py::test_everything_is_english_in_english" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::everything_is_english_in_english" }
 "test_plugin_i18n.py::test_one_plugin_doesnt_see_anothers_texts" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::one_plugin_doesnt_see_anothers_texts" }
 "test_plugin_i18n.py::test_the_region_falls_back_to_the_language_and_a_new_language_reloads" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::the_region_falls_back_to_the_language_and_a_new_language_reloads" }
-"test_plugin_i18n.py::test_the_script_extracts_and_updates_a_plugins_own_catalogs" = { status = "todo" }
-"test_plugin_i18n.py::test_the_script_wants_a_plugins_folder" = { status = "todo" }
+"test_plugin_i18n.py::test_the_script_extracts_and_updates_a_plugins_own_catalogs" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::the_script_extracts_and_updates_a_plugins_own_catalogs" }
+"test_plugin_i18n.py::test_the_script_wants_a_plugins_folder" = { status = "ported", rust = "crates/plugin-host/tests/i18n.rs::the_script_wants_a_plugins_folder" }
 "test_plugin_removal.py::test_a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them" = { status = "todo" }
 "test_plugin_removal.py::test_building_the_window_and_settings_flashes_up_no_other_windows" = { status = "todo" }
 "test_plugin_removal.py::test_dialogs_are_placed_before_they_show" = { status = "todo" }
