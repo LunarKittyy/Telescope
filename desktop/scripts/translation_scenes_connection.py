@@ -812,9 +812,9 @@ def pairing_dialog(stack, adb=True, windows=False, states=(), network=True, down
     with_adb(stack, adb, windows)
     nothing = lambda *_a, **_k: None  # noqa: E731
     for target, name, value in (
-            (connection, "adb_device_states", lambda: list(states)), (connection, "PairingServer", Server),
+            (connection, "adb_device_models", lambda: list(states)), (connection, "PairingServer", Server),
             (connection, "adb_reverse", nothing), (connection, "adb_broadcast_pair", nothing),
-            (connection.AddPhoneDialog, "_poll_usb", lambda self: self._on_usb_state(connection.adb_device_states()))):
+            (connection.AddPhoneDialog, "_poll_usb", lambda self: self._on_usb_state(connection.adb_device_models()))):
         stack.enter_context(mock.patch.object(target, name, value))
     stack.enter_context(mock.patch.object(AdbDownload, "running", property(lambda self: downloading, lambda self, value: None),
                                           create=True))
@@ -838,6 +838,12 @@ def adb_picked(stack):
     return shown(stack, dialog)
 
 
+def usb_picked(stack):
+    dialog = pairing_dialog(stack, states=[("R5CT123ABC", "device", "Pixel 8")])
+    dialog._pick("R5CT123ABC")
+    return shown(stack, dialog)
+
+
 for _id, _title, _build in (
         ("no-network", "this computer isn't on a network", lambda stack: pairing_dialog(stack, network=False)),
         ("windows-no-adb", "Windows without adb", lambda stack: pairing_dialog(stack, adb=False, windows=True)),
@@ -845,9 +851,10 @@ for _id, _title, _build in (
         ("copying-adb", "copying the adb the person picked", adb_picked),
         ("adb-failed", "getting adb failed", adb_download_failed),
         ("usb-unauthorized", "phone plugged in, USB debugging not allowed",
-         lambda stack: pairing_dialog(stack, states=[("R5CT123ABC", "unauthorized")])),
-        ("usb-pairing", "phone plugged in, pairing over the cable",
-         lambda stack: pairing_dialog(stack, states=[("R5CT123ABC", "device")])),
+         lambda stack: pairing_dialog(stack, states=[("R5CT123ABC", "unauthorized", "")])),
+        ("usb-pick", "phones plugged in, waiting for one to be picked",
+         lambda stack: pairing_dialog(stack, states=[("R5CT123ABC", "device", "Pixel 8"), ("9B07", "device", "SM-S911B")])),
+        ("usb-pairing", "phone plugged in and picked, pairing over the cable", usb_picked),
         ("usb-unplugged", "nothing plugged in", lambda stack: pairing_dialog(stack, states=[]))):
     scene(f"dialog-add-phone-{_id}", "dialogs", f"Add phone · {_title}")(_build)
 

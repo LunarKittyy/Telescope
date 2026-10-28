@@ -108,6 +108,23 @@ def test_adb_devices_returns_empty_on_command_failure(monkeypatch):
     assert platform_api.adb_devices() == []
 
 
+def test_adb_device_models_names_each_phone(monkeypatch):
+    output = (
+        "List of devices attached\n"
+        "10AF2Q28ND003F0        device usb:1-1 product:V2413_EEA model:V2413 device:V2413 transport_id:1\n"
+        "phone-2                unauthorized usb:1-2 transport_id:2\n"
+        "emulator-5554          device product:sdk_gphone64 model:sdk_gphone64_x86_64 transport_id:3\n"
+    )
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(platform_api, "_run", lambda _cmd: (0, output, ""))
+
+    assert platform_api.adb_device_models() == [
+        ("10AF2Q28ND003F0", "device", "V2413"),
+        ("phone-2", "unauthorized", ""),
+        ("emulator-5554", "device", "sdk gphone64 x86 64"),
+    ]
+
+
 @pytest.mark.parametrize(
     "serial,expected",
     [

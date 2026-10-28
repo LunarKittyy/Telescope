@@ -468,7 +468,7 @@ def add_phone(stack, adb):
             pass
 
     use_scratch_profile(stack)
-    for name, value in (("adb_available", lambda: adb), ("adb_device_states", lambda: []), ("PairingServer", Server)):
+    for name, value in (("adb_available", lambda: adb), ("adb_device_models", lambda: []), ("PairingServer", Server)):
         stack.enter_context(mock.patch.object(connection, name, value))
     return shown(stack, connection.AddPhoneDialog(None, "computer-id", "Studio PC", lambda *_args: None))
 

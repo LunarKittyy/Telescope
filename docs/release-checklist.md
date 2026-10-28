@@ -46,7 +46,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 `windows_pass.py` checks the rest of Windows packaging. These need a real phone:
 
-- [ ] After **Get adb**, plugging a phone in pairs it over USB.
+- [ ] After **Get adb**, plugging a phone in and clicking its **Pair** button pairs it over USB.
 - [ ] After an unzipped copy updated into the installed one, Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it.
 - [ ] On a machine an older version registered the driver on, streaming works before and after **Rename** or **Reinstall for a security fix**.
 - [ ] Windows 11: after **Install driver** (or **Update** over UnityCapture) the phone's picture shows in the Windows Camera app and in OBS, Automatic streaming starts and stops with the app, and uninstalling removes the camera from both.

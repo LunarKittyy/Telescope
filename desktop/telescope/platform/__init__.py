@@ -151,6 +151,21 @@ def adb_device_states() -> list:
     return found
 
 
+def adb_device_models() -> list:
+    """(serial, state, model) for everything adb sees; model is what `adb devices -l` names it ("Pixel 7"), or ""."""
+    rc, out, _ = _run([adb_exe(), "devices", "-l"])
+    if rc != 0:
+        return []
+    found = []
+    for line in out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        model = next((p[len("model:"):] for p in parts[2:] if p.startswith("model:")), "")
+        found.append((parts[0], parts[1], model.replace("_", " ")))
+    return found
+
+
 def adb_devices() -> list:
     """Return serials of currently connected & authorized devices/emulators."""
     return [serial for serial, state in adb_device_states() if state == "device"]
