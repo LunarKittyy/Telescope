@@ -41,6 +41,9 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 ring = "0.17"
 mdns-sd = { version = "0.21", default-features = false }
 ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
+# GPU frame steps: 30 is the version Slint 1.18's unstable-wgpu-30 takes, so the preview can share textures later
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "gles", "dx12"] }
+pollster = "1"
 qrcode = { version = "0.14", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 slint-build = "1.18"
