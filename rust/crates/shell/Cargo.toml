@@ -9,9 +9,12 @@ publish.workspace = true
 telescope-core.workspace = true
 serde_json.workspace = true
 log.workspace = true
-slint.workspace = true
+slint = { workspace = true, features = ["renderer-software", "software-renderer-systemfonts", "software-renderer-path"] }
+png = "0.18"
+unicode-normalization = "0.1"
+# Reads the settings window's accessible tree for the search (pinned: its API follows Slint's internals)
+i-slint-backend-testing = "=1.18.1"
 qrcode.workspace = true
-
-[build-dependencies]
-slint-build.workspace = true
+slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
+

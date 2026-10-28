@@ -14,26 +14,26 @@
 [text]
 # UI texts from telescope.pot (ctx|msgid when there's a context)
 # ── app
-"A copy of the old file is at {path}." = { status = "todo" }
-"Add camera" = { status = "todo" }
+"A copy of the old file is at {path}." = { status = "ported", rust = "crates/shell/src/shell.rs" }
+"Add camera" = { status = "ported", rust = "crates/shell/src/doc.rs" }
 "Canvas updated" = { status = "todo" }
-"Connecting" = { status = "todo" }
+"Connecting" = { status = "ported", rust = "crates/shell/src/window.rs" }
 "Copy diagnostics has the details." = { status = "todo" }
-"Could not save settings. Check disk space and permissions." = { status = "todo" }
+"Could not save settings. Check disk space and permissions." = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "Couldn't add more virtual cameras" = { status = "todo" }
 "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection." = { status = "todo" }
-"FPS" = { status = "todo" }
+"FPS" = { status = "ported", rust = "crates/shell/ui/frame.slint" }
 "It starts streaming by itself when it needs to." = { status = "todo" }
-"Live" = { status = "todo" }
+"Live" = { status = "ported", rust = "crates/shell/src/window.rs" }
 "Loopback reloaded: {message}" = { status = "todo" }
 "Lost the phone - reconnecting" = { status = "todo" }
 "Needs Light: Heavy sends whole pictures, with no keyframes to work with." = { status = "todo" }
-"Not streaming" = { status = "todo" }
-"Only a phone can turn its camera off and keep streaming its mic." = { status = "todo" }
+"Not streaming" = { status = "ported", rust = "crates/shell/src/window.rs" }
+"Only a phone can turn its camera off and keep streaming its mic." = { status = "ported", rust = "crates/shell/src/host.rs" }
 "Only a phone's stream has the video this needs." = { status = "todo" }
 "Only while one camera streams." = { status = "todo" }
-"Plugins ({n} off)" = { status = "todo" }
-"Plugins…" = { status = "todo" }
+"Plugins ({n} off)" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
+"Plugins…" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "Quit" = { status = "todo" }
 "Reconnecting" = { status = "todo" }
 "Reload failed: {message}" = { status = "todo" }
@@ -43,24 +43,24 @@
 "Right-click the tray icon to quit." = { status = "todo" }
 "Set up more virtual cameras" = { status = "todo" }
 "Setting up more virtual cameras…" = { status = "todo" }
-"Settings" = { status = "todo" }
+"Settings" = { status = "ported", rust = "crates/shell/src/doc.rs" }
 "Show" = { status = "todo" }
-"Start" = { status = "todo" }
-"Start mic only" = { status = "todo" }
-"Start streaming" = { status = "todo" }
+"Start" = { status = "ported", rust = "crates/shell/src/window.rs" }
+"Start mic only" = { status = "ported", rust = "crates/shell/src/window.rs" }
+"Start streaming" = { status = "ported", rust = "crates/shell/src/window.rs" }
 "Starting" = { status = "todo" }
-"Stop" = { status = "todo" }
+"Stop" = { status = "ported", rust = "crates/shell/src/window.rs" }
 "Stop all but one camera first, then apply again" = { status = "todo" }
-"Stop streaming" = { status = "todo" }
+"Stop streaming" = { status = "ported", rust = "crates/shell/src/window.rs" }
 "Stop the streams going to them first" = { status = "todo" }
-"Stream another camera at the same time, to a virtual camera of its own" = { status = "todo" }
+"Stream another camera at the same time, to a virtual camera of its own" = { status = "ported", rust = "crates/shell/src/doc.rs" }
 "Streaming continues in the background." = { status = "todo" }
 "Streaming the mic, camera off" = { status = "todo" }
-"Telescope (dev)" = { status = "todo" }
-"Telescope - Save failed" = { status = "todo" }
+"Telescope (dev)" = { status = "ported", rust = "crates/shell/src/window.rs" }
+"Telescope - Save failed" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "Telescope didn't answer in time." = { status = "todo" }
 "Telescope is still running" = { status = "todo" }
-"Telescope started with its defaults, so paired phones need pairing again." = { status = "todo" }
+"Telescope started with its defaults, so paired phones need pairing again." = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "Telescope works without it. The Plugins tab in Settings says what went wrong." = { status = "todo" }
 "Telescope: streaming the camera" = { status = "todo" }
 "Telescope: streaming the camera and mic" = { status = "todo" }
@@ -76,7 +76,7 @@
 "There are none to remove" = { status = "todo" }
 "This Telescope has no shortcuts." = { status = "todo" }
 "This asks for your password." = { status = "todo" }
-"Throughput" = { status = "todo" }
+"Throughput" = { status = "ported", rust = "crates/shell/ui/frame.slint" }
 "To stream several cameras at once, Telescope adds more virtual cameras ({names})." = { status = "todo" }
 "Try again" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Turn on the phone mic first. With the camera off, the mic is all that streams." = { status = "todo" }
@@ -84,12 +84,12 @@
 "Update Telescope on the phone to turn its camera off while streaming." = { status = "todo" }
 "Waiting" = { status = "todo" }
 "Windows asks for permission." = { status = "todo" }
-"You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on." = { status = "todo" }
-"Your settings couldn't be read" = { status = "todo" }
+"You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on." = { status = "ported", rust = "crates/shell/src/shell.rs" }
+"Your settings couldn't be read" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "{first} to {last}" = { status = "todo" }
-"{n} plugin didn't start" = { status = "todo" }
+"{n} plugin didn't start" = { status = "ported", rust = "crates/shell/src/texts.rs" }
 "{plugins} didn't start" = { status = "todo" }
-"{plugins} is turned off" = { status = "todo" }
+"{plugins} is turned off" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 # ── audio
 "Allow the microphone in Telescope on the phone" = { status = "todo" }
 "Can't reach the phone's microphone." = { status = "todo" }
@@ -160,26 +160,26 @@
 "This computer couldn't set up the video connection." = { status = "todo" }
 "Waiting for the browser. Scan the code on the Browser camera card and tap Start." = { status = "todo" }
 # ── camera_control
-"Auto" = { status = "todo" }
-"Black level lock" = { status = "todo" }
+"Auto" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
+"Black level lock" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps." = { status = "todo" }
-"Brightness" = { status = "todo" }
+"Brightness" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Camera level: {level}" = { status = "todo" }
 "Click the preview to focus there" = { status = "todo" }
 "Compensation" = { status = "todo" }
-"Distance" = { status = "todo" }
-"Exposure" = { status = "todo" }
+"Distance" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
+"Exposure" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Exposure mode" = { status = "todo" }
 "Exposure, white balance, focus, lenses and the phone camera's other settings." = { status = "todo" }
 "External" = { status = "todo" }
-"Fast" = { status = "todo" }
-"Focus" = { status = "todo" }
+"Fast" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
+"Focus" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Focus distance" = { status = "todo" }
 "Focus mode" = { status = "todo" }
 "Full" = { status = "todo" }
 "Full manual control" = { status = "todo" }
 "High Quality" = { status = "todo" }
-"Image" = { status = "todo" }
+"Image" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Legacy" = { status = "todo" }
 "Lens" = { status = "todo" }
 "Level 3" = { status = "todo" }
@@ -187,19 +187,19 @@
 "Limited manual control" = { status = "todo" }
 "Loading lenses..." = { status = "todo" }
 "Low light" = { status = "todo" }
-"Manual" = { status = "todo" }
+"Manual" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Manual WB" = { status = "todo" }
 "Manual exposure" = { status = "todo" }
 "Manual focus" = { status = "todo" }
-"Noise reduction" = { status = "todo" }
+"Noise reduction" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Not supported: {features}" = { status = "todo" }
 "Optical image stabilization" = { status = "todo" }
 "Point focus" = { status = "todo" }
-"Sharpening" = { status = "todo" }
-"Shutter" = { status = "todo" }
-"Stabilization" = { status = "todo" }
+"Sharpening" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
+"Shutter" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
+"Stabilization" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Supports: {features}" = { status = "todo" }
-"Tap a point" = { status = "todo" }
+"Tap a point" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Temperature" = { status = "todo" }
 "This lens can't focus on a point" = { status = "todo" }
 "This lens has no flash to use as a torch" = { status = "todo" }
@@ -209,12 +209,12 @@
 "This lens has no optical stabilization" = { status = "todo" }
 "Tint" = { status = "todo" }
 "Tint G–M" = { status = "todo" }
-"Torch" = { status = "todo" }
+"Torch" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Unavailable" = { status = "todo" }
-"White balance" = { status = "todo" }
+"White balance" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "White balance mode" = { status = "todo" }
 "Without it there's no Camera card and the phone uses its own automatic settings." = { status = "todo" }
-"camera section|Light" = { status = "todo" }
+"camera section|Light" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "focus|Manual" = { status = "todo" }
 "search|dark night brightness" = { status = "todo" }
 "search|edge" = { status = "todo" }
@@ -652,9 +652,9 @@
 "VHS" = { status = "todo" }
 "Without it there's no Fun pack card and the picture has no effects." = { status = "todo" }
 # ── i18n
-", " = { status = "todo" }
+", " = { status = "ported", rust = "crates/shell/src/texts.rs" }
 "percentage|{n}%" = { status = "todo" }
-"{items} and {last}" = { status = "todo" }
+"{items} and {last}" = { status = "ported", rust = "crates/shell/src/texts.rs" }
 # ── microphone
 "<a href=\"{url}\">Donate or read more</a>" = { status = "todo" }
 "Apps hear silence, but the microphone stays connected." = { status = "todo" }
@@ -844,30 +844,30 @@
 "search|tablet phone screen page link qr code" = { status = "todo" }
 # ── onboarding
 "Add your phone" = { status = "todo" }
-"Check again" = { status = "todo" }
-"Click Start streaming in the top right corner of this window." = { status = "todo" }
-"Close the setup guide" = { status = "todo" }
+"Check again" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Click Start streaming in the top right corner of this window." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Close the setup guide" = { status = "ported", rust = "crates/shell/ui/cards/onboarding.slint" }
 "Didn't install: {detail}" = { status = "todo" }
-"Done." = { status = "todo" }
-"Get set up" = { status = "todo" }
-"Install driver" = { status = "todo" }
+"Done." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Get set up" = { status = "ported", rust = "crates/shell/ui/cards/onboarding.slint" }
+"Install driver" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "Install over USB" = { status = "todo" }
-"Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms." = { status = "todo" }
-"Installed." = { status = "todo" }
-"Installed. If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera." = { status = "todo" }
+"Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Installed." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Installed. If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "Installed. Open Telescope on the phone for the next step." = { status = "todo" }
-"Installed. Starting a stream may ask for your password to switch it on." = { status = "todo" }
+"Installed. Starting a stream may ask for your password to switch it on." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "Installing over USB…" = { status = "todo" }
 "Installing… Windows asks for admin access." = { status = "todo" }
 "No phone found over USB. Plug it in and allow USB debugging when the phone asks." = { status = "todo" }
-"Not needed: you picked a camera that isn't a phone." = { status = "todo" }
-"Other apps see Telescope as a webcam through this driver. Installing it needs admin access." = { status = "todo" }
-"Paired." = { status = "todo" }
+"Not needed: you picked a camera that isn't a phone." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Other apps see Telescope as a webcam through this driver. Installing it needs admin access." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"Paired." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "Phone app" = { status = "todo" }
-"Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code." = { status = "todo" }
-"The step by step checklist shown until the first stream works." = { status = "todo" }
+"Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"The step by step checklist shown until the first stream works." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "Virtual camera" = { status = "todo" }
-"Without it the setup checklist never shows, not even when nothing is set up yet." = { status = "todo" }
+"Without it the setup checklist never shows, not even when nothing is set up yet." = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 # ── overlays
 "Click a point on the picture. Esc cancels." = { status = "todo" }
 "Drag across the picture to mark an area. Esc cancels." = { status = "todo" }
@@ -1043,7 +1043,7 @@
 "Virtual camera & phone" = { status = "todo" }
 # ── plugin_loader
 "A plugin that comes with Telescope already has that name." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
-"Couldn't save the settings." = { status = "ported", rust = "crates/plugin-host/src/switches.rs" }
+"Couldn't save the settings." = { status = "ported", rust = "crates/shell/src/settings.rs" }
 "It contains a link to somewhere else, which plugins can't have." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
 "It contains compiled code (like .pyc files). Plugins have to be source code." = { status = "ported", rust = "crates/plugin-host/src/package.rs" }
 "It has no __init__.py." = { status = "dropped", reason = "Lua plugins start from main.lua; a missing one is \"It has no {file}.\"" }
@@ -1688,7 +1688,7 @@
 "A plugin can do anything on your computer. Only switch it on if you trust its source." = { status = "todo" }
 "AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "todo" }
 "Added" = { status = "todo" }
-"Added plugins" = { status = "todo" }
+"Added plugins" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Agree and download" = { status = "todo" }
 "Background colour" = { status = "todo" }
 "Background picture" = { status = "todo" }
@@ -1707,7 +1707,7 @@
 "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "todo" }
 "Click a stream in the picture to change it." = { status = "todo" }
 "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "todo" }
-"Collapsed. Press Space or Enter to expand." = { status = "todo" }
+"Collapsed. Press Space or Enter to expand." = { status = "ported", rust = "crates/ui-kit/ui/widgets/folds.slint" }
 "Copy the command, to paste in a terminal" = { status = "todo" }
 "Corners" = { status = "todo" }
 "Couldn't install it" = { status = "todo" }
@@ -1719,7 +1719,7 @@
 "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release." = { status = "todo" }
 "Delete the download the plugins here use. Switching one on gets it again." = { status = "todo" }
 "Delete this layout" = { status = "todo" }
-"Dismiss" = { status = "todo" }
+"Dismiss" = { status = "ported", rust = "crates/shell/ui/frame.slint" }
 "Doesn't load in Telescope's Python {version}" = { status = "todo" }
 "Double-click to reset" = { status = "todo" }
 "Download" = { status = "todo" }
@@ -1730,15 +1730,15 @@
 "Drag to move the view. Double-click to centre it." = { status = "todo" }
 "Drag towards a colour to add it. Double-click to reset." = { status = "todo" }
 "Edit picture" = { status = "todo" }
-"Every plugin is switched on." = { status = "todo" }
-"Expanded. Press Space or Enter to collapse." = { status = "todo" }
+"Every plugin is switched on." = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
+"Expanded. Press Space or Enter to collapse." = { status = "ported", rust = "crates/ui-kit/ui/widgets/folds.slint" }
 "Fit its shape" = { status = "todo" }
 "From the next start" = { status = "todo" }
 "Getting ready…" = { status = "todo" }
 "Grid" = { status = "todo" }
-"How plugins work" = { status = "todo" }
+"How plugins work" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "In use" = { status = "todo" }
-"Install" = { status = "todo" }
+"Install" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Install a plugin" = { status = "todo" }
 "Install plugin updates without asking?" = { status = "todo" }
 "Install updates without asking" = { status = "todo" }
@@ -1749,7 +1749,7 @@
 "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it." = { status = "todo" }
 "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version." = { status = "todo" }
 "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again." = { status = "todo" }
-"Its settings stay saved for when you switch it back on." = { status = "todo" }
+"Its settings stay saved for when you switch it back on." = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Keep this picture under a name" = { status = "todo" }
 "Layout {n}" = { status = "todo" }
 "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files." = { status = "todo" }
@@ -1758,22 +1758,22 @@
 "MediaPipe didn't load on this computer. Copy diagnostics has the details." = { status = "todo" }
 "Move" = { status = "todo" }
 "Needs a one-time download (about {mb} MB)." = { status = "todo" }
-"Needs the vision download" = { status = "todo" }
+"Needs the vision download" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Needs {needs}. To install them:" = { status = "todo" }
 "Needs {needs}. Your distro has them." = { status = "todo" }
 "No cameras available" = { status = "todo" }
 "No picture" = { status = "todo" }
-"No plugin is switched on." = { status = "todo" }
-"No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "todo" }
-"No plugins match “{text}”." = { status = "todo" }
+"No plugin is switched on." = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
+"No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"No plugins match “{text}”." = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "None" = { status = "todo" }
 "None installed" = { status = "todo" }
 "Not in use: {problem}" = { status = "todo" }
-"Nothing matches every word. These match some of them." = { status = "todo" }
-"Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)." = { status = "todo" }
-"Open plugins folder" = { status = "todo" }
+"Nothing matches every word. These match some of them." = { status = "ported", rust = "crates/shell/src/settings.rs" }
+"Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)." = { status = "ported", rust = "crates/shell/src/settings.rs" }
+"Open plugins folder" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Order" = { status = "todo" }
-"Pick a plugin's .zip file. You can also drop one onto this window." = { status = "todo" }
+"Pick a plugin's .zip file. You can also drop one onto this window." = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Pick adb.exe or the platform-tools zip" = { status = "todo" }
 "Picked stream" = { status = "todo" }
 "Picture preview" = { status = "todo" }
@@ -1797,29 +1797,29 @@
 "Replace layout" = { status = "todo" }
 "Replace {plugin}?" = { status = "todo" }
 "Replaced" = { status = "todo" }
-"Required" = { status = "todo" }
+"Required" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Restart" = { status = "todo" }
 "Restart Telescope now?" = { status = "todo" }
 "Restart Telescope to switch." = { status = "todo" }
-"Restart to apply {n} change" = { status = "todo" }
+"Restart to apply {n} change" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Save as…" = { status = "todo" }
 "Save layout" = { status = "todo" }
 "Scale" = { status = "todo" }
 "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown" = { status = "todo" }
-"Search plugins" = { status = "todo" }
-"Search results" = { status = "todo" }
-"Search settings" = { status = "todo" }
+"Search plugins" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"Search results" = { status = "ported", rust = "crates/shell/src/settings.rs" }
+"Search settings" = { status = "ported", rust = "crates/shell/src/doc.rs" }
 "Send back" = { status = "todo" }
 "Set up VA-API" = { status = "todo" }
-"Settings tabs" = { status = "todo" }
-"Show all plugins" = { status = "todo" }
-"Show this one's settings" = { status = "todo" }
+"Settings tabs" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"Show all plugins" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"Show this one's settings" = { status = "ported", rust = "crates/shell/ui/frame.slint" }
 "Show: {which}" = { status = "todo" }
 "Side by side" = { status = "todo" }
-"Start Telescope again to apply your changes" = { status = "todo" }
+"Start Telescope again to apply your changes" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Start again with the running streams laid out like this" = { status = "todo" }
 "Start from" = { status = "todo" }
-"Start streaming to load lenses" = { status = "todo" }
+"Start streaming to load lenses" = { status = "ported", rust = "crates/shell/ui/cards/camera.slint" }
 "Start two or more streams to put them together. The + next to Stop adds one." = { status = "todo" }
 "Starting the build..." = { status = "todo" }
 "Stop streaming {name}" = { status = "todo" }
@@ -1827,15 +1827,15 @@
 "Streaming stops while Telescope restarts. It takes a few seconds." = { status = "todo" }
 "Streams" = { status = "todo" }
 "Stretch" = { status = "todo" }
-"Switch every built-in plugin back on" = { status = "todo" }
-"Switch off" = { status = "todo" }
-"Switch off {plugin}?" = { status = "todo" }
+"Switch every built-in plugin back on" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"Switch off" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
+"Switch off {plugin}?" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Switch on {plugin}?" = { status = "todo" }
-"Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "todo" }
+"Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "todo" }
-"Tab" = { status = "todo" }
+"Tab" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "todo" }
-"Telescope can't work without this one, so it can't be switched off" = { status = "todo" }
+"Telescope can't work without this one, so it can't be switched off" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete it: {error}" = { status = "todo" }
 "Telescope couldn't delete its folder: {error}" = { status = "todo" }
 "Telescope couldn't make its plugins folder: {error}" = { status = "todo" }
@@ -1851,13 +1851,13 @@
 "There's already a layout called \"{name}\". Replace it?" = { status = "todo" }
 "There's no download of what it needs for this computer yet, so it can't be switched on." = { status = "todo" }
 "There's no vision download for this computer yet." = { status = "todo" }
-"Turn all back on" = { status = "todo" }
+"Turn all back on" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "USB needs adb, Google's tool for talking to Android phones." = { status = "todo" }
 "Updated to {version} automatically. The new version runs after Telescope restarts." = { status = "todo" }
 "Use it" = { status = "todo" }
 "Use the standard one" = { status = "todo" }
 "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one." = { status = "todo" }
-"Waits for a restart" = { status = "todo" }
+"Waits for a restart" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on." = { status = "todo" }
 "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)." = { status = "todo" }
 "Your distro's PyAV" = { status = "todo" }
@@ -1867,15 +1867,15 @@
 "lens|External" = { status = "todo" }
 "lens|Front" = { status = "todo" }
 "lens|Tele" = { status = "todo" }
-"plugins|All" = { status = "todo" }
-"plugins|Off" = { status = "todo" }
-"plugins|On" = { status = "todo" }
+"plugins|All" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"plugins|Off" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
+"plugins|On" = { status = "ported", rust = "crates/shell/ui/settings.slint" }
 "search|plugins extensions addons add ons modules features turn off on disable enable install zip" = { status = "todo" }
 "to {output}" = { status = "todo" }
 "{mode}, no snapping" = { status = "todo" }
 "{name} (not streaming)" = { status = "todo" }
 "{name} isn't streaming" = { status = "todo" }
-"{on} of {total} on" = { status = "todo" }
+"{on} of {total} on" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope." = { status = "todo" }
 "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share." = { status = "todo" }
 "{plugin} was installed, but it can't run yet. {problem}" = { status = "todo" }
@@ -1926,7 +1926,7 @@
 "test_app.py::test_a_browser_camera_on_auto_canvas_streams_at_its_own_default_size" = { status = "todo" }
 "test_app.py::test_a_browser_camera_streams_with_its_camera_on" = { status = "todo" }
 "test_app.py::test_a_browser_gone_a_while_gets_the_wait_screen_and_a_banner" = { status = "todo" }
-"test_app.py::test_a_browser_keeps_only_the_settings_that_changed" = { status = "todo" }
+"test_app.py::test_a_browser_keeps_only_the_settings_that_changed" = { status = "ported", rust = "crates/shell/src/profiles.rs" }
 "test_app.py::test_a_browser_starts_by_itself_and_goes_when_it_leaves" = { status = "todo" }
 "test_app.py::test_a_camera_another_app_took_is_named_until_the_stream_is_back" = { status = "todo" }
 "test_app.py::test_a_camera_making_fewer_frames_is_not_called_a_slow_link" = { status = "todo" }
@@ -1959,11 +1959,11 @@
 "test_app.py::test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok" = { status = "todo" }
 "test_app.py::test_a_loopback_reload_that_raises_still_reports_back" = { status = "todo" }
 "test_app.py::test_a_phone_back_before_the_wait_screen_keeps_its_camera" = { status = "todo" }
-"test_app.py::test_a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera" = { status = "todo" }
+"test_app.py::test_a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera" = { status = "ported", rust = "crates/shell/src/profiles.rs" }
 "test_app.py::test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back" = { status = "todo" }
 "test_app.py::test_a_phone_left_with_its_camera_on_or_off_is_matched" = { status = "todo" }
 "test_app.py::test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone" = { status = "todo" }
-"test_app.py::test_a_plugin_hook_that_raises_does_not_stop_the_others" = { status = "todo" }
+"test_app.py::test_a_plugin_hook_that_raises_does_not_stop_the_others" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_a_plugin_still_using_the_settings_menu_hook_is_warned_about" = { status = "todo" }
 "test_app.py::test_a_plugin_that_cant_list_its_settings_doesnt_stop_the_window" = { status = "todo" }
 "test_app.py::test_a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save" = { status = "todo" }
@@ -1980,7 +1980,7 @@
 "test_app.py::test_a_restart_keeps_the_camera_off" = { status = "todo" }
 "test_app.py::test_a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one" = { status = "todo" }
 "test_app.py::test_a_running_telescope_answers_a_raise_with_ok" = { status = "todo" }
-"test_app.py::test_a_saved_config_that_wont_load_falls_back_to_defaults" = { status = "todo" }
+"test_app.py::test_a_saved_config_that_wont_load_falls_back_to_defaults" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own" = { status = "todo" }
 "test_app.py::test_a_setting_changed_just_before_quit_is_saved" = { status = "todo" }
 "test_app.py::test_a_settings_file_that_cant_be_read_is_not_saved_over" = { status = "todo" }
@@ -2019,8 +2019,8 @@
 "test_app.py::test_another_users_telescope_on_a_shared_port_answers_other" = { status = "todo" }
 "test_app.py::test_apply_config_empty_is_noop" = { status = "todo" }
 "test_app.py::test_apply_config_routes_global_and_selected_device_config" = { status = "todo" }
-"test_app.py::test_apply_device_profile_none_uses_defaults_only" = { status = "todo" }
-"test_app.py::test_apply_device_profile_resets_defaults_before_saved_values" = { status = "todo" }
+"test_app.py::test_apply_device_profile_none_uses_defaults_only" = { status = "ported", rust = "crates/shell/src/shell.rs" }
+"test_app.py::test_apply_device_profile_resets_defaults_before_saved_values" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_apply_state_accepts_empty_state" = { status = "todo" }
 "test_app.py::test_apply_state_discards_result_for_inactive_session" = { status = "todo" }
 "test_app.py::test_apply_state_emits_bus_and_calls_plugins" = { status = "todo" }
@@ -2052,13 +2052,13 @@
 "test_app.py::test_h264_too_much_for_the_phone_stops_the_stream_with_a_note_that_stays" = { status = "todo" }
 "test_app.py::test_heat_that_comes_mid_stream_shows_and_goes_with_the_regular_check" = { status = "todo" }
 "test_app.py::test_is_streaming_and_stop_stream_track_the_session" = { status = "todo" }
-"test_app.py::test_layout_mode_follows_window_width" = { status = "todo" }
+"test_app.py::test_layout_mode_follows_window_width" = { status = "ported", rust = "crates/shell/src/layout.rs" }
 "test_app.py::test_listen_for_raise_ignores_wrong_message_and_timeouts" = { status = "todo" }
 "test_app.py::test_listen_for_raise_invokes_callback_and_closes_connection" = { status = "todo" }
 "test_app.py::test_moving_the_mic_to_another_stream_is_a_focus_change_for_it" = { status = "todo" }
-"test_app.py::test_narrow_layout_stacks_every_panel_into_one_visible_column" = { status = "todo" }
+"test_app.py::test_narrow_layout_stacks_every_panel_into_one_visible_column" = { status = "ported", rust = "crates/shell/src/layout.rs" }
 "test_app.py::test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings" = { status = "todo" }
-"test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "todo" }
+"test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" = { status = "todo" }
 "test_app.py::test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" = { status = "todo" }
 "test_app.py::test_people_are_tracked_steadily_and_carried_through_a_flip" = { status = "todo" }
@@ -2084,7 +2084,7 @@
 "test_app.py::test_register_headless_global_plugin_does_not_add_panel" = { status = "todo" }
 "test_app.py::test_register_plugin_initializes_panel_and_captures_device_defaults" = { status = "todo" }
 "test_app.py::test_register_plugin_routes_panel_to_its_declared_region" = { status = "todo" }
-"test_app.py::test_register_plugin_routes_unknown_region_to_the_left_rail" = { status = "todo" }
+"test_app.py::test_register_plugin_routes_unknown_region_to_the_left_rail" = { status = "ported", rust = "crates/shell/src/layout.rs" }
 "test_app.py::test_resolution_pending_cleared_on_idle_status" = { status = "todo" }
 "test_app.py::test_resolution_pending_replaced_by_a_second_request" = { status = "todo" }
 "test_app.py::test_resolution_pending_shows_warn_color_until_confirmed" = { status = "todo" }
@@ -2093,11 +2093,11 @@
 "test_app.py::test_restarting_a_background_stream_starts_it_with_its_own_settings" = { status = "todo" }
 "test_app.py::test_restarting_the_only_stream_left_keeps_its_virtual_camera" = { status = "todo" }
 "test_app.py::test_save_config_failure_notifies_once_until_a_save_succeeds" = { status = "todo" }
-"test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "todo" }
-"test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "todo" }
+"test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "crates/shell/src/shell.rs" }
+"test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_send_notification_falls_back_to_tray" = { status = "todo" }
 "test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "todo" }
-"test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "todo" }
+"test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "ported", rust = "crates/shell/src/profiles.rs" }
 "test_app.py::test_settings_window_collects_sections_from_every_plugin" = { status = "todo" }
 "test_app.py::test_start_asks_the_phone_to_open_at_the_size_picked" = { status = "todo" }
 "test_app.py::test_start_builds_worker_pipeline_and_notifies_plugins" = { status = "todo" }
@@ -2127,7 +2127,7 @@
 "test_app.py::test_stopping_the_shown_stream_stops_it_then_moves_the_panels_on" = { status = "todo" }
 "test_app.py::test_stream_reconnected_is_noop_without_an_active_session" = { status = "todo" }
 "test_app.py::test_stream_reconnected_resends_settings_to_every_plugin" = { status = "todo" }
-"test_app.py::test_switch_device_saves_old_profile_applies_new_and_restarts" = { status = "todo" }
+"test_app.py::test_switch_device_saves_old_profile_applies_new_and_restarts" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_app.py::test_switching_the_mic_off_brings_the_camera_back" = { status = "todo" }
 "test_app.py::test_the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on" = { status = "todo" }
 "test_app.py::test_the_camera_rate_answer_expires" = { status = "todo" }
@@ -2231,13 +2231,13 @@
 "test_background.py::test_without_a_mask_yet_the_frame_goes_out_as_it_is" = { status = "todo" }
 "test_background.py::test_without_the_download_the_card_offers_it" = { status = "todo" }
 # ── banner
-"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "todo" }
+"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "crates/shell/src/banners.rs" }
 "test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "todo" }
-"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "todo" }
-"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "todo" }
-"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "todo" }
-"test_banner.py::test_dismiss" = { status = "todo" }
-"test_banner.py::test_keys_replace_and_clear" = { status = "todo" }
+"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "crates/shell/src/banners.rs" }
+"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "crates/shell/src/banners.rs" }
+"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "crates/shell/src/banners.rs" }
+"test_banner.py::test_dismiss" = { status = "ported", rust = "crates/shell/src/banners.rs" }
+"test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "crates/shell/src/banners.rs" }
 # ── bench_frames
 "test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "todo" }
 # ── browser_camera
@@ -2421,21 +2421,21 @@
 "test_collapse.py::test_a_switched_off_plugins_folds_survive_saving_while_it_is_gone" = { status = "todo" }
 "test_collapse.py::test_a_title_that_goes_dim_with_its_card_stops_looking_hovered" = { status = "todo" }
 "test_collapse.py::test_card_and_section_titles_are_named_keyboard_toggles" = { status = "todo" }
-"test_collapse.py::test_changes_are_reported_once_each" = { status = "todo" }
+"test_collapse.py::test_changes_are_reported_once_each" = { status = "ported", rust = "crates/shell/src/collapse.rs" }
 "test_collapse.py::test_clicking_a_card_title_hides_everything_under_it_and_again_shows_it" = { status = "todo" }
 "test_collapse.py::test_clicking_the_label_releases_the_native_toggle" = { status = "todo" }
-"test_collapse.py::test_everything_starts_open" = { status = "todo" }
+"test_collapse.py::test_everything_starts_open" = { status = "ported", rust = "crates/shell/src/collapse.rs" }
 "test_collapse.py::test_folding_a_card_while_a_shortcut_is_held_still_restores_it" = { status = "todo" }
 "test_collapse.py::test_folding_moves_focus_out_of_the_rows_it_hides" = { status = "todo" }
-"test_collapse.py::test_folds_are_saved_and_come_back_with_the_next_window" = { status = "todo" }
+"test_collapse.py::test_folds_are_saved_and_come_back_with_the_next_window" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_collapse.py::test_hovering_a_title_marks_it_and_leaving_puts_it_back" = { status = "todo" }
-"test_collapse.py::test_keys_say_who_owns_the_card_and_section" = { status = "todo" }
+"test_collapse.py::test_keys_say_who_owns_the_card_and_section" = { status = "ported", rust = "crates/shell/src/collapse.rs" }
 "test_collapse.py::test_loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" = { status = "todo" }
 "test_collapse.py::test_only_the_left_button_folds" = { status = "todo" }
 "test_collapse.py::test_resizing_into_another_layout_keeps_folds" = { status = "todo" }
 "test_collapse.py::test_same_title_twice_in_one_card_gets_its_own_key" = { status = "todo" }
 "test_collapse.py::test_shortcuts_work_inside_folded_cards_and_sections" = { status = "todo" }
-"test_collapse.py::test_state_that_isnt_a_list_of_strings_is_ignored" = { status = "todo" }
+"test_collapse.py::test_state_that_isnt_a_list_of_strings_is_ignored" = { status = "ported", rust = "crates/shell/src/collapse.rs" }
 "test_collapse.py::test_the_rule_and_icon_of_a_section_heading_fold_it_too" = { status = "todo" }
 "test_collapse.py::test_two_plugins_with_the_same_titles_fold_separately" = { status = "todo" }
 "test_collapse.py::test_unfolding_a_card_keeps_rows_a_plugin_hid_itself" = { status = "todo" }
@@ -3185,20 +3185,20 @@
 "test_on_air.py::test_with_wait_screen_there_is_no_second_watch" = { status = "todo" }
 "test_on_air.py::test_without_wait_screen_it_watches_the_camera_itself" = { status = "todo" }
 # ── onboarding
-"test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera" = { status = "todo" }
+"test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "test_onboarding.py::test_a_saved_first_stream_keeps_the_checklist_away" = { status = "todo" }
-"test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps" = { status = "todo" }
-"test_onboarding.py::test_a_stream_starting_closes_the_guide" = { status = "todo" }
-"test_onboarding.py::test_add_phone_goes_through_the_bus" = { status = "todo" }
-"test_onboarding.py::test_checklist_steps_aside_after_the_first_stream" = { status = "todo" }
-"test_onboarding.py::test_missing_v4l2loopback_says_which_package" = { status = "todo" }
-"test_onboarding.py::test_starts_as_a_checklist_with_nothing_done" = { status = "todo" }
+"test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_a_stream_starting_closes_the_guide" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_add_phone_goes_through_the_bus" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_checklist_steps_aside_after_the_first_stream" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_missing_v4l2loopback_says_which_package" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_starts_as_a_checklist_with_nothing_done" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "test_onboarding.py::test_streaming_hides_the_checklist" = { status = "todo" }
-"test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed" = { status = "todo" }
+"test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 "test_onboarding.py::test_the_video_stage_makes_room_for_the_checklist" = { status = "todo" }
 "test_onboarding.py::test_usb_install_is_offered_only_with_a_bundled_apk_and_adb" = { status = "todo" }
 "test_onboarding.py::test_usb_install_reports_a_missing_phone" = { status = "todo" }
-"test_onboarding.py::test_windows_offers_to_install_the_driver" = { status = "todo" }
+"test_onboarding.py::test_windows_offers_to_install_the_driver" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 # ── overlays
 "test_overlays.py::test_a_click_is_not_an_area" = { status = "todo" }
 "test_overlays.py::test_a_failing_on_done_does_not_break_the_next_pick" = { status = "todo" }
@@ -3635,7 +3635,7 @@
 "test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "todo" }
 "test_plugins.py::test_without_a_known_size_the_start_leaves_it_to_the_phone" = { status = "todo" }
 # ── plugins_panel
-"test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "todo" }
+"test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "test_plugins_panel.py::test_a_built_in_plugin_that_breaks_still_stops_the_start" = { status = "todo" }
 "test_plugins_panel.py::test_a_failed_download_leaves_it_off_and_says_why" = { status = "todo" }
 "test_plugins_panel.py::test_a_footer_with_nowhere_to_go_never_becomes_a_window" = { status = "todo" }
@@ -3647,7 +3647,7 @@
 "test_plugins_panel.py::test_an_added_plugin_switched_on_loads" = { status = "todo" }
 "test_plugins_panel.py::test_an_added_plugin_that_breaks_while_starting_is_taken_back_out" = { status = "todo" }
 "test_plugins_panel.py::test_an_added_plugin_that_exits_while_starting_is_left_out" = { status = "todo" }
-"test_plugins_panel.py::test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" = { status = "todo" }
+"test_plugins_panel.py::test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" = { status = "ported", rust = "crates/shell/src/switches.rs" }
 "test_plugins_panel.py::test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" = { status = "todo" }
 "test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon" = { status = "todo" }
 "test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon" = { status = "todo" }
@@ -3665,7 +3665,7 @@
 "test_plugins_panel.py::test_the_footer_counts_a_removed_plugin_that_still_runs" = { status = "todo" }
 "test_plugins_panel.py::test_the_footer_counts_the_changes_that_wait_for_a_restart" = { status = "todo" }
 "test_plugins_panel.py::test_the_plugins_tab_opens_over_the_main_window_without_blocking_it" = { status = "todo" }
-"test_plugins_panel.py::test_the_plugins_tab_says_how_many_are_off" = { status = "todo" }
+"test_plugins_panel.py::test_the_plugins_tab_says_how_many_are_off" = { status = "ported", rust = "crates/shell/src/plugins_tab.rs" }
 "test_plugins_panel.py::test_the_repo_shows_as_a_link_next_to_the_author" = { status = "todo" }
 "test_plugins_panel.py::test_the_search_finds_by_name_and_description_in_the_language_shown" = { status = "todo" }
 "test_plugins_panel.py::test_tiles_are_grouped_by_category_and_sorted_by_name" = { status = "todo" }
@@ -3855,31 +3855,31 @@
 # ── settings
 "test_settings_search.py::test_a_closer_match_scores_higher" = { status = "todo" }
 "test_settings_search.py::test_a_plugins_own_section_is_searchable_without_doing_anything" = { status = "todo" }
-"test_settings_search.py::test_a_word_has_to_start_a_word_unless_it_is_long" = { status = "todo" }
-"test_settings_search.py::test_accents_and_case_dont_matter" = { status = "todo" }
+"test_settings_search.py::test_a_word_has_to_start_a_word_unless_it_is_long" = { status = "ported", rust = "crates/shell/src/search.rs" }
+"test_settings_search.py::test_accents_and_case_dont_matter" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "test_settings_search.py::test_arrow_keys_and_enter_work_from_the_search_box" = { status = "todo" }
 "test_settings_search.py::test_clicking_a_tab_while_searching_leaves_the_search" = { status = "todo" }
 "test_settings_search.py::test_every_setting_can_be_found_by_its_own_name" = { status = "todo" }
-"test_settings_search.py::test_every_word_has_to_match_but_filler_doesnt_count" = { status = "todo" }
+"test_settings_search.py::test_every_word_has_to_match_but_filler_doesnt_count" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "test_settings_search.py::test_finds_what_people_would_look_for_on_linux" = { status = "todo" }
 "test_settings_search.py::test_finds_what_people_would_look_for_on_windows" = { status = "todo" }
 "test_settings_search.py::test_hidden_rows_arent_offered" = { status = "todo" }
-"test_settings_search.py::test_nonsense_finds_nothing" = { status = "todo" }
+"test_settings_search.py::test_nonsense_finds_nothing" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "test_settings_search.py::test_nothing_found_says_so_and_offers_a_way_on" = { status = "todo" }
-"test_settings_search.py::test_one_letter_slips_and_swapped_letters_still_find_it" = { status = "todo" }
+"test_settings_search.py::test_one_letter_slips_and_swapped_letters_still_find_it" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "test_settings_search.py::test_opening_a_result_goes_to_its_tab_and_lights_the_setting" = { status = "todo" }
-"test_settings_search.py::test_results_say_where_the_setting_is" = { status = "todo" }
+"test_settings_search.py::test_results_say_where_the_setting_is" = { status = "ported", rust = "crates/shell/src/search.rs" }
 "test_settings_search.py::test_typing_shows_results_and_clearing_goes_back_to_the_tab" = { status = "todo" }
 "test_settings_search.py::test_when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" = { status = "todo" }
 "test_settings_window.py::test_a_section_hears_when_its_tab_comes_on_screen" = { status = "todo" }
 "test_settings_window.py::test_a_section_that_cant_refresh_doesnt_break_the_window" = { status = "todo" }
-"test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "todo" }
-"test_settings_window.py::test_a_tab_title_replaces_the_usual_name" = { status = "todo" }
+"test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "ported", rust = "crates/shell/src/settings.rs" }
+"test_settings_window.py::test_a_tab_title_replaces_the_usual_name" = { status = "ported", rust = "crates/shell/src/settings.rs" }
 "test_settings_window.py::test_enter_on_a_focused_button_still_runs_it" = { status = "todo" }
 "test_settings_window.py::test_it_stays_inside_the_screen" = { status = "todo" }
-"test_settings_window.py::test_only_tabs_with_something_in_them_show_in_the_fixed_order" = { status = "todo" }
+"test_settings_window.py::test_only_tabs_with_something_in_them_show_in_the_fixed_order" = { status = "ported", rust = "crates/shell/src/settings.rs" }
 "test_settings_window.py::test_opening_a_search_result_does_not_click_the_setting" = { status = "todo" }
-"test_settings_window.py::test_sections_sit_in_order_then_registration_order" = { status = "todo" }
+"test_settings_window.py::test_sections_sit_in_order_then_registration_order" = { status = "ported", rust = "crates/shell/src/settings.rs" }
 "test_settings_window.py::test_show_tab_switches_and_refuses_one_that_isnt_there" = { status = "todo" }
 # ── setup
 "test_setup.py::test_a_driver_install_that_crashes_still_frees_the_button" = { status = "todo" }
@@ -5584,7 +5584,7 @@
 "global.on_air.webhook_on" = { status = "todo" }
 "global.on_air.webhook_url" = { status = "todo" }
 # ── onboarding
-"global.onboarding.streamed" = { status = "todo" }
+"global.onboarding.streamed" = { status = "ported", rust = "crates/shell/src/plugins/onboarding.rs" }
 # ── photos
 "global.photos.best" = { status = "todo" }
 "global.photos.bracket" = { status = "todo" }
@@ -5658,12 +5658,12 @@
 [config]
 # top-level fields of telescope_config.json
 # ── config
-"collapsed" = { status = "todo" }
-"devices" = { status = "todo" }
-"output_slots" = { status = "todo" }
+"collapsed" = { status = "ported", rust = "crates/shell/src/shell.rs" }
+"devices" = { status = "ported", rust = "crates/shell/src/profiles.rs" }
+"output_slots" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "plugin_configs" = { status = "todo" }
-"plugins" = { status = "ported", rust = "crates/plugin-host/src/switches.rs", note = "the plugin switches (off, noticed, added, on, check_updates, auto_update)" }
-"selected_device" = { status = "todo" }
+"plugins" = { status = "ported", rust = "crates/shell/src/switches.rs" }
+"selected_device" = { status = "ported", rust = "crates/shell/src/shell.rs" }
 "version" = { status = "todo" }
 
 [action]
