@@ -22,6 +22,7 @@ use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
+use telescope_core::BusSender;
 
 /// How the window streams, from the command line.
 #[derive(Clone, Debug)]
@@ -76,8 +77,10 @@ fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
 }
 
 /// Registers plugins into a fresh state and builds their window. services is None for scene renders.
-pub fn build(file: ConfigFile, plugins: Vec<Box<dyn Plugin>>, services: Option<Arc<Services>>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
+pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn Plugin>>, services: Option<Arc<Services>>,
+             opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     let mut state = State::new(file);
+    let plugins = plugins(&state.bus.sender());
     state.load_builtins(plugins);
     state.apply_saved_config();
     let phones = state.plugin_config("connection").map_or_else(
@@ -133,6 +136,10 @@ pub fn build(file: ConfigFile, plugins: Vec<Box<dyn Plugin>>, services: Option<A
         stream: RefCell::new(None),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
+    // Events emitted from other threads get delivered on this one
+    window.state.borrow().bus.set_waker(|| {
+        let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
+    });
     window.wire(&files, &cards, &headers);
     window.first_props();
     window.process();
@@ -513,9 +520,11 @@ impl StreamEvents for Events {
 
 /// The window, until it's closed.
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
-    let mut plugins = crate::plugins::builtins();
-    plugins.extend((services.plugins)());
-    let window = build(ConfigFile::default(), plugins, Some(services), Some(opts.clone()))?;
+    let window = build(ConfigFile::default(), |bus| {
+        let mut plugins = crate::plugins::builtins(Some(&services), bus);
+        plugins.extend((services.plugins)());
+        plugins
+    }, Some(services.clone()), Some(opts.clone()))?;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
         let _ = window.ui.window().set_rendering_notifier(move |state, _| {

@@ -27,14 +27,14 @@ pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
     let mut n = 0;
     for &(scene, width) in SHELL_SCENES {
         let file = ConfigFile::at(scratch(scene).join(telescope_core::config::CONFIG_FILENAME));
-        let w = window::build(file, crate::plugins::builtins(), None, None)?;
+        let w = window::build(file, |bus| crate::plugins::builtins(None, bus), None, None)?;
         let picture = grown(&w, width, scale).ok_or("nothing drawn")?;
         picture.save_png(&folder.join(format!("{scene}.png")))?;
         w.shut_down();
         n += 1;
     }
     let file = ConfigFile::at(scratch("shell-settings-plugins").join(telescope_core::config::CONFIG_FILENAME));
-    let w = window::build(file, stand_ins(), None, None)?;
+    let w = window::build(file, stand_ins, None, None)?;
     let settings = crate::settings::build(&w)?;
     settings.show_tab("plugins");
     let picture = crate::offscreen::draw(settings.ui.window(), 940.0, 680.0, scale).ok_or("nothing drawn")?;
@@ -44,9 +44,9 @@ pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
 
 /// The Python app's built-in plugins as they describe themselves (parity/builtins.json), standing in for the ones
 /// not ported yet; the ported ones are the real thing.
-pub fn stand_ins() -> Vec<Box<dyn Plugin>> {
+pub fn stand_ins(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../parity/builtins.json")).unwrap_or_default();
-    let mut real = crate::plugins::builtins();
+    let mut real = crate::plugins::builtins(None, bus);
     infos.into_iter().map(|info| {
         match real.iter().position(|p| p.info().name == info.name) {
             Some(i) => real.remove(i),
