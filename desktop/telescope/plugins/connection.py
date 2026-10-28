@@ -39,7 +39,7 @@ from telescope.platform import (
 from telescope.platform.linux import (
     CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
 )
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.shortcuts import choice_action
 from telescope.session_client import (
     PING_PORT, START_FAST_POLL_FOR, START_FAST_POLL_INTERVAL, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS,
@@ -49,7 +49,7 @@ from telescope.widgets.controls import RoundIcon, Tag, hairline, setting_row
 from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
     set_button_icon,
-    ROW_HEIGHT, SegmentButton, segmented_row,
+    SegmentButton, segmented_row,
     Switch,
     ElidingLabel, NoScrollComboBox, PlacedDialog, action_button, add_card_header, card_action,
     card_layout, control_row_widget, create_card, create_vector_icon,
@@ -63,6 +63,9 @@ from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
+# Translators: Light is the name of a stream format, as the Stream output card shows it
+_UDP_SUB = N_("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it "
+             "and see.")
 _STATUS_POLL_MS = 3_000     # idle re-check of the selected phone, only while the window is on screen
 _CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
 _HELD_POLL_S = 60           # tray, after starting once the phone was ready: only its going away matters
@@ -757,24 +760,6 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_row.layout().addWidget(self._route_combo)
         link_lay.addWidget(self._route_row)
 
-        self._udp_cb = Switch("")
-        self._udp_cb.setChecked(self._udp)
-        # Translators: Heavy is the name of a stream format, as the Stream output card shows it
-        self._udp_cb.setToolTip(tr("Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."))
-        self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
-        self._udp_cb.toggled.connect(self._on_udp)
-        self._udp_row = QWidget()
-        udp_lay = QHBoxLayout(self._udp_row)
-        udp_lay.setContentsMargins(0, 0, 0, 0)
-        udp_lay.setSpacing(8)
-        udp_name = QLabel(tr("UDP on Wi-Fi"))
-        udp_name.setMinimumHeight(ui_px(ROW_HEIGHT))
-        udp_lay.addWidget(udp_name)
-        udp_lay.addWidget(Tag(tr("Experimental"), "warn"))
-        udp_lay.addStretch(1)
-        udp_lay.addWidget(self._udp_cb)
-        self._udp_row.setToolTip(self._udp_cb.toolTip())
-        link_lay.addWidget(self._udp_row)
         lay.addWidget(link)
 
         self._build_header()
@@ -786,6 +771,28 @@ class ConnectionPlugin(TelescopePlugin):
         self._usb_watch_timer.timeout.connect(self._watch_usb)
         self._render()
         return card
+
+    def create_settings_sections(self) -> list:
+        self._settings_card = card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, tr("Connection"), self.icon, hue=self.category)
+        self._udp_cb = Switch()
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
+        self._udp_cb.toggled.connect(self._on_udp)
+        control = QHBoxLayout()
+        control.setSpacing(8)
+        control.addWidget(Tag(tr("Experimental"), "warn"))
+        control.addWidget(self._udp_cb)
+        strip, _ = setting_row(tr("UDP on Wi-Fi"), tr(_UDP_SUB), control,
+                               keywords=tr("udp tcp transport network lag freezes stutter wifi", ctx="search"))
+        lay.addWidget(strip)
+        return [SettingsSection("streaming", card, on_show=self._show_udp)]
+
+    def _show_udp(self):
+        self._udp_cb.blockSignals(True)
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.blockSignals(False)
 
     def create_actions(self) -> list:
         return [choice_action("phone.pick", tr("Phone"), "Telescope", combo=self._phone_combo)]
@@ -1795,9 +1802,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_pref = route if route in (ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI) else ROUTE_AUTO
         self._udp = cfg.get("udp") is True
         if self._udp_cb is not None:
-            self._udp_cb.blockSignals(True)
-            self._udp_cb.setChecked(self._udp)
-            self._udp_cb.blockSignals(False)
+            self._show_udp()
         self._phones = []
         raw_phones = cfg.get("phones")
         for raw in raw_phones if isinstance(raw_phones, list) else []:

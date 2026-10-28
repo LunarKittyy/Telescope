@@ -26,7 +26,7 @@ msgstr "Телефон нагрівся і тимчасово знизив ча�
 msgid "Lost the phone - reconnecting"
 msgstr "Зв'язок із телефоном втрачено - повторне підключення"
 
-#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1100 telescope/plugins/connection.py:1144 telescope/plugins/connection.py:1302 telescope/plugins/connection.py:1338 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:889 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:169 telescope/plugins/browser_camera.py:569 telescope/plugins/connection.py:1130 telescope/plugins/connection.py:1174 telescope/plugins/connection.py:1332 telescope/plugins/connection.py:1368 telescope/plugins/onboarding.py:267 telescope/plugins/setup.py:829 telescope/plugins/updates.py:108 telescope/sources.py:889 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Спробувати знову"
 
@@ -128,7 +128,7 @@ msgstr "Старт"
 msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
-#: telescope/app.py:720 telescope/app.py:1532 telescope/app.py:1597 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/plugins/webcam.py:415 telescope/sources.py:179 telescope/stream.py:473 telescope/stream_flow.py:156
+#: telescope/app.py:720 telescope/app.py:1532 telescope/app.py:1597 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/plugins/webcam.py:412 telescope/sources.py:179 telescope/stream.py:473 telescope/stream_flow.py:156
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -871,7 +871,7 @@ msgstr "Плагіни"
 msgid "Updates & About"
 msgstr "Оновлення та відомості"
 
-#: telescope/plugin.py:36 telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:173 telescope/plugins/camera_control.py:349 telescope/plugins/webcam.py:309
+#: telescope/plugin.py:36 telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:173 telescope/plugins/camera_control.py:349 telescope/plugins/webcam.py:306
 msgid "Camera"
 msgstr "Камера"
 
@@ -1166,11 +1166,11 @@ msgstr "Посилання"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Розмір, який надсилає браузер; камера, яка не підтримує його, надсилає доступний"
 
-#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:190 telescope/plugins/stream_output.py:298 telescope/plugins/webcam.py:315
+#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:190 telescope/plugins/stream_output.py:298 telescope/plugins/webcam.py:312
 msgid "Resolution"
 msgstr "Роздільна здатність"
 
-#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:197 telescope/plugins/webcam.py:318
+#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:197 telescope/plugins/webcam.py:315
 msgid "Frame rate"
 msgstr "Кадрів/с"
 
@@ -1234,7 +1234,7 @@ msgstr "Камера браузера недоступна"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Відскануйте код на картці «Камера браузера» потрібним пристроєм. Трансляція почнеться відразу після підключення."
 
-#: telescope/plugins/browser_camera.py:577 telescope/plugins/colour_grading.py:428 telescope/plugins/connection.py:221 telescope/plugins/desk.py:238 telescope/plugins/shortcuts.py:855 telescope/widgets/plugins_panel.py:62
+#: telescope/plugins/browser_camera.py:577 telescope/plugins/colour_grading.py:428 telescope/plugins/connection.py:224 telescope/plugins/desk.py:238 telescope/plugins/shortcuts.py:855 telescope/widgets/plugins_panel.py:62
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -1310,11 +1310,11 @@ msgid "Light"
 msgstr "Освітлення"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:747 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:659 telescope/plugins/webcam.py:65 telescope/plugins/webcam.py:350 telescope/plugins/webcam.py:557
+#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:751 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:659 telescope/plugins/webcam.py:65 telescope/plugins/webcam.py:347 telescope/plugins/webcam.py:554
 msgid "Auto"
 msgstr "Авто"
 
-#: telescope/plugins/camera_control.py:183 telescope/plugins/camera_control.py:224 telescope/plugins/webcam.py:557
+#: telescope/plugins/camera_control.py:183 telescope/plugins/camera_control.py:224 telescope/plugins/webcam.py:554
 msgid "Manual"
 msgstr "Вручну"
 
@@ -2119,506 +2119,511 @@ msgstr "Він виводиться на {camera}, щойно потік там 
 msgid "Goes out on {camera}."
 msgstr "Виводиться на {camera}."
 
-#: telescope/plugins/connection.py:80
+#. Light is the name of a stream format, as the Stream output card shows it
+#: telescope/plugins/connection.py:67
+msgid "Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."
+msgstr ""
+
+#: telescope/plugins/connection.py:83
 msgid "Computer"
 msgstr "Комп'ютер"
 
-#: telescope/plugins/connection.py:105
+#: telescope/plugins/connection.py:108
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "Телефон транслює на {computer}."
 
-#: telescope/plugins/connection.py:106
+#: telescope/plugins/connection.py:109
 msgid "The phone is streaming to another computer."
 msgstr "Телефон транслює на інший комп'ютер."
 
-#: telescope/plugins/connection.py:107
+#: telescope/plugins/connection.py:110
 msgid "Stop it there or on the phone, then try again."
 msgstr "Зупиніть її там або на телефоні, а потім спробуйте знову."
 
-#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:237
+#: telescope/plugins/connection.py:118 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:237
 msgid "Checking…"
 msgstr "Перевірка…"
 
-#: telescope/plugins/connection.py:117 telescope/plugins/setup.py:754 telescope/plugins/setup.py:774 telescope/plugins/setup.py:798 telescope/plugins/setup.py:855
+#: telescope/plugins/connection.py:120 telescope/plugins/setup.py:754 telescope/plugins/setup.py:774 telescope/plugins/setup.py:798 telescope/plugins/setup.py:855
 msgid "Ready"
 msgstr "Готово"
 
-#: telescope/plugins/connection.py:118
+#: telescope/plugins/connection.py:121
 msgid "Can't reach the phone"
 msgstr "Не вдається зв'язатися з телефоном"
 
-#: telescope/plugins/connection.py:119
+#: telescope/plugins/connection.py:122
 msgid "Needs pairing again"
 msgstr "Потрібно знову створити пару"
 
-#: telescope/plugins/connection.py:120
+#: telescope/plugins/connection.py:123
 msgid "Phone accepts USB only"
 msgstr "Телефон приймає лише USB"
 
-#: telescope/plugins/connection.py:121
+#: telescope/plugins/connection.py:124
 msgid "USB not available"
 msgstr "USB недоступний"
 
-#: telescope/plugins/connection.py:122
+#: telescope/plugins/connection.py:125
 msgid "Phone app needs an update"
 msgstr "Додаток на телефоні потребує оновлення"
 
-#: telescope/plugins/connection.py:123
+#: telescope/plugins/connection.py:126
 msgid "This app needs an update"
 msgstr "Цей додаток потребує оновлення"
 
-#: telescope/plugins/connection.py:130
+#: telescope/plugins/connection.py:133
 #, python-brace-format
 msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "Відкрийте Telescope на {phone} і тримайте його на екрані. Він має бути в тій самій мережі, що й цей комп'ютер, або підключений через USB-кабель."
 
-#: telescope/plugins/connection.py:133
+#: telescope/plugins/connection.py:136
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
 msgstr "Ця версія Telescope шифрує підключення до {phone}, тому потрібно знову створити пару. Натисніть «Додати телефон» і відскануйте код ще раз."
 
-#: telescope/plugins/connection.py:136
+#: telescope/plugins/connection.py:139
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
 msgstr "{phone} більше не розпізнає цей комп'ютер (його вилучили на телефоні або додаток перевстановили). Натисніть «Додати телефон», щоб знову створити пару."
 
-#: telescope/plugins/connection.py:139
+#: telescope/plugins/connection.py:142
 #, python-brace-format
 msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "У додатку на телефоні ввімкнено «Лише локально», тому {phone} приймає лише USB. Підключіть його кабелем або вимкніть «Лише локально» на телефоні."
 
-#: telescope/plugins/connection.py:142
+#: telescope/plugins/connection.py:145
 msgid "USB needs adb, which Add phone can get."
 msgstr "Для USB потрібен adb, який можна отримати через «Додати телефон»."
 
-#: telescope/plugins/connection.py:145
+#: telescope/plugins/connection.py:148
 msgid "the phone isn't answering over USB"
 msgstr "телефон не відповідає через USB"
 
-#: telescope/plugins/connection.py:146
+#: telescope/plugins/connection.py:149
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Для підключення вибрано «Лише USB»: {why}. Перемкніться на «Автоматично», щоб натомість використовувати Wi-Fi."
 
-#: telescope/plugins/connection.py:148
+#: telescope/plugins/connection.py:151
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Додаток Telescope на {phone} старіший за цей. Оновіть його на телефоні."
 
-#: telescope/plugins/connection.py:150
+#: telescope/plugins/connection.py:153
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Додаток Telescope на {phone} новіший за цей. Оновіть Telescope на цьому комп'ютері."
 
-#: telescope/plugins/connection.py:158
+#: telescope/plugins/connection.py:161
 msgid "USB cable"
 msgstr "USB-кабель"
 
-#: telescope/plugins/connection.py:161
+#: telescope/plugins/connection.py:164
 msgid "Automatic"
 msgstr "Автоматично"
 
-#: telescope/plugins/connection.py:161
+#: telescope/plugins/connection.py:164
 msgid "USB only"
 msgstr "Лише USB"
 
-#: telescope/plugins/connection.py:161
+#: telescope/plugins/connection.py:164
 msgid "Wi-Fi only"
 msgstr "Лише Wi-Fi"
 
-#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:683 telescope/plugins/connection.py:1129 telescope/plugins/connection.py:1293 telescope/plugins/onboarding.py:186
+#: telescope/plugins/connection.py:179 telescope/plugins/connection.py:418 telescope/plugins/connection.py:687 telescope/plugins/connection.py:1159 telescope/plugins/connection.py:1323 telescope/plugins/onboarding.py:186
 msgid "Add phone"
 msgstr "Додати телефон"
 
-#: telescope/plugins/connection.py:194
+#: telescope/plugins/connection.py:197
 msgid "Add a phone"
 msgstr "Додати телефон"
 
-#: telescope/plugins/connection.py:195 telescope/plugins/onboarding.py:185
+#: telescope/plugins/connection.py:198 telescope/plugins/onboarding.py:185
 msgid "Open Telescope on the phone first."
 msgstr "Спочатку відкрийте Telescope на телефоні."
 
-#: telescope/plugins/connection.py:201 telescope/plugins/webcam.py:413
+#: telescope/plugins/connection.py:204 telescope/plugins/webcam.py:410
 msgid "Starting…"
 msgstr "Запуск…"
 
 #. "Scan pairing code" is a button in the phone app: use the phone app's translation of it
-#: telescope/plugins/connection.py:248
+#: telescope/plugins/connection.py:251
 msgid "On the phone, tap Scan pairing code and point it at this code."
 msgstr "На телефоні натисніть «Сканувати код створення пари» й наведіть камеру на цей код."
 
-#: telescope/plugins/connection.py:250
+#: telescope/plugins/connection.py:253
 msgid "This computer isn't on a network right now, so pair over USB."
 msgstr "Цей комп'ютер зараз не в мережі, тому створіть пару через USB."
 
-#: telescope/plugins/connection.py:255
+#: telescope/plugins/connection.py:258
 msgid "Getting adb from Google…"
 msgstr "Отримання adb від Google…"
 
-#: telescope/plugins/connection.py:257 telescope/plugins/connection.py:314
+#: telescope/plugins/connection.py:260 telescope/plugins/connection.py:317
 msgid "Plug the phone in with a USB cable and it pairs by itself."
 msgstr "Підключіть телефон через USB-кабель, і він автоматично створить пару."
 
 #. keep the <a href="{link}"> link
-#: telescope/plugins/connection.py:262
+#: telescope/plugins/connection.py:265
 #, python-brace-format
 msgid "Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it."
 msgstr "Потрібен adb, який Telescope може <a href=\"{link}\">отримати від Google</a>. Wi-Fi працює й без нього."
 
-#: telescope/plugins/connection.py:265
+#: telescope/plugins/connection.py:268
 msgid "Needs adb, which isn't installed. Wi-Fi works without it."
 msgstr "Потрібен adb, який не встановлено. Wi-Fi працює й без нього."
 
-#: telescope/plugins/connection.py:271
+#: telescope/plugins/connection.py:274
 msgid "Copying adb…"
 msgstr "Копіювання adb…"
 
 #. keep both <a href="..."> links
-#: telescope/plugins/connection.py:280
+#: telescope/plugins/connection.py:283
 #, python-brace-format
 msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
 msgstr "<a href=\"{get}\">Спробувати знову</a> або <a href=\"{pick}\">вибрати наявний</a>."
 
-#: telescope/plugins/connection.py:312
+#: telescope/plugins/connection.py:315
 msgid "Phone plugged in. Allow USB debugging in the prompt on the phone."
 msgstr "Телефон підключено. Дозвольте налагодження через USB у запиті на телефоні."
 
-#: telescope/plugins/connection.py:316
+#: telescope/plugins/connection.py:319
 msgid "Phone plugged in. Keep Telescope open on it; pairing…"
 msgstr "Телефон підключено. Тримайте Telescope відкритим на ньому; створення пари…"
 
-#: telescope/plugins/connection.py:349
+#: telescope/plugins/connection.py:352
 msgid "You can start streaming now."
 msgstr "Тепер ви можете почати трансляцію."
 
-#: telescope/plugins/connection.py:350
+#: telescope/plugins/connection.py:353
 #, python-brace-format
 msgid "Paired with {name}"
 msgstr "Створено пару з {name}"
 
-#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:236
+#: telescope/plugins/connection.py:355 telescope/plugins/desk.py:236
 msgid "Done"
 msgstr "Готово"
 
-#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:821
+#: telescope/plugins/connection.py:408 telescope/plugins/connection.py:412 telescope/plugins/connection.py:831
 msgid "Your phones"
 msgstr "Ваші телефони"
 
-#: telescope/plugins/connection.py:410
+#: telescope/plugins/connection.py:413
 msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
 msgstr "Кожен телефон зберігає власні налаштування камери, як і браузер, щойно ви щось зміните. Вилучення телефону також скасовує пару на ньому."
 
-#: telescope/plugins/connection.py:415
+#: telescope/plugins/connection.py:418
 msgid "Pair another phone"
 msgstr "Створити пару з іншим телефоном"
 
-#: telescope/plugins/connection.py:417
+#: telescope/plugins/connection.py:420
 msgid "Phones"
 msgstr "Телефони"
 
-#: telescope/plugins/connection.py:421
+#: telescope/plugins/connection.py:424
 msgid "No phones yet. Add one to pair it with this computer."
 msgstr "Телефонів ще немає. Додайте один, щоб створити пару з цим комп'ютером."
 
-#: telescope/plugins/connection.py:427
+#: telescope/plugins/connection.py:430
 msgid "This computer"
 msgstr "Цей комп'ютер"
 
-#: telescope/plugins/connection.py:428
+#: telescope/plugins/connection.py:431
 msgid "Change name"
 msgstr "Змінити назву"
 
-#: telescope/plugins/connection.py:429
+#: telescope/plugins/connection.py:432
 msgid "The name your phones show for this computer"
 msgstr "Назва цього комп'ютера, яку показують ваші телефони"
 
-#: telescope/plugins/connection.py:431
+#: telescope/plugins/connection.py:434
 msgid "What your phones call it"
 msgstr "Як його називають ваші телефони"
 
-#: telescope/plugins/connection.py:433
+#: telescope/plugins/connection.py:436
 msgid "Change this computer's name"
 msgstr "Змінити назву цього комп'ютера"
 
-#: telescope/plugins/connection.py:438 telescope/widgets/composite_editor.py:440 telescope/widgets/vaapi_setup.py:111
+#: telescope/plugins/connection.py:441 telescope/widgets/composite_editor.py:440 telescope/widgets/vaapi_setup.py:111
 msgid "Close"
 msgstr "Закрити"
 
-#: telescope/plugins/connection.py:451
+#: telescope/plugins/connection.py:454
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Телефон · {ip}"
 
-#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:790 telescope/plugins/connection.py:805 telescope/plugins/monitoring.py:86 telescope/plugins/monitoring.py:297
+#: telescope/plugins/connection.py:454 telescope/plugins/connection.py:798 telescope/plugins/connection.py:813 telescope/plugins/monitoring.py:86 telescope/plugins/monitoring.py:297
 msgid "Phone"
 msgstr "Телефон"
 
-#: telescope/plugins/connection.py:473
+#: telescope/plugins/connection.py:476
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Перейменувати {name}"
 
-#: telescope/plugins/connection.py:473 telescope/plugins/presets.py:188 telescope/plugins/setup.py:782
+#: telescope/plugins/connection.py:476 telescope/plugins/presets.py:188 telescope/plugins/setup.py:782
 msgid "Rename"
 msgstr "Перейменувати"
 
-#: telescope/plugins/connection.py:477
+#: telescope/plugins/connection.py:480
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Вилучити {name}"
 
-#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:263 telescope/plugins/shortcuts.py:693 telescope/widgets/plugins_panel.py:586 telescope/widgets/plugins_panel.py:631 telescope/widgets/plugins_panel.py:815
+#: telescope/plugins/connection.py:480 telescope/plugins/setup.py:263 telescope/plugins/shortcuts.py:693 telescope/widgets/plugins_panel.py:586 telescope/widgets/plugins_panel.py:631 telescope/widgets/plugins_panel.py:815
 msgid "Remove"
 msgstr "Вилучити"
 
-#: telescope/plugins/connection.py:492
+#: telescope/plugins/connection.py:495
 msgid "Rename phone"
 msgstr "Перейменувати телефон"
 
-#: telescope/plugins/connection.py:492 telescope/plugins/name_tag.py:70
+#: telescope/plugins/connection.py:495 telescope/plugins/name_tag.py:70
 msgid "Name"
 msgstr "Назва"
 
-#: telescope/plugins/connection.py:498
+#: telescope/plugins/connection.py:501
 msgid "Rename this computer"
 msgstr "Перейменувати цей комп'ютер"
 
-#: telescope/plugins/connection.py:499
+#: telescope/plugins/connection.py:502
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Назва, яку бачать ваші телефони (застосовується до телефонів, з якими ви створите пару надалі)"
 
-#: telescope/plugins/connection.py:508
+#: telescope/plugins/connection.py:511
 msgid "Remove browser"
 msgstr "Вилучити браузер"
 
-#: telescope/plugins/connection.py:509
+#: telescope/plugins/connection.py:512
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
 msgstr "Вилучити «{name}»? Це видалить його налаштування на цьому комп'ютері. Він усе ще зможе підключатися за кодом і починатиме з налаштувань за замовчуванням."
 
-#: telescope/plugins/connection.py:520
+#: telescope/plugins/connection.py:523
 msgid "Remove phone"
 msgstr "Вилучити телефон"
 
-#: telescope/plugins/connection.py:521
+#: telescope/plugins/connection.py:524
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it."
 msgstr "Вилучити «{name}»? Це видалить налаштування його камери на цьому комп'ютері та скасує пару на телефоні, якщо Telescope зможе зв'язатися з ним."
 
-#: telescope/plugins/connection.py:542
+#: telescope/plugins/connection.py:545
 msgid "Phones and connection"
 msgstr "Телефони та підключення"
 
-#: telescope/plugins/connection.py:543
+#: telescope/plugins/connection.py:546
 msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
 msgstr "Створення пари з телефонами, вибір одного з них і підключення через Wi-Fi або USB."
 
-#: telescope/plugins/connection.py:683
+#: telescope/plugins/connection.py:687
 msgid "Pair a phone over Wi-Fi or USB"
 msgstr "Створити пару з телефоном через Wi-Fi або USB"
 
-#: telescope/plugins/connection.py:685
+#: telescope/plugins/connection.py:689 telescope/plugins/connection.py:778
 msgid "Connection"
 msgstr "Підключення"
 
-#: telescope/plugins/connection.py:686
+#: telescope/plugins/connection.py:690
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Відкрити або закрити посібник із налаштування: віртуальна камера, додаток на телефоні та створення пари"
 
-#: telescope/plugins/connection.py:688 telescope/plugins/onboarding.py:81
+#: telescope/plugins/connection.py:692 telescope/plugins/onboarding.py:81
 msgid "Setup guide"
 msgstr "Посібник із налаштування"
 
-#: telescope/plugins/connection.py:723
+#: telescope/plugins/connection.py:727
 msgid "Switch to USB"
 msgstr "Перемкнути на USB"
 
-#: telescope/plugins/connection.py:724
+#: telescope/plugins/connection.py:728
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Телефон підключено; підключіть знову через кабель"
 
-#: telescope/plugins/connection.py:728 telescope/plugins/connection.py:911 telescope/plugins/connection.py:1296
+#: telescope/plugins/connection.py:732 telescope/plugins/connection.py:941 telescope/plugins/connection.py:1326
 msgid "Update over USB"
 msgstr "Оновити через USB"
 
-#: telescope/plugins/connection.py:741
+#: telescope/plugins/connection.py:745
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Автоматично: USB, коли телефон підключено, інакше Wi-Fi."
 
-#: telescope/plugins/connection.py:755
+#: telescope/plugins/connection.py:759
 msgid "Connect via"
 msgstr "Підключатися через"
 
-#. Heavy is the name of a stream format, as the Stream output card shows it
-#: telescope/plugins/connection.py:762
-msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
-msgstr "Може згладжувати стрибки затримки в завантаженій мережі Wi-Fi. «Важкий» усе одно використовує TCP."
-
-#: telescope/plugins/connection.py:763 telescope/plugins/connection.py:769
+#: telescope/plugins/connection.py:781 telescope/plugins/connection.py:787
 msgid "UDP on Wi-Fi"
 msgstr "UDP через Wi-Fi"
 
-#: telescope/plugins/connection.py:772
+#: telescope/plugins/connection.py:785
 msgid "Experimental"
 msgstr "Експериментально"
 
-#: telescope/plugins/connection.py:803 telescope/plugins/connection.py:852 telescope/plugins/connection.py:1128
+#: telescope/plugins/connection.py:788
+msgctxt "search"
+msgid "udp tcp transport network lag freezes stutter wifi"
+msgstr ""
+
+#: telescope/plugins/connection.py:811 telescope/plugins/connection.py:882 telescope/plugins/connection.py:1158
 msgid "No phone yet"
 msgstr "Телефонів ще немає"
 
-#: telescope/plugins/connection.py:804
+#: telescope/plugins/connection.py:812
 msgid "Which phone to stream from"
 msgstr "З якого телефону транслювати"
 
-#: telescope/plugins/connection.py:820
+#: telescope/plugins/connection.py:830
 msgid "Your phones: add, rename, remove"
 msgstr "Ваші телефони: додати, перейменувати, вилучити"
 
-#: telescope/plugins/connection.py:854 telescope/plugins/connection.py:871
+#: telescope/plugins/connection.py:884 telescope/plugins/connection.py:901
 msgctxt "status"
 msgid "Streaming"
 msgstr "Транслює"
 
-#: telescope/plugins/connection.py:855
+#: telescope/plugins/connection.py:885
 #, python-brace-format
 msgid "Waiting for {source}…"
 msgstr "Очікує на {source}…"
 
-#: telescope/plugins/connection.py:857
+#: telescope/plugins/connection.py:887
 #, python-brace-format
 msgid "{source}, no phone needed"
 msgstr "{source}, телефон не потрібен"
 
-#: telescope/plugins/connection.py:869
+#: telescope/plugins/connection.py:899
 msgid "Reconnecting…"
 msgstr "Повторне підключення…"
 
-#: telescope/plugins/connection.py:874
+#: telescope/plugins/connection.py:904
 msgid "Streaming over USB"
 msgstr "Транслює через USB"
 
-#: telescope/plugins/connection.py:874
+#: telescope/plugins/connection.py:904
 msgid "Streaming over Wi-Fi"
 msgstr "Транслює через Wi-Fi"
 
-#: telescope/plugins/connection.py:876 telescope/plugins/microphone.py:553
+#: telescope/plugins/connection.py:906 telescope/plugins/microphone.py:553
 msgid "Connecting…"
 msgstr "Підключення…"
 
-#: telescope/plugins/connection.py:895
+#: telescope/plugins/connection.py:925
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB не використовується: {reason}."
 
-#: telescope/plugins/connection.py:900
+#: telescope/plugins/connection.py:930
 msgid "Updating the phone app over USB…"
 msgstr "Оновлення додатка на телефоні через USB…"
 
-#: telescope/plugins/connection.py:907
+#: telescope/plugins/connection.py:937
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Додаток Telescope на {phone} старіший за цей."
 
-#: telescope/plugins/connection.py:911 telescope/plugins/connection.py:1296
+#: telescope/plugins/connection.py:941 telescope/plugins/connection.py:1326
 msgid "Update this app"
 msgstr "Оновити цей додаток"
 
-#: telescope/plugins/connection.py:950
+#: telescope/plugins/connection.py:980
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Не вдалося оновити додаток на телефоні: {error}"
 
-#: telescope/plugins/connection.py:959
+#: telescope/plugins/connection.py:989
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Додаток на телефоні оновлено. Відкрийте Telescope на телефоні."
 
-#: telescope/plugins/connection.py:1090
+#: telescope/plugins/connection.py:1120
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "Не вдається зв'язатися з {phone} через USB"
 
-#: telescope/plugins/connection.py:1091
+#: telescope/plugins/connection.py:1121
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Не вдається зв'язатися з {phone} через Wi-Fi"
 
-#: telescope/plugins/connection.py:1092
+#: telescope/plugins/connection.py:1122
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "Не вдається зв'язатися з {phone}"
 
-#: telescope/plugins/connection.py:1095
+#: telescope/plugins/connection.py:1125
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "Перевірте кабель і переконайтеся, що Telescope відкрито на телефоні."
 
-#: telescope/plugins/connection.py:1096
+#: telescope/plugins/connection.py:1126
 msgid "Check that it's on the same network as this computer."
 msgstr "Перевірте, чи він у тій самій мережі, що й цей комп'ютер."
 
-#: telescope/plugins/connection.py:1099
+#: telescope/plugins/connection.py:1129
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "Трансляція все ще триває через {now}, тому спосіб підключення залишається «{kept}»."
 
-#: telescope/plugins/connection.py:1128
+#: telescope/plugins/connection.py:1158
 msgid "Add a phone to stream from."
 msgstr "Додайте телефон, з якого транслювати."
 
-#: telescope/plugins/connection.py:1142 telescope/plugins/connection.py:1161
+#: telescope/plugins/connection.py:1172 telescope/plugins/connection.py:1191
 msgid "Can't connect to the phone"
 msgstr "Не вдається підключитися до телефону"
 
-#: telescope/plugins/connection.py:1143
+#: telescope/plugins/connection.py:1173
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb не вдалося відкрити підключення до телефону. Від'єднайте його, підключіть знову та спробуйте ще раз."
 
-#: telescope/plugins/connection.py:1300
+#: telescope/plugins/connection.py:1330
 msgid "Switch to Automatic"
 msgstr "Перемкнути на «Автоматично»"
 
-#: telescope/plugins/connection.py:1315
+#: telescope/plugins/connection.py:1345
 msgid "Virtual camera is set up differently"
 msgstr "Віртуальну камеру налаштовано інакше"
 
-#: telescope/plugins/connection.py:1316
+#: telescope/plugins/connection.py:1346
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback завантажено, але без {device}: інша програма налаштувала його з іншими параметрами. Закрийте ту програму та запустіть це, щоб передати його Telescope:"
 
-#: telescope/plugins/connection.py:1323
+#: telescope/plugins/connection.py:1353
 msgid "The virtual camera is off"
 msgstr "Віртуальну камеру вимкнено"
 
-#: telescope/plugins/connection.py:1323
+#: telescope/plugins/connection.py:1353
 msgid "Switching it on asks for your password."
 msgstr "Для її ввімкнення знадобиться ваш пароль."
 
-#: telescope/plugins/connection.py:1324 telescope/widgets/plugins_panel.py:725 telescope/widgets/plugins_panel.py:798
+#: telescope/plugins/connection.py:1354 telescope/widgets/plugins_panel.py:725 telescope/widgets/plugins_panel.py:798
 msgid "Switch on"
 msgstr "Увімкнути"
 
-#: telescope/plugins/connection.py:1334 telescope/plugins/connection.py:1344
+#: telescope/plugins/connection.py:1364 telescope/plugins/connection.py:1374
 msgid "Set up the virtual camera"
 msgstr "Налаштувати віртуальну камеру"
 
-#: telescope/plugins/connection.py:1337
+#: telescope/plugins/connection.py:1367
 msgid "Couldn't set up the virtual camera"
 msgstr "Не вдалося налаштувати віртуальну камеру"
 
-#: telescope/plugins/connection.py:1345
+#: telescope/plugins/connection.py:1375
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Спочатку Telescope має увімкнути свою віртуальну камеру. Для цього потрібен ваш пароль."
 
-#: telescope/plugins/connection.py:1346
+#: telescope/plugins/connection.py:1376
 msgid "Also switch it on at every startup"
 msgstr "Також вмикати її під час кожного запуску"
 
-#: telescope/plugins/connection.py:1389
+#: telescope/plugins/connection.py:1419
 msgid "Lost the connection to the phone. Try again."
 msgstr "Втрачено підключення до телефону. Спробуйте знову."
 
-#: telescope/plugins/connection.py:1392 telescope/plugins/connection.py:1464
+#: telescope/plugins/connection.py:1422 telescope/plugins/connection.py:1494
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -2628,24 +2633,24 @@ msgstr ""
 "\n"
 "Натисніть «Додати телефон», щоб знову створити пару."
 
-#: telescope/plugins/connection.py:1395
+#: telescope/plugins/connection.py:1425
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "Не вдалося зв'язатися з телефоном. Відкрийте Telescope на ньому та спробуйте знову."
 
-#: telescope/plugins/connection.py:1402
+#: telescope/plugins/connection.py:1432
 msgid "Starting the phone's camera..."
 msgstr "Запуск камери телефону..."
 
-#: telescope/plugins/connection.py:1424 telescope/plugins/connection.py:1430
+#: telescope/plugins/connection.py:1454 telescope/plugins/connection.py:1460
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "Втрачено зв'язок із телефоном під час запуску його камери."
 
-#: telescope/plugins/connection.py:1432
+#: telescope/plugins/connection.py:1462
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "Телефон на мить замовк, усе ще чекаємо... ({seconds} с)"
 
-#: telescope/plugins/connection.py:1439
+#: telescope/plugins/connection.py:1469
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -2655,17 +2660,17 @@ msgstr ""
 "\n"
 "Перевірте, чи немає на телефоні запиту дозволу або помилки."
 
-#: telescope/plugins/connection.py:1443
+#: telescope/plugins/connection.py:1473
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "Камера телефону відкривається... ({seconds} с)"
 
-#: telescope/plugins/connection.py:1444
+#: telescope/plugins/connection.py:1474
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "Очікування камери телефону... ({seconds} с)"
 
-#: telescope/plugins/connection.py:1445
+#: telescope/plugins/connection.py:1475
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -2675,7 +2680,7 @@ msgstr ""
 "\n"
 "Спробуйте знову. Якщо це повторюється, відкрийте Telescope на телефоні."
 
-#: telescope/plugins/connection.py:1459
+#: telescope/plugins/connection.py:1489
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -2685,7 +2690,7 @@ msgstr ""
 "\n"
 "Відкрийте додаток на телефоні та надайте дозвіл на доступ до камери."
 
-#: telescope/plugins/connection.py:1461
+#: telescope/plugins/connection.py:1491
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -2695,7 +2700,7 @@ msgstr ""
 "\n"
 "Спробуйте знову за мить."
 
-#: telescope/plugins/connection.py:1462
+#: telescope/plugins/connection.py:1492
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -2705,25 +2710,25 @@ msgstr ""
 "\n"
 "Відкрийте Telescope на передньому плані телефону та спробуйте знову."
 
-#: telescope/plugins/connection.py:1466
+#: telescope/plugins/connection.py:1496
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "Телефон відмовився почати трансляцію ({error})."
 
-#: telescope/plugins/connection.py:1466
+#: telescope/plugins/connection.py:1496
 msgid "unknown error"
 msgstr "невідома помилка"
 
-#: telescope/plugins/connection.py:1618
+#: telescope/plugins/connection.py:1648
 msgid "Same phone?"
 msgstr "Той самий телефон?"
 
-#: telescope/plugins/connection.py:1619
+#: telescope/plugins/connection.py:1649
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Це знову {name}?"
 
-#: telescope/plugins/connection.py:1620
+#: telescope/plugins/connection.py:1650
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "Телефон із назвою {name} створив пару як новий телефон. Це стається після перевстановлення Telescope або очищення його даних. Відповідь «Так» перенесе налаштування та пресети {name} на нього й вилучить старий запис."
@@ -2780,7 +2785,7 @@ msgstr "Позначити аркуш"
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr "Перетягніть чотири кути аркуша на свої місця на попередньому перегляді"
 
-#: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171 telescope/plugins/webcam.py:305
+#: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171 telescope/plugins/webcam.py:302
 msgid "Reset"
 msgstr "Скинути"
 
@@ -6339,55 +6344,55 @@ msgstr ""
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr ""
 
-#: telescope/plugins/webcam.py:258
+#: telescope/plugins/webcam.py:255
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr ""
 
-#: telescope/plugins/webcam.py:259
+#: telescope/plugins/webcam.py:256
 msgid "Plug it in, or pick another camera."
 msgstr ""
 
-#: telescope/plugins/webcam.py:276
+#: telescope/plugins/webcam.py:273
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr ""
 
-#: telescope/plugins/webcam.py:277
+#: telescope/plugins/webcam.py:274
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr ""
 
-#: telescope/plugins/webcam.py:278
+#: telescope/plugins/webcam.py:275
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr ""
 
-#: telescope/plugins/webcam.py:305
+#: telescope/plugins/webcam.py:302
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr ""
 
-#: telescope/plugins/webcam.py:307
+#: telescope/plugins/webcam.py:304
 msgid "Webcam"
 msgstr ""
 
-#: telescope/plugins/webcam.py:312
+#: telescope/plugins/webcam.py:309
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr ""
 
-#: telescope/plugins/webcam.py:407
+#: telescope/plugins/webcam.py:404
 msgid "Not plugged in"
 msgstr ""
 
-#: telescope/plugins/webcam.py:409
+#: telescope/plugins/webcam.py:406
 #, python-brace-format
 msgid "In use by {app}"
 msgstr ""
 
-#: telescope/plugins/webcam.py:409
+#: telescope/plugins/webcam.py:406
 msgid "In use by another app"
 msgstr ""
 
-#: telescope/plugins/webcam.py:411
+#: telescope/plugins/webcam.py:408
 msgid "Not sending anything"
 msgstr ""
 
@@ -6783,7 +6788,7 @@ msgstr "Не вдається отримати трансляцію з теле�
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Трансляція {size} з {fps} fps на {camera}"
 
-#: telescope/stream.py:614
+#: telescope/stream.py:616
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Помилка віртуальної камери: {error}"
@@ -6987,7 +6992,7 @@ msgstr "{q} %: Низька"
 msgid "{q}%: Very low"
 msgstr "{q} %: Дуже низька"
 
-#: telescope/widgets/common.py:1234
+#: telescope/widgets/common.py:1243
 msgid "Double-click to reset"
 msgstr "Двічі клацніть, щоб скинути"
 

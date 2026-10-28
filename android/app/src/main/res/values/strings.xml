@@ -10,6 +10,11 @@
     <!-- The header button that opens the camera preview, kept short -->
     <string name="preview_button">Preview</string>
     <string name="close_preview">Close preview</string>
+    <!-- The header button next to Preview that turns the screen black while streaming, kept short -->
+    <string name="black_screen_button">Black screen</string>
+    <string name="black_screen_description">Turn the screen black while the camera keeps going</string>
+    <!-- Shown on the black screen for a few seconds, then it fades -->
+    <string name="black_screen_hint">Double tap to wake</string>
 
     <!-- Update card -->
     <string name="update_available">Update available</string>
