@@ -35,11 +35,16 @@ jobs:
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           echo "$files"
-          if echo "$files" | grep -qE '^(desktop/|VERSION$|\.github/workflows/build-linux\.yml$|docs/release-checklist\.md$|\.github/checklist_due\.py$)'; then
+          if echo "$files" | grep -qE '^(desktop/|\.github/workflows/build-linux\.yml$|docs/release-checklist\.md$|\.github/checklist_due\.py$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # Every build reads VERSION, but a version bump alone doesn't need them all: the release rebuilds everything
+      - name: VERSION is a version
+        if: github.event_name == 'pull_request'
+        run: grep -qxE '[0-9]+\.[0-9]+\.[0-9]+' VERSION || { echo "VERSION should look like 1.2.3, not '$(cat VERSION)'"; exit 1; }
 
   bundle:
     name: linux

@@ -35,7 +35,7 @@ jobs:
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           echo "$files"
-          if echo "$files" | grep -qE '^(desktop/|installer/|VERSION$|\.github/workflows/build-windows\.yml$)'; then
+          if echo "$files" | grep -qE '^(desktop/|installer/|\.github/workflows/build-windows\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
