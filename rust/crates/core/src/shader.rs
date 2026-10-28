@@ -1,7 +1,8 @@
 //! What a ShaderStep's WGSL may expect and what the GPU executor has to give it, so plugin-host and media agree without knowing each other.
 //!
 //! A plugin writes `fn effect(uv: vec2<f32>) -> vec4<f32>` and, if it has settings, `struct Params { ... }` with scalar and vector fields.
-//! assemble() wraps that in PRELUDE and the entry points; the executor compiles the result, binds BINDING_* and draws one full-frame triangle.
+//! assemble() wraps that in PRELUDE and the entry points; the executor compiles the result, binds group 0 (shared) and GROUP_STEP (the step's own)
+//! and draws one full-frame triangle. A step that doesn't compile is logged once and passes frames through, like a failing CPU step.
 //! Colours are RGBA 0..1 in the camera's own (sRGB-encoded) values, uv (0, 0) is the top left. The alpha effect() returns is dropped.
 
 use crate::frame::ShaderStep;
@@ -15,12 +16,14 @@ pub const PARAMS: &str = "Params";
 pub const VERTEX_ENTRY: &str = "telescope_vs";
 pub const FRAGMENT_ENTRY: &str = "telescope_fs";
 
-/// Group 0 bindings: the frame as a texture, its sampler (linear, clamped), FrameInfo, Params, then ShaderStep::textures in order.
+/// Group 0, the same for every step: the picture so far, its sampler (linear, clamped) and FrameInfo.
 pub const BINDING_INPUT: u32 = 0;
 pub const BINDING_SAMPLER: u32 = 1;
 pub const BINDING_FRAME: u32 = 2;
-pub const BINDING_PARAMS: u32 = 3;
-pub const BINDING_FIRST_TEXTURE: u32 = 4;
+/// Group 1, the step's own: Params, then ShaderStep::textures in order.
+pub const GROUP_STEP: u32 = 1;
+pub const BINDING_PARAMS: u32 = 0;
+pub const BINDING_FIRST_TEXTURE: u32 = 1;
 
 /// Declared before the plugin's code. `frame` and `sample()` are what a shader uses; telescope_* names are the host's.
 pub const PRELUDE: &str = "\
@@ -80,6 +83,7 @@ pub enum ParamKind {
     Vec2,
     Vec3,
     Vec4,
+    Mat4,
 }
 
 impl ParamKind {
@@ -91,6 +95,7 @@ impl ParamKind {
             "vec2<f32>" | "vec2f" => ParamKind::Vec2,
             "vec3<f32>" | "vec3f" => ParamKind::Vec3,
             "vec4<f32>" | "vec4f" => ParamKind::Vec4,
+            "mat4x4<f32>" | "mat4x4f" => ParamKind::Mat4,
             _ => return None,
         })
     }
@@ -102,6 +107,7 @@ impl ParamKind {
             ParamKind::Vec2 => (8, 8),
             ParamKind::Vec3 => (16, 12),
             ParamKind::Vec4 => (16, 16),
+            ParamKind::Mat4 => (16, 64),
         }
     }
 
@@ -111,6 +117,7 @@ impl ParamKind {
             ParamKind::Vec2 => 2,
             ParamKind::Vec3 => 3,
             ParamKind::Vec4 => 4,
+            ParamKind::Mat4 => 16,
         }
     }
 }
@@ -168,7 +175,7 @@ pub fn params_layout(wgsl: &str) -> Result<Vec<ParamField>, String> {
             return Err(format!("Params field {name:?} isn't a plain name"));
         }
         let kind = ParamKind::parse(ty.trim())
-            .ok_or_else(|| format!("Params field {name} is {}; only f32, i32, u32 and vec2/3/4<f32> are allowed", ty.trim()))?;
+            .ok_or_else(|| format!("Params field {name} is {}; only f32, i32, u32, vec2/3/4<f32> and mat4x4<f32> are allowed", ty.trim()))?;
         let (align, size) = kind.layout();
         offset = offset.next_multiple_of(align);
         fields.push(ParamField { name: name.to_string(), kind, offset });
@@ -177,7 +184,7 @@ pub fn params_layout(wgsl: &str) -> Result<Vec<ParamField>, String> {
     Ok(fields)
 }
 
-/// The uniform buffer for Params from uniforms by field name: a missing value is 0, a bool is 0 or 1, a vector is an array.
+/// The uniform buffer for Params from uniforms by field name: a missing value is 0, a bool is 0 or 1, a vector is an array, a mat4x4 16 numbers column by column.
 pub fn pack_uniforms(wgsl: &str, uniforms: &Value) -> Result<Vec<u8>, String> {
     let fields = params_layout(wgsl)?;
     let Some(last) = fields.last() else { return Ok(Vec::new()) };
@@ -231,13 +238,13 @@ pub fn assemble(step: &ShaderStep) -> Result<String, String> {
     }
     let mut out = String::from(PRELUDE);
     if !params_layout(&step.wgsl)?.is_empty() {
-        out += &format!("\n@group(0) @binding({BINDING_PARAMS}) var<uniform> params: {PARAMS};\n");
+        out += &format!("\n@group({GROUP_STEP}) @binding({BINDING_PARAMS}) var<uniform> params: {PARAMS};\n");
     }
     for (i, (name, _)) in step.textures.iter().enumerate() {
         if !is_ident(name) || name.starts_with("telescope_") {
             return Err(format!("texture name {name:?} can't be used"));
         }
-        out += &format!("@group(0) @binding({}) var {name}: texture_2d<f32>;\n", BINDING_FIRST_TEXTURE + i as u32);
+        out += &format!("@group({GROUP_STEP}) @binding({}) var {name}: texture_2d<f32>;\n", BINDING_FIRST_TEXTURE + i as u32);
     }
     out += "\n";
     out += &step.wgsl;
@@ -280,8 +287,9 @@ mod tests {
         let step = |wgsl: &str| ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
         assert!(assemble(&step("fn other() {}")).unwrap_err().contains("fn effect"));
         assert!(assemble(&step("@group(0) @binding(9) var x: f32;\nfn effect(uv: vec2<f32>) -> vec4<f32> { return vec4(0.0); }")).is_err());
-        assert!(params_layout("struct Params { m: mat4x4<f32> }").unwrap_err().contains("mat4x4"));
+        assert!(params_layout("struct Params { m: mat3x3<f32> }").unwrap_err().contains("mat3x3"));
+        assert_eq!(pack_uniforms("struct Params { a: f32, m: mat4x4<f32> }", &json!({"m": vec![1; 16]})).unwrap().len(), 80);
         let module = assemble(&step(GREY)).unwrap();
-        assert!(module.contains("@group(0) @binding(3) var<uniform> params: Params;"));
+        assert!(module.contains("@group(1) @binding(0) var<uniform> params: Params;"));
     }
 }
