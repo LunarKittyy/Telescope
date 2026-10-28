@@ -20,6 +20,8 @@ It runs with the profile's own Python because the frame checks need OpenCV and N
 Which emulator to use:
 - Run the whole pass on an Android 14 image with button navigation, the steadiest one. Its camera only goes up to 720p and the heat check gets skipped there.
 - An Android 17 image is the one with the Local network row and a 1080p camera. With SwiftShader rendering its System UI crashes on going Home or taking a screenshot (`hasReadColorBufferDma`). Give it only the checks that stay inside the app: `--only phone_fresh_install phone_allow_everything desktop_fresh_start usb_pairing stream_and_status heat_step`.
+- An Android 16.0 image (API 36.0) runs the whole pass too, but it has no Live Updates, so `stream_and_status` fails there for every version. Check that one on the Android 17 image.
+- Skip the Android 16.1 image (API 36.1). Its camera doesn't finish starting in time and **Get set up** sometimes leaves notifications not granted, in old versions as much as new ones.
 - Turn button navigation on with `adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton`.
 
 ## The Windows pass
