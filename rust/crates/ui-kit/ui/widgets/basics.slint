@@ -1,6 +1,7 @@
 // Icons, the focus ring and buttons from desktop/telescope/widgets/common.py, sized in the same design pixels.
 
 import { Theme } from "../theme.slint";
+import { TipBody } from "tip.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
 export component Icon inherits Image {
@@ -34,12 +35,16 @@ export component Button inherits Rectangle {
     in property <length> padding-x: 13px;
     in property <length> gap: 9px;
     in property <bool> enabled: true;
+    // A tooltip, when there's something to say beyond the label
+    in property <string> tip;
+    // card_action greys to faint text rather than the darker disabled grey, on no fill
+    in property <bool> quiet-when-disabled;
     callback clicked;
     height: 34px;
     min-width: lay.preferred-width;
     border-radius: 7px;
     border-width: 1px;
-    background: !enabled ? Theme.bg
+    background: !enabled ? (quiet-when-disabled ? transparent : Theme.bg)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
         : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
@@ -62,6 +67,7 @@ export component Button inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { if (enabled) { root.clicked(); } }
     }
+    if tip != "": Tooltip { TipBody { says: tip; } }
     lay := HorizontalLayout {
         padding-left: padding-x;
         padding-right: padding-x;
@@ -79,7 +85,7 @@ export component Button inherits Rectangle {
             font-family: Theme.font;
             font-size: root.font-size;
             font-weight: root.font-weight;
-            color: !enabled ? Theme.text-disabled : role == "primary" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
+            color: !enabled ? (quiet-when-disabled ? Theme.text-faint : Theme.text-disabled) : role == "primary" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
             vertical-alignment: center;
         }
     }

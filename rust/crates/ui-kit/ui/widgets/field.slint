@@ -1,0 +1,81 @@
+// QLineEdit as theme.py styles it: raised fill, strong border that lightens on hover and turns accent with focus. With
+// a leading icon (the search fields) and Qt's clear button once there's text.
+
+import { Theme } from "../theme.slint";
+import { Icon } from "basics.slint";
+import { Icons } from "../icons.slint";
+
+export component TextField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <bool> clearable;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: input.has-focus;
+    callback edited(string);
+    callback accepted;
+    // Up and Down arrows, for stepping through a list under the field
+    callback step(int);
+    callback escape-empty;
+    public function focus-all() {
+        input.focus();
+        input.select-all();
+    }
+    height: 32px;
+    border-radius: 7px;
+    border-width: 1px;
+    background: enabled ? Theme.surface-raise : Theme.bg;
+    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: label;
+    accessible-value: text;
+    accessible-placeholder-text: placeholder;
+    touch := TouchArea { mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
+    if has-icon: Icon { x: 7px; source: icon; tint: Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+    if text == "" && placeholder != "": Text {
+        x: input.x;
+        text: placeholder;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    input := TextInput {
+        x: has-icon ? 39px : 11px;
+        width: parent.width - self.x - (clearable && text != "" ? 30px : 11px);
+        height: parent.height;
+        text <=> root.text;
+        enabled: root.enabled;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: self.has-focus ? white : Theme.text;
+        selection-background-color: Theme.fill;
+        selection-foreground-color: white;
+        vertical-alignment: center;
+        single-line: true;
+        accessible-role: none;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(); }
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow) { root.step(1); return accept; }
+            if (e.text == Key.UpArrow) { root.step(-1); return accept; }
+            if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
+            reject
+        }
+    }
+    if clearable && text != "": Rectangle {
+        x: parent.width - 26px;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        background: clear-touch.has-hover ? Theme.surface-hover : transparent;
+        accessible-role: button;
+        accessible-label: @tr("Clear");
+        clear-touch := TouchArea { clicked => { root.text = ""; root.edited(""); input.focus(); } }
+        Icon { source: Icons.x; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+    }
+}
