@@ -4108,7 +4108,7 @@
 "test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "todo" }
 "test_stream.py::test_hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one" = { status = "todo" }
 "test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "todo" }
-"test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "todo" }
+"test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs" }
 "test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "todo" }
 "test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "todo" }
 "test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "todo" }
