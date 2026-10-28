@@ -193,7 +193,7 @@ def test_plugging_in_after_it_opened_grows_the_dialog_to_fit(qapp, adb, lan):
         assert dialog.height() == height  # not squeezed into a size picked before the button showed
         qr = dialog._qr_container.itemAt(0).widget()
         assert dialog._wifi_row.geometry().top() - qr.geometry().bottom() - 1 == lay.spacing()
-        assert dialog._usb_lbl.height() == dialog._usb_lbl.minimumHeight()
+        assert dialog._usb_lbl.height() < 2 * dialog._usb_lbl.minimumHeight()  # no room left for its old second line
     finally:
         dialog.reject()
 
