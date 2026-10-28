@@ -1,0 +1,195 @@
+OLDEST_PLUGIN_API = 2
+PLUGIN_API = 2
+event add_phone_requested
+event camera_on_changed
+event camera_opened
+event camera_switched
+event camera_watched
+event cover_requested
+event custom
+event device_changed
+event focus_mode_changed
+event focus_mode_picked
+event focus_point
+event focus_point_available
+event focus_point_picked
+event forget_source_requested
+event idle_outputs
+event lens_boxes
+event limiter_changed
+event max_gain_changed
+event max_zoom_changed
+event meter_point
+event meter_point_available
+event meter_point_picked
+event mic_changed
+event motion_seen
+event people_seen
+event people_tracked
+event phone_ready
+event phone_state_updated
+event phone_wanted
+event phones_changed
+event preview_pick_changed
+event preview_picked
+event remembered_sources
+event request_done
+event request_progress
+event resolution_change_requested
+event sensors_changed
+event setup_guide_requested
+event setup_needed
+event source_selected
+event still_busy_changed
+event still_saved
+event stream_behind
+event stream_connected
+event stream_covered
+event stream_lost
+event stream_sources_changed
+event stream_start_failed
+event stream_started
+event stream_stopped
+event stream_transport_changed
+event streams_changed
+event update_requested
+event vcam_opened
+event view_changed
+event view_dragged
+event view_pannable
+event view_scrolled
+event view_status
+event view_taken
+event vision_state_changed
+event window_shown
+global N_
+global files.read
+global host
+global json.decode
+global json.encode
+global load
+global log.debug
+global log.error
+global log.info
+global log.warn
+global os.clock
+global os.date
+global os.difftime
+global os.time
+global print
+global require
+global tr
+global trn
+host.add_preview_layer(layer)
+host.apply_preset(name, cfg) [settings]
+host.background_streams()
+host.can_turn_camera_off()
+host.cancel_pick()
+host.canvas_size()
+host.clear_issue(key?)
+host.colour_split(position?)
+host.device_config(source_id?)
+host.diagnostics_report()
+host.emit(name, data?) [waits for the host]
+host.finish_pick()
+host.focused_source_id()
+host.forget_device_settings(name) [settings]
+host.hand_over_stream(route, source_id?) [streams]
+host.has_device_settings(name) [settings]
+host.has_plugin(name)
+host.is_camera_off_auto()
+host.is_camera_on()
+host.is_restarting()
+host.is_starting()
+host.is_streaming()
+host.is_streaming_from(source_id?)
+host.main_stream()
+host.make_main(source_id) [streams]
+host.motion()
+host.move_device_settings(old, new) [settings]
+host.open_settings(tab?)
+host.packets_problem()
+host.phone_control(body, source_id?) [phone]
+host.phone_state(source_id?)
+host.pick_on_preview(kind, start?, hint?)
+host.pick_source(source_id?) [streams]
+host.plugin_config(name) [settings]
+host.preset_plugins()
+host.quit_app() [app]
+host.reconnect_stream() [streams]
+host.refresh_frame_step() [waits for the host]
+host.refresh_preview()
+host.release_view()
+host.remove_extra_cameras() [streams]
+host.remove_preview_layer()
+host.restart_app() [app]
+host.restart_vcam_canvas(width, height) [streams]
+host.save_now()
+host.schedule_save() [waits for the host]
+host.send_notification(title, body, urgent?) [notifications]
+host.sensor_reading(source_id?)
+host.sensor_status(source_id?)
+host.set_camera_on(on, auto?) [streams]
+host.set_colour_stage(stage?, order?, source_id?)
+host.set_keep_in_tray(keep) [app]
+host.set_preview_warp(matrix?)
+host.set_ui_props(ui, props) [waits for the host]
+host.set_view(change)
+host.shortcut_actions()
+host.show_issue(key, issue)
+host.start_again(source_id?) [streams]
+host.start_stream(interactive?) [streams]
+host.steer_view(zoom, pan_x, pan_y)
+host.still_busy(source_id?)
+host.still_caps(source_id?)
+host.stop_all_streams() [streams]
+host.stop_stream(source_id?) [streams]
+host.stream_count()
+host.stream_on_camera(slot?)
+host.stream_output(source_id)
+host.take_still(options, folder, source_id?) [phone]
+host.take_view()
+host.toggle_window() [app]
+host.tracked_people(source_id?)
+host.update_stream_output(change, source_id?) [streams]
+host.update_tray_action(action) [waits for the host]
+host.view()
+host.view_aspect()
+host.vision_state()
+host.want_people(on)
+host.want_sensors(kinds)
+host.watch_motion(zones, sensitivity?)
+permission app
+permission notifications
+permission phone
+permission settings
+permission streams
+plugin.actions() [no host]
+plugin.apply_preset(cfg)
+plugin.card() [no host]
+plugin.diagnostics() [no host]
+plugin.frame_step() [no host]
+plugin.get_config() [no host]
+plugin.header_widget() [no host]
+plugin.on_camera_off()
+plugin.on_camera_on()
+plugin.on_event(event)
+plugin.on_focus_gained(stream)
+plugin.on_focus_lost()
+plugin.on_issue_action(key, id)
+plugin.on_phone_state(state)
+plugin.on_plugins_ready()
+plugin.on_stream_start(stream)
+plugin.on_stream_starting()
+plugin.on_stream_stop()
+plugin.on_tray_action(id)
+plugin.on_ui(event)
+plugin.release_action(id, params)
+plugin.run_action(id, params)
+plugin.set_config(cfg) [no host]
+plugin.settings_sections() [no host]
+plugin.setup()
+plugin.shutdown()
+plugin.tray_actions() [no host]
+shader entry effect
+shader params Params

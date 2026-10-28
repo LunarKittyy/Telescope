@@ -7,5 +7,14 @@ publish.workspace = true
 
 [dependencies]
 telescope-core.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
+ring.workspace = true
+mlua.workspace = true
+zip.workspace = true
+ureq.workspace = true
+naga.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
