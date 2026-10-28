@@ -1512,9 +1512,10 @@ def test_tray_show_quit_and_activation(window, monkeypatch):
 
     monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
-    window._tray_quit()
+    monkeypatch.setattr(app_module.diagnostics.events, "add", lambda level, text: calls.append((level, text)))
+    window._tray_quit("The user quit from the tray")
     assert window._tray_close_notified is True
-    assert calls[-2:] == ["stop", "quit"]
+    assert calls[-3:] == [("QUIT", "The user quit from the tray"), "stop", "quit"]
 
 
 def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
@@ -1537,9 +1538,13 @@ def test_close_event_stops_and_accepts_without_background_stream(window, monkeyp
     calls = []
     monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
-    event = SimpleNamespace(accept=lambda: calls.append("accept"))
+    monkeypatch.setattr(app_module.diagnostics.events, "add", lambda level, text: calls.append((level, text)))
+    event = SimpleNamespace(accept=lambda: calls.append("accept"), spontaneous=lambda: True)
     window.closeEvent(event)
-    assert calls == ["stop", "accept", "quit"]
+    assert calls == [("QUIT", "The user closed the window"), "stop", "accept", "quit"]
+    event.spontaneous = lambda: False
+    window.closeEvent(event)
+    assert calls[4] == ("QUIT", "The window was closed")  # closed by code, not by the user
 
 
 # ── Remote phone wake / symmetric stop ────────────────────────────────────────
@@ -3807,7 +3812,7 @@ def test_under_dev_desktop_a_restart_is_left_to_it(window, monkeypatch, tmp_path
     monkeypatch.setattr(window, "is_streaming", lambda: True)
     assert window.restart_app() and calls[-1] == 76  # and dev_desktop.py has the next one start streaming
     monkeypatch.delenv("TELESCOPE_DEV_SUPERVISED")
-    monkeypatch.setattr(window, "_tray_quit", lambda: calls.append("quit"))
+    monkeypatch.setattr(window, "_tray_quit", lambda reason: calls.append("quit"))
     assert window.restart_app() and calls[-2:] == ["relaunch", "quit"]
 
 

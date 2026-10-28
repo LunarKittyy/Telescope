@@ -562,6 +562,7 @@ class TelescopeWindow(QMainWindow):
         """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
         if dev_profile.supervised():  # dev_desktop.py starts it again, in the same terminal and profile
             self._tray_close_notified = True
+            diagnostics.events.add("QUIT", "Restarting")
             self._shut_down_and_exit(dev_profile.RESTART_STREAMING if self.is_streaming() else dev_profile.RESTART_EXIT)
             return True
         try:
@@ -569,7 +570,7 @@ class TelescopeWindow(QMainWindow):
         except (OSError, ValueError):
             logging.exception("Couldn't start Telescope again")
             return False
-        self._tray_quit()
+        self._tray_quit("Restarting")
         return True
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
@@ -1656,7 +1657,7 @@ class TelescopeWindow(QMainWindow):
         show_action = QAction(tr("Show"), self)
         quit_action = QAction(tr("Quit"), self)
         show_action.triggered.connect(self._tray_show)
-        quit_action.triggered.connect(self._tray_quit)
+        quit_action.triggered.connect(lambda: self._tray_quit("The user quit from the tray"))
         menu.addAction(show_action)
         self._tray_quit_sep = menu.addSeparator()
         menu.addAction(quit_action)
@@ -1714,7 +1715,7 @@ class TelescopeWindow(QMainWindow):
         self._report_shown()  # never shown, so no event says so
 
     def quit_app(self):
-        self._tray_quit()
+        self._tray_quit("A plugin quit the app")
 
     def start_stream(self, interactive: bool = True):
         if not self._sessions.streams and not self._sessions.waking and not self._sessions.preparing:
@@ -2022,7 +2023,8 @@ class TelescopeWindow(QMainWindow):
     def preset_plugins(self) -> list:
         return [p.name for p in self._plugins if p.in_presets and p.name]
 
-    def _tray_quit(self):
+    def _tray_quit(self, reason: str):
+        diagnostics.events.add("QUIT", reason)
         self._tray_close_notified = True
         self._shut_down()
         QApplication.quit()
@@ -2278,6 +2280,7 @@ class TelescopeWindow(QMainWindow):
                     urgent=False,
                 )
         else:
+            diagnostics.events.add("QUIT", "The user closed the window" if event.spontaneous() else "The window was closed")
             self._shut_down()
             event.accept()
             QApplication.quit()
