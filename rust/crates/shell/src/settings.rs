@@ -251,6 +251,13 @@ impl Settings {
                 SValue::Void
             });
         };
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_global_callback("Reveal", "show", move |args| {
+            if let (Some(st), [_, SValue::Number(y), _, SValue::Number(h)]) = (weak.upgrade(), args) {
+                st.reveal(*y as f32, *h as f32);
+            }
+            SValue::Void
+        });
         cb(self, "tab-picked", |s, a| if let Some(SValue::Number(i)) = a.first() { s.on_row(*i as usize) });
         cb(self, "query-changed", |s, a| if let Some(SValue::String(t)) = a.first() { s.on_query(t) });
         cb(self, "step", |s, a| if let Some(SValue::Number(d)) = a.first() { s.step(*d as i32) });
@@ -290,6 +297,16 @@ impl Settings {
             let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
             let _ = self.ui.set_property(&name, to_slint(v, &like));
         }
+    }
+
+    /// Scrolls the page so a control that just got keyboard focus shows, 40 px clear of the edge like ensureWidgetVisible.
+    fn reveal(&self, y: f32, h: f32) {
+        let t = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };
+        let num = |n: &str| match self.ui.get_property(n) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let (offset, height) = (num(&format!("page{t}-offset")), num(&format!("page{t}-height")));
+        let (top, margin) = (53.0, 40.0);
+        let to = if y < top { offset - (top - y) - margin } else if y + h > top + height { offset + (y + h - top - height) + margin } else { return };
+        let _ = self.ui.set_property(&format!("page{t}-offset"), SValue::Number(to.max(0.0) as f64));
     }
 
     /// The tab ids shown, top to bottom.

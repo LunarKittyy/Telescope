@@ -45,7 +45,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, ColumnScrollbar, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -55,7 +55,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme }\n");
+    out.push_str("export { Folds, Theme, Reveal }\n");
     out.push_str(FRAME_TOP);
 
     // Column geometry for each mode, relative to the body's left edge
@@ -103,8 +103,12 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
 
     // The body: cards placed by their column in the current mode
     out.push_str(BODY_TOP);
-    for (i, card) in cards.iter().enumerate() {
-        out.push_str(&card_element(i, card, cards, &cols));
+    // In the three-column order, which is the order Tab takes (Qt goes by layout order, column by column)
+    let mut order: Vec<usize> = cols[0].iter().flat_map(|(list, _)| list.iter().copied()).collect();
+    let rest: Vec<usize> = (0..cards.len()).filter(|i| !order.contains(i)).collect();
+    order.extend(rest);
+    for i in order {
+        out.push_str(&card_element(i, &cards[i], cards, &cols));
     }
     out.push_str(BODY_BOTTOM);
     out
@@ -234,6 +238,8 @@ export component TelescopeWindow inherits Window {
     property <length> view-h: max(0px, root.height - 40px - body-top - 32px);
     property <length> body-w: max(0px, root.width - 32px);
     out property <length> content-height: max(col0-pref, max(col1-pref, col2-pref));
+    out property <length> view-top: body-top + 16px;
+    out property <length> view-height: view-h;
 
     title: window-title;
     icon: Icons.camera;
@@ -420,7 +426,7 @@ pub struct SectionPlace {
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
-    let mut out = String::from("import { Theme, Icons, Folds, TextField } from \"@ui-kit/ui-kit.slint\";\n");
+    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
@@ -430,8 +436,11 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme }\n");
+    out.push_str("export { Folds, Theme, Reveal }\n");
     out.push_str(SETTINGS_TOP);
+    for t in 0..tabs {
+        out.push_str(&format!("    in-out property page{t}-offset <=> page{t}.offset;\n    out property page{t}-height <=> page{t}.height;\n"));
+    }
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         out.push_str(&aliases(piece));
     }

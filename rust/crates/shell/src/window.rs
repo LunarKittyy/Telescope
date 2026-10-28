@@ -188,6 +188,13 @@ impl Window {
         }
         let _ = files;
         let weak = Rc::downgrade(self);
+        let _ = ui.set_global_callback("Reveal", "show", move |args| {
+            if let (Some(w), [SValue::Number(x), SValue::Number(y), _, SValue::Number(h)]) = (weak.upgrade(), args) {
+                w.reveal(*x as f32, *y as f32, *h as f32);
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("start-clicked", move |_| {
             if let Some(w) = weak.upgrade() {
                 w.toggle_stream();
@@ -222,6 +229,21 @@ impl Window {
         });
         let _ = ui.set_property("window-title", SValue::String(if telescope_core::config::dev_profile().is_some() { tr("Telescope (dev)") } else { "Telescope".to_string() }.into()));
         self.show_idle();
+    }
+
+    fn number(&self, name: &str) -> f32 {
+        match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 }
+    }
+
+    /// Scrolls the column a control that just got keyboard focus is in, so it's in view (ensureWidgetVisible).
+    fn reveal(&self, x: f32, y: f32, h: f32) {
+        let (top, height) = (self.number("view-top"), self.number("view-height"));
+        let col = (0..3).rev().find(|c| self.number(&format!("c{c}w")) > 0.0 && x - 16.0 >= self.number(&format!("c{c}x"))).unwrap_or(0);
+        let name = format!("scroll{col}");
+        let scroll = self.number(&name);
+        let margin = 10.0;
+        let to = if y < top + margin { scroll - (top + margin - y) } else if y + h > top + height - margin { scroll + (y + h - (top + height - margin)) } else { return };
+        let _ = self.ui.set_property(&name, SValue::Number(to.max(0.0) as f64));
     }
 
     fn banner_pressed(self: &Rc<Self>, key: &str, pressed: crate::banners::Pressed) {
