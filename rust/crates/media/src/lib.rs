@@ -28,19 +28,20 @@ pub struct FfmpegMedia;
 
 /// The preview on the graphics card, scaled and converted there; on the processor when there's no card.
 struct PreviewScaler {
-    gpu: Option<Arc<gpu::Gpu>>,
+    // Opened on the first preview frame: a stream with no window never loads the graphics driver
+    gpu: Option<Option<Arc<gpu::Gpu>>>,
     #[cfg(ffmpeg)]
     cpu: ffmpeg::CpuScaler,
 }
 
 impl Scaler for PreviewScaler {
     fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
-        if let Some(gpu) = &self.gpu {
+        if let Some(gpu) = self.gpu.get_or_insert_with(gpu::Gpu::shared) {
             match gpu.rgba(frame, width, height) {
                 Ok(rgba) => return rgba.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect(),
                 Err(why) => {
                     log::warn!("The preview can't be drawn on the graphics card ({why}); drawing it on the processor");
-                    self.gpu = None;
+                    self.gpu = Some(None);
                 }
             }
         }
@@ -80,7 +81,7 @@ impl Media for FfmpegMedia {
 
     fn scaler(&self) -> Box<dyn Scaler> {
         Box::new(PreviewScaler {
-            gpu: gpu::Gpu::shared(),
+            gpu: None,
             #[cfg(ffmpeg)]
             cpu: ffmpeg::CpuScaler::default(),
         })
