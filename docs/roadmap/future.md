@@ -57,6 +57,14 @@ Big. It needs capture times through the phone app and the protocol, the calibrat
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
 
+## Older DSLRs over USB
+
+Cameras with a webcam mode or clean HDMI out already work as webcams from 4.4. Older DSLRs have neither but can still send live view over USB, which gphoto2 speaks for most of them. A Nikon D5100 tested in October 2026 sent 640×426 MJPEG at a steady 30 fps for 15 minutes through `gphoto2 --capture-movie --stdout`. A source could read that same stream from the `gphoto2` command most distros ship, without a new Python package. The picture looks like a decent 480p webcam with real background blur.
+
+The camera ends live view every few minutes and gphoto2 starts it again (the mirror clicks and about a second of frames goes missing). The source has to hold the last frame through that gap. Some desktops also open a camera as a drive the moment it's plugged in, and gphoto2 can't reach it until that lets go. It would be Linux only. Windows has no gphoto2 and the vendor SDKs come with licences and one SDK per brand. Not every camera can do it either (a Samsung NX300 only shows up as a USB drive).
+
+Small once webcam support is in and settled.
+
 ## A guide to unusual setups
 
 A doc with tips for using Telescope in ways it wasn't built around, starting with Tailscale. Pairing over Tailscale already works (the QR code carries the Tailscale address after the LAN ones) and it doesn't matter where either device is. That covers a lot without writing any new networking code:

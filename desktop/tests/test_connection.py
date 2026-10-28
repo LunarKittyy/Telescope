@@ -1454,6 +1454,8 @@ def test_udp_is_used_on_wifi_only_when_switched_on_and_dynamic_only_where_the_ph
     _streaming_over(plugin, USB)
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")  # off by default
 
+    [section] = plugin.create_settings_sections()  # in the Settings window, not on the card
+    assert section.tab == "streaming" and not plugin._udp_cb.isChecked()
     plugin._udp_cb.setChecked(True)
     assert plugin.get_config()["udp"] is True
     assert plugin.adopt_stream_route(WIFI, "id-a") == "https://10.0.0.5:8080/v1/video.udp"
@@ -1509,6 +1511,7 @@ def test_dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone(plugin
     plugin._bus.stream_transport_changed.emit()
     assert host.reconnects == 1
 
+    plugin.create_settings_sections()
     plugin.set_config({**plugin.get_config(), "udp": False})
     assert not plugin._udp_cb.isChecked()
 

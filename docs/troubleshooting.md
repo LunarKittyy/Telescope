@@ -91,6 +91,9 @@ A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture comes back without you doing anything. Otherwise click **Start streaming**.
 
+**The stream stops on its own after a while with the phone's screen off**
+Android's power saving closed Telescope. Tap **Allow** next to Battery in the phone app's Get set up card if it's still there (that turns battery optimisation off for Telescope). Some phones close apps anyway and on those it helps to leave Telescope on screen and tap **Black screen** next to Preview instead of turning the screen off.
+
 **"Needs pairing again"**
 The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
 
@@ -112,7 +115,7 @@ The update moved an unzipped copy to the installed one and Windows treats it as 
 Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
 
 **Light freezes for a moment now and then over Wi-Fi**
-A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental). It works with Dynamic too, which then lowers the bitrate once more packets start going missing than the resends can cover.
+A busy network loses a packet and TCP holds everything up until the resend. Try Dynamic bitrate or USB first. **UDP on Wi-Fi** in Settings on the Streaming tab is experimental and worth a try here, though it can also stutter more than TCP.
 
 **FPS stays at 30 with 60 picked**
 Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.
