@@ -2926,8 +2926,8 @@
 "test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_h264_reader.py::test_pyav_is_imported_by_one_thread_at_a_time" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
-"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "todo", note = "the HTTP side belongs to link (open_video); media ports the decoding" }
-"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "todo", note = "the HTTP side belongs to link (open_video); media ports the decoding" }
+"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "todo" }
+"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "todo" }
 "test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 "test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
@@ -3032,14 +3032,14 @@
 "test_microphone.py::test_typing_a_gain_moves_the_slider" = { status = "todo" }
 "test_microphone.py::test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" = { status = "todo" }
 # ── mjpeg_reader
-"test_mjpeg_reader.py::test_a_negative_or_zero_length_part_ends_the_stream" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_open_returns_false_on_connection_failure" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_read_before_open_returns_false" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_rejects_non_multipart_response" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
-"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_a_negative_or_zero_length_part_ends_the_stream" = { status = "todo" }
+"test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "todo" }
+"test_mjpeg_reader.py::test_open_returns_false_on_connection_failure" = { status = "todo" }
+"test_mjpeg_reader.py::test_read_before_open_returns_false" = { status = "todo" }
+"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "todo" }
+"test_mjpeg_reader.py::test_rejects_non_multipart_response" = { status = "todo" }
+"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "todo" }
+"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "todo" }
 # ── models
 "test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "todo" }
 "test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "todo" }
