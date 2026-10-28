@@ -30,6 +30,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] A call or OBS on Linux and on Windows picks up the Telescope camera and the Telescope microphone and still has them after a Stop and Start.
 - [ ] `desktop/constraints.txt` hasn't drifted out of date and for every dependency bumped since the last release its entries in [Upstream bugs](upstream-bugs.md) are checked (fixed ones have their workaround dropped).
 - [ ] Device-compatibility matrix updated with test results.
+- [ ] Decided whether to translate this release's new texts first (`python scripts/i18n.py status` in `desktop/` shows what's left).
 - [ ] Release notes written in `.github/release-notes/<VERSION>.md` (the release uses them; without one it falls back to generated notes).
 
 ## Only when due

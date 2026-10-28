@@ -5,7 +5,7 @@ Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desk
 Before changing how desktop plugins, sources or the window talk to each other, read `desktop/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `tests/test_architecture.py` and `tests/test_plugin_removal.py` check both.
 
 ## Texts people see
-Both apps are translatable: new UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` on the desktop, then `python scripts/i18n.py extract` in `desktop/`. `docs/translating.md` has the rules.
+Both apps are translatable: new UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` on the desktop, then `python scripts/i18n.py extract` in `desktop/`. `docs/translating.md` has the rules. Leave new texts untranslated: translation runs (`automation/translation/`) only happen when the owner asks for one.
 
 ## Trying a change on a real phone
 `./gradlew installDev` in `android/` and `python scripts/dev_desktop.py --keep` in `desktop/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
