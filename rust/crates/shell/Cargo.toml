@@ -11,7 +11,11 @@ serde_json.workspace = true
 log.workspace = true
 slint.workspace = true
 qrcode.workspace = true
+slint-interpreter.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true
 telescope-ui-kit.workspace = true
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"

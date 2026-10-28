@@ -44,6 +44,7 @@ ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcode
 qrcode = { version = "0.14", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 slint-build = "1.18"
+slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 
 [profile.release]
 opt-level = 3
