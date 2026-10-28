@@ -17,7 +17,9 @@ pub mod reader;
 mod testenc;
 
 use std::sync::{Arc, OnceLock};
-use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::frame::Frame;
+#[cfg(ffmpeg)]
+use telescope_core::frame::PixelFormat;
 use telescope_core::media::*;
 
 /// The decoders and frame steps this build has.
