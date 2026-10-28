@@ -67,7 +67,7 @@ Avoid: aplikować, wspierać, niniejszy, dokonać, ściągać, kamerka, zdeinsta
 | framing / Auto framing | kadrowanie / Automatyczne kadrowanie |
 | Head / Chest / Waist / Body | Głowa / Tors / Talia / Cała sylwetka |
 | Transforms (card) | Przekształcenia |
-| Mirror / Flip / Upside down / Rotation / Zoom / Pan | Odbicie lustrzane / Odwróć / Do góry nogami / Obrót / Powiększenie / Przesunięcie |
+| Mirror / Flip / Upside down / Rotation / Zoom / Pan | Lustro / Odwróć / Do góry nogami / Obrót / Powiększenie / Przesunięcie |
 | background blur / Blur | rozmycie tła / Rozmycie |
 | Image (camera section) / Picture | Korekta obrazu / Obraz |
 | lens / telephoto / main camera | obiektyw / teleobiektyw / główny aparat |

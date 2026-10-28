@@ -1343,7 +1343,7 @@ msgstr "Odak"
 
 #: telescope/plugins/camera_control.py:260
 msgid "Tap a point"
-msgstr "Bir noktaya dokun"
+msgstr "Noktaya dokun"
 
 #: telescope/plugins/camera_control.py:262
 msgctxt "focus"

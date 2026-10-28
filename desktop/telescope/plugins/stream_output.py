@@ -216,7 +216,8 @@ class StreamOutputPlugin(TelescopePlugin):
         self._quality_slider.set_snaps([_DEFAULT_QUALITY])
         self._quality_slider.setValue(_DEFAULT_QUALITY)
         self._quality_slider.set_default(_DEFAULT_QUALITY)
-        self._quality_val_lbl = value_label()
+        readouts = [tr("Dynamic"), tr("Auto"), f"{_DYNAMIC_POS - 1} Mbps"]
+        self._quality_val_lbl = value_label(fits=readouts)
         self._show_quality(_DEFAULT_QUALITY)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
         self._quality_row = control_row_widget(
@@ -227,7 +228,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._bitrate_slider.setRange(0, _DYNAMIC_POS)
         self._bitrate_slider.setValue(0)
         self._bitrate_slider.set_default(0)  # Auto
-        self._bitrate_val_lbl = value_label()
+        self._bitrate_val_lbl = value_label(fits=readouts)
         self._bitrate_slider.setToolTip(tr(_BITRATE_TIP))
         self._show_bitrate()
         self._bitrate_slider.valueChanged.connect(self._on_bitrate_changed)

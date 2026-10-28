@@ -271,14 +271,16 @@ class SegmentButton(QPushButton):
             self.setProperty("shortcutValue", value)
 
     def minimumSizeHint(self) -> QSize:
-        """In a segment row: room for the text in bold, as it turns when picked, plus the theme's 8 px padding."""
+        """In a segment row: room for the text in bold, as it turns when picked, and its icon, plus the theme's 8 px
+        padding."""
         hint = super().minimumSizeHint()
         if self.property("segmented") is not True:
             return hint
         self.ensurePolished()
         bold = QFont(self.font())
         bold.setWeight(QFont.Weight.DemiBold)
-        return QSize(math.ceil(QFontMetricsF(bold).horizontalAdvance(self.text())) + 18, hint.height())
+        icon = self.iconSize().width() + 4 if not self.icon().isNull() else 0  # Qt's gap between icon and text
+        return QSize(math.ceil(QFontMetricsF(bold).horizontalAdvance(self.text())) + icon + 18, hint.height())
 
 
 OPTION_HEIGHT = 52
@@ -945,11 +947,14 @@ def card_action(text: str, icon_name: str, tooltip: str = "") -> QPushButton:
     return btn
 
 
-def value_label(text: str = "") -> QLabel:
-    """Fixed-width, right-aligned readout that sits after a slider."""
+def value_label(text: str = "", fits=()) -> QLabel:
+    """Fixed-width, right-aligned readout that sits after a slider, made wider for the longest of fits (the words it
+    can show) when one doesn't fit the usual column. Rows in one card pass the same fits so their sliders line up."""
     lbl = QLabel(text)
     lbl.setObjectName("val")
-    lbl.setFixedWidth(ui_px(VALUE_COL_WIDTH))
+    lbl.ensurePolished()
+    widest = max((math.ceil(lbl.fontMetrics().horizontalAdvance(t)) for t in fits), default=0)
+    lbl.setFixedWidth(max(ui_px(VALUE_COL_WIDTH), widest + 2))
     lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
     return lbl
 

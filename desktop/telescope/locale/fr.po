@@ -1052,7 +1052,7 @@ msgstr "Choisissez l'image à placer derrière vous"
 
 #: telescope/plugins/background.py:114 telescope/plugins/background.py:178 telescope/plugins/chroma_key.py:214 telescope/plugins/chroma_key.py:321
 msgid "No picture yet"
-msgstr "Aucune image pour le moment"
+msgstr "Aucune image"
 
 #: telescope/plugins/background.py:127 telescope/plugins/chroma_key.py:183 telescope/plugins/fun_pack.py:169
 msgid "How soft the edge around you is"

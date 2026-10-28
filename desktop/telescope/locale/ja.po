@@ -1367,7 +1367,7 @@ msgstr "低照度"
 
 #: telescope/plugins/camera_control.py:299 telescope/plugins/camera_control.py:371
 msgid "Black level lock"
-msgstr "ブラック レベル ロック"
+msgstr "黒レベル固定"
 
 #: telescope/plugins/camera_control.py:303 telescope/plugins/camera_control.py:373
 msgid "Torch"
@@ -1982,7 +1982,7 @@ msgstr "グレーディングに重ねる.cube LUTを選択"
 
 #: telescope/plugins/colour_grading.py:263 telescope/plugins/colour_grading.py:484
 msgid "No LUT loaded"
-msgstr "LUTが読み込まれていません"
+msgstr "LUT未読み込み"
 
 #: telescope/plugins/colour_grading.py:265
 msgid "Take the LUT off"

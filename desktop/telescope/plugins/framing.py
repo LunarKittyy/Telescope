@@ -265,7 +265,8 @@ class FramingPlugin(TelescopePlugin):
         self._framing_slider.set_default(round(FRAMING_DEFAULT * _FRAMING_STEPS))
         self._framing_slider.setToolTip(tr("How much of you is in the picture: just your head, down to your chest, "
                                            "down to your waist or all of you"))
-        self._framing_lbl = value_label()
+        readouts = [tr(t) for t in FRAMINGS + SPEEDS + ROOMS]  # one readout column for the three rows
+        self._framing_lbl = value_label(fits=readouts)
         self._framing_slider.valueChanged.connect(self._on_framing)
         lay.addLayout(_row(tr("Framing"), slider_row(self._framing_slider, self._framing_lbl), stretch=True))
         self._show_framing()
@@ -274,7 +275,7 @@ class FramingPlugin(TelescopePlugin):
         self._speed_slider.setValue(SPEED_DEFAULT)
         self._speed_slider.set_default(SPEED_DEFAULT)
         self._speed_slider.setToolTip(tr("How quickly the framing catches up when you move"))
-        self._speed_lbl = value_label(tr(SPEEDS[SPEED_DEFAULT - 1]))
+        self._speed_lbl = value_label(tr(SPEEDS[SPEED_DEFAULT - 1]), fits=readouts)
         self._speed_slider.valueChanged.connect(self._on_speed)
         lay.addLayout(_row(tr("Speed"), slider_row(self._speed_slider, self._speed_lbl), stretch=True))
         self._room_slider = NoScrollSlider(Qt.Orientation.Horizontal)
@@ -283,7 +284,7 @@ class FramingPlugin(TelescopePlugin):
         self._room_slider.set_default(ROOM_DEFAULT)
         self._room_slider.setToolTip(tr("What you can do before the framing follows you: fidget, shift in your seat, "
                                         "lean over, take a step or move around"))
-        self._room_lbl = value_label()
+        self._room_lbl = value_label(fits=readouts)
         self._room_slider.valueChanged.connect(self._on_room)
         lay.addLayout(_row(tr("Room to move"), slider_row(self._room_slider, self._room_lbl), stretch=True))
         self._show_room()

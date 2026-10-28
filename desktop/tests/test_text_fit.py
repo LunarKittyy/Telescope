@@ -3,11 +3,11 @@
 import pytest
 from PyQt6.QtCore import QPointF, QRect, Qt
 from PyQt6.QtGui import QFontInfo, QPainter, QTextLayout
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider, QVBoxLayout, QWidget
 
 from scripts import text_fit
 from telescope import i18n
-from telescope.widgets.common import SWITCH_W, ElidingLabel, Switch, ui_px
+from telescope.widgets.common import SWITCH_W, ElidingLabel, Switch, ui_px, value_label
 
 # The fonts text_fit_known.txt was made with: other fonts measure differently. Inter has no Devanagari, so Hindi's
 # letters come from Noto Sans Devanagari
@@ -151,3 +151,66 @@ def test_a_finding_matches_its_known_line_wherever_it_shows():
     a = text_fit.Finding("sv", "main window 560 px", "cut off", "Starta", "Start streaming", 90, 80)
     b = text_fit.Finding("sv", "Settings > General", "cut off", "Starta", "Start streaming", 95, 70)
     assert a.key == b.key == "sv\tcut off\tStart streaming"
+
+
+def _column(content_width):
+    """A side column like the main window's: no sideways scrolling, its content content_width wide at least."""
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    content = QWidget()
+    row = QHBoxLayout(content)
+    wide = QPushButton("Add phone")
+    wide.setMinimumWidth(content_width)
+    row.addWidget(wide)
+    area.setWidget(content)
+    return area
+
+
+def test_a_column_pushed_wider_than_it_shows_is_one_finding(qt_widgets, english):
+    area = qt_widgets(_column(300))
+    found = text_fit.check(_shown(area, 200, 100), "en", "test", english, cause="Curves")
+    assert [(f.kind, f.english) for f in found] == [("column too wide", "Curves")]
+
+
+def test_a_column_as_wide_before_the_pick_isnt_put_down_to_it(qt_widgets, english):
+    area = qt_widgets(_column(300))
+    _shown(area, 200, 100)
+    before = {id(area): area.widget().width()}
+    assert text_fit.check(area, "en", "test", english, cause="Curves", before=before) == []
+
+
+def test_walking_a_card_finds_a_readout_only_one_slider_stop_shows(qt_widgets, english):
+    box = qt_widgets(QWidget())
+    card = QFrame(box)
+    card.setObjectName("card")
+    QVBoxLayout(box).addWidget(card)
+    row = QHBoxLayout(card)
+    slider, readout = QSlider(Qt.Orientation.Horizontal), value_label()
+    slider.setRange(0, 3)
+    slider.valueChanged.connect(lambda v: readout.setText("Start streaming to send the notes to the phone." if v == 3 else str(v)))
+    row.addWidget(slider)
+    row.addWidget(readout)
+    _shown(box, 300, 80)
+    assert text_fit.check(box, "en", "test", english) == []
+    found = text_fit.walk(box, "en", "test", english, 300, 80)
+    assert [(f.kind, f.english) for f in found] == [("cut off", "Start streaming to send the notes to the phone.")]
+    assert slider.value() == 0  # put back as it was
+
+
+def test_a_readout_column_widens_for_the_words_it_can_show(qapp):
+    assert value_label().width() == ui_px(56)
+    label = value_label(fits=["Start streaming to send the notes to the phone."])
+    assert label.width() >= label.fontMetrics().horizontalAdvance("Start streaming to send the notes to the phone.")
+
+
+def test_japanese_wraps_between_letters_so_no_sentence_counts_as_one_long_word(qapp):
+    pieces = text_fit._unbreakable("スマートフォンでTelescopeを開いてください。")
+    assert len(pieces) > 5 and "Telescope" in "".join(pieces)
+    assert text_fit._unbreakable("Start the stream") == ["Start", "the", "stream"]
+
+
+def test_one_known_line_covers_every_stop_of_a_readout():
+    a = text_fit.Finding("pseudo", "test", "cut off", "[+1.3 ÉṼ ~]", "")
+    b = text_fit.Finding("pseudo", "test", "cut off", "[-0.7 ÉṼ ~]", "")
+    assert a.key.replace("+", "-") == b.key == "pseudo\tcut off\t[-#.# ÉṼ ~]"

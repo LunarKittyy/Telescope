@@ -5941,7 +5941,7 @@ msgstr "Скинути перевертання, поворот, масштаб,
 
 #: telescope/plugins/transforms.py:177
 msgid "Mirror"
-msgstr "Віддзеркалити"
+msgstr "Дзеркало"
 
 #: telescope/plugins/transforms.py:178
 msgid "Upside down"

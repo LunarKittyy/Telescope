@@ -67,7 +67,7 @@ Avoid: скачувати, закачати, включити, виключит�
 | framing / Auto framing | кадрування / Автокадрування |
 | Head / Chest / Waist / Body | Голова / Груди / Пояс / Повний зріст |
 | Transforms (card) | Трансформація |
-| Mirror / Flip / Upside down / Rotation / Zoom / Pan | Віддзеркалити / Перевернути / Догори дриґом / Поворот / Масштаб / Панорамувати |
+| Mirror / Flip / Upside down / Rotation / Zoom / Pan | Дзеркало / Перевернути / Догори дриґом / Поворот / Масштаб / Панорамувати |
 | background blur / Blur | розмиття фону / Розмиття |
 | Image (camera section) / Picture | Зображення / Картинка |
 | lens / telephoto / main camera | об'єктив / телеоб'єктив / основна камера |
