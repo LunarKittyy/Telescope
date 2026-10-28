@@ -50,9 +50,10 @@ Until the rewrite replaces the Python app, `telescope-rs` treats `~/.config/tele
 
 ## UI
 
-Every `.slint` file imports the kit as `@ui-kit/ui-kit.slint`. A crate that builds `.slint` files maps that name to `telescope_ui_kit::library_path()` in its build script (see `crates/shell/build.rs`). Icons are in the `Icons` global, with `Icons.named()` for a plugin that names its icon in `PluginInfo`.
+Every `.slint` file imports the kit as `@ui-kit/ui-kit.slint`. Icons are in the `Icons` global, with `Icons.named()` for a plugin that names its icon in `PluginInfo`.
+
+The shell interprets every card with `slint-interpreter` at startup, built-in ones included. Measured on the 8-core Ryzen from FINDINGS.md with 30 copies of the Camera card (each renamed, so nothing is shared): 56 ms to the first painted window compiled, 212 ms interpreted (120 ms compiling, 45 ms creating, 47 ms to paint). The Python app takes about 1070 ms. 150 ms more buys one path for built-in cards and the ones Lua and WASM plugins hand over, so the built-in ones prove the API added plugins get. It also keeps the window one Slint tree, which is what makes Tab order and the screen reader tree run across cards (compiled built-ins plus interpreted added cards would need Slint's experimental `ComponentContainer`). `crates/shell/README.md` has how the window document is generated and how the numbers were taken.
 
 ## Not settled yet
 
-- Whether the shell builds plugin cards with `slint-interpreter` at startup or compiles the built-in ones. The interface is the same either way but 30 interpreted cards might cost real startup time.
 - Release builds unwind instead of aborting on a panic. That lets the shell catch a plugin that panics and carry on like the Python app does with exceptions, but the catching itself isn't written yet.
