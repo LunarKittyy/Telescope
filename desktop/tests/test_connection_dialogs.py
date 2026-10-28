@@ -28,9 +28,10 @@ class _SyncThread:
 @pytest.fixture
 def adb(monkeypatch):
     calls = []
-    state = {"devices": [], "available": True}
+    state = {"devices": [], "available": True, "models": {}}
     monkeypatch.setattr(connection_module, "adb_available", lambda: state["available"])
     monkeypatch.setattr(connection_module, "adb_device_models", lambda: list(state["devices"]))
+    monkeypatch.setattr(connection_module, "adb_model", lambda serial: state["models"].get(serial, ""))
     monkeypatch.setattr(connection_module, "adb_reverse",
                         lambda port, serial=None: calls.append(("reverse", port, serial)) or (True, ""))
     monkeypatch.setattr(connection_module, "adb_unreverse",
@@ -175,6 +176,53 @@ def test_with_several_phones_plugged_in_only_the_picked_one_pairs(qapp, adb, lan
         _picks(dialog)[1].click()
         dialog._poll_usb()
         assert _broadcasts(adb) == ["serial-2"]
+    finally:
+        dialog.reject()
+
+
+def test_plugging_in_after_it_opened_grows_the_dialog_to_fit(qapp, adb, lan):
+    # Buttons added to a shown dialog only count once they show; the dialog has to fit them straight away
+    dialog = _open(qapp)
+    try:
+        lay = dialog.layout()
+        adb["devices"] = [("serial-1", "device", "")]
+        adb["models"] = {"serial-1": "Pixel 7"}
+        dialog._poll_usb()
+        height = dialog.height()
+        qapp.processEvents()
+        assert dialog.height() == height == dialog.sizeHint().height()
+        qr = dialog._qr_container.itemAt(0).widget()
+        assert dialog._wifi_row.geometry().top() - qr.geometry().bottom() - 1 == lay.spacing()
+        assert dialog._usb_lbl.height() == dialog._usb_lbl.minimumHeight()
+    finally:
+        dialog.reject()
+
+
+def test_lots_of_phones_scroll_instead_of_growing_the_dialog(qapp, adb, lan):
+    adb["devices"] = [(f"serial-{i}", "device", f"Phone {i}") for i in range(20)]
+    dialog = _open(qapp)
+    try:
+        qapp.processEvents()
+        assert len(_picks(dialog)) == 20
+        assert dialog._picks_area.verticalScrollBar().maximum() > 0
+        twenty = dialog._picks_area.maximumHeight()
+        adb["devices"] = adb["devices"][:4]
+        dialog._poll_usb()
+        assert dialog._picks_area.maximumHeight() == twenty  # four rows show either way
+        adb["devices"] = adb["devices"][:1]
+        dialog._poll_usb()
+        assert dialog._picks_area.maximumHeight() < twenty
+    finally:
+        dialog.reject()
+
+
+def test_buttons_name_the_phone_as_it_names_itself(qapp, adb, lan):
+    # adb devices -l turns SM-G975F into SM_G975F
+    adb["devices"] = [("serial-1", "device", "SM G975F"), ("serial-2", "device", "Pixel 7")]
+    adb["models"] = {"serial-1": "SM-G975F"}
+    dialog = _open(qapp)
+    try:
+        assert [b.text() for b in _picks(dialog)] == ["Pair SM-G975F", "Pair Pixel 7"]
     finally:
         dialog.reject()
 

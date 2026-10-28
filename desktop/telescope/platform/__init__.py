@@ -166,6 +166,12 @@ def adb_device_models() -> list:
     return found
 
 
+def adb_model(serial: str) -> str:
+    """The phone's own model name ("SM-G975F"), which `adb devices -l` mangles to "SM_G975F"; "" if adb can't say."""
+    rc, out, _ = _run([adb_exe(), "-s", serial, "shell", "getprop", "ro.product.model"], timeout=5)
+    return out.strip() if rc == 0 else ""
+
+
 def adb_devices() -> list:
     """Return serials of currently connected & authorized devices/emulators."""
     return [serial for serial, state in adb_device_states() if state == "device"]

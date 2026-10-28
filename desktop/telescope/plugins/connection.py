@@ -34,7 +34,7 @@ from telescope.phones import (
 )
 from telescope.platform import (
     IS_LINUX, IS_WINDOWS, adb_available, adb_broadcast_pair, adb_device_models, adb_device_states, adb_forward_auto,
-    adb_install,
+    adb_install, adb_model,
     adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path, stop_adb_server,
 )
 from telescope.platform.linux import (
@@ -73,6 +73,7 @@ _HELD_POLL_S = 60           # tray, after starting once the phone was ready: onl
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _USB_SIT_OUT_S = 10         # USB that just failed a stream isn't tried again for this long, so it can't flap
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
+_PAIR_PICK_ROWS = 4         # Add phone dialog: Pair buttons shown before the rest scroll
 
 _MAX_REMEMBERED_IPS = 8     # a phone's addresses kept for Wi-Fi probes, newest last
 
@@ -186,6 +187,7 @@ class AddPhoneDialog(PlacedDialog):
         self._reversed: set = set()          # serials with an adb reverse to the pairing server
         self._last_broadcast: dict = {}      # serial -> monotonic time of last pairing broadcast
         self._usb_states: list = []          # what adb saw last
+        self._models: dict = {}              # serial -> the phone's model name, asked once (poll thread only)
         self._chosen: Optional[str] = None   # serial of the plugged-in phone picked to pair
         self._shown_picks: tuple = ()
         self._done = False
@@ -217,9 +219,20 @@ class AddPhoneDialog(PlacedDialog):
         usb_lay = QVBoxLayout(usb_col)
         usb_lay.setContentsMargins(0, 0, 0, 0)
         usb_lay.addWidget(self._usb_lbl)
-        self._usb_picks = QVBoxLayout()  # a Pair button for each plugged-in phone
-        self._usb_picks.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        usb_lay.addLayout(self._usb_picks)
+        # A Pair button for each plugged-in phone, scrolling past a few so a pile of them can't grow the dialog
+        self._picks_area = QScrollArea()
+        self._picks_area.setWidgetResizable(True)
+        self._picks_area.setFrameShape(QFrame.Shape.NoFrame)
+        self._picks_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._picks_area.setStyleSheet("QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget "
+                                       "{ background: transparent; }")
+        picks = QWidget()
+        self._usb_picks = QVBoxLayout(picks)
+        self._usb_picks.setContentsMargins(0, 0, 0, 0)
+        self._usb_picks.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._picks_area.setWidget(picks)
+        self._picks_area.hide()
+        usb_lay.addWidget(self._picks_area)
         self._usb_row = control_row_widget("USB", usb_col, stretch=True)
         lay.addWidget(self._usb_row)
         self._adb_download = AdbDownload(self)
@@ -308,11 +321,16 @@ class AddPhoneDialog(PlacedDialog):
         self._reversed.clear()
 
     def _poll_usb(self):
-        signals = self._signals
+        signals, models = self._signals, self._models
 
         def work():
+            states = adb_device_models()
+            for serial, state, model in states:
+                if state == "device" and serial not in models:
+                    models[serial] = adb_model(serial) or model
+            states = [(serial, state, models.get(serial, model)) for serial, state, model in states]
             try:
-                signals.usb_state.emit(adb_device_models())
+                signals.usb_state.emit(states)
             except RuntimeError:
                 pass
         threading.Thread(target=work, daemon=True).start()
@@ -324,19 +342,17 @@ class AddPhoneDialog(PlacedDialog):
         usable = [(serial, model or serial) for serial, state, model in states if state == "device"]
         if self._chosen not in {serial for serial, _name in usable}:
             self._chosen = None
-        self._show_picks(usable)
-        if not usable:
-            if any(state == "unauthorized" for _s, state, _m in states):
-                self._set_usb(tr("Phone plugged in. Allow USB debugging in the prompt on the phone."), "status_warn")
-            else:
-                self._set_usb(tr("Or plug the phone in with a USB cable to pair it over USB."), "status_dim")
-            return
-        if self._chosen is None:
+        if self._chosen is not None:
+            phone = dict(usable)[self._chosen]
+            self._set_usb(tr("Pairing {phone}. Keep Telescope open on it until it's done.", phone=phone), "status_dim")
+            self._send_offer(self._chosen)
+        elif usable:
             self._set_usb(tr("Pick a phone below to pair it over USB."), "status_dim")
-            return
-        name = dict(usable)[self._chosen]
-        self._set_usb(tr("Pairing {phone}. Keep Telescope open on it until it's done.", phone=name), "status_dim")
-        self._send_offer(self._chosen)
+        elif any(state == "unauthorized" for _s, state, _m in states):
+            self._set_usb(tr("Phone plugged in. Allow USB debugging in the prompt on the phone."), "status_warn")
+        else:
+            self._set_usb(tr("Or plug the phone in with a USB cable to pair it over USB."), "status_dim")
+        self._show_picks(usable)  # last, so the dialog fits the text just set
 
     def _show_picks(self, usable: list):
         picks = tuple(usable) + (self._chosen,)
@@ -352,6 +368,13 @@ class AddPhoneDialog(PlacedDialog):
             btn.setEnabled(serial != self._chosen)
             btn.clicked.connect(lambda _checked=False, serial=serial: self._pick(serial))
             self._usb_picks.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+        if usable:
+            # Pinned rather than left to the layout: buttons added to a shown dialog only count once they show
+            rows = min(len(usable), _PAIR_PICK_ROWS)
+            spacing = max(self._usb_picks.spacing(), 0)
+            height = rows * self._usb_picks.itemAt(0).widget().sizeHint().height() + (rows - 1) * spacing
+            self._picks_area.setFixedHeight(height)
+        self._picks_area.setVisible(bool(usable))
         self.adjustSize()
 
     def _pick(self, serial: str):

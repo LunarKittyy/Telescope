@@ -125,6 +125,16 @@ def test_adb_device_models_names_each_phone(monkeypatch):
     ]
 
 
+def test_adb_model_asks_the_phone(monkeypatch):
+    calls = []
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(platform_api, "_run", lambda cmd, timeout=10: calls.append(cmd) or (0, "SM-G975F\n", ""))
+    assert platform_api.adb_model("phone-1") == "SM-G975F"
+    assert calls == [["adb", "-s", "phone-1", "shell", "getprop", "ro.product.model"]]
+    monkeypatch.setattr(platform_api, "_run", lambda cmd, timeout=10: (1, "", "error: device offline"))
+    assert platform_api.adb_model("phone-1") == ""
+
+
 @pytest.mark.parametrize(
     "serial,expected",
     [
