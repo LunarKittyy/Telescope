@@ -9,7 +9,8 @@ publish.workspace = true
 telescope-core.workspace = true
 serde_json.workspace = true
 log.workspace = true
-slint.workspace = true
+slint = { workspace = true, features = ["renderer-software", "software-renderer-systemfonts", "software-renderer-path"] }
+png = "0.18"
 qrcode.workspace = true
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true

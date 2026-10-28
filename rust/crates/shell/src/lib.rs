@@ -6,8 +6,11 @@ pub mod compile;
 pub mod doc;
 pub mod flow;
 pub mod layout;
+pub mod offscreen;
+pub mod profiles;
 pub mod snapshot;
 pub mod source;
+pub mod switches;
 pub mod window;
 
 pub use window::{run, WindowOptions};
