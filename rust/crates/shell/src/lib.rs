@@ -14,6 +14,8 @@ pub mod search;
 pub mod profiles;
 pub mod snapshot;
 pub mod source;
+pub mod stream_flow;
+pub mod session;
 pub mod settings;
 pub mod switches;
 pub mod texts;

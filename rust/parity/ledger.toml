@@ -3820,12 +3820,12 @@
 "test_sensors.py::test_unknown_kinds_are_ignored" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::unknown_kinds_are_ignored" }
 "test_sensors.py::test_wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" }
 # ── session
-"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "todo" }
-"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "todo" }
-"test_session.py::test_a_worker_finds_its_stream" = { status = "todo" }
-"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "todo" }
-"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "todo" }
-"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "todo" }
+"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_a_worker_finds_its_stream" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
 # ── session_client
 "test_session_client.py::test_a_base_url_with_a_trailing_slash_does_not_double_up" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_base_url_with_a_trailing_slash_does_not_double_up" }
 "test_session_client.py::test_a_listener_that_answers_with_something_other_than_http_is_not_a_phone" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_listener_that_answers_with_something_other_than_http_is_not_a_phone" }
@@ -4131,19 +4131,19 @@
 "test_stream.py::test_windows_opens_the_camera_named_telescope_or_any_older_registration" = { status = "todo" }
 "test_stream.py::test_worker_processes_pipeline_in_order" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
 # ── stream_flow
-"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "todo" }
-"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "todo" }
-"test_stream_flow.py::test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later" = { status = "todo" }
-"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "todo" }
-"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "todo" }
-"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "todo" }
-"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "todo" }
+"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later" = { status = "dropped", reason = "Rust has no sees_final_frame: a step in FrameStage::Final sorts last, which media's pipeline stage test covers" }
+"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs", note = "an unknown stage counting as effects is PluginInfo deserialising in core, not covered here" }
-"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "todo" }
-"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "todo" }
-"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "todo" }
-"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "todo" }
-"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "todo" }
+"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
 # ── text_fit
 "test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "todo" }
