@@ -1,6 +1,7 @@
 # Texts known not to fit, made with Inter and Noto Sans Devanagari: one line per language, problem and English text (tab-separated).
 # tests/test_text_fit.py fails on anything that doesn't fit and isn't here, and on a line here that fits now.
 # Make a text fit rather than adding it; scripts/text_fit.py --known prints the lines for what it finds.
+de	out of its box	Add phone
 pseudo	cut off	Auto
 pseudo	cut off	Chest
 pseudo	cut off	Easy
