@@ -3,9 +3,9 @@
 Planned in October 2026 after 4.3.1. It's going to be 4.4 since webcam support is too big for a patch release. PyAV 19 is left over from 4.3.
 
 - [x] [Translations for the 4.3 plugins](#translations-for-the-43-plugins)
-- [ ] [Webcams and capture cards](#webcams-and-capture-cards)
-- [ ] [UDP on Wi-Fi moves to Settings](#udp-on-wi-fi-moves-to-settings)
-- [ ] [Black screen on the phone](#black-screen-on-the-phone)
+- [x] [Webcams and capture cards](#webcams-and-capture-cards)
+- [x] [UDP on Wi-Fi moves to Settings](#udp-on-wi-fi-moves-to-settings)
+- [x] [Black screen on the phone](#black-screen-on-the-phone)
 - [ ] [PyAV 19](#pyav-19)
 
 ## Translations for the 4.3 plugins
@@ -16,17 +16,17 @@ The 4.3 batch added 545 texts that none of the six languages has yet. Until they
 
 A webcam plugged into the computer shows up in the phone picker under its own name and streams like a phone would, with every effect and a virtual camera of its own. Cameras with a USB webcam mode and anything plugged into an HDMI capture card count as webcams too, which covers most of what people mean by DSLR support. Capture goes through OpenCV (V4L2 on Linux, Media Foundation on Windows) and Telescope's own virtual cameras never show up in the list.
 
-The Webcam card offers the camera's own resolutions and frame rates. A controls panel is being added on top, built from whatever the camera reports (focus, exposure time, gain, white balance, anti-flicker and the like). On Windows it's best effort and any control that doesn't work reliably there gets hidden.
+The Webcam card offers the camera's own resolutions and frame rates and a controls panel built from whatever the camera reports (focus, exposure time, gain, white balance, anti-flicker and the like). On Windows any control that doesn't work reliably gets hidden.
 
-Before release it needs a pass on real cameras (a Logitech C920 and an HP 320 FHD on Linux so far) and a full run on Windows. The draft PR is #381.
+A Logitech C920 and an HP 320 FHD were tried by hand on Linux, unplugging mid-stream included. Windows only ran in a VM with the HP passed through, since there's no Windows PC to test on. Merged in #381, with fixes from two code reviews in #386.
 
 ## UDP on Wi-Fi moves to Settings
 
-The switch leaves the Connection card for the Streaming tab of the Settings window and stays off by default. On real Wi-Fi it stutters more often than TCP does and it shouldn't sit up front looking like a headline feature. Anyone who switched it on keeps it on. The draft PR is #382.
+The switch leaves the Connection card for the Streaming tab of the Settings window and stays off by default. On real Wi-Fi it stutters more often than TCP does and it shouldn't sit up front looking like a headline feature. Anyone who switched it on keeps it on. Merged in #382.
 
 ## Black screen on the phone
 
-A button next to Preview in the phone app turns the screen black while the camera keeps going, like the one on Browser camera's page. Double tap wakes it. Some phones' power saving still kills the stream now and then even with battery optimisation off. An app that stays on screen should get killed less often (the screen being black saves battery on OLED phones too). The draft PR is #383.
+A button next to Preview in the phone app turns the screen black while the camera keeps going, like the one on Browser camera's page. Double tap wakes it. Some phones' power saving still kills the stream now and then even with battery optimisation off. An app that stays on screen should get killed less often (the screen being black saves battery on OLED phones too). Merged in #383, and #385 keeps TalkBack on the black screen while it's up.
 
 ## PyAV 19
 
