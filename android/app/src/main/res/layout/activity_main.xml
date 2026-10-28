@@ -37,14 +37,36 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/app_name"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:textAppearance="@style/TextAppearance.Telescope.AppTitle" />
+
+        <!-- Only while streaming (MainActivity.updateStatusText); left of Preview so Preview keeps the corner -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnBlackScreen"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:minWidth="0dp"
+            android:minHeight="36dp"
+            android:layout_marginEnd="8dp"
+            android:padding="0dp"
+            app:cornerRadius="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:contentDescription="@string/black_screen_button"
+            android:visibility="gone"
+            app:icon="@drawable/ic_moon"
+            app:iconSize="16dp"
+            app:iconPadding="0dp"
+            app:iconGravity="textStart" />
 
         <!-- Says what it opens, since no icon reads as "the camera's view" on its own -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPreview"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="wrap_content"
             android:minHeight="36dp"
             android:paddingStart="10dp"
             android:paddingEnd="12dp"
@@ -55,27 +77,6 @@
             android:text="@string/preview_button"
             android:contentDescription="@string/open_preview"
             app:icon="@drawable/ic_eye"
-            app:iconSize="16dp"
-            app:iconPadding="6dp" />
-
-        <!-- Only while streaming (MainActivity.updateStatusText) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBlackScreen"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minHeight="36dp"
-            android:layout_marginStart="8dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="12dp"
-            android:textSize="13sp"
-            app:cornerRadius="8dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:text="@string/black_screen_button"
-            android:contentDescription="@string/black_screen_description"
-            android:visibility="gone"
-            app:icon="@drawable/ic_moon"
             app:iconSize="16dp"
             app:iconPadding="6dp" />
 
