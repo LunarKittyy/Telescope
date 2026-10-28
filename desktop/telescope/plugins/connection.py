@@ -1684,7 +1684,11 @@ class ConnectionPlugin(TelescopePlugin):
                 self._take_over(old, phone)
             else:
                 self._phones.append(phone)
-        self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        shown = self._host.focused_source_id() or self._selected_id
+        if shown in (None, result.phone_id) or not self._host.is_streaming_from(shown):
+            self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        else:
+            self._refresh_combo()  # the shown card streams: the new phone waits in the list, the stream carries on
         if self._no_phone_issue is not None:  # a Start pressed before there was a phone left it up
             self._host.clear_issue("start", self._no_phone_issue)
             self._no_phone_issue = None

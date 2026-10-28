@@ -289,7 +289,7 @@ Optional. It lets the people you live with know you're on a call without you hav
 
 ## Phones, pairing and connection
 
-- **Add phone** pairs by QR code or by plugging the phone in over USB and clicking its **Pair** button (USB needs adb, which Windows downloads from Google after asking). A plugged-in phone never pairs by itself, so you can scan the code with a different phone while one is on the cable
+- **Add phone** pairs by QR code or by plugging the phone in over USB and clicking its **Pair** button (USB needs adb, which Windows downloads from Google after asking). A plugged-in phone never pairs by itself, so you can scan the code with a different phone while one is on the cable. Pairing while the shown card streams leaves that stream running: the new phone waits in the list, ready to pick or add as another stream
 - The **?** next to it brings the setup checklist back. Click it again to close it
 - You can pair several phones to one computer and one phone to several computers
 - Telescope uses USB when the phone is plugged in and answering and Wi-Fi otherwise. If a cable is plugged in but isn't used the Connection panel says why. **Connect via** can force either one
