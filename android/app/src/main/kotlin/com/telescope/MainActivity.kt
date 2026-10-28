@@ -166,6 +166,8 @@ class MainActivity : AppCompatActivity() {
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
         btnBlackScreen.setOnClickListener { blackScreen.enter() }
+        // Icon only, so a long press says what it does
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
         btnScanPair.setOnClickListener {
             val opts = ScanOptions().apply {
                 setPrompt(getString(R.string.scan_prompt))
