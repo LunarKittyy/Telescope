@@ -1,0 +1,28 @@
+//! What every crate agrees on. Crates only meet through what's here; see rust/ARCHITECTURE.md for why it's shaped this way.
+
+pub mod audio;
+pub mod bus;
+pub mod config;
+pub mod event;
+pub mod frame;
+pub mod host;
+pub mod i18n;
+pub mod json;
+pub mod link;
+pub mod media;
+pub mod output;
+pub mod plugin;
+pub mod services;
+pub mod snapshot;
+pub mod source;
+pub mod system;
+pub mod testing;
+pub mod time;
+pub mod ui;
+
+pub use bus::{BusSender, EventBus};
+pub use event::Event;
+pub use frame::{Frame, FrameStage, FrameStep, PixelFormat};
+pub use host::Host;
+pub use plugin::{Plugin, PluginInfo};
+pub use serde_json::{json, Value};
