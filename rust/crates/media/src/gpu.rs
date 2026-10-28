@@ -1,4 +1,4 @@
-//! Frames on the graphics card through wgpu: plugins' shader steps (SHADERS.md has what a shader may use) and the
+//! Frames on the graphics card through wgpu: plugins' shader steps (core::shader has what a shader may use) and the
 //! preview's scaling and colour conversion. A frame goes up once, through every shader in a run, and comes back once.
 //! wgpu because it's one API over Vulkan, Direct3D 12 and OpenGL, runs WGSL (what Lua and WASM plugins hand over) and
 //! is what Slint 1.18 can take textures from (unstable-wgpu-30), so the preview can later skip the download too.
