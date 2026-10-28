@@ -40,14 +40,28 @@ pub fn same(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-/// A phone's name as safe display text (session_client.clean_name).
+pub const MAX_NAME_CHARS: usize = 64;
+
+/// Python's str.isspace(): Unicode whitespace plus the separators \x1c to \x1f.
+fn is_space(c: char) -> bool {
+    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
+}
+
+/// Format and private-use characters, which Python's isprintable() leaves out (a right-to-left override, say).
+fn is_format_or_private(c: char) -> bool {
+    matches!(c as u32, 0xAD | 0x600..=0x605 | 0x61C | 0x6DD | 0x70F | 0x8E2 | 0x180E | 0x200B..=0x200F | 0x202A..=0x202E
+        | 0x2060..=0x2064 | 0x2066..=0x206F | 0xFEFF | 0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F
+        | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F | 0xE000..=0xF8FF | 0xF0000..=0x10FFFF)
+}
+
+/// A phone's name as safe display text: no control characters, no < or >, capped (session_client.clean_name).
 pub fn clean_name(raw: &str) -> String {
     let text: String = raw
         .chars()
-        .filter(|c| (!c.is_control() || c.is_whitespace()) && *c != '<' && *c != '>')
-        .map(|c| if c.is_whitespace() { ' ' } else { c })
+        .filter(|&c| (is_space(c) || !(c.is_control() || is_format_or_private(c))) && c != '<' && c != '>')
+        .map(|c| if is_space(c) { ' ' } else { c })
         .collect();
-    text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(64).collect()
+    text.split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ").chars().take(MAX_NAME_CHARS).collect()
 }
 
 pub fn hostname() -> String {
@@ -80,9 +94,37 @@ mod tests {
     fn clean_name_strips_markup() {
         assert_eq!(clean_name("  <b>Pixel\n8</b> "), "bPixel 8/b");
     }
+
+    #[test]
+    fn phone_names_are_cleaned_into_plain_display_text() {
+        assert_eq!(clean_name("Sam's Pixel"), "Sam's Pixel");
+        assert_eq!(clean_name("<b>Your bank</b>\n\x07phone"), "bYour bank/b phone");
+        assert_eq!(clean_name(&"x".repeat(500)).chars().count(), MAX_NAME_CHARS);
+        assert_eq!(clean_name("  \t "), "");
+        assert_eq!(clean_name("a\u{202e}b\u{1c}c"), "ab c");
+    }
+
+    #[test]
+    fn the_proof_matches_the_phone_app() {
+        // Same vector as the phone's PairingTest.kt
+        assert_eq!(pairing_proof("tok-123", "nonce-abc", "phone-1", &"ab".repeat(32)),
+                   "fabf87423641e2c832e78a0385ce388ccadc57e896fe2b028586b22c2873d915");
+    }
 }
 
 /// Standard base64 with padding, how the USB pairing offer travels through adb.
 pub fn base64(data: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(data)
+}
+
+/// json.dumps(value): the bytes the Python app sends, so the phone traffic matches.
+pub fn python_json(value: &serde_json::Value) -> String {
+    use telescope_core::json::{dumps, Style};
+    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: true })
+}
+
+/// json.dumps(value, ensure_ascii=False), how control bodies go out.
+pub fn python_json_utf8(value: &serde_json::Value) -> String {
+    use telescope_core::json::{dumps, Style};
+    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: false })
 }
