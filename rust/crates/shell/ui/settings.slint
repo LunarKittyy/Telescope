@@ -1,1 +1,525 @@
-// The settings window (widgets/settings_window.py): filled in by the settings session of this port.
+// The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
+// is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
+
+import { Theme, Icons, Icon, FocusRing, Button, Switch, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { ColumnScrollbar } from "frame.slint";
+
+export struct NavTab {
+    id: string,
+    name: string,
+    icon: image,
+}
+
+export struct Result {
+    name: string,
+    path: string,
+}
+
+export struct BadgeData {
+    text: string,
+    kind: string,
+}
+
+export struct TileView {
+    name: string,
+    title: string,
+    about: string,
+    icon: image,
+    hue: color,
+    on: bool,
+    locked: bool,
+    tooltip: string,
+    note: string,
+    note-kind: string,
+    badges: [BadgeData],
+}
+
+export struct GroupView {
+    id: string,
+    title: string,
+    count: string,
+    icon: image,
+    hue: color,
+    tiles: [TileView],
+    // Every tile in a group is as tall as its tallest
+    tile-height: length,
+}
+
+// One tab in the column down the left (settings_nav).
+component NavItem inherits Rectangle {
+    in property <NavTab> tab;
+    in property <bool> selected;
+    callback clicked;
+    height: 38px;
+    accessible-role: list-item;
+    accessible-label: tab.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: selected;
+    accessible-action-default => { clicked(); }
+    touch := TouchArea { clicked => { root.clicked(); } }
+    Rectangle {
+        y: 1px;
+        height: parent.height - 2px;
+        border-radius: 7px;
+        background: selected ? Theme.fill : touch.has-hover ? Theme.surface-hover : transparent;
+        Icon { x: 13px; source: tab.icon; tint: selected ? white : Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+        Text {
+            x: 35px;
+            width: parent.width - 45px;
+            text: tab.name;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: selected ? white : Theme.text-dim;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+// The tab column: one focus stop, arrows move between tabs like QListWidget.
+export component SettingsNav inherits Rectangle {
+    in property <[NavTab]> tabs;
+    in-out property <int> current;
+    callback picked(int);
+    accessible-role: list;
+    accessible-label: @tr("Settings tabs");
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow && current < tabs.length - 1) { current += 1; picked(current); return accept; }
+            if (e.text == Key.UpArrow && current > 0) { current -= 1; picked(current); return accept; }
+            if (e.text == Key.Home) { current = 0; picked(current); return accept; }
+            if (e.text == Key.End) { current = tabs.length - 1; picked(current); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: min(parent.height + 4px, tabs.length * 38px + 12px); }
+    VerticalLayout {
+        padding-top: 4px;
+        alignment: start;
+        for tab[i] in tabs: NavItem {
+            tab: tab;
+            selected: i == current;
+            clicked => {
+                current = i;
+                focus.focus();
+                picked(i);
+            }
+        }
+    }
+}
+
+// A tab's page: its sections stacked, scrolling on its own, with Qt's 11px scrollbar beside the cards.
+export component ScrollPage inherits Rectangle {
+    in-out property <length> offset;
+    out property <length> content: lay.preferred-height;
+    property <length> range: max(0px, content - root.height);
+    // Set from changes, not bound: the bar narrows the page, which changes how tall its content is
+    in-out property <bool> bar;
+    property <bool> checked;
+    out property <length> inner-width: root.width - 8px - (bar ? 11px : 0px);
+    changed content => { bar = content > root.height; }
+    changed height => { bar = content > root.height; }
+    clip: true;
+    Timer {
+        interval: 1ms;
+        running: !checked;
+        triggered => {
+            bar = content > root.height;
+            checked = true;
+        }
+    }
+    TouchArea {
+        scroll-event(e) => {
+            offset = clamp(min(offset, range) - e.delta-y, 0px, range);
+            accept
+        }
+    }
+    lay := VerticalLayout {
+        x: 0;
+        y: -min(offset, range);
+        width: inner-width;
+        height: self.preferred-height;
+        spacing: 14px;
+        @children
+    }
+    ColumnScrollbar {
+        x: parent.width - 11px;
+        height: parent.height;
+        visible: bar;
+        content: root.content;
+        viewport: root.height;
+        offset <=> root.offset;
+    }
+}
+
+// What the search found: each result as its name with where it lives under it.
+export component ResultsList inherits VerticalLayout {
+    in property <[Result]> results;
+    in-out property <int> current;
+    in property <string> note;
+    in property <string> empty;
+    callback opened(int);
+    spacing: 8px;
+    alignment: start;
+    if note != "": Text { text: note; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if results.length > 0: Rectangle {
+        height: results.length * 52px;
+        accessible-role: list;
+        accessible-label: @tr("Search results");
+        VerticalLayout {
+            for r[i] in results: Rectangle {
+                height: 52px;
+                border-radius: 8px;
+                background: i == current ? Theme.fill : row-touch.has-hover ? Theme.surface-hover : transparent;
+                accessible-role: list-item;
+                accessible-label: r.name;
+                accessible-description: r.path;
+                accessible-item-selected: i == current;
+                accessible-action-default => { root.opened(i); }
+                row-touch := TouchArea { clicked => { current = i; root.opened(i); } }
+                VerticalLayout {
+                    padding-left: 14px;
+                    padding-right: 10px;
+                    alignment: center;
+                    spacing: 2px;
+                    Text { text: r.name; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? white : Theme.text; }
+                    Text { text: r.path; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? #e6e1ff : Theme.text-dim; }
+                }
+            }
+        }
+    }
+    if empty != "": Text { text: empty; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+}
+
+// QLabel#plugin_badge.
+component Badge inherits Rectangle {
+    in property <BadgeData> data;
+    height: 18px;
+    width: label.preferred-width + 16px;
+    border-radius: 8px;
+    border-width: 1px;
+    background: data.kind == "restart" ? #251f17 : Theme.surface-raise;
+    border-color: data.kind == "restart" ? #5a4a2e : Theme.border;
+    label := Text {
+        text: data.text;
+        font-family: Theme.font;
+        font-size: 11px;
+        color: data.kind == "restart" ? Theme.warn : data.kind == "lock" ? Theme.accent-soft : Theme.text-dim;
+        vertical-alignment: center;
+    }
+}
+
+// An icon on a tinted square (_chip); grey for a plugin that's off.
+component Chip inherits Rectangle {
+    in property <image> icon;
+    in property <color> hue;
+    in property <bool> lit: true;
+    width: 28px;
+    height: 28px;
+    border-radius: self.width / 3;
+    background: (lit ? hue : Theme.text-faint).with-alpha(lit ? 0.14 : 0.10);
+    Icon { source: icon; tint: lit ? hue : Theme.text-faint; width: 16px; height: 16px; accessible-role: none; }
+}
+
+// A plugin as a tile: icon, name and switch on top, what it does under them, then any note and its badges.
+component PluginTile inherits Rectangle {
+    in property <TileView> tile;
+    callback switched(bool);
+    border-radius: 12px;
+    border-width: 1px;
+    background: Theme.surface;
+    border-color: touch.has-hover ? Theme.border-strong : Theme.border;
+    accessible-role: groupbox;
+    accessible-label: tile.title;
+    accessible-description: tile.about;
+    accessible-id: "setting";
+    touch := TouchArea { }
+    if tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
+    VerticalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 10px;
+        padding-bottom: 12px;
+        spacing: 6px;
+        alignment: start;
+        HorizontalLayout {
+            spacing: 10px;
+            height: 32px;
+            Chip { y: 0; icon: tile.icon; hue: tile.hue; lit: tile.on; }
+            Text {
+                horizontal-stretch: 1;
+                text: tile.title;
+                wrap: word-wrap;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: 600;
+                color: tile.on ? Theme.text : Theme.text-dim;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                width: 36px;
+                Switch {
+                    y: 6px;
+                    checked: tile.on;
+                    label: tile.title;
+                    enabled: !tile.locked;
+                    toggled(on) => { root.switched(on); }
+                }
+                if !tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
+            }
+        }
+        about := Text {
+            height: 32px;
+            text: tile.about;
+            wrap: word-wrap;
+            overflow: elide;
+            font-family: Theme.font;
+            font-size: 11.667px;
+            color: Theme.text-faint;
+            vertical-alignment: top;
+        }
+        if tile.note != "": Text {
+            text: tile.note;
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: 11.667px;
+            color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.text-faint;
+        }
+        if tile.badges.length > 0: HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            for b in tile.badges: Badge { data: b; }
+        }
+    }
+}
+
+// card_action: a quiet button with a small icon.
+export component CardAction inherits Button {
+    role: "quiet";
+    height: 30px;
+    padding-x: 10px;
+    gap: 6px;
+    has-icon: true;
+    icon-tint: Theme.text-dim;
+    quiet-when-disabled: true;
+}
+
+export component PluginsPanel inherits VerticalLayout {
+    in property <[GroupView]> groups;
+    in property <bool> all-on-enabled;
+    in property <string> empty-note;
+    in property <bool> narrowed;
+    in-out property <string> query;
+    in-out property <int> filter;
+    in property <int> columns: 2;
+    callback switched(string, bool);
+    callback all-on;
+    callback show-all;
+    callback filter-changed;
+    callback install;
+    callback open-folder;
+    callback open-docs;
+    spacing: 14px;
+    alignment: start;
+    HorizontalLayout {
+        spacing: 12px;
+        Text {
+            horizontal-stretch: 1;
+            text: @tr("Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way.");
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text-dim;
+        }
+        VerticalLayout {
+            alignment: start;
+            CardAction {
+                text: @tr("Turn all back on");
+                icon: Icons.reset;
+                enabled: all-on-enabled;
+                clicked => { root.all-on(); }
+                tip: @tr("Switch every built-in plugin back on");
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        height: 32px;
+        TextField {
+            horizontal-stretch: 1;
+            text <=> root.query;
+            placeholder: @tr("Search plugins");
+            label: @tr("Search plugins");
+            has-icon: true;
+            icon: Icons.search;
+            clearable: true;
+            edited => { root.filter-changed(); }
+        }
+        Rectangle {
+            width: 178px;
+            border-radius: 8px;
+            border-width: 1px;
+            background: Theme.surface-raise;
+            border-color: Theme.border;
+            accessible-role: tab-list;
+            HorizontalLayout {
+                padding: 3px;
+                spacing: 2px;
+                for label[i] in [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")]: Rectangle {
+                    border-radius: 6px;
+                    background: i == filter ? (seg.has-hover ? Theme.fill-hover : Theme.fill) : seg.has-hover ? Theme.surface-hover : transparent;
+                    accessible-role: tab;
+                    accessible-label: label;
+                    accessible-checked: i == filter;
+                    accessible-action-default => { filter = i; root.filter-changed(); }
+                    seg := TouchArea { clicked => { filter = i; root.filter-changed(); } }
+                    Text {
+                        text: label;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: i == filter ? 600 : 400;
+                        color: i == filter ? white : seg.has-hover ? Theme.text : Theme.text-dim;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+    VerticalLayout {
+        spacing: 22px;
+        for g in groups: VerticalLayout {
+            spacing: 10px;
+            accessible-role: groupbox;
+            accessible-label: g.title;
+            accessible-id: "card";
+            HorizontalLayout {
+                spacing: 10px;
+                height: 26px;
+                alignment: start;
+                Chip { width: 26px; height: 26px; icon: g.icon; hue: g.hue; }
+                Text { text: g.title; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+                Text { text: g.count; font-family: Theme.font; font-size: Theme.small; color: Theme.text-faint; vertical-alignment: center; }
+            }
+            Rectangle {
+                property <length> w: (self.width - (columns - 1) * 10px) / columns;
+                height: ceil(g.tiles.length / columns) * (g.tile-height + 10px) - 10px;
+                for t[i] in g.tiles: PluginTile {
+                    x: mod(i, columns) * (parent.w + 10px);
+                    y: floor(i / columns) * (g.tile-height + 10px);
+                    width: parent.w;
+                    height: g.tile-height;
+                    tile: t;
+                    switched(on) => { root.switched(t.name, on); }
+                }
+            }
+        }
+    }
+    if groups.length == 0: VerticalLayout {
+        padding-top: 24px;
+        padding-bottom: 24px;
+        spacing: 10px;
+        Text { text: empty-note; wrap: word-wrap; horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+        HorizontalLayout {
+            alignment: center;
+            CardAction { text: @tr("Show all plugins"); icon: Icons.reset; clicked => { root.show-all(); } }
+        }
+    }
+    if !narrowed: VerticalLayout {
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 10px;
+            height: 30px;
+            Chip { y: 2px; width: 26px; height: 26px; icon: Icons.download; hue: Theme.accent; }
+            Text { text: @tr("Added plugins"); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            CardAction {
+                text: @tr("Install");
+                icon: Icons.plus;
+                clicked => { root.install(); }
+                tip: @tr("Pick a plugin's .zip file. You can also drop one onto this window.");
+            }
+        }
+        Text {
+            text: @tr("No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off.");
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text-dim;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            Button { text: @tr("How plugins work"); height: 32px; clicked => { root.open-docs(); } }
+            Button { text: @tr("Open plugins folder"); height: 32px; clicked => { root.open-folder(); } }
+        }
+    }
+}
+
+// The restart bar kept under the Plugins tab's page.
+export component PluginsFooter inherits Rectangle {
+    in property <string> note;
+    callback restart;
+    height: 54px;
+    border-radius: 12px;
+    border-width: 1px;
+    background: Theme.surface-raise;
+    border-color: Theme.border-strong;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 10px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 12px;
+        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+        Button {
+            text: @tr("Restart now");
+            role: "primary";
+            height: 32px;
+            clicked => { root.restart(); }
+            tip: @tr("Start Telescope again to apply your changes");
+        }
+    }
+}
+
+// QMessageBox for the few questions the Plugins tab asks, drawn over the settings window.
+export component Ask inherits Rectangle {
+    in property <string> title;
+    in property <string> text;
+    in property <string> yes;
+    in property <bool> danger;
+    callback answered(bool);
+    background: #00000080;
+    TouchArea { }
+    FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.Escape) { root.answered(false); return accept; }
+            reject
+        }
+        Rectangle {
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            width: 420px;
+            height: lay.preferred-height;
+            background: Theme.bg;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: Theme.border-strong;
+            accessible-role: groupbox;
+            accessible-label: title;
+            lay := VerticalLayout {
+                padding: 20px;
+                spacing: 12px;
+                Text { text: title; wrap: word-wrap; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; }
+                Text { text: root.text; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button { text: @tr("Cancel"); clicked => { root.answered(false); } }
+                    Button { text: yes; role: danger ? "" : "primary"; clicked => { root.answered(true); } }
+                }
+            }
+        }
+    }
+}

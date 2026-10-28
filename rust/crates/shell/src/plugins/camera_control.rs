@@ -24,7 +24,8 @@ impl Plugin for CameraControl {
         PluginInfo {
             name: "camera_control".into(),
             title: "Camera".into(),
-            about: "Lenses, exposure, focus and image settings on the phone.".into(),
+            about: "Exposure, white balance, focus, lenses and the phone camera's other settings.".into(),
+            when_off: "Without it there's no Camera card and the phone uses its own automatic settings.".into(),
             category: "camera".into(),
             icon: "camera".into(),
             in_presets: true,

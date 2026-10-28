@@ -4,7 +4,8 @@ can be compared whole while the other cards are still Python only.
     python qt_shell_scenes.py OUT [--plugins camera_control,onboarding,preview,setup] [--scale 1]
 
 Writes OUT/<scale>x/<scene>.png and OUT/<scale>x/<scene>.json (object name, class, text and rect of every visible
-widget, in window coordinates). Uses the translation preview's scene helpers, so nothing in desktop/ changes.
+widget, in window coordinates), and builtins.json next to this script: every built-in plugin's PluginInfo fields, which
+the Rust scenes use as stand-ins until those plugins are ported. Uses the translation preview's scene helpers, so nothing in desktop/ changes.
 """
 
 import argparse
@@ -51,6 +52,23 @@ def main(argv=None) -> int:
     wanted = args.plugins.split(",")
     folder = args.out / f"{args.scale}x"
     folder.mkdir(parents=True, exist_ok=True)
+    infos = [{k: getattr(p, k) for k in ("name", "title", "about", "when_off", "required", "optional", "needs_vision",
+                                         "category", "icon")} for p in builtin_plugins()]
+    (Path(__file__).parent / "builtins.json").write_text(json.dumps(infos, indent=1) + "\n")
+    with ExitStack() as stack:
+        scenes.use_scratch_profile(stack)
+        scenes.quiet_system(stack, False)
+        win = TelescopeWindow()
+        win.load_plugins([scenes.quiet_plugin(p) for p in builtin_plugins()])
+        win.apply_saved_config()
+        win.resize(1380, 900)
+        win.open_settings("plugins")
+        settings = win._settings_win
+        settings.resize(940, 680)
+        QApplication.processEvents()
+        settings.grab().save(str(folder / "shell-settings-plugins.png"))
+        (folder / "shell-settings-plugins.json").write_text(json.dumps(geometry(settings), indent=1))
+        scenes.close_window(win)
     for name, width in (("shell-wide", 1300), ("shell-medium", 900), ("shell-narrow", 560)):
         with ExitStack() as stack:
             scenes.use_scratch_profile(stack)

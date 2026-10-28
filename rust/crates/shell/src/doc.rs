@@ -68,7 +68,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
     }
     // Preferred content height and stretch room of each column in the current mode
     for c in 0..3 {
-        let pref = mode_expr(|m| sum_heights(&cols[m][c].0));
+        let pref = mode_expr(|m| sum_heights(cards, &cols[m][c].0));
         let centers = mode_expr(|m| {
             let n: Vec<String> = cols[m][c].0.iter().filter(|&&i| cards[i].region == Region::Center)
                 .map(|&i| format!("({}.visible ? 1 : 0)", cards[i].piece.id)).collect();
@@ -81,7 +81,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         out.push_str(&format!("    property <length> s{c}: clamp(scroll{c}, 0px, max(0px, col{c}-pref - view-h));\n"));
         out.push_str(&format!("    changed col{c}-pref => {{ check-bars(); }}\n"));
     }
-    out.push_str("    changed view-h => { check-bars(); }\n");
+    out.push_str("    changed view-h => { check-bars(); }\n    property <bool> bars-checked;\n    Timer { interval: 1ms; running: !root.bars-checked; triggered => { root.check-bars(); root.bars-checked = true; } }\n");
     out.push_str("    public function check-bars() {\n");
     for c in 0..3 {
         out.push_str(&format!("        bar{c} = col{c}-pref > view-h;\n"));
@@ -150,11 +150,11 @@ fn col_w(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
     shown.iter().find(|(sc, _)| *sc == c).map_or("0px".into(), |(_, w)| width_of(*w, &shown))
 }
 
-fn sum_heights(list: &[usize]) -> String {
+fn sum_heights(cards: &[CardPlace], list: &[usize]) -> String {
     if list.is_empty() {
         return "0px".into();
     }
-    let parts: Vec<String> = list.iter().map(|i| format!("(p{i}.visible ? p{i}.preferred-height + {GAP}px : 0px)")).collect();
+    let parts: Vec<String> = list.iter().map(|&i| format!("({p}.visible ? {p}.preferred-height + {GAP}px : 0px)", p = cards[i].piece.id)).collect();
     format!("max(0px, {} - {GAP}px)", parts.join(" + "))
 }
 
@@ -407,3 +407,212 @@ export component Stage inherits Card {
         assert_eq!(num("c0w"), 528.0);
     }
 }
+
+/// A settings section as the settings window places it.
+#[derive(Clone, Debug)]
+pub struct SectionPlace {
+    pub piece: Piece,
+    /// Index into the tabs.
+    pub tab: usize,
+    pub footer: Option<Piece>,
+}
+
+/// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
+/// plugin's sections on them.
+pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
+    let mut out = String::from("import { Theme, Icons, Folds, TextField } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView } from \"shell/settings.slint\";\n");
+    let mut imported = Vec::new();
+    for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
+        let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
+        if !imported.contains(&line) {
+            imported.push(line.clone());
+            out.push_str(&line);
+        }
+    }
+    out.push_str("export { Folds, Theme }\n");
+    out.push_str(SETTINGS_TOP);
+    for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
+        out.push_str(&aliases(piece));
+    }
+    for t in 0..tabs {
+        let footers: Vec<&Piece> = sections.iter().filter(|s| s.tab == t).filter_map(|s| s.footer.as_ref()).collect();
+        let footer_h = if Some(t) == plugins_tab {
+            "(root.footer-shown ? 64px : 0px)".to_string()
+        } else {
+            footers.iter().map(|f| format!("({}.preferred-height + 10px)", f.id)).chain(std::iter::once("0px".to_string())).collect::<Vec<_>>().join(" + ")
+        };
+        out.push_str(&format!(
+            "    page{t} := ScrollPage {{\n        x: 260px;\n        y: 53px;\n        width: root.width - 276px;\n        height: root.height - 69px - {footer_h};\n        visible: !root.searching && root.current == {t};\n"));
+        for s in sections.iter().filter(|s| s.tab == t) {
+            out.push_str(&format!("        {} := {}C {{ }}\n", s.piece.id, s.piece.id));
+        }
+        if Some(t) == plugins_tab {
+            out.push_str(PLUGINS_PANEL);
+        }
+        out.push_str("    }\n");
+        if Some(t) == plugins_tab {
+            out.push_str(&format!(
+                "    if root.footer-shown && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 70px;\n        width: root.width - 284px;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+        }
+        let mut below = String::from("root.height - 16px");
+        for f in footers.iter().rev() {
+            out.push_str(&format!(
+                "    {id} := {id}C {{\n        x: 260px;\n        y: {below} - self.preferred-height;\n        width: root.width - 284px;\n        visible: !root.searching && root.current == {t};\n    }}\n", id = f.id));
+            below = format!("{}.y - 10px", f.id);
+        }
+    }
+    out.push_str(SETTINGS_BOTTOM);
+    out
+}
+
+const SETTINGS_TOP: &str = r#"
+export component TelescopeSettings inherits Window {
+    in property <[NavTab]> tabs;
+    in-out property <int> current;
+    in property <string> page-title;
+    in-out property <string> query;
+    in property <bool> searching;
+    in property <[Result]> results;
+    in-out property <int> result;
+    in property <string> results-note;
+    in property <string> results-empty;
+    callback query-changed(string);
+    callback step(int);
+    callback open-result(int);
+    callback open-current;
+    callback tab-picked(int);
+    in property <[GroupView]> groups;
+    in property <bool> all-on-enabled;
+    in property <string> empty-note;
+    in property <bool> narrowed;
+    in-out property <string> plugin-query;
+    in-out property <int> plugin-filter;
+    in property <bool> footer-shown;
+    in property <string> footer-note;
+    callback plugin-switched(string, bool);
+    callback all-on;
+    callback show-all;
+    callback plugins-filter-changed;
+    callback install;
+    callback open-folder;
+    callback open-docs;
+    callback restart;
+    in property <bool> asking;
+    in property <string> ask-title;
+    in property <string> ask-text;
+    in property <string> ask-yes;
+    in property <bool> ask-danger;
+    callback answered(bool);
+    in property <bool> flashing;
+    in property <length> flash-x;
+    in property <length> flash-y;
+    in property <length> flash-w;
+    in property <length> flash-h;
+    public function focus-search() { search.focus-all(); }
+
+    title: @tr("Settings");
+    preferred-width: 940px;
+    preferred-height: 680px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Theme.bg;
+    default-font-family: Theme.font;
+    default-font-size: Theme.body;
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 236px;
+        height: root.height;
+        background: Theme.chrome;
+        Rectangle { x: parent.width - 1px; width: 1px; background: Theme.border; }
+        search := TextField {
+            x: 10px;
+            y: 14px;
+            width: 215px;
+            text <=> root.query;
+            placeholder: @tr("Search settings");
+            label: @tr("Search settings");
+            has-icon: true;
+            icon: Icons.search;
+            clearable: true;
+            edited(t) => { root.query-changed(t); }
+            step(d) => { root.step(d); }
+            accepted => { root.open-current(); }
+        }
+        SettingsNav {
+            x: 10px;
+            y: 54px;
+            width: 215px;
+            height: root.height - 54px;
+            tabs: root.tabs;
+            current <=> root.current;
+            picked(i) => { root.tab-picked(i); }
+        }
+    }
+    Text {
+        x: 260px;
+        y: 18px;
+        width: root.width - 276px;
+        height: 23px;
+        text: root.page-title;
+        font-family: Theme.font;
+        font-size: 18.667px;
+        font-weight: 600;
+        color: Theme.text;
+        vertical-alignment: center;
+        accessible-role: text;
+    }
+"#;
+
+const PLUGINS_PANEL: &str = r#"        PluginsPanel {
+            groups: root.groups;
+            all-on-enabled: root.all-on-enabled;
+            empty-note: root.empty-note;
+            narrowed: root.narrowed;
+            query <=> root.plugin-query;
+            filter <=> root.plugin-filter;
+            columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
+            switched(name, on) => { root.plugin-switched(name, on); }
+            all-on => { root.all-on(); }
+            show-all => { root.show-all(); }
+            filter-changed => { root.plugins-filter-changed(); }
+            install => { root.install(); }
+            open-folder => { root.open-folder(); }
+            open-docs => { root.open-docs(); }
+        }
+"#;
+
+const SETTINGS_BOTTOM: &str = r#"    ResultsList {
+        x: 260px;
+        y: 53px;
+        width: root.width - 276px;
+        height: root.height - 69px;
+        visible: root.searching;
+        results: root.results;
+        current <=> root.result;
+        note: root.results-note;
+        empty: root.results-empty;
+        opened(i) => { root.open-result(i); }
+    }
+    if root.flashing: Rectangle {
+        x: root.flash-x;
+        y: root.flash-y;
+        width: root.flash-w;
+        height: root.flash-h;
+        border-radius: 9px;
+        border-width: 1px;
+        border-color: Theme.accent;
+    }
+    if root.asking: Ask {
+        width: root.width;
+        height: root.height;
+        title: root.ask-title;
+        text: root.ask-text;
+        yes: root.ask-yes;
+        danger: root.ask-danger;
+        answered(yes) => { root.answered(yes); }
+    }
+}
+"#;

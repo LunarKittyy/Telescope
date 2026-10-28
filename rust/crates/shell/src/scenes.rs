@@ -2,8 +2,10 @@
 //! settings file in a scratch folder, like translation_scenes.use_scratch_profile.
 
 use crate::window;
+use slint::ComponentHandle;
 use std::path::Path;
 use telescope_core::config::ConfigFile;
+use telescope_core::plugin::{Plugin, PluginInfo};
 
 /// (scene id, window width) of the main window scenes parity/qt_shell_scenes.py makes.
 pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-medium", 900.0), ("shell-narrow", 560.0)];
@@ -31,7 +33,34 @@ pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
         w.shut_down();
         n += 1;
     }
-    Ok(n)
+    let file = ConfigFile::at(scratch("shell-settings-plugins").join(telescope_core::config::CONFIG_FILENAME));
+    let w = window::build(file, stand_ins(), None, None)?;
+    let settings = crate::settings::build(&w)?;
+    settings.show_tab("plugins");
+    let picture = crate::offscreen::draw(settings.ui.window(), 940.0, 680.0, scale).ok_or("nothing drawn")?;
+    picture.save_png(&folder.join("shell-settings-plugins.png"))?;
+    Ok(n + 1)
+}
+
+/// The Python app's built-in plugins as they describe themselves (parity/builtins.json), standing in for the ones
+/// not ported yet; the ported ones are the real thing.
+pub fn stand_ins() -> Vec<Box<dyn Plugin>> {
+    let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../parity/builtins.json")).unwrap_or_default();
+    let mut real = crate::plugins::builtins();
+    infos.into_iter().map(|info| {
+        match real.iter().position(|p| p.info().name == info.name) {
+            Some(i) => real.remove(i),
+            None => Box::new(StandIn(info)) as Box<dyn Plugin>,
+        }
+    }).collect()
+}
+
+struct StandIn(PluginInfo);
+
+impl Plugin for StandIn {
+    fn info(&self) -> PluginInfo {
+        self.0.clone()
+    }
 }
 
 /// text_fit._grow_to_content: the window at width, as tall as its columns need (900 at least).
