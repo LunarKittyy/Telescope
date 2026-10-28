@@ -1,7 +1,7 @@
 // The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
 
 import { Theme } from "../theme.slint";
-import { Icon, FocusRing } from "basics.slint";
+import { Icon, FocusRing, Button } from "basics.slint";
 import { Folds, FoldText } from "folds.slint";
 import { TipBody } from "tip.slint";
 
@@ -65,6 +65,11 @@ export component Card inherits Rectangle {
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
     out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
+    // The card's one header button, top right (add_card_header's action): a quiet icon button
+    in property <bool> has-action;
+    in property <image> action-icon;
+    in property <string> action-label;
+    callback action;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -103,6 +108,19 @@ export component Card inherits Rectangle {
                 hovered-elsewhere: chip-touch.has-hover;
             }
             Rectangle { horizontal-stretch: 1; }
+            if has-action: Button {
+                y: 4px;
+                height: 30px;
+                width: 30px;
+                role: "quiet";
+                padding-x: 0px;
+                has-icon: true;
+                icon: action-icon;
+                icon-tint: Theme.text-dim;
+                tip: action-label;
+                accessible-label: action-label;
+                clicked => { root.action(); }
+            }
             if note != "": Text {
                 text: note;
                 font-family: Theme.font;
