@@ -1,0 +1,26 @@
+// What a tooltip shows, styled like QToolTip in theme.py: raised fill, hover border, 6px corners, wrapping at about 64
+// characters. Slint's Tooltip can't be inherited, so it goes inside one: Tooltip { TipBody { says: "..."; } }
+
+import { Theme } from "../theme.slint";
+
+export component TipBody inherits Rectangle {
+    in property <string> says;
+    background: Theme.surface-raise;
+    border-width: 1px;
+    border-color: Theme.border-hover;
+    border-radius: 6px;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        Text {
+            text: root.says;
+            max-width: 470px;
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text;
+        }
+    }
+}

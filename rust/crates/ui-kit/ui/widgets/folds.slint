@@ -1,0 +1,14 @@
+// Folding cards and sections away by their title (widgets/collapse.py). The window keeps which keys are folded and
+// answers is-folded; version changes whenever that set does, so bindings that ask again re-evaluate.
+
+export global Folds {
+    in property <int> version;
+    pure callback is-folded(string, int) -> bool;
+    callback toggle(string);
+}
+
+// The text a fold heading gives screen readers and shows as its tooltip.
+export global FoldText {
+    in property <string> collapsed: @tr("Collapsed. Press Space or Enter to expand.");
+    in property <string> expanded: @tr("Expanded. Press Space or Enter to collapse.");
+}

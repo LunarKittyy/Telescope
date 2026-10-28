@@ -25,6 +25,19 @@ export global Theme {
     out property <color> err: #ef6f6b;
     // PLUGIN_HUES["camera"], the Camera card's mint
     out property <color> hue-camera: #7fd3c4;
+    out property <color> dim: #8792a0;
+    // theme.set_plugin_hues: off puts every card back in the accent colour
+    in-out property <bool> own-hues: true;
+    out property <length> mono-size: 13px;
+    out property <string> mono: "monospace";
+
+    // theme.hue: a plugin group's colour (PLUGIN_HUES), the accent for an unknown group or with plugin colours off
+    public pure function plugin-hue(group: string) -> color {
+        !own-hues ? accent
+            : group == "camera" ? #7fd3c4 : group == "look" ? #e6a6e0 : group == "vision" ? #bcd98c
+            : group == "preview" ? #f2b48c : group == "on_screen" ? #f2a0bf : group == "sound" ? #e8d08a
+            : group == "streaming" ? #8cc4f2 : group == "extras" ? #b9bdcc : accent
+    }
 
     out property <string> font: "Inter";
     // font-size: 9.75pt for everything unless a rule says otherwise
