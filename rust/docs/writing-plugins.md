@@ -192,7 +192,7 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
 
 - `uv` goes from `(0, 0)` at the top left to `(1, 1)` at the bottom right. Sampling somewhere else than `uv` moves things around (a mirror is `sample(vec2<f32>(1.0 - uv.x, uv.y))`).
 - Colours are 0 to 1 in the camera's own values. Whatever alpha you return is ignored.
-- `struct Params` holds your settings. Each field gets the value of the same name from `uniforms` (a missing one is 0). Fields can be `f32`, `i32`, `u32` or `vec2`, `vec3` and `vec4` of `f32`. Give a vector as a list, like `tint = { 1, 0.5, 0 }`, and a `true` or `false` arrives as 1 or 0.
+- `struct Params` holds your settings. Each field gets the value of the same name from `uniforms` (a missing one is 0). Fields can be `f32`, `i32`, `u32`, `vec2`, `vec3` and `vec4` of `f32`, or a `mat4x4<f32>`. Give a vector as a list, like `tint = { 1, 0.5, 0 }`, a matrix as 16 numbers column by column, and a `true` or `false` arrives as 1 or 0.
 - `frame` has the picture's `size` in pixels, the stream's `time` in seconds and the frame's `number`, for effects that move.
 - Don't declare bindings of your own. Telescope adds those around your code.
 
