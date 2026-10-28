@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +29,7 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
         override fun handleOnBackPressed() = leave()
     }
     private var swallowing = false
+    private val hidden = mutableMapOf<View, Int>()  // the main screen's views TalkBack skips while black
 
     init {
         overlay.visibility = View.GONE
@@ -49,6 +51,7 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
         }
         // Android raises this to the lowest brightness the screen allows; the screen stays on (FLAG_KEEP_SCREEN_ON)
         setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF)
+        hideUnderneath()
         showHint()
     }
 
@@ -61,6 +64,8 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
         back.isEnabled = false
         bars().show(WindowInsetsCompat.Type.systemBars())
         setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
+        hidden.forEach { (view, was) -> view.importantForAccessibility = was }
+        hidden.clear()
     }
 
     fun onStreamState(streaming: Boolean, busy: Boolean) {
@@ -79,6 +84,17 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
         hint.alpha = 1f
         overlay.removeCallbacks(fadeHint)
         overlay.postDelayed(fadeHint, BlackScreenState.HINT_MS)
+    }
+
+    // TalkBack would otherwise still reach Stop and the rest under the black, so it only finds the overlay
+    private fun hideUnderneath() {
+        for (i in 0 until content.childCount) {
+            val view = content.getChildAt(i)
+            if (view === overlay) continue
+            hidden[view] = view.importantForAccessibility
+            view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
+        overlay.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
     }
 
     private fun bars() = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
