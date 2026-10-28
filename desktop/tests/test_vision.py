@@ -1,4 +1,5 @@
 import os
+import runpy
 import threading
 import time
 from pathlib import Path
@@ -512,7 +513,9 @@ def test_the_real_pack_has_no_address_to_report_usage_to():
     libs = [p for p in (Path(os.environ["TELESCOPE_VISION_PACK"]) / "site" / "mediapipe").rglob("*")
             if p.suffix in (".so", ".dll") and p.is_file()]
     assert libs
-    assert not [p for p in libs if b"play.googleapis.com" in p.read_bytes()]
+    script = Path(__file__).resolve().parents[1] / "scripts" / "build_vision_pack.py"
+    report_to = runpy.run_path(str(script))["TELEMETRY_URL"]
+    assert not [p for p in libs if report_to in p.read_bytes()]
 
 
 def test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run(qapp):
