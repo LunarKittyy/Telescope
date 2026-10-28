@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
 import cv2
@@ -237,8 +237,8 @@ def _rates(fd: int, code: int, width: int, height: int) -> tuple:
                 out.append(round(u[1] / u[0], 2))
             continue
         # A range: from its shortest interval (fastest) to its longest
-        fastest = u[3] / u[2] if u[2] else 0
-        slowest = u[1] / u[0] if u[0] else 0
+        fastest = u[1] / u[0] if u[0] else 0
+        slowest = u[3] / u[2] if u[2] else 0
         out.extend(f for f in FPS_STEPS if slowest - _FPS_SLACK <= f <= fastest + _FPS_SLACK)
         break
     return tuple(sorted(set(out)))
@@ -293,6 +293,20 @@ def _stable_keys() -> dict:
     return keys
 
 
+def _usb_key(folder: str) -> str:
+    """A key from sysfs for a USB camera: its IDs, serial and interface, or its port when it has no serial ("" if it isn't USB)."""
+    iface = os.path.realpath(os.path.join(folder, "device"))
+    usb = os.path.dirname(iface)
+    vendor, product = _read(os.path.join(usb, "idVendor")), _read(os.path.join(usb, "idProduct"))
+    if not vendor or not product:
+        return ""
+    serial = _read(os.path.join(usb, "serial"))
+    if serial:  # udev's by-id link can't tell two interfaces of one camera apart, so the interface goes in too
+        return f"usb-{vendor}:{product}-{serial}-if{_read(os.path.join(iface, 'bInterfaceNumber')) or '00'}"
+    # Identical cameras without a serial share a by-id name, so the port is what tells them apart
+    return "usb-port-" + os.path.relpath(iface, "/sys/devices").replace("/", "-")
+
+
 class LinuxScanner:
     """Lists webcams from sysfs, opening each node only when it first shows up (opening wakes a sleeping camera)."""
 
@@ -317,6 +331,10 @@ class LinuxScanner:
         finally:
             os.close(fd)
 
+    @staticmethod
+    def _key(folder: str, path: str, node: str, keys: dict) -> str:
+        return _usb_key(folder) or keys.get(os.path.realpath(path)) or node
+
     def scan(self) -> list:
         try:
             nodes = sorted(n for n in os.listdir(self._sysfs) if n.startswith("video"))
@@ -338,6 +356,10 @@ class LinuxScanner:
                 continue
             cached = self._known.get(node)
             if cached is not None and cached[0] == ident and not loopback:  # a loopback's caps follow its writer
+                if cached[1] is not None and cached[1].key == node:  # udev hadn't made its link yet: look again
+                    if keys is None:
+                        keys = self._stable_keys()
+                    cached = (ident, replace(cached[1], key=self._key(folder, cached[1].location, node, keys)))
                 known[node] = cached
                 if cached[1] is not None:
                     found.append(cached[1])
@@ -351,7 +373,7 @@ class LinuxScanner:
                 if captures and modes and not virtual and not is_virtual(card or name):
                     if keys is None:
                         keys = self._stable_keys()
-                    device = Device(keys.get(os.path.realpath(path), node), tidy_name(card or name), path, modes)
+                    device = Device(self._key(folder, path, node, keys), tidy_name(card or name), path, modes)
             elif opened is None:
                 continue  # no permission or it went away: try again next time
             known[node] = (ident, device)
@@ -497,8 +519,9 @@ class WebcamReader:
         cap = self._opener(device, choice)
         ok, frame = (cap.read() if cap.isOpened() else (False, None))
         if not ok or frame is None:
+            opened = cap.isOpened()  # before release, which always closes it
             cap.release()
-            self._failed(device, opened=cap.isOpened())
+            self._failed(device, opened=opened)
             return False
         self._cap, self._first = cap, frame
         self._jpeg = vcam.IS_LINUX and choice.compressed and frame.ndim == 2 and frame.shape[0] == 1

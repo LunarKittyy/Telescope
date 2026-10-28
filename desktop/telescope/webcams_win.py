@@ -160,7 +160,10 @@ class WindowsControls:
                     self._ifaces[kind] = iface
                 except OSError:
                     pass
-            return bool(self._ifaces)
+            if not self._ifaces:
+                self.close()  # nothing to set, so don't keep the device's source open
+                return False
+            return True
         except OSError:
             logger.debug("Couldn't open the webcam's settings", exc_info=True)
             self.close()

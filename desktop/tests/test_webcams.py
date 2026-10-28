@@ -148,7 +148,7 @@ def test_modes_are_read_from_the_driver(monkeypatch):
             if got is None:  # a range from 1/30 s to 1 s
                 if index:
                     return None
-                return webcams._FRMIVAL.pack(index, code, w, h, 3, 1, 1, 1, 30, 1, 30)
+                return webcams._FRMIVAL.pack(index, code, w, h, 3, 1, 30, 1, 1, 1, 30)
             if index >= len(got):
                 return None
             return webcams._FRMIVAL.pack(index, code, w, h, got[index][0], got[index][1], got[index][2], 0, 0, 0, 0)
@@ -223,6 +223,47 @@ def test_a_node_is_only_opened_again_once_it_was_replaced(sysfs):
     _node(sysfs, "video0", "Brio")
     scanner._open = lambda path: (("uvcvideo", "Brio", True), WEBCAM[1])
     assert [d.name for d in scanner.scan()] == ["Brio"]
+
+
+def _usb(tmp_path, sysfs, node, port, serial="", interface="00"):
+    """A node whose sysfs device is interface port:1.<n> of a USB camera."""
+    usb = tmp_path / "devices" / "pci0000:00" / port
+    iface = usb / f"{port}:1.{int(interface)}"
+    iface.mkdir(parents=True)
+    (usb / "idVendor").write_text("046d\n")
+    (usb / "idProduct").write_text("0892\n")
+    if serial:
+        (usb / "serial").write_text(serial + "\n")
+    (iface / "bInterfaceNumber").write_text(interface + "\n")
+    os.symlink(iface, _node(sysfs, node, "HD Pro Webcam C920") / "device")
+
+
+@linux_only
+def test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev(tmp_path, sysfs):
+    _usb(tmp_path, sysfs, "video0", "8-4", serial="ABC123")
+    found = _scanner(sysfs, {"video0": WEBCAM}, []).scan()
+    assert found[0].key == "usb-046d:0892-ABC123-if00"
+
+
+@linux_only
+def test_identical_webcams_without_a_serial_are_told_apart_by_their_port(tmp_path, sysfs):
+    _usb(tmp_path, sysfs, "video0", "8-4")
+    _usb(tmp_path, sysfs, "video2", "8-5")
+    keys = [d.key for d in _scanner(sysfs, {"video0": WEBCAM, "video2": WEBCAM}, []).scan()]
+    assert len(set(keys)) == 2 and all(k.startswith("usb-port-") and k.endswith(":1.0") for k in keys)
+
+
+@linux_only
+def test_a_key_that_fell_back_to_the_node_is_looked_up_again(sysfs):
+    _node(sysfs, "video2", "HD Webcam")
+    links = {}
+    opened = []
+    scanner = LinuxScanner(sysfs=str(sysfs), dev="/dev", open_node=lambda path: opened.append(path) or WEBCAM,
+                           stable_keys=lambda: dict(links))
+    assert [d.key for d in scanner.scan()] == ["video2"]  # scanned before udev made its link
+    links["/dev/video2"] = "Vendor_HD_Webcam"
+    assert [d.key for d in scanner.scan()] == ["Vendor_HD_Webcam"]
+    assert len(opened) == 1  # without opening the camera again
 
 
 @linux_only
@@ -317,6 +358,7 @@ class _Capture:
 
     def release(self):
         self.released = True
+        self.opened = False  # like OpenCV's
 
 
 DEV = Device("cam", "HD Webcam", __file__, C920)  # a path that exists, like a plugged-in camera's node
