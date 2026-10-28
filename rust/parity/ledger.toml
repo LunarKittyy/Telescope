@@ -2926,8 +2926,8 @@
 "test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "todo" }
 "test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "todo" }
 "test_h264_reader.py::test_pyav_is_imported_by_one_thread_at_a_time" = { status = "todo" }
-"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "todo" }
-"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "todo" }
+"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::an_h264_feed_reads_authenticated_bytes_then_reports_eof", note = "the HTTP half; decoding the frames is the media crate's" }
+"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::rejects_non_multipart_response" }
 "test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "todo" }
 "test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "todo" }
 "test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "todo" }

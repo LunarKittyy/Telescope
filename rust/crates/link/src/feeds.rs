@@ -282,6 +282,28 @@ mod tests {
     }
 
     #[test]
+    fn an_h264_feed_reads_authenticated_bytes_then_reports_eof() {
+        let body: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
+        let sent = body.clone();
+        let server = serve(None, Arc::new(move |req| if req.auth.as_deref() == Some("Bearer secret") {
+            (200, "video/h264".into(), sent.clone())
+        } else {
+            (401, "text/plain".into(), Vec::new())
+        }));
+        let url = format!("{}/v1/video.h264", server.base(false));
+        assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
+        let (_, mut feed) = open_feed(&url, &PhoneAuth::new("secret", ""), Duration::from_secs(3)).unwrap();
+        let mut got = Vec::new();
+        let end = loop {
+            match feed.read() {
+                Ok(p) => got.extend(p.data),
+                Err(e) => break e,
+            }
+        };
+        assert_eq!((got, end), (body, FeedEnd::Closed));
+    }
+
+    #[test]
     fn an_h264_feed_hands_on_what_arrives_and_a_stop_ends_it() {
         let server = serve(None, Arc::new(|_| (200, "video/h264".into(), vec![0, 0, 0, 1, 9, 0xf0])));
         let (codec, mut feed) = open_feed(&format!("{}/v1/video.h264", server.base(false)), &PhoneAuth::new("t", ""), Duration::from_secs(3)).unwrap();
