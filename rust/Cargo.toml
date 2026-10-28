@@ -40,6 +40,7 @@ base64 = "0.22"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ring = "0.17"
 mdns-sd = { version = "0.21", default-features = false }
+if-addrs = "0.15"
 ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
 qrcode = { version = "0.14", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
