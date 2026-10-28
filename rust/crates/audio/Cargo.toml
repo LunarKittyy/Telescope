@@ -1,0 +1,10 @@
+[package]
+name = "telescope-audio"
+description = "The phone's microphone into a virtual microphone"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true

@@ -1,0 +1,261 @@
+// The Camera card (desktop/telescope/plugins/camera_control.py), built from ui-kit's widgets.
+
+import { Theme, Icons, Icon, Button, Card, SectionHeading, FormRow, Segmented, Slider, SwitchTile, ChoiceField } from "@ui-kit/ui-kit.slint";
+
+export struct Lens {
+    id: string,
+    number: string,
+    unit: string,
+    rest: string,
+}
+
+global Fmt {
+    // One decimal with its sign, like the Qt card's "+0.0 EV"
+    public pure function signed1(v: float) -> string {
+        let tenths = round(abs(v) * 10);
+        (v < -0.05 ? "-" : "+") + floor(tenths / 10) + "." + mod(tenths, 10)
+    }
+
+    public pure function shutter(ns: float) -> string {
+        ns >= 500000000 ? round(ns / 100000000) / 10 + " s" : "1/" + round(1000000000 / ns)
+    }
+}
+
+component LensTile inherits Rectangle {
+    in property <Lens> lens;
+    in property <bool> on;
+    in property <color> hue;
+    callback clicked;
+    height: 54px;
+    horizontal-stretch: 1;
+    border-radius: 7px;
+    border-width: 1px;
+    background: on ? hue.with-alpha(0.12) : touch.has-hover ? #2c333e : Theme.surface-raise;
+    border-color: on ? hue : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    accessible-role: button;
+    accessible-label: lens.number + lens.unit + " " + lens.rest;
+    accessible-checked: on;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: lens.number;
+                font-family: Theme.font;
+                font-size: 16.25px; // 1.25 of the body size
+                font-weight: 600;
+                color: on ? hue : Theme.text;
+            }
+            Text {
+                text: lens.unit;
+                font-family: Theme.font;
+                font-size: 11px;
+                font-weight: 500;
+                color: on ? hue : Theme.text;
+                vertical-alignment: bottom;
+                height: 18px;
+            }
+        }
+        if lens.rest != "": Text {
+            text: lens.rest;
+            font-family: Theme.font;
+            font-size: 11px;
+            color: on ? hue : Theme.text-faint;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+export component CameraCard inherits Card {
+    in property <bool> active;
+    in property <[Lens]> lenses;
+    in-out property <int> current-lens;
+    in-out property <int> exposure-mode;
+    in-out property <float> iso-pos: 0.3;
+    in-out property <float> shutter-pos: 0.4;
+    in-out property <float> ae-comp;
+    in property <int> ae-min: -8;
+    in property <int> ae-max: 8;
+    in property <float> ae-step: 0.167;
+    in-out property <int> wb-mode;
+    in-out property <int> focus-mode;
+    in-out property <float> focus-pos;
+    in property <bool> point-focus;
+    in-out property <bool> ois: true;
+    in-out property <bool> black-level-lock;
+    in-out property <bool> torch;
+    in-out property <int> noise-reduction: 1;
+    in-out property <int> sharpening: 1;
+
+    callback lens-picked(string);
+    callback control(string, float);
+    callback manual-exposure(float, float);
+
+    property <float> iso: 50 * pow(6400 / 50, iso-pos);
+    property <float> shutter-ns: 100000 * pow(10000, shutter-pos);
+
+    title: "Camera";
+    icon: Icons.camera;
+    hue: Theme.hue-camera;
+    opacity: active ? 1 : 0.4;
+
+    if lenses.length == 0: Text {
+        text: "Start streaming to load lenses";
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        height: 16px;
+        vertical-alignment: center;
+    }
+    if lenses.length > 0: HorizontalLayout {
+        spacing: 6px;
+        for lens[i] in lenses: LensTile {
+            lens: lens;
+            hue: root.hue;
+            on: i == current-lens;
+            clicked => {
+                current-lens = i;
+                lens-picked(lens.id);
+            }
+        }
+    }
+
+    SectionHeading { text: "Light"; icon: Icons.sun; }
+    FormRow {
+        label: "Exposure";
+        Segmented {
+            label: "Exposure";
+            items: ["Auto", "Manual"];
+            disabled: [false, false];
+            current <=> exposure-mode;
+            picked(i) => {
+                if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
+            }
+        }
+    }
+    if exposure-mode == 1: FormRow {
+        label: "ISO";
+        Slider {
+            label: "ISO";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> iso-pos;
+            readout: "ISO " + round(iso);
+            released => { manual-exposure(iso, shutter-ns); }
+        }
+    }
+    if exposure-mode == 1: FormRow {
+        label: "Shutter";
+        Slider {
+            label: "Shutter";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> shutter-pos;
+            readout: Fmt.shutter(shutter-ns);
+            released => { manual-exposure(iso, shutter-ns); }
+        }
+    }
+    FormRow {
+        label: "Brightness";
+        Slider {
+            label: "Brightness";
+            hue: root.hue;
+            minimum: ae-min;
+            maximum: ae-max;
+            step: 1;
+            value <=> ae-comp;
+            readout: Fmt.signed1(ae-comp * ae-step) + " EV";
+            released(v) => { control("ae_comp", v); }
+        }
+    }
+    FormRow {
+        label: "White balance";
+        Segmented {
+            label: "White balance";
+            items: ["Auto", "Manual"];
+            disabled: [false, true];
+            current <=> wb-mode;
+            picked(i) => { control("wb_auto", 0); }
+        }
+    }
+
+    SectionHeading { text: "Focus"; icon: Icons.focus; }
+    FormRow {
+        label: "Focus";
+        Segmented {
+            label: "Focus";
+            items: ["Auto", "Tap a point", "Manual"];
+            disabled: [false, !point-focus, false];
+            current <=> focus-mode;
+            picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
+        }
+    }
+    if focus-mode == 2: FormRow {
+        label: "Distance";
+        Slider {
+            label: "Distance";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> focus-pos;
+            readout: focus-pos < 0.005 ? "∞" : round(100 / (focus-pos * 10)) + " cm";
+            released(v) => { control("focus_distance", v * 10); }
+        }
+    }
+
+    SectionHeading { text: "Image"; icon: Icons.image; }
+    GridLayout {
+        spacing: 8px;
+        Row {
+            SwitchTile {
+                icon: Icons.stabilize;
+                text: "Stabilization";
+                hue: root.hue;
+                checked <=> ois;
+                toggled(on) => { control("ois", on ? 1 : 0); }
+            }
+            SwitchTile {
+                icon: Icons.lock;
+                text: "Black level lock";
+                hue: root.hue;
+                checked <=> black-level-lock;
+                toggled(on) => { control("black_level_lock", on ? 1 : 0); }
+            }
+        }
+        Row {
+            SwitchTile {
+                col: 0;
+                icon: Icons.torch;
+                text: "Torch";
+                hue: root.hue;
+                checked <=> torch;
+                toggled(on) => { control("torch", on ? 1 : 0); }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        ChoiceField {
+            caption: "Noise reduction";
+            items: ["Off", "Fast", "High quality"];
+            current <=> noise-reduction;
+            picked(i) => { control("nr_mode", i); }
+        }
+        ChoiceField {
+            caption: "Sharpening";
+            items: ["Off", "Fast", "High quality"];
+            current <=> sharpening;
+            picked(i) => { control("edge_mode", i); }
+        }
+    }
+}
+

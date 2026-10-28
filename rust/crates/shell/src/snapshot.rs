@@ -1,7 +1,7 @@
 //! `telescope-rs snapshot OUT`: the window in the same state as the Qt reference picture (desktop/scripts/
 //! translation_scenes.main_window: Pixel 8 paired, not streaming), written as a PPM once it has drawn.
 
-use crate::gui::MainWindow;
+use crate::window::MainWindow;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 pub fn prepare(ui: &MainWindow) {

@@ -1,0 +1,102 @@
+// The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
+
+import { Theme } from "../theme.slint";
+import { Icon } from "basics.slint";
+
+// The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
+export component Card inherits Rectangle {
+    in property <string> title;
+    in property <image> icon;
+    in property <color> hue: Theme.accent;
+    in property <string> note;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 14px;
+    VerticalLayout {
+        padding-left: 17px;
+        padding-right: 17px;
+        padding-top: 15px;
+        padding-bottom: 17px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 10px;
+            padding-bottom: 2px;
+            height: 38px;
+            Rectangle {
+                y: 3px;
+                width: 30px;
+                height: 30px;
+                border-radius: 9px;
+                background: hue.with-alpha(0.14);
+                Icon { source: icon; tint: hue; width: 16px; height: 16px; }
+            }
+            // Qt indents a QSS-styled label's text by 6px
+            HorizontalLayout {
+                padding-left: 6px;
+                title-text := Text {
+                    text: title;
+                    y: 3px;
+                    height: 30px;
+                    font-family: Theme.font;
+                    font-size: Theme.card-title;
+                    font-weight: 600;
+                    color: title-touch.has-hover ? Theme.text-hover : Theme.text;
+                    vertical-alignment: center;
+                    title-touch := TouchArea { mouse-cursor: pointer; }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            if note != "": Text {
+                text: note;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: Theme.text-faint;
+                vertical-alignment: center;
+            }
+        }
+        @children
+    }
+}
+
+// add_section_heading: a small icon, the name and a hairline to the card's edge.
+export component SectionHeading inherits HorizontalLayout {
+    in property <string> text;
+    in property <image> icon;
+    height: 25px;
+    padding-top: 4px;
+    spacing: 14px;
+    Rectangle {
+        width: 13px;
+        Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; }
+    }
+    Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: 600;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        horizontal-stretch: 1;
+        Rectangle { height: 1px; width: parent.width; background: Theme.border; }
+    }
+}
+
+// control_row: the dim label in a 96px column, then the control, 36px tall at least.
+export component FormRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> enabled: true;
+    spacing: 10px;
+    min-height: 36px;
+    Text {
+        text: label;
+        width: 96px;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    @children
+}

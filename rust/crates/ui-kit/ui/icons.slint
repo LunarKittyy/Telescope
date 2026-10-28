@@ -1,0 +1,36 @@
+// The line icons (widgets/line_icons.py), white in the files and tinted by Icon. Cards pick one by property or by name.
+
+export global Icons {
+    out property <image> bookmark: @image-url("icons/bookmark.svg");
+    out property <image> camera: @image-url("icons/camera.svg");
+    out property <image> check: @image-url("icons/check.svg");
+    out property <image> chevron: @image-url("icons/chevron.svg");
+    out property <image> focus: @image-url("icons/focus.svg");
+    out property <image> help: @image-url("icons/help.svg");
+    out property <image> image: @image-url("icons/image.svg");
+    out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> moon: @image-url("icons/moon.svg");
+    out property <image> phone: @image-url("icons/phone.svg");
+    out property <image> plus: @image-url("icons/plus.svg");
+    out property <image> sliders: @image-url("icons/sliders.svg");
+    out property <image> stabilize: @image-url("icons/stabilize.svg");
+    out property <image> sun: @image-url("icons/sun.svg");
+    out property <image> torch: @image-url("icons/torch.svg");
+    out property <image> usb: @image-url("icons/usb.svg");
+    out property <image> v-devices: @image-url("icons/v_devices.svg");
+    out property <image> v-gear: @image-url("icons/v_gear.svg");
+    out property <image> v-lenses: @image-url("icons/v_lenses.svg");
+    out property <image> v-play: @image-url("icons/v_play.svg");
+    out property <image> v-stop: @image-url("icons/v_stop.svg");
+    out property <image> wifi: @image-url("icons/wifi.svg");
+    out property <image> x: @image-url("icons/x.svg");
+
+    // An icon by its name in PluginInfo.icon, for cards described as data
+    public pure function named(name: string) -> image {
+        name == "bookmark" ? bookmark : name == "camera" ? camera : name == "check" ? check : name == "chevron" ? chevron
+            : name == "focus" ? focus : name == "help" ? help : name == "image" ? image : name == "lock" ? lock
+            : name == "moon" ? moon : name == "phone" ? phone : name == "plus" ? plus : name == "sliders" ? sliders
+            : name == "stabilize" ? stabilize : name == "sun" ? sun : name == "torch" ? torch : name == "usb" ? usb
+            : name == "wifi" ? wifi : name == "x" ? x : sliders
+    }
+}

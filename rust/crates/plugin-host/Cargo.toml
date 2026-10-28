@@ -1,0 +1,11 @@
+[package]
+name = "telescope-plugin-host"
+description = "Plugins people add: Lua scripts, GPU shaders and .slint cards, behind core's Plugin trait"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+serde_json.workspace = true
+log.workspace = true

@@ -1,0 +1,86 @@
+// The labelled slider row from widgets/controls.py.
+
+import { Theme } from "../theme.slint";
+import { FocusRing } from "basics.slint";
+
+// The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
+export component Slider inherits HorizontalLayout {
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in-out property <float> value: 0;
+    in property <float> step: 1;
+    in property <string> readout;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    callback moved(float);
+    callback released(float);
+    spacing: 8px;
+    horizontal-stretch: 1;
+    track := Rectangle {
+        horizontal-stretch: 1;
+        min-width: 84px;
+        height: 36px;
+        property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
+        property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
+        accessible-role: slider;
+        accessible-label: label;
+        accessible-value: value;
+        accessible-value-minimum: minimum;
+        accessible-value-maximum: maximum;
+        accessible-value-step: step;
+        forward-focus: slider-focus;
+        slider-focus := FocusScope {
+            enabled: root.enabled;
+            key-pressed(e) => {
+                if (e.text == Key.LeftArrow) { value = max(minimum, value - step); moved(value); released(value); return accept; }
+                if (e.text == Key.RightArrow) { value = min(maximum, value + step); moved(value); released(value); return accept; }
+                reject
+            }
+        }
+        Rectangle {
+            x: track.inset;
+            width: parent.width - 2 * track.inset;
+            height: 4px;
+            border-radius: 2px;
+            background: enabled ? Theme.border-strong : Theme.surface-raise;
+        }
+        handle := Rectangle {
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            x: track.inset - 7px + track.fraction * (track.width - 2 * track.inset);
+            background: !enabled ? Theme.text-disabled : (touch.has-hover || touch.pressed) ? hue.brighter(0.15) : hue;
+            FocusRing { shown: slider-focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+        }
+        touch := TouchArea {
+            enabled: root.enabled;
+            property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down || (e.kind == PointerEventKind.move && self.pressed)) {
+                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    moved(value);
+                }
+                if (e.kind == PointerEventKind.up) {
+                    released(value);
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    root.moved(value);
+                }
+            }
+        }
+    }
+    Text {
+        width: 56px;
+        text: readout;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: enabled ? hue : Theme.text-disabled;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+}

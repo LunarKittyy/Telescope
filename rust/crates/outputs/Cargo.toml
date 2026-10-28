@@ -1,0 +1,13 @@
+[package]
+name = "telescope-outputs"
+description = "Virtual cameras: v4l2loopback on Linux, the Windows 11 camera and UnityCapture"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true

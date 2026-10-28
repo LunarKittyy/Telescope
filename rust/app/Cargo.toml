@@ -1,19 +1,23 @@
 [package]
 name = "telescope-app"
+description = "telescope-rs: wires every crate together into the desktop app"
 edition.workspace = true
 version.workspace = true
-publish = false
+publish.workspace = true
 
 [[bin]]
 name = "telescope-rs"
 path = "src/main.rs"
 
 [dependencies]
-telescope-core = { path = "../core" }
-slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
-qrcode = { version = "0.14", default-features = false }
-base64 = "0.22"
-serde_json = "1"
-
-[build-dependencies]
-slint-build = "1.18"
+telescope-core.workspace = true
+telescope-link.workspace = true
+telescope-media.workspace = true
+telescope-outputs.workspace = true
+telescope-audio.workspace = true
+telescope-shell.workspace = true
+telescope-system.workspace = true
+telescope-plugin-host.workspace = true
+serde_json.workspace = true
+log.workspace = true
+qrcode.workspace = true

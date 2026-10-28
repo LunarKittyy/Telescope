@@ -1,10 +1,11 @@
 //! The phone's session port (8766: hello, ping, session start/stop) and stream port (8080: state, control), plus
 //! picking the route to it the way phones.py does: USB when this phone answers over the cable, else Wi-Fi.
 
-use crate::config::Phone;
+use telescope_core::source::PairedPhone as Phone;
 use crate::discovery::LanDiscovery;
 use crate::https::{Error, PhoneAuth};
 use crate::adb;
+use telescope_core::link::Unreachable;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
@@ -113,15 +114,6 @@ impl Route {
             adb::unforward(serial, self.stream_port);
         }
     }
-}
-
-/// What resolve() found when it found no route.
-#[derive(Debug)]
-pub enum Unreachable {
-    NotPaired,
-    LocalOnly,
-    NoAnswer,
-    Outdated(String),
 }
 
 fn check_hello(route: &Route, phone: &Phone) -> Option<Result<(), Unreachable>> {

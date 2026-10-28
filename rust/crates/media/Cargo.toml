@@ -1,0 +1,13 @@
+[package]
+name = "telescope-media"
+description = "Decoding the phone's video: H.264 through FFmpeg (VA-API, D3D11VA), MJPEG, frame timing"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+
+# Windows gets FFmpeg with D3D11VA or Media Foundation later
+[target.'cfg(target_os = "linux")'.dependencies]
+ffmpeg-sys-next.workspace = true

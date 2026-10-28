@@ -51,11 +51,16 @@ pub fn clean_name(raw: &str) -> String {
 }
 
 pub fn hostname() -> String {
-    let mut buf = [0u8; 256];
-    // SAFETY: buf is valid for its length and gethostname NUL-terminates within it on success
-    let ok = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } == 0;
-    let end = buf.iter().position(|&b| b == 0).unwrap_or(0);
-    if ok && end > 0 { String::from_utf8_lossy(&buf[..end]).into_owned() } else { "Computer".into() }
+    #[cfg(unix)]
+    {
+        let mut buf = [0u8; 256];
+        // SAFETY: buf is valid for its length and gethostname NUL-terminates within it on success
+        let ok = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } == 0;
+        let end = buf.iter().position(|&b| b == 0).unwrap_or(0);
+        if ok && end > 0 { String::from_utf8_lossy(&buf[..end]).into_owned() } else { "Computer".into() }
+    }
+    #[cfg(not(unix))]
+    std::env::var("COMPUTERNAME").ok().filter(|n| !n.is_empty()).unwrap_or_else(|| "Computer".into())
 }
 
 #[cfg(test)]
@@ -77,10 +82,7 @@ mod tests {
     }
 }
 
-/// CLOCK_MONOTONIC in nanoseconds, the clock Python's time.monotonic() reads, for timing across processes.
-pub fn monotonic_ns() -> u64 {
-    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-    // SAFETY: ts is a valid out-pointer
-    unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
-    ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
+/// Standard base64 with padding, how the USB pairing offer travels through adb.
+pub fn base64(data: &[u8]) -> String {
+    base64::engine::general_purpose::STANDARD.encode(data)
 }

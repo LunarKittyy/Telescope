@@ -1,7 +1,7 @@
 //! The QR pairing server (pairing.py): one nonce and token per offer, waits for the phone's POST to /pair/<nonce>
 //! proving it read the token, and hands back the phone it paired.
 
-use crate::config::Phone;
+use telescope_core::source::PairedPhone as Phone;
 use crate::net::{self, PairingAddress};
 use crate::util;
 use serde_json::{json, Value};

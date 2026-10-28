@@ -3,13 +3,7 @@
 
 use ffmpeg_sys_next as ff;
 use std::ptr;
-
-/// One decoded picture, packed I420 (Y plane, then U, then V, no row padding).
-pub struct Frame {
-    pub width: u32,
-    pub height: u32,
-    pub i420: Vec<u8>,
-}
+use telescope_core::frame::{Frame, PixelFormat};
 
 pub struct Decoder {
     ctx: *mut ff::AVCodecContext,
@@ -140,7 +134,7 @@ impl Decoder {
             copy_plane(&mut i420, (*src).data[1], (*src).linesize[1], cw, ch);
             copy_plane(&mut i420, (*src).data[2], (*src).linesize[2], cw, ch);
         }
-        Some(Frame { width: w as u32, height: h as u32, i420 })
+        Some(Frame::new(w as u32, h as u32, PixelFormat::I420, i420))
     }
 }
 
@@ -179,7 +173,7 @@ impl PreviewScaler {
         let (w, h) = (frame.width as i32, frame.height as i32);
         let (cw, ch) = ((w + 1) / 2, (h + 1) / 2);
         let mut rgb = vec![0u8; (out_w * out_h * 3) as usize];
-        // SAFETY: plane pointers and strides describe frame.i420 exactly; rgb holds out_w * out_h * 3 bytes
+        // SAFETY: plane pointers and strides describe frame.data exactly; rgb holds out_w * out_h * 3 bytes
         unsafe {
             self.sws = ff::sws_getCachedContext(self.sws, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P, out_w as i32, out_h as i32,
                                                 ff::AVPixelFormat::AV_PIX_FMT_RGB24, ff::SwsFlags::SWS_BILINEAR as i32,
@@ -187,7 +181,7 @@ impl PreviewScaler {
             if self.sws.is_null() {
                 return rgb;
             }
-            let base = frame.i420.as_ptr();
+            let base = frame.data.as_ptr();
             let src = [base, base.add((w * h) as usize), base.add((w * h + cw * ch) as usize), ptr::null()];
             let src_stride = [w, cw, cw, 0];
             let dst = [rgb.as_mut_ptr(), ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];

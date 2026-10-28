@@ -1,0 +1,171 @@
+// Picking one of a few (segmented_row) or one of many (a QComboBox).
+
+import { Theme } from "../theme.slint";
+import { Icon, FocusRing } from "basics.slint";
+
+// segmented_row: equal segments in one track, the picked one a filled pill.
+export component Segmented inherits Rectangle {
+    in property <[string]> items;
+    in property <[bool]> disabled;
+    in property <string> label;
+    in-out property <int> current: 0;
+    callback picked(int);
+    height: 36px;
+    horizontal-stretch: 1;
+    forward-focus: focus;
+    accessible-role: tab-list;
+    accessible-label: label;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.LeftArrow && current > 0 && !disabled[current - 1]) { current -= 1; picked(current); return accept; }
+            if (e.text == Key.RightArrow && current < items.length - 1 && !disabled[current + 1]) { current += 1; picked(current); return accept; }
+            reject
+        }
+    }
+    track := Rectangle {
+        y: 2px;
+        height: 32px;
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
+        FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    }
+    HorizontalLayout {
+        y: 2px;
+        height: 32px;
+        padding: 3px;
+        spacing: 2px;
+        for item[i] in items: seg := Rectangle {
+            property <bool> on: i == current;
+            property <bool> off: disabled[i];
+            horizontal-stretch: 1;
+            min-width: 0px;
+            preferred-width: 0px;
+            border-radius: 6px;
+            background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
+                : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
+            accessible-role: tab;
+            accessible-label: label + ": " + item;
+            accessible-checkable: true;
+            accessible-checked: on;
+            seg-touch := TouchArea {
+                mouse-cursor: off ? default : pointer;
+                clicked => {
+                    if (!off) {
+                        current = i;
+                        picked(i);
+                    }
+                }
+            }
+            Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: on ? 600 : 400;
+                color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+// controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
+export component ChoiceField inherits Rectangle {
+    in property <string> caption;
+    in property <[string]> items;
+    in-out property <int> current;
+    in property <bool> enabled: true;
+    callback picked(int);
+    height: 48px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    border-radius: 10px;
+    border-width: 1px;
+    background: touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
+    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
+    accessible-role: combobox;
+    accessible-label: caption;
+    accessible-value: items[current];
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.UpArrow && current > 0) { current -= 1; picked(current); return accept; }
+            if (e.text == Key.DownArrow && current < items.length - 1) { current += 1; picked(current); return accept; }
+            if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { popup.show(); }
+    }
+    VerticalLayout {
+        padding-left: 12px;
+        padding-right: 30px;
+        alignment: center;
+        spacing: 1px;
+        Text {
+            text: caption;
+            font-family: Theme.font;
+            font-size: 11.44px; // 0.88 of the body size
+            color: enabled ? Theme.text-faint : Theme.text-disabled;
+            overflow: elide;
+        }
+        Text {
+            text: items[current];
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            overflow: elide;
+        }
+    }
+    Icon {
+        source: @image-url("../icons/chevron.svg");
+        x: parent.width - 12px - 14px;
+        width: 14px;
+        height: 14px;
+    }
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-hover;
+            border-radius: 7px;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000080;
+            VerticalLayout {
+                padding: 4px;
+                for item[i] in items: Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: i == current ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                    item-touch := TouchArea {
+                        clicked => {
+                            current = i;
+                            picked(i);
+                        }
+                    }
+                    Text {
+                        x: 8px;
+                        text: item;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: i == current ? white : Theme.text;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

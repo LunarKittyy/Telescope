@@ -3925,6 +3925,8 @@ version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
 dependencies = [
+ "foldhash 0.2.0",
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
@@ -4402,11 +4404,24 @@ dependencies = [
 name = "telescope-app"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "log",
  "qrcode",
  "serde_json",
- "slint",
- "slint-build",
+ "telescope-audio",
+ "telescope-core",
+ "telescope-link",
+ "telescope-media",
+ "telescope-outputs",
+ "telescope-plugin-host",
+ "telescope-shell",
+ "telescope-system",
+]
+
+[[package]]
+name = "telescope-audio"
+version = "0.1.0"
+dependencies = [
+ "log",
  "telescope-core",
 ]
 
@@ -4414,15 +4429,78 @@ dependencies = [
 name = "telescope-core"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
- "ffmpeg-sys-next",
+ "chrono",
  "libc",
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "telescope-link"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "libc",
+ "log",
  "mdns-sd",
  "ring",
  "rustls",
  "serde",
  "serde_json",
+ "telescope-core",
 ]
+
+[[package]]
+name = "telescope-media"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-sys-next",
+ "telescope-core",
+]
+
+[[package]]
+name = "telescope-outputs"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "log",
+ "telescope-core",
+]
+
+[[package]]
+name = "telescope-plugin-host"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "telescope-core",
+]
+
+[[package]]
+name = "telescope-shell"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "qrcode",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "telescope-core",
+ "telescope-ui-kit",
+]
+
+[[package]]
+name = "telescope-system"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "telescope-core",
+]
+
+[[package]]
+name = "telescope-ui-kit"
+version = "0.1.0"
 
 [[package]]
 name = "tempfile"

@@ -1,0 +1,10 @@
+[package]
+name = "telescope-system"
+description = "Tray, notifications, autostart, one running copy, global shortcuts and updates"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true

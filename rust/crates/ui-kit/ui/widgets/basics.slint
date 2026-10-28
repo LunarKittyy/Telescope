@@ -1,0 +1,112 @@
+// Icons, the focus ring and buttons from desktop/telescope/widgets/common.py, sized in the same design pixels.
+
+import { Theme } from "../theme.slint";
+
+// A line icon (widgets/line_icons.py), white in the file and tinted here.
+export component Icon inherits Image {
+    in property <color> tint: Theme.text-dim;
+    colorize: tint;
+    image-fit: contain;
+    image-rendering: smooth;
+}
+
+// theme.focus_ring: an accent outline drawn just outside a control while it has keyboard focus.
+export component FocusRing inherits Rectangle {
+    in property <bool> shown;
+    in property <length> radius: 7px;
+    x: -2px;
+    y: -2px;
+    border-radius: radius + 2px;
+    border-width: shown ? 2px : 0px;
+    border-color: Theme.accent;
+}
+
+// QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one.
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <color> icon-tint: Theme.accent-soft;
+    in property <string> role: "";
+    in property <length> icon-size: 14px;
+    in property <length> font-size: Theme.body;
+    in property <int> font-weight: 600;
+    in property <length> padding-x: 13px;
+    in property <length> gap: 9px;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 34px;
+    min-width: lay.preferred-width;
+    border-radius: 7px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg
+        : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
+        : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
+    border-color: !enabled ? Theme.border
+        : role == "primary" ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : role == "quiet" ? (touch.has-hover ? Theme.border-hover : Theme.border)
+        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { if (enabled) { root.clicked(); } }
+    }
+    lay := HorizontalLayout {
+        padding-left: padding-x;
+        padding-right: padding-x;
+        spacing: gap;
+        alignment: center;
+        if has-icon: Icon {
+            source: icon;
+            tint: icon-tint;
+            width: icon-size;
+            height: icon-size;
+            y: (parent.height - self.height) / 2;
+        }
+        if text != "": Text {
+            text: root.text;
+            font-family: Theme.font;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            color: !enabled ? Theme.text-disabled : role == "primary" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// QPushButton#icon_btn: transparent, quiet border, just an icon.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <length> icon-size: 18px;
+    in property <string> label;
+    callback clicked;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
+    background: touch.has-hover ? Theme.surface-raise : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
+}

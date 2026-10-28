@@ -1,14 +1,53 @@
 [workspace]
 resolver = "2"
-members = ["core", "app"]
+members = [
+    "app",
+    "crates/core",
+    "crates/ui-kit",
+    "crates/link",
+    "crates/media",
+    "crates/outputs",
+    "crates/audio",
+    "crates/shell",
+    "crates/system",
+    "crates/plugin-host",
+]
 
 [workspace.package]
 edition = "2021"
 version = "0.1.0"
+publish = false
+
+# One place for versions, so two crates never pull in two copies of the same thing
+[workspace.dependencies]
+telescope-core = { path = "crates/core" }
+telescope-ui-kit = { path = "crates/ui-kit" }
+telescope-link = { path = "crates/link" }
+telescope-media = { path = "crates/media" }
+telescope-outputs = { path = "crates/outputs" }
+telescope-audio = { path = "crates/audio" }
+telescope-shell = { path = "crates/shell" }
+telescope-system = { path = "crates/system" }
+telescope-plugin-host = { path = "crates/plugin-host" }
+
+# preserve_order: settings keep the key order Python saved them in
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+log = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+libc = "0.2"
+base64 = "0.22"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+ring = "0.17"
+mdns-sd = { version = "0.21", default-features = false }
+ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
+qrcode = { version = "0.14", default-features = false }
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
+slint-build = "1.18"
 
 [profile.release]
 opt-level = 3
 lto = "thin"
 codegen-units = 1
 strip = true
-panic = "abort"
+# No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions

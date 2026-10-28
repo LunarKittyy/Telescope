@@ -1,4 +1,5 @@
 //! This computer's IPv4 addresses a phone could pair over (ip_utils.get_pairing_addresses).
+#![cfg_attr(not(unix), allow(dead_code))]
 
 use serde::Serialize;
 use std::net::Ipv4Addr;
@@ -31,6 +32,13 @@ fn looks_like_vpn(name: &str) -> bool {
     VPN_PREFIXES.iter().any(|p| lower.starts_with(p)) || VPN_SUBSTRINGS.iter().any(|s| lower.contains(s))
 }
 
+#[cfg(not(unix))]
+pub fn pairing_addresses() -> Vec<PairingAddress> {
+    // Windows' adapters come from GetAdaptersAddresses; not written yet
+    Vec::new()
+}
+
+#[cfg(unix)]
 pub fn pairing_addresses() -> Vec<PairingAddress> {
     let mut out: Vec<PairingAddress> = Vec::new();
     let mut ifap: *mut libc::ifaddrs = std::ptr::null_mut();

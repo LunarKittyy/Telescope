@@ -1,0 +1,100 @@
+// On and off: the switch, and the icon tile that holds one (widgets/controls.py).
+
+import { Theme } from "../theme.slint";
+import { Icon, FocusRing } from "basics.slint";
+
+// common.Switch: a 36x20 track at the row's end.
+export component Switch inherits Rectangle {
+    in-out property <bool> checked;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: !enabled ? (checked ? Theme.border-strong : Theme.surface-raise)
+        : checked ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    accessible-role: switch;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: checked;
+    accessible-action-default => { checked = !checked; toggled(checked); }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " ") { checked = !checked; toggled(checked); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { checked = !checked; toggled(checked); }
+    }
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        y: 3px;
+        x: checked ? parent.width - 17px : 3px;
+        background: !enabled ? Theme.text-disabled : checked ? white : Theme.text-dim;
+        animate x { duration: 90ms; }
+    }
+}
+
+// controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
+export component SwitchTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> hue: Theme.accent;
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    height: 40px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    background: Theme.surface-raise;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 9px;
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { sw.checked = !sw.checked; sw.toggled(sw.checked); }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 9px;
+        Icon {
+            source: icon;
+            tint: checked && enabled ? hue : Theme.text-dim;
+            width: 15px;
+            height: 15px;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: root.text;
+            horizontal-stretch: 1;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+        Rectangle {
+            width: 36px;
+            sw := Switch {
+                y: (parent.height - self.height) / 2;
+                checked <=> root.checked;
+                enabled: root.enabled;
+                label: root.text;
+                toggled(on) => { root.toggled(on); }
+            }
+        }
+    }
+}
