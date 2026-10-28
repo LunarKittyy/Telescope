@@ -1,0 +1,57 @@
+name: Rust desktop
+
+# The Rust rewrite in rust/: builds and tests the workspace on Linux and Windows whenever something in it changes.
+on:
+  pull_request:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+  push:
+    branches: [oxidized-telescope]
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # A new push to a pull request cancels the check still running for the old one.
+    concurrency:
+      group: rust-${{ matrix.os }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      # The tests read desktop/'s config fixtures and plugin.py, so the whole repository is checked out
+      - uses: actions/checkout@v7
+
+      # FFmpeg's headers for the decoder (bindgen needs clang to read them) and fontconfig for Slint's text
+      - name: Install system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang pkg-config libavcodec-dev libavformat-dev \
+            libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build
+        run: cargo build --workspace --locked
+
+      - name: Test
+        run: cargo test --workspace --locked
