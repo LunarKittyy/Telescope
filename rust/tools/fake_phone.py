@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """A stand-in phone for measuring desktops: the session and stream ports of docs/protocol.md over TLS, serving a
 pre-encoded Annex-B clip at its frame rate as /v1/video.h264. It's already paired: it accepts one token and prints
-the phone entry (id, token, certificate pin) to put in a desktop's config.
+the phone entry (id, token, certificate pin) to put in a desktop's config. With --record it writes every request a
+desktop sends, one JSON line each (rust/parity/phone_session.py drives a desktop against it).
 
-  python fake_phone.py CLIP.h264 [--host 127.0.0.2] [--fps 30] [--token TOKEN]
+  python fake_phone.py [CLIP.h264] [--host 127.0.0.2] [--fps 30] [--token TOKEN] [--record FILE]
 
+Without a clip it makes a short test pattern with ffmpeg.
 Encode the clip with an access unit delimiter per frame and SPS/PPS on every keyframe, like the phone sends, e.g.
   ffmpeg -f lavfi -i "testsrc2=size=1920x1080:rate=30,noise=alls=12:allf=t" -t 60 -c:v libx264 -profile:v high
          -bf 0 -g 30 -b:v 8M -x264-params aud=1:repeat-headers=1 -f h264 clip.h264
@@ -21,6 +23,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 PHONE_ID = "fake-phone-0000-0000-0000-000000000001"
 PHONE_NAME = "Fake phone"
@@ -38,6 +41,34 @@ def access_units(data: bytes) -> list:
     return [data[a:b] for a, b in zip(marks, marks[1:])]
 
 
+def make_clip(path: Path, fps: float = 30):
+    """Two seconds of 640x360 test pattern, encoded the way the phone sends H.264."""
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc2=size=640x360:rate={fps:g}", "-t", "2",
+                    "-c:v", "libx264", "-profile:v", "high", "-bf", "0", "-g", str(int(fps)), "-b:v", "1M",
+                    "-x264-params", "aud=1:repeat-headers=1", "-f", "h264", str(path)], check=True)
+
+
+class Recorder:
+    """Every request a desktop sends, one JSON line each: seconds since the start, port, method, path, query, body."""
+
+    def __init__(self, path: Path):
+        self.file = path.open("w", encoding="utf-8")
+        self.start = time.monotonic()
+        self.lock = threading.Lock()
+
+    def __call__(self, port: int, method: str, target: str, body):
+        parts = urlsplit(target)
+        line = {"t": round(time.monotonic() - self.start, 3), "port": port, "method": method, "path": parts.path,
+                "query": {k: v[0] if len(v) == 1 else v for k, v in parse_qs(parts.query).items()}, "body": body}
+        with self.lock:
+            self.file.write(json.dumps(line, ensure_ascii=False) + "\n")
+            self.file.flush()
+
+    def close(self):
+        with self.lock:
+            self.file.close()
+
+
 def make_cert(folder: Path) -> tuple:
     key, cert = folder / "key.pem", folder / "cert.pem"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
@@ -48,8 +79,9 @@ def make_cert(folder: Path) -> tuple:
 
 
 class Phone:
-    def __init__(self, units: list, fps: float, token: str, version: str):
+    def __init__(self, units: list, fps: float, token: str, version: str, record=None):
         self.units, self.fps, self.token, self.version = units, fps, token, version
+        self.record = record or (lambda *_args: None)
         self.streaming = False
         # The protocol's own full example (docs/state.json), streaming H.264 at 1080p30
         self.state = json.loads((Path(__file__).resolve().parents[2] / "docs" / "state.json").read_text())
@@ -89,13 +121,17 @@ def handler_for(phone: Phone):
 
         def _body(self) -> dict:
             length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length)
             try:
-                return json.loads(self.rfile.read(length) or b"{}")
+                body = json.loads(raw or b"{}")
             except ValueError:
-                return {}
+                body = raw.decode("utf-8", "replace")
+            phone.record(self.server.server_address[1], "POST", self.path, body)
+            return body if isinstance(body, dict) else {}
 
         def do_GET(self):
             path = self.path.split("?")[0]
+            phone.record(self.server.server_address[1], "GET", self.path, None)
             if path == "/v1/hello":
                 return self._json({"protocol": SESSION_PROTOCOL, "phoneId": PHONE_ID, "phoneName": PHONE_NAME,
                                    "appVersion": phone.version, "build": 1})
@@ -112,9 +148,9 @@ def handler_for(phone: Phone):
 
         def do_POST(self):
             path = self.path.split("?")[0]
+            body = self._body()
             if not self._authorized():
                 return
-            body = self._body()
             if path == "/v1/session":
                 phone.streaming = body.get("action") == "start"
                 return self._json({"ok": True})
@@ -157,28 +193,48 @@ def handler_for(phone: Phone):
     return Handler
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("clip")
-    parser.add_argument("--host", default="127.0.0.2")
-    parser.add_argument("--fps", type=float, default=30)
-    parser.add_argument("--token", default="")
-    args = parser.parse_args()
-    units = access_units(Path(args.clip).read_bytes())
-    version = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
-    phone = Phone(units, args.fps, args.token or secrets.token_urlsafe(32), version)
+def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None) -> tuple:
+    """Starts the phone's two ports on threads; returns the phone, its entry for a desktop's config, and a stop()."""
     folder = Path(tempfile.mkdtemp(prefix="fake-phone-"))
+    if clip is None:
+        clip = folder / "clip.h264"
+        make_clip(clip, fps)
+    units = access_units(Path(clip).read_bytes())
+    version = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    phone = Phone(units, fps, token or secrets.token_urlsafe(32), version, record)
     cert, key, pin = make_cert(folder)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(cert, key)
+    servers = []
     for port in (8766, 8080):
-        server = ThreadingHTTPServer((args.host, port), handler_for(phone))
+        server = ThreadingHTTPServer((host, port), handler_for(phone))
         server.daemon_threads = True
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
         threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(json.dumps({"id": PHONE_ID, "name": PHONE_NAME, "token": phone.token, "ips": [args.host],
-                      "active_ip": args.host, "cert_sha256": pin}), flush=True)
-    print(f"{len(units)} frames at {args.fps:g} fps on {args.host}:8766 and :8080", flush=True)
+        servers.append(server)
+
+    def stop():
+        phone.streaming = False
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+    entry = {"id": PHONE_ID, "name": PHONE_NAME, "token": phone.token, "ips": [host], "active_ip": host,
+             "cert_sha256": pin}
+    return phone, entry, stop
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("clip", nargs="?")
+    parser.add_argument("--host", default="127.0.0.2")
+    parser.add_argument("--fps", type=float, default=30)
+    parser.add_argument("--token", default="")
+    parser.add_argument("--record", type=Path, help="write every request here, one JSON line each")
+    args = parser.parse_args()
+    recorder = Recorder(args.record) if args.record else None
+    phone, entry, _stop = serve(args.clip, args.host, args.fps, args.token, recorder)
+    print(json.dumps(entry), flush=True)
+    print(f"{len(phone.units)} frames at {args.fps:g} fps on {args.host}:8766 and :8080", flush=True)
     threading.Event().wait()
 
 

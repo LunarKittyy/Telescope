@@ -111,3 +111,41 @@ def test_tests_go_to_the_longest_area_they_start_with():
     assert inventory.test_area("test_platform_linux.py", areas) == "platform"
     assert inventory.test_area("test_connection_dialogs.py", areas) == "connection_dialogs"
     assert inventory.test_area("test_main.py", areas) == "main"
+
+
+def recording(tmp_path, name, lines):
+    import json
+    path = tmp_path / name
+    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+    return path
+
+
+def control(action, value, t=1.0):
+    return {"t": t, "port": 8080, "method": "POST", "path": "/v1/control", "query": {},
+            "body": {"action": action, "value": value}}
+
+
+def poll(path, port=8766):
+    return {"t": 1.0, "port": port, "method": "GET", "path": path, "query": {}, "body": None}
+
+
+def test_phone_recordings_match_when_actions_only_interleave_differently(tmp_path):
+    import compare_phone
+    a = recording(tmp_path, "a", [{"mark": "stream"}, control("ae_comp", 0), control("ois", "1"), control("ae_comp", 3),
+                                  poll("/v1/ping"), poll("/v1/ping")])
+    b = recording(tmp_path, "b", [{"mark": "stream"}, control("ois", "1"), control("ae_comp", 0), poll("/v1/ping"),
+                                  control("ae_comp", 3)])
+    assert compare_phone.compare(compare_phone.phases(a), compare_phone.phases(b)) == []
+    assert compare_phone.compare(compare_phone.phases(a), compare_phone.phases(b), strict=True)
+
+
+def test_phone_recordings_differ_on_values_order_and_requests(tmp_path):
+    import compare_phone
+    a = compare_phone.phases(recording(tmp_path, "a", [{"mark": "s"}, control("ae_comp", 0), control("ae_comp", 3),
+                                                       poll("/v1/state", 8080)]))
+    b = compare_phone.phases(recording(tmp_path, "b", [{"mark": "s"}, control("ae_comp", 3), control("ae_comp", 0)]))
+    lines = compare_phone.compare(a, b, names=("py", "rs"))
+    assert lines[0] == "[s] differs"
+    assert "  only py asks: GET :8080 /v1/state" in lines
+    assert compare_phone.compare(a, b, unordered=True, names=("py", "rs")) == [
+        "[s] differs", "  only py asks: GET :8080 /v1/state"]
