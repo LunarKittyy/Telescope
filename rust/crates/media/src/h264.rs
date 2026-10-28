@@ -118,6 +118,9 @@ pub struct H264 {
     step_generation: u64,
     /// Decoded a frame: from then on a bad packet is the stream's fault, not the card's.
     hw_proven: bool,
+    /// Tests: the next feed fails as a broken driver would.
+    #[cfg(test)]
+    break_next: bool,
 }
 
 impl H264 {
@@ -135,7 +138,16 @@ impl H264 {
         count_live(codec.hw, 1);
         let steps = tap.as_ref().map(|t| t.open());
         let step_generation = steps.as_ref().map_or(0, Steps::generation);
-        H264 { codec, headers: Headers::default(), tap, steps, step_generation, hw_proven: false }
+        H264 {
+            codec,
+            headers: Headers::default(),
+            tap,
+            steps,
+            step_generation,
+            hw_proven: false,
+            #[cfg(test)]
+            break_next: false,
+        }
     }
 
     /// The card it decodes on, or None for software.
@@ -158,7 +170,15 @@ impl H264 {
             }
         }
         let strict = self.codec.hw.is_some() && !self.hw_proven;
-        match decode(&mut self.codec, self.steps.as_ref(), &data, strict) {
+        #[cfg(test)]
+        let result = if std::mem::take(&mut self.break_next) {
+            Err("the driver failed after receiving setup".to_string())
+        } else {
+            decode(&mut self.codec, self.steps.as_ref(), &data, strict)
+        };
+        #[cfg(not(test))]
+        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict);
+        match result {
             Ok((frame, count)) => {
                 self.hw_proven |= count > 0;
                 (frame, count)
@@ -455,8 +475,10 @@ pub(crate) mod tests {
         let mut dec = pretend_hardware(Some(tap));
         let bad = [b"\x00\x00\x00\x01\x65".as_slice(), &[0xFF; 64], AUD].concat();
         let (frame, count) = dec.feed(&[bad, packets.concat()].concat());
+        // Not tried again this run
+        let next = H264::new(true, None).unwrap().hw();
         let restore = HW_FAILED.swap(false, Ordering::SeqCst);
-        assert!(dec.hw().is_none() && restore);
+        assert!(dec.hw().is_none() && restore && next.is_none());
         assert!(frame.is_some() && count == 2);
         // A fresh step for the software decoder
         assert_eq!(seen.lock().unwrap().len(), 2);
@@ -471,5 +493,76 @@ pub(crate) mod tests {
         dec.feed(&bad);
         assert!(dec.hw().is_some());
         assert!(dec.feed(&packets[2..].concat()).0.is_some());
+    }
+
+    #[test]
+    fn failure_after_setup_recovers_at_an_idr_without_repeated_headers() {
+        let Some(packets) = testenc::h264(&(60..75).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let mut dec = pretend_hardware(None);
+        assert!(dec.feed(&packets[0]).0.is_some());
+        dec.break_next = true;
+        // Every later packet without its SPS and PPS, as TCP sends them after joining
+        let recovered: Vec<bool> = packets[1..].iter().map(|p| {
+            let codes = start_codes(p);
+            let mut stripped = Vec::new();
+            for (i, &(s, e)) in codes.iter().enumerate() {
+                let end = codes.get(i + 1).map_or(p.len(), |c| c.0);
+                if e < end && !matches!(p[e] & 31, 7 | 8) {
+                    stripped.extend_from_slice(&p[s..end]);
+                }
+            }
+            dec.feed(&stripped).0.is_some()
+        }).collect();
+        HW_FAILED.store(false, Ordering::SeqCst);
+        assert!(recovered.iter().any(|&r| r) && dec.hw().is_none());
+    }
+
+    #[test]
+    fn linux_tries_va_api_before_cuda() {
+        #[cfg(not(windows))]
+        assert_eq!(HW_TYPES, [Hw::Vaapi, Hw::Cuda]);
+        #[cfg(windows)]
+        assert_eq!(HW_TYPES, [Hw::D3d11va, Hw::Cuda]);
+    }
+
+    #[test]
+    fn a_hand_over_decoder_doesnt_take_the_running_decoders_steps() {
+        // A step that lets only the first keyframe through, like a datamosh: one shared between decoders would give
+        // the new route's decoder nothing to start from
+        let Some(packets) = testenc::h264(&(40..120).step_by(5).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let tap = tap_with(maker(|| {
+            let mut seen_key = false;
+            Box::new(FnStep(move |u: &[u8]| {
+                let key = start_codes(u).iter().any(|&(_, e)| u[e] & 31 == 5);
+                if key && std::mem::replace(&mut seen_key, true) { vec![] } else { vec![u.to_vec()] }
+            }))
+        }));
+        let stream = packets.concat();
+        let mut running = H264::new(false, Some(tap.clone())).unwrap();
+        assert!(running.feed(&stream).1 > 0);
+        let mut new = H264::new(false, Some(tap)).unwrap();
+        running.feed(&stream);
+        assert!(new.feed(&stream).1 > 0);
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    use super::*;
+    use crate::testenc;
+    use std::time::Instant;
+
+    /// cargo test -p telescope-media --release -- --ignored --nocapture decode_speed
+    #[test]
+    #[ignore]
+    fn decode_speed() {
+        let Some(packets) = testenc::h264(&(0..120).map(|i| (i * 2) as u8).collect::<Vec<_>>(), 1920, 1080, 30) else { return };
+        for hardware in [false, true] {
+            let mut dec = H264::new(hardware, None).unwrap();
+            let start = Instant::now();
+            let frames: u32 = packets.iter().map(|p| dec.feed(p).1).sum();
+            let ms = start.elapsed().as_secs_f64() * 1000.0 / frames as f64;
+            println!("{:?}: {frames} frames at 1080p, {ms:.2} ms each, hardware failed: {}", dec.hw(), hardware_failed());
+        }
     }
 }

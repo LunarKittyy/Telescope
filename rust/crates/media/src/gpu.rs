@@ -91,10 +91,11 @@ fn aligned_row(bytes: u32) -> u32 {
 }
 
 impl Gpu {
-    /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use.
+    /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
+    /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing).
     pub fn shared() -> Option<Arc<Gpu>> {
         static GPU: OnceLock<Option<Arc<Gpu>>> = OnceLock::new();
-        GPU.get_or_init(|| match Gpu::open() {
+        GPU.get_or_init(|| match std::env::var_os("TELESCOPE_NO_GPU").map_or_else(Gpu::open, |_| Err("TELESCOPE_NO_GPU is set".into())) {
             Ok(gpu) => {
                 log::info!("Frame steps run on {}", gpu.adapter_name);
                 Some(Arc::new(gpu))

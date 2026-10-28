@@ -1127,17 +1127,17 @@
 "With Wait screen switched off in Plugins the whole picture gets blurred instead." = { status = "todo" }
 "Without it there's no Privacy blur card and nothing gets hidden when someone walks in." = { status = "todo" }
 # ── pyav_vaapi
-"FFmpeg's development files" = { status = "todo" }
-"PyAV {version} has no VA-API" = { status = "todo" }
-"PyAV {version} is older than {oldest}" = { status = "todo" }
-"Python's development files" = { status = "todo" }
-"Upgrade PyAV in Telescope's Python environment to {version} or newer, then restart Telescope." = { status = "todo" }
-"VA-API didn't open" = { status = "todo" }
-"a C compiler" = { status = "todo" }
-"built for PyAV {built}, and this version of Telescope uses {standard}" = { status = "todo" }
-"it built, but VA-API didn't open with it" = { status = "todo" }
-"it built, but didn't load" = { status = "todo" }
-"it didn't load" = { status = "todo" }
+"FFmpeg's development files" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"PyAV {version} has no VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"PyAV {version} is older than {oldest}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"Python's development files" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"Upgrade PyAV in Telescope's Python environment to {version} or newer, then restart Telescope." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"VA-API didn't open" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"a C compiler" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"built for PyAV {built}, and this version of Telescope uses {standard}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"it built, but VA-API didn't open with it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"it built, but didn't load" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"it didn't load" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
 # ── qr_reader
 "Click Copy on the QR codes card to put it on the clipboard." = { status = "todo" }
 "Copied the code's text" = { status = "todo" }
@@ -2821,14 +2821,14 @@
 "test_face_exposure.py::test_the_point_goes_where_the_face_is_in_the_picture_as_shown" = { status = "todo" }
 "test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "todo" }
 # ── frames
-"test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "todo" }
-"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "todo" }
-"test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "todo" }
-"test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "todo" }
-"test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "todo" }
-"test_frames.py::test_streams_without_a_picture_or_that_stopped_are_left_out" = { status = "todo" }
-"test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "todo" }
-"test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "todo" }
+"test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "todo", note = "the stream code hands FramePipeline::process a FrameContext whose source_id says it" }
+"test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_streams_without_a_picture_or_that_stopped_are_left_out" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
+"test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
 # ── framing
 "test_framing.py::test_a_flipped_view_pans_the_other_way_to_the_same_person" = { status = "todo" }
 "test_framing.py::test_a_hand_held_out_widens_the_box_on_its_side_once_it_counts" = { status = "todo" }
@@ -2913,24 +2913,24 @@
 "test_h264_mosh.py::test_repeats_hand_back_more_frames_and_all_of_them_decode" = { status = "todo" }
 "test_h264_mosh.py::test_the_first_keyframe_always_goes_through" = { status = "todo" }
 # ── h264_reader
-"test_h264_reader.py::test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" = { status = "todo" }
-"test_h264_reader.py::test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" = { status = "todo" }
-"test_h264_reader.py::test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out" = { status = "todo" }
-"test_h264_reader.py::test_a_hardware_decoder_refusing_the_stream_falls_back_too" = { status = "todo" }
-"test_h264_reader.py::test_data_that_never_makes_a_frame_ends_the_stream" = { status = "todo" }
-"test_h264_reader.py::test_decoding_diagnostics_follow_the_live_decoder_not_the_next_preference" = { status = "todo" }
-"test_h264_reader.py::test_decoding_stays_in_software_unless_hardware_is_on" = { status = "todo" }
-"test_h264_reader.py::test_each_packet_shows_its_frame_straight_away" = { status = "todo" }
-"test_h264_reader.py::test_failure_after_setup_recovers_at_an_idr_without_repeated_headers" = { status = "todo" }
-"test_h264_reader.py::test_linux_tries_va_api_before_cuda_when_pyav_has_it" = { status = "todo" }
-"test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "todo" }
-"test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "todo" }
-"test_h264_reader.py::test_pyav_is_imported_by_one_thread_at_a_time" = { status = "todo" }
-"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "todo" }
-"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "todo" }
-"test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "todo" }
-"test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "todo" }
-"test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "todo" }
+"test_h264_reader.py::test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" = { status = "ported", rust = "rust/crates/media/src/reader.rs" }
+"test_h264_reader.py::test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_a_hardware_decoder_refusing_the_stream_falls_back_too" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_data_that_never_makes_a_frame_ends_the_stream" = { status = "ported", rust = "rust/crates/media/src/reader.rs" }
+"test_h264_reader.py::test_decoding_diagnostics_follow_the_live_decoder_not_the_next_preference" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_decoding_stays_in_software_unless_hardware_is_on" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_each_packet_shows_its_frame_straight_away" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_failure_after_setup_recovers_at_an_idr_without_repeated_headers" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_linux_tries_va_api_before_cuda_when_pyav_has_it" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_pyav_is_imported_by_one_thread_at_a_time" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
+"test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "todo", note = "the HTTP side belongs to link (open_video); media ports the decoding" }
+"test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "todo", note = "the HTTP side belongs to link (open_video); media ports the decoding" }
+"test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
+"test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 # ── hotkeys
 "test_hotkeys.py::test_portal_binds_and_relays_presses" = { status = "todo" }
 "test_hotkeys.py::test_portal_has_plasma_forget_shortcuts_no_session_binds_any_more" = { status = "todo" }
@@ -2979,18 +2979,18 @@
 "test_ip_utils.py::test_pairing_addresses_tolerate_enumeration_failure" = { status = "todo" }
 "test_ip_utils.py::test_pairing_addresses_trim_very_long_interface_names" = { status = "todo" }
 # ── jpeg_guard
-"test_jpeg_guard.py::test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" = { status = "todo" }
-"test_jpeg_guard.py::test_a_truncated_real_jpeg_is_still_sized_when_its_header_is_whole" = { status = "todo" }
-"test_jpeg_guard.py::test_every_start_of_frame_variant_is_read" = { status = "todo" }
-"test_jpeg_guard.py::test_exif_in_front_is_skipped" = { status = "todo" }
-"test_jpeg_guard.py::test_fill_bytes_and_standalone_markers_are_tolerated" = { status = "todo" }
-"test_jpeg_guard.py::test_garbage_and_truncation_give_none_without_raising" = { status = "todo" }
-"test_jpeg_guard.py::test_limits" = { status = "todo" }
-"test_jpeg_guard.py::test_reads_a_progressive_jpeg" = { status = "todo" }
-"test_jpeg_guard.py::test_reads_the_size_of_real_encoder_output" = { status = "todo" }
-"test_jpeg_guard.py::test_segments_are_skipped_by_their_length_not_by_searching" = { status = "todo" }
-"test_jpeg_guard.py::test_the_dht_marker_is_not_a_frame_header" = { status = "todo" }
-"test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "todo" }
+"test_jpeg_guard.py::test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs" }
+"test_jpeg_guard.py::test_a_truncated_real_jpeg_is_still_sized_when_its_header_is_whole" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_every_start_of_frame_variant_is_read" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_exif_in_front_is_skipped" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_fill_bytes_and_standalone_markers_are_tolerated" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_garbage_and_truncation_give_none_without_raising" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_limits" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_reads_a_progressive_jpeg" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_reads_the_size_of_real_encoder_output" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_segments_are_skipped_by_their_length_not_by_searching" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_the_dht_marker_is_not_a_frame_header" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
+"test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs" }
 # ── level_meter
 "test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "todo" }
 "test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "todo" }
@@ -3032,14 +3032,14 @@
 "test_microphone.py::test_typing_a_gain_moves_the_slider" = { status = "todo" }
 "test_microphone.py::test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" = { status = "todo" }
 # ── mjpeg_reader
-"test_mjpeg_reader.py::test_a_negative_or_zero_length_part_ends_the_stream" = { status = "todo" }
-"test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "todo" }
-"test_mjpeg_reader.py::test_open_returns_false_on_connection_failure" = { status = "todo" }
-"test_mjpeg_reader.py::test_read_before_open_returns_false" = { status = "todo" }
-"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "todo" }
-"test_mjpeg_reader.py::test_rejects_non_multipart_response" = { status = "todo" }
-"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "todo" }
-"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "todo" }
+"test_mjpeg_reader.py::test_a_negative_or_zero_length_part_ends_the_stream" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_open_returns_false_on_connection_failure" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_read_before_open_returns_false" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_rejects_non_multipart_response" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
+"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "todo", note = "multipart and HTTP belong to link (a Codec::Mjpeg feed hands over whole JPEGs); media decodes them in mjpeg.rs" }
 # ── models
 "test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "todo" }
 "test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "todo" }
@@ -3224,19 +3224,19 @@
 "test_overlays.py::test_without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" = { status = "todo" }
 "test_overlays.py::test_zoom_maps_onto_the_part_of_the_picture_shown" = { status = "todo" }
 # ── packets
-"test_packets.py::test_a_failing_step_passes_units_through_and_is_left_out_after_a_while" = { status = "todo" }
-"test_packets.py::test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps" = { status = "todo" }
-"test_packets.py::test_a_new_decoder_starts_its_steps_afresh" = { status = "todo" }
-"test_packets.py::test_a_step_can_drop_a_frame" = { status = "todo" }
-"test_packets.py::test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" = { status = "todo" }
-"test_packets.py::test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" = { status = "todo" }
-"test_packets.py::test_a_step_that_hands_back_the_wrong_thing_is_ignored" = { status = "todo" }
-"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "todo" }
-"test_packets.py::test_each_open_gives_every_owner_a_fresh_step" = { status = "todo" }
-"test_packets.py::test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" = { status = "todo" }
-"test_packets.py::test_nothing_extra_runs_while_no_plugin_changes_packets" = { status = "todo" }
-"test_packets.py::test_steps_run_one_after_the_other" = { status = "todo" }
-"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "todo" }
+"test_packets.py::test_a_failing_step_passes_units_through_and_is_left_out_after_a_while" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
+"test_packets.py::test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_new_decoder_starts_its_steps_afresh" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_step_can_drop_a_frame" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_step_that_hands_back_the_wrong_thing_is_ignored" = { status = "dropped", reason = "PacketStep::step can only return byte vectors in Rust; a panicking step is covered by the failing-step test" }
+"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "todo", note = "the stream code passes Media::packet_tap() to decoder_with_tap for H.264 routes only" }
+"test_packets.py::test_each_open_gives_every_owner_a_fresh_step" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
+"test_packets.py::test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
+"test_packets.py::test_nothing_extra_runs_while_no_plugin_changes_packets" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_steps_run_one_after_the_other" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
+"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "todo", note = "the stream code passes Media::packet_tap() to decoder_with_tap for H.264 routes only" }
 # ── pairing
 "test_pairing_server.py::test_a_malformed_fingerprint_is_rejected" = { status = "todo" }
 "test_pairing_server.py::test_a_peer_trickling_bytes_is_cut_off_at_the_deadline" = { status = "todo" }
@@ -3755,23 +3755,23 @@
 "test_privacy_blur.py::test_while_you_are_away_the_mode_decides_what_gets_blurred" = { status = "todo" }
 "test_privacy_blur.py::test_you_stay_you_when_your_track_is_lost_and_found_again" = { status = "todo" }
 # ── pyav_vaapi
-"test_pyav_vaapi.py::test_a_build_for_another_pyav_version_is_left_out" = { status = "todo" }
-"test_pyav_vaapi.py::test_a_build_pins_cython_so_a_newer_one_cant_break_it" = { status = "todo" }
-"test_pyav_vaapi.py::test_a_garbled_choice_file_counts_as_none" = { status = "todo" }
-"test_pyav_vaapi.py::test_a_pick_that_checks_out_goes_first_on_the_path" = { status = "todo" }
-"test_pyav_vaapi.py::test_a_pick_that_fails_its_check_is_left_out_and_says_why" = { status = "todo" }
-"test_pyav_vaapi.py::test_failed_promotion_keeps_the_previous_build_usable" = { status = "todo" }
-"test_pyav_vaapi.py::test_failed_rollback_retains_a_backup_that_the_next_start_recovers" = { status = "todo" }
-"test_pyav_vaapi.py::test_forgetting_goes_back_to_the_standard_one" = { status = "todo" }
-"test_pyav_vaapi.py::test_missing_tools_are_named" = { status = "todo" }
-"test_pyav_vaapi.py::test_nothing_picked_means_the_standard_pyav_and_no_check" = { status = "todo" }
-"test_pyav_vaapi.py::test_rebuilding_a_build_not_in_use_replaces_it_now" = { status = "todo" }
-"test_pyav_vaapi.py::test_rebuilding_the_build_in_use_waits_for_the_next_start" = { status = "todo" }
-"test_pyav_vaapi.py::test_the_check_says_when_a_folder_has_no_pyav" = { status = "todo" }
-"test_pyav_vaapi.py::test_the_distros_pyav_is_found_and_linked_on_its_own" = { status = "todo" }
-"test_pyav_vaapi.py::test_the_install_command_fits_the_distro" = { status = "todo" }
-"test_pyav_vaapi.py::test_unsupported_build_versions_are_rejected_before_running_pip" = { status = "todo" }
-"test_pyav_vaapi.py::test_version_compare_reads_odd_versions" = { status = "todo" }
+"test_pyav_vaapi.py::test_a_build_for_another_pyav_version_is_left_out" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_a_build_pins_cython_so_a_newer_one_cant_break_it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_a_garbled_choice_file_counts_as_none" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_a_pick_that_checks_out_goes_first_on_the_path" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_a_pick_that_fails_its_check_is_left_out_and_says_why" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_failed_promotion_keeps_the_previous_build_usable" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_failed_rollback_retains_a_backup_that_the_next_start_recovers" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_forgetting_goes_back_to_the_standard_one" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_missing_tools_are_named" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_nothing_picked_means_the_standard_pyav_and_no_check" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_rebuilding_a_build_not_in_use_replaces_it_now" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_rebuilding_the_build_in_use_waits_for_the_next_start" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_the_check_says_when_a_folder_has_no_pyav" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_the_distros_pyav_is_found_and_linked_on_its_own" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_the_install_command_fits_the_distro" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_unsupported_build_versions_are_rejected_before_running_pip" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"test_pyav_vaapi.py::test_version_compare_reads_odd_versions" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
 # ── qr_reader
 "test_qr_reader.py::test_a_code_in_the_picture_goes_to_the_clipboard_once" = { status = "todo" }
 "test_qr_reader.py::test_a_copy_wayland_ignores_says_to_click_copy" = { status = "todo" }
@@ -4087,7 +4087,7 @@
 "test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "todo" }
 "test_stream.py::test_a_new_fps_settles_the_stream" = { status = "todo" }
 "test_stream.py::test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick" = { status = "todo" }
-"test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "todo" }
+"test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
 "test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "todo" }
 "test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "todo" }
 "test_stream.py::test_a_slow_decoder_skips_to_the_newest_packet" = { status = "todo" }
@@ -4128,7 +4128,7 @@
 "test_stream.py::test_the_virtual_camera_opens_in_its_own_format" = { status = "todo" }
 "test_stream.py::test_update_output_distinguishes_omitted_from_pass_through" = { status = "todo" }
 "test_stream.py::test_windows_opens_the_camera_named_telescope_or_any_older_registration" = { status = "todo" }
-"test_stream.py::test_worker_processes_pipeline_in_order" = { status = "todo" }
+"test_stream.py::test_worker_processes_pipeline_in_order" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
 # ── stream_flow
 "test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "todo" }
 "test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "todo" }
@@ -4137,7 +4137,7 @@
 "test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "todo" }
 "test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "todo" }
 "test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "todo" }
-"test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "todo" }
+"test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs", note = "an unknown stage counting as effects is PluginInfo deserialising in core, not covered here" }
 "test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "todo" }
 "test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "todo" }
 "test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "todo" }
@@ -4427,22 +4427,22 @@
 "test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "todo" }
 "test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "todo" }
 # ── vaapi_setup
-"test_vaapi_setup.py::test_a_build_that_raises_still_finishes_and_can_be_retried" = { status = "todo" }
-"test_vaapi_setup.py::test_a_check_that_raises_still_finishes_and_can_run_again" = { status = "todo" }
-"test_vaapi_setup.py::test_a_failed_build_says_why" = { status = "todo" }
-"test_vaapi_setup.py::test_a_finished_build_is_picked_and_one_already_built_isnt_rebuilt" = { status = "todo" }
-"test_vaapi_setup.py::test_a_rebuild_waiting_for_the_next_start_counts_as_built" = { status = "todo" }
-"test_vaapi_setup.py::test_a_rejected_existing_build_can_be_rebuilt_without_forgetting_it_first" = { status = "todo" }
-"test_vaapi_setup.py::test_an_existing_build_is_not_offered_until_its_check_finishes" = { status = "todo" }
-"test_vaapi_setup.py::test_an_old_distro_pyav_says_what_it_needs" = { status = "todo" }
-"test_vaapi_setup.py::test_an_unsupported_pyav_explains_the_upgrade_instead_of_offering_a_build" = { status = "todo" }
-"test_vaapi_setup.py::test_in_use_it_says_so_and_can_go_back" = { status = "todo" }
-"test_vaapi_setup.py::test_missing_tools_come_with_the_command_that_installs_them" = { status = "todo" }
-"test_vaapi_setup.py::test_picking_the_distros_pyav_asks_for_a_restart" = { status = "todo" }
-"test_vaapi_setup.py::test_rechecking_finds_packages_installed_while_setup_was_closed" = { status = "todo" }
-"test_vaapi_setup.py::test_reopening_setup_keeps_one_build_and_its_progress" = { status = "todo" }
-"test_vaapi_setup.py::test_replacing_the_active_build_still_asks_for_a_restart" = { status = "todo" }
-"test_vaapi_setup.py::test_with_the_tools_there_it_offers_a_build" = { status = "todo" }
+"test_vaapi_setup.py::test_a_build_that_raises_still_finishes_and_can_be_retried" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_a_check_that_raises_still_finishes_and_can_run_again" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_a_failed_build_says_why" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_a_finished_build_is_picked_and_one_already_built_isnt_rebuilt" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_a_rebuild_waiting_for_the_next_start_counts_as_built" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_a_rejected_existing_build_can_be_rebuilt_without_forgetting_it_first" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_an_existing_build_is_not_offered_until_its_check_finishes" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_an_old_distro_pyav_says_what_it_needs" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_an_unsupported_pyav_explains_the_upgrade_instead_of_offering_a_build" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_in_use_it_says_so_and_can_go_back" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_missing_tools_come_with_the_command_that_installs_them" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_picking_the_distros_pyav_asks_for_a_restart" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_rechecking_finds_packages_installed_while_setup_was_closed" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_reopening_setup_keeps_one_build_and_its_progress" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_replacing_the_active_build_still_asks_for_a_restart" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"test_vaapi_setup.py::test_with_the_tools_there_it_offers_a_build" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 # ── vb_cable
 "test_vb_cable.py::test_a_changed_pack_isnt_unpacked" = { status = "todo" }
 "test_vb_cable.py::test_a_download_far_bigger_than_the_pack_stops" = { status = "todo" }
@@ -6048,13 +6048,13 @@
 "folder:telescope/plugin_loader.py:install_zip:tempfile.mkdtemp" = { status = "todo" }
 "folder:telescope/plugin_loader.py:remove:shutil.rmtree" = { status = "todo" }
 # ── pyav_vaapi
-"folder:telescope/pyav_vaapi.py:_swap_in_staged:shutil.rmtree" = { status = "todo" }
-"folder:telescope/pyav_vaapi.py:build:shutil.rmtree" = { status = "todo" }
-"folder:telescope/pyav_vaapi.py:root:Path.home" = { status = "todo" }
-"path:/etc/os-release" = { status = "todo" }
-"run:telescope/pyav_vaapi.py:build:subprocess.Popen:<cmd>" = { status = "todo" }
-"run:telescope/pyav_vaapi.py:missing_tools:subprocess.run:pkg-config" = { status = "todo" }
-"run:telescope/pyav_vaapi.py:probe:subprocess.run:<sys.executable>" = { status = "todo" }
+"folder:telescope/pyav_vaapi.py:_swap_in_staged:shutil.rmtree" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"folder:telescope/pyav_vaapi.py:build:shutil.rmtree" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"folder:telescope/pyav_vaapi.py:root:Path.home" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"path:/etc/os-release" = { status = "dropped", reason = "only pyav_vaapi.py read it, for the command that installs build tools; the PyAV VA-API shim goes away" }
+"run:telescope/pyav_vaapi.py:build:subprocess.Popen:<cmd>" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"run:telescope/pyav_vaapi.py:missing_tools:subprocess.run:pkg-config" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
+"run:telescope/pyav_vaapi.py:probe:subprocess.run:<sys.executable>" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
 # ── session_client
 "port:telescope/session_client.py:PING_PORT=8766" = { status = "todo" }
 # ── setup
