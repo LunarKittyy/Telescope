@@ -11,6 +11,9 @@ pub mod profiles;
 pub mod snapshot;
 pub mod source;
 pub mod switches;
+pub mod texts;
+pub mod shell;
+pub mod host;
 pub mod window;
 
 pub use window::{run, WindowOptions};
