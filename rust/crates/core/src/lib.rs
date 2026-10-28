@@ -13,6 +13,7 @@ pub mod media;
 pub mod output;
 pub mod plugin;
 pub mod services;
+pub mod shader;
 pub mod snapshot;
 pub mod source;
 pub mod system;
