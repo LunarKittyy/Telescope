@@ -77,6 +77,7 @@ _MAX_REMEMBERED_IPS = 8     # a phone's addresses kept for Wi-Fi probes, newest 
 
 # Tolerated unreachable pings while the camera starts; startup can briefly starve the phone's HTTP server.
 _UNREACHABLE_STREAK_LIMIT = 3
+_STOP_SETTLE_S = 3.0  # how long a wake right after a stop waits for the phone to finish stopping
 
 
 def default_computer_name() -> str:
@@ -1108,12 +1109,11 @@ class ConnectionPlugin(TelescopePlugin):
         threading.Thread(target=work, daemon=True).start()
 
     def _on_route_probed(self, probe_id: int, pid: str, preference: str, res: Resolution):
-        if probe_id != self._route_probe_id or preference != self._pending_route:
-            return  # another choice since
+        if probe_id != self._route_probe_id or preference != self._pending_route or pid != self._selected_id:
+            return  # another choice or another phone since
         self._pending_route = None
         phone = self.phone(pid)
-        if (res.status == READY or phone is None or pid != self._selected_id or not self._streaming
-                or not self._host.is_streaming_from(pid)):
+        if res.status == READY or phone is None or not self._streaming or not self._host.is_streaming_from(pid):
             self._use_route_preference(preference)
             return
         self._render()
@@ -1413,13 +1413,16 @@ class ConnectionPlugin(TelescopePlugin):
             self._tunnels.release(route.serial, PING_PORT)
 
     def ensure_phone_streaming(self, on_progress=None, target: Optional[SessionTarget] = None,
-                               opening: Optional[dict] = None) -> tuple:
-        """Start the phone's camera if it isn't running (at opening's size and rate); blocking, worker threads only."""
+                               opening: Optional[dict] = None, after_stop: bool = False) -> tuple:
+        """Start the phone's camera if it isn't running (at opening's size and rate); blocking, worker threads only.
+        after_stop: this computer's stop just reached the phone, so a stream it still reports is on its way out."""
         target = target or self.session_target()
         with self.session_channel(target) as client:
             if client is None:
                 return False, tr("Lost the connection to the phone. Try again.")
             ping = client.ping()
+            if after_stop:
+                ping = self._await_stopped(client, ping)
             if ping.status == "not_paired":
                 return False, tr("The phone doesn't recognise this computer anymore.\n\n"
                                  "Click Add phone to pair it again.")
@@ -1436,6 +1439,15 @@ class ConnectionPlugin(TelescopePlugin):
                 if not result.ok:
                     return False, self._start_refused_reason(result.error, result.computer)
             return self._await_streaming(client, on_progress)
+
+    @staticmethod
+    def _await_stopped(client: PhoneSessionClient, ping):
+        """The phone answers a stop before its stream has ended: the ping once it has, or once it's taking too long."""
+        deadline = time.monotonic() + _STOP_SETTLE_S
+        while (ping.streaming or ping.busy) and not ping.streaming_for and time.monotonic() < deadline:
+            time.sleep(START_FAST_POLL_INTERVAL)
+            ping = client.ping()
+        return ping
 
     @staticmethod
     def _await_streaming(client: PhoneSessionClient, on_progress=None) -> tuple:
@@ -1737,6 +1749,8 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _mark_selected(self, pid: Optional[str]):
         self._selected_id = pid
+        self._pending_route = None  # a Connect via check under way was about the phone before
+        self._route_probe_id += 1
         self._resolution = None
         self._update_note = None
         self._refresh_combo()

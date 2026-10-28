@@ -184,6 +184,24 @@ def test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay(monkey
     assert slept == []
 
 
+def test_failed_tries_count_only_the_url_it_was_pointed_at(monkeypatch):
+    # A recovery reads it to tell a dead USB forward from one it's still trying
+    good = _Capture([(True, np.zeros((1, 1, 3), dtype=np.uint8))])
+    worker = stream.StreamWorker("http://127.0.0.1:41000/v1/video", None, None, 30)
+    monkeypatch.setattr(stream, "DROP_RETRY_DELAY", 0)
+
+    def open_cap():
+        if len(tries) == 1:
+            worker.retarget("http://127.0.0.1:41001/v1/video")  # moved while the second try was out
+        tries.append(worker.url)
+        return good if len(tries) == 4 else _Capture(opened=False)
+
+    tries = []
+    monkeypatch.setattr(worker, "_open_cap", open_cap)
+    assert worker._reconnect_cap(threading.Event()) is good
+    assert worker.failed_tries == 2
+
+
 def test_reconnect_stops_without_opening_when_cancelled(monkeypatch):
     worker = stream.StreamWorker("url", None, None, 30)
     stop = threading.Event()
