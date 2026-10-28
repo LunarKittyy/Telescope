@@ -85,12 +85,21 @@ def test_telescopes_own_and_loopback_cameras_are_virtual(monkeypatch):
     assert not webcams.is_virtual("HD Pro Webcam C920", driver="uvcvideo")
 
 
-def test_windows_virtual_cameras_are_told_apart_by_name(monkeypatch):
-    monkeypatch.setattr(webcams.vcam, "IS_LINUX", False)
-    for name in ("Telescope", "Telescope #2", "Unity Video Capture", "OBS Virtual Camera", "XSplit VCam"):
+@pytest.mark.parametrize("linux", [True, False])
+def test_virtual_cameras_are_told_apart_by_name(monkeypatch, linux):
+    monkeypatch.setattr(webcams.vcam, "IS_LINUX", linux)
+    names = ("OBS Virtual Camera", "XSplit VCam") + (() if linux else ("Telescope", "Telescope #2", "Unity Video Capture"))
+    for name in names:
         assert webcams.is_virtual(name), name
     assert not webcams.is_virtual("Integrated Camera")
     assert not webcams.is_virtual("Cam Link 4K")
+
+
+def test_a_card_name_with_its_cut_off_repeat_is_tidied():
+    assert webcams.tidy_name("HP 320 FHD Webcam: HP 320 FHD W") == "HP 320 FHD Webcam"
+    assert webcams.tidy_name("Integrated Camera: Integrated C") == "Integrated Camera"
+    assert webcams.tidy_name("HD Pro Webcam C920") == "HD Pro Webcam C920"
+    assert webcams.tidy_name("Cam Link 4K: Video") == "Cam Link 4K: Video"
 
 
 def test_two_cameras_of_one_model_are_numbered():
@@ -228,11 +237,13 @@ def test_a_node_that_cant_be_opened_is_tried_again(sysfs):
 
 
 @linux_only
-def test_other_loopback_cameras_can_be_let_in_for_testing_but_never_telescopes(sysfs):
+def test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones(sysfs):
     _node(sysfs, "video10", "Fake Webcam", loopback=True)
     _node(sysfs, "video11", "Phone Camera", loopback=True)
+    _node(sysfs, "video12", "OBS Virtual Camera", loopback=True)
     opened = []
     answers = {"video10": (("v4l2 loopback", "Fake Webcam", True), WEBCAM[1]),
+               "video12": (("v4l2 loopback", "OBS Virtual Camera", True), WEBCAM[1]),
                "video11": (("v4l2 loopback", "Phone Camera", True), WEBCAM[1])}
     found = _scanner(sysfs, answers, opened, allow_loopback=True).scan()
     assert [d.name for d in found] == ["Fake Webcam"]

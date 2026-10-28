@@ -154,7 +154,16 @@ def is_virtual(name: str, driver: str = "") -> bool:
     """Whether a camera is a virtual one rather than hardware: Telescope's own always, others where they say so."""
     if name in own_names() or driver in VIRTUAL_DRIVERS:
         return True
-    return not vcam.IS_LINUX and bool(_VIRTUAL_WORDS.search(name))
+    return bool(_VIRTUAL_WORDS.search(name))
+
+
+def tidy_name(name: str) -> str:
+    """A V4L2 card name without the cut-off repeat some cameras add ("HP 320 FHD Webcam: HP 320 FHD W")."""
+    name = name.strip()
+    head, sep, tail = name.partition(": ")
+    if sep and tail.strip() and head.startswith(tail.strip()):
+        return head
+    return name
 
 
 def tell_apart(devices: list) -> list:
@@ -321,7 +330,7 @@ class LinuxScanner:
             name = _read(os.path.join(folder, "name"))
             # v4l2loopback's own sysfs files tell its devices apart without opening them
             loopback = os.path.exists(os.path.join(folder, "max_openers"))
-            if name in own_names() or (loopback and not self._allow_loopback):
+            if is_virtual(name) or (loopback and not self._allow_loopback):
                 continue
             try:
                 ident = (os.path.realpath(folder), os.stat(folder).st_ino, _read(os.path.join(folder, "dev")))
@@ -342,7 +351,7 @@ class LinuxScanner:
                 if captures and modes and not virtual and not is_virtual(card or name):
                     if keys is None:
                         keys = self._stable_keys()
-                    device = Device(keys.get(os.path.realpath(path), node), card or name, path, modes)
+                    device = Device(keys.get(os.path.realpath(path), node), tidy_name(card or name), path, modes)
             elif opened is None:
                 continue  # no permission or it went away: try again next time
             known[node] = (ident, device)
