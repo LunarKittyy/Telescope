@@ -2122,7 +2122,7 @@ msgstr "Виводиться на {camera}."
 #. Light is the name of a stream format, as the Stream output card shows it
 #: telescope/plugins/connection.py:67
 msgid "Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."
-msgstr ""
+msgstr "Надсилає «Легкий» через UDP замість TCP, коли телефон підключено до Wi-Fi. Зображення може підвисати частіше, ніж через TCP, тож спробуйте й подивіться."
 
 #: telescope/plugins/connection.py:83
 msgid "Computer"
@@ -2466,7 +2466,7 @@ msgstr "Експериментально"
 #: telescope/plugins/connection.py:788
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
-msgstr ""
+msgstr "транспорт мережа затримка лаги зависання фризи підвисання вайфай вай-фай udp tcp transport network lag freezes stutter wifi"
 
 #: telescope/plugins/connection.py:811 telescope/plugins/connection.py:882 telescope/plugins/connection.py:1158
 msgid "No phone yet"
@@ -3238,7 +3238,7 @@ msgstr "Спочатку зніміть порожню кімнату."
 
 #: telescope/plugins/microphone.py:37
 msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
-msgstr ""
+msgstr "Мікрофон цієї камери не передається. Натомість виберіть його в додатку для дзвінків."
 
 #: telescope/plugins/microphone.py:73
 #, python-brace-format
@@ -3354,11 +3354,11 @@ msgstr "Запускається разом із трансляцією."
 
 #: telescope/plugins/microphone.py:476
 msgid "Camera mic"
-msgstr ""
+msgstr "Мікрофон камери"
 
 #: telescope/plugins/microphone.py:477
 msgid "Camera microphone"
-msgstr ""
+msgstr "Мікрофон камери"
 
 #: telescope/plugins/microphone.py:483
 msgid "Browser mic"
@@ -4450,6 +4450,9 @@ msgid ""
 "\n"
 "Press Start streaming to use this camera."
 msgstr ""
+"Не транслює\n"
+"\n"
+"Натисніть «Почати трансляцію», щоб скористатися цією камерою."
 
 #: telescope/plugins/preview.py:23
 msgid ""
@@ -6270,131 +6273,131 @@ msgstr "Зображення ({formats})"
 
 #: telescope/plugins/webcam.py:40
 msgid "Exposure time"
-msgstr ""
+msgstr "Час експозиції"
 
 #: telescope/plugins/webcam.py:41
 msgid "Backlight compensation"
-msgstr ""
+msgstr "Компенсація контрового світла"
 
 #: telescope/plugins/webcam.py:42
 msgid "Anti-flicker"
-msgstr ""
+msgstr "Антимерехтіння"
 
 #: telescope/plugins/webcam.py:42
 msgid "Slow down in the dark"
-msgstr ""
+msgstr "Сповільнюватися в темряві"
 
 #: telescope/plugins/webcam.py:45
 msgid "Hue"
-msgstr ""
+msgstr "Відтінок"
 
 #: telescope/plugins/webcam.py:46
 msgid "Sharpness"
-msgstr ""
+msgstr "Різкість"
 
 #: telescope/plugins/webcam.py:47
 msgid "Focus position"
-msgstr ""
+msgstr "Положення фокуса"
 
 #: telescope/plugins/webcam.py:48
 msgid "Tilt"
-msgstr ""
+msgstr "Нахил"
 
 #: telescope/plugins/webcam.py:58
 msgid "The shutter speed: slower is brighter but blurs movement."
-msgstr ""
+msgstr "Витримка: довша дає яскравіше зображення, але розмиває рух."
 
 #: telescope/plugins/webcam.py:59
 msgid "The webcam's ISO: more is brighter but grainier."
-msgstr ""
+msgstr "ISO вебкамери: більше значення дає яскравіше, але зернистіше зображення."
 
 #: telescope/plugins/webcam.py:60
 msgid "Brightens a face in front of a bright window."
-msgstr ""
+msgstr "Освітлює обличчя на тлі яскравого вікна."
 
 #: telescope/plugins/webcam.py:61
 msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr ""
+msgstr "Виберіть частоту вашої електромережі, щоб прибрати мерехтіння освітлення та смуги на зображенні."
 
 #: telescope/plugins/webcam.py:62
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
-msgstr ""
+msgstr "Дозволяє вебкамері знижувати частоту кадрів за тьмяного світла для яскравішого зображення."
 
 #: telescope/plugins/webcam.py:64
 msgid "50 Hz"
-msgstr ""
+msgstr "50 Гц"
 
 #: telescope/plugins/webcam.py:65
 msgid "60 Hz"
-msgstr ""
+msgstr "60 Гц"
 
 #: telescope/plugins/webcam.py:115
 msgid "Check that it's plugged in."
-msgstr ""
+msgstr "Перевірте, чи її підключено."
 
 #: telescope/plugins/webcam.py:142
 msgid "Webcams"
-msgstr ""
+msgstr "Вебкамери"
 
 #: telescope/plugins/webcam.py:143
 msgid "Streaming from webcams and capture cards plugged into this computer."
-msgstr ""
+msgstr "Трансляція з вебкамер і пристроїв відеозахоплення, підключених до цього комп'ютера."
 
 #: telescope/plugins/webcam.py:147
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr ""
+msgstr "Без нього вебкамер не буде у списку вибору на телефоні, а картка «Вебкамера» також зникне."
 
 #: telescope/plugins/webcam.py:255
 #, python-brace-format
 msgid "{name} isn't plugged in"
-msgstr ""
+msgstr "{name} не підключено"
 
 #: telescope/plugins/webcam.py:256
 msgid "Plug it in, or pick another camera."
-msgstr ""
+msgstr "Підключіть її або виберіть іншу камеру."
 
 #: telescope/plugins/webcam.py:273
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
-msgstr ""
+msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
 
 #: telescope/plugins/webcam.py:274
 msgid "Another app may be using it. Close it there and it starts here."
-msgstr ""
+msgstr "Можливо, її використовує інший додаток. Закрийте його там, і камера запуститься тут."
 
 #: telescope/plugins/webcam.py:275
 #, python-brace-format
 msgid "Can't open {name}"
-msgstr ""
+msgstr "Не вдалося відкрити {name}"
 
 #: telescope/plugins/webcam.py:302
 msgid "Put the webcam's picture settings back to its defaults"
-msgstr ""
+msgstr "Скинути налаштування зображення вебкамери до початкових"
 
 #: telescope/plugins/webcam.py:304
 msgid "Webcam"
-msgstr ""
+msgstr "Вебкамера"
 
 #: telescope/plugins/webcam.py:309
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
-msgstr ""
+msgstr "Розмір, який надсилає вебкамера; «Авто» вибирає найбільший до 1080p, за якого зберігається частота кадрів"
 
 #: telescope/plugins/webcam.py:404
 msgid "Not plugged in"
-msgstr ""
+msgstr "Не підключено"
 
 #: telescope/plugins/webcam.py:406
 #, python-brace-format
 msgid "In use by {app}"
-msgstr ""
+msgstr "Використовує {app}"
 
 #: telescope/plugins/webcam.py:406
 msgid "In use by another app"
-msgstr ""
+msgstr "Використовує інший додаток"
 
 #: telescope/plugins/webcam.py:408
 msgid "Not sending anything"
-msgstr ""
+msgstr "Нічого не надсилає"
 
 #: telescope/pyav_vaapi.py:79
 #, python-brace-format
@@ -6924,15 +6927,15 @@ msgstr "Завантажений файл містить неочікувані 
 
 #: telescope/webcams.py:44
 msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr ""
+msgstr "Вебкамеру не підключено. Підключіть її знову, і вона продовжить роботу."
 
 #: telescope/webcams.py:45
 msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr ""
+msgstr "Вебкамеру використовує інший додаток. Закрийте його там, і вона запуститься тут."
 
 #: telescope/webcams.py:46
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
-msgstr ""
+msgstr "Вебкамера нічого не надсилає. Спробуйте іншу роздільну здатність або частоту кадрів."
 
 #: telescope/widgets/adb.py:24
 msgid "USB needs adb, Google's tool for talking to Android phones."

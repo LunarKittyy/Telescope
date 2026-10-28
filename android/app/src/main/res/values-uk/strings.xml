@@ -3,6 +3,9 @@
     <string name="open_preview">Відкрити попередній перегляд</string>
     <string name="preview_button">Перегляд</string>
     <string name="close_preview">Закрити попередній перегляд</string>
+    <string name="black_screen_button">Чорний екран</string>
+    <string name="black_screen_description">Зробити екран чорним, поки камера продовжує працювати</string>
+    <string name="black_screen_hint">Двічі торкніться, щоб розбудити</string>
     <string name="update_available">Доступне оновлення</string>
     <string name="update_failed_title">Оновлення не завершилося</string>
     <string name="update">Оновити</string>

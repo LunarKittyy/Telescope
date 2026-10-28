@@ -3,6 +3,9 @@
     <string name="open_preview">Abrir pré-visualização da câmera</string>
     <string name="preview_button">Prévia</string>
     <string name="close_preview">Fechar pré-visualização</string>
+    <string name="black_screen_button">Tela preta</string>
+    <string name="black_screen_description">Deixe a tela preta enquanto a câmera continua funcionando</string>
+    <string name="black_screen_hint">Toque duas vezes para reativar a tela</string>
     <string name="update_available">Atualização disponível</string>
     <string name="update_failed_title">A atualização não terminou</string>
     <string name="update">Atualizar</string>

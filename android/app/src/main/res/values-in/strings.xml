@@ -3,6 +3,9 @@
     <string name="open_preview">Buka pratinjau kamera</string>
     <string name="preview_button">Pratinjau</string>
     <string name="close_preview">Tutup pratinjau</string>
+    <string name="black_screen_button">Layar hitam</string>
+    <string name="black_screen_description">Jadikan layar hitam saat kamera tetap aktif</string>
+    <string name="black_screen_hint">Ketuk dua kali untuk mengaktifkan layar</string>
     <string name="update_available">Pembaruan tersedia</string>
     <string name="update_failed_title">Pembaruan tidak selesai</string>
     <string name="update">Perbarui</string>
