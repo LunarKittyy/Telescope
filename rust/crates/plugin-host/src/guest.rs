@@ -29,6 +29,38 @@ pub trait Guest: Send {
     fn listens(&self, event: &str) -> bool;
 }
 
+/// Every hook GuestPlugin calls, with its arguments and whether the host is there (core's Plugin, plus on_event for the bus).
+/// Frozen in tests/plugin_api.txt with HOST_API.
+pub const HOOKS: &[(&str, &str, bool)] = &[
+    ("setup", "", true),
+    ("on_plugins_ready", "", true),
+    ("shutdown", "", true),
+    ("on_event", "event", true),
+    ("card", "", false),
+    ("header_widget", "", false),
+    ("settings_sections", "", false),
+    ("tray_actions", "", false),
+    ("on_tray_action", "id", true),
+    ("actions", "", false),
+    ("run_action", "id, params", true),
+    ("release_action", "id, params", true),
+    ("on_ui", "event", true),
+    ("on_issue_action", "key, id", true),
+    ("on_stream_starting", "", true),
+    ("on_stream_start", "stream", true),
+    ("on_stream_stop", "", true),
+    ("on_focus_gained", "stream", true),
+    ("on_focus_lost", "", true),
+    ("on_camera_off", "", true),
+    ("on_camera_on", "", true),
+    ("on_phone_state", "state", true),
+    ("frame_step", "", false),
+    ("get_config", "", false),
+    ("set_config", "cfg", false),
+    ("apply_preset", "cfg", true),
+    ("diagnostics", "", false),
+];
+
 /// A guest's way back into the host for the length of one hook: the only door, whatever the runtime.
 pub struct HostCalls<'a> {
     context: &'a mut PluginContext,
@@ -430,7 +462,12 @@ impl<G: Guest> GuestPlugin<G> {
 
     /// Calls hook if the guest defines it; a failure is logged and treated as no answer, as Telescope treats a plugin's exceptions.
     pub fn hook(&self, host: Option<&mut dyn Host>, hook: &str, args: Vec<Value>) -> Option<Value> {
-        if !self.guest.borrow().defines(hook) {
+        let mut host = host;
+        if let Some(h) = host.as_mut() {
+            self.context.borrow_mut().flush(&mut **h);
+        }
+        // on_event's caller already asked listens()
+        if hook != "on_event" && !self.guest.borrow().defines(hook) {
             return None;
         }
         match self.call(host, hook, args) {
@@ -518,6 +555,9 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
         if self.guest.borrow().listens(name) {
             let args = serde_json::to_value(event).unwrap_or_default();
             self.with_host(host, "on_event", vec![args]);
+        } else {
+            // Calls a hook without a host queued go out with the next event, whether or not the plugin hears it
+            self.context.borrow_mut().flush(host);
         }
     }
 

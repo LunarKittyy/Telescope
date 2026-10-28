@@ -20,6 +20,10 @@ pub const HOOK_LIMIT: Duration = Duration::from_secs(3);
 /// The same for running main.lua the first time.
 pub const LOAD_LIMIT: Duration = Duration::from_secs(5);
 
+/// The globals a plugin's Lua code gets beyond Lua's own table, string, math, utf8 and coroutine libraries. Frozen in tests/plugin_api.txt.
+pub const GLOBALS: &[&str] = &["host", "tr", "trn", "N_", "files.read", "log.debug", "log.info", "log.warn", "log.error", "print", "json.encode",
+                               "json.decode", "require", "load", "os.time", "os.clock", "os.date", "os.difftime"];
+
 /// The registry slot the bridge reads the current hook's calls from.
 const CALLS: &str = "telescope.calls";
 
