@@ -3,6 +3,9 @@
     <string name="open_preview">कैमरा प्रीव्यू खोलें</string>
     <string name="preview_button">प्रीव्यू</string>
     <string name="close_preview">प्रीव्यू बंद करें</string>
+    <string name="black_screen_button">ब्लैक स्क्रीन</string>
+    <string name="black_screen_description">कैमरा चालू रखते हुए स्क्रीन ब्लैक करें</string>
+    <string name="black_screen_hint">स्क्रीन चालू करने के लिए दो बार टैप करें</string>
     <string name="update_available">अपडेट उपलब्ध है</string>
     <string name="update_failed_title">अपडेट पूरा नहीं हुआ</string>
     <string name="update">अपडेट करें</string>

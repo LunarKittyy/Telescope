@@ -2112,7 +2112,7 @@ msgstr "Dikeluarkan di {camera}."
 #. Light is the name of a stream format, as the Stream output card shows it
 #: telescope/plugins/connection.py:67
 msgid "Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."
-msgstr ""
+msgstr "Mengirim Ringan lewat UDP, bukan TCP, saat ponsel memakai Wi-Fi. Bisa lebih tersendat daripada TCP, jadi coba saja."
 
 #: telescope/plugins/connection.py:83
 msgid "Computer"
@@ -2456,7 +2456,7 @@ msgstr "Eksperimental"
 #: telescope/plugins/connection.py:788
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
-msgstr ""
+msgstr "jaringan transmisi lag macet tersendat patah-patah wifi udp tcp transport network lag freezes stutter wifi"
 
 #: telescope/plugins/connection.py:811 telescope/plugins/connection.py:882 telescope/plugins/connection.py:1158
 msgid "No phone yet"
@@ -3228,7 +3228,7 @@ msgstr "Ambil gambar ruangan kosong terlebih dahulu."
 
 #: telescope/plugins/microphone.py:37
 msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
-msgstr ""
+msgstr "Mikrofon kamera ini tidak diteruskan. Pilih mikrofonnya di aplikasi panggilan Anda."
 
 #: telescope/plugins/microphone.py:73
 #, python-brace-format
@@ -3344,11 +3344,11 @@ msgstr "Dimulai bersama stream."
 
 #: telescope/plugins/microphone.py:476
 msgid "Camera mic"
-msgstr ""
+msgstr "Mikrofon kamera"
 
 #: telescope/plugins/microphone.py:477
 msgid "Camera microphone"
-msgstr ""
+msgstr "Mikrofon kamera"
 
 #: telescope/plugins/microphone.py:483
 msgid "Browser mic"
@@ -4438,6 +4438,9 @@ msgid ""
 "\n"
 "Press Start streaming to use this camera."
 msgstr ""
+"Tidak streaming\n"
+"\n"
+"Tekan Mulai streaming untuk menggunakan kamera ini."
 
 #: telescope/plugins/preview.py:23
 msgid ""
@@ -6258,131 +6261,131 @@ msgstr "Gambar ({formats})"
 
 #: telescope/plugins/webcam.py:40
 msgid "Exposure time"
-msgstr ""
+msgstr "Waktu eksposur"
 
 #: telescope/plugins/webcam.py:41
 msgid "Backlight compensation"
-msgstr ""
+msgstr "Kompensasi cahaya latar"
 
 #: telescope/plugins/webcam.py:42
 msgid "Anti-flicker"
-msgstr ""
+msgstr "Antikedip"
 
 #: telescope/plugins/webcam.py:42
 msgid "Slow down in the dark"
-msgstr ""
+msgstr "Perlambat saat gelap"
 
 #: telescope/plugins/webcam.py:45
 msgid "Hue"
-msgstr ""
+msgstr "Rona"
 
 #: telescope/plugins/webcam.py:46
 msgid "Sharpness"
-msgstr ""
+msgstr "Ketajaman"
 
 #: telescope/plugins/webcam.py:47
 msgid "Focus position"
-msgstr ""
+msgstr "Posisi fokus"
 
 #: telescope/plugins/webcam.py:48
 msgid "Tilt"
-msgstr ""
+msgstr "Kemiringan"
 
 #: telescope/plugins/webcam.py:58
 msgid "The shutter speed: slower is brighter but blurs movement."
-msgstr ""
+msgstr "Kecepatan shutter: makin lambat makin terang, tetapi memburamkan gerakan."
 
 #: telescope/plugins/webcam.py:59
 msgid "The webcam's ISO: more is brighter but grainier."
-msgstr ""
+msgstr "ISO webcam: makin tinggi makin terang, tetapi makin banyak noise."
 
 #: telescope/plugins/webcam.py:60
 msgid "Brightens a face in front of a bright window."
-msgstr ""
+msgstr "Mencerahkan wajah di depan jendela yang terang."
 
 #: telescope/plugins/webcam.py:61
 msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr ""
+msgstr "Atur sesuai frekuensi listrik setempat agar lampu tidak berkedip atau muncul garis."
 
 #: telescope/plugins/webcam.py:62
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
-msgstr ""
+msgstr "Mengizinkan webcam menurunkan frame rate saat cahaya redup agar gambar lebih terang."
 
 #: telescope/plugins/webcam.py:64
 msgid "50 Hz"
-msgstr ""
+msgstr "50 Hz"
 
 #: telescope/plugins/webcam.py:65
 msgid "60 Hz"
-msgstr ""
+msgstr "60 Hz"
 
 #: telescope/plugins/webcam.py:115
 msgid "Check that it's plugged in."
-msgstr ""
+msgstr "Pastikan webcam sudah tersambung."
 
 #: telescope/plugins/webcam.py:142
 msgid "Webcams"
-msgstr ""
+msgstr "Webcam"
 
 #: telescope/plugins/webcam.py:143
 msgid "Streaming from webcams and capture cards plugged into this computer."
-msgstr ""
+msgstr "Streaming dari webcam dan capture card yang tersambung ke komputer ini."
 
 #: telescope/plugins/webcam.py:147
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr ""
+msgstr "Tanpa ini, webcam tidak muncul di pemilih ponsel dan kartu Webcam juga hilang."
 
 #: telescope/plugins/webcam.py:255
 #, python-brace-format
 msgid "{name} isn't plugged in"
-msgstr ""
+msgstr "{name} tidak tersambung"
 
 #: telescope/plugins/webcam.py:256
 msgid "Plug it in, or pick another camera."
-msgstr ""
+msgstr "Sambungkan, atau pilih kamera lain."
 
 #: telescope/plugins/webcam.py:273
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
-msgstr ""
+msgstr "{app} sedang menggunakannya. Tutup di sana dan kamera akan mulai di sini."
 
 #: telescope/plugins/webcam.py:274
 msgid "Another app may be using it. Close it there and it starts here."
-msgstr ""
+msgstr "Aplikasi lain mungkin sedang menggunakannya. Tutup di sana dan kamera akan mulai di sini."
 
 #: telescope/plugins/webcam.py:275
 #, python-brace-format
 msgid "Can't open {name}"
-msgstr ""
+msgstr "Tidak dapat membuka {name}"
 
 #: telescope/plugins/webcam.py:302
 msgid "Put the webcam's picture settings back to its defaults"
-msgstr ""
+msgstr "Kembalikan pengaturan gambar webcam ke default"
 
 #: telescope/plugins/webcam.py:304
 msgid "Webcam"
-msgstr ""
+msgstr "Webcam"
 
 #: telescope/plugins/webcam.py:309
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
-msgstr ""
+msgstr "Ukuran yang dikirim webcam; Otomatis memilih ukuran terbesar hingga 1080p yang masih mempertahankan frame rate"
 
 #: telescope/plugins/webcam.py:404
 msgid "Not plugged in"
-msgstr ""
+msgstr "Tidak tersambung"
 
 #: telescope/plugins/webcam.py:406
 #, python-brace-format
 msgid "In use by {app}"
-msgstr ""
+msgstr "Digunakan oleh {app}"
 
 #: telescope/plugins/webcam.py:406
 msgid "In use by another app"
-msgstr ""
+msgstr "Digunakan oleh aplikasi lain"
 
 #: telescope/plugins/webcam.py:408
 msgid "Not sending anything"
-msgstr ""
+msgstr "Tidak mengirim apa pun"
 
 #: telescope/pyav_vaapi.py:79
 #, python-brace-format
@@ -6908,15 +6911,15 @@ msgstr "Unduhan berisi jalur yang tidak terduga, sehingga tidak digunakan."
 
 #: telescope/webcams.py:44
 msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr ""
+msgstr "Webcam tidak tersambung. Sambungkan kembali dan webcam akan berjalan lagi."
 
 #: telescope/webcams.py:45
 msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr ""
+msgstr "Aplikasi lain sedang menggunakan webcam. Tutup di sana dan kamera akan mulai di sini."
 
 #: telescope/webcams.py:46
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
-msgstr ""
+msgstr "Webcam tidak mengirim apa pun. Coba resolusi atau frame rate lain."
 
 #: telescope/widgets/adb.py:24
 msgid "USB needs adb, Google's tool for talking to Android phones."

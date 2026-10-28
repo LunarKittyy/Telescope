@@ -3,6 +3,9 @@
     <string name="open_preview">Abrir vista previa de la cámara</string>
     <string name="preview_button">Vista previa</string>
     <string name="close_preview">Cerrar vista previa</string>
+    <string name="black_screen_button">Pantalla negra</string>
+    <string name="black_screen_description">Pon la pantalla en negro mientras la cámara sigue funcionando</string>
+    <string name="black_screen_hint">Toca dos veces para activar</string>
     <string name="update_available">Actualización disponible</string>
     <string name="update_failed_title">La actualización no finalizó</string>
     <string name="update">Actualizar</string>

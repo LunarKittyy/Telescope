@@ -2117,7 +2117,7 @@ msgstr "Sale por {camera}."
 #. Light is the name of a stream format, as the Stream output card shows it
 #: telescope/plugins/connection.py:67
 msgid "Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."
-msgstr ""
+msgstr "Envía Ligero por UDP en lugar de TCP mientras el teléfono está conectado por Wi-Fi. Puede entrecortarse más que TCP, así que pruébalo a ver qué tal."
 
 #: telescope/plugins/connection.py:83
 msgid "Computer"
@@ -2461,7 +2461,7 @@ msgstr "Experimental"
 #: telescope/plugins/connection.py:788
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
-msgstr ""
+msgstr "red transporte retraso congelamiento tirones entrecortado pausas udp tcp transport network lag freezes stutter wifi"
 
 #: telescope/plugins/connection.py:811 telescope/plugins/connection.py:882 telescope/plugins/connection.py:1158
 msgid "No phone yet"
@@ -3233,7 +3233,7 @@ msgstr "Captura la habitación vacía primero."
 
 #: telescope/plugins/microphone.py:37
 msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
-msgstr ""
+msgstr "El micrófono de esta cámara no se reenvía. Elígelo en tu app de llamadas."
 
 #: telescope/plugins/microphone.py:73
 #, python-brace-format
@@ -3349,11 +3349,11 @@ msgstr "Inicia con la transmisión."
 
 #: telescope/plugins/microphone.py:476
 msgid "Camera mic"
-msgstr ""
+msgstr "Micro de cámara"
 
 #: telescope/plugins/microphone.py:477
 msgid "Camera microphone"
-msgstr ""
+msgstr "Micrófono de la cámara"
 
 #: telescope/plugins/microphone.py:483
 msgid "Browser mic"
@@ -4444,6 +4444,9 @@ msgid ""
 "\n"
 "Press Start streaming to use this camera."
 msgstr ""
+"No está transmitiendo\n"
+"\n"
+"Presiona Iniciar transmisión para usar esta cámara."
 
 #: telescope/plugins/preview.py:23
 msgid ""
@@ -6264,131 +6267,131 @@ msgstr "Imágenes ({formats})"
 
 #: telescope/plugins/webcam.py:40
 msgid "Exposure time"
-msgstr ""
+msgstr "Tiempo de exposición"
 
 #: telescope/plugins/webcam.py:41
 msgid "Backlight compensation"
-msgstr ""
+msgstr "Compensación de contraluz"
 
 #: telescope/plugins/webcam.py:42
 msgid "Anti-flicker"
-msgstr ""
+msgstr "Antiparpadeo"
 
 #: telescope/plugins/webcam.py:42
 msgid "Slow down in the dark"
-msgstr ""
+msgstr "Reducir velocidad en la oscuridad"
 
 #: telescope/plugins/webcam.py:45
 msgid "Hue"
-msgstr ""
+msgstr "Tono"
 
 #: telescope/plugins/webcam.py:46
 msgid "Sharpness"
-msgstr ""
+msgstr "Nitidez"
 
 #: telescope/plugins/webcam.py:47
 msgid "Focus position"
-msgstr ""
+msgstr "Posición de enfoque"
 
 #: telescope/plugins/webcam.py:48
 msgid "Tilt"
-msgstr ""
+msgstr "Inclinación"
 
 #: telescope/plugins/webcam.py:58
 msgid "The shutter speed: slower is brighter but blurs movement."
-msgstr ""
+msgstr "La velocidad de obturación: más lenta da más brillo, pero deja borroso el movimiento."
 
 #: telescope/plugins/webcam.py:59
 msgid "The webcam's ISO: more is brighter but grainier."
-msgstr ""
+msgstr "El ISO de la cámara web: más alto da más brillo, pero más grano."
 
 #: telescope/plugins/webcam.py:60
 msgid "Brightens a face in front of a bright window."
-msgstr ""
+msgstr "Aclara el rostro frente a una ventana brillante."
 
 #: telescope/plugins/webcam.py:61
 msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr ""
+msgstr "Ajústalo a la frecuencia de tu red eléctrica para evitar parpadeos y bandas en las luces."
 
 #: telescope/plugins/webcam.py:62
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
-msgstr ""
+msgstr "Permite que la cámara web reduzca su velocidad de fotogramas con poca luz para obtener una imagen más brillante."
 
 #: telescope/plugins/webcam.py:64
 msgid "50 Hz"
-msgstr ""
+msgstr "50 Hz"
 
 #: telescope/plugins/webcam.py:65
 msgid "60 Hz"
-msgstr ""
+msgstr "60 Hz"
 
 #: telescope/plugins/webcam.py:115
 msgid "Check that it's plugged in."
-msgstr ""
+msgstr "Verifica que esté conectada."
 
 #: telescope/plugins/webcam.py:142
 msgid "Webcams"
-msgstr ""
+msgstr "Cámaras web"
 
 #: telescope/plugins/webcam.py:143
 msgid "Streaming from webcams and capture cards plugged into this computer."
-msgstr ""
+msgstr "Transmisión desde cámaras web y tarjetas de captura conectadas a esta computadora."
 
 #: telescope/plugins/webcam.py:147
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr ""
+msgstr "Sin él, las cámaras web no aparecen en el selector del teléfono y la tarjeta Cámara web también desaparece."
 
 #: telescope/plugins/webcam.py:255
 #, python-brace-format
 msgid "{name} isn't plugged in"
-msgstr ""
+msgstr "{name} no está conectada"
 
 #: telescope/plugins/webcam.py:256
 msgid "Plug it in, or pick another camera."
-msgstr ""
+msgstr "Conéctala o elige otra cámara."
 
 #: telescope/plugins/webcam.py:273
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
-msgstr ""
+msgstr "{app} la está usando. Ciérrala allí y se iniciará aquí."
 
 #: telescope/plugins/webcam.py:274
 msgid "Another app may be using it. Close it there and it starts here."
-msgstr ""
+msgstr "Es posible que otra app la esté usando. Ciérrala allí y se iniciará aquí."
 
 #: telescope/plugins/webcam.py:275
 #, python-brace-format
 msgid "Can't open {name}"
-msgstr ""
+msgstr "No se puede abrir {name}"
 
 #: telescope/plugins/webcam.py:302
 msgid "Put the webcam's picture settings back to its defaults"
-msgstr ""
+msgstr "Restablecer la configuración de imagen de la cámara web a sus valores predeterminados"
 
 #: telescope/plugins/webcam.py:304
 msgid "Webcam"
-msgstr ""
+msgstr "Cámara web"
 
 #: telescope/plugins/webcam.py:309
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
-msgstr ""
+msgstr "El tamaño que envía la cámara web; Automático elige el mayor hasta 1080p que mantenga la velocidad de fotogramas"
 
 #: telescope/plugins/webcam.py:404
 msgid "Not plugged in"
-msgstr ""
+msgstr "No conectada"
 
 #: telescope/plugins/webcam.py:406
 #, python-brace-format
 msgid "In use by {app}"
-msgstr ""
+msgstr "En uso por {app}"
 
 #: telescope/plugins/webcam.py:406
 msgid "In use by another app"
-msgstr ""
+msgstr "En uso por otra app"
 
 #: telescope/plugins/webcam.py:408
 msgid "Not sending anything"
-msgstr ""
+msgstr "No está enviando nada"
 
 #: telescope/pyav_vaapi.py:79
 #, python-brace-format
@@ -6916,15 +6919,15 @@ msgstr "La descarga contiene rutas inesperadas, por lo que no se usó."
 
 #: telescope/webcams.py:44
 msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr ""
+msgstr "La cámara web no está conectada. Vuelve a conectarla y continuará."
 
 #: telescope/webcams.py:45
 msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr ""
+msgstr "Otra app está usando la cámara web. Ciérrala allí y se iniciará aquí."
 
 #: telescope/webcams.py:46
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
-msgstr ""
+msgstr "La cámara web no está enviando nada. Prueba otra resolución o velocidad de fotogramas."
 
 #: telescope/widgets/adb.py:24
 msgid "USB needs adb, Google's tool for talking to Android phones."

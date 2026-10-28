@@ -3,6 +3,9 @@
     <string name="open_preview">Öppna kameraförhandsvisning</string>
     <string name="preview_button">Förhandsvisning</string>
     <string name="close_preview">Stäng förhandsvisning</string>
+    <string name="black_screen_button">Svart skärm</string>
+    <string name="black_screen_description">Gör skärmen svart medan kameran fortsätter gå</string>
+    <string name="black_screen_hint">Dubbeltryck för att väcka</string>
     <string name="update_available">Uppdatering tillgänglig</string>
     <string name="update_failed_title">Uppdateringen blev inte klar</string>
     <string name="update">Uppdatera</string>
