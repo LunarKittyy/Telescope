@@ -629,6 +629,10 @@ impl PhoneSensors for SensorHub {
     fn shutdown(&self) {
         SensorHub::shutdown(self);
     }
+
+    fn set_on_change(&self, on_change: Box<dyn Fn(&str) + Send + Sync>) {
+        SensorHub::set_on_change(self, on_change);
+    }
 }
 
 #[cfg(test)]
