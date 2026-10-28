@@ -16,3 +16,6 @@ base64.workspace = true
 mdns-sd.workspace = true
 libc.workspace = true
 if-addrs.workspace = true
+zip.workspace = true
+ureq = { workspace = true, features = ["platform-verifier"] }
+roxmltree.workspace = true

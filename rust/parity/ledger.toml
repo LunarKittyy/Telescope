@@ -945,25 +945,25 @@
 "Another app already uses this key" = { status = "todo" }
 "Bind a Copy command line in its own keyboard settings instead." = { status = "todo" }
 "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
-"Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "todo" }
+"Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "todo" }
-"Couldn't copy adb from there." = { status = "todo" }
+"Couldn't copy adb from there." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't create the virtual microphone: {error}" = { status = "todo" }
 "Couldn't create {path}: {error}" = { status = "todo" }
 "Couldn't download VB-Cable. Try again, or get it from their site." = { status = "todo" }
-"Couldn't download adb. Try again." = { status = "todo" }
+"Couldn't download adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't open VB-Cable's setup. Try again, or get it from their site." = { status = "todo" }
-"Couldn't put adb in place. Is another program using it? Try again." = { status = "todo" }
-"Couldn't reach Google. Check the internet connection and try again." = { status = "todo" }
+"Couldn't put adb in place. Is another program using it? Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Couldn't reach Google. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach vb-audio.com. Check the internet connection and try again." = { status = "todo" }
 "Couldn't set Telescope to open at sign-in: {error}" = { status = "todo" }
 "Couldn't stop Telescope opening at sign-in: {error}" = { status = "todo" }
 "Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "todo" }
-"Couldn't unpack adb. Try again." = { status = "todo" }
+"Couldn't unpack adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Download failed: {error}" = { status = "todo" }
 "Downloaded" = { status = "todo" }
-"Downloading adb from Google…" = { status = "todo" }
-"Downloading adb {version} from Google…" = { status = "todo" }
+"Downloading adb from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Downloading adb {version} from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Downloading driver files..." = { status = "todo" }
 "Downloading {file}..." = { status = "todo" }
 "Everywhere" = { status = "todo" }
@@ -972,11 +972,11 @@
 "Existing v4l2loopback config found in {paths} - remove it first" = { status = "todo" }
 "Failed to remove persistence files" = { status = "todo" }
 "Failed to write persistence files" = { status = "todo" }
-"Finding the current adb…" = { status = "todo" }
-"Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead." = { status = "todo" }
-"Google's download doesn't have adb.exe in it anymore." = { status = "todo" }
-"Google's list of downloads wasn't what Telescope expected. Try again later." = { status = "todo" }
-"Google's server said {code}. Try again later." = { status = "todo" }
+"Finding the current adb…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Google's download doesn't have adb.exe in it anymore." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Google's list of downloads wasn't what Telescope expected. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
+"Google's server said {code}. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Installed" = { status = "todo" }
 "Loaded: {phone} + {obs}" = { status = "todo" }
 "Module unloaded" = { status = "todo" }
@@ -989,9 +989,9 @@
 "Registration failed (cancelled or denied?)" = { status = "todo" }
 "Removed {paths}" = { status = "todo" }
 "Telescope couldn't ask for your password here. Run this in a terminal, then try again." = { status = "todo" }
-"That doesn't have adb.exe in it." = { status = "todo" }
+"That doesn't have adb.exe in it." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
-"The download didn't match Google's checksum, so it wasn't used. Try again." = { status = "todo" }
+"The download didn't match Google's checksum, so it wasn't used. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "The driver copy in Program Files failed checksum verification - not registering" = { status = "todo" }
 "The driver install hit an error while running as admin - not registering" = { status = "todo" }
 "The phone already has a newer Telescope app." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
@@ -1000,7 +1000,7 @@
 "This desktop doesn't offer global shortcuts to apps." = { status = "todo" }
 "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "todo" }
 "Timed out" = { status = "todo" }
-"Unpacking…" = { status = "todo" }
+"Unpacking…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "VB-Audio's download doesn't have the setup it used to. Get it from their site instead." = { status = "todo" }
 "VB-Audio's download has changed since this version of Telescope. Get it from their site instead." = { status = "todo" }
 "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site." = { status = "todo" }
@@ -1888,33 +1888,33 @@
 [test]
 # Python tests, file::Class::name
 # ── adb_download
-"test_adb_download.py::test_a_bigger_download_than_listed_stops_early" = { status = "todo" }
-"test_adb_download.py::test_a_blocked_download_says_google_blocks_some_countries_and_offers_picking_one" = { status = "todo" }
-"test_adb_download.py::test_a_cut_short_download_s_work_folder_is_cleared_later" = { status = "todo" }
-"test_adb_download.py::test_a_failed_move_puts_the_old_folder_back" = { status = "todo" }
-"test_adb_download.py::test_a_half_emptied_folder_is_replaced_whole" = { status = "todo" }
-"test_adb_download.py::test_a_pick_without_adb_in_it_isn_t_kept" = { status = "todo" }
-"test_adb_download.py::test_a_platform_tools_zip_picked_by_hand_is_unpacked" = { status = "todo" }
-"test_adb_download.py::test_a_server_error_says_so" = { status = "todo" }
-"test_adb_download.py::test_a_version_that_isn_t_numbers_isn_t_shown" = { status = "todo" }
-"test_adb_download.py::test_a_zip_shorter_than_listed_is_refused_even_with_its_own_checksum" = { status = "todo" }
-"test_adb_download.py::test_a_zip_that_doesn_t_match_the_index_isn_t_used" = { status = "todo" }
-"test_adb_download.py::test_a_zip_without_adb_isn_t_used" = { status = "todo" }
-"test_adb_download.py::test_adb_is_found_in_the_app_folder_then_the_download_then_path" = { status = "todo" }
-"test_adb_download.py::test_adb_that_s_already_there_isn_t_fetched_again" = { status = "todo" }
-"test_adb_download.py::test_an_adb_picked_by_hand_is_kept_with_only_what_it_needs" = { status = "todo" }
-"test_adb_download.py::test_an_archive_with_another_checksum_type_is_skipped" = { status = "todo" }
-"test_adb_download.py::test_an_index_listing_a_huge_zip_is_refused_before_downloading_it" = { status = "todo" }
-"test_adb_download.py::test_an_index_redirected_off_https_isn_t_trusted" = { status = "todo" }
-"test_adb_download.py::test_an_index_without_platform_tools_is_an_error" = { status = "todo" }
-"test_adb_download.py::test_an_unchecked_certificate_isnt_blamed_on_the_internet" = { status = "todo" }
-"test_adb_download.py::test_downloads_go_through_the_system_certificate_check" = { status = "todo" }
-"test_adb_download.py::test_it_downloads_from_google_and_keeps_only_what_adb_needs" = { status = "todo" }
-"test_adb_download.py::test_it_lives_in_local_app_data" = { status = "todo" }
-"test_adb_download.py::test_no_network_says_so_and_keeps_what_was_there" = { status = "todo" }
-"test_adb_download.py::test_the_index_can_only_point_next_to_itself" = { status = "todo" }
-"test_adb_download.py::test_the_index_gives_the_windows_zip_its_size_and_checksum" = { status = "todo" }
-"test_adb_download.py::test_two_downloads_at_once_fetch_only_once" = { status = "todo" }
+"test_adb_download.py::test_a_bigger_download_than_listed_stops_early" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_bigger_download_than_listed_stops_early" }
+"test_adb_download.py::test_a_blocked_download_says_google_blocks_some_countries_and_offers_picking_one" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_blocked_download_says_google_blocks_some_countries_and_offers_picking_one" }
+"test_adb_download.py::test_a_cut_short_download_s_work_folder_is_cleared_later" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_cut_short_download_s_work_folder_is_cleared_later" }
+"test_adb_download.py::test_a_failed_move_puts_the_old_folder_back" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_failed_move_puts_the_old_folder_back" }
+"test_adb_download.py::test_a_half_emptied_folder_is_replaced_whole" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_half_emptied_folder_is_replaced_whole" }
+"test_adb_download.py::test_a_pick_without_adb_in_it_isn_t_kept" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_pick_without_adb_in_it_isn_t_kept" }
+"test_adb_download.py::test_a_platform_tools_zip_picked_by_hand_is_unpacked" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_platform_tools_zip_picked_by_hand_is_unpacked" }
+"test_adb_download.py::test_a_server_error_says_so" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_server_error_says_so" }
+"test_adb_download.py::test_a_version_that_isn_t_numbers_isn_t_shown" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_version_that_isn_t_numbers_isn_t_shown" }
+"test_adb_download.py::test_a_zip_shorter_than_listed_is_refused_even_with_its_own_checksum" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_zip_shorter_than_listed_is_refused_even_with_its_own_checksum" }
+"test_adb_download.py::test_a_zip_that_doesn_t_match_the_index_isn_t_used" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_zip_that_doesn_t_match_the_index_isn_t_used" }
+"test_adb_download.py::test_a_zip_without_adb_isn_t_used" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_zip_without_adb_isn_t_used" }
+"test_adb_download.py::test_adb_is_found_in_the_app_folder_then_the_download_then_path" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_is_found_in_the_app_folder_then_the_download_then_path" }
+"test_adb_download.py::test_adb_that_s_already_there_isn_t_fetched_again" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::adb_that_s_already_there_isn_t_fetched_again" }
+"test_adb_download.py::test_an_adb_picked_by_hand_is_kept_with_only_what_it_needs" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_adb_picked_by_hand_is_kept_with_only_what_it_needs" }
+"test_adb_download.py::test_an_archive_with_another_checksum_type_is_skipped" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_archive_with_another_checksum_type_is_skipped" }
+"test_adb_download.py::test_an_index_listing_a_huge_zip_is_refused_before_downloading_it" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_index_listing_a_huge_zip_is_refused_before_downloading_it" }
+"test_adb_download.py::test_an_index_redirected_off_https_isn_t_trusted" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_index_redirected_off_https_isn_t_trusted" }
+"test_adb_download.py::test_an_index_without_platform_tools_is_an_error" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_index_without_platform_tools_is_an_error" }
+"test_adb_download.py::test_an_unchecked_certificate_isnt_blamed_on_the_internet" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::an_unchecked_certificate_isnt_blamed_on_the_internet" }
+"test_adb_download.py::test_downloads_go_through_the_system_certificate_check" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::downloads_go_through_the_system_certificate_check" }
+"test_adb_download.py::test_it_downloads_from_google_and_keeps_only_what_adb_needs" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::it_downloads_from_google_and_keeps_only_what_adb_needs" }
+"test_adb_download.py::test_it_lives_in_local_app_data" = { status = "ported", rust = "rust/crates/link/src/adb.rs::it_lives_in_local_app_data" }
+"test_adb_download.py::test_no_network_says_so_and_keeps_what_was_there" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::no_network_says_so_and_keeps_what_was_there" }
+"test_adb_download.py::test_the_index_can_only_point_next_to_itself" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::the_index_can_only_point_next_to_itself" }
+"test_adb_download.py::test_the_index_gives_the_windows_zip_its_size_and_checksum" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::the_index_gives_the_windows_zip_its_size_and_checksum" }
+"test_adb_download.py::test_two_downloads_at_once_fetch_only_once" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::two_downloads_at_once_fetch_only_once" }
 # ── adb_widget
 "test_adb_widget.py::test_a_download_that_raises_still_reports_back" = { status = "todo" }
 "test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "todo" }
@@ -5909,12 +5909,12 @@
 "env:XDG_DATA_DIRS" = { status = "todo" }
 "env:XDG_DATA_HOME" = { status = "todo" }
 "env:XDG_RUNTIME_DIR" = { status = "todo" }
-"folder:telescope/platform/adb_download.py:_clear_leftovers:shutil.rmtree" = { status = "todo" }
-"folder:telescope/platform/adb_download.py:_download:shutil.rmtree" = { status = "todo" }
-"folder:telescope/platform/adb_download.py:_download:tempfile.mkdtemp" = { status = "todo" }
+"folder:telescope/platform/adb_download.py:_clear_leftovers:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::clear_leftovers" }
+"folder:telescope/platform/adb_download.py:_download:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
+"folder:telescope/platform/adb_download.py:_download:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
 "folder:telescope/platform/adb_download.py:downloaded_dir:Path.home" = { status = "ported", rust = "rust/crates/link/src/adb.rs::downloaded_dir" }
-"folder:telescope/platform/adb_download.py:use_own_adb:shutil.rmtree" = { status = "todo" }
-"folder:telescope/platform/adb_download.py:use_own_adb:tempfile.mkdtemp" = { status = "todo" }
+"folder:telescope/platform/adb_download.py:use_own_adb:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
+"folder:telescope/platform/adb_download.py:use_own_adb:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
 "folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "todo" }
 "folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "todo" }
 "folder:telescope/platform/virtual_mic.py:_private_temp_dir:tempfile.gettempdir" = { status = "todo" }
@@ -5946,13 +5946,13 @@
 "platform:__init__.py:ensure_adb_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ensure_adb_server" }
 "platform:__init__.py:platform_tools_dir" = { status = "ported", rust = "rust/crates/link/src/adb.rs::platform_tools_dir" }
 "platform:__init__.py:stop_adb_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::stop_adb_server" }
-"platform:adb_download.py:Archive" = { status = "todo" }
-"platform:adb_download.py:download_adb" = { status = "todo" }
+"platform:adb_download.py:Archive" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Archive" }
+"platform:adb_download.py:download_adb" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::download_adb" }
 "platform:adb_download.py:downloaded_adb" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_exe_in" }
 "platform:adb_download.py:downloaded_dir" = { status = "ported", rust = "rust/crates/link/src/adb.rs::downloaded_dir" }
-"platform:adb_download.py:downloaded_revision" = { status = "todo" }
-"platform:adb_download.py:find_archive" = { status = "todo" }
-"platform:adb_download.py:use_own_adb" = { status = "todo" }
+"platform:adb_download.py:downloaded_revision" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::downloaded_revision" }
+"platform:adb_download.py:find_archive" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::find_archive" }
+"platform:adb_download.py:use_own_adb" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::use_own_adb" }
 "platform:autostart.py:app_dir" = { status = "todo" }
 "platform:autostart.py:desktop_entry" = { status = "todo" }
 "platform:autostart.py:desktop_file" = { status = "todo" }

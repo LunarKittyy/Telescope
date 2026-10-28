@@ -52,6 +52,8 @@ slint-build = "1.18"
 mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Reading Google's SDK index for the adb download on Windows
+roxmltree = "0.21"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
 slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 
