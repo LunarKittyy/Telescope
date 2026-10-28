@@ -457,3 +457,23 @@ def test_the_control_client_has_no_phone_and_no_mic():
     assert ctrl.get_state() is None and ctrl.audio is False
     ctrl.send(action="resolution", width=1, height=1)
     assert ctrl.auth.headers() == {}
+
+
+def test_directshow_gets_the_rate_first_and_the_format_with_the_size(monkeypatch):
+    monkeypatch.setattr(webcams.vcam, "IS_LINUX", False)
+    calls = []
+
+    class Cap:
+        def __init__(self, location, backend):
+            assert backend == cv2.CAP_DSHOW
+
+        def isOpened(self):
+            return True
+
+        def set(self, prop, value):
+            calls.append(prop)
+
+    monkeypatch.setattr(webcams.cv2, "VideoCapture", Cap)
+    webcams.open_capture(Device("cam", "HD Webcam", 1), Choice("MJPG", 1920, 1080, 30.0))
+    # a new rate reopens the camera without the format, and the format only takes once the size changes
+    assert calls == [cv2.CAP_PROP_FPS, cv2.CAP_PROP_FOURCC, cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT]
