@@ -1,0 +1,35 @@
+// Palette and type from desktop/telescope/theme.py. Qt sizes are points at 96 dpi, so 1pt = 4/3 px.
+
+export global Theme {
+    out property <color> bg: #0f1216;
+    out property <color> surface: #161a20;
+    out property <color> surface-raise: #1d222a;
+    out property <color> surface-hover: #242a33;
+    out property <color> surface-sunk: #0a0c0f;
+    out property <color> chrome: #121519;
+    out property <color> border: #232932;
+    out property <color> border-strong: #2f3641;
+    out property <color> border-hover: #4a5462;
+    out property <color> text: #e7eaef;
+    out property <color> text-hover: #74777a;
+    out property <color> text-dim: #a1abb8;
+    out property <color> text-faint: #7a8491;
+    out property <color> text-disabled: #525b67;
+    out property <color> accent: #aa9cf5;
+    out property <color> accent-soft: #cdc4fa;
+    out property <color> fill: #6a58cf;
+    out property <color> fill-hover: #7867dc;
+    out property <color> fill-press: #5b4bb8;
+    out property <color> ok: #5fc98c;
+    out property <color> warn: #f0b65c;
+    out property <color> err: #ef6f6b;
+    // PLUGIN_HUES["camera"], the Camera card's mint
+    out property <color> hue-camera: #7fd3c4;
+
+    out property <string> font: "Inter";
+    // font-size: 9.75pt for everything unless a rule says otherwise
+    out property <length> body: 13px;
+    out property <length> small: 12px;        // 9pt
+    out property <length> card-title: 14.667px; // 11pt
+    out property <length> start: 13.333px;     // 10pt
+}

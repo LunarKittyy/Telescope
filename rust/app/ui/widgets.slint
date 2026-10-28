@@ -1,0 +1,550 @@
+// The card pieces from desktop/telescope/widgets/common.py and controls.py, sized in the same design pixels.
+
+import { Theme } from "theme.slint";
+
+// A line icon (widgets/line_icons.py), white in the file and tinted here.
+export component Icon inherits Image {
+    in property <color> tint: Theme.text-dim;
+    colorize: tint;
+    image-fit: contain;
+    image-rendering: smooth;
+}
+
+// theme.focus_ring: an accent outline drawn just outside a control while it has keyboard focus.
+component FocusRing inherits Rectangle {
+    in property <bool> shown;
+    in property <length> radius: 7px;
+    x: -2px;
+    y: -2px;
+    border-radius: radius + 2px;
+    border-width: shown ? 2px : 0px;
+    border-color: Theme.accent;
+}
+
+// QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one.
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <color> icon-tint: Theme.accent-soft;
+    in property <string> role: "";
+    in property <length> icon-size: 14px;
+    in property <length> font-size: Theme.body;
+    in property <int> font-weight: 600;
+    in property <length> padding-x: 13px;
+    in property <length> gap: 9px;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 34px;
+    min-width: lay.preferred-width;
+    border-radius: 7px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg
+        : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
+        : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
+    border-color: !enabled ? Theme.border
+        : role == "primary" ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : role == "quiet" ? (touch.has-hover ? Theme.border-hover : Theme.border)
+        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { if (enabled) { root.clicked(); } }
+    }
+    lay := HorizontalLayout {
+        padding-left: padding-x;
+        padding-right: padding-x;
+        spacing: gap;
+        alignment: center;
+        if has-icon: Icon {
+            source: icon;
+            tint: icon-tint;
+            width: icon-size;
+            height: icon-size;
+            y: (parent.height - self.height) / 2;
+        }
+        if text != "": Text {
+            text: root.text;
+            font-family: Theme.font;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            color: !enabled ? Theme.text-disabled : role == "primary" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// QPushButton#icon_btn: transparent, quiet border, just an icon.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <length> icon-size: 18px;
+    in property <string> label;
+    callback clicked;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
+    background: touch.has-hover ? Theme.surface-raise : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
+}
+
+// The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
+export component Card inherits Rectangle {
+    in property <string> title;
+    in property <image> icon;
+    in property <color> hue: Theme.accent;
+    in property <string> note;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 14px;
+    VerticalLayout {
+        padding-left: 17px;
+        padding-right: 17px;
+        padding-top: 15px;
+        padding-bottom: 17px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 10px;
+            padding-bottom: 2px;
+            height: 38px;
+            Rectangle {
+                y: 3px;
+                width: 30px;
+                height: 30px;
+                border-radius: 9px;
+                background: hue.with-alpha(0.14);
+                Icon { source: icon; tint: hue; width: 16px; height: 16px; }
+            }
+            // Qt indents a QSS-styled label's text by 6px
+            HorizontalLayout {
+                padding-left: 6px;
+                title-text := Text {
+                    text: title;
+                    y: 3px;
+                    height: 30px;
+                    font-family: Theme.font;
+                    font-size: Theme.card-title;
+                    font-weight: 600;
+                    color: title-touch.has-hover ? Theme.text-hover : Theme.text;
+                    vertical-alignment: center;
+                    title-touch := TouchArea { mouse-cursor: pointer; }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            if note != "": Text {
+                text: note;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: Theme.text-faint;
+                vertical-alignment: center;
+            }
+        }
+        @children
+    }
+}
+
+// add_section_heading: a small icon, the name and a hairline to the card's edge.
+export component SectionHeading inherits HorizontalLayout {
+    in property <string> text;
+    in property <image> icon;
+    height: 25px;
+    padding-top: 4px;
+    spacing: 14px;
+    Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; y: (parent.height - self.height) / 2; }
+    Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: 600;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        horizontal-stretch: 1;
+        Rectangle { height: 1px; width: parent.width; background: Theme.border; }
+    }
+}
+
+// control_row: the dim label in a 96px column, then the control, 36px tall at least.
+export component FormRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> enabled: true;
+    spacing: 10px;
+    min-height: 36px;
+    Text {
+        text: label;
+        width: 96px;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    @children
+}
+
+// segmented_row: equal segments in one track, the picked one a filled pill.
+export component Segmented inherits Rectangle {
+    in property <[string]> items;
+    in property <[bool]> disabled;
+    in property <string> label;
+    in-out property <int> current: 0;
+    callback picked(int);
+    height: 36px;
+    horizontal-stretch: 1;
+    forward-focus: focus;
+    accessible-role: tab-list;
+    accessible-label: label;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.LeftArrow && current > 0 && !disabled[current - 1]) { current -= 1; picked(current); return accept; }
+            if (e.text == Key.RightArrow && current < items.length - 1 && !disabled[current + 1]) { current += 1; picked(current); return accept; }
+            reject
+        }
+    }
+    track := Rectangle {
+        y: 2px;
+        height: 32px;
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
+        FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    }
+    HorizontalLayout {
+        y: 2px;
+        height: 32px;
+        padding: 3px;
+        spacing: 2px;
+        for item[i] in items: seg := Rectangle {
+            property <bool> on: i == current;
+            property <bool> off: disabled[i];
+            horizontal-stretch: 1;
+            min-width: 0px;
+            preferred-width: 0px;
+            border-radius: 6px;
+            background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
+                : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
+            accessible-role: tab;
+            accessible-label: label + ": " + item;
+            accessible-checked: on;
+            seg-touch := TouchArea {
+                mouse-cursor: off ? default : pointer;
+                clicked => {
+                    if (!off) {
+                        current = i;
+                        picked(i);
+                    }
+                }
+            }
+            Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: on ? 600 : 400;
+                color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+// The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
+export component Slider inherits HorizontalLayout {
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in-out property <float> value: 0;
+    in property <float> step: 1;
+    in property <string> readout;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    callback moved(float);
+    callback released(float);
+    spacing: 8px;
+    horizontal-stretch: 1;
+    track := Rectangle {
+        horizontal-stretch: 1;
+        min-width: 84px;
+        height: 36px;
+        property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
+        property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
+        accessible-role: slider;
+        accessible-label: label;
+        accessible-value: readout;
+        accessible-value-minimum: minimum;
+        accessible-value-maximum: maximum;
+        accessible-value-step: step;
+        forward-focus: slider-focus;
+        slider-focus := FocusScope {
+            enabled: root.enabled;
+            key-pressed(e) => {
+                if (e.text == Key.LeftArrow) { value = max(minimum, value - step); moved(value); released(value); return accept; }
+                if (e.text == Key.RightArrow) { value = min(maximum, value + step); moved(value); released(value); return accept; }
+                reject
+            }
+        }
+        Rectangle {
+            x: track.inset;
+            width: parent.width - 2 * track.inset;
+            height: 4px;
+            border-radius: 2px;
+            background: enabled ? Theme.border-strong : Theme.surface-raise;
+        }
+        handle := Rectangle {
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            x: track.inset - 7px + track.fraction * (track.width - 2 * track.inset);
+            background: !enabled ? Theme.text-disabled : (touch.has-hover || touch.pressed) ? hue.brighter(0.15) : hue;
+            FocusRing { shown: slider-focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+        }
+        touch := TouchArea {
+            enabled: root.enabled;
+            property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down || (e.kind == PointerEventKind.move && self.pressed)) {
+                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    moved(value);
+                }
+                if (e.kind == PointerEventKind.up) {
+                    released(value);
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    root.moved(value);
+                }
+            }
+        }
+    }
+    Text {
+        width: 56px;
+        text: readout;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: enabled ? hue : Theme.text-disabled;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+}
+
+// common.Switch: a 36x20 track at the row's end.
+export component Switch inherits Rectangle {
+    in-out property <bool> checked;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: !enabled ? (checked ? Theme.border-strong : Theme.surface-raise)
+        : checked ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    accessible-role: switch;
+    accessible-label: label;
+    accessible-checked: checked;
+    accessible-action-default => { checked = !checked; toggled(checked); }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " ") { checked = !checked; toggled(checked); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { checked = !checked; toggled(checked); }
+    }
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        y: 3px;
+        x: checked ? parent.width - 17px : 3px;
+        background: !enabled ? Theme.text-disabled : checked ? white : Theme.text-dim;
+        animate x { duration: 90ms; }
+    }
+}
+
+// controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
+export component SwitchTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> hue: Theme.accent;
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    height: 40px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    background: Theme.surface-raise;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 9px;
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { sw.checked = !sw.checked; sw.toggled(sw.checked); }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 9px;
+        Icon {
+            source: icon;
+            tint: checked && enabled ? hue : Theme.text-dim;
+            width: 15px;
+            height: 15px;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: root.text;
+            horizontal-stretch: 1;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+        Rectangle {
+            width: 36px;
+            sw := Switch {
+                y: (parent.height - self.height) / 2;
+                checked <=> root.checked;
+                enabled: root.enabled;
+                label: root.text;
+                toggled(on) => { root.toggled(on); }
+            }
+        }
+    }
+}
+
+// controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
+export component ChoiceField inherits Rectangle {
+    in property <string> caption;
+    in property <[string]> items;
+    in-out property <int> current;
+    in property <bool> enabled: true;
+    callback picked(int);
+    height: 48px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    border-radius: 10px;
+    border-width: 1px;
+    background: touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
+    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
+    accessible-role: combobox;
+    accessible-label: caption;
+    accessible-value: items[current];
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.UpArrow && current > 0) { current -= 1; picked(current); return accept; }
+            if (e.text == Key.DownArrow && current < items.length - 1) { current += 1; picked(current); return accept; }
+            if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { popup.show(); }
+    }
+    VerticalLayout {
+        padding-left: 12px;
+        padding-right: 30px;
+        alignment: center;
+        spacing: 1px;
+        Text {
+            text: caption;
+            font-family: Theme.font;
+            font-size: 11.44px; // 0.88 of the body size
+            color: enabled ? Theme.text-faint : Theme.text-disabled;
+            overflow: elide;
+        }
+        Text {
+            text: items[current];
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            overflow: elide;
+        }
+    }
+    Icon {
+        source: @image-url("icons/chevron.svg");
+        x: parent.width - 12px - 14px;
+        width: 14px;
+        height: 14px;
+    }
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-hover;
+            border-radius: 7px;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000080;
+            VerticalLayout {
+                padding: 4px;
+                for item[i] in items: Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: i == current ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                    item-touch := TouchArea {
+                        clicked => {
+                            current = i;
+                            picked(i);
+                        }
+                    }
+                    Text {
+                        x: 8px;
+                        text: item;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: i == current ? white : Theme.text;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
