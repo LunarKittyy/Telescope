@@ -4,13 +4,13 @@ What keeps the Rust rewrite honest about matching the Python desktop app (the pl
 
 ## The inventory and the ledger
 
-`inventory.py` lists every piece of the Python app with a stable id and an area (the plugin or module that owns it). `ledger.toml` has one line per id with its status: `todo`, `ported` (with `rust = "where"`), `verified` (also with `rust`) or `dropped` (with a `reason`). A `note` can go on any line. The `[unknown]` table at the top is for gaps someone notices by hand. Give each one a note, then teach `inventory.py` to find that whole kind of thing.
+`inventory.py` lists every piece of the Python app with a stable id and an area (the plugin or module that owns it). `ledger.toml` has one line per id with its status: `todo`, `ported` (with `rust = "rust/crates/..."`, a path from the repo root, optionally followed by `::symbol` or `:line`), `verified` (also with `rust`) or `dropped` (with a `reason`). A `note` can go on any line. The `[unknown]` table at the top is for gaps someone notices by hand. Give each one a note, then teach `inventory.py` to find that whole kind of thing.
 
 ```bash
 python inventory.py --check
 ```
 
-Fails when the ledger misses something the Python app has, still lists something it no longer has, or has an entry with a bad status or a missing `rust` or `reason`. CI runs this on every change under `rust/` or `desktop/` (`.github/workflows/rust-parity.yml`).
+Fails when the ledger misses something the Python app has, still lists something it no longer has, or has an entry with a bad status, a missing `reason` or a `rust` path that doesn't exist (so moving code means updating the ledger in the same change). CI runs this on every change under `rust/` or `desktop/` (`.github/workflows/rust-parity.yml`).
 
 ```bash
 python inventory.py --update
@@ -36,7 +36,7 @@ Progress per area and per kind, like `microphone  0 of 32 texts, 0 of 61 tests, 
 | `phone` | `/v1/...` paths in the source, paths built on a client's `base`, the actions sent in `control`, `still` and `session` bodies, and what the pairing server serves | `/v1/state`, `control.ae_comp` |
 | `system` | a source scan for subprocesses (and the commands handed to `_run`-style helpers), registry keys, D-Bus names, env vars, absolute paths, `*_PORT` constants, tray use, folder calls like `Path.home()`, and every public function in `telescope/platform/` | `registry:Software\...\Run` |
 
-The first ledger has everything as `todo` except the phone calls the prototype already makes (hello, ping, session start and stop, state, video.h264, the Camera card's controls and the pairing server). Their `rust` paths point at the prototype's files, which the workspace restructure will move.
+The first ledger has everything as `todo` except the phone calls the prototype already makes (hello, ping, session start and stop, state, video.h264, the Camera card's controls and the pairing server). Their `rust` paths point at where that code lives in the workspace now.
 
 ### What the inventory can't catch
 
@@ -55,7 +55,7 @@ The first ledger has everything as `todo` except the phone calls the prototype a
 python compare_config.py --binary ../target/debug/telescope-rs
 ```
 
-Runs `telescope-rs config-snapshot <folder>` for each fixture in `desktop/tests/fixtures/configs` and compares the JSON it prints with that folder's `expected.json`. It always compares whether the file was set aside, which plugins came up, the top-level fields, which devices are kept and the sections of plugins that aren't installed. Plugin settings are compared only once the ledger marks them `ported` or `verified`. `--all` compares every setting. Each difference shows its path and both values. `stand_in_snapshot.py` prints `expected.json` (with `--set path=json` changes) so the comparison can be tried before the real command exists:
+Runs `telescope-rs config-snapshot <folder>` for each fixture in `desktop/tests/fixtures/configs` and compares the JSON it prints with that folder's `expected.json`. It always compares whether the file was set aside, which plugins came up, the top-level fields and the sections of plugins that aren't installed. For devices it compares whether each phone in the fixture's own file keeps its entry, which is config.py's call (it drops them all for a file from 2.x or a broken `devices` section). Browser entries (`browser`, `browser:<id>`) belong to Browser camera, which forgets a browser after 60 days, so they count only once every `browser_camera` setting is ported. An entry the app adds itself counts through its ported settings. Plugin settings are compared only once the ledger marks them `ported` or `verified`. `--all` compares every setting. Each difference shows its path and both values. `stand_in_snapshot.py` prints `expected.json` (with `--set path=json` changes) so the comparison can be tried before the real command exists:
 
 ```bash
 python compare_config.py --binary "python3 stand_in_snapshot.py --set saved.version=4"

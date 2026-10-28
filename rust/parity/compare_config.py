@@ -4,7 +4,11 @@
 Runs `telescope-rs config-snapshot <fixture folder>` on every folder in desktop/tests/fixtures/configs and compares
 what it prints with that folder's expected.json. Only the settings the ledger marks ported or verified are compared,
 plus the config-level parts that every port has to get right from the start: whether the file was set aside, which
-plugins came up, the top-level fields, which devices are kept and the sections of plugins that aren't built in.
+plugins came up, the top-level fields, the sections of plugins that aren't built in, and whether the phones in the
+file keep their entry under devices (config.py drops them all for a file from 2.x or a broken devices section).
+Browser entries (browser, browser:<id>) belong to Browser camera, which forgets one after 60 days, so they only
+count once every browser_camera setting is ported. An entry the app makes itself (the picked phone getting
+settings moved over from the shared copy) counts through its ported settings.
 
     python compare_config.py --binary ../target/debug/telescope-rs
     python compare_config.py --binary "python3 stand_in_snapshot.py" --all   # every setting, ported or not
@@ -26,24 +30,43 @@ FIXTURES = REPO / "desktop" / "tests" / "fixtures" / "configs"
 LEDGER = HERE / "ledger.toml"
 DONE = ("ported", "verified")
 MISSING = object()
+BROWSER = "browser"  # Browser camera's source id, and browser:<id> for each browser it remembers
 
 
 def ported_settings(ledger: dict) -> tuple:
-    """The (scope, plugin, key) settings marked ported or verified, and every built-in plugin with settings."""
-    done, plugins = set(), set()
+    """The (scope, plugin, key) settings marked ported or verified, every built-in plugin with settings, and the
+    plugins whose settings are all ported."""
+    done, plugins, partly = set(), set(), set()
     for key, entry in ledger.get("setting", {}).items():
         scope, plugin, name = key.split(".", 2)
         plugins.add(plugin)
         if entry.get("status") in DONE:
             done.add((scope, plugin, name))
-    return done, plugins
+        else:
+            partly.add(plugin)
+    return done, plugins, plugins - partly
+
+
+def is_browser(device: str) -> bool:
+    return device == BROWSER or device.startswith(BROWSER + ":")
+
+
+def original_devices(folder: Path) -> set:
+    """The device ids the fixture's own settings file has, when its devices section is a dict."""
+    try:
+        cfg = json.loads((folder / "telescope_config.json").read_bytes().decode("utf-8-sig"))
+    except (OSError, ValueError):
+        return set()
+    devices = cfg.get("devices") if isinstance(cfg, dict) else None
+    return set(devices) if isinstance(devices, dict) else set()
 
 
 def show(value) -> str:
     return "(missing)" if value is MISSING else json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
-def compare(expected: dict, actual: dict, done: set, builtin: set, everything: bool = False) -> list:
+def compare(expected: dict, actual: dict, done: set, builtin: set, everything: bool = False,
+            original: frozenset = frozenset(), whole: frozenset = frozenset()) -> list:
     """Every difference between two snapshots, as "path: expected X, got Y", within what's compared."""
     diffs = []
 
@@ -74,10 +97,16 @@ def compare(expected: dict, actual: dict, done: set, builtin: set, everything: b
             same(f"saved.{field}", want.get(field, MISSING), got.get(field, MISSING))
     plugin_configs("saved.plugin_configs", want.get("plugin_configs"), got.get("plugin_configs"), "global")
     want_dev, got_dev = want.get("devices") or {}, got.get("devices") or {}
-    same("saved.devices (which ones)", sorted(want_dev), sorted(got_dev))
-    for device in sorted(set(want_dev) & set(got_dev)):
-        w, g = want_dev[device], got_dev[device]
-        same(f"saved.devices.{device} (fields)", sorted(w), sorted(g))
+    for device in sorted(set(want_dev) | set(got_dev)):
+        browser = is_browser(device)
+        if browser and not (everything or "browser_camera" in whole):
+            continue
+        w, g = want_dev.get(device, MISSING), got_dev.get(device, MISSING)
+        if browser or device in original or everything:
+            same(f"saved.devices.{device} (kept)", w is not MISSING, g is not MISSING)
+        w, g = w if isinstance(w, dict) else {}, g if isinstance(g, dict) else {}
+        if w and g:
+            same(f"saved.devices.{device} (fields)", sorted(w), sorted(g))
         plugin_configs(f"saved.devices.{device}.plugin_configs", w.get("plugin_configs"), g.get("plugin_configs"),
                        "device")
     return diffs
@@ -102,14 +131,15 @@ def main(argv=None) -> int:
     parser.add_argument("names", nargs="*", help="only these fixtures")
     args = parser.parse_args(argv)
     with args.ledger.open("rb") as f:
-        done, builtin = ported_settings(tomllib.load(f))
+        done, builtin, whole = ported_settings(tomllib.load(f))
     binary = shlex.split(args.binary)
     folders = sorted(p for p in args.fixtures.iterdir() if p.is_dir() and (not args.names or p.name in args.names))
     failed = 0
     for folder in folders:
         expected = json.loads((folder / "expected.json").read_text(encoding="utf-8"))
         try:
-            diffs = compare(expected, snapshot(binary, folder), done, builtin, args.all)
+            diffs = compare(expected, snapshot(binary, folder), done, builtin, args.all,
+                            frozenset(original_devices(folder)), frozenset(whole))
         except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
             diffs = [f"config-snapshot failed: {exc}"]
         failed += bool(diffs)

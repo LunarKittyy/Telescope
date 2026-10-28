@@ -52,7 +52,31 @@ def test_config_level_parts_are_always_compared():
     assert compare_config.compare(EXPECTED, changed(["set_aside"], True), set(), builtin)
     assert compare_config.compare(EXPECTED, changed(["saved", "version"], 4), set(), builtin)
     assert compare_config.compare(EXPECTED, changed(["saved", "plugin_configs", "hologram"], {}), set(), builtin)
-    assert compare_config.compare(EXPECTED, changed(["saved", "devices"], {}), set(), builtin)
+    assert compare_config.compare(EXPECTED, changed(["saved", "devices"], {}), set(), builtin, original={"phone-1"})
+
+
+def test_device_entries_count_only_where_config_py_or_a_ported_plugin_decides():
+    builtin = {"setup", "camera_control", "browser_camera"}
+    browser = changed(["saved", "devices", "browser:aaa"], {"plugin_configs": {}})
+    # Browser camera forgetting a browser is its own behaviour, until all of its settings are ported
+    assert compare_config.compare(browser, EXPECTED, set(), builtin, original={"phone-1", "browser:aaa"}) == []
+    assert compare_config.compare(browser, EXPECTED, set(), builtin, original={"phone-1", "browser:aaa"},
+                                  whole={"browser_camera"}) == ["saved.devices.browser:aaa (kept): expected true, got false"]
+    # A 2.x phone that config.py drops
+    kept = changed(["saved", "devices", "Pixel 8"], {})
+    assert compare_config.compare(EXPECTED, kept, set(), builtin, original={"Pixel 8"}) == [
+        "saved.devices.Pixel 8 (kept): expected false, got true"]
+    # An entry the app made itself counts through its ported settings
+    assert compare_config.compare(EXPECTED, changed(["saved", "devices"], {}), set(), builtin) == []
+    assert compare_config.compare(EXPECTED, changed(["saved", "devices"], {}), {("device", "camera_control", "iso")},
+                                  builtin) == ["saved.devices.phone-1.plugin_configs.camera_control.iso: expected 100, got (missing)"]
+
+
+def test_a_ported_entry_must_point_at_something_that_exists():
+    assert inventory.problems_with({"status": "ported", "rust": "rust/parity/inventory.py::check"}) == []
+    assert inventory.problems_with({"status": "verified", "rust": "rust/parity/inventory.py:12"}) == []
+    assert inventory.problems_with({"status": "ported", "rust": "rust/core/src/session.rs"}) == [
+        "rust = 'rust/core/src/session.rs' doesn't exist (moved?)"]
 
 
 def test_a_missing_key_is_a_difference():
@@ -65,18 +89,18 @@ ITEMS = [Item("text", "Start", "connection"), Item("text", "ctx|Stop", "connecti
 
 
 def test_update_adds_new_items_and_keeps_what_people_wrote(tmp_path):
-    ledger = {"text": {"Start": {"status": "ported", "rust": "link"}, "Gone": {"status": "todo"},
+    ledger = {"text": {"Start": {"status": "ported", "rust": "rust/parity"}, "Gone": {"status": "todo"},
                        "Renamed": {"status": "dropped", "reason": "merged"}}}
     added, removed, kept = inventory.update(ITEMS, ledger)
     assert (added, removed, kept) == (2, 1, ["text:Renamed"])
-    assert ledger["text"]["Start"] == {"status": "ported", "rust": "link"}
+    assert ledger["text"]["Start"] == {"status": "ported", "rust": "rust/parity"}
     assert ledger["text"]["ctx|Stop"] == {"status": "todo"}
 
 
 def test_the_ledger_survives_a_round_trip(tmp_path):
     path = tmp_path / "ledger.toml"
     ledger = {"unknown": {"tray-theme": {"status": "todo", "note": 'says "dark"'}},
-              "text": {"Start": {"status": "ported", "rust": "link", "note": "a\nb"}, "ctx|Stop": {"status": "todo"}},
+              "text": {"Start": {"status": "ported", "rust": "rust/parity", "note": "a\nb"}, "ctx|Stop": {"status": "todo"}},
               "test": {"test_a.py::test_b": {"status": "dropped", "reason": "Qt only"}}}
     inventory.write_ledger(ledger, ITEMS, path)
     with path.open("rb") as f:
@@ -97,7 +121,7 @@ def test_check_finds_missing_gone_and_bad_entries():
 
 
 def test_report_counts_done_per_area():
-    ledger = {"text": {"Start": {"status": "verified", "rust": "link"}, "ctx|Stop": {"status": "todo"}},
+    ledger = {"text": {"Start": {"status": "verified", "rust": "rust/parity"}, "ctx|Stop": {"status": "todo"}},
               "test": {"test_a.py::test_b": {"status": "dropped", "reason": "x"}}}
     text = inventory.report(ITEMS, ledger)
     assert "connection  1 of 2 texts" in text
