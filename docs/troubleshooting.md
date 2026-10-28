@@ -90,6 +90,9 @@ A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture comes back without you doing anything. Otherwise click **Start streaming**.
 
+**The stream stops on its own after a while with the phone's screen off**
+Android's power saving closed Telescope. Tap **Allow** next to Battery in the phone app's Get set up card if it's still there (that turns battery optimisation off for Telescope). Some phones close apps anyway and on those it helps to leave Telescope on screen and tap **Black screen** next to Preview instead of turning the screen off.
+
 **"Needs pairing again"**
 The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
 

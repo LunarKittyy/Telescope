@@ -58,6 +58,27 @@
             app:iconSize="16dp"
             app:iconPadding="6dp" />
 
+        <!-- Only while streaming (MainActivity.updateStatusText) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnBlackScreen"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minHeight="36dp"
+            android:layout_marginStart="8dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:textSize="13sp"
+            app:cornerRadius="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/black_screen_button"
+            android:contentDescription="@string/black_screen_description"
+            android:visibility="gone"
+            app:icon="@drawable/ic_moon"
+            app:iconSize="16dp"
+            app:iconPadding="6dp" />
+
     </LinearLayout>
 
     <!-- A hairline under the header, like the desktop's top bar -->

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Black screen (BlackScreen): pure black for OLED, with a dim hint that fades so nothing stays lit.
+     Same colours as Browser camera's black screen (desktop/telescope/web/index.html). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:clickable="true"
+    android:focusable="true"
+    android:soundEffectsEnabled="false">
+
+    <LinearLayout
+        android:id="@+id/blackHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/black_screen_hint"
+            android:textColor="#5d6670"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/blackStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="#5d6670"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+</FrameLayout>

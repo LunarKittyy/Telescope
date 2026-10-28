@@ -47,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvPairingHint: TextView
     private lateinit var layoutComputers: LinearLayout
     private lateinit var btnPreview: com.google.android.material.button.MaterialButton
+    private lateinit var btnBlackScreen: MaterialButton
+    private lateinit var blackScreen: BlackScreen
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var btnCopyDiagnostics: MaterialButton
@@ -119,6 +121,7 @@ class MainActivity : AppCompatActivity() {
 
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
         tvStatus          = findViewById(R.id.tvStatus)
+        blackScreen = BlackScreen(this) { tvStatus.text }
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
         btnScanPair                = findViewById(R.id.btnScanPair)
@@ -139,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         tvPairingHint              = findViewById(R.id.tvPairingHint)
         layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
+        btnBlackScreen             = findViewById(R.id.btnBlackScreen)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
         btnCopyDiagnostics         = findViewById(R.id.btnCopyDiagnostics)
@@ -161,6 +165,7 @@ class MainActivity : AppCompatActivity() {
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
+        btnBlackScreen.setOnClickListener { blackScreen.enter() }
         btnScanPair.setOnClickListener {
             val opts = ScanOptions().apply {
                 setPrompt(getString(R.string.scan_prompt))
@@ -261,7 +266,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupPrefs() = getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE)
 
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean =
+        blackScreen.swallow(ev) || super.dispatchTouchEvent(ev)
+
     override fun onStop() {
+        // Coming back (or the power button turning the screen on again) shows the app, not a black screen nobody remembers
+        blackScreen.leave()
         setupPrefs().unregisterOnSharedPreferenceChangeListener(setupPrefsListener)
         uiHandler.removeCallbacks(statusPoller)
         PairedComputers.removeListener(pairingListener)
@@ -828,6 +838,8 @@ class MainActivity : AppCompatActivity() {
         btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
         btnToggle.isEnabled = streaming || (busy && service != null)
         btnToggle.setText(if (busy) R.string.cancel else R.string.stop_streaming)
+        btnBlackScreen.visibility = if (streaming) View.VISIBLE else View.GONE
+        blackScreen.onStreamState(streaming, busy)
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
