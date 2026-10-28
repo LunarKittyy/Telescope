@@ -3,7 +3,10 @@
 //!   telescope-rs                 the window
 //!   telescope-rs pair [--usb]    pair a phone from the terminal (QR code, or the USB offer over adb)
 //!   telescope-rs stream          stream without a window, printing stats each second
-//!   telescope-rs snapshot OUT    render the window offscreen to a PNG, for comparing with the Qt one
+//!   telescope-rs control JSON    send one /v1/control body to a streaming phone and show the state it changed
+//!   telescope-rs snapshot OUT    save the window as a PPM once it has drawn, for comparing with the Qt one
+//!
+//! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
 
 mod cli;
 mod gui;
@@ -30,10 +33,13 @@ fn main() {
         width: value(&mut words, "--width").and_then(|s| s.parse().ok()).unwrap_or(1920),
         height: value(&mut words, "--height").and_then(|s| s.parse().ok()).unwrap_or(1080),
         fps: value(&mut words, "--fps").and_then(|s| s.parse().ok()).unwrap_or(30),
+        autostart: flag(&mut words, "--autostart"),
+        quit_after: value(&mut words, "--quit-after").and_then(|s| s.parse().ok()),
     };
     let result = match words.first().map(String::as_str) {
         Some("pair") => cli::pair(&args),
         Some("stream") => cli::stream(&args),
+        Some("control") => cli::control(&args, words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => gui::run(args, Some(words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into()))),
         Some(other) => Err(format!("Unknown command {other}")),
         None => gui::run(args, None),

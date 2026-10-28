@@ -174,7 +174,10 @@ export component SectionHeading inherits HorizontalLayout {
     height: 25px;
     padding-top: 4px;
     spacing: 14px;
-    Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; y: (parent.height - self.height) / 2; }
+    Rectangle {
+        width: 13px;
+        Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; }
+    }
     Text {
         text: root.text;
         font-family: Theme.font;
@@ -250,6 +253,7 @@ export component Segmented inherits Rectangle {
                 : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
             accessible-role: tab;
             accessible-label: label + ": " + item;
+            accessible-checkable: true;
             accessible-checked: on;
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
@@ -296,7 +300,7 @@ export component Slider inherits HorizontalLayout {
         property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
         accessible-role: slider;
         accessible-label: label;
-        accessible-value: readout;
+        accessible-value: value;
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
@@ -370,6 +374,7 @@ export component Switch inherits Rectangle {
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
     accessible-role: switch;
     accessible-label: label;
+    accessible-checkable: true;
     accessible-checked: checked;
     accessible-action-default => { checked = !checked; toggled(checked); }
     forward-focus: focus;

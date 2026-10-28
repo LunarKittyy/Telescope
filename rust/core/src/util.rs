@@ -76,3 +76,11 @@ mod tests {
         assert_eq!(clean_name("  <b>Pixel\n8</b> "), "bPixel 8/b");
     }
 }
+
+/// CLOCK_MONOTONIC in nanoseconds, the clock Python's time.monotonic() reads, for timing across processes.
+pub fn monotonic_ns() -> u64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    // SAFETY: ts is a valid out-pointer
+    unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
+    ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
+}

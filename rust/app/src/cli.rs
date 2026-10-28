@@ -19,6 +19,8 @@ pub struct Args {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    pub autostart: bool,
+    pub quit_after: Option<u64>,
 }
 
 pub fn pair(args: &Args) -> Result<(), String> {
@@ -85,6 +87,21 @@ pub fn stream(args: &Args) -> Result<(), String> {
     }
     streaming.stop();
     let _ = route.stop();
+    route.release();
+    Ok(())
+}
+
+/// Sends one /v1/control body to the streaming phone and prints what /v1/state says afterwards for its action.
+pub fn control(args: &Args, body: &str) -> Result<(), String> {
+    let cfg = Config::load();
+    let route = route_for(&cfg, &args.route)?;
+    let body: serde_json::Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
+    let action = body.get("action").and_then(|a| a.as_str()).unwrap_or("").to_string();
+    let before = route.state().map_err(|e| e.to_string())?;
+    route.control(&body).map_err(|e| e.to_string())?;
+    std::thread::sleep(Duration::from_millis(700));
+    let after = route.state().map_err(|e| e.to_string())?;
+    println!("{action}: {} -> {}", before.get(&action).unwrap_or(&serde_json::Value::Null), after.get(&action).unwrap_or(&serde_json::Value::Null));
     route.release();
     Ok(())
 }

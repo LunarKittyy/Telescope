@@ -51,22 +51,17 @@ class Phone:
     def __init__(self, units: list, fps: float, token: str, version: str):
         self.units, self.fps, self.token, self.version = units, fps, token, version
         self.streaming = False
-        self.state = {
-            "cameras": [{"id": "0", "label": "Back ~24mm OIS", "facing": "back", "focalMm": 24, "hasOis": True,
-                         "isoMin": 50, "isoMax": 6400, "shutterMinNs": 100000, "shutterMaxNs": 500000000,
-                         "supportsManualSensor": True, "supportsManualWB": True, "supportsManualFocus": True,
-                         "supportsFocusPoint": True, "supportsMeterPoint": True, "minFocusDistance": 10.0,
-                         "aeCompMin": -8, "aeCompMax": 8, "aeCompStep": 0.167, "supportsFlash": True,
-                         "supportedSizes": [{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}],
-                         "h264Sizes": [{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}],
-                         "zoomRatioMax": 1.0, "cropZoomMax": 4.0, "freeformCrop": True, "maxFps": 30},
-                        {"id": "1", "label": "Front ~26mm", "facing": "front", "focalMm": 26,
-                         "isoMin": 50, "isoMax": 3200, "supportedSizes": [{"width": 1920, "height": 1080}], "maxFps": 30}],
-            "auto": True, "ois": True, "focus_mode": "continuous", "nr_mode": 1, "edge_mode": 1, "ae_comp": 0,
-            "torch": False, "jpeg_quality": 85, "phone_fps": 30, "camera_fps": 30.0, "codecs": ["mjpeg", "h264"],
-            "codec": "h264", "bitrate": 8000000, "stream_width": 1920, "stream_height": 1080, "battery": 80,
-            "charging": True, "battery_temp_c": 31.0, "sensors": [],
-        }
+        # The protocol's own full example (docs/state.json), streaming H.264 at 1080p30
+        self.state = json.loads((Path(__file__).resolve().parents[2] / "docs" / "state.json").read_text())
+        # Fields that report trouble (a failed codec, heat, a taken camera, notes) stay out, as on a phone with none
+        for key in [k for k in self.state if k.startswith(("codec_error", "camera_error", "heat_", "notes", "dynamic_fps"))]:
+            del self.state[key]
+        for key in ("codec_unsupported", "camera_taken", "camera_off", "low_light"):
+            self.state[key] = False
+        self.state.update({"auto": True, "wb_manual": False, "iso": None, "shutter_ns": None, "focus_mode": "continuous",
+                           "jpeg_quality": 85, "battery_temp_c": 31.0, "charging": True})
+        self.state.update({"codec": "h264", "codecs": ["mjpeg", "h264"], "stream_width": 1920, "stream_height": 1080,
+                           "phone_fps": int(fps), "camera_fps": float(fps), "bitrate": 8000000})
 
 
 def handler_for(phone: Phone):

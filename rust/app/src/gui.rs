@@ -317,10 +317,32 @@ pub fn run(args: Args, snapshot: Option<String>) -> Result<(), String> {
         }
     });
 
-    if let Some(out) = snapshot {
-        crate::snapshot::prepare(&ui);
+    // TELESCOPE_T0 (a launcher's CLOCK_MONOTONIC in ns): print how long the first frame took to reach the screen
+    if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
+        let mut done = false;
+        let _ = ui.window().set_rendering_notifier(move |state, _| {
+            if !done && matches!(state, slint::RenderingState::AfterRendering) {
+                done = true;
+                println!("first-paint-ms {:.1}", (telescope_core::util::monotonic_ns() - t0) as f64 / 1e6);
+            }
+        });
+    }
+    if args.autostart {
         let weak = ui.as_weak();
-        slint::Timer::single_shot(Duration::from_millis(1500), move || {
+        slint::Timer::single_shot(Duration::from_millis(100), move || weak.unwrap().invoke_start_stop());
+    }
+    if let Some(secs) = args.quit_after {
+        slint::Timer::single_shot(Duration::from_secs(secs), || {
+            let _ = slint::quit_event_loop();
+        });
+    }
+    if let Some(out) = snapshot {
+        if !args.autostart {
+            crate::snapshot::prepare(&ui);
+        }
+        let weak = ui.as_weak();
+        let delay = if args.autostart { 8000 } else { 1500 };
+        slint::Timer::single_shot(Duration::from_millis(delay), move || {
             let ui = weak.unwrap();
             crate::snapshot::save(&ui, &out);
             let _ = slint::quit_event_loop();
