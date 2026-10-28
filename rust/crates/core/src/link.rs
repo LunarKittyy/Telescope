@@ -258,4 +258,6 @@ pub trait PhoneSensors: Send + Sync {
     fn follow(&self, source_id: Option<&str>, stream_base: Option<&str>, phone: Option<&PairedPhone>, state: Option<&Value>);
     fn diagnostics(&self) -> Value;
     fn shutdown(&self);
+    /// Called with a source id, from any thread, when its readings or status change (sensors_changed on the bus).
+    fn set_on_change(&self, _on_change: Box<dyn Fn(&str) + Send + Sync>) {}
 }
