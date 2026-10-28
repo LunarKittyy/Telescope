@@ -1,6 +1,7 @@
 // On and off: the switch, and the icon tile that holds one (widgets/controls.py).
 
 import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
 
 // common.Switch: a 36x20 track at the row's end.
@@ -22,6 +23,7 @@ export component Switch inherits Rectangle {
     accessible-action-default => { checked = !checked; toggled(checked); }
     forward-focus: focus;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             if (e.text == " ") { checked = !checked; toggled(checked); return accept; }

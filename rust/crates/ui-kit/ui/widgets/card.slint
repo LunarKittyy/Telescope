@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Icon, FocusRing, Button } from "basics.slint";
-import { Folds, FoldText } from "folds.slint";
+import { Folds, FoldText, Reveal } from "folds.slint";
 import { TipBody } from "tip.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
@@ -28,6 +28,7 @@ component FoldTitle inherits Rectangle {
     accessible-action-default => { if (foldable) { Folds.toggle(key); } }
     forward-focus: focus;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: foldable;
         key-pressed(e) => {
             if (e.text == " " || e.text == "\n") {

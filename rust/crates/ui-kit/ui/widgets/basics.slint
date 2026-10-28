@@ -1,6 +1,7 @@
 // Icons, the focus ring and buttons from desktop/telescope/widgets/common.py, sized in the same design pixels.
 
 import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
 import { TipBody } from "tip.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
@@ -57,6 +58,7 @@ export component Button inherits Rectangle {
     accessible-action-default => { clicked(); }
     forward-focus: focus;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
             if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
             reject
@@ -107,6 +109,7 @@ export component IconButton inherits Rectangle {
     accessible-label: label;
     forward-focus: focus;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
             if (e.text == " " || e.text == "\n") { clicked(); return accept; }
             reject

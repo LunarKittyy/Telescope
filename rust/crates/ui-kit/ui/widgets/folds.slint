@@ -12,3 +12,9 @@ export global FoldText {
     in property <string> collapsed: @tr("Collapsed. Press Space or Enter to expand.");
     in property <string> expanded: @tr("Expanded. Press Space or Enter to collapse.");
 }
+
+// A control that just got keyboard focus says where it is, so whatever scrolls it (a column, a settings page) can
+// bring it into view like QScrollArea.ensureWidgetVisible. Window coordinates.
+export global Reveal {
+    callback show(length, length, length, length);
+}
