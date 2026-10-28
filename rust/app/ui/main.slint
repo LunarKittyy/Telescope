@@ -1,0 +1,561 @@
+// The prototype's window: the header from app.py, the preview, and the Camera card (plugins/camera_control.py).
+
+import { Theme } from "theme.slint";
+import { Icon, Button, IconButton, Card, SectionHeading, FormRow, Segmented, Slider, SwitchTile, ChoiceField } from "widgets.slint";
+
+export struct Lens {
+    id: string,
+    number: string,
+    unit: string,
+    rest: string,
+}
+
+global Fmt {
+    // One decimal with its sign, like the Qt card's "+0.0 EV"
+    public pure function signed1(v: float) -> string {
+        let tenths = round(abs(v) * 10);
+        (v < -0.05 ? "-" : "+") + floor(tenths / 10) + "." + mod(tenths, 10)
+    }
+
+    public pure function shutter(ns: float) -> string {
+        ns >= 500000000 ? round(ns / 100000000) / 10 + " s" : "1/" + round(1000000000 / ns)
+    }
+}
+
+component LensTile inherits Rectangle {
+    in property <Lens> lens;
+    in property <bool> on;
+    in property <color> hue;
+    callback clicked;
+    height: 54px;
+    horizontal-stretch: 1;
+    border-radius: 7px;
+    border-width: 1px;
+    background: on ? hue.with-alpha(0.12) : touch.has-hover ? #2c333e : Theme.surface-raise;
+    border-color: on ? hue : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    accessible-role: button;
+    accessible-label: lens.number + lens.unit + " " + lens.rest;
+    accessible-checked: on;
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: lens.number;
+                font-family: Theme.font;
+                font-size: 16.25px; // 1.25 of the body size
+                font-weight: 600;
+                color: on ? hue : Theme.text;
+            }
+            Text {
+                text: lens.unit;
+                font-family: Theme.font;
+                font-size: 11px;
+                font-weight: 500;
+                color: on ? hue : Theme.text;
+                vertical-alignment: bottom;
+                height: 18px;
+            }
+        }
+        if lens.rest != "": Text {
+            text: lens.rest;
+            font-family: Theme.font;
+            font-size: 11px;
+            color: on ? hue : Theme.text-faint;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component CameraCard inherits Card {
+    in property <bool> active;
+    in property <[Lens]> lenses;
+    in-out property <int> current-lens;
+    in-out property <int> exposure-mode;
+    in-out property <float> iso-pos: 0.3;
+    in-out property <float> shutter-pos: 0.4;
+    in-out property <float> ae-comp;
+    in property <int> ae-min: -8;
+    in property <int> ae-max: 8;
+    in property <float> ae-step: 0.167;
+    in-out property <int> wb-mode;
+    in-out property <int> focus-mode;
+    in-out property <float> focus-pos;
+    in property <bool> point-focus;
+    in-out property <bool> ois: true;
+    in-out property <bool> black-level-lock;
+    in-out property <bool> torch;
+    in-out property <int> noise-reduction: 1;
+    in-out property <int> sharpening: 1;
+
+    callback lens-picked(string);
+    callback control(string, float);
+    callback manual-exposure(float, float);
+
+    property <float> iso: 50 * pow(6400 / 50, iso-pos);
+    property <float> shutter-ns: 100000 * pow(10000, shutter-pos);
+
+    title: "Camera";
+    icon: @image-url("icons/camera.svg");
+    hue: Theme.hue-camera;
+    opacity: active ? 1 : 0.4;
+
+    if lenses.length == 0: Text {
+        text: "Start streaming to load lenses";
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        height: 16px;
+        vertical-alignment: center;
+    }
+    if lenses.length > 0: HorizontalLayout {
+        spacing: 6px;
+        for lens[i] in lenses: LensTile {
+            lens: lens;
+            hue: root.hue;
+            on: i == current-lens;
+            clicked => {
+                current-lens = i;
+                lens-picked(lens.id);
+            }
+        }
+    }
+
+    SectionHeading { text: "Light"; icon: @image-url("icons/sun.svg"); }
+    FormRow {
+        label: "Exposure";
+        Segmented {
+            label: "Exposure";
+            items: ["Auto", "Manual"];
+            disabled: [false, false];
+            current <=> exposure-mode;
+            picked(i) => {
+                if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
+            }
+        }
+    }
+    if exposure-mode == 1: FormRow {
+        label: "ISO";
+        Slider {
+            label: "ISO";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> iso-pos;
+            readout: "ISO " + round(iso);
+            released => { manual-exposure(iso, shutter-ns); }
+        }
+    }
+    if exposure-mode == 1: FormRow {
+        label: "Shutter";
+        Slider {
+            label: "Shutter";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> shutter-pos;
+            readout: Fmt.shutter(shutter-ns);
+            released => { manual-exposure(iso, shutter-ns); }
+        }
+    }
+    FormRow {
+        label: "Brightness";
+        Slider {
+            label: "Brightness";
+            hue: root.hue;
+            minimum: ae-min;
+            maximum: ae-max;
+            step: 1;
+            value <=> ae-comp;
+            readout: Fmt.signed1(ae-comp * ae-step) + " EV";
+            released(v) => { control("ae_comp", v); }
+        }
+    }
+    FormRow {
+        label: "White balance";
+        Segmented {
+            label: "White balance";
+            items: ["Auto", "Manual"];
+            disabled: [false, true];
+            current <=> wb-mode;
+            picked(i) => { control("wb_auto", 0); }
+        }
+    }
+
+    SectionHeading { text: "Focus"; icon: @image-url("icons/focus.svg"); }
+    FormRow {
+        label: "Focus";
+        Segmented {
+            label: "Focus";
+            items: ["Auto", "Tap a point", "Manual"];
+            disabled: [false, !point-focus, false];
+            current <=> focus-mode;
+            picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
+        }
+    }
+    if focus-mode == 2: FormRow {
+        label: "Distance";
+        Slider {
+            label: "Distance";
+            hue: root.hue;
+            minimum: 0;
+            maximum: 1;
+            step: 0.01;
+            value <=> focus-pos;
+            readout: focus-pos < 0.005 ? "∞" : round(100 / (focus-pos * 10)) + " cm";
+            released(v) => { control("focus_distance", v * 10); }
+        }
+    }
+
+    SectionHeading { text: "Image"; icon: @image-url("icons/image.svg"); }
+    GridLayout {
+        spacing: 8px;
+        Row {
+            SwitchTile {
+                icon: @image-url("icons/stabilize.svg");
+                text: "Stabilization";
+                hue: root.hue;
+                checked <=> ois;
+                toggled(on) => { control("ois", on ? 1 : 0); }
+            }
+            SwitchTile {
+                icon: @image-url("icons/lock.svg");
+                text: "Black level lock";
+                hue: root.hue;
+                checked <=> black-level-lock;
+                toggled(on) => { control("black_level_lock", on ? 1 : 0); }
+            }
+        }
+        Row {
+            SwitchTile {
+                col: 0;
+                icon: @image-url("icons/torch.svg");
+                text: "Torch";
+                hue: root.hue;
+                checked <=> torch;
+                toggled(on) => { control("torch", on ? 1 : 0); }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        ChoiceField {
+            caption: "Noise reduction";
+            items: ["Off", "Fast", "High quality"];
+            current <=> noise-reduction;
+            picked(i) => { control("nr_mode", i); }
+        }
+        ChoiceField {
+            caption: "Sharpening";
+            items: ["Off", "Fast", "High quality"];
+            current <=> sharpening;
+            picked(i) => { control("edge_mode", i); }
+        }
+    }
+}
+
+// The phone picker in the header (connection.py's phone_picker combo plus its Your phones button).
+component PhonePicker inherits Rectangle {
+    in property <[string]> phones;
+    in-out property <int> current;
+    callback picked(int);
+    callback add-phone;
+    width: max(186px, lay.preferred-width);
+    height: 34px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    background: Theme.surface-raise;
+    accessible-role: combobox;
+    accessible-label: "Phone";
+    accessible-value: phones.length > 0 ? phones[current] : "No phone yet";
+    touch := TouchArea { mouse-cursor: pointer; clicked => { popup.show(); } }
+    Icon {
+        source: @image-url("icons/phone.svg");
+        tint: #8cc4f2; // PLUGIN_HUES["streaming"]
+        x: 11px;
+        width: 14px;
+        height: 14px;
+    }
+    lay := HorizontalLayout {
+        padding-left: 32px;
+        padding-right: 26px;
+        Text {
+            text: phones.length > 0 ? phones[current] : "No phone yet";
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: phones.length > 0 ? Theme.text : Theme.text-faint;
+            vertical-alignment: center;
+        }
+    }
+    Icon {
+        source: @image-url("icons/chevron.svg");
+        tint: Theme.text-dim;
+        x: parent.width - 20px;
+        width: 11px;
+        height: 11px;
+    }
+    popup := PopupWindow {
+        y: root.height + 4px;
+        width: root.width;
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-hover;
+            border-radius: 7px;
+            VerticalLayout {
+                padding: 4px;
+                for phone[i] in phones: Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: i == current ? Theme.fill : phone-touch.has-hover ? Theme.surface-hover : transparent;
+                    phone-touch := TouchArea { clicked => { current = i; picked(i); } }
+                    Text {
+                        x: 8px;
+                        text: phone;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: i == current ? white : Theme.text;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle {
+                    height: 26px;
+                    border-radius: 5px;
+                    background: add-touch.has-hover ? Theme.surface-hover : transparent;
+                    add-touch := TouchArea { clicked => { add-phone(); } }
+                    Text {
+                        x: 8px;
+                        text: "Add phone…";
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: Theme.accent-soft;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    in property <[string]> phones;
+    in-out property <int> current-phone;
+    in property <bool> streaming;
+    in property <bool> starting;
+    in property <string> status: "Not streaming";
+    in property <string> stats;
+    in property <image> preview;
+    in property <bool> has-preview;
+    in property <image> pairing-qr;
+    in property <string> pairing-note;
+    in-out property <bool> pairing-open;
+    in property <bool> camera-active;
+    in property <[Lens]> lenses;
+    in-out property <int> current-lens;
+    in-out property <int> exposure-mode;
+    in-out property <float> ae-comp;
+    in property <int> ae-min: -8;
+    in property <int> ae-max: 8;
+    in property <float> ae-step: 0.167;
+    in-out property <int> focus-mode;
+    in property <bool> point-focus;
+    in-out property <bool> ois: true;
+    in-out property <bool> black-level-lock;
+    in-out property <bool> torch;
+    in-out property <int> noise-reduction: 1;
+    in-out property <int> sharpening: 1;
+    out property <length> preview-width: preview-box.width;
+    out property <length> preview-height: preview-box.height;
+
+    callback start-stop;
+    callback phone-picked(int);
+    callback add-phone;
+    callback pair-usb;
+    callback close-pairing;
+    callback lens-picked(string);
+    callback control(string, float);
+    callback manual-exposure(float, float);
+
+    title: "Telescope (Rust prototype)";
+    icon: @image-url("icons/camera.svg");
+    preferred-width: 1300px;
+    preferred-height: 780px;
+    min-width: 900px;
+    min-height: 600px;
+    background: Theme.bg;
+    default-font-family: Theme.font;
+    default-font-size: Theme.body;
+
+    VerticalLayout {
+        // app.py _build_header
+        Rectangle {
+            height: 60px;
+            background: Theme.chrome;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 12px;
+                HorizontalLayout {
+                    spacing: 14px;
+                    alignment: start;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        PhonePicker {
+                            y: (parent.height - self.height) / 2;
+                            phones: phones;
+                            current <=> current-phone;
+                            picked(i) => { phone-picked(i); }
+                            add-phone => { add-phone(); }
+                        }
+                        IconButton {
+                            y: (parent.height - self.height) / 2;
+                            icon: @image-url("icons/v_devices.svg");
+                            label: "Your phones";
+                            clicked => { add-phone(); }
+                        }
+                    }
+                    Button {
+                        y: (parent.height - self.height) / 2;
+                        text: "Presets";
+                        gap: 4px;
+                        padding-x: 15px;
+                        has-icon: true;
+                        icon: @image-url("icons/bookmark.svg");
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                HorizontalLayout {
+                    spacing: 12px;
+                    IconButton {
+                        y: (parent.height - self.height) / 2;
+                        width: 36px;
+                        height: 36px;
+                        icon-size: 19px;
+                        icon: @image-url("icons/v_gear.svg");
+                        label: "Settings";
+                    }
+                    Button {
+                        y: (parent.height - self.height) / 2;
+                        height: 40px;
+                        role: "primary";
+                        padding-x: 23.5px;
+                        gap: 4px;
+                        font-size: Theme.start;
+                        font-weight: 700;
+                        has-icon: true;
+                        icon: streaming ? @image-url("icons/v_stop.svg") : @image-url("icons/v_play.svg");
+                        icon-tint: white;
+                        border-radius: 8px;
+                        text: starting ? "Starting…" : streaming ? "Stop streaming" : "Start streaming";
+                        enabled: !starting && phones.length > 0;
+                        clicked => { start-stop(); }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 20px;
+            // The preview, letterboxed like the Qt one
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 8px;
+                preview-box := Rectangle {
+                    vertical-stretch: 1;
+                    background: Theme.surface-sunk;
+                    border-radius: 14px;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    clip: true;
+                    if has-preview: Image {
+                        source: preview;
+                        width: parent.width;
+                        height: parent.height;
+                        image-fit: contain;
+                    }
+                    if !has-preview: Text {
+                        text: phones.length == 0 ? "Pair a phone to start" : "The preview shows here while you stream";
+                        color: Theme.text-faint;
+                        font-family: Theme.font;
+                    }
+                }
+                HorizontalLayout {
+                    height: 20px;
+                    spacing: 12px;
+                    Text { text: status; color: streaming ? Theme.ok : Theme.text-dim; font-family: Theme.font; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text { text: stats; color: Theme.text-faint; font-family: Theme.font; vertical-alignment: center; }
+                }
+            }
+            // The cards' column
+            VerticalLayout {
+                width: 406px;
+                alignment: start;
+                CameraCard {
+                    active: camera-active;
+                    lenses: lenses;
+                    current-lens <=> current-lens;
+                    exposure-mode <=> exposure-mode;
+                    ae-comp <=> ae-comp;
+                    ae-min: ae-min;
+                    ae-max: ae-max;
+                    ae-step: ae-step;
+                    focus-mode <=> focus-mode;
+                    point-focus: point-focus;
+                    ois <=> ois;
+                    black-level-lock <=> black-level-lock;
+                    torch <=> torch;
+                    noise-reduction <=> noise-reduction;
+                    sharpening <=> sharpening;
+                    lens-picked(id) => { lens-picked(id); }
+                    control(a, v) => { control(a, v); }
+                    manual-exposure(i, s) => { manual-exposure(i, s); }
+                }
+            }
+        }
+    }
+
+    // Add phone: the QR code to scan, or the offer over USB
+    if pairing-open: Rectangle {
+        background: #000000a0;
+        TouchArea { }
+        Rectangle {
+            width: 380px;
+            height: 470px;
+            background: Theme.surface;
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding: 20px;
+                spacing: 12px;
+                Text { text: "Add phone"; font-size: 18.667px; font-weight: 600; color: Theme.text; font-family: Theme.font; }
+                Text { text: "Scan this with the Telescope app, or plug the phone in and pair over USB."; wrap: word-wrap; color: Theme.text-dim; font-family: Theme.font; }
+                Rectangle {
+                    height: 260px;
+                    background: white;
+                    border-radius: 8px;
+                    Image { source: pairing-qr; width: 240px; height: 240px; image-rendering: pixelated; }
+                }
+                Text { text: pairing-note; color: Theme.text-dim; font-family: Theme.font; wrap: word-wrap; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Button { text: "Pair over USB"; role: "primary"; horizontal-stretch: 1; clicked => { pair-usb(); } }
+                    Button { text: "Close"; horizontal-stretch: 1; clicked => { close-pairing(); } }
+                }
+            }
+        }
+    }
+}
