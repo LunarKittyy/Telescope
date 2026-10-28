@@ -207,7 +207,6 @@
     "[\"\", \"Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset.\"]",
     "[\"\", \"Click a point on the picture. Esc cancels.\"]",
     "[\"\", \"Click a stream in the picture to change it.\"]",
-    "[\"\", \"Click the phone to pair over USB.\"]",
     "[\"\", \"Click the preview to focus there\"]",
     "[\"\", \"Click the screen behind you on the preview. Esc cancels.\"]",
     "[\"\", \"Click to add a point and drag it. Double-click a point to remove it, or the curve to reset.\"]",
@@ -754,7 +753,7 @@
     "[\"\", \"Paired with {name}\"]",
     "[\"\", \"Paired.\"]",
     "[\"\", \"Pairing phones, picking one and connecting to it over Wi-Fi or USB.\"]",
-    "[\"\", \"Pairing {phone}. Keep Telescope open on it…\"]",
+    "[\"\", \"Pairing {phone}. Keep Telescope open on it until it's done.\"]",
     "[\"\", \"Pan left/right\"]",
     "[\"\", \"Pan up/down\"]",
     "[\"\", \"Pan\"]",
@@ -788,6 +787,7 @@
     "[\"\", \"Pick a .cube LUT to put on top of the grade\"]",
     "[\"\", \"Pick a control and the key for it\"]",
     "[\"\", \"Pick a control, what the key does to it, then press the key.\"]",
+    "[\"\", \"Pick a phone below to pair it over USB.\"]",
     "[\"\", \"Pick a plugin's .zip file. You can also drop one onto this window.\"]",
     "[\"\", \"Pick an adb.exe or platform-tools zip you already have\"]",
     "[\"\", \"Pick the colour that goes behind you\"]",
@@ -32268,10 +32268,10 @@
       "[\"\", \"Add a phone\"]",
       "[\"\", \"Add phone\"]",
       "[\"\", \"Cancel\"]",
-      "[\"\", \"Click the phone to pair over USB.\"]",
       "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
-      "[\"\", \"Pair {phone}\"]"
+      "[\"\", \"Pair {phone}\"]",
+      "[\"\", \"Pick a phone below to pair it over USB.\"]"
     ],
     "dialog-add-phone-usb-pairing": [
       "[\"\", \"Add a phone\"]",
@@ -32280,7 +32280,7 @@
       "[\"\", \"On the phone, tap Scan pairing code and point it at this code.\"]",
       "[\"\", \"Open Telescope on the phone first.\"]",
       "[\"\", \"Pair {phone}\"]",
-      "[\"\", \"Pairing {phone}. Keep Telescope open on it…\"]"
+      "[\"\", \"Pairing {phone}. Keep Telescope open on it until it's done.\"]"
     ],
     "dialog-add-phone-usb-unplugged": [
       "[\"\", \"Add a phone\"]",

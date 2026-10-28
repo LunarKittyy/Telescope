@@ -332,10 +332,10 @@ class AddPhoneDialog(PlacedDialog):
                 self._set_usb(tr("Or plug the phone in with a USB cable to pair it over USB."), "status_dim")
             return
         if self._chosen is None:
-            self._set_usb(tr("Click the phone to pair over USB."), "status_dim")
+            self._set_usb(tr("Pick a phone below to pair it over USB."), "status_dim")
             return
         name = dict(usable)[self._chosen]
-        self._set_usb(tr("Pairing {phone}. Keep Telescope open on it…", phone=name), "status_dim")
+        self._set_usb(tr("Pairing {phone}. Keep Telescope open on it until it's done.", phone=name), "status_dim")
         self._send_offer(self._chosen)
 
     def _show_picks(self, usable: list):

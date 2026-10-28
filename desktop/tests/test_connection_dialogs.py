@@ -135,7 +135,7 @@ def test_a_plugged_in_phone_waits_to_be_picked(qapp, adb, lan):
     adb["devices"] = [("serial-1", "device", "Pixel 7")]
     dialog = _open(qapp)
     try:
-        assert "Click the phone" in dialog._usb_lbl.text()
+        assert "Pick a phone below" in dialog._usb_lbl.text()
         assert [b.text() for b in _picks(dialog)] == ["Pair Pixel 7"]
         assert _broadcasts(adb) == []
     finally:

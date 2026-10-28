@@ -2286,12 +2286,12 @@ msgid "Phone plugged in. Allow USB debugging in the prompt on the phone."
 msgstr ""
 
 #: telescope/plugins/connection.py:335
-msgid "Click the phone to pair over USB."
+msgid "Pick a phone below to pair it over USB."
 msgstr ""
 
 #: telescope/plugins/connection.py:338
 #, python-brace-format
-msgid "Pairing {phone}. Keep Telescope open on it…"
+msgid "Pairing {phone}. Keep Telescope open on it until it's done."
 msgstr ""
 
 #: telescope/plugins/connection.py:351

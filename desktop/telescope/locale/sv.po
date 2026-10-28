@@ -2284,12 +2284,12 @@ msgid "Phone plugged in. Allow USB debugging in the prompt on the phone."
 msgstr "Telefonen är ansluten. Tillåt USB-felsökning i rutan på telefonen."
 
 #: telescope/plugins/connection.py:335
-msgid "Click the phone to pair over USB."
+msgid "Pick a phone below to pair it over USB."
 msgstr ""
 
 #: telescope/plugins/connection.py:338
 #, python-brace-format
-msgid "Pairing {phone}. Keep Telescope open on it…"
+msgid "Pairing {phone}. Keep Telescope open on it until it's done."
 msgstr ""
 
 #: telescope/plugins/connection.py:351
@@ -7814,9 +7814,3 @@ msgstr "MediaPipe kunde inte laddas på den här datorn. Detaljerna får du med 
 #: telescope/widgets/vision_status.py:59
 msgid "Getting ready…"
 msgstr "Förbereder…"
-
-#~ msgid "Plug the phone in with a USB cable and it pairs by itself."
-#~ msgstr "Anslut telefonen med en USB-kabel så parkopplas den av sig själv."
-
-#~ msgid "Phone plugged in. Keep Telescope open on it; pairing…"
-#~ msgstr "Telefonen är ansluten. Håll Telescope-appen öppen på den; parkopplar…"

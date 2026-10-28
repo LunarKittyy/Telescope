@@ -2285,12 +2285,12 @@ msgid "Phone plugged in. Allow USB debugging in the prompt on the phone."
 msgstr "Teléfono conectado. Permite la Depuración por USB en el aviso del teléfono."
 
 #: telescope/plugins/connection.py:335
-msgid "Click the phone to pair over USB."
+msgid "Pick a phone below to pair it over USB."
 msgstr ""
 
 #: telescope/plugins/connection.py:338
 #, python-brace-format
-msgid "Pairing {phone}. Keep Telescope open on it…"
+msgid "Pairing {phone}. Keep Telescope open on it until it's done."
 msgstr ""
 
 #: telescope/plugins/connection.py:351
@@ -7815,9 +7815,3 @@ msgstr "MediaPipe no se cargó en esta computadora. Copiar diagnóstico tiene lo
 #: telescope/widgets/vision_status.py:59
 msgid "Getting ready…"
 msgstr "Preparando…"
-
-#~ msgid "Plug the phone in with a USB cable and it pairs by itself."
-#~ msgstr "Conecta el teléfono con un cable USB y se vinculará solo."
-
-#~ msgid "Phone plugged in. Keep Telescope open on it; pairing…"
-#~ msgstr "Teléfono conectado. Mantén Telescope abierto en él; vinculando…"
