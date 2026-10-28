@@ -10,7 +10,7 @@ compare_phone.py can line the phases up.
     python phone_session.py OUT.jsonl --desktop "../target/debug/telescope-rs"
     python phone_session.py OUT.jsonl --script controls --show         # with its window on screen
 
-Scripts: basic (start, a few controls, stop), controls (every camera and stream control the phone gets).
+Scripts: basic (start, a few controls, stop), controls (the camera and stream controls a phone on H.264 gets).
 """
 
 import argparse
@@ -48,11 +48,11 @@ SCRIPTS = {
         ("camera.exposure_mode", "op=next"), ("camera.iso", "op=up"), ("camera.shutter", "op=up"),
         ("camera.exposure_mode", "op=next"), ("camera.compensation", "op=down", "amount=1"),
         ("camera.wb_mode", "op=next"), ("camera.temperature", "op=up"), ("camera.tint", "op=up"),
-        ("camera.wb_mode", "op=next"), ("camera.focus_mode", "op=next"), ("camera.focus", "op=up"),
-        ("camera.focus_mode", "op=next"), ("camera.stabilization", "mode=toggle"), ("camera.noise_reduction", "op=next"),
-        ("camera.sharpening", "op=next"), ("camera.black_level_lock", "mode=toggle"), ("camera.low_light", "mode=toggle"),
-        ("camera.torch", "mode=toggle"), ("stream.fps", "op=next"), ("stream.quality", "op=up"),
-        ("stream.bitrate", "op=next"), ("transforms.zoom", "op=up"),
+        ("camera.wb_mode", "op=next"), ("camera.focus_mode", "op=next"), ("camera.focus_mode", "op=next"),
+        ("camera.focus", "op=up"), ("camera.focus_mode", "op=next"), ("camera.stabilization", "mode=toggle"),
+        ("camera.noise_reduction", "op=next"), ("camera.sharpening", "op=next"), ("camera.black_level_lock", "mode=toggle"),
+        ("camera.low_light", "mode=toggle"), ("camera.torch", "mode=toggle"), ("stream.fps", "op=next"),
+        ("stream.bitrate", "op=up"), ("transforms.zoom", "op=up"),
     ) for step in (("action",) + action, ("sleep", 1))] + STOP,
 }
 
