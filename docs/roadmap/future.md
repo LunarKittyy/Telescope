@@ -90,11 +90,3 @@ Only H.264 decoding uses the graphics card now. Everything after it (transforms,
 It only pays off if a frame stays on the card from the decoder to one copy back at the end, which is no more copies than now. The virtual camera on both systems needs the frame in RAM anyway, and so do plugins that read it (people tracking, QR codes, Desk mode's corners), which would force a copy back in the middle. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
 Measure before building anything. Run `scripts/bench_frames.py` with a heavy stack (1080p60 with Colour grading, Privacy blur and two cameras in one picture) on a weak laptop. If that stays well under the 16 ms a frame gets at 60 fps there's nothing to do. If not, move only the biggest cost to the GPU as one step that copies back once and measure that. Big if it goes further than one step.
-
-## Looked at and left
-
-Ideas that came up and got talked through, with why they're not worth it right now.
-
-- **A see-through background in One picture.** Background and Chroma key could hand their mask to One picture and put a cut-out person over another stream. The AI mask only looks fine with the blur or picture behind it hiding its rough edges though and someone with a green screen and several cameras most likely uses OBS for scenes already. Call apps throw away the alpha channel of a webcam, which rules out a transparent picture on the virtual camera itself
-- **Sending the finished picture to another computer.** A stream that an OBS Browser Source or a second Telescope could open would let an old laptop do all the processing, and a Browser Source would even bring transparency into OBS. The desktop's share of the work is small next to an OBS encode. Latency, bandwidth and pairing would make it a lot of trouble for few people. Browser camera's server would be where to start
-- **More than four cameras.** The limit itself is a few constants (`vcam.MAX_SLOTS`, `composite.MAX_TILES` and `kSlots` in the Windows camera DLL). The work is in adding virtual cameras for people who already have four set up (root on Linux, a rebuilt and re-registered camera on Windows) and in laptops that can't keep up once every extra stream gets decoded and run through effects
