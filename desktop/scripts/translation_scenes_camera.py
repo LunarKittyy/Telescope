@@ -1445,12 +1445,39 @@ def phones_browser(stack):
 WEBCAM_KEY = "usb-hd-webcam"
 
 
+class _WebcamSettings:
+    """Every picture setting the Webcam card knows, as a webcam would report them."""
+
+    def __init__(self):
+        from telescope.webcam_controls import Control
+        self.controls = [
+            Control("exposure_auto", "bool", 0, 1, 1, 1, 0), Control("exposure_time", "int", 3, 2047, 1, 250, 166, unit="100us"),
+            Control("gain", "int", 0, 255, 1, 0, 40), Control("brightness", "int", 0, 255, 1, 128, 128),
+            Control("backlight", "int", 0, 1, 1, 0, 0), Control("anti_flicker", "menu", 0, 3, 1, 2, 1, (0, 1, 2, 3)),
+            Control("frame_rate_drop", "bool", 0, 1, 1, 0, 1), Control("white_balance_auto", "bool", 0, 1, 1, 1, 1),
+            Control("white_balance", "int", 2000, 6500, 1, 4000, 4000, inactive=True, unit="kelvin"),
+            Control("saturation", "int", 0, 255, 1, 128, 128), Control("hue", "int", -180, 180, 1, 0, 0),
+            Control("contrast", "int", 0, 255, 1, 128, 128), Control("gamma", "int", 100, 300, 1, 125, 125),
+            Control("sharpness", "int", 0, 255, 1, 128, 128), Control("focus_auto", "bool", 0, 1, 1, 1, 1),
+            Control("focus", "int", 0, 250, 5, 0, 35, inactive=True), Control("zoom", "int", 100, 500, 1, 100, 100, unit="zoom"),
+            Control("pan", "int", -36000, 36000, 3600, 0, 0, unit="arcsec"),
+            Control("tilt", "int", -36000, 36000, 3600, 0, 0, unit="arcsec")]
+
+    def list(self):
+        return list(self.controls)
+
+    def set(self, name, value):
+        return True
+
+
 def webcam_window(stack, streaming=False, state=None):
     """The window with a webcam plugged in and picked; streaming says it streams, state what its stream reported."""
     from telescope.webcams import Device, Mode
     win = ready_window(stack)
     plugin = plugin_of(win, "webcam")
     modes = (Mode("YUYV", 640, 480, (30.0,)), Mode("MJPG", 1280, 720, (30.0, 60.0)), Mode("MJPG", 1920, 1080, (30.0,)))
+    settings = _WebcamSettings()
+    plugin._controls_for = lambda device: settings
     plugin._scan = lambda: [Device(WEBCAM_KEY, "HD Pro Webcam C920", "/dev/video0", modes)]
     plugin.rescan()
     sid = "webcam:" + WEBCAM_KEY

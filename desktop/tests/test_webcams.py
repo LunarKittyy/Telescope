@@ -252,12 +252,12 @@ def test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones
     assert opened.count("video10") == 2  # a loopback's caps change with its writer, so it's asked every time
 
 
-def test_windows_lists_qt_cameras_by_their_media_foundation_index(monkeypatch):
+def test_windows_lists_qt_cameras_at_their_directshow_index(monkeypatch):
     import sys
     from enum import Enum
 
     class QVideoFrameFormat:  # Qt Multimedia itself needs libpulse on Linux, which CI lacks
-        PixelFormat = Enum("PixelFormat", "Format_Jpeg Format_NV12")
+        PixelFormat = Enum("PixelFormat", "Format_Jpeg Format_NV12 Format_YUYV")
 
     def fmt(pixel, w, h, lo, hi):
         return SimpleNamespace(resolution=lambda: SimpleNamespace(width=lambda: w, height=lambda: h),
@@ -266,19 +266,23 @@ def test_windows_lists_qt_cameras_by_their_media_foundation_index(monkeypatch):
     def camera(name, cid, formats):
         return SimpleNamespace(description=lambda: name, id=lambda: cid, videoFormats=lambda: formats)
 
-    jpeg, nv12 = QVideoFrameFormat.PixelFormat.Format_Jpeg, QVideoFrameFormat.PixelFormat.Format_NV12
+    pf = QVideoFrameFormat.PixelFormat
     cameras = [camera("Telescope (Windows Virtual Camera)", b"t", []),
-               camera("Integrated Camera", b"\\\\?\\usb#1", [fmt(nv12, 1280, 720, 30, 30), fmt(jpeg, 1920, 1080, 5, 30)]),
+               camera("Integrated Camera", b"\\\\?\\usb#1", [fmt(pf.Format_NV12, 1920, 1080, 30, 30),
+                                                         fmt(pf.Format_Jpeg, 1920, 1080, 30, 30),
+                                                         fmt(pf.Format_YUYV, 640, 480, 30, 30)]),
                camera("OBS Virtual Camera", b"o", []),
-               camera("Cam Link 4K", b"\\\\?\\usb#2", [fmt(nv12, 1920, 1080, 59.94, 59.94)])]
+               camera("Cam Link 4K", b"\\\\?\\usb#2", [fmt(pf.Format_NV12, 1920, 1080, 59.94, 59.94)]),
+               camera("Phone Link camera", b"\\\\?\\swd#3", [])]  # Media Foundation only: OpenCV can't open it
     monkeypatch.setitem(sys.modules, "PyQt6.QtMultimedia", SimpleNamespace(
         QMediaDevices=SimpleNamespace(videoInputs=lambda: cameras), QVideoFrameFormat=QVideoFrameFormat))
     monkeypatch.setattr(webcams.vcam, "IS_LINUX", False)
-    found = webcams.scan_windows()
-    assert [(d.name, d.location) for d in found] == [("Integrated Camera", 1), ("Cam Link 4K", 3)]
+    # DirectShow's own order, with a virtual camera's filter first and paths in another case
+    found = webcams.scan_windows(paths=["", "\\\\?\\USB#2", "\\\\?\\usb#1"])
+    assert [(d.name, d.location) for d in found] == [("Integrated Camera", 2), ("Cam Link 4K", 1)]
     assert found[0].key == "\\\\?\\usb#1"
-    assert Mode("MJPG", 1920, 1080, (5, 10, 15, 20, 24, 25, 30)) in found[0].modes
-    assert found[1].modes == (Mode("RAW", 1920, 1080, (59.94,)),)
+    assert found[0].modes == (Mode("MJPG", 1920, 1080, (30,)), Mode("YUYV", 640, 480, (30,)))  # no NV12 copy
+    assert found[1].modes == (Mode("NV12", 1920, 1080, (59.94,)),)
     assert choose(found[0].modes, (1920, 1080), 30) == Choice("MJPG", 1920, 1080, 30.0)
 
 
@@ -336,7 +340,14 @@ def test_the_reader_hands_out_the_frame_it_checked_first(monkeypatch):
     ok, frame = reader.read()
     assert ok and frame is FRAME
     assert reader.read()[1] is second
-    assert reader.last_frame_bytes == 1280 * 720 * 2  # what a raw camera sends, not the decoded size
+    assert reader.last_frame_bytes == 0  # MJPEG that came decoded, as DirectShow does: its size isn't known
+
+
+def test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size():
+    raw = np.zeros((480, 640, 3), np.uint8)
+    reader = WebcamReader(lambda: DEV, lambda dev: Choice("YUYV", 640, 480, 30.0), opener=lambda dev, choice: _Capture([raw]))
+    assert reader.open() and reader.read()[0]
+    assert reader.last_frame_bytes == 640 * 480 * 2
 
 
 def test_mjpeg_frames_are_decoded_by_the_streams_decoders(monkeypatch):

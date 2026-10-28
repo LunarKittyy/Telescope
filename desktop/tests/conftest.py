@@ -213,6 +213,7 @@ def _on_air_sign_stays_local(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_real_webcams(monkeypatch):
-    """Webcams plugged into this machine stay out of the tests: the Webcam plugin finds none unless a test gives some."""
+    """Webcams plugged into this machine stay out of the tests: none are found or touched unless a test gives some."""
     import telescope.plugins.webcam as webcam
     monkeypatch.setattr(webcam, "default_scanner", lambda: lambda: [])
+    monkeypatch.setattr(webcam, "default_controls", lambda: lambda device: None)

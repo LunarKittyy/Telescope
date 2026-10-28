@@ -1,8 +1,8 @@
 """Webcams plugged into this computer, for the Webcam plugin: finding them, picking how to capture, and reading frames.
 
-Linux finds them in sysfs and asks each V4L2 node what it is and which formats it has; Windows asks Qt Multimedia,
-which lists them in the same order OpenCV's Media Foundation backend opens them by. Frames come through OpenCV,
-which is already a dependency and has both backends built in. Telescope's own virtual cameras and other loopback
+Linux finds them in sysfs and asks each V4L2 node what it is and which formats it has; Windows asks Qt Multimedia
+and finds each camera's index in OpenCV's DirectShow backend by its device path (webcams_win.py). Frames come through
+OpenCV, which is already a dependency and has both backends built in. Telescope's own virtual cameras and other loopback
 or virtual ones are never listed, so a stream can't feed back into itself. main.py sets the OpenCV options webcams need.
 """
 
@@ -366,8 +366,10 @@ class LinuxScanner:
 _QT_FPS = (5, 10, 15, 20, 24, 25, 30, 50, 60)
 
 
+_QT_FOURCC = {"Format_Jpeg": "MJPG", "Format_YUYV": "YUYV", "Format_UYVY": "UYVY", "Format_NV12": "NV12"}
+
+
 def _qt_modes(camera) -> tuple:
-    from PyQt6.QtMultimedia import QVideoFrameFormat
     modes = set()
     for fmt in camera.videoFormats():
         res = fmt.resolution()
@@ -376,24 +378,32 @@ def _qt_modes(camera) -> tuple:
             fps = (round(hi, 2),) if hi else ()
         else:
             fps = tuple(f for f in _QT_FPS if lo - _FPS_SLACK <= f <= hi + _FPS_SLACK)
-        fourcc = "MJPG" if fmt.pixelFormat() == QVideoFrameFormat.PixelFormat.Format_Jpeg else "RAW"
-        modes.add(Mode(fourcc, res.width(), res.height(), fps))
+        modes.add(Mode(_QT_FOURCC.get(fmt.pixelFormat().name, "RAW"), res.width(), res.height(), fps))
+    # Media Foundation offers an NV12 copy of each MJPEG mode, decoded by itself: not something the camera sends
+    jpeg = {(m.width, m.height, m.fps) for m in modes if m.fourcc == "MJPG"}
+    modes = {m for m in modes if not (m.fourcc == "NV12" and (m.width, m.height, m.fps) in jpeg)}
     return tuple(sorted(modes, key=lambda m: (m.fourcc, m.width, m.height)))
 
 
-def scan_windows() -> list:
-    """GUI thread: the webcams Qt Multimedia lists, each at the index OpenCV's Media Foundation backend opens it by."""
+def scan_windows(paths=None) -> list:
+    """GUI thread: the webcams Qt Multimedia lists, each at the index OpenCV's DirectShow backend opens it by.
+    paths gives the DirectShow device paths in that order (tests pass their own)."""
     try:
         from PyQt6.QtMultimedia import QMediaDevices
     except ImportError:
         logger.warning("Qt Multimedia isn't there, so webcams can't be listed")
         return []
+    from telescope.webcams_win import device_instance, dshow_paths
+    if paths is None:
+        paths = dshow_paths()
+    index_of = {device_instance(p): i for i, p in enumerate(paths) if p}
     found = []
-    for index, camera in enumerate(QMediaDevices.videoInputs()):
+    for camera in QMediaDevices.videoInputs():
         name = camera.description().removesuffix(" (Windows Virtual Camera)")
-        if is_virtual(name):
-            continue
-        key = bytes(camera.id()).decode("utf-8", "replace") or name
+        key = bytes(camera.id()).decode("utf-8", "replace")
+        index = index_of.get(device_instance(key))
+        if is_virtual(name) or index is None:
+            continue  # virtual, or not a DirectShow camera OpenCV can open
         found.append(Device(key, name, index, _qt_modes(camera)))
     return tell_apart(found)
 
@@ -424,6 +434,9 @@ def who_uses(path: str, proc: str = "/proc") -> str:
 
 # ── Reading frames ───────────────────────────────────────────────────────────
 
+_DSHOW_FOURCC = {"YUYV": "YUY2"}
+
+
 def open_capture(device: Device, choice: Choice):
     """An OpenCV capture of device asking for choice. On Linux an MJPEG camera hands over its JPEGs undecoded, so
     the stream's decoders can work on several at once."""
@@ -434,9 +447,11 @@ def open_capture(device: Device, choice: Choice):
         if choice.fourcc != "RAW":
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*choice.fourcc))
     else:
-        cap = cv2.VideoCapture(device.location, cv2.CAP_MSMF)
+        cap = cv2.VideoCapture(device.location, cv2.CAP_DSHOW)
         if not cap.isOpened():
             return cap
+        if choice.fourcc != "RAW":  # before the size, or DirectShow keeps the format it had
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*_DSHOW_FOURCC.get(choice.fourcc, choice.fourcc)))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, choice.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, choice.height)
     if choice.fps:
@@ -463,6 +478,7 @@ class WebcamReader:
         self._cap = None
         self._first = None  # the frame open() read to check the camera sends, handed out first
         self._jpeg = False
+        self._decoded_jpeg = False  # MJPEG that came decoded (DirectShow), whose size on the cable isn't known
         self.last_frame_bytes = 0
         self.last_frame_count = 1
 
@@ -486,6 +502,7 @@ class WebcamReader:
             return False
         self._cap, self._first = cap, frame
         self._jpeg = vcam.IS_LINUX and choice.compressed and frame.ndim == 2 and frame.shape[0] == 1
+        self._decoded_jpeg = choice.compressed and not self._jpeg
         self.parallel_decode = self._jpeg
         self._report("ok", choice.describe())
         return True
@@ -524,7 +541,10 @@ class WebcamReader:
                     self._report("silent")
                 return False, None
         # What crossed the cable: the JPEG, or about two bytes a pixel raw (YUYV), not the decoded picture
-        self.last_frame_bytes = int(frame.nbytes) if self._jpeg else frame.shape[0] * frame.shape[1] * 2
+        if self._jpeg:
+            self.last_frame_bytes = int(frame.nbytes)
+        else:
+            self.last_frame_bytes = 0 if self._decoded_jpeg else frame.shape[0] * frame.shape[1] * 2
         return True, frame
 
     def decode(self, frame):

@@ -118,7 +118,7 @@ msgstr "Mulai"
 msgid "Stop streaming"
 msgstr "Hentikan streaming"
 
-#: telescope/app.py:720 telescope/app.py:1532 telescope/app.py:1597 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/plugins/webcam.py:328 telescope/sources.py:179 telescope/stream.py:473 telescope/stream_flow.py:156
+#: telescope/app.py:720 telescope/app.py:1532 telescope/app.py:1597 telescope/audio.py:688 telescope/plugins/shortcuts.py:165 telescope/plugins/webcam.py:415 telescope/sources.py:179 telescope/stream.py:473 telescope/stream_flow.py:156
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
@@ -861,7 +861,7 @@ msgstr "Plugin"
 msgid "Updates & About"
 msgstr "Pembaruan & Tentang"
 
-#: telescope/plugin.py:36 telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:173 telescope/plugins/camera_control.py:349 telescope/plugins/webcam.py:228
+#: telescope/plugin.py:36 telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:173 telescope/plugins/camera_control.py:349 telescope/plugins/webcam.py:309
 msgid "Camera"
 msgstr "Kamera"
 
@@ -1009,7 +1009,7 @@ msgstr "Itu bukan folder di dalam folder plugin."
 #. framing guides drawn over the preview; "4 × 4" is a grid of four by four boxes
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:21 telescope/plugins/browser_camera.py:302 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:27 telescope/plugins/cinema.py:32 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40 telescope/plugins/fun_pack.py:26 telescope/plugins/photos.py:34 telescope/plugins/photos.py:209
+#: telescope/plugins/background.py:21 telescope/plugins/browser_camera.py:302 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:27 telescope/plugins/cinema.py:32 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40 telescope/plugins/fun_pack.py:26 telescope/plugins/photos.py:34 telescope/plugins/photos.py:209 telescope/plugins/webcam.py:64
 msgid "Off"
 msgstr "Nonaktif"
 
@@ -1156,11 +1156,11 @@ msgstr "Tautan"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Ukuran yang dikirim browser; kamera yang tidak mampu mengirim sebesar itu akan mengirim sebisanya"
 
-#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:190 telescope/plugins/stream_output.py:298 telescope/plugins/webcam.py:234
+#: telescope/plugins/browser_camera.py:266 telescope/plugins/stream_output.py:190 telescope/plugins/stream_output.py:298 telescope/plugins/webcam.py:315
 msgid "Resolution"
 msgstr "Resolusi"
 
-#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:197 telescope/plugins/webcam.py:237
+#: telescope/plugins/browser_camera.py:271 telescope/plugins/stream_output.py:197 telescope/plugins/webcam.py:318
 msgid "Frame rate"
 msgstr "Frame rate"
 
@@ -1294,21 +1294,21 @@ msgstr "Eksposur, white balance, fokus, lensa, dan pengaturan kamera ponsel lain
 msgid "Without it there's no Camera card and the phone uses its own automatic settings."
 msgstr "Tanpanya, kartu Kamera tidak akan ada dan ponsel menggunakan pengaturan otomatisnya sendiri."
 
-#: telescope/plugins/camera_control.py:181
+#: telescope/plugins/camera_control.py:181 telescope/plugins/webcam.py:53
 msgctxt "camera section"
 msgid "Light"
 msgstr "Pencahayaan"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:747 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:659 telescope/plugins/webcam.py:263
+#: telescope/plugins/camera_control.py:182 telescope/plugins/camera_control.py:223 telescope/plugins/camera_control.py:259 telescope/plugins/connection.py:747 telescope/plugins/desk.py:23 telescope/plugins/notes.py:29 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:659 telescope/plugins/webcam.py:65 telescope/plugins/webcam.py:350 telescope/plugins/webcam.py:557
 msgid "Auto"
 msgstr "Otomatis"
 
-#: telescope/plugins/camera_control.py:183 telescope/plugins/camera_control.py:224
+#: telescope/plugins/camera_control.py:183 telescope/plugins/camera_control.py:224 telescope/plugins/webcam.py:557
 msgid "Manual"
 msgstr "Manual"
 
-#: telescope/plugins/camera_control.py:190 telescope/plugins/photos.py:203
+#: telescope/plugins/camera_control.py:190 telescope/plugins/photos.py:203 telescope/plugins/webcam.py:40
 msgid "Exposure"
 msgstr "Eksposur"
 
@@ -1316,15 +1316,15 @@ msgstr "Eksposur"
 msgid "Shutter"
 msgstr "Shutter"
 
-#: telescope/plugins/camera_control.py:221 telescope/plugins/fun_pack.py:171
+#: telescope/plugins/camera_control.py:221 telescope/plugins/fun_pack.py:171 telescope/plugins/webcam.py:41
 msgid "Brightness"
 msgstr "Kecerahan"
 
-#: telescope/plugins/camera_control.py:231
+#: telescope/plugins/camera_control.py:231 telescope/plugins/webcam.py:44
 msgid "White balance"
 msgstr "White balance"
 
-#: telescope/plugins/camera_control.py:240 telescope/plugins/camera_control.py:361 telescope/plugins/colour_grading.py:38
+#: telescope/plugins/camera_control.py:240 telescope/plugins/camera_control.py:361 telescope/plugins/colour_grading.py:38 telescope/plugins/webcam.py:44
 msgid "Temperature"
 msgstr "Suhu warna"
 
@@ -1332,7 +1332,7 @@ msgstr "Suhu warna"
 msgid "Tint G–M"
 msgstr "Corak G–M"
 
-#: telescope/plugins/camera_control.py:258 telescope/plugins/camera_control.py:271
+#: telescope/plugins/camera_control.py:258 telescope/plugins/camera_control.py:271 telescope/plugins/webcam.py:47 telescope/plugins/webcam.py:53
 msgid "Focus"
 msgstr "Fokus"
 
@@ -1349,7 +1349,7 @@ msgstr "Manual"
 msgid "Distance"
 msgstr "Jarak"
 
-#: telescope/plugins/camera_control.py:286
+#: telescope/plugins/camera_control.py:286 telescope/plugins/webcam.py:53
 msgid "Image"
 msgstr "Olah gambar"
 
@@ -1842,11 +1842,11 @@ msgstr "Semua"
 msgid "Lift"
 msgstr "Lift"
 
-#: telescope/plugins/colour_grading.py:31
+#: telescope/plugins/colour_grading.py:31 telescope/plugins/webcam.py:45
 msgid "Gamma"
 msgstr "Gamma"
 
-#: telescope/plugins/colour_grading.py:31 telescope/plugins/microphone.py:257 telescope/plugins/microphone.py:396
+#: telescope/plugins/colour_grading.py:31 telescope/plugins/microphone.py:257 telescope/plugins/microphone.py:396 telescope/plugins/webcam.py:40
 msgid "Gain"
 msgstr "Gain"
 
@@ -1879,7 +1879,7 @@ msgid "More magenta or more green"
 msgstr "Lebih magenta atau lebih hijau"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: telescope/plugins/colour_grading.py:40 telescope/plugins/desk.py:21
+#: telescope/plugins/colour_grading.py:40 telescope/plugins/desk.py:21 telescope/plugins/webcam.py:45
 msgid "Contrast"
 msgstr "Kontras"
 
@@ -1895,7 +1895,7 @@ msgstr "Pivot"
 msgid "The level contrast turns around"
 msgstr "Level acuan perubahan kontras"
 
-#: telescope/plugins/colour_grading.py:42
+#: telescope/plugins/colour_grading.py:42 telescope/plugins/webcam.py:45
 msgid "Saturation"
 msgstr "Saturasi"
 
@@ -2229,7 +2229,7 @@ msgstr "Tambahkan ponsel"
 msgid "Open Telescope on the phone first."
 msgstr "Buka Telescope di ponsel terlebih dahulu."
 
-#: telescope/plugins/connection.py:201 telescope/plugins/webcam.py:326
+#: telescope/plugins/connection.py:201 telescope/plugins/webcam.py:413
 msgid "Starting…"
 msgstr "Memulai…"
 
@@ -2770,7 +2770,7 @@ msgstr "Tandai kertas"
 msgid "Drag the four corners of the sheet into place on the preview"
 msgstr "Tarik keempat sudut kertas ke posisinya pada pratinjau"
 
-#: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171
+#: telescope/plugins/desk.py:245 telescope/plugins/transforms.py:171 telescope/plugins/webcam.py:305
 msgid "Reset"
 msgstr "Reset"
 
@@ -2995,7 +2995,7 @@ msgstr "Mengikuti Anda dengan zoom dan geser"
 msgid "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you"
 msgstr "Berapa banyak bagian tubuh Anda dalam gambar: hanya kepala, sampai dada, sampai pinggang, atau seluruh tubuh"
 
-#: telescope/plugins/framing.py:270
+#: telescope/plugins/framing.py:270 telescope/plugins/webcam.py:54
 msgid "Framing"
 msgstr "Pembingkaian"
 
@@ -5930,7 +5930,7 @@ msgstr "Rotasi"
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:211 telescope/plugins/transforms.py:272 telescope/widgets/composite_editor.py:638
+#: telescope/plugins/transforms.py:211 telescope/plugins/transforms.py:272 telescope/plugins/webcam.py:48 telescope/widgets/composite_editor.py:638
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -5944,7 +5944,7 @@ msgstr ""
 "H {x}\n"
 "V {y}"
 
-#: telescope/plugins/transforms.py:239 telescope/widgets/composite_editor.py:36 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:239 telescope/plugins/webcam.py:48 telescope/widgets/composite_editor.py:36 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr "Geser"
 
@@ -6251,67 +6251,131 @@ msgstr "Pilih layar tunggu"
 msgid "Images ({formats})"
 msgstr "Gambar ({formats})"
 
-#: telescope/plugins/webcam.py:50
+#: telescope/plugins/webcam.py:40
+msgid "Exposure time"
+msgstr ""
+
+#: telescope/plugins/webcam.py:41
+msgid "Backlight compensation"
+msgstr ""
+
+#: telescope/plugins/webcam.py:42
+msgid "Anti-flicker"
+msgstr ""
+
+#: telescope/plugins/webcam.py:42
+msgid "Slow down in the dark"
+msgstr ""
+
+#: telescope/plugins/webcam.py:45
+msgid "Hue"
+msgstr ""
+
+#: telescope/plugins/webcam.py:46
+msgid "Sharpness"
+msgstr ""
+
+#: telescope/plugins/webcam.py:47
+msgid "Focus position"
+msgstr ""
+
+#: telescope/plugins/webcam.py:48
+msgid "Tilt"
+msgstr ""
+
+#: telescope/plugins/webcam.py:58
+msgid "The shutter speed: slower is brighter but blurs movement."
+msgstr ""
+
+#: telescope/plugins/webcam.py:59
+msgid "The webcam's ISO: more is brighter but grainier."
+msgstr ""
+
+#: telescope/plugins/webcam.py:60
+msgid "Brightens a face in front of a bright window."
+msgstr ""
+
+#: telescope/plugins/webcam.py:61
+msgid "Set it to your mains frequency to stop lights flickering or banding."
+msgstr ""
+
+#: telescope/plugins/webcam.py:62
+msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
+msgstr ""
+
+#: telescope/plugins/webcam.py:64
+msgid "50 Hz"
+msgstr ""
+
+#: telescope/plugins/webcam.py:65
+msgid "60 Hz"
+msgstr ""
+
+#: telescope/plugins/webcam.py:115
 msgid "Check that it's plugged in."
 msgstr ""
 
-#: telescope/plugins/webcam.py:77
+#: telescope/plugins/webcam.py:142
 msgid "Webcams"
 msgstr ""
 
-#: telescope/plugins/webcam.py:78
+#: telescope/plugins/webcam.py:143
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr ""
 
-#: telescope/plugins/webcam.py:82
+#: telescope/plugins/webcam.py:147
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr ""
 
-#: telescope/plugins/webcam.py:181
+#: telescope/plugins/webcam.py:258
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr ""
 
-#: telescope/plugins/webcam.py:182
+#: telescope/plugins/webcam.py:259
 msgid "Plug it in, or pick another camera."
 msgstr ""
 
-#: telescope/plugins/webcam.py:198
+#: telescope/plugins/webcam.py:276
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr ""
 
-#: telescope/plugins/webcam.py:199
+#: telescope/plugins/webcam.py:277
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr ""
 
-#: telescope/plugins/webcam.py:200
+#: telescope/plugins/webcam.py:278
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr ""
 
-#: telescope/plugins/webcam.py:226
+#: telescope/plugins/webcam.py:305
+msgid "Put the webcam's picture settings back to its defaults"
+msgstr ""
+
+#: telescope/plugins/webcam.py:307
 msgid "Webcam"
 msgstr ""
 
-#: telescope/plugins/webcam.py:231
+#: telescope/plugins/webcam.py:312
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr ""
 
-#: telescope/plugins/webcam.py:320
+#: telescope/plugins/webcam.py:407
 msgid "Not plugged in"
 msgstr ""
 
-#: telescope/plugins/webcam.py:322
+#: telescope/plugins/webcam.py:409
 #, python-brace-format
 msgid "In use by {app}"
 msgstr ""
 
-#: telescope/plugins/webcam.py:322
+#: telescope/plugins/webcam.py:409
 msgid "In use by another app"
 msgstr ""
 
-#: telescope/plugins/webcam.py:324
+#: telescope/plugins/webcam.py:411
 msgid "Not sending anything"
 msgstr ""
 

@@ -176,12 +176,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Webcams
 
-<!-- due: desktop/telescope/webcams.py desktop/telescope/plugins/webcam.py -->
+<!-- due: desktop/telescope/webcams.py desktop/telescope/webcams_win.py desktop/telescope/webcam_controls.py desktop/telescope/plugins/webcam.py -->
 
 - [ ] A USB webcam shows in the phone picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
+- [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture, and after an unplug and replug (or a Stop and Start) the camera has it again. Reset puts the defaults back.
 - [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
 
 ### On Air sign
