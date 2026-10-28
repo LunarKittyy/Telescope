@@ -1,7 +1,8 @@
 # The Rust rewrite's parity ledger: every piece of the Python desktop app and how far the Rust app is with it.
 # inventory.py makes the list; see README.md. Edit the values, not the ids. Each entry is
 #   status = "todo" | "ported" | "verified" | "dropped"
-#   rust = "where in rust/ it lives"   (needed for ported and verified)
+#   rust = "rust/crates/..."           (needed for ported and verified: a path from the repo root that exists,
+#                                       optionally with ::symbol or :line after it)
 #   reason = "why it goes away"        (needed for dropped)
 #   note = "anything else"             (comments in this file are rewritten by --update, notes are kept)
 # The "# area" lines are only for reading; inventory.py works the area out itself.
@@ -5794,30 +5795,30 @@
 [phone]
 # phone protocol endpoints and the actions sent to them
 # ── app
-"/v1/state" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
+"/v1/state" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
 "control.camera_on" = { status = "todo" }
 "control.keyframe" = { status = "todo" }
 # ── camera_control
-"control.ae_comp" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.auto" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.black_level_lock" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.camera" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.edge_mode" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.focus_distance" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.focus_mode" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
+"control.ae_comp" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.auto" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.black_level_lock" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.camera" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.edge_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.focus_distance" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.focus_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.focus_point" = { status = "todo" }
-"control.iso" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
+"control.iso" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.low_light" = { status = "todo" }
 "control.meter_point" = { status = "todo" }
-"control.nr_mode" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.ois" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.shutter" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.torch" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
-"control.wb_auto" = { status = "ported", rust = "rust/app/src/gui.rs", note = "prototype" }
+"control.nr_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.ois" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.shutter" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.torch" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
+"control.wb_auto" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.wb_gains" = { status = "todo" }
 # ── connection
 "/v1/video" = { status = "todo" }
-"/v1/video.h264" = { status = "ported", rust = "rust/core/src/stream.rs", note = "prototype" }
+"/v1/video.h264" = { status = "ported", rust = "rust/crates/link/src/service.rs", note = "prototype" }
 "/v1/video.udp" = { status = "todo" }
 # ── microphone
 "/v1/audio" = { status = "todo" }
@@ -5826,18 +5827,18 @@
 "control.notes_scroll" = { status = "todo" }
 "control.notes_style" = { status = "todo" }
 # ── pairing
-"served /pair/" = { status = "ported", rust = "rust/core/src/pairing.rs", note = "prototype" }
+"served /pair/" = { status = "ported", rust = "rust/crates/link/src/pairing.rs", note = "prototype" }
 # ── phone_client
-"/v1/control" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
+"/v1/control" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
 # ── sensors
 "/v1/sensors" = { status = "todo" }
 # ── session_client
-"/v1/hello" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
-"/v1/ping" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
-"/v1/session" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
+"/v1/hello" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
+"/v1/ping" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
+"/v1/session" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
 "/v1/unpair" = { status = "todo" }
-"session.start" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
-"session.stop" = { status = "ported", rust = "rust/core/src/session.rs", note = "prototype" }
+"session.start" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
+"session.stop" = { status = "ported", rust = "rust/crates/link/src/session.rs", note = "prototype" }
 # ── stills
 "/v1/still" = { status = "todo" }
 "/v1/still/file" = { status = "todo" }

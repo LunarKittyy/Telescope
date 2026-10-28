@@ -419,7 +419,8 @@ HEADER = """\
 # The Rust rewrite's parity ledger: every piece of the Python desktop app and how far the Rust app is with it.
 # inventory.py makes the list; see README.md. Edit the values, not the ids. Each entry is
 #   status = "todo" | "ported" | "verified" | "dropped"
-#   rust = "where in rust/ it lives"   (needed for ported and verified)
+#   rust = "rust/crates/..."           (needed for ported and verified: a path from the repo root that exists,
+#                                       optionally with ::symbol or :line after it)
 #   reason = "why it goes away"        (needed for dropped)
 #   note = "anything else"             (comments in this file are rewritten by --update, notes are kept)
 # The "# area" lines are only for reading; inventory.py works the area out itself.
@@ -467,8 +468,12 @@ def problems_with(entry: dict) -> list:
     status = entry.get("status")
     if status not in STATUSES:
         return [f"status {status!r} isn't one of {', '.join(STATUSES)}"]
-    if status in ("ported", "verified") and not entry.get("rust"):
-        return [f"{status} needs rust = where it lives"]
+    if status in ("ported", "verified"):
+        if not entry.get("rust"):
+            return [f"{status} needs rust = where it lives"]
+        path = re.sub(r":\d+$", "", str(entry["rust"]).split("::")[0])
+        if not (REPO / path).exists():
+            return [f"rust = {entry['rust']!r} doesn't exist (moved?)"]
     if status == "dropped" and not entry.get("reason"):
         return ["dropped needs a reason"]
     return []
