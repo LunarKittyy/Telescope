@@ -709,8 +709,14 @@ def upgrade_over_usb(a):
     shell("pm", "grant", PKG, "android.permission.CAMERA")
     old = apk_version()
     pair_over_usb()
-    drv("click('Install over USB', settings_tab('Virtual camera'))", 3)
-    need(wait_for(lambda: apk_version() != old and apk_version(), 90, 3), "Install over USB didn't update the phone app")
+    drv("settings_tab('Virtual camera')\nusb_install = main_win()._plugin('setup')._panel\n"
+        "click('Install over USB', main_win()._settings_win)", 3)
+    # Android exposes the new version before its post-install package removal broadcast can kill a launched app.
+    need(wait_for(lambda: drv("print(usb_install._apk_btn.isEnabled())").strip() == "True", 120),
+         "Install over USB didn't finish")
+    result = drv("print(usb_install._apk_status_lbl.text())").strip()
+    need(result == "Installed", f"Install over USB failed: {result}")
+    need(apk_version() not in ("", old), "Install over USB didn't update the phone app")
     launch()
     start_stream()
     stop_stream()
