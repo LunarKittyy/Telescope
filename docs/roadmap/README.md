@@ -14,6 +14,7 @@ Each file covers the work that led up to one release. Once a release ships its f
 
 The files up to 3.5 were written afterwards from the release notes, the commit history and the issues people opened, so they're shorter than the notes and say more about why.
 
+- [4.4](4.4.md) (October 2026): webcams and capture cards as sources, a Black screen button on the phone and UDP on Wi-Fi moved to Settings
 - [4.3](4.3.md) (October 2026): thirteen optional plugins, a Windows 11 camera every app can see, mic noise reduction and Dynamic over UDP
 - [4.2](4.2.md) (October 2026): the phone app in the desktop's look, a Live Update while streaming, 720p when the phone gets very hot and a faster first start on Windows
 - [4.1](4.1.md) (October 2026): both apps in six more languages and cheaper Background and Auto framing with a Power-saving effects switch
