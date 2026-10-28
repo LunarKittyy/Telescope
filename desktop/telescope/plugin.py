@@ -581,7 +581,8 @@ class StreamSource(Protocol):
         ...
 
     def control_client(self):
-        """Stands in for PhoneControlClient in on_stream_start: base, auth, send(), get_state(), close()."""
+        """Stands in for PhoneControlClient in on_stream_start: base, auth, send(), get_state(), close(), and audio =
+        False when there's no microphone to bring over."""
         ...
 
     def fps(self) -> int:
@@ -591,6 +592,8 @@ class StreamSource(Protocol):
     # Optional:
     # redirect() -> Optional[str]: at Start with nothing streaming, another source's id to stream instead.
     # remember_changes_only = True: its settings are only saved where they differ from the defaults.
+    # auto_canvas: the virtual camera's size when Setup's canvas is Auto; None takes the first frame's.
+    # lost_hint: what to check when it can't be reached for a while.
 
 
 class StreamsBehind:

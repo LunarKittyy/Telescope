@@ -1181,6 +1181,8 @@ class ComboItemDelegate(QStyledItemDelegate):
 
 
 class NoScrollComboBox(QComboBox):
+    popup_hidden = pyqtSignal()  # the list closed, picked from or not
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._delegate = ComboItemDelegate(self)
@@ -1219,6 +1221,13 @@ class NoScrollComboBox(QComboBox):
         if g != popup.geometry():
             popup.setGeometry(g)
             self.view().scrollTo(self.view().currentIndex())
+
+    def hidePopup(self):
+        super().hidePopup()
+        self.popup_hidden.emit()
+
+    def popup_open(self) -> bool:
+        return self.view().isVisible()
 
 
 class NoScrollSlider(QSlider):

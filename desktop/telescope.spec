@@ -9,7 +9,8 @@
 #     launch. The libraries go in lib-<build>, a new folder per build, so an update can move the next build's
 #     in while this one's are still loaded; updates.clean_up_after_update() deletes the old one.
 #   - Qt comes in through PyInstaller's own hooks, which take only the modules Telescope imports (Core, Gui,
-#     Widgets, Svg) and their plugins, not all of PyQt6.
+#     Widgets, Svg, and Multimedia for the webcam list) and their plugins, not all of PyQt6. Multimedia runs on its
+#     Media Foundation backend (QT_MEDIA_BACKEND in main.py), so its FFmpeg plugin and DLLs are left out.
 #   - No UPX: compressed DLLs have to be unpacked again on every load, and virus scanners look harder at them.
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
 #     DirectShow COM filter (UnityCapture), so no DLLs need bundling. The Windows 11 camera's DLL
@@ -60,6 +61,7 @@ a = Analysis(
         'PyQt6.QtGui',
         'PyQt6.QtWidgets',
         'PyQt6.QtSvg',
+        'PyQt6.QtMultimedia',  # imported only once the window is up (telescope/webcams.py)
     ],
     hookspath=[],
     hooksconfig={},
@@ -94,12 +96,14 @@ def use_plain_zeroconf(analysis):
 
 
 # Files the app never opens: cv2 reads video files through the first, the next three are PortAudio builds for
-# 32-bit, ARM and ASIO, and Telescope doesn't load PDFs as images
+# 32-bit, ARM and ASIO, Telescope doesn't load PDFs as images, and Qt Multimedia runs without FFmpeg (PyAV has its own)
 NEVER_USED = ('cv2/opencv_videoio_ffmpeg',
               '_sounddevice_data/portaudio-binaries/libportaudio32bit',
               '_sounddevice_data/portaudio-binaries/libportaudioarm64',
               '_sounddevice_data/portaudio-binaries/libportaudio64bit-asio',
-              'PyQt6/Qt6/bin/Qt6Pdf', 'PyQt6/Qt6/plugins/imageformats/qpdf')
+              'PyQt6/Qt6/bin/Qt6Pdf', 'PyQt6/Qt6/plugins/imageformats/qpdf',
+              'PyQt6/Qt6/plugins/multimedia/ffmpegmediaplugin', 'PyQt6/Qt6/bin/avcodec', 'PyQt6/Qt6/bin/avformat',
+              'PyQt6/Qt6/bin/avutil', 'PyQt6/Qt6/bin/swresample', 'PyQt6/Qt6/bin/swscale')
 
 use_plain_zeroconf(a)
 a.binaries = [b for b in a.binaries if not b[0].replace('\\', '/').startswith(NEVER_USED)]

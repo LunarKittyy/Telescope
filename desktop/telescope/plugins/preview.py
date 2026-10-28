@@ -19,6 +19,7 @@ from telescope.i18n import N_, tr
 # Translators: the preview area doesn't wrap lines, so keep the line breaks and each line about as long as this one
 _IDLE_TEXT    = N_("Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.")
 _IDLE_BROWSER_TEXT = N_("Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects.")
+_IDLE_WEBCAM_TEXT = N_("Not streaming\n\nPress Start streaming to use this camera.")
 _IDLE_MIC_TEXT = N_("Not streaming\n\nStart mic only streams the phone's mic with its camera off.")
 _WAITING_TEXT = N_("Waiting for the first frame\u2026")
 _CAMERA_OFF_TEXT = N_("Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.")
@@ -464,7 +465,7 @@ class PreviewPlugin(TelescopePlugin):
         bus.lens_boxes.connect(self._on_lens_boxes)
         bus.view_pannable.connect(self._on_pannable)
         self._camera_on = True
-        self._phone_picked = True  # another source (Browser camera) has its own idle text
+        self._picked = ""  # another source (Browser camera, a webcam) has its own idle text
         bus.source_selected.connect(self._on_source_selected)
         bus.camera_on_changed.connect(self._on_camera_changed)
         for signal in (bus.mic_changed, bus.stream_started, bus.stream_stopped, bus.phone_state_updated):
@@ -598,7 +599,7 @@ class PreviewPlugin(TelescopePlugin):
             self._preview_lbl.setText(self._idle_text())
 
     def _on_source_selected(self, sid: str):
-        self._phone_picked = not sid
+        self._picked = sid
         if self._active and not self._host.is_streaming():
             self._preview_lbl.setText(self._idle_text())
 
@@ -607,7 +608,10 @@ class PreviewPlugin(TelescopePlugin):
         if not self._host.is_streaming():
             if not self._host.is_camera_on():
                 return tr(_IDLE_MIC_TEXT)
-            return tr(_IDLE_TEXT) if self._phone_picked else tr(_IDLE_BROWSER_TEXT)
+            sid = self._picked
+            if not sid:
+                return tr(_IDLE_TEXT)
+            return tr(_IDLE_BROWSER_TEXT) if sid == "browser" or sid.startswith("browser:") else tr(_IDLE_WEBCAM_TEXT)
         if not self._host.is_camera_on():
             return tr(_CAMERA_OFF_AUTO_TEXT) if self._host.is_camera_off_auto() else tr(_CAMERA_OFF_TEXT)
         return tr(_WAITING_TEXT)

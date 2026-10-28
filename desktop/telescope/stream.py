@@ -607,7 +607,9 @@ class StreamWorker(QThread):
                         struggling = self._judges_window(t0) and 0 < arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
-                        self.status.emit(net_kind, f"{mbps:.1f} Mbps")
+                        # Frames but no bytes means the reader can't tell (a Windows webcam's MJPEG comes decoded)
+                        counted = bytes_now > bytes0 or recv_now == recv0
+                        self.status.emit(net_kind, f"{mbps:.1f} Mbps" if counted else "—")
 
                         t0, bytes0, recv0 = time.monotonic(), bytes_now, recv_now
         except Exception as exc:
