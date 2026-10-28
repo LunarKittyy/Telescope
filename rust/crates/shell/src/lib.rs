@@ -19,6 +19,7 @@ pub mod switches;
 pub mod texts;
 pub mod shell;
 pub mod host;
+pub mod view;
 pub mod window;
 
 pub use window::{run, WindowOptions};
