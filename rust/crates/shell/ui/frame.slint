@@ -1,0 +1,405 @@
+// The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
+// itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
+
+import { Theme, Icons, Icon, FocusRing, Button, TipBody } from "@ui-kit/ui-kit.slint";
+
+export struct BannerData {
+    key: string,
+    title: string,
+    text: string,
+    details: string,
+    // "err", "warn" or "info"
+    kind: string,
+    actions: [string],
+}
+
+export struct TileData {
+    id: string,
+    name: string,
+    // "to Telescope", already in the person's language (texts with named blanks are filled in by the shell)
+    output: string,
+    stop-label: string,
+    state: string,
+    // "status_ok", "status_warn", "status_err" or "status_dim"
+    kind: string,
+    focused: bool,
+    thumb: image,
+    has-thumb: bool,
+}
+
+export global StatusColors {
+    public pure function of(kind: string) -> color {
+        kind == "status_ok" || kind == "ok" ? Theme.ok : kind == "status_warn" || kind == "warn" ? Theme.warn
+            : kind == "status_err" || kind == "err" ? Theme.err : Theme.dim
+    }
+}
+
+// QPushButton#icon_btn: transparent with a quiet border, a 36px square in the header.
+export component HeaderIconButton inherits Rectangle {
+    in property <image> icon;
+    in property <length> icon-size: 18px;
+    in property <string> label;
+    in property <string> tip;
+    in property <bool> enabled: true;
+    callback clicked;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
+    background: touch.has-hover && enabled ? Theme.surface-raise : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if tip != "": Tooltip { TipBody { says: tip; } }
+    Icon { source: icon; tint: enabled ? Theme.text-dim : Theme.text-disabled; width: icon-size; height: icon-size; accessible-role: none; }
+}
+
+// QPushButton#start_btn: lavender while idle, red while streaming.
+export component StartButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> streaming;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 40px;
+    width: lay.preferred-width;
+    border-radius: 8px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg : streaming ? (touch.has-hover ? #c45a55 : #b04a46)
+        : touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill;
+    border-color: !enabled ? Theme.border : streaming ? #c45a55 : touch.has-hover ? Theme.fill-hover : Theme.fill;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    lay := HorizontalLayout {
+        padding-left: 23.5px;
+        padding-right: 23.5px;
+        spacing: 4px;
+        alignment: center;
+        Icon {
+            source: streaming ? Icons.v-stop : Icons.v-play;
+            tint: enabled ? white : Theme.text-disabled;
+            width: 14px;
+            height: 14px;
+            y: (parent.height - self.height) / 2;
+            accessible-role: none;
+        }
+        Text {
+            text: root.text;
+            font-family: Theme.font;
+            font-size: Theme.start;
+            font-weight: 700;
+            color: enabled ? white : Theme.text-disabled;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// The footer's FPS and Throughput pills.
+export component FooterPill inherits Rectangle {
+    in property <string> caption;
+    in property <string> value;
+    in property <color> value-color: Theme.text;
+    in property <string> tip;
+    height: 24px;
+    width: lay.preferred-width;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-raise;
+    accessible-role: text;
+    accessible-label: caption + " " + value;
+    if tip != "": Tooltip { TipBody { says: tip; } }
+    lay := HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 6px;
+        Text { text: caption; font-family: Theme.font; font-size: Theme.body; color: Theme.text-faint; vertical-alignment: center; }
+        Text { text: value; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: value-color; vertical-alignment: center; }
+    }
+}
+
+export component Footer inherits Rectangle {
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    in property <string> fps;
+    in property <color> fps-color: Theme.text;
+    in property <string> fps-tip;
+    in property <string> net;
+    in property <color> net-color: Theme.text;
+    height: 40px;
+    background: Theme.chrome;
+    Rectangle { y: 0; height: 1px; background: Theme.border; }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 14px;
+        Text {
+            horizontal-stretch: 1;
+            text: status;
+            overflow: elide;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: StatusColors.of(status-kind);
+            vertical-alignment: center;
+            accessible-role: text;
+        }
+        FooterPill { caption: @tr("FPS"); value: fps; value-color: fps-color; tip: fps-tip; }
+        FooterPill { caption: @tr("Throughput"); value: net; value-color: net-color; }
+    }
+}
+
+// QPushButton#banner_action.
+component BannerButton inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 30px;
+    width: label.preferred-width + 26px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: #ffffff24;
+    background: touch.has-hover ? #ffffff1f : #ffffff0f;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    label := Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: Theme.text;
+    }
+}
+
+export component Banner inherits Rectangle {
+    in property <BannerData> data;
+    callback action(int);
+    callback dismissed;
+    border-radius: 12px;
+    border-width: 1px;
+    background: data.kind == "warn" ? #2a2419 : #2a1d20;
+    border-color: data.kind == "warn" ? #5c4a2a : #5a3134;
+    accessible-role: groupbox;
+    accessible-label: data.title;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 10px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: start;
+            Icon { source: Icons.v-alert; tint: data.kind == "warn" ? Theme.warn : Theme.err; width: 20px; height: 20px; accessible-role: none; }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 3px;
+            alignment: start;
+            Text { text: data.title; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; wrap: word-wrap; }
+            if data.text != "": Text { text: data.text; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; wrap: word-wrap; }
+            if data.details != "": Rectangle {
+                background: #00000040;
+                border-radius: 6px;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 6px;
+                    padding-bottom: 6px;
+                    TextInput { text: data.details; read-only: true; font-family: Theme.mono; font-size: Theme.body; color: Theme.text; wrap: word-wrap; }
+                }
+            }
+        }
+        for label[i] in data.actions: VerticalLayout {
+            alignment: center;
+            BannerButton { text: label; clicked => { root.action(i); } }
+        }
+        VerticalLayout {
+            alignment: start;
+            close := Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                background: close-touch.has-hover ? #ffffff14 : transparent;
+                accessible-role: button;
+                accessible-label: @tr("Dismiss");
+                accessible-action-default => { root.dismissed(); }
+                forward-focus: close-focus;
+                close-focus := FocusScope {
+                    key-pressed(e) => {
+                        if (e.text == " " || e.text == "\n") { root.dismissed(); return accept; }
+                        reject
+                    }
+                }
+                FocusRing { shown: close-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
+                close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.dismissed(); } }
+                Tooltip { TipBody { says: @tr("Dismiss"); } }
+                Icon { source: Icons.v-close; tint: Theme.text-dim; width: 14px; height: 14px; accessible-role: none; }
+            }
+        }
+    }
+}
+
+export component BannerArea inherits VerticalLayout {
+    in property <[BannerData]> banners;
+    callback action(string, int);
+    callback dismissed(string);
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: banners.length > 0 ? 12px : 0px;
+    spacing: 8px;
+    for b in banners: Banner {
+        data: b;
+        action(i) => { root.action(b.key, i); }
+        dismissed => { root.dismissed(b.key); }
+    }
+}
+
+component StreamTile inherits Rectangle {
+    in property <TileData> data;
+    callback focus-requested;
+    callback stop-requested;
+    width: lay.preferred-width;
+    border-radius: 10px;
+    border-width: 1px;
+    background: Theme.surface;
+    border-color: data.focused ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border;
+    accessible-role: button;
+    accessible-label: data.name;
+    accessible-description: data.state;
+    accessible-checked: data.focused;
+    accessible-action-default => { focus-requested(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { focus-requested(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.focus-requested(); } }
+    if !data.focused: Tooltip { TipBody { says: @tr("Show this one's settings"); } }
+    lay := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 6px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 10px;
+        Rectangle {
+            width: 128px;
+            height: 72px;
+            border-radius: 6px;
+            background: Theme.surface-sunk;
+            clip: true;
+            if data.has-thumb: Image { source: data.thumb; width: parent.width; height: parent.height; image-fit: contain; }
+            if !data.has-thumb: Text { text: "…"; color: Theme.text-faint; font-family: Theme.font; }
+        }
+        VerticalLayout {
+            spacing: 2px;
+            alignment: start;
+            Text { text: data.name; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
+            Text { text: data.output; font-family: Theme.font; font-size: 10.667px; color: Theme.text-faint; }
+            Text { text: data.state; font-family: Theme.font; font-size: Theme.body; color: StatusColors.of(data.kind); }
+        }
+        VerticalLayout {
+            alignment: start;
+            stop := Rectangle {
+                width: 26px;
+                height: 26px;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: stop-touch.has-hover ? Theme.border-hover : Theme.border;
+                background: stop-touch.has-hover ? Theme.surface-raise : transparent;
+                accessible-role: button;
+                accessible-label: data.stop-label;
+                accessible-action-default => { root.stop-requested(); }
+                stop-touch := TouchArea { mouse-cursor: pointer; clicked => { root.stop-requested(); } }
+                Tooltip { TipBody { says: data.stop-label; } }
+                Icon { source: Icons.v-close; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+            }
+        }
+    }
+}
+
+export component StreamTiles inherits HorizontalLayout {
+    in property <[TileData]> tiles;
+    callback focus-requested(string);
+    callback stop-requested(string);
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: tiles.length > 1 ? 12px : 0px;
+    spacing: 10px;
+    alignment: start;
+    if tiles.length > 1: HorizontalLayout {
+        spacing: 10px;
+        for t in tiles: StreamTile {
+            data: t;
+            focus-requested => { root.focus-requested(t.id); }
+            stop-requested => { root.stop-requested(t.id); }
+        }
+    }
+}
+
+// QScrollBar:vertical in theme.py: an 11px groove with a rounded handle, dragged or clicked to page.
+export component ColumnScrollbar inherits Rectangle {
+    in property <length> content;
+    in property <length> viewport;
+    in-out property <length> offset;
+    property <length> range: max(0px, content - viewport);
+    property <length> handle-h: max(32px, viewport * viewport / max(1px, content));
+    width: 11px;
+    y: 0;
+    TouchArea {
+        clicked => {
+            if (self.mouse-y < handle.y) { offset = max(0px, offset - viewport); }
+            else if (self.mouse-y > handle.y + handle.height) { offset = min(range, offset + viewport); }
+        }
+    }
+    handle := Rectangle {
+        y: range > 0 ? (root.height - self.height) * clamp(offset, 0px, range) / range : 0;
+        height: handle-h;
+        border-radius: 5px;
+        background: drag.has-hover || drag.pressed ? Theme.border-hover : Theme.border-strong;
+        drag := TouchArea {
+            property <length> start-offset;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { start-offset = offset; } }
+            moved => {
+                if (self.pressed) {
+                    offset = clamp(start-offset + (self.mouse-y - self.pressed-y) * range / max(1px, root.height - handle.height), 0px, range);
+                }
+            }
+        }
+    }
+}

@@ -2,6 +2,8 @@
 
 pub mod banners;
 pub mod collapse;
+pub mod compile;
+pub mod doc;
 pub mod flow;
 pub mod layout;
 pub mod snapshot;
