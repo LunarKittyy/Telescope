@@ -201,6 +201,8 @@ const FRAME_TOP: &str = r#"
 export component TelescopeWindow inherits Window {
     in property <string> window-title: "Telescope";
     in property <string> start-text;
+    // Translators' short form of the start button, for a narrow window
+    in property <string> start-short;
     in property <bool> streaming;
     in property <bool> start-enabled: true;
     in property <bool> add-visible;
@@ -283,7 +285,7 @@ const HEADER: &str = r#"
             }
             StartButton {
                 y: (parent.height - self.height) / 2;
-                text: start-text;
+                text: root.mode == 2 ? start-short : start-text;
                 streaming: root.streaming;
                 enabled: start-enabled;
                 clicked => { root.start-clicked(); }

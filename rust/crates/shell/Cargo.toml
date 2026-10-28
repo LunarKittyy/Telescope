@@ -15,9 +15,6 @@ qrcode.workspace = true
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
 
-[build-dependencies]
-slint-build.workspace = true
-telescope-ui-kit.workspace = true
 
 [dev-dependencies]
 i-slint-backend-testing = "=1.18.1"

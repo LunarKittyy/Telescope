@@ -1,16 +1,27 @@
-//! The window: wires MainWindow's callbacks to the services and pushes stream events back onto the UI thread.
+//! The window: builds the document from the registered plugins (doc.rs), wires its callbacks back to them and carries
+//! out what they ask for (shell::Effect). Streaming is still the prototype's single phone stream (flow.rs) until the
+//! stream flow is ported.
 
+use crate::doc::{self, CardPlace, HeaderPlace, Piece};
 use crate::flow::{Stats, StreamEvents, StreamOptions, Streaming};
-use serde_json::{json, Value};
-use slint::{ComponentHandle, Image, ModelRc, Rgb8Pixel, SharedPixelBuffer, SharedString, VecModel, Weak};
-use std::sync::{Arc, Mutex};
+use crate::layout::Region;
+use crate::shell::{Effect, State};
+use crate::source::{scan, to_json, to_slint};
+use serde_json::Value;
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 use telescope_core::config::ConfigFile;
-use telescope_core::link::{PairingOffer, PhoneSession, RoutePrefs, StreamRequest};
+use telescope_core::event::Event;
+use telescope_core::i18n::tr;
+use telescope_core::link::{PhoneSession, RoutePrefs, StreamRequest};
+use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
-
-slint::include_modules!();
+use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
 
 /// How the window streams, from the command line.
 #[derive(Clone, Debug)]
@@ -27,321 +38,487 @@ pub struct WindowOptions {
     pub snapshot: Option<String>,
 }
 
-struct App {
-    file: ConfigFile,
-    phones: Phones,
-    streaming: Option<Streaming>,
-    session: Option<Arc<dyn PhoneSession>>,
-    pairing: Option<Arc<dyn PairingOffer>>,
+/// Which element of the document a plugin's piece of UI is.
+struct PieceRef {
+    plugin: String,
+    ui: String,
+    id: String,
 }
 
-impl App {
-    /// Connection's section and the picked phone, saved the way Connection and the window save them.
-    fn save(&self) {
-        let (section, selected) = (self.phones.to_section(), self.phones.selected_phone.clone());
-        self.file.update(|cfg| {
-            if let Some(pcfg) = cfg.get_mut("plugin_configs").and_then(Value::as_object_mut) {
-                pcfg.insert("connection".into(), section);
+pub struct Window {
+    pub state: Rc<RefCell<State>>,
+    pub ui: ComponentInstance,
+    pieces: Vec<PieceRef>,
+    fold_version: Cell<i32>,
+    save_timer: slint::Timer,
+    services: Option<Arc<Services>>,
+    opts: Option<WindowOptions>,
+    stream: RefCell<Option<(Streaming, Arc<dyn PhoneSession>)>>,
+}
+
+thread_local! {
+    static WINDOW: RefCell<Option<Rc<Window>>> = const { RefCell::new(None) };
+}
+
+/// The window on this thread, for callbacks that come back from other threads.
+fn with_window(f: impl FnOnce(&Rc<Window>)) {
+    if let Some(w) = WINDOW.with(|w| w.borrow().clone()) {
+        f(&w);
+    }
+}
+
+/// Where a UiSpec's text comes from and the file the document imports it as.
+fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
+    match &spec.source {
+        SlintSource::Text(text) => (format!("plugins/{plugin}/{ui}.slint"), text.clone()),
+        SlintSource::File(path) => (path.clone(), std::fs::read_to_string(path).unwrap_or_default()),
+    }
+}
+
+/// Registers plugins into a fresh state and builds their window. services is None for scene renders.
+pub fn build(file: ConfigFile, plugins: Vec<Box<dyn Plugin>>, services: Option<Arc<Services>>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
+    let mut state = State::new(file);
+    state.load_builtins(plugins);
+    state.apply_saved_config();
+    let phones = state.plugin_config("connection").map_or_else(
+        || phones_from_file(&state.file).phones.len() as u32,
+        |c| c.get("phones").and_then(Value::as_array).map_or(0, |p| p.len() as u32));
+    state.bus.emit(Event::PhonesChanged { count: phones });
+
+    let (mut cards, mut headers, mut files, mut pieces) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for (i, slot) in state.slots.iter().enumerate() {
+        let name = &slot.info.name;
+        if let Some(card) = &slot.card {
+            let (file, text) = source_of(name, "card", &card.ui);
+            let id = format!("p{i}");
+            let title = if slot.info.title.is_empty() { name.clone() } else { slot.info.title.clone() };
+            cards.push(CardPlace {
+                piece: Piece { id: id.clone(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
+                region: Region::from_name(&card.region),
+                fold_key: format!("{name}/{title}"),
+                category: slot.info.category.clone(),
+            });
+            files.push((file, text));
+            pieces.push(PieceRef { plugin: name.clone(), ui: "card".into(), id });
+        }
+        if let Some(header) = &slot.header {
+            let (file, text) = source_of(name, "header", header);
+            let id = format!("h{i}");
+            headers.push(HeaderPlace {
+                piece: Piece { id: id.clone(), file: file.clone(), component: header.component.clone(), iface: scan(&text, &header.component) },
+                right: slot.info.header_side == "right",
+            });
+            files.push((file, text));
+            pieces.push(PieceRef { plugin: name.clone(), ui: "header".into(), id });
+        }
+    }
+    // Cards are numbered by their slot, so the panels' indexes are slot indexes too
+    let mut panels = state.panels.clone();
+    let renumber = |list: &mut Vec<usize>| list.iter_mut().for_each(|i| *i = cards.iter().position(|c| c.piece.id == format!("p{i}")).unwrap_or(0));
+    renumber(&mut panels.left);
+    renumber(&mut panels.center);
+    renumber(&mut panels.right);
+    let text = doc::window(&cards, &panels, &headers);
+    let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
+    let ui = def.create().map_err(|e| e.to_string())?;
+
+    let window = Rc::new(Window {
+        state: Rc::new(RefCell::new(state)),
+        ui,
+        pieces,
+        fold_version: Cell::new(0),
+        save_timer: slint::Timer::default(),
+        services,
+        opts,
+        stream: RefCell::new(None),
+    });
+    WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
+    window.wire(&files, &cards, &headers);
+    window.first_props();
+    window.process();
+    Ok(window)
+}
+
+fn phones_from_file(file: &ConfigFile) -> Phones {
+    let cfg = file.load();
+    Phones::from_section(cfg.pointer("/plugin_configs/connection"), || (String::new(), String::new()))
+}
+
+impl Window {
+    fn wire(self: &Rc<Self>, files: &[(String, String)], cards: &[CardPlace], headers: &[HeaderPlace]) {
+        let ui = &self.ui;
+        let state = self.state.clone();
+        let _ = ui.set_global_callback("Folds", "is-folded", move |args| {
+            let key = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
+            SValue::Bool(state.borrow().collapse.is_folded(&key))
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_global_callback("Folds", "toggle", move |args| {
+            let Some(w) = weak.upgrade() else { return SValue::Void };
+            if let Some(SValue::String(key)) = args.first() {
+                if w.state.borrow_mut().collapse.toggle(key) {
+                    w.fold_version.set(w.fold_version.get() + 1);
+                    let _ = w.ui.set_global_property("Folds", "version", SValue::Number(w.fold_version.get() as f64));
+                    w.schedule_save();
+                }
             }
-            cfg["selected_device"] = selected.map_or(Value::Null, Value::String);
+            SValue::Void
+        });
+        for (place, piece) in cards.iter().map(|c| ("card", &c.piece)).chain(headers.iter().map(|h| ("header", &h.piece))) {
+            let Some(r) = self.pieces.iter().find(|r| r.id == piece.id) else { continue };
+            for cb in &piece.iface.callbacks {
+                let (plugin, callback, weak) = (r.plugin.clone(), cb.clone(), Rc::downgrade(self));
+                let ui_name = place.to_string();
+                let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
+                    if let Some(w) = weak.upgrade() {
+                        let event = UiEvent { ui: ui_name.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                        w.state.borrow_mut().ui_event(&plugin, event);
+                        w.process();
+                    }
+                    SValue::Void
+                });
+            }
+        }
+        let _ = files;
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("start-clicked", move |_| {
+            if let Some(w) = weak.upgrade() {
+                w.toggle_stream();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("banner-action", move |args| {
+            if let (Some(w), Some(SValue::String(key)), Some(SValue::Number(i))) = (weak.upgrade(), args.first(), args.get(1)) {
+                let pressed = w.state.borrow_mut().banners.press(key, *i as usize);
+                w.banner_pressed(key, pressed);
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("banner-dismissed", move |args| {
+            if let (Some(w), Some(SValue::String(key))) = (weak.upgrade(), args.first()) {
+                let pressed = w.state.borrow_mut().banners.dismiss(key);
+                w.banner_pressed(key, pressed);
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("settings-clicked", move |_| {
+            if let Some(w) = weak.upgrade() {
+                w.state.borrow_mut().effects.push(Effect::OpenSettings(String::new()));
+                w.process();
+            }
+            SValue::Void
+        });
+        let _ = ui.set_property("window-title", SValue::String(if telescope_core::config::dev_profile().is_some() { tr("Telescope (dev)") } else { "Telescope".to_string() }.into()));
+        self.show_idle();
+    }
+
+    fn banner_pressed(self: &Rc<Self>, key: &str, pressed: crate::banners::Pressed) {
+        use crate::banners::Pressed;
+        use telescope_core::ui::IssueDoes;
+        match pressed {
+            Pressed::Action(IssueDoes::OpenSettings { tab }) => {
+                if key == "plugins_off" {
+                    let s = self.state.borrow_mut();
+                    let _ = s.file.update(crate::switches::notice_off);
+                }
+                self.state.borrow_mut().effects.push(Effect::OpenSettings(tab));
+            }
+            Pressed::Action(IssueDoes::OpenUrl { url }) => open_url(&url),
+            Pressed::Action(IssueDoes::StartAgain { source_id, .. }) => self.state.borrow_mut().effects.push(Effect::StartAgain(source_id)),
+            Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
+            Pressed::Dismissed => {
+                if key == "plugins_off" {
+                    let s = self.state.borrow_mut();
+                    let _ = s.file.update(crate::switches::notice_off);
+                } else {
+                    self.tell_issue(key, "dismiss");
+                }
+            }
+            Pressed::Nothing => {}
+        }
+    }
+
+    /// A banner's plugin button: every plugin hears it and the one that showed it knows its key.
+    fn tell_issue(&self, key: &str, id: &str) {
+        let (key, id) = (key.to_string(), id.to_string());
+        self.state.borrow_mut().each(|p, host| p.on_issue_action(host, &key, &id));
+    }
+
+    /// Each piece's starting properties from its UiSpec.
+    fn first_props(&self) {
+        let mut s = self.state.borrow_mut();
+        let mut start = Vec::new();
+        for slot in &s.slots {
+            if let Some(card) = &slot.card {
+                start.push(Effect::Props { plugin: slot.info.name.clone(), ui: "card".into(), props: card.ui.props.clone() });
+            }
+            if let Some(h) = &slot.header {
+                start.push(Effect::Props { plugin: slot.info.name.clone(), ui: "header".into(), props: h.props.clone() });
+            }
+        }
+        s.effects.splice(0..0, start);
+    }
+
+    /// Delivers queued events and carries out what plugins asked for, until nothing more comes.
+    pub fn process(self: &Rc<Self>) {
+        for _ in 0..50 {
+            self.state.borrow_mut().deliver_events();
+            let effects: Vec<Effect> = std::mem::take(&mut self.state.borrow_mut().effects);
+            if effects.is_empty() {
+                break;
+            }
+            for e in effects {
+                self.apply(e);
+            }
+        }
+        self.show_banners();
+    }
+
+    fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return };
+        for (k, v) in props.as_object().into_iter().flatten() {
+            let name = format!("{}-{k}", r.id);
+            let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
+            if let Err(e) = self.ui.set_property(&name, to_slint(v, &like)) {
+                log::warn!("{plugin} set {k} on its {ui}: {e:?}");
+            }
+        }
+    }
+
+    fn apply(self: &Rc<Self>, effect: Effect) {
+        match effect {
+            Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
+            Effect::SaveSoon => self.schedule_save(),
+            Effect::Notify { title, body, urgent } => {
+                if let Some(n) = self.services.as_ref().and_then(|s| s.notifier.clone()) {
+                    n.notify(&title, &body, urgent);
+                }
+            }
+            Effect::Start { .. } | Effect::StartAgain(_) => {
+                if self.stream.borrow().is_none() {
+                    self.start_stream();
+                }
+            }
+            Effect::Stop(_) | Effect::StopAll => self.stop_stream(),
+            Effect::PhoneControl { body, .. } => {
+                if let Some((_, session)) = self.stream.borrow().as_ref() {
+                    let session = session.clone();
+                    std::thread::spawn(move || {
+                        let _ = session.send(&body);
+                    });
+                }
+            }
+            Effect::Quit => {
+                let _ = slint::quit_event_loop();
+            }
+            Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
+            other => log::debug!("not handled yet: {other:?}"),
+        }
+    }
+
+    pub fn schedule_save(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.save_timer.start(slint::TimerMode::SingleShot, Duration::from_millis(500), move || {
+            if let Some(w) = weak.upgrade() {
+                if !w.state.borrow_mut().save_now() {
+                    w.schedule_save();
+                }
+                w.process();
+            }
         });
     }
+
+    pub fn show_banners(&self) {
+        let s = self.state.borrow();
+        let rows: Vec<SValue> = s.banners.all().iter().map(|(key, issue)| {
+            let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
+            SValue::Struct(Struct::from_iter([
+                ("key".to_string(), SValue::String(key.as_str().into())),
+                ("title".to_string(), SValue::String(issue.title.as_str().into())),
+                ("text".to_string(), SValue::String(issue.text.as_str().into())),
+                ("details".to_string(), SValue::String(issue.details.as_str().into())),
+                ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
+                ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
+            ]))
+        }).collect();
+        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
+    }
+
+    fn set(&self, name: &str, text: impl Into<SharedString>) {
+        let _ = self.ui.set_property(name, SValue::String(text.into()));
+    }
+
+    /// _show_focus_stopped and the start button as it is while idle.
+    fn show_idle(&self) {
+        let camera_off = self.state.borrow().streams.camera_off;
+        self.set("start-text", if camera_off { tr("Start mic only") } else { tr("Start streaming") });
+        self.set("start-short", if camera_off { tr("Start mic only") } else { tr("Start") });
+        let _ = self.ui.set_property("streaming", SValue::Bool(false));
+        self.set("status", tr("Not streaming"));
+        self.set("status-kind", "status_dim");
+        self.set("fps", "—");
+        self.set("net", "—");
+    }
+
+    fn show_streaming(&self) {
+        self.set("start-text", tr("Stop streaming"));
+        self.set("start-short", tr("Stop"));
+        let _ = self.ui.set_property("streaming", SValue::Bool(true));
+    }
+
+    fn toggle_stream(self: &Rc<Self>) {
+        if self.stream.borrow().is_some() {
+            self.stop_stream();
+        } else if !self.state.borrow().streams.starting {
+            self.start_stream();
+        }
+        self.process();
+    }
+
+    fn start_stream(self: &Rc<Self>) {
+        let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else { return };
+        let phones = phones_from_file(&self.state.borrow().file);
+        let Some(phone) = phones.selected().cloned() else { return };
+        self.state.borrow_mut().streams.starting = true;
+        let _ = self.ui.set_property("start-enabled", SValue::Bool(false));
+        self.set("status", tr("Connecting"));
+        let weak = self.ui.as_weak();
+        std::thread::spawn(move || {
+            let result = services.link.resolve(&phone, opts.prefs).map_err(|e| format!("{e:?}")).and_then(|s| {
+                let s: Arc<dyn PhoneSession> = s.into();
+                s.start(opts.request).map(|_| s)
+            });
+            let services = services.clone();
+            let _ = weak.upgrade_in_event_loop(move |_| with_window(|w| w.started(result, services)));
+        });
+    }
+
+    fn started(self: &Rc<Self>, result: Result<Arc<dyn PhoneSession>, String>, services: Arc<Services>) {
+        self.state.borrow_mut().streams.starting = false;
+        let _ = self.ui.set_property("start-enabled", SValue::Bool(true));
+        let session = match result {
+            Ok(s) => s,
+            Err(e) => {
+                self.set("status", e);
+                self.set("status-kind", "status_err");
+                self.state.borrow_mut().bus.emit(Event::StreamStartFailed);
+                self.process();
+                return;
+            }
+        };
+        let opts = self.opts.clone().expect("a stream needs options");
+        let streaming = Streaming::start(session.clone(), services.media.clone(), services.outputs.clone(),
+            StreamOptions { fps: opts.request.fps, slot: 0, hardware_decode: opts.hardware_decode },
+            Arc::new(Events { ui: self.ui.as_weak() }));
+        let info = StreamInfo { source_id: self.state.borrow().selected.clone().unwrap_or_default(), url: session.describe() };
+        *self.stream.borrow_mut() = Some((streaming, session));
+        {
+            let mut s = self.state.borrow_mut();
+            s.streams.streaming = true;
+            s.streams.source_id = Some(info.source_id.clone());
+            s.each(|p, host| p.on_stream_start(host, &info));
+            s.bus.emit(Event::StreamStarted { url: info.url.clone() });
+        }
+        self.show_streaming();
+        self.process();
+    }
+
+    fn stop_stream(self: &Rc<Self>) {
+        let Some((streaming, session)) = self.stream.borrow_mut().take() else { return };
+        std::thread::spawn(move || {
+            streaming.stop();
+            let _ = session.stop();
+            session.release();
+        });
+        {
+            let mut s = self.state.borrow_mut();
+            s.streams.streaming = false;
+            s.streams.phone_state = None;
+            s.each(|p, host| p.on_stream_stop(host));
+            s.bus.emit(Event::StreamStopped);
+        }
+        self.show_idle();
+        self.process();
+    }
+
+    fn phone_state(self: &Rc<Self>, state: Value) {
+        {
+            let mut s = self.state.borrow_mut();
+            s.streams.phone_state = Some(state.clone());
+            s.bus.emit(Event::PhoneStateUpdated { state: state.clone() });
+            s.each(|p, host| p.on_phone_state(host, &state));
+        }
+        self.process();
+    }
+
+    pub fn shut_down(self: &Rc<Self>) {
+        self.stop_stream();
+        if self.save_timer.running() {
+            self.save_timer.stop();
+            self.state.borrow_mut().save_now();
+        }
+        self.state.borrow_mut().each(|p, host| p.shutdown(host));
+    }
+}
+
+fn open_url(url: &str) {
+    if let Some(text) = url.strip_prefix(crate::banners::COPY_SCHEME) {
+        // No clipboard in core yet: the command shows in the banner, selectable, and in the log
+        log::info!("Copy: {text}");
+        return;
+    }
+    #[cfg(target_os = "linux")]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
 }
 
 struct Events {
-    ui: Weak<MainWindow>,
+    ui: slint::Weak<ComponentInstance>,
 }
 
 impl StreamEvents for Events {
-    fn preview(&self, rgb: Vec<u8>, width: u32, height: u32) {
-        let buffer = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(&rgb, width, height);
-        let _ = self.ui.upgrade_in_event_loop(move |ui| {
-            ui.set_preview(Image::from_rgb8(buffer));
-            ui.set_has_preview(true);
-        });
-    }
+    fn preview(&self, _rgb: Vec<u8>, _width: u32, _height: u32) {}
 
     fn state(&self, state: Value) {
-        let _ = self.ui.upgrade_in_event_loop(move |ui| apply_state(&ui, &state));
+        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| w.phone_state(state)));
     }
 
     fn stats(&self, s: Stats) {
-        let text = format!("{}x{} · {:.0} fps · {:.1} Mbps · {:.1} ms decode{}{}", s.width, s.height, s.fps, s.mbps, s.decode_ms,
-                           if s.hardware { " (VA-API)" } else { "" },
-                           if s.error.is_empty() { format!(" · {}", s.camera) } else { format!(" · {}", s.error) });
-        let _ = self.ui.upgrade_in_event_loop(move |ui| ui.set_stats(text.into()));
+        let fps = format!("{:.0}", s.fps);
+        let net = format!("{:.1} Mbps", s.mbps);
+        let status = format!("{} {}x{}", tr("Live"), s.width, s.height);
+        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| {
+            w.set("fps", fps);
+            w.set("net", net);
+            w.set("status", status);
+            w.set("status-kind", "status_ok");
+        }));
     }
 
     fn ended(&self, why: String) {
-        let _ = self.ui.upgrade_in_event_loop(move |ui| {
-            ui.set_streaming(false);
-            ui.set_has_preview(false);
-            ui.set_status(why.into());
-        });
+        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| {
+            w.stop_stream();
+            if !why.is_empty() {
+                w.set("status", why);
+            }
+        }));
     }
 }
 
-/// A lens label from /v1/state as the tile shows it: "Back ~24mm OIS" is ("24", "mm", "OIS").
-fn lens_tile(cam: &Value) -> Lens {
-    let label = cam.get("label").and_then(Value::as_str).unwrap_or("");
-    let mut number = String::new();
-    let mut unit = String::new();
-    let mut rest: Vec<String> = Vec::new();
-    for word in label.split_whitespace() {
-        let w = word.trim_start_matches('~');
-        let digits: String = w.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
-        if number.is_empty() && !digits.is_empty() && (w.ends_with("mm") || w.ends_with('x')) {
-            number = digits;
-            unit = w[number.len()..].to_string();
-        } else if word == "[auto]" {
-            rest.insert(0, "Auto".into());
-        } else if word == "Front" || word.starts_with("F/") {
-            rest.insert(0, "Front".into());
-        } else if word != "Back" && word != "[phys]" {
-            rest.push(word.to_string());
-        }
-    }
-    if number.is_empty() {
-        number = cam.get("id").and_then(Value::as_str).unwrap_or("?").to_string();
-    }
-    Lens {
-        id: cam.get("id").and_then(Value::as_str).unwrap_or("").into(),
-        number: number.into(),
-        unit: unit.into(),
-        rest: rest.join(" · ").into(),
-    }
-}
-
-fn apply_state(ui: &MainWindow, state: &Value) {
-    let cams: Vec<Value> = state.get("cameras").and_then(Value::as_array).cloned().unwrap_or_default();
-    let lenses: Vec<Lens> = cams.iter().map(lens_tile).collect();
-    let current = cams.iter().position(|c| c.get("current").and_then(Value::as_bool) == Some(true)).unwrap_or(0);
-    ui.set_lenses(ModelRc::new(VecModel::from(lenses)));
-    ui.set_current_lens(current as i32);
-    if let Some(cam) = cams.get(current) {
-        let i = |k: &str, d: i64| cam.get(k).and_then(Value::as_i64).unwrap_or(d) as i32;
-        ui.set_ae_min(i("aeCompMin", -8));
-        ui.set_ae_max(i("aeCompMax", 8));
-        ui.set_ae_step(cam.get("aeCompStep").and_then(Value::as_f64).unwrap_or(0.167) as f32);
-        ui.set_point_focus(cam.get("supportsFocusPoint").and_then(Value::as_bool).unwrap_or(false));
-    }
-    let b = |k: &str, d: bool| state.get(k).and_then(Value::as_bool).unwrap_or(d);
-    let n = |k: &str, d: i64| state.get(k).and_then(Value::as_i64).unwrap_or(d) as i32;
-    ui.set_exposure_mode(if b("auto", true) { 0 } else { 1 });
-    ui.set_ae_comp(n("ae_comp", 0) as f32);
-    ui.set_ois(b("ois", true));
-    ui.set_black_level_lock(b("black_level_lock", false));
-    ui.set_torch(b("torch", false));
-    ui.set_noise_reduction(n("nr_mode", 1).clamp(0, 2));
-    ui.set_sharpening(n("edge_mode", 1).clamp(0, 2));
-    match state.get("focus_mode").and_then(Value::as_str) {
-        Some("manual") => ui.set_focus_mode(2),
-        Some("point") => ui.set_focus_mode(1),
-        _ => ui.set_focus_mode(0),
-    }
-}
-
-fn refresh_phones(ui: &MainWindow, phones: &Phones) {
-    let names: Vec<SharedString> = phones.phones.iter().map(|p| p.name.as_str().into()).collect();
-    let current = phones.selected().and_then(|s| phones.phones.iter().position(|p| p.id == s.id)).unwrap_or(0);
-    ui.set_phones(ModelRc::new(VecModel::from(names)));
-    ui.set_current_phone(current as i32);
-    ui.set_camera_active(!phones.phones.is_empty());
-}
-
-fn qr_image(payload: &str) -> Image {
-    let Ok(code) = qrcode::QrCode::new(payload.as_bytes()) else { return Image::default() };
-    let w = code.width();
-    let scale = 4;
-    let size = ((w + 4) * scale) as u32;
-    let mut buf = SharedPixelBuffer::<Rgb8Pixel>::new(size, size);
-    let colors = code.to_colors();
-    for (i, px) in buf.make_mut_slice().iter_mut().enumerate() {
-        let (x, y) = (i % size as usize / scale, i / size as usize / scale);
-        let dark = x >= 2 && y >= 2 && x < w + 2 && y < w + 2 && colors[(y - 2) * w + (x - 2)] == qrcode::Color::Dark;
-        *px = if dark { Rgb8Pixel::new(0, 0, 0) } else { Rgb8Pixel::new(255, 255, 255) };
-    }
-    Image::from_rgb8(buf)
-}
-
-fn stop_session(session: Arc<dyn PhoneSession>) {
-    let _ = session.stop();
-    session.release();
-}
-
+/// The window, until it's closed.
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
-    let ui = MainWindow::new().map_err(|e| e.to_string())?;
-    let file = ConfigFile::default();
-    let cfg = file.load();
-    let phones = Phones::from_section(cfg.pointer("/plugin_configs/connection"), || services.link.new_identity());
-    let app = Arc::new(Mutex::new(App { file, phones, streaming: None, session: None, pairing: None }));
-    refresh_phones(&ui, &app.lock().unwrap().phones);
-    let opts = Arc::new(opts);
-
-    ui.on_phone_picked({
-        let app = app.clone();
-        move |i| {
-            let mut a = app.lock().unwrap();
-            a.phones.selected_phone = a.phones.phones.get(i as usize).map(|p| p.id.clone());
-            a.save();
-        }
-    });
-
-    ui.on_start_stop({
-        let (app, weak, opts, services) = (app.clone(), ui.as_weak(), opts.clone(), services.clone());
-        move || {
-            let ui = weak.unwrap();
-            let running = app.lock().unwrap().streaming.take();
-            if let Some(streaming) = running {
-                let session = app.lock().unwrap().session.take();
-                ui.set_streaming(false);
-                ui.set_has_preview(false);
-                ui.set_status("Not streaming".into());
-                ui.set_stats("".into());
-                std::thread::spawn(move || {
-                    streaming.stop();
-                    if let Some(s) = session {
-                        stop_session(s);
-                    }
-                });
-                return;
-            }
-            ui.set_starting(true);
-            ui.set_status("Looking for the phone…".into());
-            let (app, weak, opts, services) = (app.clone(), weak.clone(), opts.clone(), services.clone());
-            std::thread::spawn(move || {
-                let phone = app.lock().unwrap().phones.selected().cloned();
-                let result = phone.ok_or_else(|| "No phone".to_string()).and_then(|phone| {
-                    let session: Arc<dyn PhoneSession> = services.link.resolve(&phone, opts.prefs)
-                        .map_err(|e| format!("Can't reach {}: {e:?}", phone.name))?.into();
-                    session.start(opts.request)?;
-                    Ok(session)
-                });
-                let ui_weak = weak.clone();
-                let _ = weak.upgrade_in_event_loop(move |ui| {
-                    ui.set_starting(false);
-                    match result {
-                        Ok(session) => {
-                            let stream_opts = StreamOptions { fps: opts.request.fps, slot: 0, hardware_decode: opts.hardware_decode };
-                            ui.set_status(format!("Streaming over {}", session.describe()).into());
-                            ui.set_streaming(true);
-                            let streaming = Streaming::start(session.clone(), services.media.clone(), services.outputs.clone(),
-                                                             stream_opts, Arc::new(Events { ui: ui_weak }));
-                            let scale = ui.window().scale_factor();
-                            streaming.set_preview_size((ui.get_preview_width() * scale) as u32, (ui.get_preview_height() * scale) as u32);
-                            let mut a = app.lock().unwrap();
-                            a.session = Some(session);
-                            a.streaming = Some(streaming);
-                        }
-                        Err(e) => ui.set_status(e.into()),
-                    }
-                });
-            });
-        }
-    });
-
-    let send = {
-        let app = app.clone();
-        move |bodies: Vec<Value>| {
-            let Some(session) = app.lock().unwrap().session.clone() else { return };
-            std::thread::spawn(move || {
-                for body in bodies {
-                    let _ = session.send(&body);
-                }
-            });
-        }
-    };
-
-    ui.on_control({
-        let send = send.clone();
-        move |action, value| {
-            let body = match action.as_str() {
-                "focus_mode" => json!({"action": "focus_mode", "value": if value > 0.5 { "manual" } else { "continuous" }}),
-                "focus_distance" => json!({"action": "focus_distance", "value": value}),
-                "auto" | "wb_auto" => json!({"action": action.as_str()}),
-                _ => json!({"action": action.as_str(), "value": value.round() as i64}),
-            };
-            send(vec![body]);
-        }
-    });
-
-    ui.on_manual_exposure({
-        let send = send.clone();
-        move |iso, shutter_ns| {
-            send(vec![json!({"action": "iso", "value": iso.round() as i64}), json!({"action": "shutter", "value": shutter_ns.round() as i64})]);
-        }
-    });
-
-    ui.on_lens_picked({
-        let send = send.clone();
-        move |id| send(vec![json!({"action": "camera", "id": id.as_str()})])
-    });
-
-    ui.on_add_phone({
-        let (app, weak, services) = (app.clone(), ui.as_weak(), services.clone());
-        move || {
-            let ui = weak.unwrap();
-            let mut a = app.lock().unwrap();
-            if a.pairing.is_none() {
-                match services.link.pair(&a.phones.computer_id, &a.phones.computer_name) {
-                    Ok(offer) => {
-                        ui.set_pairing_qr(qr_image(&offer.payload()));
-                        ui.set_pairing_note(format!("Listening on {} port {}", offer.addresses().join(", "), offer.port()).into());
-                        a.pairing = Some(offer);
-                    }
-                    Err(e) => ui.set_pairing_note(format!("Couldn't start pairing: {e}").into()),
-                }
-            }
-            ui.set_pairing_open(true);
-        }
-    });
-
-    ui.on_pair_usb({
-        let (app, weak, opts) = (app.clone(), ui.as_weak(), opts.clone());
-        move || {
-            let Some(offer) = app.lock().unwrap().pairing.clone() else { return };
-            let (weak, opts) = (weak.clone(), opts.clone());
-            std::thread::spawn(move || {
-                let sent = offer.offer_over_usb(&opts.package);
-                let note = if sent > 0 { "Sent the offer over USB: accept it on the phone" } else { "No phone answered over USB" };
-                let _ = weak.upgrade_in_event_loop(move |ui| ui.set_pairing_note(note.into()));
-            });
-        }
-    });
-
-    ui.on_close_pairing({
-        let (app, weak) = (app.clone(), ui.as_weak());
-        move || {
-            app.lock().unwrap().pairing = None;
-            weak.unwrap().set_pairing_open(false);
-        }
-    });
-
-    // Picks up a finished pairing and keeps the stream's preview the size the window shows it at
-    let timer = slint::Timer::default();
-    timer.start(slint::TimerMode::Repeated, Duration::from_millis(250), {
-        let (app, weak) = (app.clone(), ui.as_weak());
-        move || {
-            let Some(ui) = weak.upgrade() else { return };
-            let mut a = app.lock().unwrap();
-            if let Some(phone) = a.pairing.as_ref().and_then(|p| p.poll()) {
-                a.phones.add_phone(phone);
-                a.save();
-                a.pairing = None;
-                refresh_phones(&ui, &a.phones);
-                ui.set_pairing_open(false);
-            }
-            if let Some(s) = a.streaming.as_ref() {
-                let scale = ui.window().scale_factor();
-                s.set_preview_size((ui.get_preview_width() * scale) as u32, (ui.get_preview_height() * scale) as u32);
-            }
-        }
-    });
-
-    // TELESCOPE_T0 (a launcher's CLOCK_MONOTONIC in ns): print how long the first frame took to reach the screen
+    let mut plugins = crate::plugins::builtins();
+    plugins.extend((services.plugins)());
+    let window = build(ConfigFile::default(), plugins, Some(services), Some(opts.clone()))?;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
-        let _ = ui.window().set_rendering_notifier(move |state, _| {
+        let _ = window.ui.window().set_rendering_notifier(move |state, _| {
             if !done && matches!(state, slint::RenderingState::AfterRendering) {
                 done = true;
                 println!("first-paint-ms {:.1}", (telescope_core::time::monotonic_ns() - t0) as f64 / 1e6);
@@ -349,8 +526,12 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         });
     }
     if opts.autostart {
-        let weak = ui.as_weak();
-        slint::Timer::single_shot(Duration::from_millis(100), move || weak.unwrap().invoke_start_stop());
+        let weak = Rc::downgrade(&window);
+        slint::Timer::single_shot(Duration::from_millis(100), move || {
+            if let Some(w) = weak.upgrade() {
+                w.toggle_stream();
+            }
+        });
     }
     if let Some(secs) = opts.quit_after {
         slint::Timer::single_shot(Duration::from_secs(secs), || {
@@ -358,24 +539,17 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         });
     }
     if let Some(out) = opts.snapshot.clone() {
-        if !opts.autostart {
-            crate::snapshot::prepare(&ui);
-        }
-        let weak = ui.as_weak();
-        let delay = if opts.autostart { 8000 } else { 1500 };
-        slint::Timer::single_shot(Duration::from_millis(delay), move || {
-            let ui = weak.unwrap();
-            crate::snapshot::save(&ui, &out);
+        let weak = Rc::downgrade(&window);
+        window.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
+        slint::Timer::single_shot(Duration::from_millis(if opts.autostart { 8000 } else { 1500 }), move || {
+            if let Some(w) = weak.upgrade() {
+                crate::snapshot::save(w.ui.window(), &out);
+            }
             let _ = slint::quit_event_loop();
         });
     }
-
-    ui.run().map_err(|e| e.to_string())?;
-    if let Some(s) = app.lock().unwrap().streaming.take() {
-        s.stop();
-    }
-    if let Some(s) = app.lock().unwrap().session.take() {
-        stop_session(s);
-    }
+    window.ui.run().map_err(|e| e.to_string())?;
+    window.shut_down();
+    WINDOW.with(|w| *w.borrow_mut() = None);
     Ok(())
 }
