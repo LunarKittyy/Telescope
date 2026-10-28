@@ -121,8 +121,9 @@ class _Connection(_Plugin):
     def phone(self, pid):
         return None
 
-    def ensure_phone_streaming(self, on_progress=None, target=None, opening=None):
+    def ensure_phone_streaming(self, on_progress=None, target=None, opening=None, after_stop=False):
         self.opening = opening
+        self.after_stop = after_stop
         self.wakes += 1
         self.progress_msgs = getattr(self, "progress_msgs", [])
         if on_progress:

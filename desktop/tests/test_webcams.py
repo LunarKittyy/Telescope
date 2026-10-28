@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import pytest
 
-from telescope import webcams
+from telescope import webcams, webcams_win
 from telescope.webcams import Choice, Device, LinuxScanner, Mode, WebcamReader, choose
 
 linux_only = pytest.mark.skipif(sys.platform == "win32", reason="sysfs, /dev and /proc are Linux's")
@@ -474,6 +474,31 @@ def test_directshow_gets_the_rate_first_and_the_format_with_the_size(monkeypatch
             calls.append(prop)
 
     monkeypatch.setattr(webcams.cv2, "VideoCapture", Cap)
-    webcams.open_capture(Device("cam", "HD Webcam", 1), Choice("MJPG", 1920, 1080, 30.0))
+    monkeypatch.setattr(webcams_win, "dshow_paths", lambda: ["", "\\\\?\\usb#cam"])
+    webcams.open_capture(Device("\\\\?\\usb#cam", "HD Webcam", 1), Choice("MJPG", 1920, 1080, 30.0))
     # a new rate reopens the camera without the format, and the format only takes once the size changes
     assert calls == [cv2.CAP_PROP_FPS, cv2.CAP_PROP_FOURCC, cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT]
+
+
+@pytest.mark.parametrize("paths, index", [
+    (["\\\\?\\usb#new#{guid}", "", "\\\\?\\USB#cam#{guid}"], 2),  # one plugged in ahead of it since the scan
+    (["", "\\\\?\\usb#other"], None),  # unplugged since the scan
+])
+def test_directshow_opens_the_camera_by_its_path_as_plugged_in_now(monkeypatch, paths, index):
+    monkeypatch.setattr(webcams.vcam, "IS_LINUX", False)
+    opened = []
+
+    class Cap:
+        def __init__(self, *args):
+            opened.append(args)
+
+        def isOpened(self):
+            return True
+
+        def set(self, prop, value):
+            pass
+
+    monkeypatch.setattr(webcams.cv2, "VideoCapture", Cap)
+    monkeypatch.setattr(webcams_win, "dshow_paths", lambda: paths)
+    webcams.open_capture(Device("\\\\?\\usb#cam#{other}", "HD Webcam", 1), Choice("MJPG", 1920, 1080, 30.0))
+    assert opened == [(index, cv2.CAP_DSHOW) if index is not None else ()]

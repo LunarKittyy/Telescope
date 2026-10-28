@@ -1,6 +1,8 @@
 """Sources against a stand-in host: no window needed."""
 
 import inspect
+import threading
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -206,3 +208,69 @@ def test_a_stop_hands_the_route_back(phone):
     source, host = phone
     source.stopped(remote_stop=False, active=True)
     assert host.conn.released == ["phone-a"]
+
+
+def test_a_wake_right_after_stop_waits_for_the_stop_to_reach_the_phone(phone):
+    # Otherwise the wake joins the stream that's about to end, and the late stop ends the new session too
+    source, host = phone
+    calls, let_go = [], threading.Event()
+
+    def stop_phone_streaming(target=None):
+        let_go.wait(5)
+        calls.append("stop")
+
+    host.conn.stop_phone_streaming = stop_phone_streaming
+    host.conn.ensure_phone_streaming = lambda **kw: calls.append(("wake", kw["after_stop"])) or (True, "")
+    source._stop_phone_async()
+    threading.Timer(0.2, let_go.set).start()
+    source._wake_phone(source._wake_id, host.conn, "url", None)
+    assert calls == ["stop", ("wake", True)]
+
+
+def test_a_wake_long_after_a_stop_doesnt_wait_for_the_phone_to_settle(phone):
+    source, host = phone
+    calls = []
+    host.conn.ensure_phone_streaming = lambda **kw: calls.append(kw["after_stop"]) or (True, "")
+    source._wake_phone(source._wake_id, host.conn, "url", None)
+    assert calls == [False]
+
+
+class _Worker:
+    def __init__(self):
+        self.failed_tries = 0
+        self.urls = []
+
+    def retarget(self, url):
+        self.urls.append(url)
+
+
+def test_the_same_cable_back_after_a_fresh_forward_died_gets_another(phone):
+    # Unplugged again after recovery made a forward but before video came back: adb dropped that forward
+    source, host = phone
+    usb = Route("usb", "127.0.0.1", "serial")
+    source.session = replace(source.session, worker=_Worker())
+    ports = iter(["https://127.0.0.1:41000/v1/video", "https://127.0.0.1:41001/v1/video"])
+    host.conn.adopt_stream_route = lambda route, pid: next(ports)
+    source.session.client.retarget = lambda url: None
+    _probe(source, host, Resolution(READY, usb, streaming=True))
+    assert source.session.worker.urls == ["https://127.0.0.1:41000/v1/video"]
+    source._probe_recovery()  # still connecting on it: left alone
+    assert len(source.session.worker.urls) == 1
+    source.session.worker.failed_tries += 1  # the cable went, and came back
+    source._probe_recovery()
+    assert source.session.worker.urls[-1] == "https://127.0.0.1:41001/v1/video"
+    source._probe_recovery()
+    assert len(source.session.worker.urls) == 2
+
+
+def test_a_wifi_route_that_hasnt_connected_yet_isnt_moved_again(phone):
+    source, host = phone
+    wifi = Route("wifi", "192.168.1.20")
+    source.session = replace(source.session, worker=_Worker())
+    adopted = []
+    host.conn.adopt_stream_route = lambda route, pid: adopted.append(route) or "https://192.168.1.20:8080/v1/video"
+    source.session.client.retarget = lambda url: None
+    _probe(source, host, Resolution(READY, wifi, streaming=True))
+    source.session.worker.failed_tries += 1
+    source._probe_recovery()
+    assert adopted == [wifi]

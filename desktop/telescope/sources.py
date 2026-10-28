@@ -33,6 +33,8 @@ _UNREACHABLE_AFTER_MS = 30_000  # gone this long: a banner says so
 _CAMERA_LIMITED_SHARE = 0.9
 _CAMERA_FPS_KEEP_S = 10.0
 _HEAT_CHECK_MS = 15_000  # how often a streaming phone is asked whether its heat dropped the size
+_STOP_WAIT_S = 10.0  # a wake waits this long at most for the phone's earlier stop to get there
+_STOP_SETTLE_S = 3.0  # a stop that got there this recently may still be winding the phone's stream down
 
 
 def camera_error_text(state: dict) -> str:
@@ -363,6 +365,7 @@ class PhoneSource(Source):
         # The generation drops probes from an earlier drop.
         self._recovery_gen = 0
         self._recovery_route = None  # the route recovery last moved the stream to
+        self._route_tries = 0  # the worker's failed_tries when it moved there
         self._handover = None  # (session id, route, url) of a hand_over() under way
         self._heat_shown = False
         self._heat_check_busy = False  # one heat check at a time: an unreachable phone takes seconds to time out
@@ -393,6 +396,7 @@ class PhoneSource(Source):
         self._alive_busy = False
         # Remote-stop requests; quit path waits for these to complete.
         self._stop_threads: list[threading.Thread] = []
+        self._stopped_at = -1e9  # monotonic time the last one finished
 
         self._sig_state.connect(lambda session_id, state: host.apply_state(self, session_id, state))
         self._sig_wake_done.connect(self._on_wake_done)
@@ -447,8 +451,11 @@ class PhoneSource(Source):
             except RuntimeError:
                 pass
 
+        # A stop still on its way would land after this wake joined the stream it ends, so the wake goes after it
+        stopping = self._finish_stops()
         try:
-            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target, opening=opening)
+            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target, opening=opening,
+                                                     after_stop=stopping)
         except Exception:
             logging.exception("Phone wake failed")
             ok, reason = False, tr("Couldn't reach the phone.")
@@ -509,11 +516,22 @@ class PhoneSource(Source):
                 conn.stop_phone_streaming(target=target)
             except Exception:
                 logging.debug("Remote stop failed", exc_info=True)
+            finally:
+                self._stopped_at = time.monotonic()
 
         t = threading.Thread(target=stop, daemon=True)
         self._stop_threads = [x for x in self._stop_threads if x.is_alive()]
         self._stop_threads.append(t)
         t.start()
+
+    def _finish_stops(self, timeout: float = _STOP_WAIT_S) -> bool:
+        """Wake thread: wait for this phone's remote stops. Whether one got there just now, so the phone may still be
+        stopping."""
+        stops = [t for t in list(self._stop_threads) if t.is_alive()]
+        deadline = time.monotonic() + timeout
+        for t in stops:
+            t.join(max(0.0, deadline - time.monotonic()))
+        return bool(stops) or time.monotonic() - self._stopped_at < _STOP_SETTLE_S
 
     def drain_stops(self, deadline: float):
         """Wait for remote stops to complete, but never block quit indefinitely."""
@@ -700,7 +718,7 @@ class PhoneSource(Source):
                     tr("Start again when you're ready."),
                     [BannerAction(tr("Start"), lambda: host.start_source(self.id))], kind="warn"))
                 return
-            if res.streaming and res.route != self._recovery_route:
+            if res.streaming and (res.route != self._recovery_route or self._forward_failed(session)):
                 self._move_stream(session, res.route)
         self._recovery_timer.start(_RECOVER_RETRY_MS)
 
@@ -711,6 +729,8 @@ class PhoneSource(Source):
         if url is None or self.session is not session:
             return
         self._recovery_route = route
+        self._route_tries = getattr(session.worker, "failed_tries", 0)
+        self._alive_misses = 0
         if url != session.url:
             session.client.retarget(url)  # the same client, so its settings and what the panels keep for it carry on
             session = replace(session, url=url)
@@ -719,6 +739,15 @@ class PhoneSource(Source):
             session.worker.retarget(url)
         else:
             host.mic_reconnected(self)  # camera off: the mic follows the new route, and nothing else waits for it
+
+    def _forward_failed(self, session: "StreamSession") -> bool:
+        """The stream couldn't connect over the USB forward recovery made: the cable went again before it did, and adb
+        dropped that forward, so the same cable back needs a fresh one."""
+        if getattr(self._recovery_route, "kind", None) != "usb":
+            return False
+        if session.worker is None:
+            return self._alive_misses > 0  # camera off: the mic has no tries of its own to count
+        return getattr(session.worker, "failed_tries", 0) > self._route_tries
 
     # ── Moving to another route without a gap ─────────────────────────────
 

@@ -747,6 +747,23 @@ def test_picking_the_old_connect_via_back_cancels_the_check(plugin_env, monkeypa
     assert plugin._route_combo.currentData() == ROUTE_AUTO
 
 
+@pytest.mark.parametrize("res", [Resolution(UNREACHABLE), Resolution(READY, USB)])
+def test_a_connect_via_check_for_one_phone_leaves_the_next_one_shown_alone(plugin_env, monkeypatch, res):
+    # USB picked for A, then the panels move to B streaming over Wi-Fi: A's answer mustn't reconnect B
+    plugin, host, _panel = plugin_env
+    probes = []
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_route_probe", lambda self, *a: probes.append(a))
+    _add(plugin, pid="id-b", name="B")
+    _add(plugin, pid="id-a", name="A")
+    plugin._streaming = host.streaming = True
+    plugin.set_route_preference(ROUTE_USB)
+    plugin.show_selected("id-b")
+    assert plugin._route_combo.currentData() == ROUTE_AUTO
+    probe_id, phone, pref = probes[0]
+    plugin._on_route_probed(probe_id, phone.id, pref, res)
+    assert host.reconnects == 0 and plugin.get_config()["route"] == ROUTE_AUTO and "route" not in host.issues
+
+
 def test_changing_the_route_saves_and_reconnects_a_live_stream(plugin_env):
     plugin, host, _panel = plugin_env
     _add(plugin)
@@ -1160,6 +1177,24 @@ def test_ensure_streaming_starts_then_waits_for_the_camera(plugin_env, monkeypat
     assert plugin.ensure_phone_streaming(on_progress=progress.append, target=_TARGET) == (True, "")
     assert calls == ["ping", "start", "ping", "ping"]
     assert progress[0] == "Starting the phone's camera..."
+
+
+def test_ensure_streaming_right_after_a_stop_starts_again_once_the_old_stream_ends(plugin_env, monkeypatch):
+    # The phone answers a stop before its stream is down, so it still says streaming for a moment
+    plugin, _host, _panel = plugin_env
+    calls = _stub_session(monkeypatch, [_ping(streaming=True), _ping(busy=True), _ping(), _ping(busy=True),
+                                        _ping(streaming=True)])
+    assert plugin.ensure_phone_streaming(target=_TARGET, after_stop=True) == (True, "")
+    assert calls == ["ping", "ping", "ping", "start", "ping", "ping"]
+
+
+def test_ensure_streaming_after_a_stop_joins_a_stream_that_doesnt_end(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    calls = _stub_session(monkeypatch, [_ping(streaming=True)])
+    clock = iter(range(0, 100))
+    monkeypatch.setattr(connection_module.time, "monotonic", lambda: float(next(clock)))
+    assert plugin.ensure_phone_streaming(target=_TARGET, after_stop=True) == (True, "")
+    assert "start" not in calls
 
 
 def test_ensure_streaming_asks_the_phone_to_open_at_the_size_picked(plugin_env, monkeypatch):

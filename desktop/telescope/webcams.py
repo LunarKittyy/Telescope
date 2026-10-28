@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import struct
+import threading
 from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
@@ -459,6 +460,29 @@ def who_uses(path: str, proc: str = "/proc") -> str:
 _DSHOW_FOURCC = {"YUYV": "YUY2"}
 
 
+def _dshow_index(device: Device) -> Optional[int]:
+    """device's DirectShow index as the cameras are plugged in now, since one plugged in or out moves the others' and
+    the scan that follows can come too late. None if it's gone."""
+    from telescope.webcams_win import device_instance, dshow_paths
+    found = []
+
+    def listing():
+        try:
+            found.append(dshow_paths())
+        except OSError:
+            logger.debug("Couldn't list DirectShow cameras again", exc_info=True)
+
+    # Its own thread, since listing sets up COM single-threaded and the reader's thread is OpenCV's to set up
+    lister = threading.Thread(target=listing, daemon=True, name="webcam-list")
+    lister.start()
+    lister.join(5)
+    if not found:
+        return device.location
+    paths = found[0]
+    want = device_instance(device.key)
+    return next((i for i, path in enumerate(paths) if path and device_instance(path) == want), None)
+
+
 def open_capture(device: Device, choice: Choice):
     """An OpenCV capture of device asking for choice. On Linux an MJPEG camera hands over its JPEGs undecoded, so
     the stream's decoders can work on several at once."""
@@ -469,7 +493,10 @@ def open_capture(device: Device, choice: Choice):
         if choice.fourcc != "RAW":
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*choice.fourcc))
     else:
-        cap = cv2.VideoCapture(device.location, cv2.CAP_DSHOW)
+        index = _dshow_index(device)
+        if index is None:
+            return cv2.VideoCapture()  # unplugged since the scan: a closed capture, like a camera that won't open
+        cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
         if not cap.isOpened():
             return cap
         # DirectShow reopens the camera on a new rate without the format, so the rate goes first and the format

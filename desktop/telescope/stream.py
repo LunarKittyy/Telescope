@@ -130,6 +130,7 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
+        self.failed_tries  = 0  # reconnects that failed on the url it was pointed at then (a recovery reads it)
         self._handover_lock = threading.Lock()
         self._handover_busy = False  # a hand_over() is trying its URL
         self._handover_thread: Optional[threading.Thread] = None
@@ -367,12 +368,15 @@ class StreamWorker(QThread):
             moved = self._take_handover()
             if moved is not None:
                 return moved
+            url = self.url
             cap = self._open_cap()
             if cap.isOpened():
                 ret, _ = cap.read()
                 if ret:
                     return cap
             cap.release()
+            if url == self.url:
+                self.failed_tries += 1  # a retarget() meanwhile makes it a try on the old url
         return None
 
     def _stream_reader(self, cap, stop_event: threading.Event, finished: threading.Event):
