@@ -2,7 +2,7 @@
 
 The rules for texts in the code and how a person translates by hand are in [docs/translating.md](../../docs/translating.md). This page is about having models do the bulk of the translating cheaply, and about the scripts that do the checks no model needs to do. Run everything from the repo root.
 
-A translation run only starts when the maintainer asks for one. A PR that adds or changes texts runs `i18n.py extract` and leaves the new entries untranslated, so they show in English until the next run.
+A translation run only starts when the maintainer asks for one. A PR that adds texts runs `i18n.py extract` and leaves the new entries untranslated, so they show in English until the next run. A PR that changes a phone text deletes that string from every `values-*/strings.xml`, so the old translation doesn't keep showing the old meaning.
 
 ## What's here
 
