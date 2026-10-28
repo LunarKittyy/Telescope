@@ -88,6 +88,7 @@ Avoid: kamu, kau, gawai, peranti, mengalirkan, aliran, bungkam, aplikasikan, pen
 | focus / focus distance | fokus / jarak fokus |
 | stabilization / Optical image stabilization | stabilisasi / Stabilisasi gambar optik |
 | torch / noise reduction / sharpening | Lampu senter / Pengurangan noise / Penajaman |
+| sharpness (a camera setting) | Ketajaman |
 | gain / Max gain / limiter / Auto level | gain / Gain maks. / limiter / Level otomatis |
 | stops (exposure unit) | stop |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Otomatis / Hanya USB / Hanya Wi-Fi / Hanya lokal - USB |

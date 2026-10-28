@@ -2,6 +2,8 @@
 
 The rules for texts in the code and how a person translates by hand are in [docs/translating.md](../../docs/translating.md). This page is about having models do the bulk of the translating cheaply, and about the scripts that do the checks no model needs to do. Run everything from the repo root.
 
+A translation run only starts when the maintainer asks for one. A PR that adds texts runs `i18n.py extract` and leaves the new entries untranslated, so they show in English until the next run. A PR that changes a phone text deletes that string from every `values-*/strings.xml`, so the old translation doesn't keep showing the old meaning.
+
 ## What's here
 
 | | |
@@ -53,7 +55,7 @@ python automation/translation/kit.py todo sv -o work/todo.json   # nothing liste
 4. If there's prose (sentences, not just labels) or `check.txt` isn't empty, have one reviewer go over it with `prompts/review.md`. Pick the reviewer by what's in it: prose goes to the prose reviewer, fields and plurals to the technical one. Don't use both unless both kinds are there, and give each only its units.
 5. Merge the changes into `out.json`. Read `objections.md` before going on, since `review_lang.sh` doesn't pass it to the reviewer. Build `disputes.json` from the objections and from the reviewer's changes to the same units, and give it to the settling model with `prompts/settle.md`. Many objections about one term mean the glossary has it wrong: fix the glossary, then settle every text that uses the term, old ones included.
 6. `kit.py apply sv work/out.json`, then `kit.py check sv`, and `python scripts/text_fit.py sv` in `desktop/` if any label or button changed.
-7. Run the checks in `CONTRIBUTING.md`, then commit with the code change or as "Update the Swedish translation".
+7. Run the checks in `CONTRIBUTING.md`, then commit as "Update the Swedish translation".
 
 ## Recipe: a new language
 
