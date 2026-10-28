@@ -107,7 +107,7 @@ A translation longer than the English can end up cut off, cut short with "…" o
 python scripts/text_fit.py sv --shots shots    # what doesn't fit in Swedish, with pictures in shots/
 ```
 
-It builds the window offscreen at the narrowest width of each of its layouts and goes through every settings tab. Each text that doesn't fit is listed with where it shows and how many pixels it needs. With `--shots` you also get a picture of each of those windows with the texts boxed in red.
+It builds the window offscreen at the narrowest width of each of its layouts and goes through every settings tab. Then it pretends a phone is paired and picks every option on every card in turn (each segment, list entry, switch and slider stop), because some texts only show after a pick, like the Curves page or a slider reading "Dynamic". When a long text makes a whole column wider than the window, that's one "column too wide" line naming what was picked, not a line for every text it cuts. Each text that doesn't fit is listed with where it shows and how many pixels it needs. With `--shots` you also get a picture of each of those windows with the texts boxed in red.
 
 To try a layout before any real translation exists, start the desktop with `TELESCOPE_LANG=pseudo`. That's a made-up language where every text is about 40% longer and accented ("[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]"). Any plain English left on screen in it never went through `tr()`.
 

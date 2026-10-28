@@ -5618,11 +5618,11 @@ msgstr "Tylko po naciśnięciu przycisku Stop"
 
 #: telescope/plugins/startup.py:44
 msgid "When no app uses the camera, if it started the stream"
-msgstr "Gdy żadna aplikacja nie używa kamery, jeśli uruchomiła ona strumień"
+msgstr "Gdy kamera jest nieużywana, jeśli to aplikacja włączyła strumień"
 
 #: telescope/plugins/startup.py:45
 msgid "When no app uses the camera, even if I started it"
-msgstr "Gdy żadna aplikacja nie używa kamery, nawet jeśli strumień został uruchomiony ręcznie"
+msgstr "Gdy kamera jest nieużywana, nawet po ręcznym starcie"
 
 #: telescope/plugins/startup.py:57
 #, python-brace-format
@@ -5941,7 +5941,7 @@ msgstr "Zresetuj odwrócenie, obrót, powiększenie, przesunięcie i rozciągni�
 
 #: telescope/plugins/transforms.py:177
 msgid "Mirror"
-msgstr "Odbicie lustrzane"
+msgstr "Lustro"
 
 #: telescope/plugins/transforms.py:178
 msgid "Upside down"

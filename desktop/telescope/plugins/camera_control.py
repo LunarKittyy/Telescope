@@ -54,7 +54,7 @@ def _kelvin_to_rggb(kelvin: int, tint: float) -> tuple[float, float, float, floa
 
 def _diopters_to_label(d: float) -> str:
     if d <= 0.01:
-        return "inf"
+        return "∞"  # focused at infinity: the same in every language
     return tr("{n} m", n=number(1.0 / d, 2))
 
 
@@ -276,7 +276,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_slider.setValue(0)
         self._focus_slider.setEnabled(False)
         self._focus_slider.valueChanged.connect(self._on_focus_slider)
-        self._focus_val_lbl = value_label("inf")
+        self._focus_val_lbl = value_label("∞")
         focus_slider_row = slider_row(self._focus_slider, self._focus_val_lbl, gutter=True)
         self._focus_distance_row = _row_widget(tr("Distance"), focus_slider_row, stretch=True)
         lay.addWidget(self._focus_distance_row)

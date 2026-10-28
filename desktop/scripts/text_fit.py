@@ -2,9 +2,11 @@
 """Finds texts that don't fit where they're shown: cut off, cut short with "...", or pushed out of their box.
 
 Builds the main window at the narrowest width of each of its layouts and opens every settings tab, offscreen, then
-measures every text on them. tests/test_text_fit.py runs it for each language and fails on anything new; what's
-already known is in tests/fixtures/text_fit_known.txt. In the pseudo language it also lists English that never went
-through tr(). Fonts differ between machines, so a text that only just fits can show up on one and not on another.
+measures every text on them. Then it pairs a pretend phone and goes through every option of every card (each segment,
+list entry, switch and slider stop), since picking one can show texts or rows that aren't there at first.
+tests/test_text_fit.py runs it for each language and fails on anything new; what's already known is in
+tests/fixtures/text_fit_known.txt. In the pseudo language it also lists English that never went through tr(). Fonts
+differ between machines, so a text that only just fits can show up on one and not on another.
 
   python scripts/text_fit.py                 every language and the pseudo one
   python scripts/text_fit.py sv pseudo       just these
@@ -14,6 +16,7 @@ through tr(). Fonts differ between machines, so a text that only just fits can s
 
 import argparse
 import contextlib
+import functools
 import math
 import os
 import re
@@ -40,7 +43,7 @@ MAX_HEIGHT = 8000  # windows are made as tall as their content, so nothing hides
 class Finding:
     lang: str
     view: str      # "main window 560 px", "Settings > General"
-    kind: str      # "cut off", "cut short", "out of its box", "window too wide", "not translated"
+    kind: str      # "cut off", "cut short", "out of its box", "window too wide", "column too wide", "not translated"
     text: str      # as shown
     english: str   # the text in the code, "" for one that isn't a tr() text
     need: int = 0
@@ -49,8 +52,10 @@ class Finding:
 
     @property
     def key(self) -> str:
-        """The line in text_fit_known.txt that marks it known; the same wherever it shows."""
-        return f"{self.lang}\t{self.kind}\t{self.english or self.text}".replace("\n", "\\n")
+        """The line in text_fit_known.txt that marks it known; the same wherever it shows. Numbers in a text that isn't
+        a tr() one (a slider's readout) are #, so one line covers every stop of the slider."""
+        text = self.english or re.sub(r"\d+", "#", self.text)
+        return f"{self.lang}\t{self.kind}\t{text}".replace("\n", "\\n")
 
     @property
     def size(self) -> str:
@@ -117,11 +122,19 @@ _WORD = re.compile(r"[A-Za-z]{3,}")
 NAMES = {"Telescope", "Telescope.apk"}  # shown as they are in every language
 
 
+@functools.lru_cache(maxsize=1)
+def _language_names() -> tuple:
+    from telescope import i18n
+    return tuple(i18n.native_name(lang) for lang in [i18n.SOURCE_LANGUAGE, *i18n.available()])
+
+
 def _untranslated(text: str) -> bool:
     """In the pseudo language, a shown text with English left once every translated part is taken out."""
     from telescope.version import display_version
     if text in NAMES or text == display_version() or re.match(r"https?://\S+$", text):
         return False  # a link is the same in every language
+    if text.startswith(_language_names()):
+        return False  # a language is listed under its own name
     while _BRACKETED.search(text):
         text = _BRACKETED.sub(" ", text)
     return bool(_WORD.search(re.sub(r"<[^<>]*>|&[a-z]+;", " ", text)))
@@ -174,7 +187,8 @@ def _measure(w):
                 doc.setHtml(w.text())
             else:
                 doc.setPlainText(w.text())
-            longest = max((w.fontMetrics().horizontalAdvance(word) for word in doc.toPlainText().split()), default=0)
+            words = _unbreakable(doc.toPlainText())
+            longest = max((w.fontMetrics().horizontalAdvance(word) for word in words), default=0)
             if longest > room.width() + SLACK:  # one word longer than the line can't wrap
                 return "cut off", longest, room.width()
             return None
@@ -213,6 +227,17 @@ def _measure(w):
         need = w.fontMetrics().horizontalAdvance(text)
         return ("cut off", need, room) if need > room + SLACK else None
     return None
+
+
+def _unbreakable(text: str) -> list:
+    """The pieces of text a line can't break inside: words, or single characters in Japanese and Chinese."""
+    from PyQt6.QtCore import QTextBoundaryFinder
+    finder = QTextBoundaryFinder(QTextBoundaryFinder.BoundaryType.Line, text)
+    pieces, start = [], 0
+    while (end := finder.toNextBoundary()) != -1:
+        pieces.append(text[start:end].strip())
+        start = end
+    return [piece for piece in pieces if piece]
 
 
 def _rich(label) -> bool:
@@ -334,11 +359,22 @@ def _grow_to_content(top, width: int, height: int):
         QApplication.processEvents()
 
 
-def check(top, lang: str, view: str, texts: _Texts, width: int = 0) -> list:
-    """Everything on top whose text doesn't fit, as it's laid out now."""
-    from PyQt6.QtWidgets import QAbstractButton, QComboBox, QLabel, QLineEdit, QListWidget, QStyledItemDelegate, QWidget
+def _too_wide(area) -> bool:
+    """A column that can't scroll sideways whose content got wider than it, so its right edge isn't drawn."""
+    from PyQt6.QtCore import Qt
+    return (area.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff and area.widget() is not None
+            and area.widget().width() > area.viewport().width() + SLACK)
+
+
+def check(top, lang: str, view: str, texts: _Texts, width: int = 0, scope=None, cause: str = "", before=None) -> list:
+    """Everything on top (or just inside scope) whose text doesn't fit, as it's laid out now. cause: the text of what
+    was just picked, which a column that got too wide is put down to unless it was as wide before ({id(column): its
+    content's width} in before)."""
+    from PyQt6.QtWidgets import QAbstractButton, QComboBox, QLabel, QLineEdit, QListWidget, QScrollArea, \
+        QStyledItemDelegate, QWidget
     from telescope.widgets import common
     found = []
+    scope = scope or top
 
     def add(w, kind, text, need=0, room=0, rect=None):
         r = _rect_in(w, top) if rect is None else rect
@@ -347,10 +383,15 @@ def check(top, lang: str, view: str, texts: _Texts, width: int = 0) -> list:
 
     if width and top.width() > width + SLACK:
         add(top, "window too wide", f"{width} px", top.width(), width)
+    wide = [a for a in [scope, *scope.findChildren(QScrollArea)]
+            if isinstance(a, QScrollArea) and a.isVisible() and _too_wide(a)]
+    for area in wide:  # one finding for the column, not one for every text its right edge cuts
+        if area.widget().width() > (before or {}).get(id(area), 0) + SLACK:
+            add(area, "column too wide", cause or view, area.widget().width(), area.viewport().width())
     common.elisions, overrun = [], []
     try:
         with _watched_draws(overrun):
-            top.grab()  # paints everything, so what draws its own text says what it cut
+            scope.grab()  # paints everything, so what draws its own text says what it cut
         cut = common.elisions
     finally:
         common.elisions = None
@@ -360,11 +401,11 @@ def check(top, lang: str, view: str, texts: _Texts, width: int = 0) -> list:
             if isinstance(w, QWidget) and w.isVisible() and (id(w), text) not in seen and texts.english(text):
                 seen.add((id(w), text))
                 add(w, kind, text, need, room)
-    for listed in top.findChildren(QListWidget):
+    for listed in scope.findChildren(QListWidget):
         if listed.isVisible() and type(listed.itemDelegate()) is QStyledItemDelegate:
             for item, need, room, rect in _list_items(listed, top):
                 add(listed, "cut short", item.text(), need, room, rect)
-    for w in top.findChildren(QWidget):
+    for w in scope.findChildren(QWidget):
         if not isinstance(w, (QLabel, QAbstractButton, QComboBox, QLineEdit)) or not w.isVisible():
             continue
         text = _shown_text(w)
@@ -378,8 +419,124 @@ def check(top, lang: str, view: str, texts: _Texts, width: int = 0) -> list:
             if measured[0] == "cut short" and not texts.english(text):
                 continue  # a phone's name or a path, cut on purpose
             add(w, measured[0], text, measured[1], measured[2])
-        elif out := _out_of_box(w, top):
+        elif not any(area.isAncestorOf(w) for area in wide) and (out := _out_of_box(w, top)):
             add(w, "out of its box", text, *out)
+    return found
+
+
+# ── Every option of every card ───────────────────────────────────────────────
+
+SLIDER_STOPS = 24  # a slider with up to this many stops is tried at each (its readout may be a word), else at its ends
+
+
+def _controls(card, switches: bool = True) -> list:
+    """The controls on card someone can pick an option with, as they're shown now. switches: with its switches, which
+    in Settings change the system (start with the computer, load the driver at boot)."""
+    from PyQt6.QtWidgets import QAbstractSlider, QComboBox, QPushButton, QWidget
+    from telescope.widgets.common import Switch
+    return [w for w in card.findChildren(QWidget)
+            if w.isVisible() and w.isEnabled() and (
+                (isinstance(w, QPushButton) and w.isCheckable() and w.property("segmented") is True)
+                or (switches and isinstance(w, Switch)) or (isinstance(w, QComboBox) and not w.isEditable())
+                or (isinstance(w, QAbstractSlider) and w.maximum() > w.minimum()))]
+
+
+def _options(w) -> list:
+    """(the text it shows once picked, how to pick it) for each option of control w."""
+    from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QComboBox
+    if isinstance(w, QComboBox):
+        return [(w.itemText(i), lambda i=i: w.setCurrentIndex(i)) for i in range(w.count())]
+    if isinstance(w, QAbstractSlider):
+        stops = range(w.minimum(), w.maximum() + 1)
+        if len(stops) > SLIDER_STOPS:
+            stops = (w.minimum(), w.maximum())
+        return [("", lambda v=v: w.setValue(v)) for v in stops]
+    if isinstance(w, QAbstractButton):
+        return [(w.text(), w.click)]
+    return []
+
+
+def _state(card) -> list:
+    """What every control on card is set to, to put it back with _restore()."""
+    from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QComboBox
+    saved = []
+    for w in _controls(card):
+        if isinstance(w, QComboBox):
+            saved.append((w, w.currentIndex()))
+        elif isinstance(w, QAbstractSlider):
+            saved.append((w, w.value()))
+        elif isinstance(w, QAbstractButton):
+            saved.append((w, w.isChecked()))
+    return saved
+
+
+def _restore(saved: list):
+    from PyQt6 import sip
+    from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QApplication, QComboBox
+    for _round in range(2):  # putting one back can change another (a segment unpicks its neighbour)
+        for w, value in saved:
+            if sip.isdeleted(w) or not w.isEnabled():
+                continue
+            if isinstance(w, QComboBox) and w.currentIndex() != value:
+                w.setCurrentIndex(value)
+            elif isinstance(w, QAbstractSlider) and w.value() != value:
+                w.setValue(value)
+            elif isinstance(w, QAbstractButton) and w.isChecked() != value and value:
+                w.click()
+            elif isinstance(w, QAbstractButton) and w.isChecked() != value and not w.autoExclusive() \
+                    and (w.group() is None or not w.group().exclusive()):
+                w.click()
+        QApplication.processEvents()
+
+
+def _card_title(card) -> str:
+    from PyQt6.QtWidgets import QLabel
+    title = card.findChild(QLabel, "card_title")
+    return title.text() if title is not None else ""
+
+
+def walk(win, lang: str, view: str, texts: _Texts, width: int, height: int = 0, shots=None,
+         switches: bool = True) -> list:
+    """Every text that doesn't fit after picking each option of each card on win, and each option those show in turn.
+    Only the column holding the card is measured, which is the only place a card's options change. height: the
+    window's own, for one that isn't as tall as its content."""
+    from PyQt6.QtWidgets import QApplication, QFrame, QScrollArea
+    from telescope import i18n
+    found, tried = [], set()
+
+    def measure(card, picked: str, before: dict):
+        column = next((a for a in win.findChildren(QScrollArea) if a.isAncestorOf(card)), win)
+        _grow_to_content(win, width, height or win.height())
+        place = f"{view}, {_card_title(card)} > {picked}" if picked else view
+        here = check(win, lang, place, texts, scope=column, cause=picked, before=before)
+        found.extend(here)
+        if shots and here:
+            name = i18n.english(_card_title(card)) + "-" + (texts.english(picked) or picked)
+            name = re.sub(r"\W+", "-", name).strip("-")
+            _shot(win, here, Path(shots) / f"{lang}-walk-{name}.png")
+
+    def go(card, depth: int):
+        for w in _controls(card, switches):
+            if id(w) in tried:
+                continue
+            tried.add(id(w))
+            saved = _state(card)
+            before = {id(a): a.widget().width() for a in win.findChildren(QScrollArea) if a.widget() is not None}
+            for text, pick in _options(w):
+                try:
+                    pick()
+                except Exception as exc:  # a plugin reaching for a phone that isn't there
+                    print(f"text_fit: picking {text!r} on {_card_title(card)!r} failed: {exc}", file=sys.stderr)
+                    continue
+                QApplication.processEvents()
+                measure(card, text or w.accessibleName() or w.objectName(), before)
+                if depth:
+                    go(card, depth - 1)
+            _restore(saved)
+
+    for card in [c for c in win.findChildren(QFrame, "card") if c.isVisible()]:
+        go(card, 1)
+    _grow_to_content(win, width, height or win.height())
     return found
 
 
@@ -420,7 +577,8 @@ def _quiet_system():
     from telescope.plugins import on_air
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.updates import UpdatesPlugin
-    from telescope import vcam
+    from telescope import vcam, vision_pack
+    from telescope.platform import linux
     with contextlib.ExitStack() as stack:
         for target, name, value in (
             (app_module.QSystemTrayIcon, "isSystemTrayAvailable", lambda: False),
@@ -434,7 +592,11 @@ def _quiet_system():
             (connection.ConnectionPlugin, "ensure_virtual_camera", lambda self, interactive=True: True),
             (OnboardingPlugin, "check_virtual_camera", lambda self: None),
             (UpdatesPlugin, "_maybe_auto_check", lambda self: None),
+            (UpdatesPlugin, "_spawn_check", lambda self, *a: None),  # picking a channel checks it
             (on_air, "ensure_certificate", lambda _folder, _hosts: ("", "")),
+            (vision_pack, "installed", lambda _folder: False),  # as on a machine without it: MediaPipe phones Google
+            (linux, "_privileged", lambda _steps, _timeout, failed: linux.PrivResult(False, failed)),  # no root prompt
+            (linux, "_find_conflicting_confs", lambda: []),  # not this computer's /etc
         ):
             if hasattr(target, name):
                 stack.enter_context(mock.patch.object(target, name, value))
@@ -549,6 +711,12 @@ def run(lang: str, shots=None) -> list:
                     found += here
                     if shots and here:
                         _shot(win, here, Path(shots) / f"{lang}-main-{width}.png")
+                width = ui_px(app_module._WIDTH_THREE_COL)  # the side columns are narrowest here
+                _grow_to_content(win, width, ui_px(MAIN_HEIGHT))
+                win._bus.phones_changed.emit(1)  # cards wait for a phone before their controls work
+                QApplication.processEvents()
+                found += walk(win, lang, f"main window {width} px", texts, width, shots=shots)
+                win._bus.phones_changed.emit(0)
                 win.resize(ui_px(1380), ui_px(MAIN_HEIGHT))
                 win.open_settings()
                 settings = win._settings_win
@@ -560,6 +728,8 @@ def run(lang: str, shots=None) -> list:
                     found += here
                     if shots and here:
                         _shot(settings, here, Path(shots) / f"{lang}-settings-{tab}.png")
+                    found += walk(settings, lang, view, texts, settings.default_size().width(),
+                                  settings.default_size().height(), shots, switches=False)
             finally:
                 _close(win)
     finally:

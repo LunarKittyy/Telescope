@@ -2435,7 +2435,7 @@ msgstr "Сопрячь телефон по Wi-Fi или USB"
 
 #: telescope/plugins/connection.py:758 telescope/plugins/connection.py:847
 msgid "Connection"
-msgstr "Подключение"
+msgstr "Связь"
 
 #: telescope/plugins/connection.py:759
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
@@ -5618,11 +5618,11 @@ msgstr "Только по нажатию «Стоп»"
 
 #: telescope/plugins/startup.py:44
 msgid "When no app uses the camera, if it started the stream"
-msgstr "Когда ни одно приложение не использует камеру, если оно запустило трансляцию"
+msgstr "Когда камера не используется, если трансляцию запустило приложение"
 
 #: telescope/plugins/startup.py:45
 msgid "When no app uses the camera, even if I started it"
-msgstr "Когда ни одно приложение не использует камеру, даже если я запустил ее вручную"
+msgstr "Когда камера не используется, даже после ручного запуска"
 
 #: telescope/plugins/startup.py:57
 #, python-brace-format

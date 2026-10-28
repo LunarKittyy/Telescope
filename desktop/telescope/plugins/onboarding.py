@@ -46,7 +46,7 @@ class _Step:
         self.number = number
         self.badge = QLabel(str(number))
         self.badge.setObjectName("step_badge")
-        self.title = QLabel(title)
+        self.title = WrapLabel(title)  # wraps rather than push the button column out of the card
         self.title.setObjectName("step_title")
         self.text = WrapLabel("")
         set_status_kind(self.text, "status_dim")

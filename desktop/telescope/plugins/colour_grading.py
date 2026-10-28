@@ -16,8 +16,8 @@ from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.colour_wheel import ColourWheel
 from telescope.widgets.common import (
     ElidingLabel, NoScrollSlider, SegmentButton, Switch, add_card_header, card_hue, card_layout, control_row,
-    control_row_widget, create_card, dim_until_paired, icon_button, segmented_row, set_status_kind, slider_row, ui_px,
-    value_label, wrapped_note,
+    control_row_widget, create_card, dim_until_paired, icon_button, name_controls, segmented_row, set_status_kind,
+    slider_row, ui_px, value_label, wrapped_note,
 )
 from telescope.widgets.curve_editor import CurveEditor
 
@@ -235,7 +235,10 @@ class ColourGradingPlugin(TelescopePlugin):
             group.addButton(btn)
             self._curve_btns[key] = btn
         self._curve_btns["tone"].setChecked(True)
-        lay.addLayout(control_row(tr("Curve"), segmented_row(*self._curve_btns.values()), stretch=True))
+        # No label column: the curve and channel names need the card's whole width in longer languages
+        curves = segmented_row(*self._curve_btns.values())
+        name_controls(tr("Curve"), curves)
+        lay.addLayout(curves)
         self._channel_btns = {}
         channels = QButtonGroup(page)
         for key, text in CHANNELS:
@@ -244,8 +247,9 @@ class ColourGradingPlugin(TelescopePlugin):
             channels.addButton(btn)
             self._channel_btns[key] = btn
         self._channel_btns["all"].setChecked(True)
-        self._channel_row = control_row_widget(tr("Channel"), segmented_row(*self._channel_btns.values()),
-                                               stretch=True)
+        self._channel_row = QWidget()
+        self._channel_row.setLayout(segmented_row(*self._channel_btns.values()))
+        name_controls(tr("Channel"), self._channel_row.layout())
         lay.addWidget(self._channel_row)
         self._editor = CurveEditor()
         self._editor.setAccessibleName(tr("Curve"))

@@ -118,7 +118,7 @@ def test_kelvin_gains_are_symmetric_and_tint_is_clamped():
 
 @pytest.mark.parametrize(
     "diopters,expected",
-    [(0, "inf"), (0.01, "inf"), (0.5, "2.00 m"), (2, "0.50 m")],
+    [(0, "∞"), (0.01, "∞"), (0.5, "2.00 m"), (2, "0.50 m")],
 )
 def test_diopters_label(diopters, expected):
     assert _diopters_to_label(diopters) == expected
