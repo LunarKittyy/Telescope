@@ -579,6 +579,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._prepared: dict = {}  # pid: (route, USB forward serial or None, path) a hand-over is trying
         self._usb_sat_out = -1e9  # monotonic time USB last failed a stream, which then sits out USB_SIT_OUT_S
         self._switching = False
+        self._combo_stale = False  # sources changed while the picker's list was open
         self._add_dlg: Optional[AddPhoneDialog] = None
         self._phones_dlg: Optional[PhonesDialog] = None
         self._discovery = LanDiscovery()
@@ -811,6 +812,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.setToolTip(tr("Which phone to stream from"))
         self._phone_combo.setAccessibleName(tr("Phone"))
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
+        # On the next turn, so a pick from the closing list is handled first
+        self._phone_combo.popup_hidden.connect(lambda: QTimer.singleShot(0, self._refresh_if_stale))
         self._phone_combo.setObjectName("phone_picker")
         phone_icon = QLabel(self._phone_combo)
         phone_icon.setPixmap(line_icon("phone", theme.hue(self.category)).pixmap(14, 14))
@@ -830,6 +833,12 @@ class ConnectionPlugin(TelescopePlugin):
         lay.addWidget(self._manage_btn)
 
     def _refresh_combo(self):
+        if self._phone_combo.popup_open():
+            self._mark_gone_entries()  # rebuilding the list under an open popup breaks it: wait for it to close
+            self._combo_stale = True
+            self._bus.phones_changed.emit(len(self._phones))
+            return
+        self._combo_stale = False
         self._switching = True
         self._phone_combo.blockSignals(True)
         self._phone_combo.clear()
@@ -843,6 +852,20 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.blockSignals(False)
         self._switching = False
         self._bus.phones_changed.emit(len(self._phones))
+
+    def _mark_gone_entries(self):
+        """Greys out the entries in the open list that went away meanwhile (a webcam unplugged), so they can't be picked."""
+        here = {p.id for p in self._phones} | {sid for sid, _name in self._sources}
+        model = self._phone_combo.model()
+        for row in range(self._phone_combo.count()):
+            data = self._phone_combo.itemData(row)
+            item = model.item(row) if hasattr(model, "item") else None
+            if data and item is not None and data not in here:
+                item.setEnabled(False)
+
+    def _refresh_if_stale(self):
+        if self._combo_stale and not self._phone_combo.popup_open():
+            self._refresh_combo()
 
     def _show_route_icon(self, kind: Optional[str]):
         """The link block's icon: a cable, Wi-Fi, or a cross while there's no route (the card's own icon is the link)."""

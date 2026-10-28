@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Fun pack](#fun-pack) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Notes](#notes-next-to-the-lens) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Fun pack](#fun-pack) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Notes](#notes-next-to-the-lens) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Webcams](#webcams-and-capture-cards) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -226,9 +226,23 @@ Stream from anything with a browser (an iPhone, a tablet, another laptop) with n
 - The card shows what the browser really sends, like "H.264, 1280×720 at 30 fps". It can be lower than what you picked when the device or Wi-Fi can't keep up. If the device's processor is the limit the card warns and a lower resolution or frame rate usually helps
 - On Linux the virtual camera is 1920x1080 unless you set another canvas under Video in Settings
 
+## Webcams and capture cards
+
+A webcam plugged into the computer streams just like a phone. It shows up in the phone picker under its own name and every effect works on it (Background, Chroma key, Colour grading, Auto framing, Transforms, One picture and the rest). The result goes out on Telescope's virtual camera like a phone's would. With **+** it can stream next to a phone or another webcam (see [Several cameras](#several-cameras-at-once)).
+
+- **Cameras with a webcam mode** show up here too. Many mirrorless cameras and some DSLRs have a USB webcam (UVC) mode. Any camera with a clean HDMI output works through an HDMI capture card too, since computers see the card as a webcam. Telescope doesn't talk to cameras over their own USB protocols (no gphoto2 or maker software yet)
+- **Plugging in and out** is noticed while Telescope runs. A webcam that's unplugged while it streams keeps its place, apps see the wait screen and the stream carries on once it's plugged back in. One that isn't streaming just leaves the picker
+- **Resolution and Frame rate** are on the Webcam card, kept for each camera. **Auto** takes the largest size up to 1080p the camera can send at the frame rate picked. The card shows what the camera really sends, like "1920×1080, MJPEG, 30 fps"
+- **Picture settings** the webcam itself offers are on the Webcam card too: exposure (time shown as a shutter speed like 1/60), gain, white balance, focus, zoom, anti-flicker and the like. Only what the camera has shows up, with its own range, and a manual slider stays greyed out while its Auto is on. Each camera keeps its own and gets them back every time it's opened, since most webcams forget them when unplugged. **Reset** puts the camera's defaults back. Anti-flicker starts on your mains frequency (50 or 60 Hz, guessed from the time zone) so lights don't flicker or band. On Windows some cameras don't offer anti-flicker or the frame-rate switch, and those rows are left out
+- **MJPEG or raw:** Telescope asks for raw video when the camera can send it at that size and rate and for MJPEG when it can't. A USB 2 webcam usually can't fit raw 1080p at 30 fps through the cable, which is why the bigger sizes tend to come as MJPEG
+- **In use somewhere else:** a webcam can only stream to one app at a time on Linux (Windows sometimes shares it). With another app holding it a banner names that app (where Telescope can tell) and the stream starts as soon as the app lets go
+- Telescope's own virtual cameras are never listed, which keeps a stream from looping back into itself. Other virtual cameras (OBS Virtual Camera and similar) are left out too
+- A webcam's microphone isn't passed through the Microphone card. Pick it in your call app instead
+- The phone's Camera card, Stream output and the phone's alerts don't apply to webcams. Switching off **Webcams** in Plugins takes them out of the picker
+
 ## Several cameras at once
 
-Click the **+** next to Stop while streaming to add another phone (or Browser camera), up to four in total. Each gets its own virtual camera: **Phone Camera 2** to **4** on Linux and **Telescope #2** to **#4** on Windows.
+Click the **+** next to Stop while streaming to add another phone (or Browser camera, or a webcam), up to four in total. Each gets its own virtual camera: **Phone Camera 2** to **4** on Linux and **Telescope #2** to **#4** on Windows.
 
 - The first time Telescope adds those cameras and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all

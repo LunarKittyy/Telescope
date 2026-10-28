@@ -281,12 +281,16 @@ class PluginSource(Source):
     """A plugin's StreamSource (see plugin.py): ready once it and the virtual camera are, with nothing to wake."""
 
     # A browser's first frame can be any shape (even square), and on Linux apps then keep the camera at that size
-    auto_canvas = (1920, 1080) if vcam.IS_LINUX else None
+    _AUTO_CANVAS = (1920, 1080) if vcam.IS_LINUX else None
 
     def __init__(self, host: SourceHost, source):
         super().__init__(host)
         self._source = source
         self.id = source.id
+
+    @property
+    def auto_canvas(self):
+        return getattr(self._source, "auto_canvas", self._AUTO_CANVAS)
 
     def open_reader(self):
         return self._source.open_reader()

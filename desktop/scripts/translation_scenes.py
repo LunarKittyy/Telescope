@@ -151,6 +151,7 @@ def quiet_system(stack, tray=False):
     import telescope.plugins.setup as setup
     from telescope import h264_reader
     from telescope.plugins import on_air as on_air_plugin
+    from telescope.plugins import webcam as webcam_plugin
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.updates import UpdatesPlugin
     for target, name, value in (
@@ -167,6 +168,8 @@ def quiet_system(stack, tray=False):
         (OnboardingPlugin, "check_virtual_camera", lambda self: None),
         (on_air_plugin, "ensure_certificate", lambda _folder, _hosts: ("", "")),
         (UpdatesPlugin, "_maybe_auto_check", lambda self: None),
+        (webcam_plugin, "default_scanner", lambda: lambda: []),  # this computer's webcams stay out of the picture
+        (webcam_plugin, "default_controls", lambda: lambda device: None),
     ):
         if hasattr(target, name):
             stack.enter_context(mock.patch.object(target, name, value))
@@ -198,6 +201,9 @@ def main_window(stack, tray=False, phone=True):
             plugin._backend_factory = lambda: None
         elif plugin.name == "on_air":
             quiet_sign(plugin)
+        elif plugin.name == "webcam":
+            plugin._scanner = lambda: []  # this computer's webcams stay out of the picture
+            plugin._controls_for = lambda device: None  # and their settings stay untouched
         win.register_plugin(plugin)
     win.apply_saved_config()
     if phone:

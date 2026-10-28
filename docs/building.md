@@ -76,6 +76,18 @@ Run both from the repository root, with the development environment above activa
 
 `python scripts/phone_check.py` runs a quick check against the paired dev phone: how long a start takes and how steady the stream is. `--wifi-drop 5` also turns the phone's Wi-Fi off for 5 seconds and times the recovery, and `--handover` checks the automatic Wi-Fi to USB handover. Both need the cable plugged in. It only prints numbers, so the output is fine to paste into an issue or PR.
 
+To try the Webcam plugin without a webcam, add a spare v4l2loopback device, feed it a test picture and start the dev desktop with `TELESCOPE_WEBCAM_LOOPBACK=1`, which lists loopback cameras. Telescope's own and ones named as virtual cameras (like OBS Virtual Camera on `/dev/video10`) stay out, so don't use those:
+
+```bash
+sudo v4l2loopback-ctl add -n "Test Webcam" -x 1 /dev/video20
+```
+
+```bash
+ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=30 -pix_fmt yuyv422 -f v4l2 /dev/video20
+```
+
+`-c:v mjpeg` instead of `-pix_fmt yuyv422` makes it an MJPEG camera, and stopping ffmpeg unplugs it.
+
 Some things are shared because there's only one of them:
 
 - The phone apps use the same ports, so only one can be open at a time. The one you open takes the ports over within a few seconds of the other closing
