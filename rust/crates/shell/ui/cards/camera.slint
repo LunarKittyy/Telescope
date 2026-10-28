@@ -1,6 +1,6 @@
 // The Camera card (desktop/telescope/plugins/camera_control.py), built from ui-kit's widgets.
 
-import { Theme, Icons, Icon, Button, Card, SectionHeading, FormRow, Segmented, Slider, SwitchTile, ChoiceField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -98,13 +98,12 @@ export component CameraCard inherits Card {
     property <float> iso: 50 * pow(6400 / 50, iso-pos);
     property <float> shutter-ns: 100000 * pow(10000, shutter-pos);
 
-    title: "Camera";
+    title: @tr("Camera");
     icon: Icons.camera;
-    hue: Theme.hue-camera;
     opacity: active ? 1 : 0.4;
 
     if lenses.length == 0: Text {
-        text: "Start streaming to load lenses";
+        text: @tr("Start streaming to load lenses");
         font-family: Theme.font;
         font-size: Theme.body;
         color: Theme.text-dim;
@@ -124,138 +123,152 @@ export component CameraCard inherits Card {
         }
     }
 
-    SectionHeading { text: "Light"; icon: Icons.sun; }
-    FormRow {
-        label: "Exposure";
-        Segmented {
-            label: "Exposure";
-            items: ["Auto", "Manual"];
-            disabled: [false, false];
-            current <=> exposure-mode;
-            picked(i) => {
-                if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
+    Section {
+        key: "Light";
+        title: @tr("camera section" => "Light");
+        icon: Icons.sun;
+        scope: root.fold-key;
+        FormRow {
+            label: @tr("Exposure");
+            Segmented {
+                label: @tr("Exposure");
+                items: [@tr("Auto"), @tr("Manual")];
+                disabled: [false, false];
+                current <=> exposure-mode;
+                picked(i) => {
+                    if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
+                }
             }
         }
-    }
-    if exposure-mode == 1: FormRow {
-        label: "ISO";
-        Slider {
-            label: "ISO";
-            hue: root.hue;
-            minimum: 0;
-            maximum: 1;
-            step: 0.01;
-            value <=> iso-pos;
-            readout: "ISO " + round(iso);
-            released => { manual-exposure(iso, shutter-ns); }
+        if exposure-mode == 1: FormRow {
+            label: @tr("ISO");
+            Slider {
+                label: @tr("ISO");
+                hue: root.hue;
+                minimum: 0;
+                maximum: 1;
+                step: 0.01;
+                value <=> iso-pos;
+                readout: "ISO " + round(iso);
+                released => { manual-exposure(iso, shutter-ns); }
+            }
         }
-    }
-    if exposure-mode == 1: FormRow {
-        label: "Shutter";
-        Slider {
-            label: "Shutter";
-            hue: root.hue;
-            minimum: 0;
-            maximum: 1;
-            step: 0.01;
-            value <=> shutter-pos;
-            readout: Fmt.shutter(shutter-ns);
-            released => { manual-exposure(iso, shutter-ns); }
+        if exposure-mode == 1: FormRow {
+            label: @tr("Shutter");
+            Slider {
+                label: @tr("Shutter");
+                hue: root.hue;
+                minimum: 0;
+                maximum: 1;
+                step: 0.01;
+                value <=> shutter-pos;
+                readout: Fmt.shutter(shutter-ns);
+                released => { manual-exposure(iso, shutter-ns); }
+            }
         }
-    }
-    FormRow {
-        label: "Brightness";
-        Slider {
-            label: "Brightness";
-            hue: root.hue;
-            minimum: ae-min;
-            maximum: ae-max;
-            step: 1;
-            value <=> ae-comp;
-            readout: Fmt.signed1(ae-comp * ae-step) + " EV";
-            released(v) => { control("ae_comp", v); }
+        FormRow {
+            label: @tr("Brightness");
+            Slider {
+                label: @tr("Brightness");
+                hue: root.hue;
+                minimum: ae-min;
+                maximum: ae-max;
+                step: 1;
+                value <=> ae-comp;
+                readout: Fmt.signed1(ae-comp * ae-step) + " EV";
+                released(v) => { control("ae_comp", v); }
+            }
         }
-    }
-    FormRow {
-        label: "White balance";
-        Segmented {
-            label: "White balance";
-            items: ["Auto", "Manual"];
-            disabled: [false, true];
-            current <=> wb-mode;
-            picked(i) => { control("wb_auto", 0); }
+        FormRow {
+            label: @tr("White balance");
+            Segmented {
+                label: @tr("White balance");
+                items: [@tr("Auto"), @tr("Manual")];
+                disabled: [false, true];
+                current <=> wb-mode;
+                picked(i) => { control("wb_auto", 0); }
+            }
         }
     }
 
-    SectionHeading { text: "Focus"; icon: Icons.focus; }
-    FormRow {
-        label: "Focus";
-        Segmented {
-            label: "Focus";
-            items: ["Auto", "Tap a point", "Manual"];
-            disabled: [false, !point-focus, false];
-            current <=> focus-mode;
-            picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
+    Section {
+        key: "Focus";
+        title: @tr("Focus");
+        icon: Icons.focus;
+        scope: root.fold-key;
+        FormRow {
+            label: @tr("Focus");
+            Segmented {
+                label: @tr("Focus");
+                items: [@tr("Auto"), @tr("Tap a point"), @tr("Manual")];
+                disabled: [false, !point-focus, false];
+                current <=> focus-mode;
+                picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
+            }
         }
-    }
-    if focus-mode == 2: FormRow {
-        label: "Distance";
-        Slider {
-            label: "Distance";
-            hue: root.hue;
-            minimum: 0;
-            maximum: 1;
-            step: 0.01;
-            value <=> focus-pos;
-            readout: focus-pos < 0.005 ? "∞" : round(100 / (focus-pos * 10)) + " cm";
-            released(v) => { control("focus_distance", v * 10); }
+        if focus-mode == 2: FormRow {
+            label: @tr("Distance");
+            Slider {
+                label: @tr("Distance");
+                hue: root.hue;
+                minimum: 0;
+                maximum: 1;
+                step: 0.01;
+                value <=> focus-pos;
+                readout: focus-pos < 0.005 ? "∞" : round(100 / (focus-pos * 10)) + " cm";
+                released(v) => { control("focus_distance", v * 10); }
+            }
         }
     }
 
-    SectionHeading { text: "Image"; icon: Icons.image; }
-    GridLayout {
-        spacing: 8px;
-        Row {
-            SwitchTile {
-                icon: Icons.stabilize;
-                text: "Stabilization";
-                hue: root.hue;
-                checked <=> ois;
-                toggled(on) => { control("ois", on ? 1 : 0); }
+    Section {
+        key: "Image";
+        title: @tr("Image");
+        icon: Icons.image;
+        scope: root.fold-key;
+        GridLayout {
+            spacing: 8px;
+            Row {
+                SwitchTile {
+                    icon: Icons.stabilize;
+                    text: @tr("Stabilization");
+                    hue: root.hue;
+                    checked <=> ois;
+                    toggled(on) => { control("ois", on ? 1 : 0); }
+                }
+                SwitchTile {
+                    icon: Icons.lock;
+                    text: @tr("Black level lock");
+                    hue: root.hue;
+                    checked <=> black-level-lock;
+                    toggled(on) => { control("black_level_lock", on ? 1 : 0); }
+                }
             }
-            SwitchTile {
-                icon: Icons.lock;
-                text: "Black level lock";
-                hue: root.hue;
-                checked <=> black-level-lock;
-                toggled(on) => { control("black_level_lock", on ? 1 : 0); }
+            Row {
+                SwitchTile {
+                    col: 0;
+                    icon: Icons.torch;
+                    text: @tr("Torch");
+                    hue: root.hue;
+                    checked <=> torch;
+                    toggled(on) => { control("torch", on ? 1 : 0); }
+                }
             }
         }
-        Row {
-            SwitchTile {
-                col: 0;
-                icon: Icons.torch;
-                text: "Torch";
-                hue: root.hue;
-                checked <=> torch;
-                toggled(on) => { control("torch", on ? 1 : 0); }
+        HorizontalLayout {
+            spacing: 8px;
+            ChoiceField {
+                caption: @tr("Noise reduction");
+                items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                current <=> noise-reduction;
+                picked(i) => { control("nr_mode", i); }
             }
-        }
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        ChoiceField {
-            caption: "Noise reduction";
-            items: ["Off", "Fast", "High quality"];
-            current <=> noise-reduction;
-            picked(i) => { control("nr_mode", i); }
-        }
-        ChoiceField {
-            caption: "Sharpening";
-            items: ["Off", "Fast", "High quality"];
-            current <=> sharpening;
-            picked(i) => { control("edge_mode", i); }
+            ChoiceField {
+                caption: @tr("Sharpening");
+                items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                current <=> sharpening;
+                picked(i) => { control("edge_mode", i); }
+            }
         }
     }
 }
-

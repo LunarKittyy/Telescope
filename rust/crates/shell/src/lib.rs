@@ -7,6 +7,7 @@ pub mod doc;
 pub mod flow;
 pub mod layout;
 pub mod offscreen;
+pub mod plugins;
 pub mod profiles;
 pub mod snapshot;
 pub mod source;
