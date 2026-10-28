@@ -6,9 +6,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
+use telescope_core::shader;
 use wgpu::naga;
 
-const PRELUDE: &str = include_str!("shaders/prelude.wgsl");
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
@@ -174,21 +174,21 @@ impl Gpu {
                 bind_group_layouts: &[Some(&self.convert_layout)],
                 immediate_size: 0,
             });
-            Arc::new(self.render_pipeline("convert", &layout, &self.convert_module, target))
+            Arc::new(self.render_pipeline("convert", &layout, &self.convert_module, ("vs_main", "fs_main"), target))
         }).clone()
     }
 
-    fn render_pipeline(&self, label: &str, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, target: wgpu::TextureFormat) -> wgpu::RenderPipeline {
+    fn render_pipeline(&self, label: &str, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, entries: (&str, &str), target: wgpu::TextureFormat) -> wgpu::RenderPipeline {
         self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(label),
             layout: Some(layout),
-            vertex: wgpu::VertexState { module, entry_point: Some("vs_main"), compilation_options: Default::default(), buffers: &[] },
+            vertex: wgpu::VertexState { module, entry_point: Some(entries.0), compilation_options: Default::default(), buffers: &[] },
             primitive: Default::default(),
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(wgpu::FragmentState {
                 module,
-                entry_point: Some("fs_main"),
+                entry_point: Some(entries.1),
                 compilation_options: Default::default(),
                 targets: &[Some(target.into())],
             }),
@@ -361,7 +361,7 @@ impl Gpu {
         let mut a = self.texture(w, h, WORK);
         let mut b = self.texture(w, h, WORK);
         self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
-        let info = self.uniform(&frame_info(w, h, time, frame.number as u32));
+        let info = self.uniform(&shader::frame_uniform(w, h, time, frame.number));
         for r in run.iter_mut() {
             r.slot.draw(self, &mut enc, &a, &b, &info);
             std::mem::swap(&mut a, &mut b);
@@ -426,16 +426,6 @@ impl Gpu {
 fn bytemuck_u32(v: &[u32]) -> &[u8] {
     // SAFETY: u32 has no padding and any byte pattern is a valid u8
     unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) }
-}
-
-/// The prelude's FrameInfo: size in pixels, seconds since the stream started, the frame's number.
-fn frame_info(w: u32, h: u32, time: f32, number: u32) -> Vec<u8> {
-    let mut b = Vec::with_capacity(16);
-    b.extend((w as f32).to_le_bytes());
-    b.extend((h as f32).to_le_bytes());
-    b.extend(time.to_le_bytes());
-    b.extend(number.to_le_bytes());
-    b
 }
 
 fn draw(enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, binds: &[&wgpu::BindGroup], view: &wgpu::TextureView) {
@@ -509,133 +499,38 @@ impl ShaderSlot {
     }
 }
 
-/// The plugin's WGSL with what the host gives it: the prelude, then `u` if it declares Uniforms and its textures.
-pub fn compose(step: &ShaderStep, has_uniforms: bool) -> String {
-    let mut src = format!("{PRELUDE}\n{}\n", step.wgsl);
-    if has_uniforms {
-        src.push_str("@group(1) @binding(0) var<uniform> u: Uniforms;\n");
-    }
-    for (i, (name, _)) in step.textures.iter().enumerate() {
-        src.push_str(&format!("@group(1) @binding({}) var {name}: texture_2d<f32>;\n", i + 1));
-    }
-    src
-}
-
-fn parse(src: &str) -> Result<naga::Module, String> {
+/// Parses and checks the assembled module, for an error message that points at the plugin's line.
+fn validate(src: &str) -> Result<(), String> {
     let module = naga::front::wgsl::parse_str(src).map_err(|e| e.emit_to_string(src))?;
     naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default())
         .validate(&module)
         .map_err(|e| e.emit_to_string(src))?;
-    Ok(module)
-}
-
-/// Whether the plugin's WGSL declares `struct Uniforms` (read from the text, since it doesn't parse until `u` is added).
-fn declares_uniforms(step: &ShaderStep) -> Result<bool, String> {
-    let code: String = step.wgsl.lines().map(|l| l.split("//").next().unwrap_or("")).collect::<Vec<_>>().join("\n");
-    let mut rest = code.as_str();
-    while let Some(at) = rest.find("struct") {
-        let before = rest[..at].chars().last();
-        let after = rest[at + 6..].trim_start();
-        let name: String = after.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
-        if !before.is_some_and(|c| c.is_alphanumeric() || c == '_') && after.len() < rest[at + 6..].len() && name == "Uniforms" {
-            return Ok(true);
-        }
-        rest = &rest[at + 6..];
-    }
-    Ok(false)
-}
-
-/// Uniforms' bytes laid out as WGSL lays the struct out, filled from values by field name (SHADERS.md).
-pub fn uniform_bytes(module: &naga::Module, values: &serde_json::Value) -> Option<Vec<u8>> {
-    let (_, ty) = module.types.iter().find(|(_, t)| t.name.as_deref() == Some("Uniforms"))?;
-    let naga::TypeInner::Struct { members, span } = &ty.inner else { return None };
-    let mut out = vec![0u8; *span as usize];
-    for m in members {
-        let Some(value) = m.name.as_ref().and_then(|n| values.get(n)) else { continue };
-        write_value(module, m.ty, value, &mut out[m.offset as usize..]);
-    }
-    Some(out)
-}
-
-fn number(v: &serde_json::Value) -> f64 {
-    v.as_f64().or_else(|| v.as_bool().map(|b| b as u8 as f64)).unwrap_or(0.0)
-}
-
-fn write_scalar(kind: naga::ScalarKind, v: &serde_json::Value, out: &mut [u8]) {
-    let bytes = match kind {
-        naga::ScalarKind::Float => (number(v) as f32).to_le_bytes(),
-        naga::ScalarKind::Sint => (number(v) as i32).to_le_bytes(),
-        _ => (number(v).max(0.0) as u32).to_le_bytes(),
-    };
-    if out.len() >= 4 {
-        out[..4].copy_from_slice(&bytes);
-    }
-}
-
-fn write_value(module: &naga::Module, ty: naga::Handle<naga::Type>, v: &serde_json::Value, out: &mut [u8]) {
-    let list = |v: &serde_json::Value| v.as_array().cloned().unwrap_or_else(|| vec![v.clone()]);
-    match &module.types[ty].inner {
-        naga::TypeInner::Scalar(s) => write_scalar(s.kind, v, out),
-        naga::TypeInner::Vector { size, scalar } => {
-            for (i, x) in list(v).iter().take(*size as usize).enumerate() {
-                write_scalar(scalar.kind, x, &mut out[i * 4..]);
-            }
-        }
-        naga::TypeInner::Matrix { columns, rows, scalar } => {
-            // Columns are 16 bytes apart for vec3 and vec4 rows, 8 for vec2
-            let stride = if *rows as usize == 2 { 8 } else { 16 };
-            let flat = list(v);
-            for c in 0..*columns as usize {
-                for r in 0..*rows as usize {
-                    if let Some(x) = flat.get(c * *rows as usize + r) {
-                        write_scalar(scalar.kind, x, &mut out[c * stride + r * 4..]);
-                    }
-                }
-            }
-        }
-        naga::TypeInner::Array { base, size: naga::ArraySize::Constant(n), stride } => {
-            for (i, x) in list(v).iter().take(n.get() as usize).enumerate() {
-                let at = i * *stride as usize;
-                if at < out.len() {
-                    write_value(module, *base, x, &mut out[at..]);
-                }
-            }
-        }
-        naga::TypeInner::Struct { members, .. } => {
-            for m in members {
-                if let Some(x) = m.name.as_ref().and_then(|n| v.get(n)) {
-                    write_value(module, m.ty, x, &mut out[m.offset as usize..]);
-                }
-            }
-        }
-        _ => {}
-    }
+    Ok(())
 }
 
 fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
-    let has_uniforms = declares_uniforms(step)?;
-    let src = compose(step, has_uniforms);
-    let module = parse(&src)?;
-    if !module.functions.iter().any(|(_, f)| f.name.as_deref() == Some("effect")) {
-        return Err("it has no fn effect(uv: vec2<f32>) -> vec4<f32>".into());
-    }
+    // The contract lives in core::shader, shared with plugin-host's checks
+    let src = shader::assemble(step)?;
+    let params = shader::pack_uniforms(&step.wgsl, &step.uniforms)?;
+    let has_uniforms = !params.is_empty();
+    validate(&src)?;
     let scope = gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let shader = gpu.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+    let module = gpu.device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("plugin shader"),
         source: wgpu::ShaderSource::Wgsl(src.clone().into()),
     });
     let mut entries = Vec::new();
     if has_uniforms {
-        entries.push(uniform_entry(0));
+        entries.push(uniform_entry(shader::BINDING_PARAMS));
     }
-    entries.extend((0..step.textures.len()).map(|i| tex_entry(i as u32 + 1)));
+    entries.extend((0..step.textures.len()).map(|i| tex_entry(shader::BINDING_FIRST_TEXTURE + i as u32)));
     let extras_layout = (!entries.is_empty()).then(|| gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("plugin"),
         entries: &entries,
     }));
     let layouts: Vec<Option<&wgpu::BindGroupLayout>> = [Some(&gpu.frame_layout), extras_layout.as_ref()].into_iter().take(if extras_layout.is_some() { 2 } else { 1 }).collect();
     let layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("plugin"), bind_group_layouts: &layouts, immediate_size: 0 });
-    let pipeline = gpu.render_pipeline("plugin", &layout, &shader, WORK);
+    let pipeline = gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK);
 
     // The plugin's pictures go up once, as RGBA whatever they came as
     let mut keep = Vec::new();
@@ -651,14 +546,14 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
         keep.extend(used);
     }
     gpu.queue.submit([enc.finish()]);
-    let ubuf = has_uniforms.then(|| gpu.uniform(&uniform_bytes(&module, &step.uniforms).unwrap_or_default()));
+    let ubuf = has_uniforms.then(|| gpu.uniform(&params));
     let extras = extras_layout.as_ref().map(|l| {
         let mut e = Vec::new();
         if let Some(b) = &ubuf {
-            e.push(wgpu::BindGroupEntry { binding: 0, resource: b.as_entire_binding() });
+            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
         }
         for (i, v) in views.iter().enumerate() {
-            e.push(wgpu::BindGroupEntry { binding: i as u32 + 1, resource: wgpu::BindingResource::TextureView(v) });
+            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
         }
         gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout: l, entries: &e })
     });
@@ -678,22 +573,9 @@ mod tests {
     }
 
     #[test]
-    fn uniforms_are_filled_by_name_in_wgsl_layout() {
-        let s = step("struct Uniforms { strength: f32, tint: vec3<f32>, count: i32, on: u32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { return textureSample(src, src_sampler, uv) * u.strength; }",
-                     json!({"strength": 0.5, "tint": [1, 2, 3], "count": -2, "on": true, "unknown": 9}));
-        assert!(declares_uniforms(&s).unwrap());
-        let module = parse(&compose(&s, true)).unwrap();
-        let b = uniform_bytes(&module, &s.uniforms).unwrap();
-        let f = |at: usize| f32::from_le_bytes(b[at..at + 4].try_into().unwrap());
-        // vec3 is 16-aligned, so tint starts at 16, count follows it at 28 and a uniform struct rounds up to 16
-        assert_eq!((b.len(), f(0), f(16), f(20), f(24)), (48, 0.5, 1.0, 2.0, 3.0));
-        assert_eq!((i32::from_le_bytes(b[28..32].try_into().unwrap()), u32::from_le_bytes(b[32..36].try_into().unwrap())), (-2, 1));
-    }
-
-    #[test]
-    fn a_shader_without_effect_or_with_a_mistake_says_why() {
-        let gpu_free = parse(&compose(&step("fn effect(uv: vec2<f32>) -> vec4<f32> { return nope; }", json!({})), false));
-        assert!(gpu_free.unwrap_err().contains("nope"));
+    fn a_mistake_in_a_shader_points_at_it() {
+        let src = shader::assemble(&step("fn effect(uv: vec2<f32>) -> vec4<f32> { return nope; }", json!({}))).unwrap();
+        assert!(validate(&src).unwrap_err().contains("nope"));
     }
 
     fn yuv_frame(w: u32, h: u32, y: impl Fn(u32, u32) -> u8, u: u8, v: u8) -> Frame {
@@ -713,7 +595,7 @@ mod tests {
         gpu.run_shaders(frame, &mut run, 0.0).unwrap()
     }
 
-    const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return textureSample(src, src_sampler, uv); }";
+    const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
 
     #[test]
     fn a_picture_comes_back_from_the_card_as_it_went() {
@@ -730,8 +612,8 @@ mod tests {
     #[test]
     fn shader_steps_run_one_after_the_other_with_their_uniforms() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
-        let invert = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = textureSample(src, src_sampler, uv); return vec4<f32>(1.0 - c.rgb, 1.0); }";
-        let scale = "struct Uniforms { k: f32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { return textureSample(src, src_sampler, uv) * u.k; }";
+        let invert = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(1.0 - c.rgb, 1.0); }";
+        let scale = "struct Params { k: f32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv) * params.k; }";
         // Grey 235 is white: inverted it's black, and black scaled stays black; scaled first it's grey, then inverted
         let white = yuv_frame(8, 8, |_, _| 235, 128, 128);
         let out = run(&gpu, &white, &mut [ShaderSlot::new(step(scale, json!({"k": 0.5}))), ShaderSlot::new(step(invert, json!({})))]);
@@ -745,7 +627,7 @@ mod tests {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let logo = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 255, 255, 255]);
         let s = ShaderStep {
-            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return textureSample(logo, src_sampler, uv); }".into(),
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample_texture(logo, uv); }".into(),
             uniforms: json!({}),
             textures: vec![("logo".into(), logo)],
         };
