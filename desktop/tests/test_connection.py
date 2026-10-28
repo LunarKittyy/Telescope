@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QLabel, QMessageBox, QPushButton
 
 import telescope.plugins.connection as connection_module
@@ -1510,3 +1511,23 @@ def test_dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone(plugin
 
     plugin.set_config({**plugin.get_config(), "udp": False})
     assert not plugin._udp_cb.isChecked()
+
+
+def test_sources_changing_while_the_picker_is_open_wait_for_it_to_close(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._bus.stream_sources_changed.emit([("webcam:a", "HD Webcam")])
+    combo = plugin._phone_combo
+    combo.show()
+    combo.showPopup()
+    assert combo.popup_open()
+    rows = [combo.itemText(i) for i in range(combo.count())]
+
+    plugin._bus.stream_sources_changed.emit([("webcam:b", "Brio")])  # one unplugged, another plugged in
+    assert [combo.itemText(i) for i in range(combo.count())] == rows  # the open list isn't rebuilt under the pointer
+    assert not combo.model().item(combo.findData("webcam:a")).isEnabled()  # the unplugged one can't be picked
+
+    combo.hidePopup()
+    QCoreApplication.processEvents()
+    assert [combo.itemText(i) for i in range(combo.count()) if combo.itemData(i)] == ["Pixel", "Brio"]
+    assert combo.currentData() == "id-a"
