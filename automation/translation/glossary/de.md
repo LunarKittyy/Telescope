@@ -49,7 +49,7 @@ Avoid: downloaden, lediglich, mittels, zwecks, Präferenzen, Applikation, selekt
 | Get set up / setup guide | Erste Schritte / Einrichtungsanleitung |
 | phone / computer / this computer | Smartphone / Computer / dieser Computer |
 | the phone app / this app | die Smartphone-App / diese App |
-| Add phone / Add a phone / Add camera | Smartphone hinzufügen / Ein Smartphone hinzufügen / Kamera hinzufügen |
+| Add phone / Add a phone / Add camera | Gerät hinzufügen / Ein Gerät hinzufügen / Kamera hinzufügen |
 | camera / phone camera / virtual camera / extra cameras | Kamera / Smartphone-Kamera (Fließtext: Kamera des Smartphones) / virtuelle Kamera / zusätzliche Kameras |
 | microphone, mic | Mikrofon |
 | phone mic / virtual microphone / browser mic | Smartphone-Mikrofon / virtuelles Mikrofon / Browser-Mikrofon |

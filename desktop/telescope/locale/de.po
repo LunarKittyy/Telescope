@@ -464,7 +464,7 @@ msgstr "Ziehe die Ecken an die richtige Stelle und drücke die Eingabetaste. Esc
 
 #: telescope/phones.py:284
 msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
-msgstr "adb ist nicht installiert, daher kann USB nicht genutzt werden („Smartphone hinzufügen“ kann es holen)"
+msgstr "adb ist nicht installiert, daher kann USB nicht genutzt werden („Gerät hinzufügen“ kann es holen)"
 
 #: telescope/phones.py:285
 msgid "adb isn't installed, so USB can't be used"
@@ -2176,12 +2176,12 @@ msgstr "Öffne Telescope auf {phone} und lass es auf dem Bildschirm. Es muss sic
 #: telescope/plugins/connection.py:139
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
-msgstr "Diese Version von Telescope verschlüsselt die Verbindung zu {phone}, was eine neue Kopplung erfordert. Klicke auf „Smartphone hinzufügen“ und scanne den Code erneut."
+msgstr "Diese Version von Telescope verschlüsselt die Verbindung zu {phone}, was eine neue Kopplung erfordert. Klicke auf „Gerät hinzufügen“ und scanne den Code erneut."
 
 #: telescope/plugins/connection.py:142
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
-msgstr "{phone} erkennt diesen Computer nicht mehr (es wurde auf dem Smartphone entfernt oder die App wurde neu installiert). Klicke auf „Smartphone hinzufügen“, um es erneut zu koppeln."
+msgstr "{phone} erkennt diesen Computer nicht mehr (es wurde auf dem Smartphone entfernt oder die App wurde neu installiert). Klicke auf „Gerät hinzufügen“, um es erneut zu koppeln."
 
 #: telescope/plugins/connection.py:145
 #, python-brace-format
@@ -2190,7 +2190,7 @@ msgstr "„Nur lokal“ ist in der Smartphone-App eingeschaltet, daher akzeptier
 
 #: telescope/plugins/connection.py:148
 msgid "USB needs adb, which Add phone can get."
-msgstr "USB benötigt adb, das „Smartphone hinzufügen“ holen kann."
+msgstr "USB benötigt adb, das „Gerät hinzufügen“ holen kann."
 
 #: telescope/plugins/connection.py:151
 msgid "the phone isn't answering over USB"
@@ -2233,7 +2233,7 @@ msgstr "Gerät hinzufügen"
 
 #: telescope/plugins/connection.py:204
 msgid "Add a phone"
-msgstr "Ein Smartphone hinzufügen"
+msgstr "Ein Gerät hinzufügen"
 
 #: telescope/plugins/connection.py:205 telescope/plugins/onboarding.py:185
 msgid "Open Telescope on the phone first."
@@ -2475,7 +2475,7 @@ msgstr "udp tcp übertragung netzwerk verzögerung lag ruckeln einfrieren wifi w
 
 #: telescope/plugins/connection.py:880 telescope/plugins/connection.py:951 telescope/plugins/connection.py:1226
 msgid "No phone yet"
-msgstr "Noch kein Smartphone"
+msgstr "Kein Smartphone"
 
 #: telescope/plugins/connection.py:881
 msgid "Which phone to stream from"
@@ -2636,7 +2636,7 @@ msgid ""
 msgstr ""
 "Das Smartphone erkennt diesen Computer nicht mehr.\n"
 "\n"
-"Klicke auf „Smartphone hinzufügen“, um es erneut zu koppeln."
+"Klicke auf „Gerät hinzufügen“, um es erneut zu koppeln."
 
 #: telescope/plugins/connection.py:1498
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
@@ -4030,7 +4030,7 @@ msgstr "Smartphone-App"
 
 #: telescope/plugins/onboarding.py:133
 msgid "Add your phone"
-msgstr "Dein Smartphone hinzufügen"
+msgstr "Dein Gerät hinzufügen"
 
 #: telescope/plugins/onboarding.py:149
 msgid "Installed. Starting a stream may ask for your password to switch it on."

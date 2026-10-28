@@ -47,7 +47,7 @@
     <string name="allow">Erlauben</string>
     <string name="open_settings">Einstellungen öffnen</string>
     <string name="pair_title">Mit deinem Computer koppeln</string>
-    <string name="pair_hint">Öffne Telescope auf deinem Computer und klicke auf „Smartphone hinzufügen“. Über USB koppelt sich das Smartphone ohne Scannen.</string>
+    <string name="pair_hint">Öffne Telescope auf deinem Computer und klicke auf „Gerät hinzufügen“. Über USB koppelt sich das Smartphone ohne Scannen.</string>
     <string name="scan_pairing_code">Kopplungscode scannen</string>
     <string name="pair_another">Einen weiteren Computer koppeln</string>
     <string name="paired_computer_title">Gekoppelter Computer</string>
@@ -64,7 +64,7 @@
     <string name="remove_all_title">Alle Computer entfernen?</string>
     <string name="remove_all_message">Keiner davon kann die Kamera des Smartphones nutzen, bis du sie erneut koppelst.</string>
     <string name="scan_prompt">Richte die Kamera auf den Kopplungscode auf deinem Computer</string>
-    <string name="scan_download_link">Dieser Code lädt die App herunter. Scanne den Code unter „Smartphone hinzufügen“ auf dem Computer.</string>
+    <string name="scan_download_link">Dieser Code lädt die App herunter. Scanne den Code unter „Gerät hinzufügen“ auf dem Computer.</string>
     <string name="scan_not_pairing_code">Das ist kein Kopplungscode von Telescope.</string>
     <string name="scan_other_version">Der Code stammt von einer anderen Telescope-Version. Aktualisiere das Programm auf deinem Computer und diese App auf dieselbe Version und versuche es erneut.</string>
     <string name="default_computer_name">Computer</string>
