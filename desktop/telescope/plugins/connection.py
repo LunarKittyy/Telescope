@@ -1284,6 +1284,8 @@ class ConnectionPlugin(TelescopePlugin):
         if pid not in self._holds:
             return None
         url = self._hold_stream_route(route, pid)
+        if url is None and pid not in self._holds:
+            self._holds[pid] = (None, None)  # the USB forward failed: keep its place so the next probe tries again
         self._render()
         return url
 

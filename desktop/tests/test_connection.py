@@ -1076,6 +1076,17 @@ def test_recovery_over_the_same_cable_opens_a_fresh_forward(plugin_env):
     assert plugin._tunnels.held == {("serial-1", 8080): 1}
 
 
+def test_recovery_tries_again_after_a_usb_forward_failed(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _streaming_over(plugin, USB)
+    local, plugin._tunnels.local = plugin._tunnels.local, None  # adb can't forward yet
+    assert plugin.adopt_stream_route(USB) is None
+    plugin._tunnels.local = local
+    assert plugin.adopt_stream_route(USB) == "https://127.0.0.1:41000/v1/video"
+    assert plugin._tunnels.held == {("serial-1", 8080): 1}
+
+
 def test_recovery_probe_resolves_with_the_chosen_route(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)

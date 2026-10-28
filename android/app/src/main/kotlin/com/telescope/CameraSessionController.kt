@@ -884,7 +884,7 @@ class CameraSessionController(
                         onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
-                        if (generation == cameraGeneration) {
+                        if (generation == cameraGeneration && mySession == sessionGeneration) {
                             if (sessionFailed("createSession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
@@ -896,7 +896,7 @@ class CameraSessionController(
                 setSessionParameters(buildRequest(camera))
             })
         } catch (e: Exception) {
-            if (generation == cameraGeneration) {
+            if (generation == cameraGeneration && mySession == sessionGeneration) {
                 if (sessionFailed("createSession", e, onComplete)) return
             }
             onComplete?.invoke()
@@ -933,14 +933,14 @@ class CameraSessionController(
                         onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
-                        if (generation == cameraGeneration) {
+                        if (generation == cameraGeneration && mySession == sessionGeneration) {
                             if (sessionFailed("createLegacySession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
                     }
                 }, handler)
         } catch (e: Exception) {
-            if (generation == cameraGeneration) {
+            if (generation == cameraGeneration && mySession == sessionGeneration) {
                 if (sessionFailed("createLegacySession", e, onComplete)) return
             }
             onComplete?.invoke()
