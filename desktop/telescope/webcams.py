@@ -472,13 +472,20 @@ def open_capture(device: Device, choice: Choice):
         cap = cv2.VideoCapture(device.location, cv2.CAP_DSHOW)
         if not cap.isOpened():
             return cap
-        if choice.fourcc != "RAW":  # before the size, or DirectShow keeps the format it had
+        # DirectShow reopens the camera on a new rate without the format, so the rate goes first and the format
+        # waits for the size, which is when it gets applied
+        if choice.fps:
+            cap.set(cv2.CAP_PROP_FPS, choice.fps)
+        if choice.fourcc != "RAW":
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*_DSHOW_FOURCC.get(choice.fourcc, choice.fourcc)))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, choice.width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, choice.height)
+        return cap
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, choice.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, choice.height)
     if choice.fps:
         cap.set(cv2.CAP_PROP_FPS, choice.fps)
-    if vcam.IS_LINUX and choice.compressed:
+    if choice.compressed:
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
     return cap
 

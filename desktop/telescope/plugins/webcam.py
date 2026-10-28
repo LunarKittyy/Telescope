@@ -262,12 +262,12 @@ class WebcamPlugin(TelescopePlugin):
         src = self._sources.get(key)
         if src is None:
             return
+        if state == "ok":  # every opening, even one that reads like the last: a replug resets most webcams
+            self._modes[key] = detail
+            self._apply_controls(key)
         if self._states.get(key) == (state, detail):
             return
         self._states[key] = (state, detail)
-        if state == "ok":
-            self._modes[key] = detail
-            self._apply_controls(key)  # opened again after a replug, which puts most webcams back to their defaults
         issue_key = f"webcam:{key}"
         if state == "busy" and self._host.is_streaming_from(src.id):
             text = (tr("{app} is using it. Close it there and it starts here.", app=detail) if detail

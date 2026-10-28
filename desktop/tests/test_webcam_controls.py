@@ -158,6 +158,16 @@ def test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again(ca
     assert ("exposure_time", 166) in card.backend.sets and ("gain", 40) in card.backend.sets
 
 
+def test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back(card):
+    card.plugin._set_control("gain", 40)
+    card.host.streams.append(SOURCE_PREFIX + "cam")
+    card.plugin.signals.reported.emit("cam", "ok", "1280×720, MJPEG, 30 fps")
+    card.backend.values.update(gain=0)  # reopened with the same mode, back at its defaults
+    card.backend.sets.clear()
+    card.plugin.signals.reported.emit("cam", "ok", "1280×720, MJPEG, 30 fps")
+    assert ("gain", 40) in card.backend.sets
+
+
 def test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked(card):
     card.plugin._set_control("exposure_auto", 0)
     card.plugin._set_control("gain", 40)
