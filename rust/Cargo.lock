@@ -4580,6 +4580,7 @@ name = "telescope-link"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "if-addrs",
  "libc",
  "log",
  "mdns-sd",

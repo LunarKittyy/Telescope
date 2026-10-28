@@ -7,16 +7,20 @@ use std::sync::{Arc, Mutex};
 
 const SERVICE_TYPE: &str = "_telescope._tcp.local.";
 
+/// Without multicast (or on a network that drops it) lookups return nothing and stored addresses are used.
 #[derive(Default)]
 pub struct LanDiscovery {
     by_id: Arc<Mutex<HashMap<String, Vec<String>>>>,
-    daemon: Option<ServiceDaemon>,
+    daemon: Mutex<Option<ServiceDaemon>>,
 }
 
 impl LanDiscovery {
     pub fn start() -> LanDiscovery {
-        let mut me = LanDiscovery::default();
-        let Ok(daemon) = ServiceDaemon::new() else { return me };
+        let me = LanDiscovery::default();
+        let Ok(daemon) = ServiceDaemon::new() else {
+            log::warn!("LAN discovery unavailable");
+            return me;
+        };
         let Ok(events) = daemon.browse(SERVICE_TYPE) else { return me };
         let by_id = me.by_id.clone();
         let mut by_name: HashMap<String, String> = HashMap::new();
@@ -38,8 +42,14 @@ impl LanDiscovery {
                 }
             }
         });
-        me.daemon = Some(daemon);
+        *me.daemon.lock().unwrap() = Some(daemon);
         me
+    }
+
+    pub fn stop(&self) {
+        if let Some(d) = self.daemon.lock().unwrap().take() {
+            let _ = d.shutdown();
+        }
     }
 
     pub fn lookup(&self, phone_id: &str) -> Vec<String> {
@@ -49,8 +59,6 @@ impl LanDiscovery {
 
 impl Drop for LanDiscovery {
     fn drop(&mut self) {
-        if let Some(d) = self.daemon.take() {
-            let _ = d.shutdown();
-        }
+        self.stop();
     }
 }
