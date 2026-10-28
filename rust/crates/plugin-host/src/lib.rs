@@ -5,11 +5,18 @@
 
 pub mod guest;
 pub mod i18n;
+pub mod load;
+pub mod lua;
 pub mod manifest;
 pub mod package;
 pub mod switches;
+pub mod testing;
 pub mod text;
+pub mod updater;
+pub mod updates;
 
 pub use guest::{call_host, Guest, GuestPlugin, HostCalls, PluginContext, HOST_API};
 pub use manifest::{OLDEST_PLUGIN_API, PLUGIN_API};
+pub use load::{load, LuaPlugin};
+pub use lua::LuaGuest;
 pub use package::{Installed, PluginFolder};

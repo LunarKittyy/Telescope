@@ -406,6 +406,10 @@ impl<G: Guest> GuestPlugin<G> {
         GuestPlugin { info: context.info.clone(), guest: RefCell::new(guest), context: RefCell::new(context), failing: RefCell::new(None) }
     }
 
+    pub(crate) fn guest_ref(&self) -> std::cell::Ref<'_, G> {
+        self.guest.borrow()
+    }
+
     pub fn context(&self) -> std::cell::Ref<'_, PluginContext> {
         self.context.borrow()
     }
@@ -561,6 +565,8 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        // Slint treats - and _ in names alike; a guest always sees _, which every runtime's names allow
+        let event = UiEvent { callback: event.callback.replace('-', "_"), ..event.clone() };
         self.with_host(host, "on_ui", vec![serde_json::to_value(event).unwrap_or_default()]);
     }
 

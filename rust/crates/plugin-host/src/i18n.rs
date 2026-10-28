@@ -66,6 +66,17 @@ impl Catalog {
         Ok(Catalog { entries, plural })
     }
 
+    /// English texts whose translation has a {field} the English doesn't (those show in English).
+    pub fn field_mismatches(&self) -> Vec<String> {
+        let mut out: Vec<String> = self.entries.iter().filter(|((_, msgid), forms)| {
+            let mut known = field_names(msgid);
+            known.push("n".into());
+            forms.iter().flat_map(|f| field_names(f)).any(|f| !known.contains(&f))
+        }).map(|((_, msgid), _)| msgid.clone()).collect();
+        out.sort();
+        out
+    }
+
     fn get(&self, ctx: &str, msgid: &str) -> Option<&Vec<String>> {
         self.entries.get(&(ctx.to_string(), msgid.to_string()))
     }
@@ -104,6 +115,24 @@ pub fn trn(catalog: Option<&Catalog>, singular: &str, plural: &str, n: i64, ctx:
         Some(t) => fill(t, &all).unwrap_or_else(|_| fallback()),
         None => fallback(),
     }
+}
+
+/// The {names} a text fills in.
+fn field_names(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(i) = rest.find('{') {
+        rest = &rest[i + 1..];
+        if let Some(r) = rest.strip_prefix('{') {
+            rest = r;
+            continue;
+        }
+        if let Some(end) = rest.find('}') {
+            out.push(rest[..end].to_string());
+            rest = &rest[end + 1..];
+        }
+    }
+    out
 }
 
 #[derive(Debug, Default)]

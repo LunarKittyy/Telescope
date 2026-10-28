@@ -1,0 +1,12 @@
+{
+  "name": "stream_alerts",
+  "title": "Stream alerts",
+  "version": "1.0",
+  "author": "Telescope",
+  "description": "Tells you with a desktop notification when a phone's stream drops and when it's back. An example of a plugin that follows events.",
+  "api": 2,
+  "category": "streaming",
+  "icon": "bell",
+  "when_off": "Without it there are no notifications when a stream drops.",
+  "permissions": ["notifications"]
+}

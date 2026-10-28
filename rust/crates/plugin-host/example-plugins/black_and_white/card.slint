@@ -1,0 +1,25 @@
+// The Black and white card. Telescope fills in title, icon and hue from plugin.json.
+
+import { Card, Slider, Switch } from "@ui-kit/ui-kit.slint";
+
+export component BlackAndWhiteCard inherits Card {
+    in-out property <bool> on;
+    in-out property <float> strength: 100;
+    callback toggled(bool);
+    callback strength-moved(float);
+
+    Switch {
+        label: @tr("Black and white picture");
+        checked <=> root.on;
+        toggled(value) => { root.toggled(value); }
+    }
+    Slider {
+        label: @tr("Strength");
+        minimum: 0;
+        maximum: 100;
+        value <=> root.strength;
+        readout: round(root.strength) + " %";
+        enabled: root.on;
+        moved(value) => { root.strength-moved(value); }
+    }
+}
