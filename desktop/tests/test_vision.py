@@ -1,4 +1,5 @@
 import os
+import runpy
 import threading
 import time
 from pathlib import Path
@@ -505,6 +506,16 @@ def test_the_real_models_find_a_person_shaped_blob():
     detect, close = backend.pose()
     assert detect(frame[:360, :640].copy(), 1) == []  # nobody in a grey frame
     close()
+
+
+@pytest.mark.skipif(not os.environ.get("TELESCOPE_VISION_PACK"), reason="set TELESCOPE_VISION_PACK to a pack folder")
+def test_the_real_pack_has_no_address_to_report_usage_to():
+    libs = [p for p in (Path(os.environ["TELESCOPE_VISION_PACK"]) / "site" / "mediapipe").rglob("*")
+            if p.suffix in (".so", ".dll") and p.is_file()]
+    assert libs
+    script = Path(__file__).resolve().parents[1] / "scripts" / "build_vision_pack.py"
+    report_to = runpy.run_path(str(script))["TELEMETRY_URL"]
+    assert not [p for p in libs if report_to in p.read_bytes()]
 
 
 def test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run(qapp):

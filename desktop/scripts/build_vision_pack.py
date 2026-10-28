@@ -44,6 +44,11 @@ certifi (https://github.com/certifi/python-certifi), Mozilla Public License 2.0
 Each package's full licence text is in its .dist-info folder under site/.
 """
 _EPOCH = (1980, 1, 1, 0, 0, 0)
+# MediaPipe 1.1.1 reports usage to this address from inside its native library and has no switch for it.
+# Same length, so nothing in the library moves; curl refuses the made-up scheme before it opens a socket.
+TELEMETRY_URL = b"https://play.googleapis.com/log"
+TELEMETRY_OFF = b"invalid://telescope.invalid/log"
+assert len(TELEMETRY_URL) == len(TELEMETRY_OFF)
 
 
 def pins() -> list:
@@ -64,6 +69,19 @@ def fetch_models(folder: Path, cache: Path):
         (folder / name).write_bytes(data)
 
 
+def silence_telemetry(site: Path) -> int:
+    """Point MediaPipe's usage report at an address that can't be reached; how many libraries had it."""
+    found = 0
+    for lib in sorted((site / "mediapipe").rglob("*")):
+        if lib.suffix not in (".so", ".dll", ".dylib") or not lib.is_file():
+            continue
+        data = lib.read_bytes()
+        if TELEMETRY_URL in data:
+            lib.write_bytes(data.replace(TELEMETRY_URL, TELEMETRY_OFF))
+            found += 1
+    return found
+
+
 def build(key: str, work: Path, cache: Path) -> Path:
     """The pack for one platform, unpacked into work/key."""
     wheels = cache / f"wheels-{key}"
@@ -80,6 +98,9 @@ def build(key: str, work: Path, cache: Path) -> Path:
             continue
         with zipfile.ZipFile(wheel) as z:
             z.extractall(site)
+    if (site / "mediapipe").is_dir() and not silence_telemetry(site):
+        sys.exit("Couldn't find MediaPipe's usage report address in the pack. A new MediaPipe may send it from "
+                 "somewhere else: check with strace before releasing.")
     fetch_models(root / "models", cache)
     (root / "NOTICES.txt").write_text(NOTICES, encoding="utf-8", newline="\n")
     return root

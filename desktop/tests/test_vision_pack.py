@@ -171,3 +171,17 @@ def test_pack_notices_have_the_same_bytes_on_every_build_platform(tmp_path, monk
     monkeypatch.setitem(build.__globals__, "fetch_models", lambda *_a: None)
     folder = build("windows", tmp_path / "work", tmp_path / "cache")
     assert (folder / "NOTICES.txt").read_bytes() == build.__globals__["NOTICES"].encode("utf-8")
+
+
+def test_mediapipes_usage_report_is_pointed_somewhere_unreachable(tmp_path):
+    script = Path(__file__).resolve().parents[1] / "scripts" / "build_vision_pack.py"
+    ns = runpy.run_path(str(script))
+    lib = tmp_path / "mediapipe" / "tasks" / "c" / "libmediapipe.so"
+    lib.parent.mkdir(parents=True)
+    lib.write_bytes(b"\0head\0" + ns["TELEMETRY_URL"] + b"\0tail")
+    other = tmp_path / "mediapipe" / "notes.txt"
+    other.write_bytes(ns["TELEMETRY_URL"])
+    assert ns["silence_telemetry"](tmp_path) == 1
+    assert lib.read_bytes() == b"\0head\0" + ns["TELEMETRY_OFF"] + b"\0tail"
+    assert other.read_bytes() == ns["TELEMETRY_URL"]  # only libraries are touched
+    assert ns["silence_telemetry"](tmp_path) == 0  # nothing left to change
