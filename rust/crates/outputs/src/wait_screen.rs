@@ -149,81 +149,32 @@ fn paint_lens(pm: &mut tiny_skia::Pixmap, c: (f32, f32), k: f32) {
     fill(pm, circle((c.0 + 26.0 * k, c.1 + 30.0 * k), 5.0 * k), Some(tiny_skia::Shader::SolidColor(colour([255, 255, 255], 0.10))), id);
 }
 
-/// A font file to draw the name and note with: Inter like the app, else whatever sans the system has.
-fn find_font(display: bool) -> Option<Vec<u8>> {
+/// A font to draw the name and note with: Inter like the app, else whatever sans the system has.
+fn find_font(display: bool) -> Option<telescope_core::text::FontArc> {
     let names: &[&str] = if display {
         &["InterDisplay-Bold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "segoeuib.ttf", "arialbd.ttf"]
     } else {
         &["Inter-Regular.ttf", "Inter.ttf", "DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"]
     };
-    let mut dirs: Vec<std::path::PathBuf> = vec!["/usr/share/fonts".into(), "/usr/local/share/fonts".into()];
-    if let Some(home) = std::env::home_dir() {
-        dirs.push(home.join(".local/share/fonts"));
-    }
-    if let Some(windir) = std::env::var_os("WINDIR") {
-        dirs.push(std::path::PathBuf::from(windir).join("Fonts"));
-    }
-    for name in names {
-        for dir in &dirs {
-            if let Some(found) = find_file(dir, name, 3) {
-                if let Ok(bytes) = std::fs::read(found) {
-                    return Some(bytes);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn find_file(dir: &std::path::Path, name: &str, depth: u32) -> Option<std::path::PathBuf> {
-    let direct = dir.join(name);
-    if direct.is_file() {
-        return Some(direct);
-    }
-    if depth == 0 {
-        return None;
-    }
-    let mut subdirs: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
-    subdirs.sort();
-    subdirs.iter().find_map(|d| find_file(d, name, depth - 1))
+    telescope_core::text::font_named(names)
 }
 
 /// text centred across the pixmap with its top at top, px high, letters spaced apart by spacing px.
-fn draw_text(pm: &mut tiny_skia::Pixmap, font: &[u8], text: &str, top: f32, px: f32, spacing: f32, rgb: [u8; 3]) {
-    use ab_glyph::{Font, FontRef, ScaleFont};
-    let Ok(font) = FontRef::try_from_slice(font) else { return };
-    let scaled = font.as_scaled(ab_glyph::PxScale::from(px));
-    let mut x = 0.0;
-    let mut glyphs = Vec::new();
-    let mut last = None;
-    for ch in text.chars() {
-        let id = scaled.glyph_id(ch);
-        if let Some(prev) = last {
-            x += scaled.kern(prev, id) + spacing;
-        }
-        glyphs.push(id.with_scale_and_position(px, ab_glyph::point(x, top + scaled.ascent())));
-        x += scaled.h_advance(id);
-        last = Some(id);
-    }
-    let offset = (pm.width() as f32 - x) / 2.0;
+fn draw_text(pm: &mut tiny_skia::Pixmap, font: &telescope_core::text::FontArc, text: &str, top: f32, px: f32, spacing: f32, rgb: [u8; 3]) {
+    let face = telescope_core::text::Face::tall(font.clone(), px);
+    let line = face.layout(text, spacing);
     let (w, h) = (pm.width() as i32, pm.height() as i32);
     let data = pm.data_mut();
-    for mut g in glyphs {
-        g.position.x += offset;
-        let Some(outlined) = font.outline_glyph(g) else { continue };
-        let b = outlined.px_bounds();
-        outlined.draw(|gx, gy, cov| {
-            let (px_, py) = (b.min.x as i32 + gx as i32, b.min.y as i32 + gy as i32);
-            if px_ < 0 || py < 0 || px_ >= w || py >= h {
-                return;
-            }
-            let i = ((py * w + px_) * 4) as usize;
-            for c in 0..3 {
-                let under = data[i + c] as f32;
-                data[i + c] = (under + (rgb[c] as f32 - under) * cov.clamp(0.0, 1.0)).round() as u8;
-            }
-        });
-    }
+    face.draw(&line, (w as f32 - line.width) / 2.0, top + face.ascent(), |x, y, cov| {
+        if x < 0 || y < 0 || x >= w || y >= h {
+            return;
+        }
+        let i = ((y * w + x) * 4) as usize;
+        for c in 0..3 {
+            let under = data[i + c] as f32;
+            data[i + c] = (under + (rgb[c] as f32 - under) * cov.clamp(0.0, 1.0)).round() as u8;
+        }
+    });
 }
 
 /// The lens from the project banner, centred (calls crop tiles to squares and circles), with the name under it.

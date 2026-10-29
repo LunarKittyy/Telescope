@@ -528,37 +528,37 @@
 "Couldn't load RNNoise: {error}" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
 "The pyrnnoise package isn't installed." = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
 # ── desk
-"A4" = { status = "todo" }
-"Auto works the shape out from the corners" = { status = "todo" }
-"Black and white" = { status = "todo" }
-"Desk and document mode" = { status = "todo" }
-"Desk mode" = { status = "todo" }
-"Drag the corners on the preview onto the sheet's corners." = { status = "todo" }
-"Drag the corners onto the sheet's corners, then press Enter." = { status = "todo" }
-"Drag the four corners of the sheet into place on the preview" = { status = "todo" }
-"Fill the picture" = { status = "todo" }
+"A4" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Auto works the shape out from the corners" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Black and white" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Desk and document mode" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Desk mode" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Drag the corners on the preview onto the sheet's corners." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Drag the corners onto the sheet's corners, then press Enter." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Drag the four corners of the sheet into place on the preview" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Fill the picture" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
 "Height" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
-"Letter" = { status = "todo" }
-"Make the writing on the sheet stand out" = { status = "todo" }
-"Make the writing stand out" = { status = "todo" }
-"Mark the sheet" = { status = "todo" }
-"Mark the sheet again" = { status = "todo" }
-"Mark the sheet's corners to straighten it." = { status = "todo" }
-"Part of the sheet is outside the picture. Zoom out or mark it again." = { status = "todo" }
-"Put the width and height back to 100%" = { status = "todo" }
+"Letter" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Make the writing on the sheet stand out" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Make the writing stand out" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Mark the sheet" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Mark the sheet again" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Mark the sheet's corners to straighten it." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Part of the sheet is outside the picture. Zoom out or mark it again." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Put the width and height back to 100%" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
 "Reset" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
 "Shape" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
-"Sheet shape" = { status = "todo" }
-"Square" = { status = "todo" }
-"Start streaming to mark the sheet on the preview." = { status = "todo" }
-"Straighten the sheet you marked" = { status = "todo" }
-"Straightens a sheet of paper you mark on the preview and can make the writing on it stand out." = { status = "todo" }
-"Stretch the sheet sideways if it still looks squashed" = { status = "todo" }
-"Stretch the sheet up and down if it still looks squashed" = { status = "todo" }
-"Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners." = { status = "todo" }
+"Sheet shape" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Square" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Start streaming to mark the sheet on the preview." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Straighten the sheet you marked" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Straightens a sheet of paper you mark on the preview and can make the writing on it stand out." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Stretch the sheet sideways if it still looks squashed" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Stretch the sheet up and down if it still looks squashed" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
 "Width" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
-"Without it there's no Desk mode card and the picture stays the way the camera sees it." = { status = "todo" }
-"Writing" = { status = "todo" }
+"Without it there's no Desk mode card and the picture stays the way the camera sees it." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
+"Writing" = { status = "ported", rust = "rust/crates/effects/ui/desk.slint" }
 # ── face_exposure
 "Expose for my face" = { status = "todo" }
 "Focus is on Manual in the Camera card." = { status = "todo" }
@@ -740,69 +740,69 @@
 "{phone}: temperature is {temp} °C." = { status = "todo" }
 "{temp} °C" = { status = "todo" }
 # ── name_tag
-"A smaller line under your name, like your role. Leave it empty for none" = { status = "todo" }
-"Bar" = { status = "todo" }
-"Bottom centre" = { status = "todo" }
-"Bottom left" = { status = "todo" }
-"Bottom right" = { status = "todo" }
+"A smaller line under your name, like your role. Leave it empty for none" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Bar" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Bottom centre" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Bottom left" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Bottom right" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
 "Light" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Name tag" = { status = "todo" }
-"Pill" = { status = "todo" }
-"Position" = { status = "todo" }
-"Pronouns" = { status = "todo" }
-"Puts your name and pronouns in the corner of the picture." = { status = "todo" }
-"Second line" = { status = "todo" }
-"Shadow" = { status = "todo" }
-"Show the name tag on the picture" = { status = "todo" }
-"Shown next to your name, like she/her or they/them" = { status = "todo" }
-"Size" = { status = "todo" }
-"Style" = { status = "todo" }
-"Top left" = { status = "todo" }
-"Top right" = { status = "todo" }
-"Without it there's no Name tag card and nothing is drawn on the picture." = { status = "todo" }
-"search|lower third caption title label overlay text name pronouns role" = { status = "todo" }
+"Name tag" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Pill" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Position" = { status = "ported", rust = "rust/crates/effects/ui/name_tag.slint" }
+"Pronouns" = { status = "ported", rust = "rust/crates/effects/ui/name_tag.slint" }
+"Puts your name and pronouns in the corner of the picture." = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Second line" = { status = "ported", rust = "rust/crates/effects/ui/name_tag.slint" }
+"Shadow" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Show the name tag on the picture" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Shown next to your name, like she/her or they/them" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Size" = { status = "ported", rust = "rust/crates/effects/ui/name_tag.slint" }
+"Style" = { status = "ported", rust = "rust/crates/effects/ui/name_tag.slint" }
+"Top left" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Top right" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"Without it there's no Name tag card and nothing is drawn on the picture." = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs" }
+"search|lower third caption title label overlay text name pronouns role" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs", note = "the card's search words go on its shortcut, since cards don't carry search words yet" }
 # ── notes
-"Back to the line before" = { status = "todo" }
-"By hand" = { status = "todo" }
-"Clear from phone" = { status = "todo" }
-"Clear notes" = { status = "todo" }
-"Delete these notes" = { status = "todo" }
-"How big the notes are on the phone" = { status = "todo" }
-"New notes" = { status = "todo" }
-"Next line" = { status = "todo" }
-"Notes" = { status = "todo" }
-"Notes only work with a phone as the camera." = { status = "todo" }
-"Notes scroll speed" = { status = "todo" }
-"Notes {n}" = { status = "todo" }
-"On to the next line" = { status = "todo" }
-"Open Telescope on the phone to see the notes." = { status = "todo" }
-"Pause" = { status = "todo" }
-"Play" = { status = "todo" }
-"Previous line" = { status = "todo" }
-"Scroll" = { status = "todo" }
-"Scroll notes" = { status = "todo" }
-"Send again to show your changes on the phone." = { status = "todo" }
-"Send notes" = { status = "todo" }
-"Send to phone" = { status = "todo" }
-"Send to phone puts them on its screen right under the camera." = { status = "todo" }
-"Shows your notes on the phone's screen right under the camera, to read while looking people in the eye." = { status = "todo" }
-"Start or pause scrolling on the phone" = { status = "todo" }
-"Start streaming to send the notes to the phone." = { status = "todo" }
-"Switch to the front camera to have the phone's screen facing you." = { status = "todo" }
-"Text size" = { status = "todo" }
-"The notes are on the phone's screen." = { status = "todo" }
-"The notes are up but the phone streams from its back camera." = { status = "todo" }
-"The notes show up on the phone once you close its preview." = { status = "todo" }
-"The notes were closed on the phone. Send again to show them." = { status = "todo" }
-"These notes are too long to send to the phone." = { status = "todo" }
-"Type or paste your notes. Next and Previous move one line at a time." = { status = "todo" }
-"Update Telescope on the phone to show notes there." = { status = "todo" }
-"Without it there's no Notes card and the phone never shows notes." = { status = "todo" }
-"Your saved notes" = { status = "todo" }
-"notes|Next" = { status = "todo" }
-"notes|Previous" = { status = "todo" }
-"paused" = { status = "todo" }
-"playing" = { status = "todo" }
+"Back to the line before" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"By hand" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Clear from phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Clear notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Delete these notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"How big the notes are on the phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"New notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Next line" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Notes only work with a phone as the camera." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Notes scroll speed" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Notes {n}" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"On to the next line" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Open Telescope on the phone to see the notes." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Pause" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Play" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Previous line" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Scroll" = { status = "ported", rust = "rust/crates/effects/ui/notes.slint" }
+"Scroll notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Send again to show your changes on the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Send notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Send to phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Send to phone puts them on its screen right under the camera." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Shows your notes on the phone's screen right under the camera, to read while looking people in the eye." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Start or pause scrolling on the phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Start streaming to send the notes to the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Switch to the front camera to have the phone's screen facing you." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Text size" = { status = "ported", rust = "rust/crates/effects/ui/notes.slint" }
+"The notes are on the phone's screen." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"The notes are up but the phone streams from its back camera." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"The notes show up on the phone once you close its preview." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"The notes were closed on the phone. Send again to show them." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"These notes are too long to send to the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Type or paste your notes. Next and Previous move one line at a time." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Update Telescope on the phone to show notes there." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Without it there's no Notes card and the phone never shows notes." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Your saved notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"notes|Next" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"notes|Previous" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"paused" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"playing" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 # ── on_air
 "An app is using the camera" = { status = "todo" }
 "An app is using the camera or the mic is live" = { status = "todo" }
@@ -2756,29 +2756,29 @@
 "test_denoise.py::test_with_no_pause_it_switches_anyway_after_two_seconds" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::with_no_pause_it_switches_anyway_after_two_seconds" }
 "test_denoise.py::test_without_the_library_switching_it_on_leaves_the_audio_as_it_was" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::without_the_library_switching_it_on_leaves_the_audio_as_it_was" }
 # ── desk
-"test_desk.py::test_a_cancelled_pick_changes_nothing" = { status = "todo" }
-"test_desk.py::test_a_paper_size_turns_the_way_the_sheet_lies_and_the_stretch_scales_it" = { status = "todo" }
-"test_desk.py::test_a_sheet_pushed_off_the_picture_says_so" = { status = "todo" }
-"test_desk.py::test_a_sheet_that_keeps_its_shape_sits_between_bars" = { status = "todo" }
-"test_desk.py::test_a_standing_a4_in_a_wide_frame_keeps_its_shape_instead_of_filling_it" = { status = "todo" }
-"test_desk.py::test_a_stream_behind_the_panels_keeps_the_straightening_it_had" = { status = "todo" }
-"test_desk.py::test_averaging_the_edges_would_squash_a_sheet_tilted_away" = { status = "todo" }
-"test_desk.py::test_clean_up_whitens_shaded_paper_and_black_and_white_is_only_black_and_white" = { status = "todo" }
-"test_desk.py::test_corners_bunched_up_crossed_or_in_a_line_are_not_a_sheet" = { status = "todo" }
-"test_desk.py::test_corners_come_out_clockwise_from_the_top_left_however_they_were_placed" = { status = "todo" }
-"test_desk.py::test_corners_stay_on_the_sheet_when_the_view_flips" = { status = "todo" }
-"test_desk.py::test_corners_that_make_no_sheet_are_refused_and_the_card_says_why" = { status = "todo" }
-"test_desk.py::test_settings_round_trip_and_bad_corners_are_dropped" = { status = "todo" }
-"test_desk.py::test_straightening_fills_the_sheet_and_puts_the_bar_level_in_the_middle" = { status = "todo" }
-"test_desk.py::test_switching_off_and_on_again_tells_the_preview_the_warp_again" = { status = "todo" }
-"test_desk.py::test_switching_on_without_corners_asks_for_them_and_a_pick_turns_it_on" = { status = "todo" }
-"test_desk.py::test_the_preview_learns_the_warp_to_map_clicks_back" = { status = "todo" }
-"test_desk.py::test_the_shape_holds_up_when_the_focal_length_is_only_guessed_or_corners_are_a_bit_off" = { status = "todo" }
-"test_desk.py::test_the_sheet_fits_the_frame_in_its_own_shape_centred" = { status = "todo" }
-"test_desk.py::test_the_sheets_real_shape_is_worked_out_from_its_corners" = { status = "todo" }
-"test_desk.py::test_the_stretch_sliders_save_and_reset_and_wait_while_the_sheet_fills_the_picture" = { status = "todo" }
-"test_desk.py::test_the_warp_is_worked_out_once_until_something_changes" = { status = "todo" }
-"test_desk.py::test_without_a_stream_the_card_says_to_start_one" = { status = "todo" }
+"test_desk.py::test_a_cancelled_pick_changes_nothing" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::a_cancelled_pick_changes_nothing" }
+"test_desk.py::test_a_paper_size_turns_the_way_the_sheet_lies_and_the_stretch_scales_it" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::a_paper_size_turns_the_way_the_sheet_lies_and_the_stretch_scales_it" }
+"test_desk.py::test_a_sheet_pushed_off_the_picture_says_so" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::a_sheet_pushed_off_the_picture_says_so" }
+"test_desk.py::test_a_sheet_that_keeps_its_shape_sits_between_bars" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::a_sheet_that_keeps_its_shape_sits_between_bars" }
+"test_desk.py::test_a_standing_a4_in_a_wide_frame_keeps_its_shape_instead_of_filling_it" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::a_standing_a4_in_a_wide_frame_keeps_its_shape_instead_of_filling_it" }
+"test_desk.py::test_a_stream_behind_the_panels_keeps_the_straightening_it_had" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::a_stream_behind_the_panels_keeps_the_straightening_it_had" }
+"test_desk.py::test_averaging_the_edges_would_squash_a_sheet_tilted_away" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::averaging_the_edges_would_squash_a_sheet_tilted_away" }
+"test_desk.py::test_clean_up_whitens_shaded_paper_and_black_and_white_is_only_black_and_white" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::clean_up_whitens_shaded_paper_and_black_and_white_is_only_black_and_white" }
+"test_desk.py::test_corners_bunched_up_crossed_or_in_a_line_are_not_a_sheet" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::corners_bunched_up_crossed_or_in_a_line_are_not_a_sheet" }
+"test_desk.py::test_corners_come_out_clockwise_from_the_top_left_however_they_were_placed" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::corners_come_out_clockwise_from_the_top_left_however_they_were_placed" }
+"test_desk.py::test_corners_stay_on_the_sheet_when_the_view_flips" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::corners_stay_on_the_sheet_when_the_view_flips" }
+"test_desk.py::test_corners_that_make_no_sheet_are_refused_and_the_card_says_why" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::corners_that_make_no_sheet_are_refused_and_the_card_says_why" }
+"test_desk.py::test_settings_round_trip_and_bad_corners_are_dropped" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::settings_round_trip_and_bad_corners_are_dropped" }
+"test_desk.py::test_straightening_fills_the_sheet_and_puts_the_bar_level_in_the_middle" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::straightening_fills_the_sheet_and_puts_the_bar_level_in_the_middle" }
+"test_desk.py::test_switching_off_and_on_again_tells_the_preview_the_warp_again" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::switching_off_and_on_again_tells_the_preview_the_warp_again" }
+"test_desk.py::test_switching_on_without_corners_asks_for_them_and_a_pick_turns_it_on" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::switching_on_without_corners_asks_for_them_and_a_pick_turns_it_on" }
+"test_desk.py::test_the_preview_learns_the_warp_to_map_clicks_back" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::the_preview_learns_the_warp_to_map_clicks_back" }
+"test_desk.py::test_the_shape_holds_up_when_the_focal_length_is_only_guessed_or_corners_are_a_bit_off" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::the_shape_holds_up_when_the_focal_length_is_only_guessed_or_corners_are_a_bit_off" }
+"test_desk.py::test_the_sheet_fits_the_frame_in_its_own_shape_centred" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::the_sheet_fits_the_frame_in_its_own_shape_centred" }
+"test_desk.py::test_the_sheets_real_shape_is_worked_out_from_its_corners" = { status = "ported", rust = "rust/crates/effects/src/sheet_tests.rs::the_sheets_real_shape_is_worked_out_from_its_corners" }
+"test_desk.py::test_the_stretch_sliders_save_and_reset_and_wait_while_the_sheet_fills_the_picture" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::the_stretch_sliders_save_and_reset_and_wait_while_the_sheet_fills_the_picture" }
+"test_desk.py::test_the_warp_is_worked_out_once_until_something_changes" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::the_warp_is_worked_out_once_until_something_changes" }
+"test_desk.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::without_a_stream_the_card_says_to_start_one" }
 # ── dev_profile
 "test_dev_profile.py::test_a_dev_profile_keeps_everything_apart_from_the_real_app" = { status = "todo" }
 "test_dev_profile.py::test_setting_up_the_dev_mic_never_unloads_the_real_one" = { status = "todo" }
@@ -3103,50 +3103,50 @@
 "test_move_to_installed.py::test_the_unzipped_copy_goes_once_the_installed_one_runs" = { status = "todo" }
 "test_move_to_installed.py::test_the_user_s_own_folders_with_telescope_like_names_stay" = { status = "todo" }
 # ── name_tag
-"test_name_tag.py::test_a_long_name_is_cut_to_fit_the_width" = { status = "todo" }
-"test_name_tag.py::test_a_read_only_frame_is_copied" = { status = "todo" }
-"test_name_tag.py::test_a_right_to_left_name_starts_on_the_right" = { status = "todo" }
-"test_name_tag.py::test_a_stream_behind_the_panels_keeps_a_cache_of_its_own" = { status = "todo" }
-"test_name_tag.py::test_a_whitespace_name_doesnt_decide_the_direction" = { status = "todo" }
-"test_name_tag.py::test_bad_settings_fall_back_to_the_defaults" = { status = "todo" }
-"test_name_tag.py::test_drawing_only_touches_the_tile" = { status = "todo" }
-"test_name_tag.py::test_it_grows_with_the_canvas_and_the_size_picked" = { status = "todo" }
-"test_name_tag.py::test_it_runs_after_the_background_plugin" = { status = "todo" }
-"test_name_tag.py::test_it_uses_the_apps_fonts" = { status = "todo" }
-"test_name_tag.py::test_mirroring_the_picture_doesnt_mirror_the_tag" = { status = "todo" }
-"test_name_tag.py::test_names_in_other_scripts_get_drawn" = { status = "todo" }
-"test_name_tag.py::test_nothing_to_show_without_any_text" = { status = "todo" }
-"test_name_tag.py::test_off_by_default_and_until_there_is_text" = { status = "todo" }
-"test_name_tag.py::test_settings_round_trip_through_presets" = { status = "todo" }
-"test_name_tag.py::test_the_cache_paints_once_until_something_changes" = { status = "todo" }
-"test_name_tag.py::test_the_tag_stays_on_the_canvas_where_it_was_put" = { status = "todo" }
-"test_name_tag.py::test_the_text_sits_inside_the_box" = { status = "todo" }
-"test_name_tag.py::test_typing_saves_and_swaps_the_settings_whole" = { status = "todo" }
+"test_name_tag.py::test_a_long_name_is_cut_to_fit_the_width" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_long_name_is_cut_to_fit_the_width" }
+"test_name_tag.py::test_a_read_only_frame_is_copied" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_frame_somebody_else_holds_is_copied" }
+"test_name_tag.py::test_a_right_to_left_name_starts_on_the_right" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_right_to_left_name_starts_on_the_right" }
+"test_name_tag.py::test_a_stream_behind_the_panels_keeps_a_cache_of_its_own" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::a_stream_behind_the_panels_keeps_a_cache_of_its_own" }
+"test_name_tag.py::test_a_whitespace_name_doesnt_decide_the_direction" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_whitespace_name_doesnt_decide_the_direction" }
+"test_name_tag.py::test_bad_settings_fall_back_to_the_defaults" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::bad_settings_fall_back_to_the_defaults" }
+"test_name_tag.py::test_drawing_only_touches_the_tile" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::drawing_only_touches_the_tile" }
+"test_name_tag.py::test_it_grows_with_the_canvas_and_the_size_picked" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::it_grows_with_the_canvas_and_the_size_picked" }
+"test_name_tag.py::test_it_runs_after_the_background_plugin" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::it_runs_after_the_background_plugin" }
+"test_name_tag.py::test_it_uses_the_apps_fonts" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::it_uses_the_apps_fonts" }
+"test_name_tag.py::test_mirroring_the_picture_doesnt_mirror_the_tag" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::mirroring_the_picture_doesnt_mirror_the_tag" }
+"test_name_tag.py::test_names_in_other_scripts_get_drawn" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::names_in_other_scripts_get_drawn" }
+"test_name_tag.py::test_nothing_to_show_without_any_text" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::nothing_to_show_without_any_text" }
+"test_name_tag.py::test_off_by_default_and_until_there_is_text" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::off_by_default_and_until_there_is_text" }
+"test_name_tag.py::test_settings_round_trip_through_presets" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::settings_round_trip_through_presets" }
+"test_name_tag.py::test_the_cache_paints_once_until_something_changes" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::the_cache_paints_once_until_something_changes" }
+"test_name_tag.py::test_the_tag_stays_on_the_canvas_where_it_was_put" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::the_tag_stays_on_the_canvas_where_it_was_put" }
+"test_name_tag.py::test_the_text_sits_inside_the_box" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::the_text_sits_inside_the_box" }
+"test_name_tag.py::test_typing_saves_and_swaps_the_settings_whole" = { status = "ported", rust = "rust/crates/effects/src/name_tag_tests.rs::a_frozen_step_keeps_its_look" }
 # ── notes
-"test_notes.py::test_a_browser_camera_has_no_screen_for_notes" = { status = "todo" }
-"test_notes.py::test_a_damaged_config_falls_back_to_defaults" = { status = "todo" }
-"test_notes.py::test_a_phone_stopped_behind_the_panels_is_forgotten_with_its_notes" = { status = "todo" }
-"test_notes.py::test_a_set_is_named_by_its_first_line" = { status = "todo" }
-"test_notes.py::test_a_stream_ending_forgets_what_was_sent" = { status = "todo" }
-"test_notes.py::test_an_older_phone_is_asked_to_update_instead" = { status = "todo" }
-"test_notes.py::test_another_phone_starting_leaves_the_first_ones_notes_in_reach" = { status = "todo" }
-"test_notes.py::test_clear_takes_the_notes_down" = { status = "todo" }
-"test_notes.py::test_moving_to_another_stream_and_back_sends_nothing_again" = { status = "todo" }
-"test_notes.py::test_notes_on_one_phone_can_still_be_cleared_after_sending_to_another" = { status = "todo" }
-"test_notes.py::test_notes_the_phone_lost_are_sent_again" = { status = "todo" }
-"test_notes.py::test_notes_too_long_for_the_phone_are_held_back" = { status = "todo" }
-"test_notes.py::test_nothing_can_be_sent_without_a_stream" = { status = "todo" }
-"test_notes.py::test_scrolling_and_style_follow_while_the_notes_are_up" = { status = "todo" }
-"test_notes.py::test_send_puts_the_style_then_the_text_on_the_phone" = { status = "todo" }
-"test_notes.py::test_sets_are_saved_and_picked" = { status = "todo" }
-"test_notes.py::test_shortcuts_can_scroll_and_send" = { status = "todo" }
-"test_notes.py::test_style_changes_before_sending_stay_on_the_desktop" = { status = "todo" }
-"test_notes.py::test_switching_to_the_front_lens_clears_the_hint" = { status = "todo" }
-"test_notes.py::test_text_in_any_script_counts_its_utf8_bytes" = { status = "todo" }
-"test_notes.py::test_the_card_says_when_the_notes_were_closed_or_wait_for_preview" = { status = "todo" }
-"test_notes.py::test_the_card_says_when_the_phone_has_them_but_not_on_screen" = { status = "todo" }
-"test_notes.py::test_the_front_camera_is_read_from_the_current_lens" = { status = "todo" }
-"test_notes.py::test_the_status_says_what_stands_in_the_way_first" = { status = "todo" }
+"test_notes.py::test_a_browser_camera_has_no_screen_for_notes" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::a_browser_camera_has_no_screen_for_notes" }
+"test_notes.py::test_a_damaged_config_falls_back_to_defaults" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::a_damaged_config_falls_back_to_defaults" }
+"test_notes.py::test_a_phone_stopped_behind_the_panels_is_forgotten_with_its_notes" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::a_phone_stopped_behind_the_panels_is_forgotten_with_its_notes" }
+"test_notes.py::test_a_set_is_named_by_its_first_line" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::a_set_is_named_by_its_first_line" }
+"test_notes.py::test_a_stream_ending_forgets_what_was_sent" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::a_stream_ending_forgets_what_was_sent" }
+"test_notes.py::test_an_older_phone_is_asked_to_update_instead" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::an_older_phone_is_asked_to_update_instead" }
+"test_notes.py::test_another_phone_starting_leaves_the_first_ones_notes_in_reach" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::another_phone_starting_leaves_the_first_ones_notes_in_reach" }
+"test_notes.py::test_clear_takes_the_notes_down" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::clear_takes_the_notes_down" }
+"test_notes.py::test_moving_to_another_stream_and_back_sends_nothing_again" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::moving_to_another_stream_and_back_sends_nothing_again" }
+"test_notes.py::test_notes_on_one_phone_can_still_be_cleared_after_sending_to_another" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::notes_on_one_phone_can_still_be_cleared_after_sending_to_another" }
+"test_notes.py::test_notes_the_phone_lost_are_sent_again" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::notes_the_phone_lost_are_sent_again" }
+"test_notes.py::test_notes_too_long_for_the_phone_are_held_back" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::notes_too_long_for_the_phone_are_held_back" }
+"test_notes.py::test_nothing_can_be_sent_without_a_stream" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::nothing_can_be_sent_without_a_stream" }
+"test_notes.py::test_scrolling_and_style_follow_while_the_notes_are_up" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::scrolling_and_style_follow_while_the_notes_are_up" }
+"test_notes.py::test_send_puts_the_style_then_the_text_on_the_phone" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::send_puts_the_style_then_the_text_on_the_phone" }
+"test_notes.py::test_sets_are_saved_and_picked" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::sets_are_saved_and_picked" }
+"test_notes.py::test_shortcuts_can_scroll_and_send" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::shortcuts_can_scroll_and_send" }
+"test_notes.py::test_style_changes_before_sending_stay_on_the_desktop" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::style_changes_before_sending_stay_on_the_desktop" }
+"test_notes.py::test_switching_to_the_front_lens_clears_the_hint" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::switching_to_the_front_lens_clears_the_hint" }
+"test_notes.py::test_text_in_any_script_counts_its_utf8_bytes" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::text_in_any_script_counts_its_utf8_bytes" }
+"test_notes.py::test_the_card_says_when_the_notes_were_closed_or_wait_for_preview" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::the_card_says_when_the_notes_were_closed_or_wait_for_preview" }
+"test_notes.py::test_the_card_says_when_the_phone_has_them_but_not_on_screen" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::the_card_says_when_the_phone_has_them_but_not_on_screen" }
+"test_notes.py::test_the_front_camera_is_read_from_the_current_lens" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::the_front_camera_is_read_from_the_current_lens" }
+"test_notes.py::test_the_status_says_what_stands_in_the_way_first" = { status = "ported", rust = "rust/crates/effects/src/notes_tests.rs::the_status_says_what_stands_in_the_way_first" }
 # ── on_air
 "test_on_air.py::test_a_failed_state_is_sent_again_with_backoff_until_it_works" = { status = "todo" }
 "test_on_air.py::test_a_get_payload_is_encoded_so_it_cant_break_the_request" = { status = "todo" }
@@ -5512,11 +5512,11 @@
 "global.connection.selected_phone" = { status = "ported", rust = "rust/crates/link/src/connection.rs::get_config", note = "the Connection plugin owns its section (get_config/set_config), not core::source::Phones" }
 "global.connection.udp" = { status = "ported", rust = "rust/crates/link/src/connection.rs::get_config", note = "the Connection plugin owns its section (get_config/set_config), not core::source::Phones" }
 # ── desk
-"device.desk.cleanup" = { status = "todo" }
-"device.desk.corners" = { status = "todo" }
-"device.desk.on" = { status = "todo" }
-"device.desk.shape" = { status = "todo" }
-"device.desk.stretch" = { status = "todo" }
+"device.desk.cleanup" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
+"device.desk.corners" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
+"device.desk.on" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
+"device.desk.shape" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
+"device.desk.stretch" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
 # ── face_exposure
 "device.face_exposure.on" = { status = "todo" }
 "global.face_exposure.on" = { status = "todo" }
@@ -5554,26 +5554,26 @@
 "device.monitoring.temp_notify" = { status = "todo" }
 "device.monitoring.temp_stop" = { status = "todo" }
 # ── name_tag
-"device.name_tag.name" = { status = "todo" }
-"device.name_tag.on" = { status = "todo" }
-"device.name_tag.position" = { status = "todo" }
-"device.name_tag.pronouns" = { status = "todo" }
-"device.name_tag.second" = { status = "todo" }
-"device.name_tag.size" = { status = "todo" }
-"device.name_tag.style" = { status = "todo" }
-"global.name_tag.name" = { status = "todo" }
-"global.name_tag.on" = { status = "todo" }
-"global.name_tag.position" = { status = "todo" }
-"global.name_tag.pronouns" = { status = "todo" }
-"global.name_tag.second" = { status = "todo" }
-"global.name_tag.size" = { status = "todo" }
-"global.name_tag.style" = { status = "todo" }
+"device.name_tag.name" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.on" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.position" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.pronouns" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.second" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.size" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"device.name_tag.style" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.name" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.on" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.position" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.pronouns" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.second" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.size" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
+"global.name_tag.style" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::set_config" }
 # ── notes
-"global.notes.current" = { status = "todo" }
-"global.notes.scroll" = { status = "todo" }
-"global.notes.sets" = { status = "todo" }
-"global.notes.size" = { status = "todo" }
-"global.notes.speed" = { status = "todo" }
+"global.notes.current" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::set_config" }
+"global.notes.scroll" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::set_config" }
+"global.notes.sets" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::set_config" }
+"global.notes.size" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::set_config" }
+"global.notes.speed" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::set_config" }
 # ── on_air
 "global.on_air.address" = { status = "todo" }
 "global.on_air.page" = { status = "todo" }
@@ -5712,10 +5712,10 @@
 # ── connection
 "phone.pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::run_action" }
 # ── desk
-"desk.mark" = { status = "todo" }
-"desk.on" = { status = "todo" }
-"desk.shape" = { status = "todo" }
-"desk.writing" = { status = "todo" }
+"desk.mark" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
+"desk.on" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
+"desk.shape" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
+"desk.writing" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
 # ── face_exposure
 "face_exposure.on" = { status = "todo" }
 # ── framing
@@ -5733,14 +5733,14 @@
 "microphone.mute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
 "microphone.on" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
 # ── name_tag
-"name_tag.on" = { status = "todo" }
+"name_tag.on" = { status = "ported", rust = "rust/crates/effects/src/name_tag.rs::actions" }
 # ── notes
-"notes.clear" = { status = "todo" }
-"notes.next" = { status = "todo" }
-"notes.play" = { status = "todo" }
-"notes.previous" = { status = "todo" }
-"notes.send" = { status = "todo" }
-"notes.speed" = { status = "todo" }
+"notes.clear" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
+"notes.next" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
+"notes.play" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
+"notes.previous" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
+"notes.send" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
+"notes.speed" = { status = "ported", rust = "rust/crates/effects/src/notes.rs::actions" }
 # ── photos
 "photos.mode" = { status = "todo" }
 "photos.take" = { status = "todo" }

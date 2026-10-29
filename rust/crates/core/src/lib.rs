@@ -20,6 +20,7 @@ pub mod shader;
 pub mod snapshot;
 pub mod source;
 pub mod system;
+pub mod text;
 pub mod testing;
 pub mod time;
 pub mod ui;

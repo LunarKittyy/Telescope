@@ -1,0 +1,414 @@
+{
+ "cases": [
+  {
+   "name": "the default",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "bar",
+    "position": "bottom_left",
+    "size": "medium"
+   },
+   "box": [
+    22.0,
+    288.0,
+    209.0,
+    45.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 35.00320000000001,
+    "baseline": 308.88165
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 180.604075,
+    "baseline": 308.88165
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 35.00320000000001,
+    "baseline": 324.59772499999997
+   },
+   "stripe": [
+    22.0,
+    288.0,
+    2.4192,
+    45.0
+   ],
+   "radius": 0.0,
+   "em": 15.120000000000001,
+   "tile": {
+    "x": 22,
+    "y": 288,
+    "width": 210,
+    "height": 46,
+    "file": "nametag_00.rgba"
+   }
+  },
+  {
+   "name": "a pill in the middle",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "pill",
+    "position": "bottom_centre",
+    "size": "medium"
+   },
+   "box": [
+    217.0,
+    288.0,
+    206.0,
+    45.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 227.584,
+    "baseline": 308.88165
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 373.184875,
+    "baseline": 308.88165
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 270.9625625,
+    "baseline": 324.59772499999997
+   },
+   "stripe": null,
+   "radius": 7.5600000000000005,
+   "em": 15.120000000000001,
+   "tile": {
+    "x": 217,
+    "y": 288,
+    "width": 207,
+    "height": 46,
+    "file": "nametag_01.rgba"
+   }
+  },
+  {
+   "name": "light, large, top right",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "light",
+    "position": "top_right",
+    "size": "large"
+   },
+   "box": [
+    341.0,
+    18.0,
+    277.0,
+    60.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 355.112,
+    "baseline": 45.8422
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 549.3090000000001,
+    "baseline": 45.8422
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 355.112,
+    "baseline": 66.47405
+   },
+   "stripe": null,
+   "radius": 5.644800000000001,
+   "em": 20.16,
+   "tile": {
+    "x": 341,
+    "y": 18,
+    "width": 278,
+    "height": 61,
+    "file": "nametag_02.rgba"
+   }
+  },
+  {
+   "name": "a shadow, bottom right",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "shadow",
+    "position": "bottom_right",
+    "size": "medium"
+   },
+   "box": [
+    411.0,
+    288.0,
+    206.0,
+    45.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 421.584,
+    "baseline": 308.88165
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 567.184875,
+    "baseline": 308.88165
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 421.584,
+    "baseline": 324.59772499999997
+   },
+   "stripe": null,
+   "radius": 0.0,
+   "em": 15.120000000000001,
+   "tile": {
+    "x": 403,
+    "y": 280,
+    "width": 223,
+    "height": 62,
+    "file": "nametag_03.rgba"
+   }
+  },
+  {
+   "name": "only a small name",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "",
+    "second": "",
+    "style": "bar",
+    "position": "bottom_left",
+    "size": "small"
+   },
+   "box": [
+    22.0,
+    309.0,
+    129.0,
+    24.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 31.9072,
+    "baseline": 325.4634
+   },
+   "pronouns_at": null,
+   "second_at": null,
+   "stripe": [
+    22.0,
+    309.0,
+    1.8432,
+    24.0
+   ],
+   "radius": 0.0,
+   "em": 11.52,
+   "tile": {
+    "x": 22,
+    "y": 309,
+    "width": 130,
+    "height": 25,
+    "file": "nametag_04.rgba"
+   }
+  },
+  {
+   "name": "a name and pronouns",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "",
+    "style": "bar",
+    "position": "bottom_left",
+    "size": "medium"
+   },
+   "box": [
+    22.0,
+    302.0,
+    209.0,
+    31.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 35.00320000000001,
+    "baseline": 322.88165
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 180.604075,
+    "baseline": 322.88165
+   },
+   "second_at": null,
+   "stripe": [
+    22.0,
+    302.0,
+    2.4192,
+    31.0
+   ],
+   "radius": 0.0,
+   "em": 15.120000000000001,
+   "tile": {
+    "x": 22,
+    "y": 302,
+    "width": 210,
+    "height": 32,
+    "file": "nametag_05.rgba"
+   }
+  },
+  {
+   "name": "a long name",
+   "width": 640,
+   "height": 360,
+   "spec": {
+    "name": "Wolfeschlegelsteinhausenbergerdorff Wolfeschlegelsteinhausenbergerdorff Wolfeschlegelsteinhausenbergerdorff ",
+    "pronouns": "she/her",
+    "second": "",
+    "style": "bar",
+    "position": "bottom_left",
+    "size": "medium"
+   },
+   "box": [
+    22.0,
+    302.0,
+    588.0,
+    31.0
+   ],
+   "name_at": {
+    "text": "Wolfeschlegelsteinhausenbergerdorff Wolfeschlegelsteinhausenberg\u2026",
+    "x": 35.00320000000001,
+    "baseline": 322.88165
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 559.666575,
+    "baseline": 322.88165
+   },
+   "second_at": null,
+   "stripe": [
+    22.0,
+    302.0,
+    2.4192,
+    31.0
+   ],
+   "radius": 0.0,
+   "em": 15.120000000000001,
+   "tile": {
+    "x": 22,
+    "y": 302,
+    "width": 589,
+    "height": 32,
+    "file": "nametag_06.rgba"
+   }
+  },
+  {
+   "name": "full hd",
+   "width": 1920,
+   "height": 1080,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "bar",
+    "position": "bottom_left",
+    "size": "medium"
+   },
+   "box": [
+    67.0,
+    863.0,
+    627.0,
+    136.0
+   ],
+   "name_at": {
+    "text": "Luna Kozankiewicz",
+    "x": 106.00959999999999,
+    "baseline": 925.64495
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 542.999725,
+    "baseline": 925.64495
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 106.00959999999999,
+    "baseline": 972.8088
+   },
+   "stripe": [
+    67.0,
+    863.0,
+    7.2576,
+    136.0
+   ],
+   "radius": 0.0,
+   "em": 45.36,
+   "tile": {
+    "x": 67,
+    "y": 863,
+    "width": 628,
+    "height": 137,
+    "file": "nametag_07.rgba"
+   }
+  },
+  {
+   "name": "a tall canvas",
+   "width": 1080,
+   "height": 1920,
+   "spec": {
+    "name": "Luna Kozankiewicz",
+    "pronouns": "she/her",
+    "second": "Telescope developer",
+    "style": "bar",
+    "position": "bottom_centre",
+    "size": "medium"
+   },
+   "box": [
+    54.0,
+    1533.0,
+    972.0,
+    243.0
+   ],
+   "name_at": {
+    "text": "Luna Kozanki\u2026",
+    "x": 123.3504,
+    "baseline": 1645.33755
+   },
+   "pronouns_at": {
+    "text": "she/her",
+    "x": 759.685275,
+    "baseline": 1645.33755
+   },
+   "second_at": {
+    "text": "Telescope developer",
+    "x": 284.9240875,
+    "baseline": 1729.11495
+   },
+   "stripe": [
+    54.0,
+    1533.0,
+    12.9024,
+    243.0
+   ],
+   "radius": 0.0,
+   "em": 80.64,
+   "tile": {
+    "x": 54,
+    "y": 1533,
+    "width": 973,
+    "height": 244,
+    "file": "nametag_08.rgba"
+   }
+  }
+ ]
+}

@@ -61,6 +61,14 @@ pub struct FakeHost {
     pub window_active: bool,
     /// The phone's camera is off (set_camera_on(false) turns it off too).
     pub camera_off: bool,
+    /// What background_streams() lists.
+    pub background: Vec<BackgroundStream>,
+    /// Whether pick_on_preview() says there is a preview to pick on.
+    pub can_pick: bool,
+    /// The corners each pick_on_preview() started from.
+    pub picks: Vec<Option<[[f32; 2]; 4]>>,
+    /// The warp the preview was last told about.
+    pub warp: Option<[f32; 9]>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     next_request: u64,
@@ -161,7 +169,7 @@ impl HostStreams for FakeHost {
         self.focused.clone()
     }
     fn background_streams(&self) -> Vec<BackgroundStream> {
-        Vec::new()
+        self.background.clone()
     }
     fn pick_source(&mut self, source_id: Option<&str>) -> bool {
         self.note(format!("pick_source {source_id:?}"));
@@ -367,9 +375,10 @@ impl HostPreview for FakeHost {
     fn refresh_preview(&mut self) {
         self.note("refresh_preview");
     }
-    fn pick_on_preview(&mut self, owner: &str, kind: PickKind, _start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool {
+    fn pick_on_preview(&mut self, owner: &str, kind: PickKind, start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool {
         self.note(format!("pick_on_preview {owner} {kind:?}"));
-        false
+        self.picks.push(start);
+        self.can_pick
     }
     fn finish_pick(&mut self, _owner: &str) -> bool {
         false
@@ -378,6 +387,7 @@ impl HostPreview for FakeHost {
         self.note(format!("cancel_pick {owner}"));
     }
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
+        self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
     }
 }
