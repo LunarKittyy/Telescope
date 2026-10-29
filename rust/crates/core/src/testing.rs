@@ -80,6 +80,8 @@ pub struct FakeHost {
     pub streams: Option<u32>,
     /// The camera was turned off by a rule, not by hand (is_camera_off_auto).
     pub camera_off_auto: bool,
+    /// What canvas_size() answers: Setup's canvas, or (None, None) for Auto.
+    pub canvas: (Option<u32>, Option<u32>),
     /// Every send_notification, as (title, body, urgent).
     pub notifications: Vec<(String, String, bool)>,
     /// What preset_plugins() lists, in order; apply_preset hands each one's config to the plugin_configs entry.
@@ -203,7 +205,7 @@ impl HostStreams for FakeHost {
         self.note(format!("update_stream_output {change:?}"));
     }
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {
-        (None, None)
+        self.canvas
     }
     fn restart_vcam_canvas(&mut self, width: u32, height: u32) -> RequestId {
         self.note(format!("restart_vcam_canvas {width}x{height}"));
