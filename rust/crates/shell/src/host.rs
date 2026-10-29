@@ -209,6 +209,13 @@ impl HostShell for Ctx<'_> {
     fn shortcut_actions(&self) -> Vec<(String, ActionSpec)> {
         self.state.slots.iter().flat_map(|s| s.actions.iter().map(|a| (s.info.name.clone(), a.clone()))).collect()
     }
+    fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
+        if plugin == self.me {
+            return None;
+        }
+        let i = self.state.index(plugin)?;
+        self.state.call(i, |p, host| p.run_action(host, id, params)).flatten()
+    }
 }
 
 impl HostUi for Ctx<'_> {
