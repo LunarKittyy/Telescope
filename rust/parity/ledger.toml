@@ -4983,29 +4983,29 @@
 "connection-cable-other-phone" = { status = "todo" }
 "connection-cable-unauthorized" = { status = "todo" }
 "connection-desktop-outdated" = { status = "todo" }
-"connection-local-only" = { status = "todo" }
-"connection-local-only-windows" = { status = "todo" }
-"connection-not-paired" = { status = "todo" }
-"connection-not-paired-old" = { status = "todo" }
+"connection-local-only" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-local-only-windows" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-not-paired" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-not-paired-old" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-phone-outdated" = { status = "todo" }
 "connection-phone-outdated-usb" = { status = "todo" }
-"connection-ready" = { status = "todo" }
-"connection-ready-usb" = { status = "todo" }
+"connection-ready" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-ready-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-route-auto" = { status = "todo" }
 "connection-route-usb" = { status = "todo" }
 "connection-route-wifi" = { status = "todo" }
 "connection-switch-to-usb" = { status = "todo" }
-"connection-unreachable" = { status = "todo" }
+"connection-unreachable" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-update-failed" = { status = "todo" }
 "connection-updated" = { status = "todo" }
 "connection-updating-phone" = { status = "todo" }
-"connection-usb-app-closed" = { status = "todo" }
-"connection-usb-no-adb" = { status = "todo" }
-"connection-usb-no-adb-windows" = { status = "todo" }
-"connection-usb-no-cable" = { status = "todo" }
-"connection-usb-other-phone" = { status = "todo" }
-"connection-usb-unauthorized" = { status = "todo" }
-"connection-usb-unknown" = { status = "todo" }
+"connection-usb-app-closed" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-no-adb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-no-adb-windows" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-no-cable" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-other-phone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-unauthorized" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-usb-unknown" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-vcam-failed" = { status = "todo" }
 "connection-vcam-off" = { status = "todo" }
 "connection-vcam-other-setup" = { status = "todo" }
@@ -5103,7 +5103,7 @@
 "main-empty" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-medium" = { status = "todo" }
 "main-narrow" = { status = "todo" }
-"main-wide" = { status = "todo" }
+"main-wide" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "warm" = { status = "todo" }
 # ── settings
 "settings-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
