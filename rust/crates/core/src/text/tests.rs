@@ -105,13 +105,27 @@ fn pairs_of_letters_are_kerned() {
 }
 
 #[test]
-fn letters_are_spaced_apart_between_clusters_only() {
-    let Some(f) = face(40.0) else { return };
-    let grown = f.layout("abcd", 2.0).width - f.layout("abcd", 0.0).width;
-    assert!((grown - 6.0).abs() < 0.01, "{grown}");
-    // a mark rides on its base, so it takes no spacing
-    let marked = f.layout("x\u{301}", 5.0).width;
-    assert!((marked - f.layout("x", 5.0).width).abs() < 0.01, "{marked}");
+fn letters_are_spaced_apart_after_each_cluster() {
+    // QFontMetricsF.horizontalAdvance with AbsoluteSpacing at 40 px in DejaVu Sans: spacing follows every cluster, the last too
+    let Some(f) = dejavu(40.0) else { return };
+    let grown = |text: &str, spacing: f32| f.layout(text, spacing).width - f.layout(text, 0.0).width;
+    for (text, spacing, qt) in [
+        ("Telescope", -1.5, -13.5),
+        ("Telescope", 5.0, 45.0),
+        ("abcd", 2.0, 8.0),
+        ("abcd", -1.5, -6.0),
+        ("a", 2.0, 2.0),
+        // a mark rides on its base, so it takes no spacing of its own
+        ("x\u{301}", 5.0, 5.0),
+        ("x\u{301}y\u{301}", 2.0, 4.0),
+        // lam and alef are one ligature, so three clusters
+        ("\u{633}\u{644}\u{627}\u{645}", -1.5, -4.5),
+        ("\u{644}\u{627}", 2.0, 2.0),
+        ("", 5.0, 0.0),
+    ] {
+        let got = grown(text, spacing);
+        assert!((got - qt).abs() < 0.01, "{text:?} spaced by {spacing}: {got}, Qt {qt}");
+    }
 }
 
 #[test]

@@ -274,7 +274,7 @@ impl Face {
     }
 
     /// The text on one line, in the order it reads (right to left when it starts with a right-to-left letter, with the
-    /// Latin and digits inside it still left to right); `spacing` is added between letters (negative to tighten).
+    /// Latin and digits inside it still left to right); `spacing` is added after each letter (negative to tighten).
     pub fn layout(&self, text: &str, spacing: f32) -> Line {
         let mut placed = Vec::new();
         let mut x = 0.0;
@@ -294,7 +294,7 @@ impl Face {
                         let per_unit = scale.x / font.height_unscaled();
                         let mut last = None;
                         for g in font.shape(text, range, rtl, spacing != 0.0) {
-                            // Letters are spaced apart by cluster; a mark rides on its base
+                            // Letters are spaced apart by cluster (the space after the one before); a mark rides on its base
                             if last != Some(g.cluster) && !placed.is_empty() {
                                 x += spacing;
                             }
@@ -313,6 +313,10 @@ impl Face {
                     }
                 }
             }
+        }
+        // Qt spaces the last letter too, which only shows in how wide the line is
+        if !placed.is_empty() {
+            x += spacing;
         }
         Line { placed, width: x }
     }
