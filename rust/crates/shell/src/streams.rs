@@ -800,7 +800,9 @@ impl FlowHost for Host<'_> {
         self.w.set_status(&tr("Not streaming"), "dim");
     }
     fn show_camera_off(&mut self) {
-        self.w.set_status(&tr("Streaming the mic with the camera off"), "dim");
+        self.w.set("fps", "—");
+        self.w.set("net", "—");
+        self.w.set_status(&tr("Streaming the mic, camera off"), "ok");
     }
     fn refresh_tiles(&mut self) {}
     fn clear_pending_resolution(&mut self, source: &SourceRef) {
