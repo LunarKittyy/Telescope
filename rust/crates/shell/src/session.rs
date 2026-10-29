@@ -27,6 +27,8 @@ pub trait Client {
     fn close(&self);
     /// Sends every setting again, for a stream that came back.
     fn resend_settings(&self) {}
+    /// One /v1/control body (host.phone_control).
+    fn send(&self, _body: &Value) {}
 }
 
 /// Owns worker and client for one stream's lifetime; id discards stale results from threads.
@@ -197,6 +199,13 @@ pub trait SourceKind {
     }
     fn forget_stream_status(&self, source: &Source) {
         source.state.borrow_mut().forget_stream_status();
+    }
+    /// Opens a fresh feed of its video for the worker; None while there's nothing to open.
+    fn opener(&self) -> Option<crate::worker::Opener> {
+        None
+    }
+    fn as_phone(&self) -> Option<&crate::sources::PhoneKind> {
+        None
     }
 }
 
