@@ -4872,11 +4872,13 @@ dependencies = [
  "image",
  "libc",
  "log",
+ "ring",
  "serde_json",
  "slint-interpreter",
  "telescope-core",
  "telescope-ui-kit",
  "tiny-skia 0.12.0",
+ "ureq",
  "windows",
 ]
 

@@ -944,12 +944,12 @@
 "Already persisted: {path}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Another app already uses this key" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Bind a Copy command line in its own keyboard settings instead." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
-"Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
+"Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't copy adb from there." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't create the virtual microphone: {error}" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
-"Couldn't create {path}: {error}" = { status = "todo" }
+"Couldn't create {path}: {error}" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Couldn't download VB-Cable. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't download adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't open VB-Cable's setup. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
@@ -960,12 +960,12 @@
 "Couldn't stop Telescope opening at sign-in: {error}" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::disable" }
 "Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't unpack adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Download failed: {error}" = { status = "todo" }
-"Downloaded" = { status = "todo" }
+"Download failed: {error}" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"Downloaded" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Downloading adb from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Downloading adb {version} from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Downloading driver files..." = { status = "todo" }
-"Downloading {file}..." = { status = "todo" }
+"Downloading driver files..." = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"Downloading {file}..." = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys::note" }
 "Everywhere: {keys}" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
@@ -977,29 +977,29 @@
 "Google's download doesn't have adb.exe in it anymore." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google's list of downloads wasn't what Telescope expected. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google's server said {code}. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Installed" = { status = "todo" }
+"Installed" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Loaded: {phone} + {obs}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Module unloaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "No key set in the desktop's shortcut settings" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
 "Not available on this desktop" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status" }
 "Not confirmed in the desktop's dialog" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
 "Nothing to remove" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again" = { status = "todo" }
-"Registering (admin access required)..." = { status = "todo" }
-"Registration failed (cancelled or denied?)" = { status = "todo" }
+"Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"Registering (admin access required)..." = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"Registration failed (cancelled or denied?)" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Removed {paths}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Telescope couldn't ask for your password here. Run this in a terminal, then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "That doesn't have adb.exe in it." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
 "The download didn't match Google's checksum, so it wasn't used. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"The driver copy in Program Files failed checksum verification - not registering" = { status = "todo" }
-"The driver install hit an error while running as admin - not registering" = { status = "todo" }
+"The driver copy in Program Files failed checksum verification - not registering" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"The driver install hit an error while running as admin - not registering" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "The phone already has a newer Telescope app." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
 "The sound server didn't answer (pactl list failed)." = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
 "This desktop doesn't offer global shortcuts to apps ({why})." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "This desktop doesn't offer global shortcuts to apps." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"Timed out" = { status = "todo" }
+"Timed out" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Unpacking…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "VB-Audio's download doesn't have the setup it used to. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "VB-Audio's download has changed since this version of Telescope. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
@@ -1008,7 +1008,7 @@
 "Waiting for you to confirm it" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status" }
 "Windows can't use this key everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Windows didn't get permission to install VB-Cable." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
-"Windows refused to register the driver (regsvr32 failed)" = { status = "todo" }
+"Windows refused to register the driver (regsvr32 failed)" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "Wrote {first} and {second}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "adb install failed" = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
@@ -1021,8 +1021,8 @@
 "v4l2loopback-ctl delete failed (an app may still have one open)" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "{device} already exists and is not a v4l2loopback device." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"{file} failed checksum verification (got {digest}...) - not registering" = { status = "todo" }
-"{file} failed checksum verification - not registering" = { status = "todo" }
+"{file} failed checksum verification (got {digest}...) - not registering" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"{file} failed checksum verification - not registering" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 # ── plugin
 "Audio" = { status = "todo" }
 "Camera" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
@@ -3426,38 +3426,38 @@
 "test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_with_persist_writes_the_boot_config_in_the_same_prompt" }
 "test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::sudo_is_never_run_where_it_could_ask_for_a_password" }
 "test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "todo" }
-"test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "todo" }
+"test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "todo" }
 "test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "todo" }
 "test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "todo" }
 "test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "todo" }
-"test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "todo" }
+"test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "todo" }
 "test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "todo" }
-"test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "todo" }
+"test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "todo" }
 "test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "todo" }
 "test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "todo" }
 "test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "todo" }
 "test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "todo" }
-"test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "todo" }
+"test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "todo" }
 "test_platform_windows.py::test_register_normalizes_process_failures" = { status = "todo" }
 "test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "todo" }
-"test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "todo" }
+"test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "todo" }
-"test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "todo" }
+"test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "todo" }
 "test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "todo" }
 "test_platform_windows.py::test_sha256_reads_entire_file" = { status = "todo" }
 "test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "todo" }
 "test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "todo" }
 "test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "todo" }
-"test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "todo" }
+"test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "todo" }
 "test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "todo" }
 "test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "todo" }
-"test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "todo" }
+"test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
 "test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "todo" }
 "test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "todo" }
 "test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "todo" }
