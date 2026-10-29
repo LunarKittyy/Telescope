@@ -1,8 +1,11 @@
 //! The phone's microphone into a virtual microphone (audio.py, denoise.py, platform/virtual_mic.py and the Microphone
 //! plugin).
 
+pub mod backend;
 pub mod denoise;
 pub mod jitter;
+pub mod meter;
+pub mod plugin;
 pub mod shape;
 pub mod sink;
 pub mod vb_cable;

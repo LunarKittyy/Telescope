@@ -18,3 +18,7 @@ ureq = { workspace = true, features = ["platform-verifier"] }
 
 [target.'cfg(windows)'.dependencies]
 cpal.workspace = true
+
+[dev-dependencies]
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true

@@ -4797,7 +4797,9 @@ dependencies = [
  "ring",
  "rustls",
  "serde_json",
+ "slint-interpreter",
  "telescope-core",
+ "telescope-ui-kit",
  "ureq",
  "zip",
 ]
