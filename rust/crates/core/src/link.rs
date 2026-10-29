@@ -133,6 +133,10 @@ pub trait Link: Send + Sync {
     fn sensors(&self) -> Option<std::sync::Arc<dyn PhoneSensors>> {
         None
     }
+    /// Full-quality photos from the phones (stills.py), for the window's HostStills.
+    fn stills(&self) -> Option<std::sync::Arc<dyn PhoneStills>> {
+        None
+    }
     /// At quit: stops LAN discovery and the adb server this app started.
     fn shutdown(&self) {}
 
@@ -329,4 +333,25 @@ pub trait PhoneSensors: Send + Sync {
     fn shutdown(&self);
     /// Called with a source id, from any thread, when its readings or status change (sensors_changed on the bus).
     fn set_on_change(&self, _on_change: Box<dyn Fn(&str) + Send + Sync>) {}
+}
+
+/// Full-quality photos on a stream's phone (stills.Stills), one at a time per phone. Progress and results are plain
+/// data: progress {"state", "shots", "taken", "countdown_ms", "paused", "saved"}, result {"ok", "files", "code",
+/// "error"} with error in this app's language.
+pub trait PhoneStills: Send + Sync {
+    /// A phone's /v1/state; only a whole one (with its cameras) says what its lenses can take.
+    fn note_state(&self, source_id: Option<&str>, state: &Value);
+    /// The stream moved to another lens (its /v1/state camera entry).
+    fn note_lens(&self, source_id: Option<&str>, camera: &Value);
+    /// What the current lens can take ({"formats", "size", "max_res", ...}), or None when it can't take photos.
+    fn caps(&self, source_id: Option<&str>) -> Option<Value>;
+    fn busy(&self, source_id: Option<&str>) -> bool;
+    /// Starts a photo with the /v1/still options into folder; false while one is being taken there. alive() turning
+    /// false (the stream stopped or restarted) ends it as interrupted. The callbacks come from its own thread.
+    #[allow(clippy::too_many_arguments)]
+    fn take(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
+            on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+            alive: Box<dyn Fn() -> bool + Send>) -> bool;
+    /// At quit: every photo ends, and its phone is told to forget it.
+    fn shutdown(&self);
 }
