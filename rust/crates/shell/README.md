@@ -57,6 +57,8 @@ Today it draws `main-*`, Connection's card states (but the two that need Windows
 
 - A wrapped `Text` inside an `if` is measured as one line, so the card lays out too short and the rest overlaps it. Keep the element and use `visible: …` with `height: visible ? self.preferred-height : 0px` instead.
 - Font sizes have to be whole pixels, the ones Qt draws at (the point size times 4/3, rounded): a fractional size lays every line out a pixel off Qt's. `Theme` has them.
+- Wrapped text drifts a pixel every few lines unless the `Text` has `line-height-factor: Theme.line-factor(self.font-size)`. Qt rounds the line pitch to whole pixels (16px for 13px Inter, where Slint's own line is 15.73px).
+- A card that waits for a phone (Python's `dim_until_paired`) is faded to 0.4 and disabled as well. Give `Card` `enabled: false` and its controls `enabled`/`disabled` too, so they take Qt's disabled colours.
 - A card's `out` properties are readable from the window (`p<slot>-<name>`), but only `in` and `in-out` ones can be set.
 
 `shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).

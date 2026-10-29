@@ -19,6 +19,8 @@ component StepRow inherits HorizontalLayout {
     in property <bool> qr-shown;
     in property <[int]> qr-cells;
     in property <int> qr-size;
+    // Some step shows a button: they share one grid in Qt, so every step's text leaves room for the button column
+    in property <bool> button-column;
     callback clicked;
     spacing: 14px;
     VerticalLayout {
@@ -44,10 +46,10 @@ component StepRow inherits HorizontalLayout {
         padding-top: 3px;
         spacing: 4px;
         alignment: start;
-        Text { text: step.title; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
+        Text { text: step.title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
         Text {
             text: step.text;
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: step.kind == "status_ok" ? Theme.ok : step.kind == "status_warn" ? Theme.warn : step.kind == "status_err" ? Theme.err : Theme.dim;
@@ -73,8 +75,8 @@ component StepRow inherits HorizontalLayout {
     }
     VerticalLayout {
         alignment: start;
-        // A hidden button takes no room, as in Qt
-        width: step.button != "" ? 160px : 0px;
+        // A hidden button takes no room, as in Qt, unless another step's button holds the column open
+        width: button-column ? 160px : 0px;
         if step.button != "": Button {
             text: step.button;
             role: step.primary ? "primary" : "";
@@ -93,6 +95,7 @@ export component OnboardingCard inherits Card {
     in property <int> qr-size;
     callback step-clicked(int);
     callback close;
+    property <bool> any-button: steps[0].button != "" || steps[1].button != "" || steps[2].button != "" || steps[3].button != "";
     title: @tr("Get set up");
     icon: Icons.check;
     has-action: asked;
@@ -109,6 +112,7 @@ export component OnboardingCard inherits Card {
             qr-shown: i == 1 && root.qr-shown;
             qr-cells: root.qr-cells;
             qr-size: root.qr-size;
+            button-column: root.any-button;
             clicked => { root.step-clicked(i); }
         }
     }

@@ -162,7 +162,7 @@ export component ResultsList inherits VerticalLayout {
     callback opened(int);
     spacing: 8px;
     alignment: start;
-    if note != "": Text { text: note; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if note != "": Text { text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
     if results.length > 0: Rectangle {
         height: results.length * 52px;
         accessible-role: list;
@@ -189,7 +189,7 @@ export component ResultsList inherits VerticalLayout {
             }
         }
     }
-    if empty != "": Text { text: empty; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if empty != "": Text { text: empty; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
 }
 
 // QLabel#plugin_badge.
@@ -250,7 +250,7 @@ component PluginTile inherits Rectangle {
             Text {
                 horizontal-stretch: 1;
                 text: tile.title;
-                wrap: word-wrap;
+                wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
                 font-family: Theme.font;
                 font-size: Theme.body;
                 font-weight: 600;
@@ -272,7 +272,7 @@ component PluginTile inherits Rectangle {
         about := Text {
             height: 32px;
             text: tile.about;
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             overflow: elide;
             font-family: Theme.font;
             font-size: 12px;
@@ -281,7 +281,7 @@ component PluginTile inherits Rectangle {
         }
         if tile.note != "": Text {
             text: tile.note;
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: 12px;
             color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.text-faint;
@@ -327,7 +327,7 @@ export component PluginsPanel inherits VerticalLayout {
         Text {
             horizontal-stretch: 1;
             text: @tr("Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way.");
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text-dim;
@@ -420,7 +420,7 @@ export component PluginsPanel inherits VerticalLayout {
         padding-top: 24px;
         padding-bottom: 24px;
         spacing: 10px;
-        Text { text: empty-note; wrap: word-wrap; horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+        Text { text: empty-note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
         HorizontalLayout {
             alignment: center;
             CardAction { text: @tr("Show all plugins"); icon: Icons.reset; clicked => { root.show-all(); } }
@@ -443,7 +443,7 @@ export component PluginsPanel inherits VerticalLayout {
         }
         Text {
             text: @tr("No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off.");
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text-dim;
@@ -472,7 +472,7 @@ export component PluginsFooter inherits Rectangle {
         padding-top: 10px;
         padding-bottom: 10px;
         spacing: 12px;
-        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; vertical-alignment: center; }
         Button {
             text: @tr("Restart now");
             role: "primary";
@@ -511,8 +511,8 @@ export component Ask inherits Rectangle {
             lay := VerticalLayout {
                 padding: 20px;
                 spacing: 12px;
-                Text { text: title; wrap: word-wrap; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; }
-                Text { text: root.text; wrap: word-wrap; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                Text { text: title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; }
+                Text { text: root.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: end;

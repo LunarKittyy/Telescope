@@ -5100,7 +5100,7 @@
 # ── main
 "cool" = { status = "todo" }
 "hot" = { status = "todo" }
-"main-empty" = { status = "todo" }
+"main-empty" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-medium" = { status = "todo" }
 "main-narrow" = { status = "todo" }
 "main-wide" = { status = "todo" }
