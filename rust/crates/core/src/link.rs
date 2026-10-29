@@ -125,6 +125,65 @@ pub trait Link: Send + Sync {
     }
     /// At quit: stops LAN discovery and the adb server this app started.
     fn shutdown(&self) {}
+
+    // The stream flow's side of the Connection plugin (get_stream_info and the route methods in connection.py): the
+    // window calls these, and the Connection plugin, which shares their state inside the link crate, shows what
+    // comes of them (the card, and the Start banner with its fixes). source_id None is the picked phone.
+
+    /// Checks how the phone can be reached and holds that route for its stream (a USB forward); where to open its
+    /// video. Err is a reason for the log: the Connection plugin shows the banner. Blocking.
+    fn start_route(&self, _source_id: Option<&str>, _format: StreamFormat) -> Result<StreamTarget, String> {
+        Err("not in this build".into())
+    }
+    /// The phone and the route its stream holds, for ensure_streaming and stop_streaming (session_target).
+    fn session_target(&self, _source_id: Option<&str>) -> Option<(PairedPhone, RouteSpec)> {
+        None
+    }
+    /// The stream is over: let go of its route and forward (release_stream).
+    fn release_stream(&self, _source_id: &str) {}
+    /// The video URL for the stream on route while it still runs on its old one (a hand-over), or None if it's there
+    /// already or can't. Blocking (a USB forward).
+    fn prepare_route(&self, _source_id: &str, _route: &RouteSpec) -> Option<String> {
+        None
+    }
+    /// The hand-over worked: the prepared route is the stream's now.
+    fn commit_route(&self, _source_id: &str) {}
+    /// The hand-over didn't happen; failed: that route (USB) sits out a while.
+    fn drop_route(&self, _source_id: &str, _failed: bool) {}
+    /// How a dropped stream's phone can be reached right now, with the Connect via choice (recovery_probe). Blocking.
+    fn recovery_check(&self, _source_id: Option<&str>) -> Resolution {
+        Resolution::new(PhoneStatus::Unreachable)
+    }
+    /// Moves the running stream onto a route recovery_check found; the new video URL, or None. Blocking.
+    fn adopt_route(&self, _source_id: Option<&str>, _route: &RouteSpec) -> Option<String> {
+        None
+    }
+    /// A dropped stream won't come back: the Connection plugin says why, as a failed Start would (show_problem).
+    fn show_problem(&self, _source_id: Option<&str>, _res: &Resolution) {}
+    /// The paired phones, and which source the picker shows (selected_device), as the Connection plugin has them.
+    fn phones(&self) -> Vec<PairedPhone> {
+        Vec::new()
+    }
+    fn picked_source(&self) -> Option<String> {
+        None
+    }
+}
+
+/// What the Stream output card picked, as far as the video path goes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StreamFormat {
+    /// Light (H.264, and this computer decodes it) rather than Heavy (MJPEG).
+    pub h264: bool,
+    /// Dynamic bitrate (bitrate_mbps -1).
+    pub dynamic: bool,
+}
+
+/// Where a phone's stream goes: the phone, the route it holds and the video URL to open (get_stream_info).
+#[derive(Clone, Debug, PartialEq)]
+pub struct StreamTarget {
+    pub phone: PairedPhone,
+    pub route: RouteSpec,
+    pub video_url: String,
 }
 
 /// Connection's "Connect via" setting, as saved ("auto", "usb", "wifi").
