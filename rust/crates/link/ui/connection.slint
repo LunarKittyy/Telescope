@@ -34,20 +34,26 @@ global Status {
 // wrapped_note: a QLabel#dim, so body size
 component Note inherits Text {
     in property <string> kind: "status_dim";
+    // False takes it out of its layout, height and all
+    in property <bool> shown: true;
+    visible: shown;
     font-family: Theme.font;
     font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
+    // Slint's box for text wrapped onto two lines or more ends 4px below the last one, where Qt's label ends at it
+    height: !shown ? 0px : self.preferred-height > 1.5 * (self.font-metrics.ascent - self.font-metrics.descent) ? self.preferred-height - 4px
+        : self.preferred-height;
 }
 
 component QrCode inherits Rectangle {
     in property <[int]> cells;
     in property <int> size;
-    property <length> cell: 4px;
+    // QRCodeWidget: 6px modules and a quiet zone of four
+    property <length> cell: 6px;
     width: (size + 8) * cell;
     height: (size + 8) * cell;
     background: white;
-    border-radius: 6px;
     accessible-role: image;
     accessible-label: @tr("Pairing code");
     for i in cells: Rectangle {
@@ -59,26 +65,30 @@ component QrCode inherits Rectangle {
     }
 }
 
+// A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title
 component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border-strong;
-    border-radius: 12px;
+    background: Theme.bg;
     drop-shadow-blur: 24px;
     drop-shadow-color: #00000080;
     VerticalLayout {
-        padding: 20px;
-        spacing: 12px;
-        Text {
-            text: title;
-            font-family: Theme.font;
-            font-size: Theme.card-title;
-            font-weight: 600;
-            color: Theme.text;
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 18px;
+        padding-bottom: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: title;
+                font-family: Theme.font;
+                font-size: 19px; // 14pt is 18.67px, drawn at 19
+                font-weight: 600;
+                color: Theme.text;
+            }
+            if subtitle != "": Note { text: subtitle; }
         }
-        if subtitle != "": Note { text: subtitle; }
         @children
     }
 }
@@ -200,12 +210,10 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     horizontal-stretch: 1;
                     padding-bottom: parent.shown ? 2px : 0px;
-                    // Slint's wrapped text box ends 4px below its last line, where Qt's label ends at it
                     Note {
                         text: note-text;
                         kind: note-kind;
-                        visible: note-text != "";
-                        height: note-text != "" ? self.preferred-height - 4px : 0px;
+                        shown: note-text != "";
                     }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;
@@ -290,9 +298,13 @@ export component ConnectionCard inherits Card {
                 color: Theme.text;
                 horizontal-alignment: center;
             }
+            // dialog_buttons: 4px above, 96px wide
             HorizontalLayout {
                 alignment: end;
+                padding-top: 4px;
                 Button {
+                    width: 96px;
+                    height: 32px;
                     text: paired ? @tr("Done") : @tr("Cancel");
                     role: paired ? "primary" : "";
                     clicked => { root.add-closed(); }
