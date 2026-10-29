@@ -227,6 +227,13 @@ pub trait HostShell {
     fn run_action(&mut self, _plugin: &str, _id: &str, _params: &Value) -> Option<String> {
         None
     }
+    /// The key held for another plugin's action came back up (Plugin::release_action).
+    fn release_action(&mut self, _plugin: &str, _id: &str, _params: &Value) {}
+    /// Whether one of Telescope's windows is the one in front (QApplication.activeWindow()).
+    fn window_active(&self) -> bool {
+        false
+    }
+    fn copy_text(&mut self, _text: &str) {}
 }
 
 /// Changing what a plugin put on screen after it's built.

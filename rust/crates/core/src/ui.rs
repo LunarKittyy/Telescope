@@ -108,6 +108,25 @@ pub struct ActionSpec {
     pub keywords: String,
 }
 
+/// A key event in one of Telescope's windows, as Slint gives it (KeyEvent): text is the key's text, special keys as
+/// Slint's Key codes.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct KeyInput {
+    pub text: String,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
+    pub meta: bool,
+    /// Held down long enough to repeat.
+    pub repeat: bool,
+    /// Let go, rather than pressed.
+    pub released: bool,
+    /// A text box has focus, so a plain key belongs to it.
+    pub typing: bool,
+    /// A dialog or menu is open over the window.
+    pub modal: bool,
+}
+
 /// A problem banner above the body (telescope.widgets.banner.Issue).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Issue {
