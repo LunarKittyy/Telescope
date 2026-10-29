@@ -70,7 +70,9 @@ python compare_scenes.py qt-renders rust-renders review
 
 `render_scenes.py` renders every real scene in English at 1x and 1.5x (`qt-renders/1x/<scene>.png`, `qt-renders/1.5x/...`) through the translation preview's own offscreen workers (each one is built exactly as the workbench builds it). All 709 at both scales took about 7 minutes on an 8-core machine. Give scene ids to render only those, `--scale 1` for one scale, `--all` to add the generated text pages.
 
-`compare_scenes.py` expects the Rust renders in the same layout and names. A pixel counts as different when a channel is more than `--tolerance` (24) off, and a scene goes on `review/index.html` with Qt, Rust and a red difference picture side by side when over `--threshold` (0.5%) of its pixels differ or its size does. Only scenes the ledger marks ported fail the run. Others are just reported, as is any ported scene with no Rust render.
+`compare_scenes.py` expects the Rust renders in the same layout and names. A pixel counts as different when a channel is more than `--tolerance` (24) off, and a scene goes on `review/index.html` with Qt, Rust and a red difference picture side by side when over `--threshold` (0.5%) of its pixels differ or its size does. Only scenes the ledger marks verified fail the run. Others are just reported, as is any verified scene with no Rust render.
+
+Until every card is ported a full Qt scene can't match, since it shows cards Rust doesn't have yet. `../crates/shell/parity/scenes.py OUT` renders the same scenes on a Qt window with only the plugins Rust has ported and compares with `--reduced`, where ported scenes have to match too. Matching that is what `ported` means for a scene; `verified` means it matches the full Qt render.
 
 ## Phone traffic
 
