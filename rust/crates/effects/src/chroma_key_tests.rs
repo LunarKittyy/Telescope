@@ -351,3 +351,15 @@ fn it_says_what_it_is() {
     assert_eq!(ChromaKeyPlugin::new().card().unwrap().region, "right");
     assert_eq!(ChromaKeyPlugin::new().diagnostics(), vec![("Chroma key".to_string(), "off, green screen, colour behind".to_string())]);
 }
+
+#[test]
+fn a_saturated_key_colour_is_clamped_to_a_byte_as_opencv_does() {
+    // pure red would reach Cr 256 unclamped; OpenCV saturates it to 255, so it centres at 127
+    assert_eq!((chroma_of([0, 0, 255]), chroma_of([255, 0, 0])), ((-43.0, 127.0), (127.0, -21.0)));
+    // and the tables around it are the ones Python makes
+    let sum = |v: &[u8]| v.iter().map(|&x| x as u64).sum::<u64>();
+    let red = key_tables([0, 0, 255], 40, 30, 60);
+    assert_eq!((sum(&red.alpha), sum(&red.cr), sum(&red.cb)), (14722651, 7659545, 8591522));
+    let blue = key_tables([255, 0, 0], 40, 30, 60);
+    assert_eq!((sum(&blue.alpha), sum(&blue.cr), sum(&blue.cb)), (14877747, 8471525, 7655053));
+}

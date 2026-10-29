@@ -15,8 +15,8 @@ struct Params {
 fn ycc(rgb: vec3<f32>) -> vec3<f32> {
     let c = vec3<i32>(round(rgb * 255.0));
     let y = (c.b * 1868 + c.g * 9617 + c.r * 4899 + 8192) >> 14u;
-    let cr = ((c.r - y) * 11682 + 2105344) >> 14u;
-    let cb = ((c.b - y) * 9241 + 2105344) >> 14u;
+    let cr = clamp(((c.r - y) * 11682 + 2105344) >> 14u, 0, 255);
+    let cb = clamp(((c.b - y) * 9241 + 2105344) >> 14u, 0, 255);
     return vec3<f32>(f32(y), f32(cr), f32(cb));
 }
 

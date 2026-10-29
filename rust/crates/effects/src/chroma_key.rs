@@ -42,8 +42,9 @@ const SLIDER_TIPS: [&str; 3] = [n_("Higher takes out more shades of the screen")
 pub fn chroma_of(bgr: [u8; 3]) -> (f64, f64) {
     let (b, g, r) = (bgr[0] as i32, bgr[1] as i32, bgr[2] as i32);
     let y = (b * 1868 + g * 9617 + r * 4899 + (1 << 13)) >> 14;
-    let cr = ((r - y) * 11682 + (128 << 14) + (1 << 13)) >> 14;
-    let cb = ((b - y) * 9241 + (128 << 14) + (1 << 13)) >> 14;
+    // saturated to a byte, as OpenCV does: a pure red would reach 256
+    let cr = (((r - y) * 11682 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255);
+    let cb = (((b - y) * 9241 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255);
     (cb as f64 - 128.0, cr as f64 - 128.0)
 }
 
@@ -102,7 +103,7 @@ pub fn key_tables(key_bgr: [u8; 3], tolerance: i64, softness: i64, spill: i64) -
 fn ycrcb(bgr: [u8; 3]) -> (i32, i32, i32) {
     let (b, g, r) = (bgr[0] as i32, bgr[1] as i32, bgr[2] as i32);
     let y = (b * 1868 + g * 9617 + r * 4899 + (1 << 13)) >> 14;
-    (y, ((r - y) * 11682 + (128 << 14) + (1 << 13)) >> 14, ((b - y) * 9241 + (128 << 14) + (1 << 13)) >> 14)
+    (y, (((r - y) * 11682 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255), (((b - y) * 9241 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255))
 }
 
 /// cv2's YCrCb2BGR.
