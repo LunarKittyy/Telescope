@@ -2096,7 +2096,7 @@
 "test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_app.py::test_send_notification_falls_back_to_tray" = { status = "todo" }
-"test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "todo" }
+"test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "ported", rust = "rust/crates/system/src/lib.rs::notifications_go_through_notify_send" }
 "test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "ported", rust = "rust/crates/shell/src/profiles.rs" }
 "test_app.py::test_settings_window_collects_sections_from_every_plugin" = { status = "todo" }
 "test_app.py::test_start_asks_the_phone_to_open_at_the_size_picked" = { status = "todo" }
@@ -5855,7 +5855,7 @@
 [system]
 # where the app touches the system: subprocesses, registry, D-Bus, env vars, paths, ports, tray, platform/
 # ── app
-"run:telescope/app.py:send_notification:subprocess.Popen:notify-send" = { status = "todo" }
+"run:telescope/app.py:send_notification:subprocess.Popen:notify-send" = { status = "ported", rust = "rust/crates/system/src/lib.rs::Desktop::notify" }
 "tray-message:telescope/app.py:send_notification" = { status = "todo" }
 "tray:telescope/app.py:_setup_tray" = { status = "todo" }
 # ── background

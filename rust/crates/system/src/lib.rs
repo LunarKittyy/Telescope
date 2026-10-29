@@ -36,8 +36,30 @@ pub fn open_url(url: &str) {
 #[derive(Default)]
 pub struct Desktop;
 
+/// The notify-send call for a notification (send_notification): urgent ones stay on screen until dismissed.
+pub fn notify_command(title: &str, body: &str, urgent: bool) -> Vec<String> {
+    ["notify-send", "-a", "Telescope", "-u", if urgent { "critical" } else { "normal" }, "--", title, body]
+        .into_iter().map(String::from).collect()
+}
+
+fn on_path(program: &str) -> bool {
+    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| d.join(program).is_file()))
+}
+
 impl Notifier for Desktop {
-    fn notify(&self, title: &str, body: &str, _urgent: bool) {
+    fn notify(&self, title: &str, body: &str, urgent: bool) {
+        if cfg!(target_os = "linux") && on_path("notify-send") {
+            let cmd = notify_command(title, body, urgent);
+            let spawned = std::process::Command::new(&cmd[0]).args(&cmd[1..])
+                .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn();
+            match spawned {
+                // Reaped on a thread of its own, so it doesn't linger as a zombie
+                Ok(mut child) => drop(std::thread::Builder::new().name("notify-send".into()).spawn(move || child.wait())),
+                Err(e) => log::warn!("Couldn't show a notification: {e}"),
+            }
+            return;
+        }
+        // Windows shows it as a tray balloon, which needs the tray
         log::info!("Notification: {title}: {body}");
     }
 }
@@ -66,4 +88,14 @@ impl Updater for Desktop {
     }
 
     fn confirm_started(&self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn notifications_go_through_notify_send() {
+        assert_eq!(super::notify_command("Telescope", "-Torch: on", false),
+                   ["notify-send", "-a", "Telescope", "-u", "normal", "--", "Telescope", "-Torch: on"]);
+        assert_eq!(super::notify_command("Phone lost", "x", true)[4], "critical");
+    }
 }
