@@ -41,7 +41,9 @@ component Note inherits Text {
     font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
-    // Slint's box for text wrapped onto two lines or more ends 4px below the last one, where Qt's label ends at it
+    // Qt's line pitch, so a wrapped note lines up line by line
+    line-height-factor: Theme.line-factor(self.font-size);
+    // Slint's box for text wrapped onto two lines or more still ends 4px below the last one, where Qt's label ends at it
     height: !shown ? 0px : self.preferred-height > 1.5 * (self.font-metrics.ascent - self.font-metrics.descent) ? self.preferred-height - 4px
         : self.preferred-height;
 }
