@@ -596,7 +596,7 @@ export component TelescopeSettings inherits Window {
         height: 23px;
         text: root.page-title;
         font-family: Theme.font;
-        font-size: 18.667px;
+        font-size: 19px; // 14pt, which Qt draws at 19
         font-weight: 600;
         color: Theme.text;
         vertical-alignment: center;

@@ -44,10 +44,14 @@ export component SettingRow inherits Rectangle {
                 line-height-factor: Theme.line-factor(self.font-size);
             }
         }
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: end;
-            @children
+        // Qt centres the controls on the strip
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                @children
+            }
         }
     }
 }
