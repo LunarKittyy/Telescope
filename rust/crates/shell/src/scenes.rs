@@ -2,13 +2,73 @@
 //! settings file in a scratch folder, like translation_scenes.use_scratch_profile.
 
 use crate::window;
+use serde_json::{json, Value};
 use slint::ComponentHandle;
 use std::path::Path;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use telescope_core::config::ConfigFile;
 use telescope_core::plugin::{Plugin, PluginInfo};
+use telescope_core::services::Services;
 
 /// (scene id, window width) of the main window scenes parity/qt_shell_scenes.py makes.
 pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-medium", 900.0), ("shell-narrow", 560.0)];
+
+/// app._WIDTH_THREE_COL and _WIDTH_TWO_COL.
+pub const WIDTH_THREE_COL: f32 = 1300.0;
+pub const WIDTH_TWO_COL: f32 = 900.0;
+
+/// What a scene draws: the main window, or one tab of the settings window (settings_window._SIZE).
+pub enum Page {
+    Window,
+    Settings(String),
+}
+
+/// How to put the window in a scene's state.
+pub struct Setup {
+    /// What the plugins run on (a stand-in link answering what the scene needs); None for the built-ins alone.
+    pub services: Option<Arc<Services>>,
+    /// telescope_config.json as the window finds it.
+    pub config: Value,
+    /// Window width, and the height it starts at before growing to fit its columns (text_fit._grow_to_content).
+    pub width: f32,
+    pub height: f32,
+    pub page: Page,
+    /// Builds the plugins in place of the built-ins and the services' ones.
+    pub plugins: Option<fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>>,
+    /// Called once the window has settled, to do what the Python scene does after building it.
+    pub then: Option<Box<dyn FnOnce(&std::rc::Rc<window::Window>)>>,
+}
+
+impl Setup {
+    /// The main window at width with this config.
+    pub fn window(services: Option<Arc<Services>>, config: Value, width: f32, height: f32) -> Setup {
+        Setup { services, config, width, height, page: Page::Window, plugins: None, then: None }
+    }
+}
+
+/// One of parity/render_scenes.py's scenes: its id and how to build it.
+pub struct Scene {
+    pub id: String,
+    pub build: Box<dyn Fn() -> Setup>,
+}
+
+impl Scene {
+    pub fn new(id: impl Into<String>, build: impl Fn() -> Setup + 'static) -> Scene {
+        Scene { id: id.into(), build: Box::new(build) }
+    }
+}
+
+/// translation_scenes.main_window's settings: Pixel 8 paired and picked (phone=false: nothing paired).
+pub fn main_window_config(phone: bool) -> Value {
+    let phones = if phone {
+        json!([{"id": "phone-1", "name": "Pixel 8", "token": "token", "ips": [], "active_ip": null}])
+    } else {
+        json!([])
+    };
+    let connection = if phone { json!({"selected_phone": "phone-1", "phones": phones}) } else { json!({"phones": phones}) };
+    json!({"version": 3, "plugin_configs": {"connection": connection}})
+}
 
 fn scratch(scene: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("telescope-rs-scenes-{}", std::process::id())).join(scene);
@@ -17,29 +77,93 @@ fn scratch(scene: &str) -> std::path::PathBuf {
     dir
 }
 
-/// Renders every scene into out/<scale>x; how many it wrote.
-pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
+/// Builds scenes and writes out/<scale>x/<id>.png for each scale, like render_scenes.py; (pictures written, "<scale>x
+/// <id>: why" for the ones that failed).
+pub fn render(scenes: &[Scene], scales: &[f32], out: &Path) -> Result<(usize, Vec<String>), String> {
     if !crate::offscreen::install() {
         return Err("a window system was already set up".into());
     }
-    let folder = out.join(format!("{scale}x"));
-    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let mut n = 0;
-    for &(scene, width) in SHELL_SCENES {
-        let file = ConfigFile::at(scratch(scene).join(telescope_core::config::CONFIG_FILENAME));
-        let w = window::build(file, |bus| crate::plugins::builtins(None, bus), None, None)?;
-        let picture = grown(&w, width, scale).ok_or("nothing drawn")?;
-        picture.save_png(&folder.join(format!("{scene}.png")))?;
-        w.shut_down();
-        n += 1;
+    let (mut written, mut failed) = (0, Vec::new());
+    for &scale in scales {
+        let folder = out.join(format!("{scale}x"));
+        std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+        for (n, scene) in scenes.iter().enumerate() {
+            match render_one(scene, scale) {
+                Ok(picture) => match picture.save_png(&folder.join(format!("{}.png", scene.id))) {
+                    Ok(()) => written += 1,
+                    Err(e) => failed.push(format!("{scale}x {}: {e}", scene.id)),
+                },
+                Err(e) => failed.push(format!("{scale}x {}: {e}", scene.id)),
+            }
+            eprint!("\r{scale}x: {} of {}", n + 1, scenes.len());
+        }
+        eprintln!();
     }
-    let file = ConfigFile::at(scratch("shell-settings-plugins").join(telescope_core::config::CONFIG_FILENAME));
-    let w = window::build(file, stand_ins, None, None)?;
-    let settings = crate::settings::build(&w)?;
-    settings.show_tab("plugins");
-    let picture = crate::offscreen::draw(settings.ui.window(), 940.0, 680.0, scale).ok_or("nothing drawn")?;
-    picture.save_png(&folder.join("shell-settings-plugins.png"))?;
-    Ok(n + 1)
+    Ok((written, failed))
+}
+
+fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, String> {
+    let setup = (scene.build)();
+    let dir = scratch(&scene.id);
+    let path = dir.join(telescope_core::config::CONFIG_FILENAME);
+    std::fs::write(&path, serde_json::to_vec_pretty(&setup.config).unwrap_or_default()).map_err(|e| e.to_string())?;
+    let services = setup.services.clone();
+    let own = setup.plugins;
+    let w = window::build(ConfigFile::at(path), |bus| {
+        if let Some(own) = own {
+            return own(bus);
+        }
+        let mut plugins = crate::plugins::builtins(services.as_deref(), bus);
+        if let Some(s) = &services {
+            plugins.extend((s.plugins)());
+        }
+        crate::plugins::in_order(plugins)
+    }, setup.services, None)?;
+    settle(&w);
+    if let Some(then) = setup.then {
+        then(&w);
+        settle(&w);
+    }
+    let picture = match &setup.page {
+        Page::Window => grown(&w, setup.width, setup.height, scale),
+        Page::Settings(tab) => {
+            let settings = crate::settings::build(&w)?;
+            settings.show_tab(tab);
+            crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale)
+        }
+    };
+    w.shut_down();
+    window::forget();
+    picture.ok_or_else(|| "nothing drawn".into())
+}
+
+/// Lets what plugins started on their threads come back: runs the event loop's jobs until none came for a while.
+fn settle(w: &std::rc::Rc<window::Window>) {
+    let (start, mut quiet) = (Instant::now(), Instant::now());
+    while start.elapsed() < Duration::from_secs(3) && quiet.elapsed() < Duration::from_millis(150) {
+        if crate::offscreen::pump() {
+            quiet = Instant::now();
+        }
+        w.process();
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// Renders the scenes parity/qt_shell_scenes.py makes into out/<scale>x; how many it wrote.
+pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
+    let mut scenes: Vec<Scene> = SHELL_SCENES.iter()
+        .map(|&(id, width)| Scene::new(id, move || Setup::window(None, json!({}), width, 900.0)))
+        .collect();
+    scenes.push(Scene::new("shell-settings-plugins", || Setup {
+        page: Page::Settings("plugins".into()),
+        plugins: Some(stand_ins),
+        ..Setup::window(None, json!({}), 940.0, 680.0)
+    }));
+    let (n, failed) = render(&scenes, &[scale], out)?;
+    match failed.first() {
+        Some(e) => Err(e.clone()),
+        None => Ok(n),
+    }
 }
 
 /// The Python app's built-in plugins as they describe themselves (parity/builtins.json), standing in for the ones
@@ -63,14 +187,13 @@ impl Plugin for StandIn {
     }
 }
 
-/// text_fit._grow_to_content: the window at width, as tall as its columns need (900 at least).
-fn grown(w: &window::Window, width: f32, scale: f32) -> Option<crate::offscreen::Picture> {
-    use slint::ComponentHandle;
-    crate::offscreen::draw(w.ui.window(), width, 900.0, scale)?;
+/// text_fit._grow_to_content: the window at width, as tall as its columns need (height at least).
+fn grown(w: &window::Window, width: f32, height: f32, scale: f32) -> Option<crate::offscreen::Picture> {
+    crate::offscreen::draw(w.ui.window(), width, height, scale)?;
     let content = match w.ui.get_property("content-height") {
         Ok(slint_interpreter::Value::Number(h)) => h as f32,
         _ => 0.0,
     };
-    let height = (60.0 + 32.0 + content + 40.0).max(900.0);
+    let height = (60.0 + 32.0 + content + 40.0).max(height);
     crate::offscreen::draw(w.ui.window(), width, height, scale)
 }

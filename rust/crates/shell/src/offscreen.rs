@@ -2,9 +2,15 @@
 //! renderer behind a platform of our own.
 
 use slint::platform::software_renderer::{MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType};
-use slint::platform::{Platform, WindowAdapter, WindowEvent};
-use slint::PlatformError;
+use slint::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
+use slint::{EventLoopError, PlatformError};
 use std::rc::Rc;
+use std::sync::Mutex;
+
+type Job = Box<dyn FnOnce() + Send>;
+
+/// What other threads handed slint::invoke_from_event_loop, run by pump().
+static JOBS: Mutex<Vec<Job>> = Mutex::new(Vec::new());
 
 thread_local! {
     static WINDOWS: std::cell::RefCell<Vec<Rc<MinimalSoftwareWindow>>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -18,6 +24,34 @@ impl Platform for Offscreen {
         WINDOWS.with(|w| w.borrow_mut().push(window.clone()));
         Ok(window)
     }
+
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+        Some(Box::new(Proxy))
+    }
+}
+
+struct Proxy;
+
+impl EventLoopProxy for Proxy {
+    fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+        Ok(())
+    }
+
+    fn invoke_from_event_loop(&self, event: Job) -> Result<(), EventLoopError> {
+        JOBS.lock().unwrap().push(event);
+        Ok(())
+    }
+}
+
+/// Runs what other threads sent to the event loop since the last pump, and the timers that are due; whether anything ran.
+pub fn pump() -> bool {
+    let jobs = std::mem::take(&mut *JOBS.lock().unwrap());
+    let ran = !jobs.is_empty();
+    for job in jobs {
+        job();
+    }
+    slint::platform::update_timers_and_animations();
+    ran
 }
 
 /// Makes every window this process creates from now on an offscreen one. Call before the first window; false when a
