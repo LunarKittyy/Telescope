@@ -90,7 +90,9 @@ impl HostStreams for Ctx<'_> {
         self.state.streams.restarting
     }
     fn is_streaming_from(&self, source_id: Option<&str>) -> bool {
-        self.state.streams.streaming && self.state.streams.source_id.as_deref() == source_id
+        // Shown or not, up or still waking, as Python's Sessions.is_streaming_from
+        let st = &self.state.streams;
+        (st.streaming && st.source_id.as_deref() == source_id) || source_id.is_some_and(|id| st.ids.iter().any(|s| s == id))
     }
     fn stream_count(&self) -> u32 {
         self.state.streams.live.len().max(self.state.streams.streaming as usize) as u32
@@ -108,7 +110,10 @@ impl HostStreams for Ctx<'_> {
         self.state.effects.push(Effect::StopAll);
     }
     fn reconnect_stream(&mut self) {
-        self.state.effects.push(Effect::Reconnect);
+        self.state.effects.push(Effect::Reconnect(None));
+    }
+    fn reconnect_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::Reconnect(Some(source_id.into())));
     }
     /// PhoneSource.hand_over: false unless that stream is up, isn't recovering or moving already, and link has the
     /// route ready next to the running one; the worker then tries it and the Connection card hears how it went.

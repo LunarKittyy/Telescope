@@ -45,7 +45,8 @@ pub enum Effect {
     StartAgain(Option<String>),
     Stop(Option<String>),
     StopAll,
-    Reconnect,
+    /// Restart a stream for new connection settings: source_id's, or the panels' without one.
+    Reconnect(Option<String>),
     PhoneControl { source_id: Option<String>, body: Value },
     CameraOn { on: bool, auto: bool },
     ToggleWindow,

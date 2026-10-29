@@ -568,7 +568,7 @@ impl Window {
             Effect::StartAgain(id) => self.start_source(id),
             Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
             Effect::StopAll => self.stop_all_streams(),
-            Effect::Reconnect => self.with_flow(|flow, host| flow.reconnect_stream(host, None)),
+            Effect::Reconnect(id) => self.with_flow(move |flow, host| flow.reconnect_stream(host, id.as_deref())),
             Effect::UpdateOutput { change, source_id } => self.update_output(&change, source_id.as_deref()),
             Effect::MakeMain(id) => self.with_flow(|flow, host| {
                 flow.make_main(host, &id);
