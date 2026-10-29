@@ -131,7 +131,7 @@ export component Card inherits Rectangle {
             Rectangle { horizontal-stretch: 1; }
             // card_action with no text: Qt keeps room for the text either side of the icon
             if has-extra: Button {
-                y: lift + 1px;
+                y: lift;
                 height: 30px;
                 width: 38px;
                 role: "quiet";
@@ -144,7 +144,7 @@ export component Card inherits Rectangle {
                 clicked => { root.extra(); }
             }
             if has-action && action-text != "": Button {
-                y: lift + 1px;
+                y: lift;
                 height: 30px;
                 role: "quiet";
                 padding-x: 10px;
@@ -158,7 +158,7 @@ export component Card inherits Rectangle {
                 clicked => { root.action(); }
             }
             if has-action && action-text == "": Button {
-                y: lift + 1px;
+                y: lift;
                 height: 30px;
                 width: 30px;
                 role: "quiet";
