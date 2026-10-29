@@ -323,12 +323,22 @@ impl Face {
         self.layout(text, 0.0).width
     }
 
+    /// How wide the ellipsis is: the main font's own glyph, else a fallback's.
+    fn ellipsis_width(&self) -> f32 {
+        self.advance("\u{2026}")
+    }
+
     /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight): the end of the text
     /// goes, which is the left side of a right-to-left line. It is cut between clusters, never through a letter and its marks.
     pub fn elide(&self, text: &str, width: f32) -> String {
         let line = self.layout(text, 0.0);
-        if line.width <= width {
+        // Qt leaves a text of one UTF-16 unit whole, however narrow
+        if line.width <= width || text.encode_utf16().count() <= 1 {
             return text.to_string();
+        }
+        // and drops all of it when not even the ellipsis fits
+        if width < self.ellipsis_width() {
+            return String::new();
         }
         let mut cuts: Vec<usize> = line.placed.iter().map(|p| p.cluster).collect();
         cuts.sort_unstable();

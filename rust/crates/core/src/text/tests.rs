@@ -18,6 +18,15 @@ fn face_with(px: f32, text: &str, what: &str) -> Option<Face> {
     None
 }
 
+/// DejaVu Sans, which the Qt numbers below were measured with (QFontMetricsF, hinting off like the name tag).
+fn dejavu(px: f32) -> Option<Face> {
+    let face = font_named(&["DejaVuSans.ttf"]).map(|f| Face::em(f, px));
+    if face.is_none() {
+        eprintln!("DejaVu Sans is not installed: the Qt comparison is skipped");
+    }
+    face
+}
+
 /// The glyph a character has on its own, which for Arabic is the isolated form.
 fn nominal(face: &Face, ch: char) -> u16 {
     face.pick(ch).unwrap().glyph_id(ch).0
@@ -182,4 +191,18 @@ fn a_line_is_never_cut_between_a_letter_and_its_mark() {
         let kept = cut.trim_end_matches('\u{2026}').len();
         assert!(!text[kept..].starts_with('\u{301}'), "cut to {width}: {cut:?}");
     }
+}
+
+#[test]
+fn a_line_with_no_room_for_the_ellipsis_is_dropped() {
+    // QFontMetricsF.elidedText at 40 px: the ellipsis is 40 px wide, so under that nothing is left, not even the ellipsis
+    let Some(f) = dejavu(40.0) else { return };
+    for (width, want) in [(-5.0, ""), (0.0, ""), (10.0, ""), (39.0, ""), (40.0, "\u{2026}"), (41.0, "\u{2026}")] {
+        assert_eq!(f.elide("Telescope", width), want, "width {width}");
+    }
+    // a text of one UTF-16 unit is never cut, however narrow
+    assert_eq!(f.elide("W", 10.0), "W");
+    assert_eq!(f.elide("WW", 39.0), "");
+    // a character outside the BMP is two units, so it is cut like any other text
+    assert_eq!(f.elide("\u{1F600}", 10.0), "");
 }
