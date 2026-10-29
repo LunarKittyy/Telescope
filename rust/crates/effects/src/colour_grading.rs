@@ -243,8 +243,10 @@ impl ColourGradingPlugin {
         host.set_colour_stage(OWNER, stage, 0, None);
     }
 
+    /// Settings were loaded without a host to tell: the card shows them and the pipeline gets the grade, once.
     fn catch_up(&mut self, host: &mut dyn Host) {
         if self.dirty {
+            self.show_all(host);
             self.publish(host);
         }
     }
@@ -878,3 +880,7 @@ impl Plugin for ColourGradingPlugin {
         vec![("Colour grading".into(), text)]
     }
 }
+
+#[cfg(test)]
+#[path = "colour_grading_tests.rs"]
+mod tests;
