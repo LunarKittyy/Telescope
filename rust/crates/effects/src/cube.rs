@@ -190,13 +190,34 @@ fn floats(rest: &str) -> Option<Vec<f64>> {
     rest.split(is_space).filter(|w| !w.is_empty()).map(|w| w.parse::<f64>().ok()).collect()
 }
 
+/// str.splitlines(): a line ends at \n, \r\n or a bare \r, and at \v, \f, the file, group and record separators, NEL and the Unicode
+/// line and paragraph separators.
+fn split_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let (mut start, mut chars) = (0, text.char_indices().peekable());
+    while let Some((at, c)) = chars.next() {
+        if matches!(c, '\n' | '\r' | '\x0b' | '\x0c' | '\x1c' | '\x1d' | '\x1e' | '\u{85}' | '\u{2028}' | '\u{2029}') {
+            lines.push(&text[start..at]);
+            start = at + c.len_utf8();
+            if c == '\r' && chars.peek().is_some_and(|&(_, n)| n == '\n') {
+                chars.next();
+                start += 1;
+            }
+        }
+    }
+    if start < text.len() {
+        lines.push(&text[start..]);
+    }
+    lines
+}
+
 /// A .cube file's text (Adobe's format, plus Resolve's LUT_1D_INPUT_RANGE and shaper-then-cube files).
 pub fn parse_cube(text: &str) -> Result<CubeLut, CubeError> {
     let (mut title, mut size1, mut size3) = (String::new(), 0i64, 0i64);
     let (mut dmin, mut dmax) = ([0.0f64; 3], [1.0f64; 3]);
     let (mut range1, mut range3): (Option<(f64, f64)>, Option<(f64, f64)>) = (None, None);
     let mut rows: Vec<[f64; 3]> = Vec::new();
-    for (i, raw) in text.lines().enumerate() {
+    for (i, raw) in split_lines(text).into_iter().enumerate() {
         let number = i + 1;
         let line = without_comment(raw).trim_matches(is_space);
         if line.is_empty() {
@@ -247,10 +268,10 @@ pub fn parse_cube(text: &str) -> Result<CubeLut, CubeError> {
     if !data.iter().all(|v| v.is_finite()) {
         return Err(CubeError::new(NOT_NUMBERS, &[]));
     }
-    let both = |(lo, hi): (f64, f64)| ([lo as f32; 3], [hi as f32; 3]);
-    let v3 = |v: [f64; 3]| v.map(|x| x as f32);
-    let (shaper_min, shaper_max) = range1.map_or((v3(dmin), v3(dmax)), both);
-    let (mut cube_min, mut cube_max) = range3.map_or((v3(dmin), v3(dmax)), both);
+    // The domains are checked as the f64 they were read as; only what is kept is f32
+    let both = |(lo, hi): (f64, f64)| ([lo; 3], [hi; 3]);
+    let (shaper_min, shaper_max) = range1.map_or((dmin, dmax), both);
+    let (mut cube_min, mut cube_max) = range3.map_or((dmin, dmax), both);
     let (size1, size3) = (size1 as usize, size3 as usize);
     let mut shaper = None;
     let mut cube = None;
@@ -269,7 +290,8 @@ pub fn parse_cube(text: &str) -> Result<CubeLut, CubeError> {
             return Err(CubeError::new(BAD_DOMAIN, &[]));
         }
     }
-    Ok(CubeLut { title, shaper, shaper_min, shaper_max, cube, cube_size: size3, cube_min, cube_max })
+    let v3 = |v: [f64; 3]| v.map(|x| x as f32);
+    Ok(CubeLut { title, shaper, shaper_min: v3(shaper_min), shaper_max: v3(shaper_max), cube, cube_size: size3, cube_min: v3(cube_min), cube_max: v3(cube_max) })
 }
 
 /// A .cube file; an error when it can't be used (or can't be read at all).
@@ -440,5 +462,22 @@ mod tests {
             let worst = back.cube.unwrap().iter().zip(&cube).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
             assert!(worst < 1e-6, "{path:?}");
         }
+    }
+
+    #[test]
+    fn lines_end_the_way_pythons_splitlines_ends_them() {
+        // an old Mac file: nothing but \r between the lines
+        let lut = parse_cube("LUT_1D_SIZE 2\r0 0 0\r1 1 1\r").unwrap();
+        assert!(lut.per_channel() && lut.size() == 2);
+        assert_eq!(split_lines("a\r\nb\rc\nd\u{2028}e\x0cf"), ["a", "b", "c", "d", "e", "f"]);
+        assert_eq!(split_lines("a\n\nb\n"), ["a", "", "b"]);
+    }
+
+    #[test]
+    fn a_domain_is_checked_before_it_is_squeezed_into_a_single_float() {
+        // 1.00000001 is above 1 as a double, though the same float
+        let lut = parse_cube("LUT_1D_SIZE 2\nDOMAIN_MIN 1 1 1\nDOMAIN_MAX 1.00000001 1.00000001 1.00000001\n0 0 0\n1 1 1\n");
+        assert!(lut.is_ok());
+        assert!(parse_cube("LUT_1D_SIZE 2\nDOMAIN_MIN 1 1 1\nDOMAIN_MAX 1 1 1\n0 0 0\n1 1 1\n").is_err());
     }
 }
