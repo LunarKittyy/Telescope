@@ -1,0 +1,38 @@
+{"t": 0.123, "mark": "pair"}
+{"t": 0.915, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 0.934, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 0.935, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.124, "mark": "stream"}
+{"t": 3.223, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 3.227, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.228, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.23, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.231, "port": 8766, "method": "POST", "path": "/v1/session", "query": {}, "body": {"action": "start", "fps": 30}, "via": "wifi"}
+{"t": 3.333, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.336, "port": 8080, "method": "GET", "path": "/v1/video.h264", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.337, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "auto"}, "via": "wifi"}
+{"t": 3.338, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_auto"}, "via": "wifi"}
+{"t": 3.339, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ois", "value": "1"}, "via": "wifi"}
+{"t": 3.34, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_mode", "value": "continuous"}, "via": "wifi"}
+{"t": 3.341, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ae_comp", "value": 0}, "via": "wifi"}
+{"t": 3.342, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "nr_mode", "value": 1}, "via": "wifi"}
+{"t": 3.343, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "edge_mode", "value": 1}, "via": "wifi"}
+{"t": 3.344, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "black_level_lock", "value": "0"}, "via": "wifi"}
+{"t": 4.837, "port": 8080, "method": "GET", "path": "/v1/state", "query": {}, "body": null, "via": "wifi"}
+{"t": 4.84, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "jpeg_quality", "value": 85}, "via": "wifi"}
+{"t": 4.841, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "bitrate", "value": 0}, "via": "wifi"}
+{"t": 4.842, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "fps_target", "value": 30}, "via": "wifi"}
+{"t": 4.844, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}, "via": "wifi"}
+{"t": 6.488, "mark": "controls"}
+{"t": 6.576, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ae_comp", "value": 6}, "via": "wifi"}
+{"t": 7.669, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ois", "value": "0"}, "via": "wifi"}
+{"t": 8.351, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 8.764, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "nr_mode", "value": 2}, "via": "wifi"}
+{"t": 10.864, "mark": "stop"}
+{"t": 10.952, "port": 8766, "method": "POST", "path": "/v1/session", "query": {}, "body": {"action": "stop"}, "via": "wifi"}
+{"t": 11.052, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 11.055, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 11.056, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 12.352, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 12.355, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 12.356, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}

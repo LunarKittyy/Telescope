@@ -80,13 +80,31 @@ python phone_session.py rust.jsonl --desktop "../target/debug/telescope-rs"
 python compare_phone.py python.jsonl rust.jsonl
 ```
 
-`phone_session.py` starts `../tools/fake_phone.py` with recording on (a short test pattern made with ffmpeg as the clip), starts the desktop in a throwaway dev profile with the fake phone already paired and drives it with `--action` commands. The Python desktop runs offscreen unless `--show` is given. Each phase leaves a mark in the recording. The `basic` script pairs, starts the stream, changes compensation, stabilisation, noise reduction and the torch, then stops. `controls` goes through every camera and stream control. The Rust desktop needs the same `--action` ids and dev profile handling for this to work.
+`phone_session.py` starts `../tools/fake_phone.py` with recording on (a short test pattern made with ffmpeg as the clip), starts the desktop in a throwaway dev profile with the fake phone already paired and drives it with `--action` commands. The Python desktop runs offscreen unless `--show` is given. Each phase leaves a mark in the recording. The scripts:
 
-`compare_phone.py` compares two recordings phase by phase. Every POST (session, control, still, unpair) has to match with its body and each action's values have to come in the same order. Different actions may interleave differently, since the Python app itself sends the burst of settings at the start of a stream in a different order from run to run. `--strict-order` holds that to the same order too and `--unordered` drops order. GETs are compared as a set, since polling depends on timing (`--counts` shows how often each came).
+| Script | What happens |
+|---|---|
+| `basic` | start the stream, change compensation, stabilisation, noise reduction and the torch, stop |
+| `controls` | every camera and stream control |
+| `pair` | no phone yet: Add phone opens, the fake phone answers the QR offer with its proof, then a stream |
+| `lens` | switch to the fake phone's second lens and back |
+| `handover` | streaming over Wi-Fi, plugged in over USB (the stream moves there), pulled out (back to Wi-Fi) |
+| `recover` | the phone drops off the network mid-stream and comes back |
+
+Every script runs with `../tools/fake_adb.py` first on PATH as `adb` (and in `TELESCOPE_ADB`), so a real phone on the cable stays out of it. It lists the fake phone only while the script has it plugged in and forwards to the fake phone's ports on 127.0.0.1. The commands it gets go into the recording too, with what changes every run (forwarded local ports, the pairing payload) as stand-ins.
+
+The pair script needs two things the app has no way to do from outside: `--action connection.add_phone` to open Add phone, and the QR code's content written to the file `TELESCOPE_PARITY_OFFER` names, which stands in for the camera. The Python desktop gets both from `python_desktop.py`, a launcher that adds them and then runs `desktop/main.py`. The Rust desktop needs the same two, plus the `--action` ids and dev profile handling every script uses.
+
+`recordings/python-<script>.jsonl` are the Python desktop's recordings of each script, so the Rust side can be compared straight away:
+
+```bash
+python phone_session.py rust-lens.jsonl --script lens --desktop "../target/debug/telescope-rs"
+python compare_phone.py recordings/python-lens.jsonl rust-lens.jsonl
+```
+
+`compare_phone.py` compares two recordings phase by phase. Every POST (session, control, still, unpair) has to match with its body and each action's values have to come in the same order. Different actions may interleave differently, since the Python app itself sends the burst of settings at the start of a stream in a different order from run to run. `--strict-order` holds that to the same order too and `--unordered` drops order. GETs and adb commands are compared as a set, since polling depends on timing (`--counts` shows how often each came). A request over USB counts apart from the same request over Wi-Fi, and the pairing answer (the offer's fields, its version and the desktop's HTTP status) is compared like a POST.
 
 `fake_phone.py --record FILE` also records without the driver, for a session done by hand.
-
-Still missing from the scripts are real QR pairing (the profile starts paired), switching lens from the shortcut (it needs a phone with more than one lens in its state), USB to Wi-Fi handover, and a dropped connection coming back. Each of those needs the fake phone to learn something new first.
 
 ## The tools' own tests
 
