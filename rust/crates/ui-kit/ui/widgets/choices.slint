@@ -94,6 +94,11 @@ export component Segmented inherits Rectangle {
 export component ChoiceField inherits Rectangle {
     in property <string> caption;
     in property <bool> compact;
+    // A small icon before the text (the header's phone picker), and its text in bold
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <color> icon-tint: Theme.text-dim;
+    in property <bool> bold;
     in property <[string]> items;
     in-out property <int> current;
     in property <bool> enabled: true;
@@ -105,7 +110,8 @@ export component ChoiceField inherits Rectangle {
     border-radius: compact ? 7px : 10px;
     border-width: 1px;
     background: touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
-    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
+    // Qt's plain combo box has the strong border; the tile its quiet one
+    border-color: touch.has-hover && enabled ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[current];
@@ -126,8 +132,16 @@ export component ChoiceField inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { popup.show(); }
     }
+    if has-icon: Icon {
+        source: icon;
+        tint: icon-tint;
+        x: 11px;
+        width: 14px;
+        height: 14px;
+        accessible-role: none;
+    }
     VerticalLayout {
-        padding-left: 12px;
+        padding-left: has-icon ? 32px : 12px;
         padding-right: 30px;
         alignment: center;
         spacing: 1px;
@@ -142,7 +156,7 @@ export component ChoiceField inherits Rectangle {
             text: items[current];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: compact ? 400 : 600;
+            font-weight: compact && !bold ? 400 : 600;
             color: enabled ? Theme.text : Theme.text-disabled;
             overflow: elide;
         }
