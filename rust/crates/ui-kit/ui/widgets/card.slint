@@ -63,6 +63,8 @@ export component Card inherits Rectangle {
     in property <string> title;
     in property <image> icon;
     in property <color> hue: Theme.accent;
+    // A disabled card's chip icon greys out, as Qt draws a disabled QLabel's pixmap
+    in property <bool> enabled: true;
     in property <string> note;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
@@ -114,7 +116,7 @@ export component Card inherits Rectangle {
                     mouse-cursor: fold-key != "" ? pointer : default;
                     clicked => { Folds.toggle(fold-key); }
                 }
-                Icon { source: icon; tint: hue; width: 16px; height: 16px; accessible-role: none; }
+                Icon { source: icon; tint: enabled ? hue : Theme.text-disabled; width: 16px; height: 16px; accessible-role: none; }
             }
             FoldTitle {
                 y: 3px;
