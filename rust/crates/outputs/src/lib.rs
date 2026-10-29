@@ -6,10 +6,14 @@ pub mod convert;
 pub mod held;
 pub mod linux_setup;
 pub mod mf;
+pub mod stream_output;
 pub mod unitycapture;
 pub mod wait_screen;
 pub mod watch;
 pub mod wincam;
+
+#[cfg(test)]
+mod ui_check;
 
 #[cfg(target_os = "linux")]
 pub mod v4l2;
