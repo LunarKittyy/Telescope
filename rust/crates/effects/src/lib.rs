@@ -4,6 +4,7 @@
 pub mod cube;
 pub mod editors;
 pub mod grade;
+pub mod notes;
 pub mod colour_grading;
 pub mod shared;
 pub mod transforms;
