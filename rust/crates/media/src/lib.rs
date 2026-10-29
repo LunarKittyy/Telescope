@@ -13,6 +13,8 @@ pub mod mjpeg;
 pub mod packets;
 pub mod pipeline;
 pub mod reader;
+#[cfg(ffmpeg)]
+mod yuv;
 #[cfg(test)]
 mod guard_alloc;
 #[cfg(all(test, ffmpeg))]

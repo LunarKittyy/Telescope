@@ -2,6 +2,7 @@
 
 use ffmpeg_sys_next as ff;
 use std::ptr;
+use crate::yuv;
 use telescope_core::frame::{Frame, PixelFormat};
 
 /// A graphics card decoder FFmpeg can open.
@@ -83,6 +84,8 @@ pub struct Codec {
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
+    // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
+    jpeg: bool,
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
@@ -125,6 +128,7 @@ impl Codec {
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
+                jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
             };
@@ -246,6 +250,8 @@ impl Codec {
                 out.extend_from_slice(std::slice::from_raw_parts(data.offset(row as isize * stride as isize), pw));
             }
         };
+        // Whether the numbers use the whole 0..255: a JPEG always does, a stream says so in its headers
+        let mut full_range = self.jpeg || fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32 || (*src).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG;
         let yuv420 = [ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32];
         if yuv420.contains(&fmt) {
             copy_plane(&mut i420, (*src).data[0], (*src).linesize[0], w, h);
@@ -274,6 +280,12 @@ impl Codec {
             let dst = [base, base.add(w * h), base.add(w * h + cw * ch), ptr::null_mut()];
             let dst_stride = [w as i32, cw as i32, cw as i32, 0];
             ff::sws_scale(self.sws, (*src).data.as_ptr() as *const *const u8, (*src).linesize.as_ptr(), 0, h as i32, dst.as_ptr(), dst_stride.as_ptr());
+            // swscale takes the J formats' full range as it goes; any other format is left as it was
+            use ff::AVPixelFormat::*;
+            full_range &= ![AV_PIX_FMT_YUVJ422P, AV_PIX_FMT_YUVJ444P, AV_PIX_FMT_YUVJ440P].iter().any(|&j| j as i32 == fmt);
+        }
+        if full_range {
+            yuv::full_to_limited(&mut i420, w, h);
         }
         ff::av_frame_unref(self.frame);
         Ok(Frame::new(w as u32, h as u32, PixelFormat::I420, i420))
@@ -522,6 +534,67 @@ mod scaler_tests {
             drop(scaler);
             assert!(!overran(size), "{w}x{h} to {ow}x{oh}: swscale wrote past the end of the RGB buffer");
         }
+    }
+}
+
+/// What the Python app ends up with for a flat picture, measured by running its steps: PyAV to BGR with the stream's
+/// matrix and range, then OpenCV's BGR-to-I420, which writes BT.601 in the limited range.
+#[cfg(test)]
+mod colour_tests {
+    use super::*;
+    use crate::testenc;
+
+    fn level(f: &Frame) -> (u8, u8, u8) {
+        let (y, u, v) = f.i420_planes().unwrap();
+        // Every pixel of a flat picture is the same
+        assert!(y.iter().all(|&p| p == y[0]) && u.iter().all(|&p| p == u[0]) && v.iter().all(|&p| p == v[0]));
+        (y[0], u[0], v[0])
+    }
+
+    fn near(got: (u8, u8, u8), want: (u8, u8, u8)) {
+        let d = |a: u8, b: u8| (a as i32 - b as i32).abs();
+        assert!(d(got.0, want.0) <= 2 && d(got.1, want.1) <= 2 && d(got.2, want.2) <= 2, "decoded to {got:?}, Python gives {want:?}");
+    }
+
+    fn h264(yuv: (u8, u8, u8), matrix: &str, range: &str) -> Option<Frame> {
+        let packets = testenc::h264_yuv(yuv.0, yuv.1, yuv.2, 64, 48, matrix, range)?;
+        let mut codec = Codec::h264(None).unwrap();
+        let mut out = None;
+        for p in &packets {
+            codec.parse(p, |c, unit| {
+                c.decode(unit, |f| out = Some(f)).unwrap();
+            });
+        }
+        Some(out.expect("the stream decodes to a picture"))
+    }
+
+    fn jpeg(yuv: (u8, u8, u8)) -> Frame {
+        let mut codec = Codec::mjpeg().unwrap();
+        let mut out = None;
+        codec.decode(&testenc::jpeg_yuv(yuv.0, yuv.1, yuv.2, 64, 48), |f| out = Some(f)).unwrap();
+        out.unwrap()
+    }
+
+    #[test]
+    fn a_full_range_jpeg_keeps_its_blacks_and_whites() {
+        // Grey 16 and 235 are real greys in a JPEG; Python's picture has them at 30 and 218 once it is limited range
+        near(level(&jpeg((16, 128, 128))), (30, 128, 128));
+        near(level(&jpeg((235, 128, 128))), (218, 128, 128));
+        near(level(&jpeg((0, 128, 128))), (16, 128, 128));
+        near(level(&jpeg((255, 128, 128))), (235, 128, 128));
+        near(level(&jpeg((81, 90, 240))), (85, 94, 226));
+    }
+
+    #[test]
+    fn a_full_range_stream_is_converted() {
+        let Some(f) = h264((81, 90, 240), "bt470bg", "pc") else { return };
+        near(level(&f), (85, 94, 226));
+    }
+
+    #[test]
+    fn a_plain_bt601_limited_stream_is_left_as_it_is() {
+        let Some(f) = h264((81, 90, 240), "bt470bg", "tv") else { return };
+        near(level(&f), (81, 90, 240));
     }
 }
 
