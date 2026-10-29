@@ -5796,8 +5796,8 @@
 # phone protocol endpoints and the actions sent to them
 # ── app
 "/v1/state" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs" }
-"control.camera_on" = { status = "todo" }
-"control.keyframe" = { status = "todo" }
+"control.camera_on" = { status = "ported", rust = "rust/crates/link/src/controls.rs::camera_on", note = "the body, byte for byte; sent by app once that is ported" }
+"control.keyframe" = { status = "ported", rust = "rust/crates/link/src/controls.rs::keyframe", note = "the body, byte for byte; sent by app once that is ported" }
 # ── camera_control
 "control.ae_comp" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.auto" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
@@ -5806,16 +5806,16 @@
 "control.edge_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.focus_distance" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.focus_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.focus_point" = { status = "todo" }
+"control.focus_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::focus_point", note = "the body, byte for byte; sent by camera_control once that is ported" }
 "control.iso" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.low_light" = { status = "todo" }
-"control.meter_point" = { status = "todo" }
+"control.low_light" = { status = "ported", rust = "rust/crates/link/src/controls.rs::low_light", note = "the body, byte for byte; sent by camera_control once that is ported" }
+"control.meter_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::meter_point", note = "the body, byte for byte; sent by camera_control once that is ported" }
 "control.nr_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.ois" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.shutter" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.torch" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.wb_auto" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.wb_gains" = { status = "todo" }
+"control.wb_gains" = { status = "ported", rust = "rust/crates/link/src/controls.rs::wb_gains", note = "the body, byte for byte; sent by camera_control once that is ported" }
 # ── connection
 "/v1/video" = { status = "ported", rust = "rust/crates/link/src/feeds.rs" }
 "/v1/video.h264" = { status = "ported", rust = "rust/crates/link/src/service.rs", note = "prototype" }
@@ -5823,9 +5823,9 @@
 # ── microphone
 "/v1/audio" = { status = "ported", rust = "rust/crates/link/src/audio.rs::open_audio" }
 # ── notes
-"control.notes" = { status = "todo" }
-"control.notes_scroll" = { status = "todo" }
-"control.notes_style" = { status = "todo" }
+"control.notes" = { status = "ported", rust = "rust/crates/link/src/controls.rs::notes", note = "the body, byte for byte; sent by notes once that is ported" }
+"control.notes_scroll" = { status = "ported", rust = "rust/crates/link/src/controls.rs::notes_scroll", note = "the body, byte for byte; sent by notes once that is ported" }
+"control.notes_style" = { status = "ported", rust = "rust/crates/link/src/controls.rs::notes_style", note = "the body, byte for byte; sent by notes once that is ported" }
 # ── pairing
 "served /pair/" = { status = "ported", rust = "rust/crates/link/src/pairing.rs" }
 # ── phone_client
@@ -5845,12 +5845,12 @@
 "still.forget" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Runner::forget" }
 "still.take" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Runner::run" }
 # ── stream_output
-"control.bitrate" = { status = "todo" }
-"control.fps_target" = { status = "todo" }
-"control.jpeg_quality" = { status = "todo" }
-"control.resolution" = { status = "todo" }
+"control.bitrate" = { status = "ported", rust = "rust/crates/link/src/controls.rs::bitrate", note = "the body, byte for byte; sent by stream_output once that is ported" }
+"control.fps_target" = { status = "ported", rust = "rust/crates/link/src/controls.rs::fps_target", note = "the body, byte for byte; sent by stream_output once that is ported" }
+"control.jpeg_quality" = { status = "ported", rust = "rust/crates/link/src/controls.rs::jpeg_quality", note = "the body, byte for byte; sent by stream_output once that is ported" }
+"control.resolution" = { status = "ported", rust = "rust/crates/link/src/controls.rs::resolution", note = "the body, byte for byte; sent by stream_output once that is ported" }
 # ── view_controller
-"control.zoom" = { status = "todo" }
+"control.zoom" = { status = "ported", rust = "rust/crates/link/src/controls.rs::zoom", note = "the body, byte for byte; sent by view_controller once that is ported" }
 
 [system]
 # where the app touches the system: subprocesses, registry, D-Bus, env vars, paths, ports, tray, platform/
