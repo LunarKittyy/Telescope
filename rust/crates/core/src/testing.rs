@@ -80,6 +80,8 @@ pub struct FakeHost {
     pub streams: Option<u32>,
     /// The camera was turned off by a rule, not by hand (is_camera_off_auto).
     pub camera_off_auto: bool,
+    /// Every send_notification, as (title, body, urgent).
+    pub notifications: Vec<(String, String, bool)>,
     /// What preset_plugins() lists, in order; apply_preset hands each one's config to the plugin_configs entry.
     pub preset_plugins: Vec<String>,
     next_request: u64,
@@ -261,8 +263,9 @@ impl HostShell for FakeHost {
     fn clear_issue(&mut self, key: Option<&str>, _issue: Option<&Issue>) {
         self.note(format!("clear_issue {key:?}"));
     }
-    fn send_notification(&mut self, title: &str, _body: &str, _urgent: bool) {
+    fn send_notification(&mut self, title: &str, body: &str, urgent: bool) {
         self.note(format!("send_notification {title}"));
+        self.notifications.push((title.to_string(), body.to_string(), urgent));
     }
     fn set_keep_in_tray(&mut self, keep: bool) {
         self.note(format!("set_keep_in_tray {keep}"));
