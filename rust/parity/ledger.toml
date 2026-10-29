@@ -111,7 +111,7 @@
 "Edges" = { status = "todo" }
 "How soft the edge around you is" = { status = "todo" }
 "No picture yet" = { status = "todo" }
-"Off" = { status = "todo" }
+"Off" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Pick the picture that goes behind you" = { status = "todo" }
 "Picture" = { status = "todo" }
 "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)" = { status = "todo" }
@@ -319,15 +319,15 @@
 "Colour wheels, curves and LUT files for the look of the picture." = { status = "todo" }
 "Compare" = { status = "todo" }
 "Compare before and after" = { status = "todo" }
-"Contrast" = { status = "todo" }
+"Contrast" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Curve" = { status = "todo" }
 "Curves" = { status = "todo" }
 "Everything: colour and level" = { status = "todo" }
 "Export" = { status = "todo" }
 "Export grade…" = { status = "todo" }
 "Export the grade" = { status = "todo" }
-"Gain" = { status = "todo" }
-"Gamma" = { status = "todo" }
+"Gain" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Gamma" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Highlights" = { status = "todo" }
 "Highlights: colour and level, with black staying put" = { status = "todo" }
 "How colourful the picture is" = { status = "todo" }
@@ -350,7 +350,7 @@
 "RGB" = { status = "todo" }
 "Replace" = { status = "todo" }
 "Reset the grade" = { status = "todo" }
-"Saturation" = { status = "todo" }
+"Saturation" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Save the grade, LUT included, as a .cube file for other apps" = { status = "todo" }
 "Saved {file}." = { status = "todo" }
 "Shadows" = { status = "todo" }
@@ -470,7 +470,7 @@
 "Set up the virtual camera" = { status = "todo" }
 "Setup guide" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Starting the phone's camera..." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Starting…" = { status = "todo" }
+"Starting…" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Still streaming over {now}, so Connect via stays on {kept}." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Stop it there or on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Streaming over USB" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
@@ -546,7 +546,7 @@
 "Mark the sheet's corners to straighten it." = { status = "todo" }
 "Part of the sheet is outside the picture. Zoom out or mark it again." = { status = "todo" }
 "Put the width and height back to 100%" = { status = "todo" }
-"Reset" = { status = "todo" }
+"Reset" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
 "Shape" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
 "Sheet shape" = { status = "todo" }
 "Square" = { status = "todo" }
@@ -580,7 +580,7 @@
 "Easy" = { status = "todo" }
 "Fidget" = { status = "todo" }
 "Follow you with the zoom and pan" = { status = "todo" }
-"Framing" = { status = "todo" }
+"Framing" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Head" = { status = "todo" }
 "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you" = { status = "todo" }
 "How quickly the framing catches up when you move" = { status = "todo" }
@@ -1025,7 +1025,7 @@
 "{file} failed checksum verification - not registering" = { status = "todo" }
 # ── plugin
 "Audio" = { status = "todo" }
-"Camera" = { status = "todo" }
+"Camera" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
 "Extras" = { status = "todo" }
 "General" = { status = "todo" }
 "Keyboard shortcuts" = { status = "todo" }
@@ -1538,7 +1538,7 @@
 "H {x}\nV {y}" = { status = "todo" }
 "It can wobble for a moment while it switches." = { status = "todo" }
 "Mirror" = { status = "todo" }
-"Pan" = { status = "todo" }
+"Pan" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Pan left/right" = { status = "todo" }
 "Pan up/down" = { status = "todo" }
 "Panned past what {tele} can see, so it's on {live}. Pan back to switch again." = { status = "todo" }
@@ -1551,7 +1551,7 @@
 "Transforms" = { status = "todo" }
 "Upside down" = { status = "todo" }
 "Without it there's no Transforms card and the picture goes out exactly as the phone sends it." = { status = "todo" }
-"Zoom" = { status = "todo" }
+"Zoom" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Zoom, pan, flip, rotate and stretch the picture." = { status = "todo" }
 "Zoomed on the phone's sensor" = { status = "todo" }
 "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer" = { status = "todo" }
@@ -1649,41 +1649,41 @@
 "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all." = { status = "todo" }
 "search|idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo" = { status = "todo" }
 # ── webcam
-"50 Hz" = { status = "todo" }
-"60 Hz" = { status = "todo" }
-"Another app may be using it. Close it there and it starts here." = { status = "todo" }
-"Anti-flicker" = { status = "todo" }
-"Backlight compensation" = { status = "todo" }
-"Brightens a face in front of a bright window." = { status = "todo" }
-"Can't open {name}" = { status = "todo" }
-"Check that it's plugged in." = { status = "todo" }
-"Exposure time" = { status = "todo" }
-"Focus position" = { status = "todo" }
-"Hue" = { status = "todo" }
-"In use by another app" = { status = "todo" }
-"In use by {app}" = { status = "todo" }
-"Lets the webcam lower its frame rate in dim light for a brighter picture." = { status = "todo" }
-"Not plugged in" = { status = "todo" }
-"Not sending anything" = { status = "todo" }
-"Plug it in, or pick another camera." = { status = "todo" }
-"Put the webcam's picture settings back to its defaults" = { status = "todo" }
-"Set it to your mains frequency to stop lights flickering or banding." = { status = "todo" }
-"Sharpness" = { status = "todo" }
-"Slow down in the dark" = { status = "todo" }
-"Streaming from webcams and capture cards plugged into this computer." = { status = "todo" }
-"The shutter speed: slower is brighter but blurs movement." = { status = "todo" }
-"The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate" = { status = "todo" }
-"The webcam's ISO: more is brighter but grainier." = { status = "todo" }
-"Tilt" = { status = "todo" }
-"Webcam" = { status = "todo" }
-"Webcams" = { status = "todo" }
-"Without it webcams aren't in the phone picker and the Webcam card is gone too." = { status = "todo" }
-"{app} is using it. Close it there and it starts here." = { status = "todo" }
-"{name} isn't plugged in" = { status = "todo" }
+"50 Hz" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"60 Hz" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Another app may be using it. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Anti-flicker" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Backlight compensation" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Brightens a face in front of a bright window." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Can't open {name}" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Check that it's plugged in." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Exposure time" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Focus position" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Hue" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"In use by another app" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"In use by {app}" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Lets the webcam lower its frame rate in dim light for a brighter picture." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Not plugged in" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Not sending anything" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Plug it in, or pick another camera." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Put the webcam's picture settings back to its defaults" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
+"Set it to your mains frequency to stop lights flickering or banding." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Sharpness" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Slow down in the dark" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Streaming from webcams and capture cards plugged into this computer." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The shutter speed: slower is brighter but blurs movement." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The webcam's ISO: more is brighter but grainier." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Tilt" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Webcam" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
+"Webcams" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Without it webcams aren't in the phone picker and the Webcam card is gone too." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"{app} is using it. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"{name} isn't plugged in" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 # ── webcams
-"Another app is using the webcam. Close it there and it starts here." = { status = "todo" }
-"The webcam isn't plugged in. Plug it back in and it carries on." = { status = "todo" }
-"The webcam isn't sending anything. Try another resolution or frame rate." = { status = "todo" }
+"Another app is using the webcam. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
+"The webcam isn't plugged in. Plug it back in and it carries on." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
+"The webcam isn't sending anything. Try another resolution or frame rate." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
 # ── widgets
 "A plugin can do anything on your computer. Only switch it on if you trust its source." = { status = "todo" }
 "AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "todo" }
@@ -4600,74 +4600,74 @@
 "test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "todo" }
 "test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "todo" }
 # ── webcam
-"test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "todo" }
-"test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "todo" }
-"test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" = { status = "todo" }
-"test_webcam_controls.py::test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" = { status = "todo" }
-"test_webcam_controls.py::test_auto_switches_are_applied_before_the_values_they_grey_out" = { status = "todo" }
-"test_webcam_controls.py::test_exposure_shows_as_a_shutter_speed" = { status = "todo" }
-"test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is" = { status = "todo" }
-"test_webcam_controls.py::test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" = { status = "todo" }
-"test_webcam_controls.py::test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" = { status = "todo" }
-"test_webcam_controls.py::test_saved_settings_that_arent_numbers_are_ignored" = { status = "todo" }
-"test_webcam_controls.py::test_setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" = { status = "todo" }
-"test_webcam_controls.py::test_the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" = { status = "todo" }
-"test_webcam_controls.py::test_v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" = { status = "todo" }
-"test_webcam_controls.py::test_values_are_kept_to_the_cameras_range_and_step" = { status = "todo" }
-"test_webcam_plugin.py::test_a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" = { status = "todo" }
-"test_webcam_plugin.py::test_a_busy_webcam_without_a_known_app_still_says_what_to_do" = { status = "todo" }
-"test_webcam_plugin.py::test_a_camera_that_lists_no_modes_gets_what_was_picked" = { status = "todo" }
-"test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found" = { status = "todo" }
-"test_webcam_plugin.py::test_a_renamed_webcam_is_offered_again_under_its_new_name" = { status = "todo" }
-"test_webcam_plugin.py::test_a_saved_size_the_camera_no_longer_offers_stays_shown" = { status = "todo" }
-"test_webcam_plugin.py::test_a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" = { status = "todo" }
-"test_webcam_plugin.py::test_a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" = { status = "todo" }
-"test_webcam_plugin.py::test_an_unplugged_webcam_leaves_once_its_stream_stops" = { status = "todo" }
-"test_webcam_plugin.py::test_bad_config_is_ignored" = { status = "todo" }
-"test_webcam_plugin.py::test_changing_a_streaming_webcams_settings_reopens_it" = { status = "todo" }
-"test_webcam_plugin.py::test_diagnostics_list_the_webcams_and_their_streams" = { status = "todo" }
-"test_webcam_plugin.py::test_settings_are_kept_per_camera_and_used_for_the_capture" = { status = "todo" }
-"test_webcam_plugin.py::test_start_on_a_webcam_unplugged_since_it_was_picked_says_so" = { status = "todo" }
-"test_webcam_plugin.py::test_the_card_offers_the_cameras_sizes_and_the_rates_at_each" = { status = "todo" }
-"test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked" = { status = "todo" }
-"test_webcam_plugin.py::test_the_source_reads_through_the_plugin" = { status = "todo" }
-"test_webcam_plugin.py::test_webcams_are_listed_by_name" = { status = "todo" }
+"test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_whose_settings_cant_be_reached_shows_none" }
+"test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_replugged_webcam_gets_a_fresh_handle_on_its_settings" }
+"test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" }
+"test_webcam_controls.py::test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" }
+"test_webcam_controls.py::test_auto_switches_are_applied_before_the_values_they_grey_out" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::auto_switches_are_applied_before_the_values_they_grey_out" }
+"test_webcam_controls.py::test_exposure_shows_as_a_shutter_speed" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::exposure_shows_as_a_shutter_speed" }
+"test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::mains_frequency_comes_from_where_the_computer_is" }
+"test_webcam_controls.py::test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" }
+"test_webcam_controls.py::test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" }
+"test_webcam_controls.py::test_saved_settings_that_arent_numbers_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::saved_settings_that_arent_numbers_are_ignored" }
+"test_webcam_controls.py::test_setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" }
+"test_webcam_controls.py::test_the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" }
+"test_webcam_controls.py::test_v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" }
+"test_webcam_controls.py::test_values_are_kept_to_the_cameras_range_and_step" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::values_are_kept_to_the_cameras_range_and_step" }
+"test_webcam_plugin.py::test_a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" }
+"test_webcam_plugin.py::test_a_busy_webcam_without_a_known_app_still_says_what_to_do" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_busy_webcam_without_a_known_app_still_says_what_to_do" }
+"test_webcam_plugin.py::test_a_camera_that_lists_no_modes_gets_what_was_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_that_lists_no_modes_gets_what_was_picked" }
+"test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_failing_scan_keeps_what_was_found" }
+"test_webcam_plugin.py::test_a_renamed_webcam_is_offered_again_under_its_new_name" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_renamed_webcam_is_offered_again_under_its_new_name" }
+"test_webcam_plugin.py::test_a_saved_size_the_camera_no_longer_offers_stays_shown" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_saved_size_the_camera_no_longer_offers_stays_shown" }
+"test_webcam_plugin.py::test_a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" }
+"test_webcam_plugin.py::test_a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" }
+"test_webcam_plugin.py::test_an_unplugged_webcam_leaves_once_its_stream_stops" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::an_unplugged_webcam_leaves_once_its_stream_stops" }
+"test_webcam_plugin.py::test_bad_config_is_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::bad_config_is_ignored" }
+"test_webcam_plugin.py::test_changing_a_streaming_webcams_settings_reopens_it" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::changing_a_streaming_webcams_settings_reopens_it" }
+"test_webcam_plugin.py::test_diagnostics_list_the_webcams_and_their_streams" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::diagnostics_list_the_webcams_and_their_streams" }
+"test_webcam_plugin.py::test_settings_are_kept_per_camera_and_used_for_the_capture" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::settings_are_kept_per_camera_and_used_for_the_capture" }
+"test_webcam_plugin.py::test_start_on_a_webcam_unplugged_since_it_was_picked_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::start_on_a_webcam_unplugged_since_it_was_picked_says_so" }
+"test_webcam_plugin.py::test_the_card_offers_the_cameras_sizes_and_the_rates_at_each" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_offers_the_cameras_sizes_and_the_rates_at_each" }
+"test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_shows_only_while_a_webcam_is_picked" }
+"test_webcam_plugin.py::test_the_source_reads_through_the_plugin" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin" }
+"test_webcam_plugin.py::test_webcams_are_listed_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::webcams_are_listed_by_name" }
 # ── webcams
-"test_webcams.py::test_a_card_name_with_its_cut_off_repeat_is_tidied" = { status = "todo" }
-"test_webcams.py::test_a_choice_describes_itself" = { status = "todo" }
-"test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again" = { status = "todo" }
-"test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced" = { status = "todo" }
-"test_webcams.py::test_a_node_that_cant_be_opened_is_tried_again" = { status = "todo" }
-"test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size" = { status = "todo" }
-"test_webcams.py::test_a_size_the_camera_lacks_takes_the_next_bigger_one" = { status = "todo" }
-"test_webcams.py::test_a_webcam_another_program_holds_says_which" = { status = "todo" }
-"test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy" = { status = "todo" }
-"test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so" = { status = "todo" }
-"test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in" = { status = "todo" }
-"test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" = { status = "todo" }
-"test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" = { status = "todo" }
-"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "todo" }
-"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "todo" }
-"test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "todo" }
-"test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "todo" }
-"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "todo" }
-"test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up" = { status = "todo" }
-"test_webcams.py::test_modes_are_read_from_the_driver" = { status = "todo" }
-"test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" = { status = "todo" }
-"test_webcams.py::test_rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" = { status = "todo" }
-"test_webcams.py::test_raw_is_used_where_it_keeps_the_frame_rate" = { status = "todo" }
-"test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest" = { status = "todo" }
-"test_webcams.py::test_sizes_and_rates_for_the_card" = { status = "todo" }
-"test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual" = { status = "todo" }
-"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "todo" }
-"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "todo" }
-"test_webcams.py::test_two_cameras_of_one_model_are_numbered" = { status = "todo" }
-"test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so" = { status = "todo" }
-"test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" = { status = "todo" }
-"test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "todo" }
-"test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "todo" }
-"test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "todo" }
-"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo" }
+"test_webcams.py::test_a_card_name_with_its_cut_off_repeat_is_tidied" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_card_name_with_its_cut_off_repeat_is_tidied" }
+"test_webcams.py::test_a_choice_describes_itself" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_choice_describes_itself" }
+"test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_key_that_fell_back_to_the_node_is_looked_up_again" }
+"test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_node_is_only_opened_again_once_it_was_replaced" }
+"test_webcams.py::test_a_node_that_cant_be_opened_is_tried_again" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_node_that_cant_be_opened_is_tried_again" }
+"test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_raw_frame_counts_what_crossed_the_cable" }
+"test_webcams.py::test_a_size_the_camera_lacks_takes_the_next_bigger_one" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_size_the_camera_lacks_takes_the_next_bigger_one" }
+"test_webcams.py::test_a_webcam_another_program_holds_says_which" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_webcam_another_program_holds_says_which" }
+"test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_webcam_that_wont_open_counts_as_busy" }
+"test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::an_open_webcam_that_sends_nothing_says_so" }
+"test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::an_unplugged_webcam_waits_to_be_plugged_back_in" }
+"test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" }
+"test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" }
+"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "todo", note = "" }
+"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "todo", note = "" }
+"test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::formats_we_cant_read_are_ignored" }
+"test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::identical_webcams_without_a_serial_are_told_apart_by_their_port" }
+"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own" }
+"test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::mjpeg_is_used_where_raw_cant_keep_up" }
+"test_webcams.py::test_modes_are_read_from_the_driver" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::modes_are_read_from_the_driver" }
+"test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" }
+"test_webcams.py::test_rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" }
+"test_webcams.py::test_raw_is_used_where_it_keeps_the_frame_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::raw_is_used_where_it_keeps_the_frame_rate" }
+"test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::scanning_lists_capture_nodes_and_skips_the_rest" }
+"test_webcams.py::test_sizes_and_rates_for_the_card" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::sizes_and_rates_for_the_card" }
+"test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::telescopes_own_and_loopback_cameras_are_virtual" }
+"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin" }
+"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::the_reader_hands_out_the_frame_it_checked_first" }
+"test_webcams.py::test_two_cameras_of_one_model_are_numbered" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::two_cameras_of_one_model_are_numbered" }
+"test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::unplugging_mid_stream_drops_the_stream_and_says_so" }
+"test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" }
+"test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::v4l2_structs_match_the_kernel" }
+"test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::virtual_cameras_are_told_apart_by_name" }
+"test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
+"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo", note = "" }
 # ── widgets
 "test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "todo" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "todo" }
@@ -5653,7 +5653,7 @@
 "global.wait_screen.last_size" = { status = "todo" }
 "global.wait_screen.mirror" = { status = "todo" }
 # ── webcam
-"global.webcam.cameras" = { status = "todo" }
+"global.webcam.cameras" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs::get_config", note = "keys come out sorted, Python keeps the order they were added" }
 
 [config]
 # top-level fields of telescope_config.json
@@ -6099,10 +6099,10 @@
 # ── wait_screen
 "folder:telescope/plugins/wait_screen.py:_choose:Path.home" = { status = "todo" }
 # ── webcams
-"path:/dev/v4l/by-id" = { status = "todo" }
-"path:/dev/v4l/by-path" = { status = "todo" }
-"path:/sys/class/video4linux" = { status = "todo" }
-"path:/sys/devices" = { status = "todo" }
+"path:/dev/v4l/by-id" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::stable_keys" }
+"path:/dev/v4l/by-path" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::stable_keys" }
+"path:/sys/class/video4linux" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::SYSFS" }
+"path:/sys/devices" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::usb_key" }
 # ── widgets
 "folder:telescope/widgets/plugin_updater.py:_on_done:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
 "folder:telescope/widgets/plugin_updater.py:_run:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
