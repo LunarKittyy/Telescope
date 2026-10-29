@@ -52,4 +52,10 @@ Today it draws `main-*`, Connection's card states (but the two that need Windows
 5. Once it matches, `scenes.py OUT <id> --mark` marks it `ported` in `rust/parity/ledger.toml`. From then on `compare_scenes.py --reduced` fails if it drifts.
 6. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
 
+### Slint traps for card sessions
+
+- A wrapped `Text` inside an `if` is measured as one line, so the card lays out too short and the rest overlaps it. Keep the element and use `visible: …` with `height: visible ? self.preferred-height : 0px` instead.
+- Font sizes have to be whole pixels, the ones Qt draws at (the point size times 4/3, rounded): a fractional size lays every line out a pixel off Qt's. `Theme` has them.
+- A card's `out` properties are readable from the window (`p<slot>-<name>`), but only `in` and `in-out` ones can be set.
+
 `shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).
