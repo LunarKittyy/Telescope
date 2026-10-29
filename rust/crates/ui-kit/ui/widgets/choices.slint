@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
 
 // segmented_row: equal segments in one track, the picked one a filled pill.
 export component Segmented inherits Rectangle {
@@ -13,6 +14,8 @@ export component Segmented inherits Rectangle {
     in property <[bool]> has-icons;
     in property <string> label;
     in-out property <int> current: 0;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback picked(int);
     height: 36px;
     horizontal-stretch: 1;
@@ -87,6 +90,7 @@ export component Segmented inherits Rectangle {
             }
         }
     }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
 
 // controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
@@ -102,6 +106,8 @@ export component ChoiceField inherits Rectangle {
     in property <[string]> items;
     in-out property <int> current;
     in property <bool> enabled: true;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback picked(int);
     height: compact ? 32px : 48px;
     horizontal-stretch: 1;
@@ -132,6 +138,7 @@ export component ChoiceField inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { popup.show(); }
     }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;

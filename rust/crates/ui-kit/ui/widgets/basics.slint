@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { TipBody } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
 export component Icon inherits Image {
@@ -40,6 +41,8 @@ export component Button inherits Rectangle {
     in property <string> tip;
     // card_action greys to faint text rather than the darker disabled grey, on no fill
     in property <bool> quiet-when-disabled;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback clicked;
     height: 34px;
     min-width: lay.preferred-width;
@@ -69,6 +72,7 @@ export component Button inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { if (enabled) { root.clicked(); } }
     }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     if tip != "": Tooltip { TipBody { says: tip; } }
     lay := HorizontalLayout {
         padding-left: padding-x;
@@ -98,6 +102,8 @@ export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <length> icon-size: 18px;
     in property <string> label;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback clicked;
     width: 34px;
     height: 34px;
@@ -117,5 +123,6 @@ export component IconButton inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
 }
