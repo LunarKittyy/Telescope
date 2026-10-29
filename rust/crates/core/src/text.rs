@@ -5,7 +5,7 @@
 //! a character it lacks. There is no shaping, so scripts that join or reorder letters (Arabic, Indic) come out as separate glyphs.
 
 pub use ab_glyph::FontArc;
-use ab_glyph::{Font, GlyphId, PxScale, ScaleFont};
+use ab_glyph::{Font, FontVec, GlyphId, PxScale, ScaleFont, VariableFont};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -74,9 +74,16 @@ pub fn find_font_file(names: &[&str]) -> Option<Vec<u8>> {
     })
 }
 
+/// A font from its bytes; a variable one is set to this weight (400 regular, 600 demi-bold), else its default look.
+fn load(bytes: Vec<u8>, weight: f32) -> Option<FontArc> {
+    let mut font = FontVec::try_from_vec(bytes).ok()?;
+    font.set_variation(b"wght", weight);
+    Some(FontArc::new(font))
+}
+
 /// The first of these file names the system has, as a font.
 pub fn font_named(names: &[&str]) -> Option<FontArc> {
-    FontArc::try_from_vec(find_font_file(names)?).ok()
+    load(find_font_file(names)?, 400.0)
 }
 
 /// The app's own font (Inter, as the stylesheet asks for first) in this weight, else a sans the system has.
@@ -86,17 +93,18 @@ pub fn app_font(weight: Weight) -> Option<FontArc> {
         Weight::Regular => (0, &["Inter-Regular.ttf", "Inter.ttf", "DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"]),
         Weight::SemiBold => (1, &["Inter-SemiBold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "seguisb.ttf", "segoeuib.ttf", "arialbd.ttf"]),
     };
-    CACHE[slot].get_or_init(|| font_named(names)).clone()
+    let wght = if weight == Weight::SemiBold { 600.0 } else { 400.0 };
+    CACHE[slot].get_or_init(|| load(find_font_file(names)?, wght)).clone()
 }
 
 /// The font that covers a character the main one doesn't, if the system has one.
-fn fallback_for(ch: char) -> Option<FontArc> {
-    static LOADED: OnceLock<Vec<OnceLock<Option<FontArc>>>> = OnceLock::new();
-    let loaded = LOADED.get_or_init(|| FALLBACKS.iter().map(|_| OnceLock::new()).collect());
+fn fallback_for(ch: char, heavy: bool) -> Option<FontArc> {
+    static LOADED: [OnceLock<Vec<OnceLock<Option<FontArc>>>>; 2] = [OnceLock::new(), OnceLock::new()];
+    let loaded = LOADED[usize::from(heavy)].get_or_init(|| FALLBACKS.iter().map(|_| OnceLock::new()).collect());
     for (i, prefix) in FALLBACKS.iter().enumerate() {
         let font = loaded[i].get_or_init(|| {
             let (_, path) = font_files().iter().find(|(file, _)| file.starts_with(prefix))?;
-            FontArc::try_from_vec(std::fs::read(path).ok()?).ok()
+            load(std::fs::read(path).ok()?, if heavy { 600.0 } else { 400.0 })
         });
         if let Some(font) = font {
             if font.glyph_id(ch).0 != 0 {
@@ -111,6 +119,7 @@ fn fallback_for(ch: char) -> Option<FontArc> {
 #[derive(Clone)]
 struct Placed {
     font: FontArc,
+    scale: PxScale,
     glyph: GlyphId,
     /// Pen position along the line, from its start.
     x: f32,
@@ -127,24 +136,42 @@ pub struct Line {
 #[derive(Clone)]
 pub struct Face {
     font: FontArc,
-    scale: PxScale,
+    size: f32,
+    /// `size` is the em (every font gets the same), else ab_glyph's own height-based scale.
+    em: bool,
     fallbacks: bool,
+    /// Fallbacks for other scripts are demi-bold too.
+    heavy: bool,
 }
 
 impl Face {
     /// `px` is the size of the em, which is what Qt's setPixelSize means.
     pub fn em(font: FontArc, px: f32) -> Face {
-        let per_em = font.height_unscaled() / font.units_per_em().unwrap_or(1000.0);
-        Face { font, scale: PxScale::from(px * per_em), fallbacks: true }
+        Face { font, size: px, em: true, fallbacks: true, heavy: false }
+    }
+
+    /// The fallbacks for other scripts in demi-bold, like the font this face was made from.
+    pub fn heavy(mut self) -> Face {
+        self.heavy = true;
+        self
     }
 
     /// `px` from the top of the tallest letter to the bottom of the lowest, ab_glyph's own idea of a size; no fallbacks.
     pub fn tall(font: FontArc, px: f32) -> Face {
-        Face { font, scale: PxScale::from(px), fallbacks: false }
+        Face { font, size: px, em: false, fallbacks: false, heavy: false }
+    }
+
+    /// The scale that makes this face's size in a font: the same em in every font, so a fallback matches its neighbours.
+    fn scale_in(&self, font: &FontArc) -> PxScale {
+        if self.em {
+            PxScale::from(self.size * font.height_unscaled() / font.units_per_em().unwrap_or(1000.0))
+        } else {
+            PxScale::from(self.size)
+        }
     }
 
     fn scaled(&self) -> ab_glyph::PxScaleFont<&FontArc> {
-        self.font.as_scaled(self.scale)
+        self.font.as_scaled(self.scale_in(&self.font))
     }
 
     /// Above the baseline, in pixels.
@@ -174,25 +201,31 @@ impl Face {
             let mut id = font.glyph_id(ch);
             let mut own = true;
             if id.0 == 0 && self.fallbacks {
-                if let Some(other) = fallback_for(ch) {
+                if let Some(other) = fallback_for(ch, self.heavy) {
                     id = other.glyph_id(ch);
                     font = other;
                     own = false;
                 }
             }
-            let scaled = font.as_scaled(self.scale);
+            let scale = self.scale_in(&font);
+            let scaled = font.as_scaled(scale);
             if started {
                 if let (Some(prev), true) = (last, own) {
                     x += scaled.kern(prev, id);
                 }
                 x += spacing;
             }
-            placed.push(Placed { font: font.clone(), glyph: id, x });
+            placed.push(Placed { font: font.clone(), scale, glyph: id, x });
             x += scaled.h_advance(id);
             last = own.then_some(id);
             started = true;
         }
         Line { placed, width: x }
+    }
+
+    /// Whether the font, or a fallback for it, has a glyph for this character.
+    pub fn has_glyph(&self, ch: char) -> bool {
+        self.font.glyph_id(ch).0 != 0 || (self.fallbacks && fallback_for(ch, self.heavy).is_some())
     }
 
     /// How wide the text is on one line.
@@ -219,7 +252,7 @@ impl Face {
     /// Pixels may be reported more than once where glyphs overlap.
     pub fn draw(&self, line: &Line, x: f32, baseline: f32, mut cover: impl FnMut(i32, i32, f32)) {
         for p in &line.placed {
-            let glyph = p.glyph.with_scale_and_position(self.scale, ab_glyph::point(x + p.x, baseline));
+            let glyph = p.glyph.with_scale_and_position(p.scale, ab_glyph::point(x + p.x, baseline));
             let Some(outlined) = p.font.outline_glyph(glyph) else { continue };
             let bounds = outlined.px_bounds();
             outlined.draw(|gx, gy, c| cover(bounds.min.x as i32 + gx as i32, bounds.min.y as i32 + gy as i32, c));
