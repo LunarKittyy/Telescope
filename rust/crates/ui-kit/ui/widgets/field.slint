@@ -13,6 +13,8 @@ export component TextField inherits Rectangle {
     in property <bool> has-icon;
     in property <bool> clearable;
     in property <bool> enabled: true;
+    // A number box's text sits at the right (QSpinBox with AlignRight)
+    in property <bool> align-right;
     out property <bool> has-focus: input.has-focus;
     callback edited(string);
     callback accepted;
@@ -57,6 +59,7 @@ export component TextField inherits Rectangle {
         selection-foreground-color: white;
         vertical-alignment: center;
         single-line: true;
+        horizontal-alignment: root.align-right ? right : left;
         accessible-role: none;
         edited => { root.edited(self.text); }
         accepted => { root.accepted(); }
