@@ -81,6 +81,7 @@ export component Card inherits Rectangle {
     in-out property <bool> switch-checked;
     in property <bool> switch-enabled: true;
     in property <string> switch-label;
+    in property <string> switch-tip;
     callback switch-toggled(bool);
     // A second icon button before the action (Connection's setup guide)
     in property <bool> has-extra;
@@ -174,6 +175,7 @@ export component Card inherits Rectangle {
                     checked <=> root.switch-checked;
                     enabled: root.switch-enabled;
                     label: root.switch-label;
+                    tip: root.switch-tip;
                     toggled(on) => { root.switch-toggled(on); }
                 }
             }
