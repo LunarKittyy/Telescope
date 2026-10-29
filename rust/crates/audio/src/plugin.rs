@@ -352,6 +352,12 @@ impl MicrophonePlugin {
         self
     }
 
+    /// Why noise reduction isn't available ("" when it is), in place of looking for RNNoise.
+    pub fn with_denoise_problem(mut self, problem: Box<dyn Fn() -> String + Send>) -> Self {
+        self.denoise_problem = problem;
+        self
+    }
+
     pub fn with_meter_clock(mut self, clock: Box<dyn Fn() -> f64 + Send>) -> Self {
         self.meter = LevelMeter::new(clock);
         self

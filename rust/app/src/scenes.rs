@@ -102,6 +102,25 @@ impl telescope_link::connection::Tunnels for NoTunnels {
     fn release(&self, _serial: &str, _remote_port: u16) {}
 }
 
+/// translation_scenes._MicBackend: a virtual mic that's always there and never sets anything up.
+struct SceneMic;
+
+impl telescope_audio::backend::MicBackend for SceneMic {
+    fn pick_name(&self) -> String {
+        "Microphone".into()
+    }
+    fn problem(&self) -> Option<telescope_audio::backend::Problem> {
+        None
+    }
+    fn prepare(&self) -> String {
+        String::new()
+    }
+    fn open_sink(&self) -> telescope_audio::worker::OpenSink {
+        Arc::new(|| Err("no virtual microphone in scenes".into()))
+    }
+    fn teardown(&self) {}
+}
+
 fn services(link: SceneLink) -> Arc<Services> {
     let link: Arc<dyn Link> = Arc::new(link);
     let connection = link.clone();
@@ -115,7 +134,10 @@ fn services(link: SceneLink) -> Arc<Services> {
         updater: None,
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
-            vec![Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>]
+            vec![
+                Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
+                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(Box::new(String::new))),
+            ]
         }),
     })
 }
@@ -198,6 +220,13 @@ pub fn all() -> Vec<Scene> {
         Scene::new("main-wide", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)),
         Scene::new("main-medium", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_TWO_COL, 900.0)),
         Scene::new("main-narrow", || Setup::window(Some(services(quiet())), main_window_config(true), 560.0, 900.0)),
+        // translation_scenes_audio.main_with_mic: the Pixel 8's settings have the mic on
+        Scene::new("main-microphone", || {
+            let mut config = main_window_config(true);
+            config["selected_device"] = json!("phone-1");
+            config["devices"] = json!({"phone-1": {"plugin_configs": {"microphone": {"enabled": true}}}});
+            Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }),
     ];
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {

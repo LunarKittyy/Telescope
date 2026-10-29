@@ -236,6 +236,8 @@ export component MicrophoneCard inherits Card {
         HorizontalLayout {
             spacing: 8px;
             Slider {
+                hue: root.hue;
+                has-readout: false;
                 minimum: gain-min;
                 maximum: gain-max;
                 value: gain;
@@ -246,6 +248,7 @@ export component MicrophoneCard inherits Card {
                 width: 78px;
                 y: 2px;
                 text: gain-text;
+                align-right: true;
                 label: @tr("Gain");
                 accepted => { root.gain-typed(self.text); }
                 step(d) => { root.gain-moved(gain - d); }
@@ -254,6 +257,7 @@ export component MicrophoneCard inherits Card {
     }
     if here: FormRow {
         label: @tr("Auto level");
+        Rectangle { horizontal-stretch: 1; }
         Switch {
             y: 8px;
             checked: auto-level;
@@ -261,12 +265,13 @@ export component MicrophoneCard inherits Card {
             tip: @tr("Evens out quiet and loud speech.");
             toggled(v) => { root.auto-toggled(v); }
         }
-        Rectangle { horizontal-stretch: 1; }
     }
     if here: FormRow {
         label: @tr("Noise reduction");
         HorizontalLayout {
             spacing: 10px;
+            // Alone, the switch sits at the row's end like the others; with the reason, the reason follows it
+            if nr-note == "": Rectangle { horizontal-stretch: 1; }
             Rectangle {
                 width: 36px;
                 Switch {
@@ -281,8 +286,9 @@ export component MicrophoneCard inherits Card {
             Note {
                 text: nr-note;
                 visible: nr-note != "";
+                max-width: nr-note != "" ? 10000px : 0px;
                 vertical-alignment: center;
-                horizontal-stretch: 1;
+                horizontal-stretch: nr-note != "" ? 1 : 0;
             }
         }
     }
