@@ -91,6 +91,11 @@ impl UsbTunnels {
         Some(local)
     }
 
+    /// The local port of a forward someone holds, without holding it too.
+    pub fn held_port(&self, serial: &str, remote_port: u16) -> Option<u16> {
+        self.held.lock().unwrap().get(&(serial.to_string(), remote_port)).map(|(local, _)| *local)
+    }
+
     pub fn release(&self, serial: &str, remote_port: u16) {
         let mut held = self.held.lock().unwrap();
         let key = (serial.to_string(), remote_port);

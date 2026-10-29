@@ -42,6 +42,10 @@ impl LinkService {
     fn with_discovery(lan: LanDiscovery) -> LinkService {
         let tunnels = UsbTunnels::new(|serial, remote| Adb::system().forward_auto(remote, Some(serial)),
                                       |serial, local| Adb::system().unforward(local, Some(serial)));
+        LinkService::with_tunnels(lan, tunnels)
+    }
+
+    fn with_tunnels(lan: LanDiscovery, tunnels: UsbTunnels) -> LinkService {
         let tunnels = Arc::new(tunnels);
         let shared = Shared::new(tunnels.clone());
         LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared, stills: Arc::default() }
@@ -73,12 +77,15 @@ impl LinkService {
     pub fn session(&self, phone: &PairedPhone, route: &RouteSpec, video_path: &str, controls: Option<Arc<dyn PhoneControl>>)
                    -> Result<Session, String> {
         let (host, forward) = match route {
-            RouteSpec::Usb { serial } => {
-                // Always a fresh forward: adb drops them when the cable goes, even if it comes back
-                let local = self.tunnels.acquire(serial, STREAM_PORT)
-                    .ok_or_else(|| telescope_core::i18n::tr("adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."))?;
-                (format!("127.0.0.1:{local}"), Some(serial.clone()))
-            }
+            // The Connection model's hold is the stream's only one, so recovery can let it go and open a fresh forward
+            RouteSpec::Usb { serial } => match self.tunnels.held_port(serial, STREAM_PORT) {
+                Some(local) => (format!("127.0.0.1:{local}"), None),
+                None => {
+                    let local = self.tunnels.acquire(serial, STREAM_PORT)
+                        .ok_or_else(|| telescope_core::i18n::tr("adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."))?;
+                    (format!("127.0.0.1:{local}"), Some(serial.clone()))
+                }
+            },
             RouteSpec::Network { address } => (format!("{address}:{STREAM_PORT}"), None),
         };
         let video_url = format!("https://{host}{video_path}");
@@ -459,6 +466,30 @@ mod tests {
         let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, controls.clone()).unwrap();
         assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls.unwrap()));
         second.controls().unwrap().close();
+    }
+
+    #[test]
+    fn recovery_over_the_same_cable_opens_a_fresh_forward() {
+        use std::sync::atomic::{AtomicU16, Ordering};
+        let forwards = Arc::new(AtomicU16::new(0));
+        let counted = forwards.clone();
+        let tunnels = UsbTunnels::new(move |_, _| Some(41000 + counted.fetch_add(1, Ordering::SeqCst)), |_, _| {});
+        let link = LinkService::with_tunnels(LanDiscovery::default(), tunnels);
+        let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
+        link.shared.conn().on_phone_paired(phone.clone(), |_| false);
+        let usb = RouteSpec::Usb { serial: "serial-1".into() };
+        let ready = Resolution { route: Some(usb.clone()), ..Resolution::new(PhoneStatus::Ready) };
+        let format = crate::connection::StreamFormat { h264: true, dynamic: false };
+        let target = link.shared.start_route(Some("p"), format, &|_, _| ready.clone()).unwrap();
+        let session = link.session(&phone, &usb, VIDEO_H264, None).unwrap();
+        assert_eq!(session.video_url, target.video_url);
+        // The cable went and came back: adb dropped the forward, so recovery needs a new one
+        let url = link.shared.adopt_route(Some("p"), &usb).unwrap();
+        assert_eq!((forwards.load(Ordering::SeqCst), url), (2, format!("https://127.0.0.1:41001{VIDEO_H264}")));
+        session.release();
+        link.shared.release_stream("p");
+        assert_eq!(link.tunnels.held_port("serial-1", STREAM_PORT), None);
+        session.controls().unwrap().close();
     }
 
     struct ToServer(u16);
