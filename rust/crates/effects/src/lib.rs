@@ -7,4 +7,5 @@ pub mod grade;
 pub mod notes;
 pub mod colour_grading;
 pub mod shared;
+pub mod tag;
 pub mod transforms;
