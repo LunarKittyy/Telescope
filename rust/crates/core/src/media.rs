@@ -43,6 +43,8 @@ pub trait FeedStopper: Send + Sync {
 pub trait VideoFeed: Send {
     fn read(&mut self) -> Result<Packet, FeedEnd>;
     fn stopper(&self) -> Box<dyn FeedStopper>;
+    /// What the last read gave decoded to a picture; a feed that falls back while none has (UDP) waits for this.
+    fn decoded(&mut self) {}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
