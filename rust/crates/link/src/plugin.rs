@@ -95,6 +95,14 @@ pub struct ConnectionPlugin {
     downloader: adb_download::AdbDownloader,
 }
 
+/// rust/parity's pair script: in a dev profile with TELESCOPE_PARITY_OFFER set, Add phone opens from
+/// `--action connection.add_phone` and writes its QR code's content to that file for the fake phone to "scan"
+/// (parity/python_desktop.py adds the same two to the Python app).
+fn parity_offer_file() -> Option<std::path::PathBuf> {
+    telescope_core::config::dev_profile()?;
+    std::env::var_os("TELESCOPE_PARITY_OFFER").filter(|v| !v.is_empty()).map(std::path::PathBuf::from)
+}
+
 impl ConnectionPlugin {
     pub fn new(link: Arc<dyn Link>, shared: Arc<Shared>) -> ConnectionPlugin {
         ConnectionPlugin {
@@ -402,6 +410,11 @@ impl ConnectionPlugin {
         };
         match self.link.pair(&cid, &cname) {
             Ok(offer) => {
+                if let Some(path) = parity_offer_file() {
+                    if let Err(e) = std::fs::write(&path, offer.payload()) {
+                        log::warn!("Couldn't write the pairing offer to {}: {e}", path.display());
+                    }
+                }
                 if offer.addresses().is_empty() {
                     add.wifi_text = tr("This computer isn't on a network right now, so pair over USB.");
                 } else {
@@ -1112,7 +1125,7 @@ impl Plugin for ConnectionPlugin {
 
     fn actions(&mut self) -> Vec<ActionSpec> {
         let options: Vec<Value> = self.pick_options().into_iter().map(|(id, name)| json!([id, name])).collect();
-        vec![ActionSpec {
+        let mut actions = vec![ActionSpec {
             id: "phone.pick".into(),
             label: tr("Phone"),
             group: "Telescope".into(),
@@ -1126,10 +1139,21 @@ impl Plugin for ConnectionPlugin {
             on_release: false,
             current: None,
             keywords: String::new(),
-        }]
+        }];
+        if parity_offer_file().is_some() {
+            actions.push(ActionSpec {
+                id: "connection.add_phone".into(), label: "Add phone".into(), group: "Telescope".into(), params: Vec::new(),
+                repeats: false, on_release: false, current: None, keywords: String::new(),
+            });
+        }
+        actions
     }
 
     fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
+        if id == "connection.add_phone" && parity_offer_file().is_some() {
+            self.open_add_phone(host);
+            return Some("Add phone".into());
+        }
         if id != "phone.pick" {
             return None;
         }
