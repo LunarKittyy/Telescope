@@ -138,6 +138,15 @@ impl telescope_core::host::Poster for PluginPoster {
     }
 }
 
+/// Keeps a copy of each frame on its way into the colour step, for the preview's before and after (colour_split).
+struct KeepBefore(Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>);
+
+impl telescope_core::frame::CpuStep for KeepBefore {
+    fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
+        self.0.lock().unwrap().insert(ctx.source_id().to_string(), frame.clone());
+    }
+}
+
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -159,6 +168,8 @@ pub struct State {
     pub vc: crate::view_control::ViewController,
     /// Every plugin's colour change, baked into the one LUT the Colour stage runs.
     pub colour: ColourPipeline,
+    /// While Colour grading compares: each stream's newest frame from just before the colour step, for the preview.
+    pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -199,6 +210,7 @@ impl State {
             view: View::default(),
             vc: crate::view_control::ViewController::new(),
             colour: ColourPipeline::new(),
+            colour_before: Arc::default(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -476,6 +488,12 @@ impl State {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
         }
         if let Some(step) = self.colour.step(None) {
+            if self.colour.split().is_some() {
+                let keep = KeepBefore(self.colour_before.clone());
+                steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
+            } else {
+                self.colour_before.lock().unwrap().clear();
+            }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
         }
         for i in 0..self.slots.len() {
@@ -956,6 +974,42 @@ mod tests {
         assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "one at a time");
         s.streams.can_hand_over = vec!["p1".into()];
         assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "link has no route ready");
+    }
+
+
+    struct NoCtx;
+
+    impl telescope_core::frame::FrameContext for NoCtx {
+        fn source_id(&self) -> &str {
+            "p1"
+        }
+        fn person_mask(&self, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &telescope_core::Frame) -> telescope_core::Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview() {
+        use telescope_core::frame::{FrameStage, FrameStep};
+        let mut s = state();
+        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        let colour = |s: &mut State| s.pipeline_steps().into_iter().filter(|st| st.stage == FrameStage::Colour)
+            .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();
+        assert_eq!(colour(&mut s), [false], "just the LUT");
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps();
+        let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
+        let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
+        let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
+        step.process(&mut frame, &NoCtx);
+        assert_eq!(*s.colour_before.lock().unwrap()["p1"].data, vec![9; 8]);
+        s.colour.set_split("grade", None);
+        assert_eq!(colour(&mut s), [false]);
+        assert!(s.colour_before.lock().unwrap().is_empty());
     }
 
 }

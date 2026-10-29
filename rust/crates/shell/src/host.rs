@@ -372,6 +372,8 @@ impl HostColour for Ctx<'_> {
     }
     fn colour_split(&mut self, owner: &str, position: Option<f32>) {
         self.state.colour.set_split(owner, position);
+        // A compare needs the picture from before the colour step kept for the preview
+        self.state.effects.push(Effect::FrameStep("colour".into()));
     }
 }
 
