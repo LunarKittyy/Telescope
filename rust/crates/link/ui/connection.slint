@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -151,11 +151,12 @@ export component ConnectionCard inherits Card {
         border-width: 1px;
         border-color: Theme.border;
         border-radius: 8px;
+        // Qt's 12/8/12/6 margins sit inside the frame's 1px border
         VerticalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-top: 8px;
-            padding-bottom: 6px;
+            padding-left: 13px;
+            padding-right: 13px;
+            padding-top: 9px;
+            padding-bottom: 7px;
             spacing: 0px;
             HorizontalLayout {
                 spacing: 12px;
@@ -170,6 +171,8 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     alignment: center;
                     spacing: 1px;
+                    // Qt's two lines come to 36px, a pixel more than the icon
+                    min-height: using-shown ? 36px : 0px;
                     Text {
                         text: status-text;
                         font-family: Theme.font;
@@ -327,9 +330,16 @@ export component PhonePicker inherits HorizontalLayout {
         }
     }
 
+    // The header bar is taller than these; Qt centres them in it
     ChoiceField {
         min-width: 180px;
         height: 34px;
+        y: (parent.height - self.height) / 2;
+        compact: true;
+        bold: true;
+        has-icon: true;
+        icon: Icons.phone;
+        icon-tint: Theme.plugin-hue("streaming");
         caption: names.length == 0 ? @tr("No phone yet") : "";
         items: names;
         current <=> root.current;
@@ -340,6 +350,7 @@ export component PhonePicker inherits HorizontalLayout {
     Button {
         width: 34px;
         height: 34px;
+        y: (parent.height - self.height) / 2;
         role: "quiet";
         padding-x: 0px;
         has-icon: true;
@@ -430,27 +441,12 @@ export component ConnectionSettings inherits Card {
     callback udp-toggled(bool);
     title: @tr("Connection");
     icon: Icons.v-connection;
-    HorizontalLayout {
-        spacing: 12px;
-        accessible-role: groupbox;
-        accessible-id: "setting";
-        accessible-label: @tr("UDP on Wi-Fi");
-        accessible-description: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 2px;
-            Text { text: @tr("UDP on Wi-Fi"); font-family: Theme.font; font-size: Theme.body; color: Theme.text; }
-            Note { text: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."); }
-        }
-        Rectangle {
-            border-radius: 6px;
-            background: Theme.warn.with-alpha(0.14);
-            height: 20px;
-            width: tag.preferred-width + 14px;
-            y: (parent.height - self.height) / 2;
-            tag := Text { text: @tr("Experimental"); font-family: Theme.font; font-size: Theme.small; color: Theme.warn; }
-        }
+    SettingRow {
+        title: @tr("UDP on Wi-Fi");
+        sub: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
+        Tag { y: (parent.height - self.height) / 2; text: @tr("Experimental"); }
         Switch {
+            y: (parent.height - self.height) / 2;
             checked: udp;
             label: @tr("UDP on Wi-Fi");
             toggled(on) => { root.udp-toggled(on); }
