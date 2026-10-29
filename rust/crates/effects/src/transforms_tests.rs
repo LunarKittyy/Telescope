@@ -522,3 +522,15 @@ fn dragging_the_preview_sticks_at_the_centre_then_lets_go() {
     r.event(Event::ViewDragged { du: -0.001, dv: 0.0 });
     assert!(r.plugin.pan().0 > 0.5);
 }
+
+#[test]
+fn a_saved_half_step_rounds_to_even_like_pythons_round() {
+    // 112.5 steps: Python's round() gives 112, not 113, and 137.5 gives 138
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"zoom": 1.125, "stretch_x": 1.125, "stretch_y": 1.375})).unwrap();
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["zoom"].as_f64().unwrap(), cfg["stretch_x"].as_f64().unwrap(), cfg["stretch_y"].as_f64().unwrap()), (1.12, 1.12, 1.38));
+    // and the pan read-out, which Python rounds the same way (12.5 gives 12, 13.5 gives 14)
+    assert_eq!(TransformsPlugin::pan_label(0.125), TransformsPlugin::pan_label(0.12));
+    assert_eq!(TransformsPlugin::pan_label(0.135), TransformsPlugin::pan_label(0.14));
+}

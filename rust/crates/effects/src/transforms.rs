@@ -220,7 +220,7 @@ impl TransformsPlugin {
     }
 
     fn pan_label(pan: f64) -> String {
-        let pct = (pan * 100.0).round();
+        let pct = (pan * 100.0).round_ties_even();
         if pct != 0.0 { percent(pct, 0, true) } else { percent(0.0, 0, false) }
     }
 
@@ -436,7 +436,7 @@ impl TransformsPlugin {
             self.wheel_zoom = old as f64 / 100.0;
         }
         let target = (self.wheel_zoom * factor).max(1.0).min(self.max_zoom_steps as f64 / 100.0);
-        let rounded = (target * 100.0).round() as i32;
+        let rounded = (target * 100.0).round_ties_even() as i32;
         let new = zoom_detent(old, rounded, &self.snaps);
         self.wheel_zoom = if new != rounded { new as f64 / 100.0 } else { target };
         if new == old {
@@ -775,7 +775,7 @@ impl Plugin for TransformsPlugin {
         }
         // the slider holds it to Max zoom
         let zoom = number_of(cfg.get("zoom"), 1.0, 1.0, 30.0);
-        self.zoom_steps = ((zoom * 100.0).round() as i32).clamp(100, self.max_zoom_steps.max(100));
+        self.zoom_steps = ((zoom * 100.0).round_ties_even() as i32).clamp(100, self.max_zoom_steps.max(100));
         self.zoom = self.zoom_steps as f64 / 100.0;
         let pan_active = zoom > 1.0;
         self.pan_x = if pan_active { number_of(cfg.get("pan_x"), 0.0, -1.0, 1.0) } else { 0.0 };
@@ -788,7 +788,7 @@ impl Plugin for TransformsPlugin {
         self.follow_pan();
         let (lo, hi) = (STRETCH_RANGE.0 as f64 / 100.0, STRETCH_RANGE.1 as f64 / 100.0);
         for (i, key) in ["stretch_x", "stretch_y"].iter().enumerate() {
-            self.stretch_steps[i] = (number_in(cfg.get(key), 1.0, lo, hi) * 100.0).round() as i32;
+            self.stretch_steps[i] = (number_in(cfg.get(key), 1.0, lo, hi) * 100.0).round_ties_even() as i32;
         }
         self.stretch_x = self.stretch_steps[0] as f64 / 100.0;
         self.stretch_y = self.stretch_steps[1] as f64 / 100.0;
