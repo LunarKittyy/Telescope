@@ -376,3 +376,19 @@ fn it_says_what_it_is() {
     assert_eq!(FunPackPlugin::new().diagnostics(), vec![("Fun pack".to_string(), "off".to_string())]);
     assert_eq!(english_name("mosh"), "Datamosh");
 }
+
+#[test]
+fn an_effect_that_is_off_or_not_a_picture_step_forgets_the_trail() {
+    for between in ["off", "mosh", "game_boy"] {
+        let mut r = Rig::new();
+        r.pick("light");
+        let dark = Rgb::filled(W, H, [10; 3]);
+        let mut lit = dark.clone();
+        lit.set(80, 45, [255; 3]);
+        r.stream("phone", &lit);
+        assert!(r.stream("phone", &dark).at(80, 45)[0] > 100, "the trail shows before");
+        r.pick(between);
+        r.pick("light");
+        assert!(r.stream("phone", &dark) == dark, "{between}: the old trail is gone");
+    }
+}
