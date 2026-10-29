@@ -1078,7 +1078,7 @@ mod tests {
     fn comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview() {
         use telescope_core::frame::{FrameStage, FrameStep};
         let mut s = state();
-        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
         s.colour.set_stage("grade", Some(warm), 0, None);
         let colour = |s: &mut State| s.pipeline_steps().into_iter().filter(|st| st.stage == FrameStage::Colour)
             .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();

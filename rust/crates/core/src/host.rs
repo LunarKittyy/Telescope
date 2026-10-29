@@ -105,6 +105,28 @@ pub enum Shape {
     Dim { points: Vec<[f32; 2]>, color: String },
 }
 
+/// How to work a colour stage out exactly at any colours: RGB triples 0..1 in, the changed ones out in place (colour.ColourStage.fn).
+/// A stage that has one is evaluated at the previous stage's output when stages are put one after the other; one that doesn't
+/// (a plugin in another process) is read off its baked lattice.
+#[derive(Clone, Default)]
+pub struct StageFn(pub Option<Arc<dyn Fn(&mut [f32]) + Send + Sync>>);
+
+impl std::fmt::Debug for StageFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.0.is_some() { "StageFn(..)" } else { "StageFn(none)" })
+    }
+}
+
+impl PartialEq for StageFn {
+    fn eq(&self, other: &StageFn) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
 /// One plugin's colour change for the colour pipeline (telescope.colour.ColourStage), baked into a 3D LUT.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ColourStage {
@@ -117,6 +139,22 @@ pub struct ColourStage {
     /// tables instead of a 3D LUT, as per_channel does in Python.
     #[serde(default)]
     pub table: Option<Arc<Vec<f32>>>,
+    /// The change itself, when the plugin can hand it over (it can't cross into another process).
+    #[serde(skip)]
+    pub eval: StageFn,
+}
+
+impl ColourStage {
+    /// A stage known only by its baked lattice (and table).
+    pub fn new(size: u32, rgb: Arc<Vec<f32>>, table: Option<Arc<Vec<f32>>>) -> ColourStage {
+        ColourStage { size, rgb, table, eval: StageFn::default() }
+    }
+
+    /// The same stage with the change itself, so stages after another one are worked out at its output.
+    pub fn with_eval(mut self, eval: impl Fn(&mut [f32]) + Send + Sync + 'static) -> ColourStage {
+        self.eval = StageFn(Some(Arc::new(eval)));
+        self
+    }
 }
 
 /// The newest frames of every stream, from any thread and without copying (HostFrames).

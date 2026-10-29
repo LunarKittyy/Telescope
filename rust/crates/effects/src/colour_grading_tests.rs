@@ -467,3 +467,15 @@ fn a_big_grade_is_baked_for_the_pipeline_as_both_a_lattice_and_tables() {
     let g = r.plugin.grade().eval([128.0 / 255.0; 3]);
     assert!(near([table[128 * 3], table[128 * 3 + 1], table[128 * 3 + 2]], g, 1e-6));
 }
+
+#[test]
+fn the_stage_hands_the_pipeline_the_grade_itself_for_stages_that_come_after_another() {
+    let mut r = Rig::new();
+    r.slider("contrast", 2.0);
+    let stage = r.plugin.stage().unwrap();
+    let change = stage.eval.0.as_ref().expect("the grade itself");
+    let mut at = vec![0.5f32, 0.25, 0.75];
+    change(&mut at);
+    let want = r.plugin.grade().eval([0.5, 0.25, 0.75]);
+    assert_eq!(at, want.to_vec());
+}

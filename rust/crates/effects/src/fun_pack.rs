@@ -212,7 +212,7 @@ impl CpuStep for FunStep {
                         let mask = if edges || look.effect == "clones" { mask_of(ctx, frame) } else { None };
                         let mask = match mask {
                             Some(m) => Some(m),
-                            None => look.plate.as_ref().map(|p| PlateMask::default().run(&rgb, p)),
+                            None => look.plate.as_ref().and_then(|p| PlateMask::default().run(&rgb, p)),
                         };
                         Taken::Clone(mask.map(|m| Clones::add(look.clones.as_deref(), &rgb, &m.soften(look.edges))))
                     }
@@ -547,6 +547,10 @@ impl FunPackPlugin {
             reset: self.reset,
         };
         self.hub.state.lock().unwrap().look = Arc::new(look);
+        if !fx::EFFECTS.contains(&self.effect) {
+            // Python runs Off through its runner, which drops the effect before; Datamosh and Game Boy have no picture step to do it
+            *self.hub.runner.lock().unwrap() = Runner::default();
+        }
         *self.mosh.lock().unwrap() = Mosh { drop_keyframes: true, repeats: self.slider("smear") as u32 };
         // The shown stream reads the look as it changes; the others are handed it again
         if show || self.stepped != Some(self.effect) {

@@ -50,43 +50,47 @@ impl Default for Look {
     }
 }
 
+/// Whether a picture of this shape can stand in for one at w x h: the same shape, not one stretching would only bend.
+fn fits(iw: usize, ih: usize, w: usize, h: usize) -> bool {
+    (iw, ih) == (w, h) || (iw * h).abs_diff(ih * w) as f64 <= (iw * h).max(ih * w) as f64 * 0.01
+}
+
 /// image at frame's size, or None when it's missing or a different shape, which stretching would only bend.
 fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Rgb> {
     let image = image?;
     if (image.w, image.h) == (w, h) {
         return Some(image.clone());
     }
-    if (image.w * h).abs_diff(image.h * w) as f64 > (image.w * h).max(image.h * w) as f64 * 0.01 {
-        return None;
-    }
-    Some(image.linear(w, h))
+    fits(image.w, image.h, w, h).then(|| image.linear(w, h))
 }
 
 fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Gray> {
     if (mask.w, mask.h) == (w, h) {
         return Some(mask.clone());
     }
-    if (mask.w * h).abs_diff(mask.h * w) as f64 > (mask.w * h).max(mask.h * w) as f64 * 0.01 {
-        return None;
-    }
-    Some(mask.linear(w, h))
+    fits(mask.w, mask.h, w, h).then(|| mask.linear(w, h))
 }
 
 /// Where a frame differs from the empty room: someone in front of it, without the vision download.
 #[derive(Default)]
 pub struct PlateMask {
-    key: Option<(usize, usize, usize)>,
+    /// The retained plate (kept alive here, so it can't be mistaken for another) and the frame size its small copy was made for
+    held: Option<(Arc<Rgb>, usize, usize)>,
     small: Option<Rgb>,
 }
 
 impl PlateMask {
-    pub fn run(&mut self, frame: &Rgb, plate: &Arc<Rgb>) -> Gray {
+    /// None when the plate is a different shape from the frame.
+    pub fn run(&mut self, frame: &Rgb, plate: &Arc<Rgb>) -> Option<Gray> {
         let (w, h) = (frame.w, frame.h);
+        if !fits(plate.w, plate.h, w, h) {
+            return None;
+        }
         let (sw, sh) = ((w / MASK_SMALL).max(1), (h / MASK_SMALL).max(1));
-        let key = (Arc::as_ptr(plate) as usize, sw, sh);
-        if self.key != Some(key) {
-            self.key = Some(key);
-            self.small = Some(plate.area(sw, sh).blur3());
+        if !self.held.as_ref().is_some_and(|(p, hw, hh)| Arc::ptr_eq(p, plate) && (*hw, *hh) == (w, h)) {
+            let fitted = ((plate.w, plate.h) != (w, h)).then(|| plate.linear(w, h));
+            self.small = Some(fitted.as_ref().unwrap_or(plate).area(sw, sh).blur3());
+            self.held = Some((plate.clone(), w, h));
         }
         let small = frame.area(sw, sh).blur3();
         let held = self.small.as_ref().unwrap();
@@ -94,7 +98,7 @@ impl PlateMask {
         for (i, d) in diff.data.iter_mut().enumerate() {
             *d = (0..3).map(|c| small.data[i * 3 + c].abs_diff(held.data[i * 3 + c])).max().unwrap_or(0);
         }
-        diff.above(DIFFERENCE).open(3).close(7).linear(w, h)
+        Some(diff.above(DIFFERENCE).open(3).close(7).linear(w, h))
     }
 }
 
@@ -103,9 +107,7 @@ fn person(frame: &Rgb, look: &Look, mask: Option<Gray>, plate_mask: &mut PlateMa
     if mask.is_some() {
         return mask;
     }
-    let plate = look.plate.as_ref().filter(|p| fit(Some(p), frame.w, frame.h).is_some())?;
-    let plate = if (plate.w, plate.h) == (frame.w, frame.h) { plate.clone() } else { Arc::new(fit(Some(plate), frame.w, frame.h)?) };
-    Some(plate_mask.run(frame, &plate))
+    plate_mask.run(frame, look.plate.as_ref()?)
 }
 
 /// The clones taken so far, flattened into one picture and one mask so a frame costs the same however many.
@@ -176,7 +178,10 @@ impl Effect {
                 let mask = match inputs.mask {
                     // the model's edge sits a little inside the person
                     Some(m) => m.dilate(9),
-                    None => pm.run(frame, &Arc::new(plate.clone())),
+                    None => match pm.run(frame, look.plate.as_ref().unwrap()) {
+                        Some(m) => m,
+                        None => return frame.clone(),
+                    },
                 };
                 compose(&plate, &mask.soften(look.edges), frame)
             }
@@ -355,13 +360,13 @@ impl Webcam {
                 return small.nearest(w, h);
             }
         }
-        let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round().max(1.0) as usize);
+        let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round_ties_even().max(1.0) as usize);
         let mut small = frame.area(sw, sh);
         for p in small.data.chunks_exact_mut(3) {
             // washed out, with a cold cast
             let cast = [0u32, 6, 18];
             for c in 0..3 {
-                p[c] = ((p[c] as f32 * 0.8 + 28.0).round().min(255.0) as u32 + cast[c]).min(255) as u8;
+                p[c] = ((p[c] as f32 * 0.8 + 28.0).round_ties_even().min(255.0) as u32 + cast[c]).min(255) as u8;
             }
             let n = self.noise.between(-10, 10);
             for c in p.iter_mut() {
@@ -611,8 +616,8 @@ impl Crt {
         let mut out = Rgb::new(w, h);
         for i in 0..w * h {
             for c in 0..3 {
-                let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round() as u32)).min(255);
-                out.data[i * 3 + c] = (lit as f32 * self.shade[i][c] as f32 / 255.0).round() as u8;
+                let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round_ties_even() as u32)).min(255);
+                out.data[i * 3 + c] = (lit as f32 * self.shade[i][c] as f32 / 255.0).round_ties_even() as u8;
             }
         }
         out

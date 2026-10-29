@@ -36,7 +36,10 @@ pub fn py_float(value: &Value) -> Option<f64> {
             if matches!(body, "nan" | "inf" | "infinity") {
                 t.parse().ok()
             } else if !t.is_empty() && t.chars().all(|c| c.is_ascii_digit() || matches!(c, '.' | 'e' | '+' | '-' | '_')) {
-                t.replace('_', "").parse::<f64>().ok()
+                // an underscore stands between two digits, one at a time
+                let b = t.as_bytes();
+                let lone = (0..b.len()).filter(|&i| b[i] == b'_').all(|i| i > 0 && b[i - 1].is_ascii_digit() && b.get(i + 1).is_some_and(u8::is_ascii_digit));
+                if lone { t.replace('_', "").parse::<f64>().ok() } else { None }
             } else {
                 None
             }
@@ -88,6 +91,11 @@ mod tests {
         assert_eq!(py_float(&json!(true)), Some(1.0));
         assert_eq!(py_float(&json!(" 1.5 ")), Some(1.5));
         assert_eq!(py_float(&json!("hot")), None);
+        // underscores only between digits, as float() takes them
+        assert_eq!((py_float(&json!("1_0")), py_float(&json!("1.5_5")), py_float(&json!("1e1_0"))), (Some(10.0), Some(1.55), Some(1e10)));
+        for bad in ["1__0", "_1", "1_", "1_.5", "1._5", "1_e5", "1e_5", "1e5_"] {
+            assert_eq!(py_float(&json!(bad)), None, "{bad}");
+        }
         assert_eq!(py_float(&json!(null)), None);
         assert_eq!(py_float(&json!([1])), None);
         assert!(py_float(&json!("nan")).unwrap().is_nan());
