@@ -54,6 +54,11 @@ impl Paired {
     pub fn on(&self) -> bool {
         self.phones > 0 || !self.source.is_empty()
     }
+
+    /// A source that isn't a phone is picked (a card for phones only goes away then).
+    pub fn source(&self) -> bool {
+        !self.source.is_empty()
+    }
 }
 
 #[cfg(test)]

@@ -135,6 +135,12 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     }
     let _ = settings.ui.show();
     let _ = settings.ui.invoke("focus-search", &[]);
+    // Each section hears the window came up, to bring itself up to date (SettingsSection.on_show)
+    let sections: Vec<(String, String)> = settings.pieces.iter().filter(|p| !p.1.ends_with("-footer")).map(|p| (p.0.clone(), p.1.clone())).collect();
+    for (plugin, id) in sections {
+        window.state.borrow_mut().ui_event(&plugin, UiEvent { ui: id, callback: "shown".into(), args: Vec::new() });
+    }
+    window.process();
 }
 
 /// The window if it's been built, for tests and scenes.

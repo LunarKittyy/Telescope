@@ -40,13 +40,15 @@ fn use_own_profile() {
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into()], "en".into());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into(), "photos".into(), "qr_reader".into(), "on_air".into()], "en".into());
     let connection = link.clone();
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
+    let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
+    let sign_outputs = outputs.clone();
     Arc::new(Services {
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
-        outputs: Arc::new(telescope_outputs::VirtualCameras { device }),
+        outputs,
         audio: Some(Arc::new(telescope_audio::VirtualMic::default())),
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
@@ -65,6 +67,9 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
+                Box::new(telescope_effects::photos::PhotosPlugin::new()),
+                Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
+                Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(sign_outputs.clone()))),
             ];
             plugins.extend(added());
             plugins

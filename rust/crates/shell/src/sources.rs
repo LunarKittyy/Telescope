@@ -267,6 +267,12 @@ impl PhoneKind {
         self.inner.borrow().handover.is_some()
     }
 
+    /// Where this stream's phone takes photos: its stream base and the phone's pairing, once it streams.
+    pub fn still_target(&self) -> Option<(String, PairedPhone)> {
+        let base = self.inner.borrow().session.as_ref()?.stream_base();
+        Some((base, self.phone()?))
+    }
+
     fn drop_hand_over(&self, pending: Handover, failed: bool) {
         if let Some(session) = pending.opened.lock().unwrap().take() {
             std::thread::spawn(move || session.release());

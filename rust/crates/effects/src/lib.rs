@@ -9,6 +9,7 @@ pub mod name_tag;
 pub mod on_air;
 pub mod on_air_plugin;
 pub mod notes;
+pub mod photos;
 pub mod pixels;
 pub mod qr_reader;
 pub mod colour_grading;
