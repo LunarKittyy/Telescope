@@ -33,21 +33,22 @@ Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/
 ## Comparing with Qt
 
 ```bash
-python parity/render_scenes.py OUT/qt                          # every Qt scene at 1x and 1.5x
-cargo run -p telescope-app -- scenes OUT/rust                  # the scenes Rust can draw, same names (ids and --scale 1 1.5 optional)
-python parity/compare_scenes.py OUT/qt OUT/rust OUT/review     # what differs, with a review page
+python crates/shell/parity/scenes.py OUT [ids] [--mark]   # from rust/: Qt and Rust with the same ported plugins, compared
 ```
 
-`telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for each scene, with a stand-in link that answers the phone check as the scene needs and a virtual camera check that never answers, the same way `desktop/scripts/translation_scenes*.py` patch the Python window. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to its columns like `text_fit._grow_to_content`.
+That's the one command a card session needs. It asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it can draw, renders those scenes with the Python app's own scene builders on a Qt window that registers only those plugins (`OUT/qt`), renders them from Rust (`OUT/rust`) and runs `parity/compare_scenes.py --reduced` (`OUT/review/index.html`). `--mark` marks the scenes that match at 1x and 1.5x `ported` in the ledger. `verified` is for matching the full Qt scene (`parity/render_scenes.py`) once every card exists, so the ledger never claims more than was checked.
 
-Today it draws `main-*`, Connection's card states (`connection-ready` and the rest, but the two that need Windows) and `settings-*`. None of them match yet. The Qt scenes show every built-in card and settings page, so the pictures differ until those are ported, even where the ported card itself looks the same.
+`telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for each scene, with a stand-in link that answers the phone check and pairing as the scene needs and a virtual camera check that never answers, the same way `desktop/scripts/translation_scenes*.py` patch the Python window. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to its columns like `text_fit._grow_to_content`. A dialog scene opens its popup through the card's own callback (`Window::call_ui`) and cuts it out of the window (`Page::Dialog`), since Qt draws dialogs as windows of their own.
+
+Today it draws `main-*`, Connection's card states (but the two that need Windows), the Add phone dialogs and `settings-*`.
 
 ### Adding a card's scenes
 
 1. Find the scene in `desktop/scripts/translation_scenes*.py` and read what its builder patches and sets.
 2. Add a `Scene::new("<same id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone should give), `telescope_config.json` as the window should find it (`main_window_config(true)` is `main_window`'s Pixel 8), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for anything to do once the window has settled.
 3. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
-4. Render it, look at it next to the Qt one in the review page and fix what differs in your card.
-5. Once `compare_scenes.py` stops listing it, mark the scene `ported` in `rust/parity/ledger.toml` with `rust = "rust/app/src/scenes.rs"`. From then on the comparison fails if it drifts.
+4. Run `scenes.py OUT <id>`, look at it next to the Qt one in the review page and fix what differs in your card.
+5. Once it matches, `scenes.py OUT <id> --mark` marks it `ported` in `rust/parity/ledger.toml`. From then on `compare_scenes.py --reduced` fails if it drifts.
+6. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
 
 `shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).
