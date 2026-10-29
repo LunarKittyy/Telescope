@@ -360,13 +360,13 @@ impl Webcam {
                 return small.nearest(w, h);
             }
         }
-        let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round().max(1.0) as usize);
+        let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round_ties_even().max(1.0) as usize);
         let mut small = frame.area(sw, sh);
         for p in small.data.chunks_exact_mut(3) {
             // washed out, with a cold cast
             let cast = [0u32, 6, 18];
             for c in 0..3 {
-                p[c] = ((p[c] as f32 * 0.8 + 28.0).round().min(255.0) as u32 + cast[c]).min(255) as u8;
+                p[c] = ((p[c] as f32 * 0.8 + 28.0).round_ties_even().min(255.0) as u32 + cast[c]).min(255) as u8;
             }
             let n = self.noise.between(-10, 10);
             for c in p.iter_mut() {
@@ -616,8 +616,8 @@ impl Crt {
         let mut out = Rgb::new(w, h);
         for i in 0..w * h {
             for c in 0..3 {
-                let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round() as u32)).min(255);
-                out.data[i * 3 + c] = (lit as f32 * self.shade[i][c] as f32 / 255.0).round() as u8;
+                let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round_ties_even() as u32)).min(255);
+                out.data[i * 3 + c] = (lit as f32 * self.shade[i][c] as f32 / 255.0).round_ties_even() as u8;
             }
         }
         out
