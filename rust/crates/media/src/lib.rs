@@ -109,6 +109,16 @@ impl Media for FfmpegMedia {
         #[cfg(not(ffmpeg))]
         DecodingStatus::default()
     }
+
+    fn decode_picture(&self, bytes: &[u8]) -> Result<Frame, String> {
+        #[cfg(ffmpeg)]
+        return ffmpeg::decode_picture(bytes);
+        #[cfg(not(ffmpeg))]
+        {
+            let _ = bytes;
+            Err("pictures can't be read in this build".into())
+        }
+    }
 }
 
 /// The taps packet_tap() handed out, so a decoder can find its own type behind the trait object.

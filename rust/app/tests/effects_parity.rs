@@ -5,13 +5,19 @@
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use std::sync::Arc;
 use telescope_core::colour::ColourPipeline;
 use telescope_core::frame::{Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
 use telescope_core::host::View;
 use telescope_core::media::{Media, StagedStep};
 use telescope_core::plugin::Plugin;
 use telescope_core::view;
+use telescope_effects::chroma_key::{chroma_of, key_tables, keyable, ChromaKeyPlugin};
 use telescope_effects::colour_grading::{ColourGradingPlugin, OWNER};
+use telescope_effects::cpu::Rgb;
+use telescope_effects::fun_effects::{Clones, Effect, Inputs, Look};
+use telescope_effects::fun_pack::FunPackPlugin;
+use telescope_effects::imgops::Gray;
 use telescope_effects::transforms::TransformsPlugin;
 
 fn fixtures() -> PathBuf {
@@ -171,6 +177,8 @@ fn settings_load_and_save_as_python_does() {
         let mut plugin: Box<dyn Plugin> = match case["plugin"].as_str().unwrap() {
             "colour_grading" => Box::new(ColourGradingPlugin::new()),
             "transforms" => Box::new(TransformsPlugin::new()),
+            "chroma_key" => Box::new(ChromaKeyPlugin::new()),
+            "fun_pack" => Box::new(FunPackPlugin::new()),
             other => panic!("{other}"),
         };
         plugin.set_config(&case["input"]).unwrap();
@@ -188,4 +196,160 @@ fn the_cards_say_they_are_what_python_says() {
     assert_eq!((g.name.as_str(), g.category.as_str(), g.icon.as_str(), g.optional, g.in_presets, g.device_local), ("colour_grading", "look", "colour", true, true, true));
     assert_eq!((t.name.as_str(), t.category.as_str(), t.icon.as_str(), t.pinned, t.in_presets, t.device_local), ("transforms", "camera", "crop", true, true, true));
     assert_eq!(json!(g.frame_stage), json!("effects"));
+}
+
+/// How close the key's picture has to be: the matte is looked up in the very tables Python uses and only the scaling around it
+/// differs (OpenCV's fixed-point resize against the card's float), which only shows where a table has a cliff.
+const CHROMA_MAX: u32 = 16;
+const CHROMA_MEAN: f64 = 0.1;
+const CHROMA_OVER: f64 = 0.005;
+
+#[test]
+fn the_key_makes_the_same_picture_as_python() {
+    if !gpu_here() {
+        return;
+    }
+    let chroma = json_of("chroma.json");
+    let media: Arc<dyn Media> = Arc::new(telescope_media::FfmpegMedia);
+    let mut results = Vec::new();
+    for case in chroma["cases"].as_array().unwrap() {
+        let mut plugin = ChromaKeyPlugin::with_reader(telescope_effects::shared::picture_reader(media.clone()));
+        let mut cfg = with_fixtures(&case["config"]);
+        cfg["on"] = json!(true);
+        plugin.set_config(&cfg).unwrap();
+        let step = plugin.frame_step().expect("a key");
+        let (w, h) = (case["width"].as_u64().unwrap() as u32, case["height"].as_u64().unwrap() as u32);
+        let scene = picture(case["scene"].as_str().unwrap(), w, h);
+        let got = run(vec![StagedStep { owner: "chroma_key".into(), stage: FrameStage::Background, step }], scene);
+        let want = picture(case["file"].as_str().unwrap(), w, h);
+        let g = gap(&got, &want, 4);
+        eprintln!("{:<40} max {:>3} mean {:.3} over {:.4}", case["name"].as_str().unwrap(), g.max, g.mean, g.over);
+        results.push((case["name"].as_str().unwrap().to_string(), g));
+    }
+    for (name, g) in &results {
+        assert!(g.max <= CHROMA_MAX && g.mean <= CHROMA_MEAN && g.over <= CHROMA_OVER, "{name}: {g:?}");
+    }
+}
+
+#[test]
+fn the_keys_tables_are_pythons_to_the_last_entry() {
+    let chroma = json_of("chroma.json");
+    for p in chroma["probes"].as_array().unwrap() {
+        let bgr: Vec<u8> = p["bgr"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+        let bgr = [bgr[0], bgr[1], bgr[2]];
+        let (cb, cr) = chroma_of(bgr);
+        assert_eq!((json!(cb), json!(cr)), (p["chroma"][0].clone(), p["chroma"][1].clone()), "{bgr:?}");
+        assert_eq!(keyable(bgr), p["keyable"].as_bool().unwrap(), "{bgr:?}");
+    }
+    for t in chroma["tables"].as_array().unwrap() {
+        let key: Vec<u8> = t["key"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+        let n = |k: &str| t[k].as_i64().unwrap();
+        let got = key_tables([key[0], key[1], key[2]], n("tolerance"), n("softness"), n("spill"));
+        let differ = |a: &[u8], b: &str| a.iter().zip(b.as_bytes().chunks(2)).filter(|(x, y)| format!("{x:02x}").as_bytes() != *y).count();
+        let (a, cr, cb) = (differ(&got.alpha, t["alpha"].as_str().unwrap()), differ(&got.cr, t["cr"].as_str().unwrap()), differ(&got.cb, t["cb"].as_str().unwrap()));
+        assert_eq!((a, cr, cb), (0, 0, 0), "entries that differ for {} {} {} {}", t["key"], t["tolerance"], t["softness"], t["spill"]);
+    }
+}
+
+fn rgb_picture(name: &str, w: usize, h: usize) -> Rgb {
+    Rgb::from_frame(&picture(name, w as u32, h as u32)).unwrap()
+}
+
+fn frame_rgb(rgb: &Rgb) -> Frame {
+    let mut f = Frame::new(rgb.w as u32, rgb.h as u32, PixelFormat::Rgba, vec![0; rgb.w * rgb.h * 4]);
+    rgb.write_to(&mut f);
+    f
+}
+
+/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): the ones made of the same
+/// operations are close; the stick figure's lines are drawn with a different anti-aliasing, and ASCII's glyphs are our own.
+fn fun_limits(effect: &str) -> (u32, f64, f64) {
+    match effect {
+        "cloak" | "clones" => (24, 0.5, 0.01),
+        "slit" => (4, 0.2, 0.0),
+        "light" => (4, 0.2, 0.0),
+        "crt" => (6, 0.3, 0.01),
+        "stick" => (255, 1.5, 0.03),
+        "ascii" => (255, 40.0, 0.6),
+        _ => (255, 255.0, 1.0),
+    }
+}
+
+#[test]
+fn the_cpu_fun_effects_make_pythons_pictures() {
+    let fun = json_of("fun.json");
+    let (w, h) = (fun["width"].as_u64().unwrap() as usize, fun["height"].as_u64().unwrap() as usize);
+    let plate = Arc::new(rgb_picture("fun_plate.rgba", w, h));
+    let r: Vec<usize> = fun["clone_rect"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as usize).collect();
+    let mut mask = Gray::new(w, h);
+    for y in r[1]..r[3] {
+        for x in r[0]..r[2] {
+            mask.data[y * w + x] = 255;
+        }
+    }
+    let clones = Arc::new(Clones::add(None, &rgb_picture("fun_clone.rgba", w, h), &mask));
+    let mut seen = 0;
+    for case in fun["cases"].as_array().unwrap() {
+        let effect = case["effect"].as_str().unwrap();
+        if effect == "game_boy" {
+            continue;
+        }
+        let point = |v: &Value| (v[0].as_f64().unwrap(), v[1].as_f64().unwrap());
+        let look = Look {
+            effect: effect.into(),
+            plate: case["plate"].as_bool().unwrap().then(|| plate.clone()).or_else(|| (effect == "cloak" || effect == "clones").then(|| plate.clone())),
+            clones: case["clones"].as_bool().unwrap().then(|| clones.clone()),
+            edges: case["edges"].as_i64().unwrap(),
+            fade: case["fade"].as_i64().unwrap(),
+            brightness: case["brightness"].as_i64().unwrap(),
+            spread: case["spread"].as_i64().unwrap(),
+            across: case["across"].as_bool().unwrap(),
+            lines: case["lines"].as_array().unwrap().iter().map(|l| (point(&l[0]), point(&l[1]))).collect(),
+            heads: case["heads"].as_array().unwrap().iter().map(|l| (point(&l[0]), l[1].as_f64().unwrap())).collect(),
+            reset: 0,
+        };
+        let mut e = Effect::named(effect).unwrap();
+        let mut shown = None;
+        for f in case["frames"].as_array().unwrap() {
+            shown = Some(e.run(&rgb_picture(f.as_str().unwrap(), w, h), &look, Inputs { mask: None }));
+        }
+        let got = frame_rgb(&shown.unwrap());
+        let want = picture(case["file"].as_str().unwrap(), w as u32, h as u32);
+        let g = gap(&got, &want, 8);
+        eprintln!("{:<35} max {:>3} mean {:.3} over {:.4}", case["name"].as_str().unwrap(), g.max, g.mean, g.over);
+        let (max, mean, over) = fun_limits(effect);
+        assert!(g.max <= max && g.mean <= mean && g.over <= over, "{}: {g:?}", case["name"]);
+        seen += 1;
+    }
+    assert!(seen >= 10);
+}
+
+#[test]
+fn the_game_boy_makes_pythons_four_shades() {
+    if !gpu_here() {
+        return;
+    }
+    let fun = json_of("fun.json");
+    let (w, h) = (fun["width"].as_u64().unwrap() as u32, fun["height"].as_u64().unwrap() as u32);
+    let case = fun["cases"].as_array().unwrap().iter().find(|c| c["effect"] == "game_boy").unwrap();
+    let mut plugin = FunPackPlugin::new();
+    plugin.set_config(&json!({"effect": "game_boy"})).unwrap();
+    let step = plugin.frame_step().expect("a step");
+    let got = run(vec![StagedStep { owner: "fun_pack".into(), stage: FrameStage::Effects, step }], picture(case["frames"][0].as_str().unwrap(), w, h));
+    let want = picture(case["file"].as_str().unwrap(), w, h);
+    let g = gap(&got, &want, 8);
+    eprintln!("game boy max {} mean {:.3} over {:.4}", g.max, g.mean, g.over);
+    let shades: std::collections::HashSet<[u8; 3]> = got.data.chunks(4).map(|p| [p[0], p[1], p[2]]).collect();
+    assert_eq!(shades.len(), 4);
+    // a pixel on the edge of a dither threshold can land on the next shade: those are the only ones that differ
+    assert!(g.over <= 0.02, "{g:?}");
+}
+
+#[test]
+fn the_effects_shaders_compile() {
+    for (name, plugin) in [("chroma_key", Box::new({ let mut p = ChromaKeyPlugin::new(); p.set_config(&json!({"on": true})).unwrap(); p }) as Box<dyn Plugin>), ("game_boy", Box::new({ let mut p = FunPackPlugin::new(); p.set_config(&json!({"effect": "game_boy"})).unwrap(); p }))] {
+        let mut plugin = plugin;
+        let Some(FrameStep::Shader(step)) = plugin.frame_step() else { panic!("{name}: a shader") };
+        telescope_plugin_host::testing::validate_shader(&step, name).unwrap();
+    }
 }

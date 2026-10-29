@@ -1,0 +1,127 @@
+// The Fun pack card (desktop/telescope/plugins/fun_pack.py). Joined after parts.slint, which has the imports.
+
+export component FunPackCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <[string]> effect-items: [""];
+    in property <int> effect: 0;
+    in property <string> hint;
+    in property <bool> show-plate;
+    in property <string> plate-text;
+    in property <bool> plate-enabled: true;
+    in property <string> plate-tip;
+    in property <bool> show-buttons;
+    in property <bool> show-clone;
+    in property <string> clone-text;
+    in property <bool> clone-enabled: true;
+    in property <string> clone-tip;
+    in property <bool> show-clean;
+    in property <string> clean-tip;
+    in property <bool> show-clear;
+    in property <bool> clear-enabled: true;
+    // The five sliders in the card's order: Edges, Trails, Brightness, Spread, Smear
+    in property <[bool]> slider-show: [false, false, false, false, false];
+    in property <[float]> slider-min: [0, 1, 1, 5, 0];
+    in property <[float]> slider-max: [10, 10, 10, 45, 3];
+    in property <[float]> slider-value: [3, 5, 6, 20, 0];
+    in property <[float]> slider-default: [3, 5, 6, 20, 0];
+    in property <[string]> slider-tips: ["", "", "", "", ""];
+    in property <[string]> slider-text: ["3", "5", "6", "20", "0"];
+    in property <string> reset-hint;
+    in property <string> effect-tip;
+    in property <bool> show-direction;
+    in property <int> direction: 0;
+    in property <string> problem;
+    callback effect-picked(int);
+    callback plate-clicked;
+    callback clone-clicked;
+    callback clean-clicked;
+    callback clear-clicked;
+    callback slider-moved(int, float);
+    callback direction-picked(int);
+
+    title: @tr("Fun pack");
+    icon: Icons.sparkle;
+    opacity: active ? 1 : 0.4;
+
+    FormRow {
+        label: @tr("Effect");
+        ChoiceField {
+            compact: true;
+            items: effect-items;
+            current: effect;
+            caption: @tr("Effect");
+            picked(i) => { root.effect-picked(i); }
+        }
+    }
+    Note {
+        text: hint;
+        visible: hint != "";
+        height: hint != "" ? self.preferred-height : 0px;
+    }
+    if show-plate: HorizontalLayout {
+        spacing: 8px;
+        Button {
+            text: plate-text;
+            tip: plate-tip;
+            enabled: plate-enabled;
+            clicked => { root.plate-clicked(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    if show-buttons: HorizontalLayout {
+        spacing: 8px;
+        if show-clone: Button {
+            text: clone-text;
+            tip: clone-tip;
+            enabled: clone-enabled;
+            clicked => { root.clone-clicked(); }
+        }
+        if show-clean: Button {
+            text: @tr("Clean up");
+            tip: clean-tip;
+            clicked => { root.clean-clicked(); }
+        }
+        if show-clear: Button {
+            text: @tr("Clear");
+            enabled: clear-enabled;
+            clicked => { root.clear-clicked(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    for name[i] in [@tr("Edges"), @tr("Trails"), @tr("Brightness"), @tr("Spread"), @tr("Smear")]: SliderRow {
+        visible: slider-show[i];
+        height: slider-show[i] ? self.preferred-height : 0px;
+        label: name;
+        tip: slider-tips[i];
+        minimum: slider-min[i];
+        maximum: slider-max[i];
+        value: slider-value[i];
+        readout: slider-text[i];
+        hue: root.hue;
+        has-default: true;
+        default-value: slider-default[i];
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(i, v); }
+    }
+    if show-direction: FormRow {
+        label: @tr("Direction");
+        Segmented {
+            items: [@tr("Down"), @tr("Across")];
+            disabled: [false, false];
+            has-icons: [false, false];
+            icons: [Icons.sparkle, Icons.sparkle];
+            label: @tr("Direction");
+            current: direction;
+            picked(i) => { root.direction-picked(i); }
+        }
+    }
+    Note {
+        text: problem;
+        kind: "status_warn";
+        visible: problem != "";
+        height: problem != "" ? self.preferred-height : 0px;
+    }
+    // Nothing to touch until a phone is paired
+    if !active: TouchArea { }
+}

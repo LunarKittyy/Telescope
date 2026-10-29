@@ -228,29 +228,29 @@
 "{n} EV" = { status = "todo" }
 "{n} m" = { status = "todo" }
 # ── chroma_key
-"Behind you" = { status = "todo" }
+"Behind you" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
 "Blue" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
-"Chroma key" = { status = "todo" }
-"Chroma key screen" = { status = "todo" }
-"Chroma key tolerance" = { status = "todo" }
-"Click the screen behind you on the preview. Esc cancels." = { status = "todo" }
-"Colour" = { status = "todo" }
-"Colour behind you" = { status = "todo" }
+"Chroma key" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Chroma key screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Chroma key tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Click the screen behind you on the preview. Esc cancels." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Colour" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Colour behind you" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "Green" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
-"Higher takes out more shades of the screen" = { status = "todo" }
-"Pick the colour that goes behind you" = { status = "todo" }
-"Pick the screen's colour from the preview" = { status = "todo" }
-"Picked" = { status = "todo" }
-"Screen" = { status = "todo" }
-"Spill" = { status = "todo" }
-"Start streaming to pick the screen's colour on the preview." = { status = "todo" }
-"Swap the screen behind you" = { status = "todo" }
-"Swaps a green or blue screen behind you for a colour or a picture, with no download." = { status = "todo" }
-"Takes the screen's colour out of your edges and skin" = { status = "todo" }
-"That spot has hardly any colour. Click the screen itself." = { status = "todo" }
-"The colour picked from the preview. Click to pick again." = { status = "todo" }
-"Tolerance" = { status = "todo" }
-"Without it there's no Chroma key card and a green screen stays green." = { status = "todo" }
+"Higher takes out more shades of the screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Pick the colour that goes behind you" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Pick the screen's colour from the preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Picked" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Screen" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Spill" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Start streaming to pick the screen's colour on the preview." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Swap the screen behind you" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Swaps a green or blue screen behind you for a colour or a picture, with no download." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Takes the screen's colour out of your edges and skin" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"That spot has hardly any colour. Click the screen itself." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"The colour picked from the preview. Click to pick again." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"Tolerance" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
+"Without it there's no Chroma key card and a green screen stays green." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
 "4 × 4" = { status = "todo" }
 "Can't reach the phone's motion sensors." = { status = "todo" }
@@ -604,53 +604,53 @@
 "Zippy" = { status = "todo" }
 "Zooms and pans to keep you in the picture as you move." = { status = "todo" }
 # ── fun_pack
-"1998 webcam" = { status = "todo" }
-"A stick figure takes your place." = { status = "todo" }
-"ASCII" = { status = "todo" }
-"Across" = { status = "todo" }
-"Add a clone" = { status = "todo" }
-"Add a clone, move somewhere else and add another." = { status = "todo" }
-"CRT" = { status = "todo" }
-"Clean up" = { status = "todo" }
-"Clean up the datamosh" = { status = "todo" }
-"Clear" = { status = "todo" }
-"Clone party" = { status = "todo" }
-"Copying you in {n}…" = { status = "todo" }
-"Datamosh" = { status = "todo" }
-"Datamosh smear" = { status = "todo" }
-"Direction" = { status = "todo" }
-"Down" = { status = "todo" }
-"Each band of the picture runs a little behind the one before." = { status = "todo" }
-"Effect" = { status = "todo" }
-"Frames between one end of the picture and the other" = { status = "todo" }
-"Fun pack" = { status = "todo" }
-"Fun pack effect" = { status = "todo" }
-"Game Boy" = { status = "todo" }
-"Get in place: you're copied after a short countdown" = { status = "todo" }
-"How bright a light has to be to paint" = { status = "todo" }
-"How long the light trails last" = { status = "todo" }
-"Invisibility cloak" = { status = "todo" }
-"Let the next keyframe through so the picture comes back" = { status = "todo" }
-"Light painting" = { status = "todo" }
-"Move a torch or a phone screen around in the dark." = { status = "todo" }
-"Move around and the picture smears instead of refreshing." = { status = "todo" }
-"Plays each frame's motion this many extra times" = { status = "todo" }
-"Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh." = { status = "todo" }
-"Slit-scan" = { status = "todo" }
-"Smear" = { status = "todo" }
-"Spread" = { status = "todo" }
-"Step out of the picture: it's taken after a short countdown" = { status = "todo" }
-"Stick figure" = { status = "todo" }
-"Take the empty room" = { status = "todo" }
-"Take the empty room again" = { status = "todo" }
-"Take the empty room first, so you can be cut out." = { status = "todo" }
-"Take the empty room first." = { status = "todo" }
-"Take the empty room, then step back in." = { status = "todo" }
-"Taking it in {n}…" = { status = "todo" }
-"The picture changed, so take the empty room again." = { status = "todo" }
-"Trails" = { status = "todo" }
-"VHS" = { status = "todo" }
-"Without it there's no Fun pack card and the picture has no effects." = { status = "todo" }
+"1998 webcam" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"A stick figure takes your place." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"ASCII" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Across" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Add a clone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Add a clone, move somewhere else and add another." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"CRT" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Clean up" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Clean up the datamosh" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Clear" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Clone party" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Copying you in {n}…" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Datamosh" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Datamosh smear" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Direction" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Down" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Each band of the picture runs a little behind the one before." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Effect" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Frames between one end of the picture and the other" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Fun pack" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Fun pack effect" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Game Boy" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Get in place: you're copied after a short countdown" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"How bright a light has to be to paint" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"How long the light trails last" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Invisibility cloak" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Let the next keyframe through so the picture comes back" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Light painting" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Move a torch or a phone screen around in the dark." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Move around and the picture smears instead of refreshing." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Plays each frame's motion this many extra times" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Slit-scan" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Smear" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Spread" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"Step out of the picture: it's taken after a short countdown" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Stick figure" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Take the empty room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Take the empty room again" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Take the empty room first, so you can be cut out." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Take the empty room first." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Take the empty room, then step back in." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Taking it in {n}…" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"The picture changed, so take the empty room again." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Trails" = { status = "ported", rust = "rust/crates/effects/ui/fun_pack.slint" }
+"VHS" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"Without it there's no Fun pack card and the picture has no effects." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 # ── i18n
 ", " = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
 "percentage|{n}%" = { status = "todo" }
@@ -2363,21 +2363,21 @@
 "test_check_plugin.py::test_repo_is_checked" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::repo_is_checked" }
 "test_check_plugin.py::test_the_example_plugin_passes" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_example_plugins_pass" }
 # ── chroma_key
-"test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "todo" }
-"test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "todo" }
-"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "todo" }
-"test_chroma_key.py::test_a_picked_colour_is_the_median_around_the_click" = { status = "todo" }
-"test_chroma_key.py::test_a_stream_behind_the_panels_keeps_its_key" = { status = "todo" }
-"test_chroma_key.py::test_keying_waits_while_its_own_pick_runs" = { status = "todo" }
-"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "todo" }
-"test_chroma_key.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "todo" }
-"test_chroma_key.py::test_softness_makes_a_ramp_instead_of_a_cliff" = { status = "todo" }
-"test_chroma_key.py::test_spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" = { status = "todo" }
-"test_chroma_key.py::test_the_backdrop_is_a_colour_or_the_picture_covering_the_frame" = { status = "todo" }
-"test_chroma_key.py::test_the_screen_goes_and_the_person_stays" = { status = "todo" }
-"test_chroma_key.py::test_tolerance_decides_how_far_from_the_screen_still_goes" = { status = "todo" }
-"test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "todo" }
-"test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "todo" }
+"test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_a_picked_colour_is_the_median_around_the_click" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_a_stream_behind_the_panels_keeps_its_key" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_keying_waits_while_its_own_pick_runs" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_softness_makes_a_ramp_instead_of_a_cliff" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_the_backdrop_is_a_colour_or_the_picture_covering_the_frame" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_the_screen_goes_and_the_person_stays" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_tolerance_decides_how_far_from_the_screen_still_goes" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
 # ── cinema
 "test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "todo" }
 "test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "todo" }
@@ -2855,36 +2855,36 @@
 "test_framing.py::test_two_people_get_one_box_around_both" = { status = "todo" }
 "test_framing.py::test_with_no_room_to_move_it_follows_every_shift" = { status = "todo" }
 # ── fun_pack
-"test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "todo" }
-"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "todo" }
-"test_fun_pack.py::test_a_plate_of_another_shape_is_never_stretched_over_the_picture" = { status = "todo" }
-"test_fun_pack.py::test_another_stream_starts_without_the_last_ones_history" = { status = "todo" }
-"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "todo" }
-"test_fun_pack.py::test_background_streams_get_no_stick_figure_or_empty_room" = { status = "todo" }
-"test_fun_pack.py::test_clean_up_lets_a_keyframe_through" = { status = "todo" }
-"test_fun_pack.py::test_clones_stay_where_they_were_taken_and_you_stay_in_front" = { status = "todo" }
-"test_fun_pack.py::test_datamosh_on_heavy_says_why_and_changes_no_packets" = { status = "todo" }
-"test_fun_pack.py::test_datamosh_puts_a_packet_step_on_and_takes_it_off" = { status = "todo" }
-"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "todo" }
-"test_fun_pack.py::test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again" = { status = "todo" }
-"test_fun_pack.py::test_long_light_trails_still_fade_all_the_way" = { status = "todo" }
-"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "todo" }
-"test_fun_pack.py::test_off_by_default_with_nothing_on_the_stream" = { status = "todo" }
-"test_fun_pack.py::test_settings_come_back" = { status = "todo" }
-"test_fun_pack.py::test_shutting_down_lets_go_of_packets_and_people" = { status = "todo" }
-"test_fun_pack.py::test_slit_scan_shows_the_bottom_of_the_picture_from_further_back" = { status = "todo" }
-"test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "todo" }
-"test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "todo" }
-"test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "todo" }
+"test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_a_plate_of_another_shape_is_never_stretched_over_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_another_stream_starts_without_the_last_ones_history" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_background_streams_get_no_stick_figure_or_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_clean_up_lets_a_keyframe_through" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_clones_stay_where_they_were_taken_and_you_stay_in_front" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_datamosh_on_heavy_says_why_and_changes_no_packets" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_datamosh_puts_a_packet_step_on_and_takes_it_off" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_long_light_trails_still_fade_all_the_way" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_off_by_default_with_nothing_on_the_stream" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_settings_come_back" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_shutting_down_lets_go_of_packets_and_people" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_slit_scan_shows_the_bottom_of_the_picture_from_further_back" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
 "test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "todo" }
-"test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "todo" }
-"test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "todo" }
-"test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "todo" }
-"test_fun_pack.py::test_the_empty_room_difference_finds_whoever_stands_in_front_of_it" = { status = "todo" }
-"test_fun_pack.py::test_the_empty_room_is_dropped_when_the_picture_changes_under_it" = { status = "todo" }
-"test_fun_pack.py::test_the_game_boy_has_four_shades" = { status = "todo" }
-"test_fun_pack.py::test_the_stick_figure_asks_for_people_and_follows_them" = { status = "todo" }
-"test_fun_pack.py::test_the_stick_figure_is_drawn_on_paper_or_the_empty_room" = { status = "todo" }
+"test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_the_empty_room_difference_finds_whoever_stands_in_front_of_it" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_the_empty_room_is_dropped_when_the_picture_changes_under_it" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_the_game_boy_has_four_shades" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
+"test_fun_pack.py::test_the_stick_figure_asks_for_people_and_follows_them" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
+"test_fun_pack.py::test_the_stick_figure_is_drawn_on_paper_or_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
 # ── grade
 "test_grade.py::test_a_detailed_lut_asks_for_a_bigger_bake" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
 "test_grade.py::test_a_hue_curve_given_one_hue_twice_has_no_hard_edge" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
@@ -5464,15 +5464,15 @@
 "device.camera_control.wb_manual" = { status = "todo" }
 "device.camera_control.wb_tint" = { status = "todo" }
 # ── chroma_key
-"device.chroma_key.background" = { status = "todo" }
-"device.chroma_key.colour" = { status = "todo" }
-"device.chroma_key.on" = { status = "todo" }
-"device.chroma_key.picked" = { status = "todo" }
-"device.chroma_key.picture" = { status = "todo" }
-"device.chroma_key.screen" = { status = "todo" }
-"device.chroma_key.softness" = { status = "todo" }
-"device.chroma_key.spill" = { status = "todo" }
-"device.chroma_key.tolerance" = { status = "todo" }
+"device.chroma_key.background" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.on" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.picked" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.picture" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.softness" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.spill" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"device.chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
 "global.cinema.false_colour" = { status = "todo" }
 "global.cinema.guides" = { status = "todo" }
@@ -5527,20 +5527,20 @@
 "device.framing.room" = { status = "todo" }
 "device.framing.speed" = { status = "todo" }
 # ── fun_pack
-"device.fun_pack.across" = { status = "todo" }
-"device.fun_pack.brightness" = { status = "todo" }
-"device.fun_pack.edges" = { status = "todo" }
-"device.fun_pack.effect" = { status = "todo" }
-"device.fun_pack.fade" = { status = "todo" }
-"device.fun_pack.smear" = { status = "todo" }
-"device.fun_pack.spread" = { status = "todo" }
-"global.fun_pack.across" = { status = "todo" }
-"global.fun_pack.brightness" = { status = "todo" }
-"global.fun_pack.edges" = { status = "todo" }
-"global.fun_pack.effect" = { status = "todo" }
-"global.fun_pack.fade" = { status = "todo" }
-"global.fun_pack.smear" = { status = "todo" }
-"global.fun_pack.spread" = { status = "todo" }
+"device.fun_pack.across" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.brightness" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.edges" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.effect" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.fade" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.smear" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"device.fun_pack.spread" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.across" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.brightness" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.edges" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.effect" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.fade" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.smear" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"global.fun_pack.spread" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 # ── microphone
 "device.microphone.auto_level" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
 "device.microphone.enabled" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
@@ -5689,9 +5689,9 @@
 "camera.torch" = { status = "todo" }
 "camera.wb_mode" = { status = "todo" }
 # ── chroma_key
-"chroma_key.on" = { status = "todo" }
-"chroma_key.screen" = { status = "todo" }
-"chroma_key.tolerance" = { status = "todo" }
+"chroma_key.on" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"chroma_key.screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
+"chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
 "cinema.false_colour" = { status = "todo" }
 "cinema.guides" = { status = "todo" }
@@ -5723,11 +5723,11 @@
 "framing.on" = { status = "todo" }
 "framing.speed" = { status = "todo" }
 # ── fun_pack
-"fun_pack.clean" = { status = "todo" }
-"fun_pack.clone" = { status = "todo" }
-"fun_pack.effect" = { status = "todo" }
-"fun_pack.plate" = { status = "todo" }
-"fun_pack.smear" = { status = "todo" }
+"fun_pack.clean" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"fun_pack.clone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"fun_pack.effect" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"fun_pack.plate" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
+"fun_pack.smear" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 # ── microphone
 "microphone.gain" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
 "microphone.mute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
@@ -5863,7 +5863,7 @@
 # ── browser_server
 "port:telescope/browser_server.py:BROWSER_PORT=8767" = { status = "todo" }
 # ── chroma_key
-"folder:telescope/plugins/chroma_key.py:_choose_picture:Path.home" = { status = "todo" }
+"folder:telescope/plugins/chroma_key.py:_choose_picture:Path.home" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── colour_grading
 "folder:telescope/plugins/colour_grading.py:_export:Path.home" = { status = "todo" }
 "folder:telescope/plugins/colour_grading.py:_start_folder:Path.home" = { status = "todo" }
