@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Icon, FocusRing, Button } from "basics.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
+import { Switch } from "switch.slint";
 import { TipBody } from "tip.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
@@ -72,7 +73,15 @@ export component Card inherits Rectangle {
     in property <string> action-label;
     // Shown next to the action's icon when set (card_action with text, like Connection's Add phone)
     in property <string> action-text;
+    // The action icon's colour (the Microphone card's Mute turns red while muted)
+    in property <color> action-tint: Theme.text-dim;
     callback action;
+    // An on/off switch at the far right of the header (the Microphone card's)
+    in property <bool> has-switch;
+    in-out property <bool> switch-checked;
+    in property <bool> switch-enabled: true;
+    in property <string> switch-label;
+    callback switch-toggled(bool);
     // A second icon button before the action (Connection's setup guide)
     in property <bool> has-extra;
     in property <image> extra-icon;
@@ -140,7 +149,7 @@ export component Card inherits Rectangle {
                 text: action-text;
                 has-icon: true;
                 icon: action-icon;
-                icon-tint: Theme.text-dim;
+                icon-tint: action-tint;
                 tip: action-label;
                 accessible-label: action-text;
                 clicked => { root.action(); }
@@ -157,6 +166,16 @@ export component Card inherits Rectangle {
                 tip: action-label;
                 accessible-label: action-label;
                 clicked => { root.action(); }
+            }
+            if has-switch: Rectangle {
+                width: 36px;
+                Switch {
+                    y: 12px;
+                    checked <=> root.switch-checked;
+                    enabled: root.switch-enabled;
+                    label: root.switch-label;
+                    toggled(on) => { root.switch-toggled(on); }
+                }
             }
             if note != "": Text {
                 text: note;
