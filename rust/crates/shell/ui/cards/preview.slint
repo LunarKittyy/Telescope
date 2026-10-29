@@ -1,0 +1,115 @@
+// The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
+
+import { Theme, Icons, Button } from "@ui-kit/ui-kit.slint";
+
+export component PreviewCard inherits Rectangle {
+    in property <string> fold-key;
+    in property <color> hue;
+    in property <bool> visible-card: true;
+    // The window draws frames straight into these (preview.rs); the plugin only clears them
+    in property <image> frame;
+    in property <bool> has-frame;
+    // What the stage says without a frame, and whether it's the camera-off note with its icon
+    in property <string> stage-text;
+    in property <bool> camera-off;
+    in property <bool> showing: true;
+    in property <string> toggle-text;
+    in property <bool> camera-on: true;
+    in property <bool> camera-enabled: true;
+    in property <string> camera-tip;
+    // The stage's size in logical px, for the window to paint frames at
+    out property <length> stage-width: surface.width;
+    out property <length> stage-height: surface.height;
+    callback toggle;
+    callback camera-clicked;
+
+    visible: visible-card;
+    preferred-height: 240px + 2px + 55px;
+    background: Theme.surface-sunk;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 12px;
+    clip: true;
+
+    VerticalLayout {
+        padding: 1px;
+        spacing: 0px;
+        surface := Rectangle {
+            min-height: 240px;
+            vertical-stretch: 1;
+            background: Theme.surface-sunk;
+            border-radius: 11px;
+            accessible-role: image;
+            accessible-label: @tr("Preview");
+            if has-frame: Image {
+                width: parent.width;
+                height: parent.height;
+                source: frame;
+                image-fit: contain;
+                image-rendering: smooth;
+            }
+            if !has-frame: VerticalLayout {
+                alignment: center;
+                spacing: 12px;
+                if camera-off: HorizontalLayout {
+                    alignment: center;
+                    Image { source: Icons.v-camera-off; colorize: Theme.accent; width: 52px; height: 52px; }
+                }
+                Text {
+                    text: stage-text;
+                    horizontal-alignment: center;
+                    font-family: Theme.font;
+                    font-size: camera-off ? 14.667px : 13.333px;
+                    color: camera-off ? Theme.accent-soft : Theme.text-faint;
+                }
+            }
+        }
+        Rectangle {
+            background: Theme.surface;
+            Rectangle { y: 0; height: 1px; background: Theme.border; }
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 9px;
+                padding-bottom: 10px;
+                spacing: 8px;
+                Button {
+                    text: toggle-text;
+                    role: "quiet";
+                    min-width: 78px;
+                    has-icon: true;
+                    icon: showing ? Icons.eye-off : Icons.eye;
+                    icon-tint: Theme.text-dim;
+                    tip: @tr("Stop drawing this preview. The camera output doesn't change.");
+                    clicked => { root.toggle(); }
+                }
+                Button {
+                    width: 36px;
+                    role: "quiet";
+                    padding-x: 0px;
+                    has-icon: true;
+                    icon: camera-on ? Icons.v-camera : Icons.v-camera-off;
+                    icon-size: 16px;
+                    icon-tint: camera-on ? Theme.text-dim : Theme.accent;
+                    enabled: camera-enabled;
+                    tip: camera-tip;
+                    accessible-label: @tr("Phone camera");
+                    clicked => { root.camera-clicked(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Button {
+                    width: 36px;
+                    role: "quiet";
+                    padding-x: 0px;
+                    has-icon: true;
+                    icon: Icons.v-lenses;
+                    icon-size: 16px;
+                    icon-tint: Theme.text-disabled;
+                    enabled: false;
+                    tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
+                    accessible-label: @tr("Lens outlines");
+                }
+            }
+        }
+    }
+}
