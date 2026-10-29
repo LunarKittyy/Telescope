@@ -931,8 +931,8 @@
 "Taking the photo in {seconds} s" = { status = "todo" }
 "Taking the photo, the video is paused…" = { status = "todo" }
 "Taking the photo…" = { status = "todo" }
-"The phone couldn't take the photo." = { status = "todo" }
-"The phone is already taking a photo." = { status = "todo" }
+"The phone couldn't take the photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone is already taking a photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
 "The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot" = { status = "todo" }
 "This phone can't take photos from Telescope yet. Update the app on the phone." = { status = "todo" }
 "Timer" = { status = "todo" }
@@ -1464,16 +1464,16 @@
 "{n} min" = { status = "todo" }
 "{n} s" = { status = "todo" }
 # ── stills
-"Lost the phone while it was taking the photo." = { status = "todo" }
-"Telescope couldn't save the photo." = { status = "todo" }
-"The phone didn't accept those photo settings." = { status = "todo" }
-"The phone gave up on the photo, maybe because its stream stopped." = { status = "todo" }
-"The phone isn't ready for photos yet. Try again in a moment." = { status = "todo" }
-"The phone took too long to take the photo." = { status = "todo" }
-"The phone's camera is off." = { status = "todo" }
-"The photo was interrupted by a change to the camera." = { status = "todo" }
-"This phone can't take photos from Telescope. Update the app on the phone." = { status = "todo" }
-"This phone's camera can't take that photo." = { status = "todo" }
+"Lost the phone while it was taking the photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"Telescope couldn't save the photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone didn't accept those photo settings." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone gave up on the photo, maybe because its stream stopped." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone isn't ready for photos yet. Try again in a moment." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone took too long to take the photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The phone's camera is off." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"The photo was interrupted by a change to the camera." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"This phone can't take photos from Telescope. Update the app on the phone." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
+"This phone's camera can't take that photo." = { status = "ported", rust = "rust/crates/link/src/stills.rs" }
 # ── stream
 "Can't reach the phone's stream. Trying again in {seconds} s…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Connecting to {url}..." = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
@@ -4054,33 +4054,33 @@
 "test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "todo" }
 "test_state_example.py::test_the_desktop_reads_the_phones_state" = { status = "todo" }
 # ── stills
-"test_stills.py::test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" = { status = "todo" }
-"test_stills.py::test_a_folder_that_cant_be_made_fails_cleanly" = { status = "todo" }
-"test_stills.py::test_a_long_exposure_batch_gets_its_exposures_on_top_of_the_longest_wait" = { status = "todo" }
-"test_stills.py::test_a_long_exposure_gets_its_exposure_on_top_of_the_stall_time" = { status = "todo" }
-"test_stills.py::test_a_makers_mode_says_its_own_size_and_an_older_phone_falls_back_to_the_plain_one" = { status = "todo" }
-"test_stills.py::test_a_name_already_taken_gets_a_number" = { status = "todo" }
-"test_stills.py::test_a_phone_that_stops_answering_is_told_to_forget_the_photo" = { status = "todo" }
-"test_stills.py::test_a_photo_is_saved_file_by_file_and_the_phone_forgets_it" = { status = "todo" }
-"test_stills.py::test_a_photo_stopped_on_quit_is_forgotten" = { status = "todo" }
-"test_stills.py::test_a_photo_that_failed_on_the_phone_keeps_what_was_saved" = { status = "todo" }
-"test_stills.py::test_a_photo_that_never_ends_is_given_up_on_and_forgotten" = { status = "todo" }
-"test_stills.py::test_a_photo_that_stops_moving_on_the_phone_is_given_up_on_and_forgotten" = { status = "todo" }
-"test_stills.py::test_a_photo_the_phone_let_go_of_ends_at_once" = { status = "todo" }
-"test_stills.py::test_a_photo_whose_stream_restarts_ends_as_interrupted_at_once" = { status = "todo" }
-"test_stills.py::test_a_refusal_is_worded_from_its_code" = { status = "todo" }
-"test_stills.py::test_a_restart_while_the_phone_cant_be_reached_is_still_interrupted_not_lost" = { status = "todo" }
-"test_stills.py::test_a_slow_download_doesnt_count_as_the_photo_standing_still" = { status = "todo" }
-"test_stills.py::test_an_older_phone_or_a_lens_without_photos_takes_none" = { status = "todo" }
-"test_stills.py::test_an_older_phone_without_photos" = { status = "todo" }
-"test_stills.py::test_files_with_the_same_name_dont_overwrite_earlier_photos" = { status = "todo" }
-"test_stills.py::test_names_from_the_phone_stay_in_the_folder" = { status = "todo" }
-"test_stills.py::test_odd_values_fall_back_to_the_least_it_can_do" = { status = "todo" }
-"test_stills.py::test_one_photo_at_a_time_per_phone" = { status = "todo" }
-"test_stills.py::test_progress_is_reported_before_the_downloads" = { status = "todo" }
-"test_stills.py::test_reasons_are_worded_here_and_unknown_ones_keep_the_phones_english" = { status = "todo" }
-"test_stills.py::test_reserving_a_name_takes_it_for_this_photo" = { status = "todo" }
-"test_stills.py::test_the_current_lens_says_what_it_takes" = { status = "todo" }
+"test_stills.py::test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" }
+"test_stills.py::test_a_folder_that_cant_be_made_fails_cleanly" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_folder_that_cant_be_made_fails_cleanly" }
+"test_stills.py::test_a_long_exposure_batch_gets_its_exposures_on_top_of_the_longest_wait" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_long_exposure_batch_gets_its_exposures_on_top_of_the_longest_wait" }
+"test_stills.py::test_a_long_exposure_gets_its_exposure_on_top_of_the_stall_time" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_long_exposure_gets_its_exposure_on_top_of_the_stall_time" }
+"test_stills.py::test_a_makers_mode_says_its_own_size_and_an_older_phone_falls_back_to_the_plain_one" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_makers_mode_says_its_own_size_and_an_older_phone_falls_back_to_the_plain_one" }
+"test_stills.py::test_a_name_already_taken_gets_a_number" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_name_already_taken_gets_a_number" }
+"test_stills.py::test_a_phone_that_stops_answering_is_told_to_forget_the_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_phone_that_stops_answering_is_told_to_forget_the_photo" }
+"test_stills.py::test_a_photo_is_saved_file_by_file_and_the_phone_forgets_it" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_is_saved_file_by_file_and_the_phone_forgets_it" }
+"test_stills.py::test_a_photo_stopped_on_quit_is_forgotten" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_stopped_on_quit_is_forgotten" }
+"test_stills.py::test_a_photo_that_failed_on_the_phone_keeps_what_was_saved" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_that_failed_on_the_phone_keeps_what_was_saved" }
+"test_stills.py::test_a_photo_that_never_ends_is_given_up_on_and_forgotten" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_that_never_ends_is_given_up_on_and_forgotten" }
+"test_stills.py::test_a_photo_that_stops_moving_on_the_phone_is_given_up_on_and_forgotten" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_that_stops_moving_on_the_phone_is_given_up_on_and_forgotten" }
+"test_stills.py::test_a_photo_the_phone_let_go_of_ends_at_once" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_the_phone_let_go_of_ends_at_once" }
+"test_stills.py::test_a_photo_whose_stream_restarts_ends_as_interrupted_at_once" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_photo_whose_stream_restarts_ends_as_interrupted_at_once" }
+"test_stills.py::test_a_refusal_is_worded_from_its_code" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_refusal_is_worded_from_its_code" }
+"test_stills.py::test_a_restart_while_the_phone_cant_be_reached_is_still_interrupted_not_lost" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_restart_while_the_phone_cant_be_reached_is_still_interrupted_not_lost" }
+"test_stills.py::test_a_slow_download_doesnt_count_as_the_photo_standing_still" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_slow_download_doesnt_count_as_the_photo_standing_still" }
+"test_stills.py::test_an_older_phone_or_a_lens_without_photos_takes_none" = { status = "ported", rust = "rust/crates/link/src/stills.rs::an_older_phone_or_a_lens_without_photos_takes_none" }
+"test_stills.py::test_an_older_phone_without_photos" = { status = "ported", rust = "rust/crates/link/src/stills.rs::an_older_phone_without_photos" }
+"test_stills.py::test_files_with_the_same_name_dont_overwrite_earlier_photos" = { status = "ported", rust = "rust/crates/link/src/stills.rs::files_with_the_same_name_dont_overwrite_earlier_photos" }
+"test_stills.py::test_names_from_the_phone_stay_in_the_folder" = { status = "ported", rust = "rust/crates/link/src/stills.rs::names_from_the_phone_stay_in_the_folder" }
+"test_stills.py::test_odd_values_fall_back_to_the_least_it_can_do" = { status = "ported", rust = "rust/crates/link/src/stills.rs::odd_values_fall_back_to_the_least_it_can_do" }
+"test_stills.py::test_one_photo_at_a_time_per_phone" = { status = "ported", rust = "rust/crates/link/src/stills.rs::one_photo_at_a_time_per_phone" }
+"test_stills.py::test_progress_is_reported_before_the_downloads" = { status = "ported", rust = "rust/crates/link/src/stills.rs::progress_is_reported_before_the_downloads" }
+"test_stills.py::test_reasons_are_worded_here_and_unknown_ones_keep_the_phones_english" = { status = "ported", rust = "rust/crates/link/src/stills.rs::reasons_are_worded_here_and_unknown_ones_keep_the_phones_english" }
+"test_stills.py::test_reserving_a_name_takes_it_for_this_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::reserving_a_name_takes_it_for_this_photo" }
+"test_stills.py::test_the_current_lens_says_what_it_takes" = { status = "ported", rust = "rust/crates/link/src/stills.rs::the_current_lens_says_what_it_takes" }
 # ── stream
 "test_stream.py::test_a_crash_in_the_worker_ends_with_an_error_and_idle" = { status = "todo" }
 "test_stream.py::test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it" = { status = "todo" }
@@ -5840,10 +5840,10 @@
 "session.start" = { status = "ported", rust = "rust/crates/link/src/session_client.rs" }
 "session.stop" = { status = "ported", rust = "rust/crates/link/src/session_client.rs" }
 # ── stills
-"/v1/still" = { status = "todo" }
-"/v1/still/file" = { status = "todo" }
-"still.forget" = { status = "todo" }
-"still.take" = { status = "todo" }
+"/v1/still" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Stills::take" }
+"/v1/still/file" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Runner::fetch" }
+"still.forget" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Runner::forget" }
+"still.take" = { status = "ported", rust = "rust/crates/link/src/stills.rs::Runner::run" }
 # ── stream_output
 "control.bitrate" = { status = "todo" }
 "control.fps_target" = { status = "todo" }

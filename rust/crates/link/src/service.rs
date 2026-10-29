@@ -31,6 +31,7 @@ pub struct LinkService {
     models: Mutex<HashMap<String, String>>,
     /// The connection model, shared with the Connection plugin.
     shared: Arc<Shared>,
+    stills: Arc<crate::stills::Stills>,
 }
 
 impl LinkService {
@@ -43,7 +44,7 @@ impl LinkService {
                                       |serial, local| Adb::system().unforward(local, Some(serial)));
         let tunnels = Arc::new(tunnels);
         let shared = Shared::new(tunnels.clone());
-        LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared }
+        LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared, stills: Arc::default() }
     }
 
     /// The model the Connection plugin and the stream flow's route calls share.
@@ -243,7 +244,12 @@ impl Link for LinkService {
         self.shared.picked_source()
     }
 
+    fn stills(&self) -> Option<Arc<dyn telescope_core::link::PhoneStills>> {
+        Some(self.stills.clone())
+    }
+
     fn shutdown(&self) {
+        self.stills.shutdown();
         self.lan.stop();
         self.sensors.shutdown();
         adb::stop_adb_server();

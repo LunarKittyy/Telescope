@@ -16,6 +16,7 @@ pub mod sensors;
 pub mod service;
 pub mod session_client;
 pub mod shared;
+pub mod stills;
 pub mod udp;
 pub mod util;
 pub mod winjob;
