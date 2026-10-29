@@ -8,6 +8,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
+/// What a file dialog asks for (QFileDialog's getOpenFileName, getSaveFileName and getExistingDirectory).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileDialogKind {
+    Open,
+    Save,
+    Folder,
+}
+
+/// A file or folder to ask the person for. Texts are already translated.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FileDialog {
+    pub kind: FileDialogKind,
+    pub title: String,
+    /// The folder it opens in, or a folder and file name for a Save.
+    pub start: String,
+    /// Qt's filter strings ("LUT files (*.cube)"); the one first is picked to begin with.
+    #[serde(default)]
+    pub filters: Vec<String>,
+}
+
 /// A request that finishes later; its Event::RequestDone (and any RequestProgress) carries the same id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RequestId(pub u64);
@@ -229,6 +250,11 @@ pub trait HostShell {
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
+    /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
+    /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
+    fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
+        None
+    }
 }
 
 /// Changing what a plugin put on screen after it's built.

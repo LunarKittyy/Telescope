@@ -262,6 +262,10 @@ impl HostShell for FakeHost {
     fn open_url(&mut self, url: &str) {
         self.note(format!("open_url {url}"));
     }
+    fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
+        self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
+        Some(self.request())
+    }
 }
 
 impl HostUi for FakeHost {
