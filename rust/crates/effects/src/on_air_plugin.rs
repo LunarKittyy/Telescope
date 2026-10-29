@@ -22,6 +22,7 @@ pub const NAME: &str = "on_air";
 pub const TAB: &str = "on_air";
 pub const ISSUE: &str = "on_air_webhook";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/on_air.slint"));
+const HEADER_UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/on_air_header.slint"));
 
 const T_SETTLE: &str = "settle";
 const T_RETRY: &str = "retry";
@@ -607,7 +608,7 @@ impl Plugin for OnAirPlugin {
 
     fn header_widget(&mut self) -> Option<UiSpec> {
         Some(UiSpec {
-            source: SlintSource::Text(UI.into()),
+            source: SlintSource::Text(HEADER_UI.into()),
             component: "OnAirButton".into(),
             props: json!({"shown": self.on(), "tip": tr(HEADER_TIP)}),
         })

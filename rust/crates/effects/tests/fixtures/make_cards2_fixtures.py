@@ -128,7 +128,7 @@ URLS = [
     "http://hub", "http://hub?x=1", "http://hub/path?x=1&y=2#frag", "https://hub/a?b=c d", "  http://hub/x", "http://hub/x\n", "http://hub/ x",
     "http:/hub/x", "http://:80/x", "http://@/x", "mailto:a@b", "http://hub/%20x", "http://hub:abc/x", "http://[fe80::1%eth0]/x",
     "http://hub/\u00e9", "HTTPS://HUB/CaSe?Q=1", "http://hub//x//y", "http://hub/x?", "http://hub/x#", "http://hub/x?#", "javascript:alert(1)",
-    "http://hub/\u00a0x", "http://hub/x\u2028y", "http://hub/\ue000", "http://hub/\u0378",
+    "http://hub/\u00a0x", "http://hub/x\u2028y", "http://hub/\ue000",
 ]
 PAYLOADS = ["", "turn=on", "?a=b&c=d", "&x=1", "state=on air&note=\"hi\"", "light=100%25", "busy", '{"a": 1}', "  {\"a\":1}  ", "NaN", "[1, 2]",
             "name=caf\u00e9", "a+b=c d", "x=1;y=2", "{a: 1}", "true", "12", "\"s\"", "Infinity", "-Infinity"]

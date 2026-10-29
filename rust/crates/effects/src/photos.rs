@@ -386,7 +386,7 @@ impl PhotosPlugin {
         json!({
             "active": self.paired.on(), "shown": !self.paired.source(),
             "take-enabled": self.caps.is_some() && !self.busy,
-            "note": note, "note-shown": self.caps.is_none(), "open-shown": !self.last_saved.is_empty(),
+            "info": note, "info-shown": self.caps.is_none(), "open-shown": !self.last_saved.is_empty(),
         })
     }
 
@@ -598,7 +598,7 @@ impl Plugin for PhotosPlugin {
     fn card(&mut self) -> Option<CardSpec> {
         let mut props = Self::fixed_props();
         for part in [self.choice_props(), json!({"active": self.paired.on(), "shown": true, "take-enabled": false,
-                                                  "note": tr("Start streaming to take photos."), "note-shown": true, "open-shown": false})] {
+                                                  "info": tr("Start streaming to take photos."), "info-shown": true, "open-shown": false})] {
             if let (Value::Object(a), Value::Object(p)) = (&mut props, part) {
                 a.extend(p);
             }

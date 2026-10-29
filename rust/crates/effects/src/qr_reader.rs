@@ -186,7 +186,13 @@ pub fn read_code(grey: &[u8], w: usize, h: usize) -> Option<(String, Corners)> {
     for (image, iw, ih) in [(grey, w, h), (half.as_slice(), (w / 2).max(1), (h / 2).max(1))] {
         let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(iw, ih, |x, y| image[y * iw + x]);
         for grid in prepared.detect_grids() {
-            let points: Vec<[f64; 2]> = grid.bounds.iter().map(|p| [p.x as f64, p.y as f64]).collect();
+            // rqrr maps the far corners one module past the code's edge; OpenCV puts all four on it
+            let size = rqrr::BitGrid::size(&grid.grid) as f64;
+            let first = grid.bounds[0];
+            let points: Vec<[f64; 2]> = grid.bounds.iter().enumerate().map(|(i, p)| {
+                let pull = if i == 0 { 1.0 } else { size / (size + 1.0) };
+                [first.x as f64 + (p.x - first.x) as f64 * pull, first.y as f64 + (p.y - first.y) as f64 * pull]
+            }).collect();
             if !plausible(&points) {
                 continue;
             }

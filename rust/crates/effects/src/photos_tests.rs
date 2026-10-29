@@ -150,10 +150,10 @@ impl Rig {
 fn without_photos_the_button_is_off_and_the_card_says_why() {
     let mut rig = Rig::new(None, false);
     assert_eq!(rig.props()["take-enabled"], false);
-    assert!(rig.props()["note"].as_str().unwrap().contains("Start streaming"));
+    assert!(rig.props()["info"].as_str().unwrap().contains("Start streaming"));
     rig.host.streaming = true;
     rig.caps_changed();
-    assert!(rig.props()["note"].as_str().unwrap().contains("Update the app"));
+    assert!(rig.props()["info"].as_str().unwrap().contains("Update the app"));
 }
 
 impl Rig {
@@ -166,7 +166,7 @@ impl Rig {
 fn the_card_shows_only_what_the_lens_has() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     let p = rig.props();
-    assert!(p["take-enabled"] == true && p["note-shown"] == false);
+    assert!(p["take-enabled"] == true && p["info-shown"] == false);
     for row in ["format-shown", "mode-shown", "shots-shown", "exposure-shown", "best-shown", "distortion-shown"] {
         assert_eq!(p[row], false, "{row}");
     }

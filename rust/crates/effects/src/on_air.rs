@@ -155,7 +155,8 @@ fn hostname(netloc: &str) -> Option<String> {
     })
 }
 
-/// str.isprintable()'s idea of a character that can't be in an address: whitespace, controls and the invisible formatting ones.
+/// str.isprintable()'s idea of a character that can't be in an address: whitespace, controls and the invisible formatting ones. (Code
+/// points nobody has assigned yet count as printable, as Python's depends on its Unicode version.)
 fn unprintable(c: char) -> bool {
     c.is_whitespace() || c.is_control() || matches!(c, '\u{ad}' | '\u{600}'..='\u{605}' | '\u{61c}' | '\u{6dd}' | '\u{70f}' | '\u{200b}'..='\u{200f}'
         | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{206f}' | '\u{feff}' | '\u{fff9}'..='\u{fffb}' | '\u{e000}'..='\u{f8ff}')
@@ -218,6 +219,8 @@ pub fn webhook_request(url: &str, method: &str, payload: &str, on: bool) -> Webh
     let payload = if trimmed.is_empty() { default_payload(method, on) } else { trimmed.to_string() };
     let user_agent = format!("Telescope/{}", telescope_core::version::version());
     let (scheme, netloc, path, query, _) = urlsplit(url).unwrap_or_default();
+    // The fragment is never sent
+    let whole = url.split('#').next().unwrap_or(url).to_string();
     let without_fragment = |query: &str| {
         let mut out = format!("{scheme}://{netloc}{path}");
         if !query.is_empty() {
@@ -233,7 +236,7 @@ pub fn webhook_request(url: &str, method: &str, payload: &str, on: bool) -> Webh
         return WebhookRequest { url: without_fragment(&joined), method: Method::Get, body: None, content_type: None, user_agent };
     }
     let content_type = if loads(&payload).is_ok() { "application/json" } else { "text/plain; charset=utf-8" };
-    WebhookRequest { url: without_fragment(&query), method: Method::Post, body: Some(payload.into_bytes()), content_type: Some(content_type.into()), user_agent }
+    WebhookRequest { url: whole, method: Method::Post, body: Some(payload.into_bytes()), content_type: Some(content_type.into()), user_agent }
 }
 
 /// What a failed send says, short and never the address (it can hold a secret): Python's strerror for the things that go wrong on

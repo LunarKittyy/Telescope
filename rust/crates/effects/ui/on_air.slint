@@ -1,23 +1,4 @@
-// The On Air sign (desktop/telescope/plugins/on_air.py): the red button in the header while it's on, and the three cards of its tab in
-// Settings. Joined after parts.slint, which has the imports.
-
-// The header's "On air": only there while the sign is on
-export component OnAirButton inherits Rectangle {
-    in property <bool> shown;
-    in property <string> tip;
-    callback clicked;
-    visible: shown;
-    height: 36px;
-    width: shown ? button.min-width : 0px;
-    button := Button {
-        width: parent.width;
-        height: parent.height;
-        text: @tr("On air");
-        role: "danger";
-        tip: root.tip;
-        clicked => { root.clicked(); }
-    }
-}
+// The On Air sign's tab in Settings (desktop/telescope/plugins/on_air.py): three cards. Joined after parts.slint, which has the imports.
 
 // control_row with a one-line text box and the tooltip the box has in Qt
 component UrlRow inherits FormRow {
