@@ -1,0 +1,730 @@
+[
+ {
+  "plugin": "notes",
+  "input": {},
+  "output": {
+   "sets": [
+    ""
+   ],
+   "current": 0,
+   "size": 44,
+   "speed": 3,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "a",
+    5,
+    null
+   ],
+   "current": 9,
+   "size": "huge",
+   "speed": 99,
+   "scroll": "sideways"
+  },
+  "output": {
+   "sets": [
+    "a"
+   ],
+   "current": 0,
+   "size": 44,
+   "speed": 10,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": "not a list"
+  },
+  "output": {
+   "sets": [
+    ""
+   ],
+   "current": 0,
+   "size": 44,
+   "speed": 3,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "one",
+    "two",
+    "three"
+   ],
+   "current": 2,
+   "size": 70,
+   "speed": 7,
+   "scroll": "hand"
+  },
+  "output": {
+   "sets": [
+    "one",
+    "two",
+    "three"
+   ],
+   "current": 2,
+   "size": 70,
+   "speed": 7,
+   "scroll": "hand"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11"
+   ],
+   "current": 8
+  },
+  "output": {
+   "sets": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8"
+   ],
+   "current": 8,
+   "size": 44,
+   "speed": 3,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "x"
+   ],
+   "current": -1,
+   "size": 3,
+   "speed": 0
+  },
+  "output": {
+   "sets": [
+    "x"
+   ],
+   "current": 0,
+   "size": 16,
+   "speed": 1,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "x"
+   ],
+   "current": 1.0,
+   "size": 99.9,
+   "speed": "4"
+  },
+  "output": {
+   "sets": [
+    "x"
+   ],
+   "current": 0,
+   "size": 99,
+   "speed": 4,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [],
+   "size": null,
+   "speed": [
+    3
+   ]
+  },
+  "output": {
+   "sets": [
+    ""
+   ],
+   "current": 0,
+   "size": 44,
+   "speed": 3,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "notes",
+  "input": {
+   "sets": [
+    "multi\nline\n\ntext",
+    "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+   ],
+   "current": 1,
+   "size": 16,
+   "speed": 10
+  },
+  "output": {
+   "sets": [
+    "multi\nline\n\ntext",
+    "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+   ],
+   "current": 1,
+   "size": 16,
+   "speed": 10,
+   "scroll": "auto"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {},
+  "output": {
+   "on": false,
+   "name": "",
+   "pronouns": "",
+   "second": "",
+   "style": "bar",
+   "position": "bottom_left",
+   "size": "medium"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "on": true,
+   "name": "Luna",
+   "pronouns": "she/her",
+   "second": "Host",
+   "style": "pill",
+   "position": "top_right",
+   "size": "large"
+  },
+  "output": {
+   "on": true,
+   "name": "Luna",
+   "pronouns": "she/her",
+   "second": "Host",
+   "style": "pill",
+   "position": "top_right",
+   "size": "large"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "on": "yes",
+   "name": 5,
+   "style": "neon",
+   "position": "middle",
+   "size": "huge",
+   "second": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "output": {
+   "on": false,
+   "name": "",
+   "pronouns": "",
+   "second": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "style": "bar",
+   "position": "bottom_left",
+   "size": "medium"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "on": 1,
+   "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+   "style": "shadow",
+   "position": "bottom_centre",
+   "size": "small"
+  },
+  "output": {
+   "on": false,
+   "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+   "pronouns": "",
+   "second": "",
+   "style": "shadow",
+   "position": "bottom_centre",
+   "size": "small"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "size": [
+    "large"
+   ]
+  },
+  "output": null
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "style": [
+    "bar"
+   ],
+   "position": {
+    "a": 1
+   },
+   "name": [
+    "x"
+   ]
+  },
+  "output": {
+   "on": false,
+   "name": "",
+   "pronouns": "",
+   "second": "",
+   "style": "bar",
+   "position": "bottom_left",
+   "size": "medium"
+  }
+ },
+ {
+  "plugin": "name_tag",
+  "input": {
+   "on": true,
+   "pronouns": "  they/them  ",
+   "second": null
+  },
+  "output": {
+   "on": true,
+   "name": "",
+   "pronouns": "  they/them  ",
+   "second": "",
+   "style": "bar",
+   "position": "bottom_left",
+   "size": "medium"
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {},
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ],
+   "cleanup": "bw",
+   "shape": "a4",
+   "stretch": [
+    80,
+    130
+   ]
+  },
+  "output": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ],
+   "cleanup": "bw",
+   "shape": "a4",
+   "stretch": [
+    80,
+    130
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     "x"
+    ]
+   ],
+   "cleanup": "sepia",
+   "shape": "oval",
+   "stretch": [
+    500,
+    true
+   ]
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "stretch": [
+    10,
+    900
+   ],
+   "keep_shape": false
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "fill",
+   "stretch": [
+    50,
+    200
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.5
+    ],
+    [
+     0.4,
+     0.5
+    ],
+    [
+     0.6,
+     0.5
+    ],
+    [
+     0.9,
+     0.5
+    ]
+   ]
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0.9,
+     0.1
+    ],
+    [
+     0.1,
+     0.1
+    ],
+    [
+     0.9,
+     0.9
+    ],
+    [
+     0.1,
+     0.9
+    ]
+   ],
+   "shape": "square",
+   "cleanup": "contrast"
+  },
+  "output": {
+   "on": true,
+   "corners": [
+    [
+     0.9,
+     0.1
+    ],
+    [
+     0.1,
+     0.1
+    ],
+    [
+     0.9,
+     0.9
+    ],
+    [
+     0.1,
+     0.9
+    ]
+   ],
+   "cleanup": "contrast",
+   "shape": "square",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ],
+   "stretch": [
+    75.5,
+    120.4
+   ]
+  },
+  "output": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ],
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    76,
+    120
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": 1,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ]
+  },
+  "output": {
+   "on": false,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ],
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     0.2
+    ],
+    [
+     0.9,
+     0.8
+    ]
+   ]
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "on": true,
+   "corners": [
+    [
+     0.1,
+     0.2
+    ],
+    [
+     0.9,
+     NaN
+    ],
+    [
+     0.9,
+     0.8
+    ],
+    [
+     0.1,
+     0.8
+    ]
+   ]
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "auto",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "shape": "fill",
+   "keep_shape": true
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "fill",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ },
+ {
+  "plugin": "desk",
+  "input": {
+   "keep_shape": false
+  },
+  "output": {
+   "on": false,
+   "corners": null,
+   "cleanup": "off",
+   "shape": "fill",
+   "stretch": [
+    100,
+    100
+   ]
+  }
+ }
+]
