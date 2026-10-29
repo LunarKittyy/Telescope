@@ -200,11 +200,12 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     horizontal-stretch: 1;
                     padding-bottom: parent.shown ? 2px : 0px;
+                    // Slint's wrapped text box ends 4px below its last line, where Qt's label ends at it
                     Note {
                         text: note-text;
                         kind: note-kind;
                         visible: note-text != "";
-                        height: note-text != "" ? self.preferred-height : 0px;
+                        height: note-text != "" ? self.preferred-height - 4px : 0px;
                     }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;

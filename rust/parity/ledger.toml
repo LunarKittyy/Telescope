@@ -5106,7 +5106,7 @@
 "main-wide" = { status = "todo" }
 "warm" = { status = "todo" }
 # ── settings
-"settings-about" = { status = "todo" }
+"settings-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-audio" = { status = "todo" }
 "settings-devices" = { status = "todo" }
 "settings-general" = { status = "todo" }
