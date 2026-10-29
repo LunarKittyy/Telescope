@@ -424,6 +424,8 @@ pub struct SectionPlace {
     /// Index into the tabs.
     pub tab: usize,
     pub footer: Option<Piece>,
+    /// The plugin's category, for sections that are cards: their icon takes its hue like the main window's cards.
+    pub hue: Option<String>,
 }
 
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
@@ -457,7 +459,8 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         out.push_str(&format!(
             "    page{t} := ScrollPage {{\n        x: 260px;\n        y: 53px;\n        width: root.width - 276px;\n        height: root.height - 69px - {footer_h};\n        visible: !root.searching && root.current == {t};\n"));
         for s in sections.iter().filter(|s| s.tab == t) {
-            out.push_str(&format!("        {} := {}C {{ }}\n", s.piece.id, s.piece.id));
+            let hue = s.hue.as_ref().map(|c| format!("hue: Theme.plugin-hue({c:?}); ")).unwrap_or_default();
+            out.push_str(&format!("        {} := {}C {{ {hue}}}\n", s.piece.id, s.piece.id));
         }
         if Some(t) == plugins_tab {
             out.push_str(PLUGINS_PANEL);

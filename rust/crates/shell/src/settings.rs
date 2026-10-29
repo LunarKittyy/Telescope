@@ -149,10 +149,11 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
             }
         }
     }
-    let (panel, off) = {
+    let (panel, off, categories) = {
         let state = window.state.borrow();
+        let categories: std::collections::HashMap<String, String> = state.slots.iter().map(|s| (s.info.name.clone(), s.info.category.clone())).collect();
         let running = state.slots.iter().map(|s| s.info.name.clone()).collect();
-        (Panel::new(state.builtins.clone(), running, &state.file.load()), state.off.len())
+        (Panel::new(state.builtins.clone(), running, &state.file.load()), state.off.len(), categories)
     };
     let tabs = ordered_tabs(&sections, &Panel::tab_title(off));
     let plugins_tab = tabs.iter().position(|(id, _, _)| id == "plugins");
@@ -171,7 +172,9 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
                 pieces.push((plugin.clone(), format!("{}-footer", section.id), fid.clone()));
                 Piece { id: fid, file: ffile, component: f.component.clone(), iface: scan(&ftext, &f.component) }
             });
-            places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer });
+            let card = text.contains(&format!("component {} inherits Card", section.ui.component));
+            let hue = card.then(|| categories.get(plugin).cloned().unwrap_or_default());
+            places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer, hue });
         }
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
