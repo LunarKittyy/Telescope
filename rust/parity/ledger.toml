@@ -664,10 +664,10 @@
 "Browser microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Camera mic" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Camera microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
-"Couldn't install VB-Cable: {error}" = { status = "todo" }
+"Couldn't install VB-Cable: {error}" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Download and install" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
 "Downloading VB-Cable from vb-audio.com…" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
-"Evens out quiet and loud speech." = { status = "todo" }
+"Evens out quiet and loud speech." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
 "Get VB-Cable" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Install VB-Cable" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
 "Makes the browser mic louder or quieter for other apps. The range is in Advanced." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }

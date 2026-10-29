@@ -637,7 +637,10 @@ impl MicrophonePlugin {
         self.show(h, &tr("Setting up…"), "dim", None);
         let (gen, backend, poster) = (self.gen, self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
-            let err = backend.prepare();
+            let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.prepare())).unwrap_or_else(|e| {
+                log::error!("Microphone setup failed: {}", panic_text(&e));
+                tr("Couldn't create the virtual microphone: {error}").replace("{error}", &panic_text(&e))
+            });
             if let Some(p) = poster {
                 p.post(P_PREPARED, json!({"gen": gen, "error": err}));
             }
@@ -727,7 +730,10 @@ impl MicrophonePlugin {
         self.show(h, &tr("Downloading VB-Cable from vb-audio.com…"), "dim", None);
         let (backend, poster) = (self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
-            let err = backend.install();
+            let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.install())).unwrap_or_else(|e| {
+                log::error!("VB-Cable install failed: {}", panic_text(&e));
+                tr("Couldn't install VB-Cable: {error}").replace("{error}", &panic_text(&e))
+            });
             if let Some(p) = poster {
                 p.post(P_INSTALLED, json!({"error": err}));
             }
@@ -1141,6 +1147,11 @@ impl Plugin for MicrophonePlugin {
         }
         vec![("Microphone".into(), text)]
     }
+}
+
+/// What a panic said, as Python's str(exception).
+fn panic_text(e: &Box<dyn std::any::Any + Send>) -> String {
+    e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default()
 }
 
 /// A link's words without its markup: the card shows it as a button that opens VB-Audio's page.

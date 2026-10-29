@@ -204,6 +204,7 @@ export component MicrophoneCard inherits Card {
     switch-checked: on;
     switch-enabled: toggle-enabled;
     switch-label: toggle-name;
+    switch-tip: toggle-tip;
     switch-toggled(v) => { root.toggled(v); }
 
     changed confirm-open => {
@@ -257,6 +258,7 @@ export component MicrophoneCard inherits Card {
             y: 8px;
             checked: auto-level;
             label: @tr("Auto level");
+            tip: @tr("Evens out quiet and loud speech.");
             toggled(v) => { root.auto-toggled(v); }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -272,6 +274,7 @@ export component MicrophoneCard inherits Card {
                     checked: nr;
                     enabled: nr-enabled;
                     label: @tr("Noise reduction");
+                    tip: nr-tip;
                     toggled(v) => { root.nr-toggled(v); }
                 }
             }

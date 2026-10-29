@@ -439,6 +439,40 @@ fn setup_failure_is_shown() {
     assert!(r.made() == 0 && r.h.status().contains("no pulse"));
 }
 
+/// A backend whose setup and install fail with an error, as Python's raised exceptions did.
+struct Crashing;
+
+impl MicBackend for Crashing {
+    fn pick_name(&self) -> String {
+        "Telescope Microphone".into()
+    }
+    fn problem(&self) -> Option<Problem> {
+        None
+    }
+    fn prepare(&self) -> String {
+        panic!("pactl is not responding")
+    }
+    fn open_sink(&self) -> OpenSink {
+        Arc::new(|| Err("none".into()))
+    }
+    fn teardown(&self) {}
+    fn install(&self) -> String {
+        panic!("no disk")
+    }
+}
+
+#[test]
+fn a_setup_or_install_that_fails_with_an_error_says_so() {
+    let mut r = Rig::new(Arc::new(Crashing));
+    r.set_config(json!({"enabled": true}));
+    r.start("phone");
+    assert_eq!(r.h.status(), "Couldn't create the virtual microphone: pactl is not responding");
+    r.p.action_url = INSTALL.into();
+    r.ui("fix-clicked", vec![]);
+    r.ui("confirm-answered", vec![json!(true)]);
+    assert_eq!(r.h.status(), "Couldn't install VB-Cable: no disk");
+}
+
 #[test]
 fn shutdown_stops_and_tears_down() {
     let b = backend();
