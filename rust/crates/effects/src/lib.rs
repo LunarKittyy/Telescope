@@ -4,6 +4,10 @@
 pub mod chroma_key;
 pub mod cpu;
 pub mod cube;
+pub mod fun_effects;
+pub mod fun_pack;
+pub mod imgops;
+pub mod mosh;
 pub mod editors;
 pub mod grade;
 pub mod colour_grading;
