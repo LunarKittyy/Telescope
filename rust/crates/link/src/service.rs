@@ -11,7 +11,7 @@ use crate::sensors::SensorHub;
 use crate::shared::Shared;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, Resolution, RoutePreference,
                            RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice};
@@ -90,8 +90,11 @@ impl LinkService {
         let base = format!("https://{host}/v1");
         let auth = auth_of(phone);
         // Carried controls keep going to the running route; the stream flow retargets them once this one proved itself
-        let controls = controls.unwrap_or_else(|| Arc::new(ControlClient::new(&video_url, auth.clone())) as Arc<dyn PhoneControl>);
-        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls, tunnels: self.tunnels.clone() })
+        let carried = OnceLock::new();
+        if let Some(c) = controls {
+            let _ = carried.set(c);
+        }
+        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls: carried, tunnels: self.tunnels.clone() })
     }
 }
 
@@ -274,18 +277,31 @@ pub struct Session {
     pub base: String,
     auth: PhoneAuth,
     forward: Option<String>,
-    controls: Arc<dyn PhoneControl>,
+    /// Made when first asked for, so a start whose wake fails leaves no control thread behind (Python makes the
+    /// client after the wake).
+    controls: OnceLock<Arc<dyn PhoneControl>>,
     tunnels: Arc<UsbTunnels>,
+}
+
+impl Session {
+    /// Whether its controls exist yet (and with them their worker thread).
+    fn has_controls(&self) -> bool {
+        self.controls.get().is_some()
+    }
+
+    fn the_controls(&self) -> &Arc<dyn PhoneControl> {
+        self.controls.get_or_init(|| Arc::new(ControlClient::new(&self.video_url, self.auth.clone())))
+    }
 }
 
 impl Control for Session {
     fn send(&self, body: &Value) -> Result<(), String> {
-        self.controls.send(body);
+        self.the_controls().send(body);
         Ok(())
     }
 
     fn state(&self) -> Result<Value, String> {
-        self.controls.get_state().ok_or_else(|| "the phone didn't answer with its state".into())
+        self.the_controls().get_state().ok_or_else(|| "the phone didn't answer with its state".into())
     }
 
     fn has_audio(&self) -> bool {
@@ -343,7 +359,7 @@ impl PhoneSession for Session {
     }
 
     fn controls(&self) -> Option<Arc<dyn PhoneControl>> {
-        Some(self.controls.clone())
+        Some(self.the_controls().clone())
     }
 }
 
@@ -519,6 +535,20 @@ mod tests {
         assert!(started.elapsed() < Duration::from_millis(300), "release waited {:?} for adb", started.elapsed());
         let removed = rx.iter().find(|cmd| cmd.iter().any(|a| a == "--remove"));
         assert!(removed.is_some_and(|cmd| cmd.contains(&"tcp:41000".to_string())));
+    }
+
+    #[test]
+    fn a_session_starts_its_controls_only_once_asked_for_them() {
+        let link = LinkService::with_discovery(LanDiscovery::default());
+        let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
+        // A start whose wake failed: the session goes without a control thread left behind
+        let failed = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
+        assert!(!failed.has_controls());
+        failed.release();
+        let woke = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
+        let controls = woke.controls().unwrap();
+        assert!(woke.has_controls() && Arc::ptr_eq(&controls, &woke.controls().unwrap()));
+        controls.close();
     }
 
     struct ToServer(u16);
