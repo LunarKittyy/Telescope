@@ -91,6 +91,11 @@ pub struct ColourStage {
     pub size: u32,
     /// size³ RGB triples, red changing fastest, 0..1.
     pub rgb: Arc<Vec<f32>>,
+    /// Only for a change where each channel's output depends on that channel's input alone (curves, gains): its
+    /// output for every input level 0..255 as 256 RGB triples. A pipeline of only such stages is applied as exact
+    /// tables instead of a 3D LUT, as per_channel does in Python.
+    #[serde(default)]
+    pub table: Option<Arc<Vec<f32>>>,
 }
 
 /// The newest frames of every stream, from any thread and without copying (HostFrames).

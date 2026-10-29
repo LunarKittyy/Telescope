@@ -2,6 +2,7 @@
 
 pub mod audio;
 pub mod bus;
+pub mod colour;
 pub mod config;
 pub mod event;
 pub mod frame;
