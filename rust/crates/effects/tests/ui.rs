@@ -5,6 +5,7 @@ use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::SlintSource;
 use telescope_effects::colour_grading::ColourGradingPlugin;
+use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 
@@ -65,12 +66,16 @@ fn has_what_the_plugin_uses(plugin: &mut dyn Plugin, callbacks: &[&str]) {
     }
 }
 
+/// One test, because Slint's platform lives on the thread that first builds an instance.
 #[test]
-fn the_notes_card_compiles_and_has_what_the_plugin_uses() {
-    let mut p = NotesPlugin::new();
-    compile(&mut p);
-    has_what_the_plugin_uses(&mut p, &[
+fn the_cards_have_what_their_plugins_use() {
+    let mut notes = NotesPlugin::new();
+    compile(&mut notes);
+    has_what_the_plugin_uses(&mut notes, &[
         "set-picked", "new-clicked", "delete-clicked", "text-edited", "size-moved", "scroll-picked", "speed-moved", "back-clicked",
         "play-toggled", "next-clicked", "send-clicked", "clear-clicked",
     ]);
+    let mut tag = NameTagPlugin::new();
+    compile(&mut tag);
+    has_what_the_plugin_uses(&mut tag, &["switch-toggled-by-hand", "text-edited", "choice-picked"]);
 }
