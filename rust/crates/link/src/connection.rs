@@ -52,23 +52,14 @@ impl Tunnels for UsbTunnels {
     }
 }
 
-/// What the Stream output card picked, as far as the video path goes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct StreamFormat {
-    /// Light (H.264) rather than Heavy (MJPEG).
-    pub h264: bool,
-    /// Dynamic bitrate (bitrate_mbps -1).
-    pub dynamic: bool,
-}
+pub use telescope_core::link::StreamFormat;
 
-impl StreamFormat {
-    /// From host.plugin_config("stream_output"); h264_available says whether this computer decodes H.264.
-    pub fn from_config(cfg: Option<&Value>, h264_available: bool) -> StreamFormat {
-        let cfg = cfg.and_then(Value::as_object);
-        let h264 = cfg.and_then(|c| c.get("format")).and_then(Value::as_str) == Some("h264") && h264_available;
-        let dynamic = cfg.and_then(|c| c.get("bitrate_mbps")).is_some_and(|b| b.as_f64() == Some(-1.0));
-        StreamFormat { h264, dynamic }
-    }
+/// The StreamFormat from host.plugin_config("stream_output"); h264_available says whether this computer decodes H.264.
+pub fn stream_format(cfg: Option<&Value>, h264_available: bool) -> StreamFormat {
+    let cfg = cfg.and_then(Value::as_object);
+    let h264 = cfg.and_then(|c| c.get("format")).and_then(Value::as_str) == Some("h264") && h264_available;
+    let dynamic = cfg.and_then(|c| c.get("bitrate_mbps")).is_some_and(|b| b.as_f64() == Some(-1.0));
+    StreamFormat { h264, dynamic }
 }
 
 pub const VIDEO_MJPEG: &str = "/v1/video";
@@ -1502,8 +1493,8 @@ mod tests {
         let (mut c, _) = model();
         add(&mut c, "id-a");
         let cfg = json!({"format": "h264"});
-        assert!(c.hold_stream_route(&wifi(), None, StreamFormat::from_config(Some(&cfg), true)).unwrap().ends_with("/v1/video.h264"));
-        assert!(c.hold_stream_route(&wifi(), None, StreamFormat::from_config(Some(&cfg), false)).unwrap().ends_with("/v1/video"));
+        assert!(c.hold_stream_route(&wifi(), None, stream_format(Some(&cfg), true)).unwrap().ends_with("/v1/video.h264"));
+        assert!(c.hold_stream_route(&wifi(), None, stream_format(Some(&cfg), false)).unwrap().ends_with("/v1/video"));
     }
 
     #[test]
