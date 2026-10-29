@@ -1523,6 +1523,15 @@ mod tests {
     }
 
     #[test]
+    fn rename_dialog_line_edit_has_a_length_cap() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.ui("header", "rename", vec![json!("id-a"), json!("x".repeat(500))]);
+        let name = e.props("header")["names"][0].as_str().unwrap().to_string();
+        assert_eq!(name.chars().count(), crate::util::MAX_NAME_CHARS);
+    }
+
+    #[test]
     fn computer_name_can_be_renamed_from_the_phones_dialog() {
         let mut e = env();
         e.ui("header", "manage", vec![]);
