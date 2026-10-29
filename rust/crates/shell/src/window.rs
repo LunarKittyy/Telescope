@@ -334,6 +334,14 @@ impl Window {
         self.show_banners();
     }
 
+    /// Runs a callback of a plugin's card or header widget as if it had been clicked (scene renders open dialogs this way).
+    pub fn call_ui(self: &Rc<Self>, plugin: &str, ui: &str, callback: &str) -> bool {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
+        let done = self.ui.invoke(&format!("{}-{callback}", r.id), &[]).is_ok();
+        self.process();
+        done
+    }
+
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return };
         for (k, v) in props.as_object().into_iter().flatten() {

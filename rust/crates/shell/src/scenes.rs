@@ -18,10 +18,14 @@ pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-mediu
 pub const WIDTH_THREE_COL: f32 = 1300.0;
 pub const WIDTH_TWO_COL: f32 = 900.0;
 
-/// What a scene draws: the main window, or one tab of the settings window (settings_window._SIZE).
+/// What a scene draws: the main window, one tab of the settings window (settings_window._SIZE), or a popup on its own,
+/// cut out of the window (Qt draws dialogs as windows of their own).
 pub enum Page {
     Window,
     Settings(String),
+    /// The type name of the component that frames the popup, and of the one that opens it at its own top left (positions
+    /// inside a popup start from the popup).
+    Dialog { frame: String, owner: String },
 }
 
 /// How to put the window in a scene's state.
@@ -126,6 +130,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }
     let picture = match &setup.page {
         Page::Window => grown(&w, setup.width, setup.height, scale),
+        Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w, &p, frame, owner, scale)),
         Page::Settings(tab) => {
             let settings = crate::settings::build(&w)?;
             settings.show_tab(tab);
@@ -185,6 +190,25 @@ impl Plugin for StandIn {
     fn info(&self) -> PluginInfo {
         self.0.clone()
     }
+}
+
+/// The part of picture the last open element of type frame covers, in a popup opened by an element of type owner.
+fn cut_out(w: &window::Window, picture: &crate::offscreen::Picture, frame: &str, owner: &str, scale: f32) -> Option<crate::offscreen::Picture> {
+    use i_slint_backend_testing::ElementHandle;
+    let found = ElementHandle::find_by_element_type_name(&w.ui, frame).last()?;
+    let at = ElementHandle::find_by_element_type_name(&w.ui, owner).next()?.absolute_position();
+    let (mut pos, size) = (found.absolute_position(), found.size());
+    pos.x += at.x;
+    pos.y += at.y;
+    let px = |v: f32| (v * scale).round().max(0.0) as u32;
+    let (x, y) = (px(pos.x).min(picture.width), px(pos.y).min(picture.height));
+    let (width, height) = (px(size.width).min(picture.width - x), px(size.height).min(picture.height - y));
+    let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+    for row in y..y + height {
+        let start = ((row * picture.width + x) * 4) as usize;
+        rgba.extend_from_slice(&picture.rgba[start..start + (width * 4) as usize]);
+    }
+    Some(crate::offscreen::Picture { width, height, rgba })
 }
 
 /// text_fit._grow_to_content: the window at width, as tall as its columns need (height at least).
