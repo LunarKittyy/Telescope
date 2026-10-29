@@ -52,6 +52,9 @@ slint-build = "1.18"
 mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Unpacking the Linux update's .tar.gz, on the same zlib as zip
+tar = { version = "0.4", default-features = false }
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 # Reading Google's SDK index for the adb download on Windows
 roxmltree = "0.21"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }

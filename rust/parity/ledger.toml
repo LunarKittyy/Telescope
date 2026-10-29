@@ -1569,15 +1569,15 @@
 "{n}×" = { status = "todo" }
 "{owner} is moving the zoom and pan" = { status = "todo" }
 # ── updates
-"Cancelled." = { status = "todo" }
+"Cancelled." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "Check daily" = { status = "todo" }
 "Check now" = { status = "todo" }
 "Checking for new versions of Telescope and installing them." = { status = "todo" }
-"Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "todo" }
-"Couldn't check for updates (HTTP {code})." = { status = "todo" }
+"Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
+"Couldn't check for updates (HTTP {code})." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't check for updates." = { status = "todo" }
-"Couldn't check for updates. Check the internet connection." = { status = "todo" }
-"Couldn't replace Telescope's files: {error}" = { status = "todo" }
+"Couldn't check for updates. Check the internet connection." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
+"Couldn't replace Telescope's files: {error}" = { status = "ported", rust = "rust/crates/system/src/updates.rs::swap" }
 "Couldn't start the installer: {error}" = { status = "todo" }
 "Downloading {percent}%…" = { status = "todo" }
 "Downloading…" = { status = "todo" }
@@ -1585,7 +1585,7 @@
 "Keep this copy where it is" = { status = "todo" }
 "Nightly" = { status = "todo" }
 "Nightly: built from every change. Fixes first, less tested." = { status = "todo" }
-"Only the packaged app can update itself." = { status = "todo" }
+"Only the packaged app can update itself." = { status = "dropped", reason = "A Rust build is always the packaged app; only a dev-channel build is a source checkout" }
 "Open download page" = { status = "todo" }
 "Stable" = { status = "todo" }
 "Stop streaming to update." = { status = "todo" }
@@ -1593,25 +1593,25 @@
 "Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "todo" }
 "Telescope {version} is available" = { status = "todo" }
 "Telescope {version} is available." = { status = "todo" }
-"Telescope's folder isn't writable, so it can't update itself." = { status = "todo" }
-"The download couldn't be unpacked." = { status = "todo" }
-"The download didn't match its checksum, so it wasn't installed." = { status = "todo" }
-"The download doesn't contain Telescope, so it wasn't installed." = { status = "todo" }
-"The download failed. Check the internet connection and try again." = { status = "todo" }
-"The download is bigger than it should be." = { status = "todo" }
-"The download was cut short. Check the internet connection and try again." = { status = "todo" }
+"Telescope's folder isn't writable, so it can't update itself." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
+"The download couldn't be unpacked." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
+"The download didn't match its checksum, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download doesn't contain Telescope, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
+"The download failed. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download is bigger than it should be." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download was cut short. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "The installer stopped (code {code}), so this copy stays as it is." = { status = "todo" }
 "The installer took too long, so this copy stays as it is." = { status = "todo" }
 "The latest nightly build is {version}." = { status = "todo" }
 "The latest stable build is {version}." = { status = "todo" }
-"The update contains unexpected files, so it wasn't installed." = { status = "todo" }
-"The update contains unexpected paths, so it wasn't installed." = { status = "todo" }
+"The update contains unexpected files, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
+"The update contains unexpected paths, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "The update failed." = { status = "todo" }
-"The update information couldn't be read." = { status = "todo" }
+"The update information couldn't be read." = { status = "ported", rust = "rust/crates/system/src/updates.rs::parse_manifest" }
 "There's no nightly release yet." = { status = "todo" }
 "There's no stable release yet." = { status = "todo" }
 "This is a source checkout, so it doesn't update itself." = { status = "todo" }
-"This is a source checkout. Update it with git." = { status = "todo" }
+"This is a source checkout. Update it with git." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
 "This version" = { status = "todo" }
 "Unzipped copy" = { status = "todo" }
 "Update and restart" = { status = "todo" }
@@ -1627,7 +1627,7 @@
 "search|portable keep this copy where it is zip folder in place windows" = { status = "todo" }
 "search|stable nightly beta release track builds testing" = { status = "todo" }
 "search|update upgrade new version release download install latest" = { status = "todo" }
-"{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "todo" }
+"{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 # ── vcam
 "Waiting for camera" = { status = "todo" }
 # ── vision_pack
@@ -4376,32 +4376,32 @@
 "test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs", note = "confirm_on_terminate is a no-op off unix" }
 # ── updates
-"test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "todo" }
-"test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "todo" }
-"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "todo" }
-"test_updates.py::test_a_rolled_back_build_is_named_and_can_be_tried_again" = { status = "todo" }
-"test_updates.py::test_a_source_checkout_or_read_only_folder_only_gets_a_link" = { status = "todo" }
-"test_updates.py::test_an_archive_escaping_its_folder_is_refused" = { status = "todo" }
-"test_updates.py::test_clean_up_leaves_lib_folders_alone_without_knowing_which_one_is_running" = { status = "todo" }
-"test_updates.py::test_default_channel_follows_the_build" = { status = "todo" }
-"test_updates.py::test_download_can_be_cancelled" = { status = "todo" }
-"test_updates.py::test_download_refuses_what_doesnt_match" = { status = "todo" }
-"test_updates.py::test_download_update_does_not_accept_an_invalid_replacement" = { status = "todo" }
-"test_updates.py::test_download_update_does_not_refresh_after_success_or_cancellation" = { status = "todo" }
-"test_updates.py::test_download_update_recovers_when_a_nightly_is_replaced" = { status = "todo" }
-"test_updates.py::test_download_verifies_and_reports_progress" = { status = "todo" }
-"test_updates.py::test_fetch_uses_the_channel_url_and_treats_404_as_no_release" = { status = "todo" }
-"test_updates.py::test_linux_install_rolls_back_when_a_swap_fails" = { status = "todo" }
-"test_updates.py::test_linux_install_swaps_the_app_and_keeps_the_old_one" = { status = "todo" }
-"test_updates.py::test_newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" = { status = "todo" }
+"test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_check_without_internet_fails_with_a_message" }
+"test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_download_without_internet_fails_and_leaves_nothing" }
+"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_folder_build_update_adds_its_own_libs_and_the_old_ones_wait_for_the_confirm", note = "This app has no lib folder of its own, so clean_up_after_update removes every lib-* once confirmed" }
+"test_updates.py::test_a_rolled_back_build_is_named_and_can_be_tried_again" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_rolled_back_build_is_named_and_can_be_tried_again" }
+"test_updates.py::test_a_source_checkout_or_read_only_folder_only_gets_a_link" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_source_checkout_or_read_only_folder_only_gets_a_link" }
+"test_updates.py::test_an_archive_escaping_its_folder_is_refused" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_archive_escaping_its_folder_is_refused" }
+"test_updates.py::test_clean_up_leaves_lib_folders_alone_without_knowing_which_one_is_running" = { status = "dropped", reason = "The Rust app has no lib-<build> folder; once an update is confirmed every lib-* left is the Python build's and goes" }
+"test_updates.py::test_default_channel_follows_the_build" = { status = "ported", rust = "rust/crates/system/src/updates.rs::default_channel_follows_the_build" }
+"test_updates.py::test_download_can_be_cancelled" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_can_be_cancelled" }
+"test_updates.py::test_download_refuses_what_doesnt_match" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_refuses_what_doesnt_match" }
+"test_updates.py::test_download_update_does_not_accept_an_invalid_replacement" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_does_not_accept_an_invalid_replacement" }
+"test_updates.py::test_download_update_does_not_refresh_after_success_or_cancellation" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_does_not_refresh_after_success_or_cancellation" }
+"test_updates.py::test_download_update_recovers_when_a_nightly_is_replaced" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_recovers_when_a_nightly_is_replaced" }
+"test_updates.py::test_download_verifies_and_reports_progress" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_verifies_and_reports_progress" }
+"test_updates.py::test_fetch_uses_the_channel_url_and_treats_404_as_no_release" = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_uses_the_channel_url_and_treats_404_as_no_release" }
+"test_updates.py::test_linux_install_rolls_back_when_a_swap_fails" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_rolls_back_when_a_swap_fails" }
+"test_updates.py::test_linux_install_swaps_the_app_and_keeps_the_old_one" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_swaps_the_app_and_keeps_the_old_one" }
+"test_updates.py::test_newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" = { status = "ported", rust = "rust/crates/system/src/updates.rs::newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" }
 "test_updates.py::test_note_installed_version_leaves_another_copys_entry" = { status = "todo" }
 "test_updates.py::test_note_installed_version_updates_the_apps_entry" = { status = "todo" }
-"test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "todo" }
-"test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "todo" }
-"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "todo" }
-"test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "todo" }
-"test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "todo" }
-"test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "todo" }
+"test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "ported", rust = "rust/crates/system/src/updates.rs::parses_a_manifest_and_names_its_version" }
+"test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "ported", rust = "rust/crates/system/src/updates.rs::rejects_a_manifest_it_cant_trust" }
+"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_first_folder_build_installs_over_the_single_exe" }
+"test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_new_lib_folder_is_in_place_before_the_exe_is_swapped" }
+"test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_refuses_an_archive_without_the_app" }
+"test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_renames_the_running_exe_and_replaces_changed_files" }
 "test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "todo" }
 "test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "todo" }
 "test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "todo" }
@@ -4511,8 +4511,8 @@
 "test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched" = { status = "todo" }
 "test_vcam.py::test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" = { status = "todo" }
 # ── version
-"test_version.py::test_a_source_checkout_is_dev_and_reads_the_version_file" = { status = "todo" }
-"test_version.py::test_a_stamped_build_reports_itself" = { status = "todo" }
+"test_version.py::test_a_source_checkout_is_dev_and_reads_the_version_file" = { status = "ported", rust = "rust/crates/system/src/version.rs::a_source_build_is_dev_with_the_repo_version" }
+"test_version.py::test_a_stamped_build_reports_itself" = { status = "ported", rust = "rust/crates/system/src/version.rs::a_stamped_build_reports_itself" }
 # ── view_controller
 "test_view_controller.py::test_a_framing_the_phone_share_cant_show_gets_one_at_once" = { status = "todo" }
 "test_view_controller.py::test_a_frozen_step_keeps_the_view_it_was_taken_with" = { status = "todo" }
@@ -6079,10 +6079,10 @@
 "env:USERPROFILE" = { status = "todo" }
 "folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "todo" }
 "folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "todo" }
-"folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "todo" }
+"folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "folder:telescope/updates.py:_keep_adb:shutil.rmtree" = { status = "todo" }
-"folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "todo" }
-"folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "todo" }
+"folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
+"folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 "registry:Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" = { status = "todo" }
 "run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "todo" }
 "run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "todo" }

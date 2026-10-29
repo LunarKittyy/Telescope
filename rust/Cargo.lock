@@ -4744,11 +4744,15 @@ dependencies = [
 name = "telescope-system"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "libc",
  "log",
  "ring",
  "serde_json",
+ "tar",
  "telescope-core",
+ "ureq",
+ "zip",
 ]
 
 [[package]]
