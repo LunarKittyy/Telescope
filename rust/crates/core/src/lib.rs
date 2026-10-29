@@ -25,6 +25,7 @@ pub mod text;
 pub mod testing;
 pub mod time;
 pub mod ui;
+pub mod version;
 pub mod view;
 pub mod view_step;
 pub mod web;

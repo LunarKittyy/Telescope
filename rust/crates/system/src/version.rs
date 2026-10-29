@@ -4,7 +4,7 @@ pub const REPO: &str = "LunarKittyy/Telescope";
 
 /// The repo's VERSION file, as the Python app reads it.
 pub fn version() -> &'static str {
-    include_str!("../../../../VERSION").trim()
+    telescope_core::version::version()
 }
 
 /// The commit count on master; 0 for a source build.
