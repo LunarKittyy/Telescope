@@ -20,3 +20,6 @@ qrcode.workspace = true
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
 
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true

@@ -575,6 +575,15 @@ impl Window {
                 None => open_url(&url),
             },
             Effect::CopyText(text) => self.copy_text(&text),
+            Effect::PickFile { plugin, request, dialog } => {
+                std::thread::spawn(move || {
+                    let (ok, message, data) = crate::file_dialog::ask(&dialog);
+                    let _ = slint::invoke_from_event_loop(move || with_window(|w| {
+                        w.state.borrow_mut().deliver_to(&plugin, &Event::RequestDone { request, ok, message, data });
+                        w.process();
+                    }));
+                });
+            }
             Effect::HandOver { source_id, route, url } => self.hand_over(&source_id, route, url),
             other => log::debug!("not handled yet: {other:?}"),
         }

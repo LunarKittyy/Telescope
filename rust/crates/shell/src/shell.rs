@@ -50,6 +50,8 @@ pub enum Effect {
     UpdateOutput { change: telescope_core::host::OutputChange, source_id: Option<String> },
     /// Host::make_main: the mic and the plugins that stay with it move to this stream.
     MakeMain(String),
+    /// Host::pick_file: plugin's request, answered by a RequestDone once the person picks.
+    PickFile { plugin: String, request: RequestId, dialog: telescope_core::host::FileDialog },
     /// Host::copy_text: this goes on the clipboard.
     CopyText(String),
     /// Host::open_url: a link for the browser.
