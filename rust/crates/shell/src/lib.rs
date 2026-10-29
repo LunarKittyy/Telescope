@@ -28,6 +28,7 @@ pub mod shell;
 pub mod host;
 pub mod keys;
 pub mod view;
+pub mod view_control;
 pub mod window;
 pub mod worker;
 

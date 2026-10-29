@@ -138,6 +138,20 @@ impl telescope_core::host::Poster for PluginPoster {
     }
 }
 
+/// Keeps a copy of each frame on its way into the colour step, for the preview's before and after (colour_split).
+struct KeepBefore(Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>);
+
+impl telescope_core::frame::CpuStep for KeepBefore {
+    fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
+        self.0.lock().unwrap().insert(ctx.source_id().to_string(), frame.clone());
+    }
+}
+
+/// Monotonic seconds, the view controller's clock.
+pub fn now_s() -> f64 {
+    telescope_core::time::monotonic_ns() as f64 / 1e9
+}
+
 pub struct State {
     pub slots: Vec<Slot>,
     pub panels: Panels,
@@ -150,8 +164,12 @@ pub struct State {
     pub selected: Option<String>,
     pub streams: Streams,
     pub view: View,
+    /// Splits the view's zoom between the phone and this computer (view_control.rs).
+    pub vc: crate::view_control::ViewController,
     /// Every plugin's colour change, baked into the one LUT the Colour stage runs.
     pub colour: ColourPipeline,
+    /// While Colour grading compares: each stream's newest frame from just before the colour step, for the preview.
+    pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -190,7 +208,9 @@ impl State {
             selected: None,
             streams: Streams::default(),
             view: View::default(),
+            vc: crate::view_control::ViewController::new(),
             colour: ColourPipeline::new(),
+            colour_before: Arc::default(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -415,6 +435,17 @@ impl State {
     /// A stream hook on the named plugins, in registration order.
     pub fn call_hook(&mut self, names: &[String], hook: &crate::stream_flow::Hook) {
         use crate::stream_flow::Hook;
+        if names.iter().any(|n| n == "view") {
+            let (vc, view, now) = (&mut self.vc, &self.view, now_s());
+            let said = match hook {
+                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, now),
+                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, now),
+                Hook::StreamStop => vc.stream_stop(view, now),
+                Hook::FocusLost => vc.focus_lost(view, now),
+                _ => Vec::new(),
+            };
+            self.apply_said(said);
+        }
         for i in 0..self.slots.len() {
             if !names.contains(&self.slots[i].info.name) {
                 continue;
@@ -431,16 +462,38 @@ impl State {
         }
     }
 
+    /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
+    pub fn apply_said(&mut self, said: Vec<crate::view_control::Said>) {
+        use crate::view_control::Said;
+        for s in said {
+            match s {
+                Said::Emit(event) => self.bus.emit(event),
+                Said::Zoom(p) => self.effects.push(Effect::PhoneControl { source_id: None, body: crate::view_control::zoom_body(&p) }),
+                Said::Restep => {
+                    if !self.effects.contains(&Effect::FrameStep("view".into())) {
+                        self.effects.push(Effect::FrameStep("view".into()));
+                    }
+                }
+            }
+        }
+    }
+
     /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
     pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
         use telescope_core::frame::FrameStage;
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps(&self.view) {
+        for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
         }
         if let Some(step) = self.colour.step(None) {
+            if self.colour.split().is_some() {
+                let keep = KeepBefore(self.colour_before.clone());
+                steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
+            } else {
+                self.colour_before.lock().unwrap().clear();
+            }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
         }
         for i in 0..self.slots.len() {
@@ -571,6 +624,10 @@ impl State {
             while let Some(event) = self.bus.next() {
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
+                }
+                if let Event::CameraSwitched { camera } = &event {
+                    let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
+                    self.apply_said(said);
                 }
                 self.each(|p, host| p.on_event(host, &event));
             }
@@ -917,6 +974,42 @@ mod tests {
         assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "one at a time");
         s.streams.can_hand_over = vec!["p1".into()];
         assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "link has no route ready");
+    }
+
+
+    struct NoCtx;
+
+    impl telescope_core::frame::FrameContext for NoCtx {
+        fn source_id(&self) -> &str {
+            "p1"
+        }
+        fn person_mask(&self, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &telescope_core::Frame) -> telescope_core::Frame {
+            frame.clone()
+        }
+    }
+
+    #[test]
+    fn comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview() {
+        use telescope_core::frame::{FrameStage, FrameStep};
+        let mut s = state();
+        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        let colour = |s: &mut State| s.pipeline_steps().into_iter().filter(|st| st.stage == FrameStage::Colour)
+            .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();
+        assert_eq!(colour(&mut s), [false], "just the LUT");
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps();
+        let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
+        let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
+        let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
+        step.process(&mut frame, &NoCtx);
+        assert_eq!(*s.colour_before.lock().unwrap()["p1"].data, vec![9; 8]);
+        s.colour.set_split("grade", None);
+        assert_eq!(colour(&mut s), [false]);
+        assert!(s.colour_before.lock().unwrap().is_empty());
     }
 
 }
