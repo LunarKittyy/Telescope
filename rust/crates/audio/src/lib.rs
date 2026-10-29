@@ -1,4 +1,7 @@
-//! The phone's microphone into a virtual microphone, behind core's Audio trait: a skeleton (phone audio, Linux and Windows virtual mics, RNNoise, auto level to come).
+//! The phone's microphone into a virtual microphone (audio.py, denoise.py, platform/virtual_mic.py and the Microphone
+//! plugin).
+
+pub mod jitter;
 
 use telescope_core::audio::{Audio, AudioFeed, MicSettings, MicStream};
 
