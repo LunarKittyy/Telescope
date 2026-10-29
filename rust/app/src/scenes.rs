@@ -11,6 +11,7 @@ use telescope_core::services::Services;
 use telescope_core::source::{PairedPhone, RouteSpec};
 use telescope_core::link::PhoneSession;
 use telescope_system::updates::{Asset, InstallResult, Manifest};
+use telescope_system::shortcuts::{RemoteActions, ShortcutsPlugin};
 use telescope_system::updates_plugin::{Backend, UpdatesPlugin};
 use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, WIDTH_THREE_COL, WIDTH_TWO_COL};
 
@@ -120,6 +121,8 @@ fn services(link: SceneLink) -> Arc<Services> {
             vec![
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
+                // No global shortcuts: the scenes stay away from this computer's desktop
+                Box::new(ShortcutsPlugin::with_backend(RemoteActions::default(), Box::new(|_| None))),
             ]
         }),
     })

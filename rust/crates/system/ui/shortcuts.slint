@@ -1,0 +1,394 @@
+// The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
+// card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
+
+import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch } from "@ui-kit/ui-kit.slint";
+
+export struct BindingRow {
+    keys: string,
+    does: string,
+    where: string,
+    ok: bool,
+    copy-ok: bool,
+    edit-label: string,
+    remove-label: string,
+}
+
+// One setting of the action being bound: a choice (items, current) or a number typed as text
+export struct ParamRow {
+    label: string,
+    number: bool,
+    items: [string],
+    current: int,
+    text: string,
+    shown: bool,
+}
+
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    font-family: Theme.font;
+    font-size: Theme.body;
+    color: kind == "status_warn" ? Theme.warn : kind == "" ? Theme.text : Theme.text-dim;
+    wrap: word-wrap;
+    vertical-alignment: center;
+}
+
+// One setting as a raised strip (setting_row): its name with a line under it, and its control on the right
+component SettingStrip inherits Rectangle {
+    in property <string> title;
+    in property <string> sub;
+    min-height: 46px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-raise;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 12px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 1px;
+            alignment: center;
+            Note { text: title; kind: ""; }
+            if sub != "": Note { text: sub; font-size: Theme.small; }
+        }
+        @children
+    }
+}
+
+// A shortcut as a strip: the key, what it does with where it works (or why not, in amber) under it, edit and remove
+component Strip inherits Rectangle {
+    in property <BindingRow> item;
+    callback edit;
+    callback remove;
+    callback copy-line;
+    min-height: 48px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
+    background: Theme.surface-raise;
+    menu := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Copy command line");
+                enabled: item.copy-ok;
+                activated => { root.copy-line(); }
+            }
+        }
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.edit(); }
+        }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 6px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 12px;
+        Rectangle {
+            width: 150px;
+            HorizontalLayout {
+                alignment: start;
+                Rectangle {
+                    height: 26px;
+                    y: (parent.height - self.height) / 2;
+                    width: min(key.preferred-width + 16px, 150px);
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: Theme.border-strong;
+                    background: Theme.bg;
+                    key := Text {
+                        text: item.keys;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: 600;
+                        color: Theme.text;
+                        overflow: elide;
+                        width: parent.width - 16px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            min-width: 120px;
+            spacing: 1px;
+            alignment: center;
+            Text {
+                text: item.does;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text;
+                overflow: elide;
+            }
+            Text {
+                text: item.where;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: item.ok ? Theme.text-dim : Theme.warn;
+                overflow: elide;
+            }
+        }
+        IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: Icons.pencil;
+            label: item.edit-label;
+            clicked => { root.edit(); }
+        }
+        IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: Icons.trash;
+            label: item.remove-label;
+            clicked => { root.remove(); }
+        }
+    }
+}
+
+// The key a shortcut uses: press one while it has focus
+component KeyBox inherits Rectangle {
+    in property <string> text;
+    callback pressed(string, bool, bool, bool, bool);
+    callback cleared;
+    height: 32px;
+    horizontal-stretch: 1;
+    border-radius: 7px;
+    border-width: 1px;
+    background: Theme.surface-raise;
+    border-color: focus.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    accessible-role: text-input;
+    accessible-label: @tr("Key");
+    accessible-value: text;
+    forward-focus: focus;
+    touch := TouchArea { clicked => { focus.focus(); } }
+    focus := FocusScope {
+        key-pressed(e) => {
+            root.pressed(e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta);
+            accept
+        }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 4px;
+        Text {
+            horizontal-stretch: 1;
+            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key…") : "";
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: root.text != "" ? Theme.text : Theme.text-faint;
+            vertical-alignment: center;
+        }
+        if root.text != "": IconButton {
+            width: 26px;
+            height: 26px;
+            y: (parent.height - self.height) / 2;
+            icon: Icons.x;
+            icon-size: 14px;
+            label: @tr("Clear");
+            clicked => { root.cleared(); focus.focus(); }
+        }
+    }
+}
+
+export component ShortcutsSettings inherits VerticalLayout {
+    in property <[BindingRow]> rows;
+    in property <string> note-text;
+    in property <bool> system-shown;
+    in property <bool> notify;
+    // The editor
+    in property <bool> editor-open;
+    in property <string> query;
+    in property <[string]> controls;
+    in property <int> control: -1;
+    in property <[ParamRow]> params;
+    in property <string> keys-text;
+    in property <bool> global: true;
+    in property <string> problem;
+    in property <bool> save-enabled;
+    in property <bool> copy-enabled: true;
+    in property <string> copy-text;
+    in property <string> copy-tip;
+    callback add;
+    callback edit(int);
+    callback remove(int);
+    callback copy-line(int);
+    callback open-system;
+    callback notify-toggled(bool);
+    callback search(string);
+    callback control-picked(int);
+    callback param-picked(int, int);
+    callback param-edited(int, string);
+    callback param-step(int, int);
+    callback key-pressed(string, bool, bool, bool, bool);
+    callback key-cleared;
+    callback global-toggled(bool);
+    callback copy-command;
+    callback save;
+    callback cancel;
+    spacing: 14px;
+
+    changed editor-open => {
+        if (self.editor-open) {
+            editor.show();
+        } else {
+            editor.close();
+        }
+    }
+
+    Note { text: @tr("Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it."); }
+
+    Card {
+        title: @tr("Shortcuts");
+        icon: Icons.keyboard;
+        hue: Theme.plugin-hue("extras");
+        has-action: true;
+        action-icon: Icons.plus;
+        action-label: @tr("Pick a control and the key for it");
+        action-text: @tr("Add");
+        action => { root.add(); }
+        for row[i] in rows: Strip {
+            item: row;
+            edit => { root.edit(i); }
+            remove => { root.remove(i); }
+            copy-line => { root.copy-line(i); }
+        }
+        if rows.length == 0: Note { text: @tr("No shortcuts yet. Add one, or right-click a control in the main window."); }
+    }
+
+    Card {
+        title: @tr("Everywhere");
+        icon: Icons.monitor;
+        hue: Theme.plugin-hue("extras");
+        SettingStrip {
+            title: @tr("Desktop shortcut settings");
+            sub: note-text;
+            if system-shown: Button {
+                y: (parent.height - self.height) / 2;
+                text: @tr("Open");
+                tip: @tr("Where your desktop lets you change the keys of global shortcuts");
+                clicked => { root.open-system(); }
+            }
+        }
+        SettingStrip {
+            title: @tr("Notify when one runs");
+            sub: @tr("While Telescope is in the background");
+            Switch {
+                y: (parent.height - self.height) / 2;
+                checked: notify;
+                label: @tr("Notify when one runs");
+                toggled(on) => { root.notify-toggled(on); }
+            }
+        }
+    }
+
+    editor := PopupWindow {
+        close-policy: no-auto-close;
+        x: (root.width - self.width) / 2;
+        y: 0px;
+        width: min(root.width, 560px);
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-strong;
+            border-radius: 12px;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000080;
+            VerticalLayout {
+                padding: 20px;
+                spacing: 10px;
+                Text {
+                    text: @tr("Keyboard shortcut");
+                    font-family: Theme.font;
+                    font-size: Theme.card-title;
+                    font-weight: 600;
+                    color: Theme.text;
+                }
+                Note { text: @tr("Pick a control, what the key does to it, then press the key."); }
+                FormRow {
+                    label: @tr("Find");
+                    TextField {
+                        y: (parent.height - self.height) / 2;
+                        horizontal-stretch: 1;
+                        text: query;
+                        placeholder: @tr("Search: mute, zoom, exposure, preset…");
+                        label: @tr("Find");
+                        clearable: true;
+                        edited(t) => { root.search(t); }
+                    }
+                }
+                FormRow {
+                    label: @tr("Control");
+                    ChoiceField {
+                        compact: true;
+                        y: (parent.height - self.height) / 2;
+                        caption: @tr("Control");
+                        items: controls;
+                        current: control;
+                        picked(i) => { root.control-picked(i); }
+                    }
+                }
+                for p[i] in params: FormRow {
+                    visible: p.shown;
+                    height: p.shown ? self.preferred-height : 0px;
+                    label: p.label;
+                    if !p.number: ChoiceField {
+                        compact: true;
+                        y: (parent.height - self.height) / 2;
+                        caption: p.label;
+                        items: p.items;
+                        current: p.current;
+                        picked(c) => { root.param-picked(i, c); }
+                    }
+                    if p.number: TextField {
+                        y: (parent.height - self.height) / 2;
+                        horizontal-stretch: 1;
+                        text: p.text;
+                        label: p.label;
+                        edited(t) => { root.param-edited(i, t); }
+                        step(d) => { root.param-step(i, d); }
+                    }
+                }
+                FormRow {
+                    label: @tr("Key");
+                    KeyBox {
+                        y: (parent.height - self.height) / 2;
+                        text: keys-text;
+                        pressed(t, c, a, s, m) => { root.key-pressed(t, c, a, s, m); }
+                        cleared => { root.key-cleared(); }
+                    }
+                }
+                FormRow {
+                    label: "";
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Switch {
+                            y: (parent.height - self.height) / 2;
+                            checked: global;
+                            label: @tr("Also works while another app is in front");
+                            toggled(on) => { root.global-toggled(on); }
+                        }
+                        Note { text: @tr("Also works while another app is in front"); kind: ""; }
+                    }
+                }
+                if problem != "": Note { text: problem; kind: "status_warn"; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    padding-top: 6px;
+                    Button {
+                        text: copy-text;
+                        tip: copy-tip;
+                        enabled: copy-enabled;
+                        clicked => { root.copy-command(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: @tr("Cancel"); clicked => { root.cancel(); } }
+                    Button { text: @tr("Save"); role: "primary"; enabled: save-enabled; clicked => { root.save(); } }
+                }
+            }
+        }
+    }
+}

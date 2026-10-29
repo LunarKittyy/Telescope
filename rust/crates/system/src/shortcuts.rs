@@ -21,7 +21,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
-use telescope_core::ui::{ActionSpec, KeyInput};
+use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, SlintSource, UiEvent, UiSpec};
 
 const WINDOW_SHOWN: &str = n_("Telescope: shown");
 const REMOTE: &str = "remote";
@@ -171,6 +171,11 @@ pub struct ShortcutsPlugin {
     last_global: Option<Vec<Hotkey>>,
     /// Binding id: (source, time) of its last press, to drop a doubled one.
     recent: HashMap<String, (Source, Instant)>,
+    editor: Option<Editor>,
+    /// Settings asked for the page, so its props are worth sending.
+    section_made: bool,
+    /// Why the desktop's settings didn't open, in place of the backend's note.
+    note_override: Option<String>,
 }
 
 impl ShortcutsPlugin {
@@ -182,6 +187,7 @@ impl ShortcutsPlugin {
         ShortcutsPlugin {
             remote, factory: Some(factory), poster: None, bindings: Vec::new(), notify: false, actions: Vec::new(),
             backend: None, started: false, held: HashMap::new(), editing: false, last_global: None, recent: HashMap::new(),
+            editor: None, section_made: false, note_override: None,
         }
     }
 
@@ -218,6 +224,7 @@ impl ShortcutsPlugin {
             self.release(host, &id);
         }
         self.apply_backend();
+        self.refresh(host);
     }
 
     fn apply_backend(&mut self) {
@@ -381,6 +388,7 @@ impl ShortcutsPlugin {
                 self.press(host, id, Source::Global, false);
             }
             Some("released") => self.release(host, id),
+            Some("changed") => self.refresh(host),
             _ => {}
         }
     }
@@ -659,6 +667,425 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     }
 }
 
+const UI: &str = include_str!("../ui/shortcuts.slint");
+const SECTION: &str = "shortcuts";
+const COPIED: &str = "copied";
+
+/// The command line that runs this action in the running Telescope (for a desktop's own shortcut settings).
+pub fn action_command(action: &str, params: &Map<String, Value>) -> Vec<String> {
+    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "telescope-rs".into());
+    let mut out = vec![exe, "--action".into(), action.into()];
+    for (k, v) in params {
+        let v = match v {
+            Value::Null => continue,
+            Value::String(s) => s.clone(),
+            Value::Bool(b) => if *b { "True".into() } else { "False".into() },
+            Value::Number(n) => n.as_f64().map(fmt_number).unwrap_or_else(|| n.to_string()),
+            other => other.to_string(),
+        };
+        out.push(format!("{k}={v}"));
+    }
+    out
+}
+
+/// One line for a shell (shlex.join) or for Windows (list2cmdline).
+pub fn command_text(command: &[String]) -> String {
+    command.iter().map(|w| if cfg!(windows) { windows_quote(w) } else { shell_quote(w) }).collect::<Vec<_>>().join(" ")
+}
+
+fn shell_quote(word: &str) -> String {
+    if !word.is_empty() && word.chars().all(|c| c.is_ascii_alphanumeric() || "@%+=:,./_-".contains(c)) {
+        return word.into();
+    }
+    format!("'{}'", word.replace('\'', "'\"'\"'"))
+}
+
+fn windows_quote(word: &str) -> String {
+    if !word.is_empty() && !word.contains([' ', '\t', '"']) {
+        return word.into();
+    }
+    let mut out = String::from('"');
+    let mut slashes = 0;
+    for c in word.chars() {
+        match c {
+            '\\' => slashes += 1,
+            '"' => {
+                out.push_str(&"\\".repeat(slashes * 2 + 1));
+                out.push('"');
+                slashes = 0;
+            }
+            c => {
+                out.push_str(&"\\".repeat(slashes));
+                out.push(c);
+                slashes = 0;
+            }
+        }
+    }
+    out.push_str(&"\\".repeat(slashes * 2));
+    out.push('"');
+    out
+}
+
+/// Whether every word of the query starts a word of the action's name, keywords, card, id or choices.
+fn matches(action: &ActionSpec, query: &str) -> bool {
+    let mut doc = format!("{} {} {} {}", action.label, action.keywords, action.group, action.id);
+    for p in action.params.iter().filter(|p| p["kind"] != "number" && p["dynamic"] != true) {
+        for (_, label) in choices(p) {
+            doc.push(' ');
+            doc.push_str(&label);
+        }
+    }
+    let doc = doc.to_lowercase();
+    let words: Vec<&str> = doc.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    query.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|q| !q.is_empty())
+        .all(|q| words.iter().any(|w| w.starts_with(q)))
+}
+
+/// The shortcut being added or changed.
+struct Editor {
+    id: String,
+    query: String,
+    /// Kept while a search hides it.
+    action: Option<String>,
+    params: Map<String, Value>,
+    keys: String,
+    global: bool,
+    copied: bool,
+}
+
+impl ShortcutsPlugin {
+    fn shown_actions(&self, query: &str) -> Vec<&ActionSpec> {
+        self.actions.iter().map(|(_, a)| a).filter(|a| matches(a, query)).collect()
+    }
+
+    fn open_editor(&mut self, host: &mut dyn Host, binding: Binding) {
+        let action = self.action(&binding.action).map(|(_, a)| a.clone());
+        let params = action.as_ref().map_or_else(|| binding.params.clone(), |a| self.start_params(a, &binding.params));
+        let action = (!binding.action.is_empty()).then(|| binding.action.clone());
+        self.editor = Some(Editor { id: binding.id, query: String::new(), action, params, keys: binding.keys, global: binding.global, copied: false });
+        // A new shortcut starts on the first control
+        if self.editor.as_ref().is_some_and(|e| e.action.is_none()) {
+            if let Some(first) = self.actions.first().map(|(_, a)| a.id.clone()) {
+                self.pick_action(&first);
+            }
+        }
+        // Global keys let go where that's cheap, so pressing one records it instead of running it
+        self.editing = true;
+        if let Some(b) = self.backend.as_mut() {
+            b.suspend(true);
+        }
+        self.refresh(host);
+    }
+
+    fn close_editor(&mut self, host: &mut dyn Host) {
+        self.editor = None;
+        self.editing = false;
+        if let Some(b) = self.backend.as_mut() {
+            b.suspend(false);
+        }
+        self.refresh(host);
+    }
+
+    /// A binding's params as the editor starts them: cleaned, and a "Set to" with no value at where the control is.
+    fn start_params(&self, action: &ActionSpec, given: &Map<String, Value>) -> Map<String, Value> {
+        let mut params = full_params(action, given);
+        for p in &action.params {
+            let Some(name) = p["name"].as_str() else { continue };
+            if p["kind"] == "number" && params.get(name).is_none_or(Value::is_null) {
+                let start = action.current.or_else(|| p["min"].as_f64()).unwrap_or(0.0);
+                params.insert(name.into(), clean_value(p, Some(&json!(start))));
+            }
+        }
+        params
+    }
+
+    fn pick_action(&mut self, id: &str) {
+        let Some((_, action)) = self.action(id).cloned() else { return };
+        let params = self.start_params(&action, &Map::new());
+        if let Some(e) = self.editor.as_mut() {
+            if e.action.as_deref() != Some(id) {
+                e.action = Some(id.into());
+                e.params = params;
+            }
+        }
+    }
+
+    /// (problem, blocking) for the editor (_check).
+    fn editor_problem(&self, e: &Editor, listed: usize) -> (String, bool) {
+        let meta = keys::META_NAME;
+        if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
+            return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
+        }
+        if e.keys.is_empty() {
+            return (tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").replace("{meta}", meta), true);
+        }
+        if let Some(other) = self.bindings.iter().find(|b| b.keys == e.keys && b.id != e.id) {
+            let text = tr("{keys} already does \"{action}\". Pick another key.")
+                .replace("{keys}", &keys::native_keys(&e.keys)).replace("{action}", &self.describe(other));
+            return (text, true);
+        }
+        if e.global && keys::edits_text(&e.keys) {
+            let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
+                .replace("{keys}", &keys::native_keys(&e.keys)).replace("{meta}", meta);
+            return (text, false);
+        }
+        (String::new(), true)
+    }
+
+    fn action_listed(&self, e: &Editor) -> bool {
+        e.action.as_deref().is_some_and(|id| self.shown_actions(&e.query).iter().any(|a| a.id == id))
+    }
+
+    fn editor_props(&self) -> Value {
+        let Some(e) = &self.editor else { return json!({"editor-open": false}) };
+        let listed = self.shown_actions(&e.query);
+        let mut controls: Vec<String> = listed.iter().map(|a| format!("{}: {}", a.group, a.label)).collect();
+        let mut control = e.action.as_deref().and_then(|id| listed.iter().position(|a| a.id == id)).map_or(-1, |i| i as i64);
+        if let (Some(id), true, -1) = (e.action.as_deref(), e.query.is_empty(), control) {
+            // An action this version doesn't have: kept
+            controls.push(tr("Unknown ({action})").replace("{action}", id));
+            control = controls.len() as i64 - 1;
+        }
+        let action = e.action.as_deref().and_then(|id| self.action(id)).map(|(_, a)| a);
+        let params: Vec<Value> = action.map(|a| a.params.iter().filter_map(|p| {
+            let name = p["name"].as_str()?;
+            let value = e.params.get(name).cloned().unwrap_or(Value::Null);
+            if p["kind"] == "number" {
+                let text = match (value.as_f64(), p["decimals"].as_u64()) {
+                    (Some(n), Some(d)) => format!("{n:.*}", d as usize),
+                    (Some(n), None) => fmt_number(n),
+                    _ => String::new(),
+                };
+                return Some(json!({"label": p["label"], "number": true, "items": [], "current": 0, "text": text, "shown": shown(p, &e.params)}));
+            }
+            let mut options = choices(p);
+            let v = match &value { Value::String(s) => s.clone(), Value::Null => String::new(), v => v.to_string() };
+            let mut current = options.iter().position(|(c, _)| *c == v);
+            if current.is_none() && !v.is_empty() {
+                // A preset that's gone, say: kept, so Save keeps it
+                options.push((v.clone(), tr("{value} (not there now)").replace("{value}", &v)));
+                current = Some(options.len() - 1);
+            }
+            let items: Vec<String> = options.into_iter().map(|(_, l)| l).collect();
+            Some(json!({"label": p["label"], "number": false, "items": items, "current": current.unwrap_or(0), "text": "", "shown": shown(p, &e.params)}))
+        }).collect()).unwrap_or_default();
+        let (problem, blocking) = self.editor_problem(e, listed.len());
+        let hold = e.params.get("mode").and_then(Value::as_str) == Some("hold");
+        json!({
+            "editor-open": true,
+            "query": e.query,
+            "controls": controls,
+            "control": control,
+            "params": params,
+            "keys-text": keys::native_keys(&e.keys),
+            "global": e.global,
+            "problem": problem,
+            "save-enabled": problem.is_empty() || !blocking,
+            "copy-enabled": !hold,
+            "copy-text": if e.copied { tr("Copied") } else { tr("Copy command") },
+            "copy-tip": if hold { tr("A command can't hold a key down; pick another choice to copy one") }
+                        else { tr("A command line that does the same, for your desktop's own keyboard settings") },
+        })
+    }
+
+    fn section_props(&self) -> Value {
+        let rows: Vec<Value> = self.bindings.iter().map(|b| {
+            let (where_text, ok) = self.where_works(b);
+            let does = self.describe(b);
+            json!({"keys": keys::native_keys(&b.keys), "does": does, "where": where_text, "ok": ok,
+                   "copy-ok": b.params.get("mode").and_then(Value::as_str) != Some("hold"),
+                   "edit-label": tr("Edit {shortcut}").replace("{shortcut}", &does),
+                   "remove-label": tr("Remove {shortcut}").replace("{shortcut}", &does)})
+        }).collect();
+        let note = match (&self.note_override, &self.backend) {
+            (Some(text), _) => text.clone(),
+            (None, Some(backend)) => backend.note(),
+            (None, None) => tr("Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."),
+        };
+        let system_shown = cfg!(target_os = "linux") && self.backend.as_ref().is_none_or(|b| b.system_picks_keys());
+        let mut props = json!({"rows": rows, "note-text": note, "system-shown": system_shown, "notify": self.notify});
+        if let (Value::Object(p), Value::Object(e)) = (&mut props, self.editor_props()) {
+            p.extend(e);
+        }
+        props
+    }
+
+    fn refresh(&mut self, host: &mut dyn Host) {
+        if self.section_made {
+            host.set_ui_props(SECTION, &self.section_props());
+        }
+    }
+
+    fn copy_command(&self, host: &mut dyn Host, action: &str, params: &Map<String, Value>) {
+        host.copy_text(&command_text(&action_command(action, params)));
+    }
+
+    /// The desktop's own shortcut settings: the portal's dialog for these, or Plasma's Shortcuts page.
+    fn open_system_settings(&mut self, host: &mut dyn Host) -> bool {
+        if let Some(b) = self.backend.as_mut() {
+            if b.configure() {
+                return true;
+            }
+            if b.can_rebind() {
+                // Some weren't confirmed: the desktop asks again
+                self.last_global = None;
+                self.apply(host);
+                return true;
+            }
+        }
+        if cfg!(target_os = "linux") {
+            for cmd in [["systemsettings", "kcm_keys"], ["kcmshell6", "kcm_keys"], ["kcmshell5", "kcm_keys"]] {
+                let started = std::process::Command::new(cmd[0]).arg(cmd[1])
+                    .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn();
+                if started.is_ok() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn on_section(&mut self, host: &mut dyn Host, callback: &str, args: &[Value]) {
+        let int = |i: usize| args.get(i).and_then(Value::as_i64).unwrap_or(-1);
+        let text = |i: usize| args.get(i).and_then(Value::as_str).unwrap_or("").to_string();
+        let flag = |i: usize| args.get(i).and_then(Value::as_bool).unwrap_or(false);
+        let binding_at = |s: &Self, i: i64| usize::try_from(i).ok().and_then(|i| s.bindings.get(i)).cloned();
+        match callback {
+            "add" => {
+                let blank = Binding { id: new_binding_id(), keys: String::new(), action: String::new(), params: Map::new(), global: true };
+                self.open_editor(host, blank);
+            }
+            "edit" => {
+                if let Some(b) = binding_at(self, int(0)) {
+                    self.open_editor(host, b);
+                }
+            }
+            "remove" => {
+                if let Some(b) = binding_at(self, int(0)) {
+                    let rest = self.bindings.iter().filter(|o| o.id != b.id).cloned().collect();
+                    self.set_bindings(host, rest);
+                }
+            }
+            "copy-line" => {
+                if let Some(b) = binding_at(self, int(0)).filter(|b| b.params.get("mode").and_then(Value::as_str) != Some("hold")) {
+                    self.copy_command(host, &b.action, &b.params);
+                }
+            }
+            "open-system" => {
+                self.note_override = (!self.open_system_settings(host))
+                    .then(|| tr("Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."));
+                self.refresh(host);
+            }
+            "notify-toggled" => {
+                self.notify = flag(0);
+                host.schedule_save();
+            }
+            "search" => {
+                let query = text(0);
+                let first = self.shown_actions(&query).first().map(|a| a.id.clone());
+                let Some(e) = self.editor.as_mut() else { return };
+                e.query = query;
+                // A search that found nothing forgets no pick; one that hides the pick moves it to the first match
+                let keep = e.action.clone();
+                if !self.editor.as_ref().is_some_and(|e| self.action_listed(e)) || keep.is_none() {
+                    if let Some(first) = first {
+                        self.pick_action(&first);
+                    }
+                }
+                self.refresh(host);
+            }
+            "control-picked" => {
+                let query = self.editor.as_ref().map(|e| e.query.clone()).unwrap_or_default();
+                let id = usize::try_from(int(0)).ok().and_then(|i| self.shown_actions(&query).get(i).map(|a| a.id.clone()));
+                if let Some(id) = id {
+                    self.pick_action(&id);
+                }
+                self.refresh(host);
+            }
+            "param-picked" | "param-edited" => {
+                let Some(e) = self.editor.as_ref() else { return };
+                let Some((_, action)) = e.action.as_deref().and_then(|id| self.action(id)).cloned() else { return };
+                let Some(p) = usize::try_from(int(0)).ok().and_then(|i| action.params.get(i)) else { return };
+                let Some(name) = p["name"].as_str() else { return };
+                let value = if callback == "param-picked" {
+                    let current = e.params.get(name).and_then(Value::as_str).unwrap_or("").to_string();
+                    let mut options: Vec<String> = choices(p).into_iter().map(|(v, _)| v).collect();
+                    if !current.is_empty() && !options.contains(&current) {
+                        options.push(current);
+                    }
+                    match usize::try_from(int(1)).ok().and_then(|i| options.get(i)) {
+                        Some(v) => json!(v),
+                        None => return,
+                    }
+                } else {
+                    let Some(n) = number(&json!(text(1))) else { return };
+                    clean_value(p, Some(&json!(n)))
+                };
+                let name = name.to_string();
+                if let Some(e) = self.editor.as_mut() {
+                    e.params.insert(name, value);
+                }
+                // A number being typed keeps its box as it is; a pick can show or hide other settings
+                if callback == "param-picked" {
+                    self.refresh(host);
+                }
+            }
+            "key-pressed" => {
+                let keys = keys::keys_from_slint(&text(0), flag(1), flag(2), flag(3), flag(4));
+                // A bare modifier waits for the key that comes with it
+                if keys.is_empty() {
+                    return;
+                }
+                if let Some(e) = self.editor.as_mut() {
+                    e.keys = keys;
+                }
+                self.refresh(host);
+            }
+            "key-cleared" => {
+                if let Some(e) = self.editor.as_mut() {
+                    e.keys.clear();
+                }
+                self.refresh(host);
+            }
+            "global-toggled" => {
+                if let Some(e) = self.editor.as_mut() {
+                    e.global = flag(0);
+                }
+                self.refresh(host);
+            }
+            "copy-command" => {
+                let Some(e) = self.editor.as_ref() else { return };
+                let (Some(action), false) = (e.action.clone(), e.params.get("mode").and_then(Value::as_str) == Some("hold")) else { return };
+                let params = e.params.clone();
+                self.copy_command(host, &action, &params);
+                if let Some(e) = self.editor.as_mut() {
+                    e.copied = true;
+                }
+                host.schedule(1500, COPIED);
+                self.refresh(host);
+            }
+            "save" => {
+                let Some(e) = self.editor.as_ref() else { return };
+                let (problem, blocking) = self.editor_problem(e, self.shown_actions(&e.query).len());
+                let Some(action) = e.action.clone() else { return };
+                if !problem.is_empty() && blocking {
+                    return;
+                }
+                let binding = Binding { id: e.id.clone(), keys: e.keys.clone(), action, params: e.params.clone(), global: e.global };
+                let mut bindings = self.bindings.clone();
+                match bindings.iter_mut().find(|b| b.id == binding.id) {
+                    Some(old) => *old = binding,
+                    None => bindings.push(binding),
+                }
+                self.close_editor(host);
+                self.set_bindings(host, bindings);
+            }
+            "cancel" => self.close_editor(host),
+            _ => {}
+        }
+    }
+}
+
 impl Plugin for ShortcutsPlugin {
     fn info(&self) -> PluginInfo {
         PluginInfo {
@@ -685,6 +1112,30 @@ impl Plugin for ShortcutsPlugin {
         self.remote.0.lock().unwrap().poster = None;
         if let Some(backend) = self.backend.as_mut() {
             backend.stop();
+        }
+    }
+
+    fn settings_sections(&mut self) -> Vec<SettingsSection> {
+        self.section_made = true;
+        vec![SettingsSection {
+            id: SECTION.into(),
+            tab: "shortcuts".into(),
+            ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ShortcutsSettings".into(), props: self.section_props() },
+            order: 0,
+            tab_title: String::new(),
+            keywords: [
+                tr("hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"),
+                tr("global system wide hotkeys background other apps"),
+                tr("global hotkeys portal kde plasma gnome desktop keys rebind"),
+                tr("notification notify toast confirmation popup"),
+            ].join(" "),
+            footer: None,
+        }]
+    }
+
+    fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        if event.ui == SECTION {
+            self.on_section(host, &event.callback, &event.args);
         }
     }
 
@@ -728,6 +1179,15 @@ impl Plugin for ShortcutsPlugin {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        if let Event::TimerFired { owner, token } = event {
+            if owner == "shortcuts" && token == COPIED {
+                if let Some(e) = self.editor.as_mut() {
+                    e.copied = false;
+                }
+                self.refresh(host);
+            }
+            return;
+        }
         if let Event::Posted { owner, token, data } = event {
             if owner != "shortcuts" {
                 return;
@@ -753,6 +1213,7 @@ mod tests {
         applied: Vec<Vec<Hotkey>>,
         statuses: HashMap<String, HotkeyStatus>,
         suspended: Vec<bool>,
+        rebind: bool,
     }
 
     struct FakeBackend(Arc<Mutex<Seen>>);
@@ -769,6 +1230,9 @@ mod tests {
         }
         fn name(&self) -> &'static str {
             "FakeBackend"
+        }
+        fn can_rebind(&self) -> bool {
+            self.0.lock().unwrap().rebind
         }
     }
 
@@ -829,6 +1293,143 @@ mod tests {
 
     fn ran(host: &FakeHost) -> Vec<String> {
         host.calls.iter().filter(|c| c.starts_with("run_action") || c.starts_with("release_action")).cloned().collect()
+    }
+
+    fn ui(plugin: &mut ShortcutsPlugin, host: &mut FakeHost, callback: &str, args: Value) {
+        let args = args.as_array().cloned().unwrap_or_default();
+        plugin.on_ui(host, &UiEvent { ui: SECTION.into(), callback: callback.into(), args });
+    }
+
+    fn controls(plugin: &ShortcutsPlugin) -> Vec<String> {
+        serde_json::from_value(plugin.section_props()["controls"].clone()).unwrap()
+    }
+
+    #[test]
+    fn editor_builds_a_binding() {
+        let (mut plugin, mut host, seen) = make(json!([]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        assert_eq!(seen.lock().unwrap().suspended, [true], "global keys let go while one is being picked");
+        let props = plugin.section_props();
+        assert_eq!(props["editor-open"], json!(true));
+        let mute = controls(&plugin).iter().position(|c| c == "Microphone: Mute").unwrap();
+        ui(&mut plugin, &mut host, "control-picked", json!([mute]));
+        assert_eq!(plugin.section_props()["problem"], json!("Press a key, with Ctrl, Alt, Shift or Meta if you like."));
+        ui(&mut plugin, &mut host, "param-picked", json!([0, 3]));
+        assert_eq!(plugin.section_props()["copy-enabled"], json!(false), "a command can't hold a key down");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
+        assert_eq!(plugin.section_props()["keys-text"], json!(""), "a bare modifier waits for its key");
+        ui(&mut plugin, &mut host, "key-pressed", json!([" ", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!((props["keys-text"].clone(), props["problem"].clone(), props["save-enabled"].clone()), (json!("Ctrl+Space"), json!(""), json!(true)));
+        ui(&mut plugin, &mut host, "save", json!([]));
+        let b = &plugin.bindings()[0];
+        assert_eq!((b.keys.as_str(), b.action.as_str(), b.global), ("Ctrl+Space", "microphone.mute", true));
+        assert_eq!(Value::Object(b.params.clone()), json!({"mode": "hold"}));
+        assert_eq!(plugin.section_props()["editor-open"], json!(false));
+        assert_eq!(seen.lock().unwrap().suspended, [true, false]);
+        assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props shortcuts")));
+    }
+
+    #[test]
+    fn editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["t", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["problem"], json!("Ctrl+T already does \"Torch\". Pick another key."));
+        assert_eq!(props["save-enabled"], json!(false));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["z", false, false, false, false]));
+        let props = plugin.section_props();
+        assert!(props["problem"].as_str().unwrap().starts_with("Everywhere, Z would stop typing it in other apps."));
+        assert_eq!(props["save-enabled"], json!(true), "only a warning");
+        ui(&mut plugin, &mut host, "global-toggled", json!([false]));
+        assert_eq!(plugin.section_props()["problem"], json!(""));
+    }
+
+    #[test]
+    fn editor_keeps_an_option_that_is_gone() {
+        let preset = ActionSpec {
+            id: "presets.apply".into(), label: "Preset".into(), group: "Presets".into(),
+            params: vec![json!({"name": "name", "label": "Preset", "kind": "choice", "default": "", "choices": [["Desk", "Desk"]], "dynamic": true})],
+            repeats: false, on_release: false, current: None, keywords: String::new(),
+        };
+        let (mut plugin, mut host, _) = make(json!([]), false, true);
+        host.actions.push(("presets".into(), preset));
+        plugin.actions = all_actions(&host);
+        plugin.set_bindings(&mut host, clean_bindings(&json!([b("a", "F5", "presets.apply", json!({"name": "Gone"}), false)])));
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "edit", json!([0]));
+        let params = plugin.section_props()["params"].clone();
+        assert_eq!(params[0]["items"], json!(["Desk", "Gone (not there now)"]));
+        assert_eq!(params[0]["current"], json!(1));
+        ui(&mut plugin, &mut host, "save", json!([]));
+        assert_eq!(plugin.bindings()[0].params["name"], json!("Gone"));
+    }
+
+    #[test]
+    fn editor_search_narrows_the_controls_and_uses_keywords() {
+        let (mut plugin, mut host, _) = make(json!([]), false, true);
+        plugin.actions[3].1.keywords = "push to talk".into();
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        assert!(controls(&plugin).len() > 3);
+        ui(&mut plugin, &mut host, "search", json!(["zo"]));
+        assert_eq!(controls(&plugin), ["Transforms: Zoom"]);
+        assert_eq!(plugin.section_props()["control"], json!(0), "the only match is picked");
+        ui(&mut plugin, &mut host, "search", json!(["talk"]));
+        assert_eq!(controls(&plugin), ["Microphone: Mute"]);
+        ui(&mut plugin, &mut host, "search", json!(["nothing like it"]));
+        let props = plugin.section_props();
+        assert_eq!((props["control"].clone(), props["problem"].clone()), (json!(-1), json!("No control matches that search.")));
+    }
+
+    #[test]
+    fn dialog_lists_bindings() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true),
+                                                    b("b", "Ctrl+T", "camera.torch", json!({}), false)]), false, false);
+        let props = plugin.section_props();
+        assert_eq!(props["rows"][0]["keys"], json!("Ctrl+Alt+M"));
+        assert_eq!(props["rows"][0]["does"], json!("Mute: switch while held, back on release"));
+        assert_eq!(props["rows"][0]["copy-ok"], json!(false));
+        assert_eq!(props["rows"][1]["where"], json!("In Telescope"));
+        assert!(props["note-text"].as_str().unwrap().starts_with("Global shortcuts aren't available on this desktop"));
+        ui(&mut plugin, &mut host, "remove", json!([0]));
+        assert_eq!(plugin.bindings().len(), 1);
+        ui(&mut plugin, &mut host, "copy-line", json!([0]));
+        assert!(host.calls.iter().any(|c| c.starts_with("copy_text ") && c.ends_with("--action camera.torch")));
+    }
+
+    #[test]
+    fn action_command_runs_the_action_in_the_running_copy() {
+        let params = json!({"op": "up", "amount": 2.5, "whole": 10.0, "none": null}).as_object().unwrap().clone();
+        let cmd = action_command("transforms.zoom", &params);
+        assert_eq!(cmd[1..], ["--action", "transforms.zoom", "op=up", "amount=2.5", "whole=10"]);
+        assert_eq!(shell_quote("it's"), "'it'\"'\"'s'");
+        assert_eq!(windows_quote(r#"C:\Program Files\a"b"#), r#""C:\Program Files\a\"b""#);
+    }
+
+    #[test]
+    fn global_presses_are_ignored_while_the_editor_records_a_key() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true)]), false, true);
+        ui(&mut plugin, &mut host, "add", json!([]));
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        assert!(!plugin.on_key(&mut host, &key("m", true, true)));
+        assert!(ran(&host).is_empty());
+        ui(&mut plugin, &mut host, "cancel", json!([]));
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        assert_eq!(ran(&host).len(), 1);
+    }
+
+    #[test]
+    fn desktop_settings_button_asks_again_for_unconfirmed_ones() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true)]), false, true);
+        seen.lock().unwrap().rebind = true;
+        let applies = seen.lock().unwrap().applied.len();
+        ui(&mut plugin, &mut host, "open-system", json!([]));
+        assert_eq!(seen.lock().unwrap().applied.len(), applies + 1);
+        assert!(!plugin.section_props()["note-text"].as_str().unwrap().starts_with("Couldn't open"));
     }
 
     #[test]

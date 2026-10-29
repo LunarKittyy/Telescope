@@ -1185,7 +1185,7 @@
 "Choose APK..." = { status = "todo" }
 "Colourful" = { status = "todo" }
 "Comes with this app" = { status = "todo" }
-"Copied" = { status = "todo" }
+"Copied" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Copies info for a bug report, leaving out pairing tokens, addresses and file paths." = { status = "todo" }
 "Copies the diagnostics and opens the bug form on GitHub." = { status = "todo" }
 "Copy diagnostics" = { status = "todo" }
@@ -1301,88 +1301,88 @@
 "search|zoom limit magnify telephoto digital crop 10x 30x slider range" = { status = "todo" }
 # ── shortcuts
 " stops" = { status = "todo" }
-"A command can't hold a key down; pick another choice to copy one" = { status = "todo" }
-"A command line that does the same, for your desktop's own keyboard settings" = { status = "todo" }
-"A modifier can't be a shortcut on its own. Add a key to it." = { status = "todo" }
-"Add" = { status = "todo" }
+"A command can't hold a key down; pick another choice to copy one" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"A command line that does the same, for your desktop's own keyboard settings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
+"Add" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Add keyboard shortcut…" = { status = "todo" }
 "Add shortcut for {action}…" = { status = "todo" }
-"Already streaming" = { status = "todo" }
-"Also works while another app is in front" = { status = "todo" }
+"Already streaming" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Also works while another app is in front" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "By" = { status = "todo" }
-"Control" = { status = "todo" }
-"Copy command" = { status = "todo" }
-"Copy command line" = { status = "todo" }
-"Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "todo" }
+"Control" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Copy command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Copy command line" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Decrease by" = { status = "todo" }
-"Desktop shortcut settings" = { status = "todo" }
+"Desktop shortcut settings" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Edit" = { status = "todo" }
-"Edit {shortcut}" = { status = "todo" }
+"Edit {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Everywhere (setting up)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
-"Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "todo" }
-"Find" = { status = "todo" }
-"Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings." = { status = "todo" }
+"Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Find" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "In Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "In Telescope (no global shortcuts here)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "In Telescope: {status}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Increase by" = { status = "todo" }
-"Key" = { status = "todo" }
+"Key" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Key used by a shortcut above" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
-"Keyboard shortcut" = { status = "todo" }
-"Keys for Telescope's controls, including ones that work in other apps." = { status = "todo" }
-"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "todo" }
+"Keyboard shortcut" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Keys for Telescope's controls, including ones that work in other apps." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Lower by" = { status = "todo" }
-"No action called {action}. telescope --list-actions lists them." = { status = "todo" }
-"No control matches that search." = { status = "todo" }
-"No shortcuts yet. Add one, or right-click a control in the main window." = { status = "todo" }
+"No action called {action}. telescope --list-actions lists them." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"No control matches that search." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"No shortcuts yet. Add one, or right-click a control in the main window." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Not in this version of Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
-"Notify when one runs" = { status = "todo" }
-"Open" = { status = "todo" }
+"Notify when one runs" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Open" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Option" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Phone camera: off" = { status = "todo" }
-"Phone camera: on" = { status = "todo" }
+"Phone camera: off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Phone camera: on" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Pick a control and the key for it" = { status = "todo" }
-"Pick a control, what the key does to it, then press the key." = { status = "todo" }
-"Pick a control." = { status = "todo" }
-"Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "todo" }
+"Pick a control and the key for it" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Pick a control, what the key does to it, then press the key." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Pick a control." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Raise by" = { status = "todo" }
-"Remove {shortcut}" = { status = "todo" }
+"Remove {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Reset to default" = { status = "todo" }
-"Save" = { status = "todo" }
-"Search: mute, zoom, exposure, preset…" = { status = "todo" }
+"Save" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Search: mute, zoom, exposure, preset…" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Set to" = { status = "todo" }
-"Shortcuts" = { status = "todo" }
-"Show or hide Telescope" = { status = "todo" }
-"Start or stop" = { status = "todo" }
+"Shortcuts" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Show or hide Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Start or stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Stops" = { status = "todo" }
-"Streaming: starting" = { status = "todo" }
-"Streaming: stopped" = { status = "todo" }
-"Switch on or off" = { status = "todo" }
+"Streaming: starting" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Streaming: stopped" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Switch on or off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Switch while held, back on release" = { status = "todo" }
-"Telescope: hidden" = { status = "todo" }
-"Telescope: shown" = { status = "todo" }
-"Turn off" = { status = "todo" }
-"Turn on" = { status = "todo" }
-"Unknown ({action})" = { status = "todo" }
+"Telescope: hidden" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Telescope: shown" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Turn off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Turn on" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Unknown ({action})" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Value" = { status = "todo" }
-"Where your desktop lets you change the keys of global shortcuts" = { status = "todo" }
-"While Telescope is in the background" = { status = "todo" }
-"Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "todo" }
-"hold needs a key to let go of; use toggle, on or off with --action." = { status = "todo" }
+"Where your desktop lets you change the keys of global shortcuts" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"While Telescope is in the background" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"hold needs a key to let go of; use toggle, on or off with --action." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "next" = { status = "todo" }
-"nothing right now" = { status = "todo" }
+"nothing right now" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "off" = { status = "todo" }
 "on" = { status = "todo" }
 "previous" = { status = "todo" }
-"search|global hotkeys portal kde plasma gnome desktop keys rebind" = { status = "todo" }
-"search|global system wide hotkeys background other apps" = { status = "todo" }
-"search|hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove" = { status = "todo" }
-"search|notification notify toast confirmation popup" = { status = "todo" }
-"{action} can't be used right now (no phone, or the control is off)." = { status = "todo" }
+"search|global hotkeys portal kde plasma gnome desktop keys rebind" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|global system wide hotkeys background other apps" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|notification notify toast confirmation popup" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{action} can't be used right now (no phone, or the control is off)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{action} has no setting {name}." = { status = "todo" }
 "{action} needs {name}=… for that." = { status = "todo" }
-"{keys} already does \"{action}\". Pick another key." = { status = "todo" }
+"{keys} already does \"{action}\". Pick another key." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{label}: decrease by {amount}" = { status = "todo" }
 "{label}: increase by {amount}" = { status = "todo" }
 "{label}: lower by {stops} stop" = { status = "todo" }
@@ -1391,7 +1391,7 @@
 "{label}: set to {value}" = { status = "todo" }
 "{name} can be {options}, not {value}." = { status = "todo" }
 "{name} has to be a number, not {value}." = { status = "todo" }
-"{value} (not there now)" = { status = "todo" }
+"{value} (not there now)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── single_instance
 "Telescope can't start" = { status = "todo" }
 "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "todo" }
@@ -3940,21 +3940,21 @@
 "test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_global_press_runs_the_action_and_hold_comes_back_on_release" }
 "test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_key_whose_control_is_off_goes_to_the_control_with_focus" }
 "test_shortcuts_plugin.py::test_a_right_click_that_reaches_the_window_finds_the_later_control" = { status = "todo" }
-"test_shortcuts_plugin.py::test_action_command" = { status = "todo" }
-"test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "todo" }
+"test_shortcuts_plugin.py::test_action_command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::action_command_runs_the_action_in_the_running_copy" }
+"test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "dropped", reason = "Slint hands the shell one key event per press; Qt's walk up the parents is gone" }
 "test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
 "test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "todo" }
-"test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "todo" }
+"test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::desktop_settings_button_asks_again_for_unconfirmed_ones" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "todo" }
-"test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "todo" }
+"test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::dialog_lists_bindings" }
+"test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_builds_a_binding" }
+"test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_keeps_an_option_that_is_gone" }
+"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
+"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
+"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys" }
 "test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
-"test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "todo" }
-"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "todo" }
+"test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::global_presses_are_ignored_while_the_editor_records_a_key" }
+"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "dropped", reason = "Slint gives no scan codes; a held binding comes back when its key comes up whatever its case, or when Telescope loses focus" }
 "test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
 "test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
 "test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
@@ -3969,8 +3969,8 @@
 "test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_search_forgives_typos_and_still_wants_word_starts" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "todo" }
+"test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
+"test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
 "test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::without_a_backend_global_bindings_still_work_inside" }
 # ── smoke_check
 "test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "todo" }
