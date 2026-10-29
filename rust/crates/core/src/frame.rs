@@ -88,7 +88,7 @@ pub enum FrameStage {
     Reading,
     /// What's behind you (Background, Chroma key).
     Background,
-    /// Changing the picture (Fun pack), and where a plugin goes that doesn't say.
+    /// Changing the picture (Fun pack), and where a plugin goes that doesn't say or names one that doesn't exist.
     #[default]
     Effects,
     /// The colour pipeline: every grade baked into one LUT per stream.

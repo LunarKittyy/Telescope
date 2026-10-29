@@ -58,11 +58,17 @@ pub struct PluginInfo {
     pub in_presets: bool,
     /// Each phone (or other source) gets its own copy of its settings.
     pub device_local: bool,
+    #[serde(deserialize_with = "stage_or_effects")]
     pub frame_stage: FrameStage,
     /// With several streams, hear about the one the panels show (false: the main one, like the mic).
     pub follows_focus: bool,
     /// Where the header widget goes: "left" (with the phone picker) or "right".
     pub header_side: String,
+}
+
+/// A frame_stage that names no stage counts as "effects", like frame_stage_index() in Python.
+fn stage_or_effects<'de, D: serde::Deserializer<'de>>(d: D) -> Result<FrameStage, D::Error> {
+    Ok(serde_json::from_value(Value::deserialize(d)?).unwrap_or_default())
 }
 
 impl Default for PluginInfo {
@@ -234,5 +240,11 @@ mod tests {
         assert_eq!(info.frame_stage, FrameStage::Overlay);
         assert_eq!(info.category, "extras");
         assert!(info.follows_focus);
+    }
+
+    #[test]
+    fn an_unknown_frame_stage_counts_as_effects() {
+        let info: PluginInfo = serde_json::from_value(json!({"name": "x", "frame_stage": "sparkles"})).unwrap();
+        assert_eq!(info.frame_stage, FrameStage::Effects);
     }
 }
