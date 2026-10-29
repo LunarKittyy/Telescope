@@ -71,6 +71,17 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
+    /// The picture each set_ui_image last set, by (ui, property).
+    pub images: HashMap<(String, String), Frame>,
+    /// A start is waking the phone (is_starting), or the stream is stopping to start again (is_restarting).
+    pub starting: bool,
+    pub restarting: bool,
+    /// How many streams run (stream_count) while one does; 1 when this is left alone.
+    pub streams: Option<u32>,
+    /// The camera was turned off by a rule, not by hand (is_camera_off_auto).
+    pub camera_off_auto: bool,
+    /// What preset_plugins() lists, in order; apply_preset hands each one's config to the plugin_configs entry.
+    pub preset_plugins: Vec<String>,
     next_request: u64,
 }
 
@@ -109,9 +120,12 @@ impl HostSettings for FakeHost {
     }
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         self.note(format!("apply_preset {name} {cfg}"));
+        if self.plugin_configs.contains_key(name) {
+            self.plugin_configs.insert(name.to_string(), cfg.clone());
+        }
     }
     fn preset_plugins(&self) -> Vec<String> {
-        Vec::new()
+        self.preset_plugins.clone()
     }
     fn device_config(&self, _source_id: Option<&str>, _plugin_name: &str) -> Value {
         json!({})
@@ -135,25 +149,27 @@ impl HostStreams for FakeHost {
         self.streaming
     }
     fn is_starting(&self) -> bool {
-        false
+        self.starting
     }
     fn is_restarting(&self) -> bool {
-        false
+        self.restarting
     }
     fn is_streaming_from(&self, source_id: Option<&str>) -> bool {
         self.streaming && source_id.map(str::to_string) == self.focused
     }
     fn stream_count(&self) -> u32 {
-        self.streaming as u32
+        if self.streaming { self.streams.unwrap_or(1) } else { 0 }
     }
     fn start_stream(&mut self, interactive: bool) {
         self.note(format!("start_stream {interactive}"));
+        self.starting = true; // like the real host: waking the phone until the stream starts or fails
     }
     fn start_again(&mut self, source_id: Option<&str>) {
         self.note(format!("start_again {source_id:?}"));
     }
     fn stop_stream(&mut self, source_id: Option<&str>) {
         self.note(format!("stop_stream {source_id:?}"));
+        self.starting = false;
     }
     fn stop_all_streams(&mut self) {
         self.note("stop_all_streams");
@@ -214,13 +230,14 @@ impl HostCamera for FakeHost {
         !self.camera_off
     }
     fn is_camera_off_auto(&self) -> bool {
-        false
+        self.camera_off && self.camera_off_auto
     }
     fn can_turn_camera_off(&self) -> (bool, String) {
         self.can_turn_off.clone().unwrap_or((false, "Not streaming".into()))
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
         self.camera_off = !on;
+        self.camera_off_auto = auto && !on;
         self.note(format!("set_camera_on {on} {auto}"));
     }
 }
@@ -304,6 +321,13 @@ impl HostUi for FakeHost {
     }
     fn refresh_frame_step(&mut self) {
         self.note("refresh_frame_step");
+    }
+    fn set_ui_image(&mut self, ui: &str, prop: &str, frame: &Frame) {
+        self.note(format!("set_ui_image {ui} {prop} {}x{}", frame.width, frame.height));
+        self.images.insert((ui.to_string(), prop.to_string()), frame.clone());
+    }
+    fn refresh_actions(&mut self) {
+        self.note("refresh_actions");
     }
 }
 

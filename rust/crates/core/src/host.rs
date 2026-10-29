@@ -280,6 +280,11 @@ pub trait HostUi {
     fn update_tray_action(&mut self, action: &TrayAction);
     /// This plugin's frame step changed; the host asks for a fresh one with Plugin::frame_step.
     fn refresh_frame_step(&mut self);
+    /// Sets an image property (`in property <image>`) on one of this plugin's pieces of UI to this picture, which a JSON
+    /// property can't carry. Only the RGBA and BGRA formats show; a host with no window ignores it.
+    fn set_ui_image(&mut self, _ui: &str, _prop: &str, _frame: &Frame) {}
+    /// This plugin's actions changed (a list a param offers, say): the host asks Plugin::actions again.
+    fn refresh_actions(&mut self) {}
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.
