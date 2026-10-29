@@ -289,3 +289,15 @@ fn the_warp_is_worked_out_once_until_something_changes() {
     r.config(json!({"on": true}));
     assert!(r.plugin.frame_step().is_none());
 }
+
+#[test]
+fn a_frame_too_small_to_hold_a_sheet_passes_through() {
+    let mut r = Rig::new(true);
+    r.config(json!({"on": true, "corners": corners_json()}));
+    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    for (w, h) in [(0, 0), (1, 1), (1, 40)] {
+        let mut f = Frame::new(w, h, PixelFormat::Rgba, vec![9; (w * h * 4) as usize]);
+        step.process(&mut f, &Ctx);
+        assert!(f.data.iter().all(|&b| b == 9));
+    }
+}

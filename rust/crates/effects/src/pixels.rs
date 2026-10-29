@@ -53,7 +53,7 @@ pub fn to_rgb(frame: &Frame) -> Option<Vec<u8>> {
             let cw = w.div_ceil(2);
             for row in 0..h {
                 for col in 0..w {
-                    let c = (y[row * w + col] as f32 - 16.0) * 1.164_383;
+                    let c = (y[row * w + col] as f32 - 16.0).max(0.0) * 1.164_383;
                     let (du, dv) = (u[(row / 2) * cw + col / 2] as f32 - 128.0, v[(row / 2) * cw + col / 2] as f32 - 128.0);
                     let q = |x: f32| x.round().clamp(0.0, 255.0) as u8;
                     out.extend([q(c + 1.596_027 * dv), q(c - 0.391_762 * du - 0.812_968 * dv), q(c + 2.017_232 * du)]);
@@ -108,6 +108,13 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn luma_below_black_counts_as_black_like_opencv() {
+        // cv2.cvtColor(..., COLOR_YUV2RGB_I420) gives [203, 0, 0] for Y=0, U=128, V=255
+        let frame = Frame::new(2, 2, PixelFormat::I420, vec![0, 0, 0, 0, 128, 255]);
+        assert_eq!(&to_rgb(&frame).unwrap()[..3], &[203, 0, 0]);
+    }
 
     #[test]
     fn a_picture_survives_a_trip_through_i420() {

@@ -46,6 +46,9 @@ struct DeskStep {
 impl CpuStep for DeskStep {
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         let size = (frame.width as usize, frame.height as usize);
+        if size.0 < 2 || size.1 < 2 {
+            return;
+        }
         if self.made.as_ref().is_none_or(|(s, _)| *s != size) {
             let warp = warp_for(&self.sheet, size.0, size.1);
             if let Some(poster) = &self.poster {

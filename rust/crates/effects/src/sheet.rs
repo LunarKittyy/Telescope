@@ -262,10 +262,10 @@ fn linear_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<u8
     out
 }
 
-/// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: a plus with filled shoulders.
-const ELLIPSE: [(i32, i32); 21] = [
-    (-2, -1), (-1, -2), (0, -2), (1, -2), (2, -1), (-2, 0), (-1, -1), (0, -1), (1, -1), (2, 0), (-2, 1), (-1, 0), (0, 0), (1, 0), (2, 1),
-    (-1, 1), (0, 1), (1, 1), (-1, 2), (0, 2), (1, 2),
+/// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: three full middle rows and one pixel above and below.
+const ELLIPSE: [(i32, i32); 17] = [
+    (0, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
+    (0, 2),
 ];
 
 /// The paper's uneven light divided out, so it goes white and the ink stays dark.
