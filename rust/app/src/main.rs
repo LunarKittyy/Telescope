@@ -218,6 +218,11 @@ fn main() {
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
     }
+    // A debug build or a dev profile mustn't repoint the installed app's sign-in entry at itself
+    if words.is_empty() && !cfg!(debug_assertions) && telescope_core::config::dev_profile().is_none() {
+        use telescope_system::autostart;
+        autostart::refresh(&autostart::launch_command(&app_dir(), true), &autostart::here());
+    }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
         Box::new(GpuPreview { gpu: telescope_media::gpu::Gpu::on_device(device, queue), pictures: [None, None], next: 0 })
     }));

@@ -956,8 +956,8 @@
 "Couldn't put adb in place. Is another program using it? Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach Google. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach vb-audio.com. Check the internet connection and try again." = { status = "todo" }
-"Couldn't set Telescope to open at sign-in: {error}" = { status = "todo" }
-"Couldn't stop Telescope opening at sign-in: {error}" = { status = "todo" }
+"Couldn't set Telescope to open at sign-in: {error}" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::enable" }
+"Couldn't stop Telescope opening at sign-in: {error}" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::disable" }
 "Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "todo" }
 "Couldn't unpack adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Download failed: {error}" = { status = "todo" }
@@ -4009,12 +4009,12 @@
 "test_startup.py::test_changing_the_wait_mid_count_restarts_it" = { status = "todo" }
 "test_startup.py::test_config_round_trip_and_bad_values" = { status = "todo" }
 "test_startup.py::test_diagnostics_say_what_is_on_and_who_owns_the_stream" = { status = "todo" }
-"test_startup.py::test_exec_quoting_follows_the_desktop_entry_rules" = { status = "todo" }
-"test_startup.py::test_launch_command_prefers_start_sh_on_linux" = { status = "todo" }
-"test_startup.py::test_linux_desktop_entry_round_trip" = { status = "todo" }
-"test_startup.py::test_menu_entry_follows_this_copy_and_only_writes_on_change" = { status = "todo" }
-"test_startup.py::test_menu_entry_opens_the_window_and_skips_dev_checkouts" = { status = "todo" }
-"test_startup.py::test_menu_entry_trouble_is_not_fatal" = { status = "todo" }
+"test_startup.py::test_exec_quoting_follows_the_desktop_entry_rules" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::exec_quoting_follows_the_desktop_entry_rules" }
+"test_startup.py::test_launch_command_prefers_start_sh_on_linux" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command_prefers_start_sh_on_linux" }
+"test_startup.py::test_linux_desktop_entry_round_trip" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::linux_desktop_entry_round_trip" }
+"test_startup.py::test_menu_entry_follows_this_copy_and_only_writes_on_change" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_entry_follows_this_copy_and_only_writes_on_change" }
+"test_startup.py::test_menu_entry_opens_the_window_and_skips_dev_checkouts" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command_prefers_start_sh_on_linux", note = "No channel in Rust: a debug build skips refresh in rust/app/src/main.rs instead" }
+"test_startup.py::test_menu_entry_trouble_is_not_fatal" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_entry_trouble_is_not_fatal" }
 "test_startup.py::test_never_stops_a_stream_it_did_not_start" = { status = "todo" }
 "test_startup.py::test_never_stops_before_the_watch_has_reported" = { status = "todo" }
 "test_startup.py::test_no_notice_when_it_is_switched_off" = { status = "todo" }
@@ -4037,7 +4037,7 @@
 "test_startup.py::test_switching_phones_is_a_new_arrival" = { status = "todo" }
 "test_startup.py::test_switching_the_stop_off_cancels_the_wait" = { status = "todo" }
 "test_startup.py::test_the_camera_comes_back_when_an_app_opens_it_again" = { status = "todo" }
-"test_startup.py::test_the_sign_in_entry_follows_this_copy_when_it_is_on" = { status = "todo" }
+"test_startup.py::test_the_sign_in_entry_follows_this_copy_when_it_is_on" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::the_sign_in_entry_follows_this_copy_when_it_is_on" }
 "test_startup.py::test_the_two_old_checkboxes_carry_over" = { status = "todo" }
 "test_startup.py::test_the_wait_ending_checks_again_before_stopping" = { status = "todo" }
 "test_startup.py::test_wait_fields_read_and_write_the_wait" = { status = "todo" }
@@ -4045,7 +4045,7 @@
 "test_startup.py::test_waits_the_chosen_time" = { status = "todo" }
 "test_startup.py::test_watch_start_without_idle_stop_keeps_streaming" = { status = "todo" }
 "test_startup.py::test_watching_is_off_by_default" = { status = "todo" }
-"test_startup.py::test_windows_run_key_round_trip" = { status = "todo" }
+"test_startup.py::test_windows_run_key_round_trip" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::windows_run_key_round_trip" }
 "test_startup.py::test_with_the_mic_on_the_idle_stop_turns_only_the_camera_off" = { status = "todo" }
 "test_startup.py::test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left" = { status = "todo" }
 "test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" = { status = "todo" }
@@ -5915,8 +5915,8 @@
 "folder:telescope/platform/adb_download.py:downloaded_dir:Path.home" = { status = "ported", rust = "rust/crates/link/src/adb.rs::downloaded_dir" }
 "folder:telescope/platform/adb_download.py:use_own_adb:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
 "folder:telescope/platform/adb_download.py:use_own_adb:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
-"folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "todo" }
-"folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "todo" }
+"folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::data_home" }
+"folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::config_home" }
 "folder:telescope/platform/virtual_mic.py:_private_temp_dir:tempfile.gettempdir" = { status = "todo" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "todo" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "todo" }
@@ -5953,19 +5953,19 @@
 "platform:adb_download.py:downloaded_revision" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::downloaded_revision" }
 "platform:adb_download.py:find_archive" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::find_archive" }
 "platform:adb_download.py:use_own_adb" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::use_own_adb" }
-"platform:autostart.py:app_dir" = { status = "todo" }
-"platform:autostart.py:desktop_entry" = { status = "todo" }
-"platform:autostart.py:desktop_file" = { status = "todo" }
-"platform:autostart.py:disable" = { status = "todo" }
-"platform:autostart.py:enable" = { status = "todo" }
-"platform:autostart.py:ensure_portal_entry" = { status = "todo" }
-"platform:autostart.py:icon_file" = { status = "todo" }
-"platform:autostart.py:is_dev_checkout" = { status = "todo" }
-"platform:autostart.py:is_enabled" = { status = "todo" }
-"platform:autostart.py:launch_command" = { status = "todo" }
-"platform:autostart.py:menu_file" = { status = "todo" }
-"platform:autostart.py:refresh" = { status = "todo" }
-"platform:autostart.py:update_menu_entry" = { status = "todo" }
+"platform:autostart.py:app_dir" = { status = "ported", rust = "rust/crates/system/src/lib.rs::app_dir" }
+"platform:autostart.py:desktop_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::desktop_entry" }
+"platform:autostart.py:desktop_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::desktop_file" }
+"platform:autostart.py:disable" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::disable" }
+"platform:autostart.py:enable" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::enable" }
+"platform:autostart.py:ensure_portal_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::ensure_portal_entry" }
+"platform:autostart.py:icon_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::icon_file" }
+"platform:autostart.py:is_dev_checkout" = { status = "dropped", reason = "No release channel in the Rust build; main skips the sign-in refresh in debug builds and dev profiles" }
+"platform:autostart.py:is_enabled" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::is_enabled" }
+"platform:autostart.py:launch_command" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command" }
+"platform:autostart.py:menu_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_file" }
+"platform:autostart.py:refresh" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::refresh" }
+"platform:autostart.py:update_menu_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::update_menu_entry" }
 "platform:hotkeys.py:Hotkey" = { status = "todo" }
 "platform:hotkeys.py:HotkeyBackend" = { status = "todo" }
 "platform:hotkeys.py:HotkeyStatus" = { status = "todo" }

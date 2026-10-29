@@ -1,10 +1,16 @@
 //! The desktop around the window, behind core's system traits: a skeleton (tray, notifications, autostart, single instance, global shortcuts, updater and update guard to come).
 
+pub mod autostart;
 pub mod shortcuts;
 pub mod single_instance;
 pub mod update_guard;
 
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
+
+/// The folder this program runs from (autostart.app_dir).
+pub fn app_dir() -> std::path::PathBuf {
+    std::env::current_exe().ok().and_then(|p| p.parent().map(std::path::PathBuf::from)).unwrap_or_default()
+}
 
 /// This computer's desktop.
 #[derive(Default)]
@@ -18,11 +24,11 @@ impl Notifier for Desktop {
 
 impl Autostart for Desktop {
     fn enabled(&self) -> bool {
-        false
+        autostart::is_enabled(&autostart::here())
     }
 
-    fn set_enabled(&self, _on: bool, _minimized: bool) -> Result<(), String> {
-        Err("Starting with the computer isn't in this build yet".into())
+    fn set_enabled(&self, on: bool, minimized: bool) -> Result<(), String> {
+        if on { autostart::enable(&autostart::launch_command(&app_dir(), minimized), &autostart::here()) } else { autostart::disable(&autostart::here()) }
     }
 }
 
