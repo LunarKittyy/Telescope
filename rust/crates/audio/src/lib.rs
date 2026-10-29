@@ -5,6 +5,7 @@ pub mod denoise;
 pub mod jitter;
 pub mod shape;
 pub mod sink;
+pub mod vb_cable;
 pub mod virtual_mic;
 pub mod worker;
 

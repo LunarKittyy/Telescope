@@ -4794,8 +4794,12 @@ dependencies = [
  "libc",
  "libloading",
  "log",
+ "ring",
+ "rustls",
  "serde_json",
  "telescope-core",
+ "ureq",
+ "zip",
 ]
 
 [[package]]
