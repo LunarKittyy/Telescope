@@ -339,6 +339,18 @@ mod tests {
     }
 
     #[test]
+    fn hold_is_refused_without_a_key_to_let_go_of() {
+        let spec = ActionSpec {
+            id: "microphone.mute".into(), label: "Mute".into(), group: "Microphone".into(),
+            params: vec![json!({"name": "mode", "label": "Does", "kind": "choice", "default": "toggle",
+                                "choices": [["toggle", "Switch"], ["on", "On"], ["off", "Off"], ["hold", "While held"]]})],
+            repeats: false, on_release: true, current: None, keywords: String::new(),
+        };
+        let params = json!({"mode": "hold"}).as_object().unwrap().clone();
+        assert_eq!(param_problem(&spec, &params), Some("hold needs a key to let go of; use toggle, on or off with --action.".into()));
+    }
+
+    #[test]
     fn numbers_are_checked_and_listed() {
         let spec = ActionSpec {
             id: "camera.iso".into(), label: "ISO".into(), group: "Camera".into(),

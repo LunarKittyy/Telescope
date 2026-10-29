@@ -462,6 +462,24 @@ mod tests {
     }
 
     #[test]
+    fn a_lock_that_answers_nothing_says_so_and_a_relaunch_waits_for_the_old_copy() {
+        let address = test_address("silent");
+        let Acquired::Lock(lock) = acquire(&address, Duration::ZERO) else { panic!("no lock") };
+        // Something holding the lock that isn't a Telescope: it accepts and closes without a word
+        let silent = std::thread::spawn(move || {
+            if let Ok(conn) = lock.accept() {
+                drop(conn);
+            }
+            std::thread::sleep(Duration::from_millis(300));
+        });
+        assert!(matches!(acquire(&address, Duration::ZERO), Acquired::Taken));
+        assert!(notice(&Acquired::Taken, &address).unwrap().1.contains("single-instance lock"));
+        // The old copy lets go within the wait: the new one gets the lock
+        assert!(matches!(acquire(&address, Duration::from_secs(5)), Acquired::Lock(_)));
+        silent.join().unwrap();
+    }
+
+    #[test]
     fn the_address_is_per_user_and_apart_for_a_dev_profile() {
         let (real, dev) = (Address::for_profile(false), Address::for_profile(true));
         assert_ne!(real, dev);

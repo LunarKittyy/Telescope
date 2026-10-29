@@ -749,6 +749,44 @@ mod tests {
     }
 
     #[test]
+    fn after_an_update_the_new_copy_waits_for_the_old_one_to_exit() {
+        let base = root("waits");
+        let app = windows_app(&base);
+        stage_windows(&app);
+        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
+        let until = Instant::now() + Duration::from_millis(600);
+        let old_running = move || Instant::now() < until;
+        assert_eq!(recover(&app, Duration::from_secs(5), &old_running, Duration::ZERO), None);
+        assert_eq!(read_journal(&app).unwrap()["started"], true);
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn confirming_with_no_update_in_progress_leaves_no_journal_behind() {
+        let base = root("confirm-none");
+        confirm(&base);
+        assert!(!base.join(JOURNAL).exists());
+        write_journal(&base, &json!({"platform": "linux", "state": "trial", "started": true})).unwrap();
+        confirm(&base);
+        assert!(read_journal(&base).is_none());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn the_guard_sees_a_running_copy_through_the_same_address_the_app_binds() {
+        use crate::single_instance::{acquire, Acquired, Address};
+        // A dev profile's address is its own, so this doesn't meet a real Telescope running here
+        let folder = root("guard-address");
+        std::env::set_var(telescope_core::config::DEV_PROFILE_ENV, &folder);
+        let Acquired::Lock(lock) = acquire(&Address::current(), Duration::ZERO) else { panic!("no lock") };
+        assert!(another_copy_running(false));
+        drop(lock);
+        assert!(!another_copy_running(false));
+        std::env::remove_var(telescope_core::config::DEV_PROFILE_ENV);
+        std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
     fn the_relaunch_runs_start_sh_where_there_is_one() {
         let base = root("relaunch");
         if cfg!(windows) {

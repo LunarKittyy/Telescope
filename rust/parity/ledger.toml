@@ -2002,12 +2002,12 @@
 "test_app.py::test_a_wake_that_lands_after_the_user_gave_up_is_discarded" = { status = "todo" }
 "test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "todo" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_an_action_reaches_the_running_copy_with_its_key" = { status = "todo" }
 "test_app.py::test_an_action_when_the_key_couldnt_be_written" = { status = "todo" }
 "test_app.py::test_an_action_with_nothing_running" = { status = "todo" }
@@ -3001,7 +3001,7 @@
 # ── main
 "test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "todo" }
 "test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "todo" }
-"test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "todo" }
+"test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
 "test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "todo" }
 # ── microphone
 "test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "todo" }
@@ -3961,10 +3961,10 @@
 "test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "todo" }
 "test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "todo" }
 "test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_actions" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "todo" }
+"test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "todo" }
 "test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo" }
@@ -4356,25 +4356,25 @@
 "test_udp_reader.py::test_reports_say_how_much_got_through" = { status = "ported", rust = "rust/crates/link/src/udp.rs::frames_arrive_over_udp_and_lost_datagrams_are_sent_again" }
 "test_udp_reader.py::test_seals_exactly_like_the_phone" = { status = "ported", rust = "rust/crates/link/src/udp.rs::seals_exactly_like_the_phone" }
 # ── update_guard
-"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "todo" }
-"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "todo" }
-"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "todo" }
-"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "todo" }
-"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "todo" }
-"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "todo" }
-"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "todo" }
-"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "todo" }
-"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "todo" }
+"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "todo" }
-"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "todo" }
+"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "todo" }
 "test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "todo" }
-"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "todo" }
-"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "todo" }
-"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "todo" }
+"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs", note = "confirm_on_terminate is a no-op off unix" }
 # ── updates
 "test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "todo" }
 "test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "todo" }
@@ -5784,13 +5784,13 @@
 [cli]
 # command line flags
 # ── main
-"--action" = { status = "todo" }
-"--after-update" = { status = "todo" }
-"--list-actions" = { status = "todo" }
+"--action" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--after-update" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--list-actions" = { status = "ported", rust = "rust/app/src/main.rs" }
 "--minimized" = { status = "todo" }
 "--moved-from" = { status = "todo" }
-"--restarted" = { status = "todo" }
-"--warm-up" = { status = "todo" }
+"--restarted" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--warm-up" = { status = "dropped", reason = "Windows PyAV preload for the Python bundle's loader lock; the Rust exe has nothing to warm up" }
 
 [phone]
 # phone protocol endpoints and the actions sent to them
