@@ -13,6 +13,7 @@ pub mod json;
 pub mod lens;
 pub mod link;
 pub mod media;
+pub mod names;
 pub mod output;
 pub mod plugin;
 pub mod services;
