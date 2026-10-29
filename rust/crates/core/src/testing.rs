@@ -71,6 +71,10 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
+    /// What's on the clipboard: copy_text puts text there unless the clipboard is deaf (Wayland ignores a copy from a window
+    /// in the background).
+    pub clipboard: Option<String>,
+    pub clipboard_deaf: bool,
     next_request: u64,
 }
 
@@ -282,6 +286,12 @@ impl HostShell for FakeHost {
     }
     fn copy_text(&mut self, text: &str) {
         self.note(format!("copy_text {text}"));
+        if !self.clipboard_deaf {
+            self.clipboard = Some(text.to_string());
+        }
+    }
+    fn clipboard_text(&mut self) -> Option<String> {
+        self.clipboard.clone()
     }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<crate::ui::ShortcutEntry>>) {
         self.note(format!("set_shortcut_menu {}", serde_json::to_string(&bindings).unwrap_or_default()));
