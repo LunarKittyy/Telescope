@@ -5,7 +5,7 @@
 
 use crate::session::{Client, Source, SourceKind};
 use crate::texts::fill;
-use crate::worker::Opener;
+use crate::worker::{Opened, Opener};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -430,7 +430,7 @@ impl SourceKind for PhoneKind {
 
     fn opener(&self) -> Option<Opener> {
         let session = self.session()?;
-        Some(Arc::new(move || session.open_video()))
+        Some(Arc::new(move || session.open_video().map(Opened::from)))
     }
 
     fn as_phone(&self) -> Option<&PhoneKind> {
@@ -468,7 +468,14 @@ impl SourceKind for PluginKind {
     }
     fn opener(&self) -> Option<Opener> {
         let source = self.source.clone();
-        Some(Arc::new(move || source.open_feed()))
+        Some(Arc::new(move || {
+            let (codec, feed) = source.open_feed()?;
+            Ok(Opened { codec, feed, own_decoder: source.decoder() })
+        }))
+    }
+    fn waiting_text(&self) -> Option<crate::worker::WaitingText> {
+        let source = self.source.clone();
+        Some(Arc::new(move || source.waiting_text()))
     }
 }
 

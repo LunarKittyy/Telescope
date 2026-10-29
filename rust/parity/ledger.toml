@@ -4116,7 +4116,7 @@
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }
 "test_stream.py::test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay" = { status = "todo" }
-"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "todo" }
+"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_accumulates_bytes_from_successful_reads" = { status = "todo" }
