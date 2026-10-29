@@ -5,7 +5,7 @@
 use crate::util::{hex, random_hex};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use telescope_core::i18n::tr;
 
@@ -412,6 +412,51 @@ fn sha1_of(path: &Path) -> Option<String> {
             return Some(hex(ctx.finish().as_ref()));
         }
         ctx.update(&buf[..n]);
+    }
+}
+
+/// What a download (or keeping an adb picked by hand) runs: progress texts in, Ok(version) or Err(why) out.
+pub type DownloadJob = Arc<dyn Fn(&dyn Fn(&str)) -> Result<String, String> + Send + Sync>;
+
+/// One download at a time, shared by Add phone and Advanced, so closing the dialog doesn't lose one under way
+/// (widgets/adb.py's AdbDownload).
+#[derive(Clone)]
+pub struct AdbDownloader {
+    running: Arc<std::sync::atomic::AtomicBool>,
+    job: DownloadJob,
+}
+
+impl AdbDownloader {
+    pub fn new(job: DownloadJob) -> AdbDownloader {
+        AdbDownloader { running: Arc::default(), job }
+    }
+
+    /// Google's platform-tools into downloaded_dir().
+    pub fn system() -> AdbDownloader {
+        AdbDownloader::new(Arc::new(|say| download_adb(&Web, None, say)))
+    }
+
+    pub fn running(&self) -> bool {
+        self.running.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Starts job (the download by default) unless one runs already; false then. progress and done come from its
+    /// thread, and done always comes, even when the job panics.
+    pub fn start(&self, job: Option<DownloadJob>, progress: Box<dyn Fn(&str) + Send>,
+                 done: Box<dyn FnOnce(Result<String, String>) + Send>) -> bool {
+        if self.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return false;
+        }
+        let (running, job) = (self.running.clone(), job.unwrap_or_else(|| self.job.clone()));
+        std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&*progress))).unwrap_or_else(|_| {
+                log::error!("adb download failed");
+                Err(tr("Couldn't download adb. Try again."))
+            });
+            running.store(false, std::sync::atomic::Ordering::SeqCst);
+            done(result);
+        });
+        true
     }
 }
 
@@ -830,5 +875,35 @@ mod tests {
         assert!(!dest.exists());
         std::fs::write(root.join("broken.zip"), b"not a zip").unwrap();
         assert_eq!(use_own_adb(&root.join("broken.zip"), Some(&dest)), Err("Couldn't copy adb from there.".into()));
+    }
+
+    #[test]
+    fn asking_while_a_download_runs_doesn_t_ask_or_start_another() {
+        let calls = Arc::new(Mutex::new(0));
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let release_rx = Mutex::new(release_rx);
+        let c = calls.clone();
+        let downloader = AdbDownloader::new(Arc::new(move |_say| {
+            *c.lock().unwrap() += 1;
+            release_rx.lock().unwrap().recv_timeout(Duration::from_secs(5)).unwrap();
+            Ok("37.0.1".into())
+        }));
+        let (done_tx, done_rx) = mpsc::channel();
+        assert!(downloader.start(None, Box::new(|_| {}), Box::new(move |r| done_tx.send(r).unwrap())));
+        assert!(downloader.running());
+        assert!(!downloader.start(None, Box::new(|_| {}), Box::new(|_| panic!("a second one ran"))));
+        release_tx.send(()).unwrap();
+        assert_eq!(done_rx.recv_timeout(Duration::from_secs(5)).unwrap(), Ok("37.0.1".into()));
+        assert_eq!(*calls.lock().unwrap(), 1);
+        assert!(!downloader.running());
+    }
+
+    #[test]
+    fn a_download_that_raises_still_reports_back() {
+        let downloader = AdbDownloader::new(Arc::new(|_say| panic!("boom")));
+        let (tx, rx) = mpsc::channel();
+        downloader.start(None, Box::new(|_| {}), Box::new(move |r| tx.send(r).unwrap()));
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), Err("Couldn't download adb. Try again.".into()));
+        assert!(!downloader.running());
     }
 }
