@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// A new empty folder under the system's temp folder, unique to this call.
 pub fn scratch_dir(label: &str) -> PathBuf {
@@ -52,7 +52,19 @@ pub struct FakeHost {
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
+    /// Timers pending from Host::schedule, as (after_ms, token), oldest first.
+    pub scheduled: Vec<(u64, String)>,
+    /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
+    pub posted: Arc<Mutex<Vec<(String, Value)>>>,
     next_request: u64,
+}
+
+struct FakePoster(Arc<Mutex<Vec<(String, Value)>>>);
+
+impl Poster for FakePoster {
+    fn post(&self, token: &str, data: Value) {
+        self.0.lock().unwrap().push((token.to_string(), data));
+    }
 }
 
 impl FakeHost {
@@ -378,5 +390,27 @@ impl Host for FakeHost {
     }
     fn has_plugin(&self, name: &str) -> bool {
         self.plugins.iter().any(|p| p == name)
+    }
+    fn schedule(&mut self, after_ms: u64, token: &str) {
+        self.scheduled.retain(|(_, t)| t != token);
+        self.scheduled.push((after_ms, token.to_string()));
+    }
+    fn cancel_schedule(&mut self, token: &str) {
+        self.scheduled.retain(|(_, t)| t != token);
+    }
+    fn poster(&self) -> Option<Arc<dyn Poster>> {
+        Some(Arc::new(FakePoster(self.posted.clone())))
+    }
+}
+
+impl FakeHost {
+    /// Whether a timer with this token is pending.
+    pub fn is_scheduled(&self, token: &str) -> bool {
+        self.scheduled.iter().any(|(_, t)| t == token)
+    }
+
+    /// The posts so far, taken out.
+    pub fn take_posted(&self) -> Vec<(String, Value)> {
+        std::mem::take(&mut *self.posted.lock().unwrap())
     }
 }

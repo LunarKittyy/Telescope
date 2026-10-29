@@ -37,8 +37,12 @@ pub fn platform_tools_dir() -> PathBuf {
 
 /// Windows: the adb Telescope downloaded for this user (adb_download.downloaded_dir()).
 pub fn downloaded_dir() -> PathBuf {
-    let base = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(PathBuf::from)
-        .unwrap_or_else(|| std::env::home_dir().unwrap_or_default().join("AppData").join("Local"));
+    downloaded_dir_in(std::env::var_os("LOCALAPPDATA"), std::env::home_dir())
+}
+
+fn downloaded_dir_in(local_app_data: Option<std::ffi::OsString>, home: Option<PathBuf>) -> PathBuf {
+    let base = local_app_data.filter(|v| !v.is_empty()).map(PathBuf::from)
+        .unwrap_or_else(|| home.unwrap_or_default().join("AppData").join("Local"));
     base.join("Telescope").join("platform-tools")
 }
 
@@ -154,7 +158,10 @@ pub fn ensure_adb_server() {
             // "nodaemon" keeps the server in this process instead of the detached copy adb forks by default
             command.args(["nodaemon", "server"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
             hide_window(&mut command);
-            command.spawn().ok()
+            let child = command.spawn().ok()?;
+            // A crash then takes the server along too, so its folder isn't left locked
+            crate::winjob::kill_with_us(&child);
+            Some(child)
         }, adb_exe());
     }
 }
@@ -384,6 +391,29 @@ mod tests {
         let (tools, dl) = (telescope_core::testing::scratch_dir("adb-t"), telescope_core::testing::scratch_dir("adb-dl"));
         std::fs::write(dl.join("adb.exe"), "").unwrap();
         assert_eq!(adb_exe_in(&tools, Some(&dl), |_| None), Some(dl.join("adb.exe")));
+    }
+
+    #[test]
+    fn it_lives_in_local_app_data() {
+        let local = telescope_core::testing::scratch_dir("local-app-data");
+        assert_eq!(downloaded_dir_in(Some(local.clone().into()), None), local.join("Telescope").join("platform-tools"));
+        assert_eq!(downloaded_dir_in(Some("".into()), Some("/home/x".into())), Path::new("/home/x/AppData/Local/Telescope/platform-tools"));
+    }
+
+    #[test]
+    fn adb_is_found_in_the_app_folder_then_the_download_then_path() {
+        let root = telescope_core::testing::scratch_dir("adb-order");
+        let (app, local) = (root.join("app").join("platform-tools"), root.join("local"));
+        let downloaded_dir = downloaded_dir_in(Some(local.into()), None);
+        let path = |_: &str| Some(PathBuf::from(r"C:\sdk\adb.exe"));
+        assert_eq!(adb_exe_in(&app, Some(&downloaded_dir), path), Some(PathBuf::from(r"C:\sdk\adb.exe")));
+        std::fs::create_dir_all(&downloaded_dir).unwrap();
+        std::fs::write(downloaded_dir.join("adb.exe"), "adb").unwrap();
+        assert_eq!(adb_exe_in(&app, Some(&downloaded_dir), path), Some(downloaded_dir.join("adb.exe")));
+        let bundled = app.join(if cfg!(windows) { "adb.exe" } else { "adb" });
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(&bundled, "adb").unwrap();
+        assert_eq!(adb_exe_in(&app, Some(&downloaded_dir), path), Some(bundled));
     }
 
     #[test]

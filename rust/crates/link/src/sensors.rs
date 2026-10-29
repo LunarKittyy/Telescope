@@ -827,8 +827,16 @@ mod tests {
         follow(&hub, "phone", "https://p/v1", &link, Some(all()));
         hub.want("level", &["orientation"]);
         hub.want("meter", &["light"]);
-        assert!(soon(|| link.live().len() == 1 && link.live()[0].url.ends_with("orientation,light")));
-        let resp = link.live()[0].clone();
+        let found = Mutex::new(None);
+        // Taken inside the wait: the stream for orientation alone may still be letting go meanwhile
+        assert!(soon(|| {
+            let live = link.live();
+            let ours = live.iter().find(|o| o.url.ends_with("orientation,light")).cloned();
+            let only = live.len() == 1 && ours.is_some();
+            *found.lock().unwrap() = ours;
+            only
+        }));
+        let resp = found.into_inner().unwrap().unwrap();
         resp.send(json!({"version": 1, "sensors": ["orientation", "light"]}));
         resp.send(json!({"t": 1, "orientation": {"roll": 3.5, "pitch": -1.0, "camera": "0"}, "light": 120.0}));
         assert!(soon(|| hub.reading(None).is_some_and(|r| r.roll == Some(3.5))));
