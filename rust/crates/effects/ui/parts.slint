@@ -28,6 +28,10 @@ component SliderRow inherits FormRow {
     in property <float> step: 1;
     in property <string> readout;
     in property <color> hue: Theme.accent;
+    in property <bool> has-default;
+    in property <float> default-value;
+    // "Double-click to reset", added to the tip of a slider that has a default
+    in property <string> hint;
     callback moved(float);
     Rectangle {
         horizontal-stretch: 1;
@@ -42,9 +46,11 @@ component SliderRow inherits FormRow {
             step: root.step;
             value: root.value;
             readout: root.readout;
+            has-default: root.has-default;
+            default-value: root.default-value;
             moved(v) => { root.moved(v); }
         }
-        if tip != "": Tooltip { TipBody { says: root.tip; } }
+        if tip != "": Tooltip { TipBody { says: has-default && hint != "" ? root.tip + "\n" + hint : root.tip; } }
     }
 }
 

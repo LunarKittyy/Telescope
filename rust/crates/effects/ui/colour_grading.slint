@@ -3,7 +3,10 @@
 // One wheel: its name and readout over the puck's ring, and the master slider under it
 component WheelCell inherits VerticalLayout {
     in property <string> name;
+    in property <string> wheel-label;
     in property <string> tip;
+    in property <string> master-tip;
+    in property <string> hint;
     in property <string> readout;
     in property <float> puck-x;
     in property <float> puck-y;
@@ -12,6 +15,7 @@ component WheelCell inherits VerticalLayout {
     in property <float> master-max;
     in property <float> master-value;
     in property <float> master-step: 0.01;
+    in property <float> master-default;
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
     callback pressed();
@@ -32,7 +36,7 @@ component WheelCell inherits VerticalLayout {
         puck-y: root.puck-y;
         puck-colour: root.puck-colour;
         tip: root.tip;
-        label: root.name;
+        label: root.wheel-label;
         enabled: root.enabled;
         pressed => { root.pressed(); }
         dragged(dx, dy, shift) => { root.dragged(dx, dy, shift); }
@@ -52,15 +56,18 @@ component WheelCell inherits VerticalLayout {
             maximum: master-max;
             step: master-step;
             value: master-value;
+            has-default: true;
+            default-value: master-default;
             moved(v) => { root.master-moved(v); }
         }
-        if tip != "": Tooltip { TipBody { says: root.tip; } }
+        if master-tip != "": Tooltip { TipBody { says: hint != "" ? master-tip + "\n" + hint : master-tip; } }
     }
 }
 
 export component ColourGradingCard inherits Card {
     // Greyed out until a phone is paired
     in property <bool> active: true;
+    in property <string> reset-hint;
     in property <bool> on: true;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -72,12 +79,15 @@ export component ColourGradingCard inherits Card {
     in property <[float]> wheel-x: [0, 0, 0, 0];
     in property <[float]> wheel-y: [0, 0, 0, 0];
     in property <[color]> wheel-colour: [#808080, #808080, #808080, #808080];
+    in property <[string]> wheel-labels: ["", "", "", ""];
+    in property <[string]> master-tips: ["", "", "", ""];
     in property <[string]> wheel-tips: ["", "", "", ""];
     in property <[string]> master-text: ["", "", "", ""];
     in property <[float]> master-min: [0, 0, 0, 0];
     in property <[float]> master-max: [1, 1, 1, 1];
     in property <[float]> master-value: [0, 0, 0, 0];
     in property <[float]> master-step: [0.01, 0.01, 0.01, 0.01];
+    in property <[float]> master-default: [0, 0, 1, 0];
     // The sliders under the wheels, in the card's order
     in property <[string]> slider-tips: ["", "", "", "", "", "", ""];
     in property <[string]> slider-text: ["", "", "", "", "", "", ""];
@@ -85,6 +95,7 @@ export component ColourGradingCard inherits Card {
     in property <[float]> slider-max: [1, 1, 1, 1, 1, 1, 1];
     in property <[float]> slider-value: [0, 0, 0, 0, 0, 0, 0];
     in property <[float]> slider-step: [1, 1, 1, 1, 1, 1, 1];
+    in property <[float]> slider-default: [0, 0, 1, 0.435, 1, 0, 0];
     // The curve page
     in property <int> curve: 0;
     in property <int> channel: 0;
@@ -103,6 +114,7 @@ export component ColourGradingCard inherits Card {
     in property <string> lut-note;
     in property <string> export-note;
     in property <string> export-kind: "dim";
+    in property <bool> replace-open;
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
     callback split-moved(float);
@@ -126,6 +138,7 @@ export component ColourGradingCard inherits Card {
     callback clear-clicked;
     callback strength-moved(float);
     callback export-clicked;
+    callback replace-answered(bool);
 
     title: @tr("Colour grading");
     icon: Icons.colour;
@@ -156,6 +169,9 @@ export component ColourGradingCard inherits Card {
         value: split;
         readout: split-text;
         hue: root.hue;
+        has-default: true;
+        default-value: 50;
+        hint: root.reset-hint;
         moved(v) => { root.split-moved(v); }
     }
     HorizontalLayout {
@@ -188,10 +204,13 @@ export component ColourGradingCard inherits Card {
             spacing: 12px;
             WheelCell {
                 name: @tr("Lift");
+                wheel-label: wheel-labels[0];
                 tip: wheel-tips[0];
+                master-tip: master-tips[0];
+                hint: root.reset-hint;
                 readout: master-text[0];
                 puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
-                master-min: master-min[0]; master-max: master-max[0]; master-value: master-value[0]; master-step: master-step[0];
+                master-min: master-min[0]; master-max: master-max[0]; master-value: master-value[0]; master-step: master-step[0]; master-default: master-default[0];
                 hue: root.hue;
                 pressed => { root.wheel-pressed(0); }
                 dragged(dx, dy, s) => { root.wheel-dragged(0, dx, dy, s); }
@@ -202,10 +221,13 @@ export component ColourGradingCard inherits Card {
             }
             WheelCell {
                 name: @tr("Gamma");
+                wheel-label: wheel-labels[1];
                 tip: wheel-tips[1];
+                master-tip: master-tips[1];
+                hint: root.reset-hint;
                 readout: master-text[1];
                 puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
-                master-min: master-min[1]; master-max: master-max[1]; master-value: master-value[1]; master-step: master-step[1];
+                master-min: master-min[1]; master-max: master-max[1]; master-value: master-value[1]; master-step: master-step[1]; master-default: master-default[1];
                 hue: root.hue;
                 pressed => { root.wheel-pressed(1); }
                 dragged(dx, dy, s) => { root.wheel-dragged(1, dx, dy, s); }
@@ -219,10 +241,13 @@ export component ColourGradingCard inherits Card {
             spacing: 12px;
             WheelCell {
                 name: @tr("Gain");
+                wheel-label: wheel-labels[2];
                 tip: wheel-tips[2];
+                master-tip: master-tips[2];
+                hint: root.reset-hint;
                 readout: master-text[2];
                 puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
-                master-min: master-min[2]; master-max: master-max[2]; master-value: master-value[2]; master-step: master-step[2];
+                master-min: master-min[2]; master-max: master-max[2]; master-value: master-value[2]; master-step: master-step[2]; master-default: master-default[2];
                 hue: root.hue;
                 pressed => { root.wheel-pressed(2); }
                 dragged(dx, dy, s) => { root.wheel-dragged(2, dx, dy, s); }
@@ -233,10 +258,13 @@ export component ColourGradingCard inherits Card {
             }
             WheelCell {
                 name: @tr("Offset");
+                wheel-label: wheel-labels[3];
                 tip: wheel-tips[3];
+                master-tip: master-tips[3];
+                hint: root.reset-hint;
                 readout: master-text[3];
                 puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
-                master-min: master-min[3]; master-max: master-max[3]; master-value: master-value[3]; master-step: master-step[3];
+                master-min: master-min[3]; master-max: master-max[3]; master-value: master-value[3]; master-step: master-step[3]; master-default: master-default[3];
                 hue: root.hue;
                 pressed => { root.wheel-pressed(3); }
                 dragged(dx, dy, s) => { root.wheel-dragged(3, dx, dy, s); }
@@ -255,6 +283,9 @@ export component ColourGradingCard inherits Card {
             value: slider-value[i];
             readout: slider-text[i];
             hue: root.hue;
+            has-default: true;
+            default-value: slider-default[i];
+            hint: root.reset-hint;
             moved(v) => { root.slider-moved(i, v); }
         }
     }
@@ -343,6 +374,9 @@ export component ColourGradingCard inherits Card {
             value: strength;
             readout: strength-text;
             hue: root.hue;
+            has-default: true;
+            default-value: 100;
+            hint: root.reset-hint;
             moved(v) => { root.strength-moved(v); }
         }
         Note {
@@ -368,5 +402,13 @@ export component ColourGradingCard inherits Card {
             visible: export-note != "";
             height: export-note != "" ? self.preferred-height : 0px;
         }
+        if replace-open: HorizontalLayout {
+            spacing: 8px;
+            Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
+            Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
     }
+    // Nothing to touch until a phone is paired
+    if !active: TouchArea { }
 }
