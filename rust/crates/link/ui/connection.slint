@@ -31,10 +31,11 @@ global Status {
     }
 }
 
+// wrapped_note: a QLabel#dim, so body size
 component Note inherits Text {
     in property <string> kind: "status_dim";
     font-family: Theme.font;
-    font-size: Theme.small;
+    font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
 }
@@ -125,9 +126,16 @@ export component ConnectionCard inherits Card {
     title: @tr("Connection");
     icon: Icons.v-connection;
     has-action: true;
-    action-icon: Icons.v-plus;
+    // card_action takes line icons for help and plus
+    action-icon: Icons.plus;
+    action-text: @tr("Add phone");
     action-label: @tr("Pair a phone over Wi-Fi or USB");
     action => { root.add-phone(); }
+    has-extra: true;
+    extra-icon: Icons.help;
+    extra-label: @tr("Open or close the setup guide: the virtual camera, the phone app and pairing");
+    extra-name: @tr("Setup guide");
+    extra => { root.guide(); }
 
     changed add-open => {
         if (self.add-open) {
@@ -137,23 +145,27 @@ export component ConnectionCard inherits Card {
         }
     }
 
+    // QFrame#subsection
     Rectangle {
-        background: Theme.surface-sunk;
-        border-radius: 10px;
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
         VerticalLayout {
             padding-left: 12px;
             padding-right: 12px;
             padding-top: 8px;
             padding-bottom: 6px;
-            spacing: 4px;
+            spacing: 0px;
             HorizontalLayout {
                 spacing: 12px;
+                // RoundIcon: the card's hue at 14% under the icon in that hue
                 Rectangle {
-                    width: 34px;
-                    height: 34px;
-                    border-radius: 17px;
-                    background: Theme.surface-raise;
-                    Icon { source: Status.icon(route-icon); width: 16px; height: 16px; accessible-role: none; }
+                    width: 35px;
+                    height: 35px;
+                    border-radius: 17.5px;
+                    background: root.hue.with-alpha(0.14);
+                    Icon { source: Status.icon(route-icon); tint: root.hue; width: 17px; height: 17px; accessible-role: none; }
                 }
                 VerticalLayout {
                     alignment: center;
@@ -161,7 +173,7 @@ export component ConnectionCard inherits Card {
                     Text {
                         text: status-text;
                         font-family: Theme.font;
-                        font-size: Theme.start;
+                        font-size: Theme.start * 1.08;
                         font-weight: 600;
                         color: Status.color(status-kind);
                         overflow: elide;
@@ -169,57 +181,66 @@ export component ConnectionCard inherits Card {
                     if using-shown: Text {
                         text: using-text;
                         font-family: Theme.font;
-                        font-size: Theme.small;
+                        font-size: Theme.body;
                         color: Theme.text-dim;
                         overflow: elide;
                     }
                 }
-                Button {
-                    height: 30px;
-                    width: 30px;
-                    role: "quiet";
-                    padding-x: 0px;
-                    has-icon: true;
-                    icon: Icons.v-help;
-                    icon-tint: Theme.text-dim;
-                    tip: @tr("Open or close the setup guide: the virtual camera, the phone app and pairing");
-                    accessible-label: @tr("Setup guide");
-                    clicked => { root.guide(); }
-                }
             }
-            if note-text != "" || switch-usb-shown || update-shown: VerticalLayout {
-                padding-left: 46px;
-                padding-bottom: 2px;
-                spacing: 8px;
-                if note-text != "": Note { text: note-text; kind: note-kind; }
-                if switch-usb-shown: HorizontalLayout {
-                    alignment: start;
-                    Button {
-                        text: @tr("Switch to USB");
-                        role: "primary";
-                        tip: @tr("The phone was plugged in; reconnect over the cable");
-                        clicked => { root.switch-usb(); }
-                    }
-                }
-                if update-shown: HorizontalLayout {
-                    alignment: start;
-                    Button {
-                        text: update-text;
-                        role: "primary";
-                        enabled: update-enabled;
-                        clicked => { root.update(); }
-                    }
-                }
-            }
-            if route-shown: Rectangle { height: 1px; background: Theme.border; }
-            if route-shown: FormRow {
-                label: @tr("Connect via");
-                Segmented {
+            // Not under an `if`: Slint measures wrapped text in a conditional layout as one line, so the box would come up short
+            HorizontalLayout {
+                property <bool> shown: note-text != "" || switch-usb-shown || update-shown;
+                visible: shown;
+                max-height: shown ? 100000px : 0px;
+                padding-top: shown ? 4px : 0px;
+                Rectangle { width: 46px; }
+                VerticalLayout {
                     horizontal-stretch: 1;
-                    items: [@tr("Auto"), "USB", "Wi-Fi"];
-                    current <=> root.route-current;
-                    accessible-description: @tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.");
-                    picked(i) => { root.route-picked(i); }
+                    padding-bottom: parent.shown ? 2px : 0px;
+                    Note {
+                        text: note-text;
+                        kind: note-kind;
+                        visible: note-text != "";
+                        height: note-text != "" ? self.preferred-height : 0px;
+                    }
+                    if switch-usb-shown: HorizontalLayout {
+                        alignment: start;
+                        padding-top: note-text != "" ? 8px : 0px;
+                        Button {
+                            text: @tr("Switch to USB");
+                            role: "primary";
+                            tip: @tr("The phone was plugged in; reconnect over the cable");
+                            clicked => { root.switch-usb(); }
+                        }
+                    }
+                    if update-shown: HorizontalLayout {
+                        alignment: start;
+                        padding-top: note-text != "" || switch-usb-shown ? 8px : 0px;
+                        Button {
+                            text: update-text;
+                            role: "primary";
+                            enabled: update-enabled;
+                            clicked => { root.update(); }
+                        }
+                    }
+                }
+            }
+            // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
+            if route-shown: VerticalLayout {
+                padding-top: 12px;
+                spacing: 4px;
+                Rectangle { height: 1px; background: Theme.border; }
+                FormRow {
+                    label: @tr("Connect via");
+                    Segmented {
+                        horizontal-stretch: 1;
+                        items: [@tr("Auto"), "USB", "Wi-Fi"];
+                        icons: [Icons.x, Icons.usb, Icons.wifi];
+                        has-icons: [false, true, true];
+                        current <=> root.route-current;
+                        accessible-description: @tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.");
+                        picked(i) => { root.route-picked(i); }
+                    }
                 }
             }
         }
