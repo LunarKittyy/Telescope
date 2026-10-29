@@ -1,0 +1,57 @@
+// The QR codes card (desktop/telescope/plugins/qr_reader.py). Joined after parts.slint, which has the imports.
+
+export component QrReaderCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <bool> on;
+    in property <bool> notify: true;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <string> notify-name;
+    in property <string> copy-text;
+    in property <string> copy-tip;
+    in property <bool> copy-shown;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    callback switch-toggled-by-hand(bool);
+    callback notify-toggled(bool);
+    callback copy-clicked;
+
+    title: @tr("QR codes");
+    icon: Icons.qr;
+    opacity: active ? 1 : 0.4;
+    has-switch: true;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    if status != "" || copy-shown: HorizontalLayout {
+        spacing: 8px;
+        alignment: stretch;
+        Note { text: status; kind: status-kind; horizontal-stretch: 1; }
+        if copy-shown: VerticalLayout {
+            alignment: start;
+            Button { text: copy-text; tip: copy-tip; clicked => { root.copy-clicked(); } }
+        }
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        alignment: start;
+        Switch {
+            y: (parent.height - self.height) / 2;
+            checked: notify;
+            label: notify-name;
+            toggled(v) => { root.notify-toggled(v); }
+        }
+        Text {
+            text: @tr("Notify me when a code is read");
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text;
+            vertical-alignment: center;
+        }
+    }
+    // Nothing to touch until a phone is paired
+    if !active: TouchArea { }
+}

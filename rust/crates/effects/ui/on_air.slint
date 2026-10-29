@@ -1,0 +1,237 @@
+// The On Air sign (desktop/telescope/plugins/on_air.py): the red button in the header while it's on, and the three cards of its tab in
+// Settings. Joined after parts.slint, which has the imports.
+
+// The header's "On air": only there while the sign is on
+export component OnAirButton inherits Rectangle {
+    in property <bool> shown;
+    in property <string> tip;
+    callback clicked;
+    visible: shown;
+    height: 36px;
+    width: shown ? button.min-width : 0px;
+    button := Button {
+        width: parent.width;
+        height: parent.height;
+        text: @tr("On air");
+        role: "danger";
+        tip: root.tip;
+        clicked => { root.clicked(); }
+    }
+}
+
+// control_row with a one-line text box and the tooltip the box has in Qt
+component UrlRow inherits FormRow {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> tip;
+    callback edited(string);
+    Rectangle {
+        horizontal-stretch: 1;
+        TextField {
+            width: parent.width;
+            height: 32px;
+            label: root.label;
+            placeholder: root.placeholder;
+            text <=> root.text;
+            edited(t) => { root.edited(t); }
+        }
+        if tip != "": Tooltip { TipBody { says: root.tip; } }
+    }
+}
+
+export component OnAirSettings inherits VerticalLayout {
+    spacing: 12px;
+    // Whether it's on air now, and what that's called
+    in property <string> state-text;
+    in property <string> state-kind: "status_dim";
+    in property <[string]> trigger-items: ["", "", "", ""];
+    in property <int> trigger-current;
+    in property <string> trigger-tip;
+    in property <bool> page;
+    in property <string> new-link-tip;
+    in property <string> page-name;
+    // Why the sign page isn't up
+    in property <string> problem;
+    in property <bool> url-shown;
+    in property <[int]> qr-cells;
+    in property <int> qr-size;
+    in property <string> qr-label;
+    in property <bool> address-shown;
+    in property <[string]> addresses;
+    in property <int> address-current;
+    in property <string> address-tip;
+    in property <string> url-text;
+    in property <string> copy-text;
+    in property <string> copy-tip;
+    in property <string> page-note;
+    // The webhook: its settings are only sent when they were loaded, since what's typed is the box's own
+    in-out property <string> webhook-url;
+    in-out property <string> webhook-on;
+    in-out property <string> webhook-off;
+    in property <string> url-problem;
+    in property <int> method-current;
+    in property <string> on-placeholder;
+    in property <string> off-placeholder;
+    in property <string> payload-tip;
+    in property <string> test-text;
+    in property <string> test-kind: "status_dim";
+    callback trigger-picked(int);
+    callback page-toggled(bool);
+    callback new-link-clicked;
+    callback address-picked(int);
+    callback copy-clicked;
+    callback url-edited(string);
+    callback method-picked(int);
+    callback on-edited(string);
+    callback off-edited(string);
+    callback test-clicked(bool);
+
+    Card {
+        title: @tr("On Air sign");
+        icon: Icons.bell;
+        hue: Theme.plugin-hue("on_screen");
+        Note { text: @tr("Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."); }
+        FormRow {
+            label: @tr("Now");
+            Text {
+                text: state-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Status.color(state-kind);
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+        }
+        FormRow {
+            label: @tr("On air when");
+            Rectangle {
+                horizontal-stretch: 1;
+                ChoiceField {
+                    width: parent.width;
+                    compact: true;
+                    caption: @tr("On air when");
+                    items: trigger-items;
+                    current: trigger-current;
+                    picked(i) => { root.trigger-picked(i); }
+                }
+                Tooltip { TipBody { says: root.trigger-tip; } }
+            }
+        }
+    }
+    Card {
+        title: @tr("Sign on another device");
+        icon: Icons.qr;
+        hue: Theme.plugin-hue("on_screen");
+        has-action: true;
+        action-icon: Icons.reset;
+        action-label: new-link-tip;
+        action-text: @tr("New link");
+        action-enabled: page;
+        action => { root.new-link-clicked(); }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Switch {
+                y: (parent.height - self.height) / 2;
+                checked: page;
+                label: page-name;
+                toggled(v) => { root.page-toggled(v); }
+            }
+            Text {
+                text: @tr("Show the sign on a web page");
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+        }
+        if problem != "": Note { text: problem; kind: "status_err"; }
+        if url-shown: FormRow {
+            label: @tr("Scan");
+            VerticalLayout {
+                padding-top: 4px;
+                padding-bottom: 4px;
+                alignment: start;
+                HorizontalLayout {
+                    alignment: start;
+                    QrCode { cells: qr-cells; size: qr-size; cell: 4px; label: qr-label; }
+                }
+            }
+        }
+        if address-shown: FormRow {
+            label: @tr("Address");
+            Rectangle {
+                horizontal-stretch: 1;
+                ChoiceField {
+                    width: parent.width;
+                    compact: true;
+                    caption: @tr("Address");
+                    items: addresses;
+                    current: address-current;
+                    picked(i) => { root.address-picked(i); }
+                }
+                Tooltip { TipBody { says: root.address-tip; } }
+            }
+        }
+        if url-shown: FormRow {
+            label: @tr("Link");
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: url-text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                Button { text: copy-text; tip: copy-tip; clicked => { root.copy-clicked(); } }
+            }
+        }
+        if url-shown: Note { text: page-note; }
+    }
+    Card {
+        title: @tr("Webhook");
+        icon: Icons.plug;
+        hue: Theme.plugin-hue("on_screen");
+        Note { text: @tr("Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."); }
+        UrlRow {
+            label: @tr("Address");
+            placeholder: "http://homeassistant.local:8123/api/webhook/…";
+            text <=> root.webhook-url;
+            edited(t) => { root.url-edited(t); }
+        }
+        if url-problem != "": Note { text: url-problem; kind: "status_err"; }
+        FormRow {
+            label: @tr("Method");
+            Segmented {
+                items: ["POST", "GET"];
+                label: @tr("Method");
+                current: method-current;
+                picked(i) => { root.method-picked(i); }
+            }
+        }
+        UrlRow {
+            label: @tr("Going on air");
+            placeholder: on-placeholder;
+            tip: payload-tip;
+            text <=> root.webhook-on;
+            edited(t) => { root.on-edited(t); }
+        }
+        UrlRow {
+            label: @tr("Going off air");
+            placeholder: off-placeholder;
+            tip: payload-tip;
+            text <=> root.webhook-off;
+            edited(t) => { root.off-edited(t); }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: @tr("Test on"); horizontal-stretch: 1; clicked => { root.test-clicked(true); } }
+            Button { text: @tr("Test off"); horizontal-stretch: 1; clicked => { root.test-clicked(false); } }
+        }
+        if test-text != "": Note { text: test-text; kind: test-kind; }
+    }
+}
