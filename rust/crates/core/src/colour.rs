@@ -242,9 +242,27 @@ struct Entry {
     stage: ColourStage,
 }
 
-/// What a stage is told apart by when baking again would give the same LUT: the data it holds.
-fn identity(stages: &[&ColourStage]) -> Vec<(usize, usize)> {
-    stages.iter().map(|s| (Arc::as_ptr(&s.rgb) as *const f32 as usize, s.table.as_ref().map_or(0, |t| Arc::as_ptr(t) as *const f32 as usize))).collect()
+/// What a stage is told apart by when baking again would give the same LUT: the data it holds. The Arcs are kept, so a freed
+/// stage's address can't be taken by another one and pass for it (colour.py keys on the stage objects themselves).
+#[derive(Clone)]
+struct Identity(Vec<(Arc<Vec<f32>>, Option<Arc<Vec<f32>>>)>);
+
+impl Identity {
+    fn of(stages: &[&ColourStage]) -> Identity {
+        Identity(stages.iter().map(|s| (s.rgb.clone(), s.table.clone())).collect())
+    }
+
+    fn same(&self, other: &Identity) -> bool {
+        self.0.len() == other.0.len()
+            && self.0.iter().zip(&other.0).all(|((a, ta), (b, tb))| {
+                Arc::ptr_eq(a, b)
+                    && match (ta, tb) {
+                        (Some(x), Some(y)) => Arc::ptr_eq(x, y),
+                        (None, None) => true,
+                        _ => false,
+                    }
+            })
+    }
 }
 
 const KEEP_BAKED: usize = 8;
@@ -256,7 +274,7 @@ pub struct ColourPipeline {
     shown: Vec<Entry>,
     by_source: HashMap<String, Vec<Entry>>,
     splits: Vec<(String, f32)>,
-    baked: Vec<(Vec<(usize, usize)>, Option<Arc<Baked>>)>,
+    baked: Vec<(Identity, Option<Arc<Baked>>)>,
 }
 
 fn sorted(mut entries: Vec<Entry>) -> Vec<Entry> {
@@ -319,8 +337,8 @@ impl ColourPipeline {
         if stages.is_empty() {
             return None;
         }
-        let key = identity(&stages);
-        if let Some(i) = self.baked.iter().position(|(k, _)| *k == key) {
+        let key = Identity::of(&stages);
+        if let Some(i) = self.baked.iter().position(|(k, _)| k.same(&key)) {
             let hit = self.baked.remove(i);
             self.baked.push(hit);
             return self.baked.last().and_then(|(_, b)| b.clone());
@@ -540,6 +558,18 @@ mod tests {
         assert!(Arc::ptr_eq(&a, &b));
         p.set_stage("grade", Some(stage(|v| v, false, 33)), 0, None);
         assert!(!Arc::ptr_eq(&a, &p.lut(None).unwrap()));
+    }
+
+    #[test]
+    fn a_stage_that_took_a_freed_ones_place_is_baked_afresh() {
+        let mut p = ColourPipeline::new();
+        p.set_stage("grade", Some(stage(|v| v * 0.5, false, 33)), 0, None);
+        assert!((p.lut(None).unwrap().apply([200, 200, 200])[0] as i32 - 100).abs() <= 1);
+        p.set_stage("grade", None, 0, None);
+        assert!(p.lut(None).is_none());
+        // the first stage is gone and its memory free for the next one
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, false, 33)), 0, None);
+        assert!((p.lut(None).unwrap().apply([200, 200, 200])[0] as i32 - 55).abs() <= 1);
     }
 
     #[test]
