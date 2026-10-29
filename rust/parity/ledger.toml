@@ -2617,7 +2617,7 @@
 "test_connection.py::test_a_hand_over_holds_both_routes_until_it_moves_then_only_the_new_one" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_hand_over_holds_both_routes_until_it_moves_then_only_the_new_one", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen" = { status = "todo" }
 "test_connection.py::test_a_lost_stream_says_reconnecting_until_frames_return" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_lost_stream_says_reconnecting_until_frames_return", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_a_new_connect_via_is_checked_before_the_stream_moves" = { status = "todo" }
+"test_connection.py::test_a_new_connect_via_is_checked_before_the_stream_moves" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_new_connect_via_is_checked_before_the_stream_moves", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_newer_phone_app_points_at_this_app_s_update" = { status = "todo" }
 "test_connection.py::test_a_problem_shows_its_fix_on_the_card" = { status = "todo" }
 "test_connection.py::test_a_reinstalled_phone_takes_the_old_ones_place_once_confirmed" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_reinstalled_phone_is_found_by_name_while_the_old_one_doesnt_answer", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -2625,7 +2625,7 @@
 "test_connection.py::test_a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_start_nobody_asked_for_never_prompts_for_a_password" = { status = "todo" }
 "test_connection.py::test_a_usb_answer_after_the_stream_stopped_is_ignored" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_usb_answer_after_the_stream_stopped_is_ignored", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_a_usb_check_that_finishes_after_the_move_doesnt_start_another" = { status = "todo" }
+"test_connection.py::test_a_usb_check_that_finishes_after_the_move_doesnt_start_another" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_usb_check_that_finishes_after_the_move_doesnt_start_another" }
 "test_connection.py::test_add_phone_request_on_the_bus_opens_pairing" = { status = "todo" }
 "test_connection.py::test_addresses_from_old_networks_drop_off" = { status = "ported", rust = "rust/crates/link/src/connection.rs::addresses_from_old_networks_drop_off", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_an_app_reading_the_camera_keeps_checking_the_phone_while_hidden" = { status = "ported", rust = "rust/crates/link/src/connection.rs::an_app_reading_the_camera_keeps_checking_the_phone_while_hidden", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -2708,7 +2708,7 @@
 "test_connection.py::test_start_uses_the_h264_route_only_when_chosen_and_decodable" = { status = "ported", rust = "rust/crates/link/src/connection.rs::start_uses_the_h264_route_only_when_chosen_and_decodable", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_start_without_a_phone_explains_and_refuses" = { status = "todo" }
 "test_connection.py::test_status_line_covers_every_state" = { status = "ported", rust = "rust/crates/link/src/connection.rs::status_line_covers_every_state", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_stop_phone_streaming_posts_stop" = { status = "todo" }
+"test_connection.py::test_stop_phone_streaming_posts_stop" = { status = "ported", rust = "rust/crates/link/src/service.rs::stop_phone_streaming_posts_stop", note = "the stop always has a route in Rust, so the no-route half can't happen" }
 "test_connection.py::test_streaming_over_wifi_in_automatic_moves_to_usb_once_its_plugged_in" = { status = "ported", rust = "rust/crates/link/src/connection.rs::streaming_over_wifi_in_automatic_moves_to_usb_once_its_plugged_in", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_switching_phones_mid_stream_stops_the_stream" = { status = "todo" }
 "test_connection.py::test_the_help_button_asks_for_the_setup_guide" = { status = "todo" }

@@ -146,12 +146,7 @@ impl Link for LinkService {
     }
 
     fn stop_streaming(&self, phone: &PairedPhone, route: &RouteSpec) {
-        let auth = auth_of(phone);
-        with_session(Some(&auth), Some(route), &*self.tunnels, |client| {
-            if let Some(c) = client {
-                c.stop();
-            }
-        });
+        stop_over(&*self.tunnels, phone, route);
     }
 
     fn unpair(&self, phone: &PairedPhone) {
@@ -336,6 +331,16 @@ impl Drop for Offer {
     }
 }
 
+/// Asks the phone to stop its camera over route (stop_phone_streaming).
+fn stop_over(tunnels: &dyn connection::Tunnels, phone: &PairedPhone, route: &RouteSpec) {
+    let auth = auth_of(phone);
+    with_session(Some(&auth), Some(route), tunnels, |client| {
+        if let Some(c) = client {
+            c.stop();
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,5 +391,27 @@ mod tests {
         let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, controls.clone()).unwrap();
         assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls.unwrap()));
         second.controls().unwrap().close();
+    }
+
+    struct ToServer(u16);
+
+    impl connection::Tunnels for ToServer {
+        fn acquire(&self, _serial: &str, _remote_port: u16) -> Option<u16> {
+            Some(self.0)
+        }
+
+        fn release(&self, _serial: &str, _remote_port: u16) {}
+    }
+
+    #[test]
+    fn stop_phone_streaming_posts_stop() {
+        use crate::https::testing::{pin_of, serve};
+        let server = serve(Some("phone"), Arc::new(|_req| (200, "application/json".into(), br#"{"ok": true}"#.to_vec())));
+        let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "tok".into(), ips: vec![], active_ip: None, cert_sha256: pin_of("phone") };
+        stop_over(&ToServer(server.port), &phone, &RouteSpec::Usb { serial: "serial-1".into() });
+        let seen = server.seen.lock().unwrap().clone();
+        assert_eq!(seen.len(), 1);
+        assert_eq!((seen[0].method.as_str(), seen[0].path.as_str()), ("POST", "/v1/session"));
+        assert_eq!(serde_json::from_slice::<Value>(&seen[0].body).unwrap(), serde_json::json!({"action": "stop"}));
     }
 }

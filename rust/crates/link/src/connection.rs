@@ -1428,6 +1428,37 @@ mod tests {
     }
 
     #[test]
+    fn a_new_connect_via_is_checked_before_the_stream_moves() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.streaming = true;
+        let RouteChange::Probe { probe_id: old_id, .. } = c.set_route_preference(RoutePreference::Usb, true, 0.0) else { panic!() };
+        // What was picked shows meanwhile, but nothing moves yet
+        assert_eq!(c.pending_route, Some(RoutePreference::Usb));
+        let RouteChange::Probe { probe_id: new_id, .. } = c.set_route_preference(RoutePreference::Wifi, true, 0.0) else { panic!() };
+        assert_eq!(c.on_route_probed(old_id, "id-a", RoutePreference::Usb, &ready(usb()), true, 0.0), ProbeOutcome::Stale);
+        assert_eq!(c.get_config()["route"], "auto");
+        assert_eq!(c.on_route_probed(new_id, "id-a", RoutePreference::Wifi, &ready(wifi()), true, 0.0),
+                   ProbeOutcome::Use(UseRoute::Reconnect));
+        assert_eq!(c.get_config()["route"], "wifi");
+    }
+
+    #[test]
+    fn a_usb_check_that_finishes_after_the_move_doesnt_start_another() {
+        let (mut c, _) = model();
+        add(&mut c, "id-a");
+        c.set_stream_route(Some(wifi()));
+        c.on_stream_start("url");
+        let (stale, _) = c.watch_usb().unwrap();
+        // The hand-over moved it meanwhile
+        c.set_hold("id-a", Some(usb()), Some("serial-1".into()));
+        c.on_stream_start("url");
+        assert_eq!(c.on_usb_available(stale, Some(usb()), 100.0), UsbWatch::Ignore);
+        // It's on that one already
+        assert_eq!(c.prepare_stream_route(&usb(), "id-a", h264()), None);
+    }
+
+    #[test]
     fn start_failures_offer_the_matching_fix() {
         assert_eq!(fix_actions(&Resolution::new(PhoneStatus::NotPaired), RoutePreference::Auto, false, true), [Fix::AddPhone]);
         assert_eq!(fix_actions(&Resolution::new(PhoneStatus::UsbNeedsAttention), RoutePreference::Usb, false, true),
