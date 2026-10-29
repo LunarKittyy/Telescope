@@ -1,7 +1,7 @@
 // The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
 // card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch, SettingRow } from "@ui-kit/ui-kit.slint";
 
 export struct BindingRow {
     keys: string,
@@ -30,32 +30,6 @@ component Note inherits Text {
     color: kind == "status_warn" ? Theme.warn : kind == "" ? Theme.text : Theme.text-dim;
     wrap: word-wrap;
     vertical-alignment: center;
-}
-
-// One setting as a raised strip (setting_row): its name with a line under it, and its control on the right
-component SettingStrip inherits Rectangle {
-    in property <string> title;
-    in property <string> sub;
-    min-height: 46px;
-    border-radius: 9px;
-    border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-raise;
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 12px;
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 1px;
-            alignment: center;
-            Note { text: title; kind: ""; }
-            if sub != "": Note { text: sub; font-size: Theme.small; }
-        }
-        @children
-    }
 }
 
 // A shortcut as a strip: the key, what it does with where it works (or why not, in amber) under it, edit and remove
@@ -263,7 +237,7 @@ export component ShortcutsSettings inherits VerticalLayout {
         title: @tr("Everywhere");
         icon: Icons.monitor;
         hue: Theme.plugin-hue("extras");
-        SettingStrip {
+        SettingRow {
             title: @tr("Desktop shortcut settings");
             sub: note-text;
             if system-shown: Button {
@@ -273,7 +247,7 @@ export component ShortcutsSettings inherits VerticalLayout {
                 clicked => { root.open-system(); }
             }
         }
-        SettingStrip {
+        SettingRow {
             title: @tr("Notify when one runs");
             sub: @tr("While Telescope is in the background");
             Switch {
