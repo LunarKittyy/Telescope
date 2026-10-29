@@ -8,12 +8,13 @@ use crate::pairing::{PairingResult, PairingServer};
 use crate::phone_client::ControlClient;
 use crate::phones::{auth_of, RouteResolver, UsbTunnels, STREAM_PORT};
 use crate::sensors::SensorHub;
+use crate::shared::Shared;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, Resolution, RoutePreference,
-                           RoutePrefs, StreamRequest, Unreachable, UsbDevice};
+                           RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice};
 use telescope_core::media::{Codec, VideoFeed};
 use telescope_core::source::{ControlClient as Control, PairedPhone, RouteSpec};
 
@@ -28,6 +29,8 @@ pub struct LinkService {
     sensors: Arc<SensorHub>,
     /// Phone models by serial, asked once each.
     models: Mutex<HashMap<String, String>>,
+    /// The connection model, shared with the Connection plugin.
+    shared: Arc<Shared>,
 }
 
 impl LinkService {
@@ -38,7 +41,14 @@ impl LinkService {
     fn with_discovery(lan: LanDiscovery) -> LinkService {
         let tunnels = UsbTunnels::new(|serial, remote| Adb::system().forward_auto(remote, Some(serial)),
                                       |serial, local| Adb::system().unforward(local, Some(serial)));
-        LinkService { lan: Arc::new(lan), tunnels: Arc::new(tunnels), sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default() }
+        let tunnels = Arc::new(tunnels);
+        let shared = Shared::new(tunnels.clone());
+        LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared }
+    }
+
+    /// The model the Connection plugin and the stream flow's route calls share.
+    pub fn shared(&self) -> Arc<Shared> {
+        self.shared.clone()
     }
 
     /// The adb forwards streams and checks hold, shared with the Connection model.
@@ -187,6 +197,50 @@ impl Link for LinkService {
 
     fn sensors(&self) -> Option<Arc<dyn PhoneSensors>> {
         Some(self.sensors.clone())
+    }
+
+    fn start_route(&self, source_id: Option<&str>, format: StreamFormat) -> Result<StreamTarget, String> {
+        self.shared.start_route(source_id, format, &|phone, pref| self.check(phone, pref))
+    }
+
+    fn session_target(&self, source_id: Option<&str>) -> Option<(PairedPhone, RouteSpec)> {
+        self.shared.session_target(source_id)
+    }
+
+    fn release_stream(&self, source_id: &str) {
+        self.shared.release_stream(source_id);
+    }
+
+    fn prepare_route(&self, source_id: &str, route: &RouteSpec) -> Option<String> {
+        self.shared.prepare_route(source_id, route)
+    }
+
+    fn commit_route(&self, source_id: &str) {
+        self.shared.commit_route(source_id);
+    }
+
+    fn drop_route(&self, source_id: &str, failed: bool) {
+        self.shared.drop_route(source_id, failed);
+    }
+
+    fn recovery_check(&self, source_id: Option<&str>) -> Resolution {
+        self.shared.recovery_check(source_id, &|phone, pref| self.check(phone, pref))
+    }
+
+    fn adopt_route(&self, source_id: Option<&str>, route: &RouteSpec) -> Option<String> {
+        self.shared.adopt_route(source_id, route)
+    }
+
+    fn show_problem(&self, source_id: Option<&str>, res: &Resolution) {
+        self.shared.show_problem(source_id, res);
+    }
+
+    fn phones(&self) -> Vec<PairedPhone> {
+        self.shared.phones()
+    }
+
+    fn picked_source(&self) -> Option<String> {
+        self.shared.picked_source()
     }
 
     fn shutdown(&self) {
