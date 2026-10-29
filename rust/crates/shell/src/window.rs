@@ -357,6 +357,7 @@ impl Window {
                 if !handled.get() {
                     let prev = self.state.borrow().selected.clone();
                     self.state.borrow_mut().switch_device(prev.as_deref(), id.as_deref());
+                    self.refresh_frame_steps(); // set_config has no host, so its frame step is asked for again
                 }
             }
             Effect::FrameStep(_) => self.refresh_frame_steps(),

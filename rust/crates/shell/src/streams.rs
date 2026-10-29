@@ -819,6 +819,8 @@ impl FlowHost for Host<'_> {
     }
     fn apply_device_profile(&mut self, source_id: Option<&str>, plugins: &[String]) {
         self.w.state.borrow_mut().apply_profile(source_id, plugins);
+        // set_config has no host to refresh its frame step, so the shown stream takes every step again
+        self.w.streams.workers.borrow().iter().filter(|w| w.live.get()).for_each(|w| w.steps_due.set(true));
     }
     fn schedule_save(&mut self) {
         self.w.state.borrow_mut().effects.push(crate::shell::Effect::SaveSoon);
