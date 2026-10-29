@@ -194,6 +194,11 @@ pub trait HostStreams {
     fn stop_stream(&mut self, source_id: Option<&str>);
     fn stop_all_streams(&mut self);
     fn reconnect_stream(&mut self);
+    /// Restart source_id's stream, shown or not, to pick up changed connection settings (a new token).
+    fn reconnect_source(&mut self, source_id: &str) {
+        let _ = source_id;
+        self.reconnect_stream();
+    }
     /// Move a running phone stream onto another route without a gap; false if it can't try now.
     fn hand_over_stream(&mut self, route: &RouteSpec, source_id: Option<&str>) -> bool;
     fn focused_source_id(&self) -> Option<String>;

@@ -182,6 +182,9 @@ impl HostStreams for FakeHost {
     fn reconnect_stream(&mut self) {
         self.note("reconnect_stream");
     }
+    fn reconnect_source(&mut self, source_id: &str) {
+        self.note(format!("reconnect_source {source_id}"));
+    }
     fn hand_over_stream(&mut self, route: &RouteSpec, _source_id: Option<&str>) -> bool {
         self.note(format!("hand_over_stream {route:?}"));
         false
