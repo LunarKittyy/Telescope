@@ -13,7 +13,7 @@ use telescope_core::link::PhoneSession;
 use telescope_system::updates::{Asset, InstallResult, Manifest};
 use telescope_system::shortcuts::{RemoteActions, ShortcutsPlugin};
 use telescope_system::updates_plugin::{Backend, UpdatesPlugin};
-use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, WIDTH_THREE_COL, WIDTH_TWO_COL};
+use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, CARD_WIDTH, WIDTH_THREE_COL, WIDTH_TWO_COL};
 
 /// translation_scenes_connection.WIFI_IP and USB_SERIAL.
 const WIFI_IP: &str = "192.168.1.20";
@@ -105,6 +105,25 @@ impl telescope_link::connection::Tunnels for NoTunnels {
     fn release(&self, _serial: &str, _remote_port: u16) {}
 }
 
+/// translation_scenes._MicBackend: a virtual mic that's always there and never sets anything up.
+struct SceneMic;
+
+impl telescope_audio::backend::MicBackend for SceneMic {
+    fn pick_name(&self) -> String {
+        "Microphone".into()
+    }
+    fn problem(&self) -> Option<telescope_audio::backend::Problem> {
+        None
+    }
+    fn prepare(&self) -> String {
+        String::new()
+    }
+    fn open_sink(&self) -> telescope_audio::worker::OpenSink {
+        Arc::new(|| Err("no virtual microphone in scenes".into()))
+    }
+    fn teardown(&self) {}
+}
+
 fn services(link: SceneLink) -> Arc<Services> {
     let link: Arc<dyn Link> = Arc::new(link);
     let connection = link.clone();
@@ -123,6 +142,7 @@ fn services(link: SceneLink) -> Arc<Services> {
                 Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
                 // No global shortcuts: the scenes stay away from this computer's desktop
                 Box::new(ShortcutsPlugin::with_backend(RemoteActions::default(), Box::new(|_| None))),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(Box::new(String::new))),
             ]
         }),
     })
@@ -235,7 +255,19 @@ pub fn all() -> Vec<Scene> {
         Scene::new("main-wide", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)),
         Scene::new("main-medium", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_TWO_COL, 900.0)),
         Scene::new("main-narrow", || Setup::window(Some(services(quiet())), main_window_config(true), 560.0, 900.0)),
+        // translation_scenes_audio.main_with_mic: the Pixel 8's settings have the mic on
+        Scene::new("main-microphone", || {
+            let mut config = main_window_config(true);
+            config["selected_device"] = json!("phone-1");
+            config["devices"] = json!({"phone-1": {"plugin_configs": {"microphone": {"enabled": true}}}});
+            Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }),
     ];
+    // translation_scenes_audio.mic_scene: the Microphone card alone, switched off (the worked example of a card scene)
+    scenes.push(Scene::new("mic-off", || Setup {
+        page: Page::Card { plugin: "microphone".into() },
+        ..Setup::window(Some(services(quiet())), main_window_config(true), CARD_WIDTH, 400.0)
+    }));
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
             telescope_link::platform::set_windows(windows.then_some(true));

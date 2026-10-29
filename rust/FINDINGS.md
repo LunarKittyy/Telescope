@@ -48,6 +48,20 @@ The same fake phone and 1080p30 clip, measured with `tools/measure.py` on the me
 - The merged window draws no preview yet and its row can't be compared with the prototype's 18.5%. Before the merge, with the preview drawn, it cost 13.2% with the preview scaled on the graphics card against 16.0% with swscale (5.4% against 9.2% with VA-API). That's 3 to 4 points saved rather than the whole 8, because the frame is still copied back from the card and Slint uploads it again.
 - wgpu and the graphics driver add about 25 MB, and only once something draws a preview or runs a shader step. The VA-API rows load the driver for decoding anyway.
 
+### With the preview drawn (shell, Phase 2)
+
+The same fake phone, clip and `tools/measure.py stream`, release build, two runs each (both shown). The window draws the Preview card at 30 fps, and no app dropped a frame (1066 in 35 s).
+
+| | Preview on the graphics card | Preview scaled on the CPU (`TELESCOPE_NO_GPU=1`) |
+|---|---|---|
+| CPU at 1080p30 | 15.2%, 14.9% | 16.7%, 16.6% |
+| CPU at 1080p30, VA-API | 7.0%, 6.9% | 8.7%, 9.0% |
+| Memory, RSS | 194 to 199 MB | 179 MB |
+
+- Against the merged window with no preview (11.1%, 3.0% with VA-API), showing the picture costs about 4 points either way. Media paints each frame into a texture on the window's own wgpu device and Slint shows it as it is: no copy back from the card, no RGB pack, no second upload. That beats Phase 1's preview (13.2% on the GPU with the copy back, 16.0% with swscale) once the card's extra work is counted.
+- Most of what's left is Slint redrawing the whole window for every new frame. Qt repaints only the preview's label. Sampled per thread while the machine was busier, uploading and converting a frame took about a quarter of the UI thread's preview time and the redraw the rest. Partial redraws (or a lower preview rate while another app has focus) are what would bring it down further.
+- A first set of runs while other work was loading the machine read 22 to 25% for the same builds, so single runs on a shared desktop need a second look.
+
 ### Size
 
 | | Size |

@@ -59,6 +59,10 @@ pub struct FakeHost {
     /// What shortcut_actions() lists; run_action answers "{id} ran" for these.
     pub actions: Vec<(String, ActionSpec)>,
     pub window_active: bool,
+    /// The phone's camera is off (set_camera_on(false) turns it off too).
+    pub camera_off: bool,
+    /// What can_turn_camera_off() answers instead of (false, "Not streaming").
+    pub can_turn_off: Option<(bool, String)>,
     next_request: u64,
 }
 
@@ -199,15 +203,16 @@ impl HostStreams for FakeHost {
 
 impl HostCamera for FakeHost {
     fn is_camera_on(&self) -> bool {
-        true
+        !self.camera_off
     }
     fn is_camera_off_auto(&self) -> bool {
         false
     }
     fn can_turn_camera_off(&self) -> (bool, String) {
-        (false, "Not streaming".into())
+        self.can_turn_off.clone().unwrap_or((false, "Not streaming".into()))
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
+        self.camera_off = !on;
         self.note(format!("set_camera_on {on} {auto}"));
     }
 }
@@ -269,6 +274,9 @@ impl HostShell for FakeHost {
     }
     fn copy_text(&mut self, text: &str) {
         self.note(format!("copy_text {text}"));
+    }
+    fn open_url(&mut self, url: &str) {
+        self.note(format!("open_url {url}"));
     }
 }
 

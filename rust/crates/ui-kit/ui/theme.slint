@@ -40,9 +40,10 @@ export global Theme {
     }
 
     out property <string> font: "Inter";
-    // font-size: 9.75pt for everything unless a rule says otherwise
+    // font-size: 9.75pt for everything unless a rule says otherwise. Qt draws text at whole logical pixels (the point size
+    // times 4/3, rounded), so each size here is that whole number: a fraction would lay lines out a pixel off Qt's
     out property <length> body: 13px;
     out property <length> small: 12px;        // 9pt
-    out property <length> card-title: 14.667px; // 11pt
-    out property <length> start: 13.333px;     // 10pt
+    out property <length> card-title: 15px;   // 11pt is 14.67px, drawn at 15
+    out property <length> start: 13px;        // 10pt is 13.33px, drawn at 13
 }

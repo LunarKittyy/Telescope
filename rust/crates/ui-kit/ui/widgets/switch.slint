@@ -3,12 +3,15 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
+import { TipBody } from "tip.slint";
 
 // common.Switch: a 36x20 track at the row's end.
 export component Switch inherits Rectangle {
     in-out property <bool> checked;
     in property <string> label;
     in property <bool> enabled: true;
+    // A tooltip, when there's something to say beyond the label
+    in property <string> tip;
     callback toggled(bool);
     width: 36px;
     height: 20px;
@@ -45,6 +48,7 @@ export component Switch inherits Rectangle {
         background: !enabled ? Theme.text-disabled : checked ? white : Theme.text-dim;
         animate x { duration: 90ms; }
     }
+    if tip != "": Tooltip { TipBody { says: tip; } }
 }
 
 // controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.

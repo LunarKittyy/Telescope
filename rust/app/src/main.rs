@@ -39,13 +39,14 @@ fn use_own_profile() {
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into()], "en".into());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into()], "en".into());
     let connection = link.clone();
+    let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     Arc::new(Services {
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
         outputs: Arc::new(telescope_outputs::VirtualCameras { device }),
-        audio: Some(Arc::new(telescope_audio::VirtualMic)),
+        audio: Some(Arc::new(telescope_audio::VirtualMic::default())),
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
@@ -54,11 +55,42 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(connection.connection_plugin()),
                 Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
                 Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
+                Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
+                Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
             ];
             plugins.extend(added());
             plugins
         }),
     })
+}
+
+/// Log lines from every crate to stderr, at the level RUST_LOG names; when unset, warnings from this app's crates and
+/// only errors from libraries (wgpu warns about every Vulkan driver it skips).
+struct Stderr {
+    quiet_libraries: bool,
+}
+
+impl log::Log for Stderr {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        let floor = if self.quiet_libraries && !meta.target().starts_with("telescope") { log::Level::Error } else { log::Level::Trace };
+        meta.level() <= log::max_level() && meta.level() <= floor
+    }
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("[{} {}] {}", record.level(), record.target(), record.args());
+        }
+    }
+    fn flush(&self) {}
+}
+
+fn start_logging() {
+    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse().ok());
+    let level = asked.unwrap_or(log::LevelFilter::Warn);
+    let logger: &'static Stderr = Box::leak(Box::new(Stderr { quiet_libraries: asked.is_none() }));
+    if log::set_logger(logger).is_ok() {
+        log::set_max_level(level);
+    }
 }
 
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
@@ -84,35 +116,6 @@ impl telescope_shell::preview::TexturePainter for GpuPreview {
                 None
             }
         }
-    }
-}
-
-/// RUST_LOG=error|warn|info|debug|trace: log records at that level and above go to stderr (none without it).
-struct StderrLog(log::LevelFilter);
-
-impl log::Log for StderrLog {
-    fn enabled(&self, meta: &log::Metadata) -> bool {
-        meta.level() <= self.0 && meta.target().starts_with("telescope")
-    }
-    fn log(&self, record: &log::Record) {
-        if self.enabled(record.metadata()) {
-            eprintln!("{} {}: {}", record.level(), record.target(), record.args());
-        }
-    }
-    fn flush(&self) {}
-}
-
-fn init_log() {
-    let level = match std::env::var("RUST_LOG").unwrap_or_default().as_str() {
-        "error" => log::LevelFilter::Error,
-        "warn" => log::LevelFilter::Warn,
-        "info" => log::LevelFilter::Info,
-        "debug" => log::LevelFilter::Debug,
-        "trace" => log::LevelFilter::Trace,
-        _ => return,
-    };
-    if log::set_boxed_logger(Box::new(StderrLog(level))).is_ok() {
-        log::set_max_level(level);
     }
 }
 
@@ -176,7 +179,7 @@ fn started_fine() {
 fn main() {
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
     telescope_system::update_guard::confirm_on_terminate(app_dir());
-    init_log();
+    start_logging();
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     // --action takes every word after it
     let action = words.iter().position(|w| w == "--action").map(|i| words.split_off(i).split_off(1));

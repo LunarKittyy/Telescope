@@ -36,22 +36,50 @@ pub fn use_gpu_painter(factory: GpuPainterFactory) {
     let _ = GPU_PAINTER.set(factory);
 }
 
-pub(crate) fn gpu_painter() -> Option<&'static GpuPainterFactory> {
-    GPU_PAINTER.get()
-}
-
-/// Asks Slint for its wgpu renderer when there's a GPU painter to share it with; false keeps the default renderer
-/// (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
-pub(crate) fn select_wgpu_backend() -> bool {
-    if GPU_PAINTER.get().is_none() || std::env::var_os("TELESCOPE_NO_GPU").is_some() {
-        return false;
+/// Opens a graphics card for Slint's wgpu renderer when there's a GPU painter to share it with, and makes the painter on
+/// the same device: every window (the pop-out too) then renders with it, so their textures go anywhere. None keeps the
+/// default renderer (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
+pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
+    let factory = GPU_PAINTER.get()?;
+    if std::env::var_os("TELESCOPE_NO_GPU").is_some() {
+        return None;
     }
-    match slint::BackendSelector::new().require_wgpu_30(slint::wgpu_30::WGPUConfiguration::default()).select() {
-        Ok(()) => true,
+    let opened = (|| {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
+        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            ..Default::default()
+        })).map_err(|e| e.to_string())?;
+        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("telescope window"),
+            required_limits: adapter.limits(),
+            ..Default::default()
+        })).map_err(|e| e.to_string())?;
+        let config = slint::wgpu_30::WGPUConfiguration::Manual { instance, adapter, device: device.clone(), queue: queue.clone() };
+        slint::BackendSelector::new().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
+        Ok::<_, String>((device, queue))
+    })();
+    match opened {
+        Ok((device, queue)) => {
+            log::info!("The preview paints on the window's graphics card");
+            Some(Box::new(GpuPainter(factory(device, queue))))
+        }
         Err(e) => {
             log::warn!("The window can't render with wgpu, so the preview is scaled on the CPU: {e}");
-            false
+            None
         }
+    }
+}
+
+/// wgpu's requests finish at once on desktop drivers; this waits for one without an async runtime.
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = std::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    loop {
+        if let std::task::Poll::Ready(out) = future.as_mut().poll(&mut cx) {
+            return out;
+        }
+        std::thread::yield_now();
     }
 }
 

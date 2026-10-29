@@ -18,6 +18,7 @@ At startup `window::build` registers the plugins into `shell::State` (settings, 
 - `streams.rs` is the window's side (app.py's `_FlowHost`, `_SourceHost` and the worker's signals). It keeps a `Source` per id, starts workers and updates the footer and tiles. Phones' threads report back to it on the UI thread.
 - `sources.rs` holds the two kinds of source. A phone wakes through link's `check`, `open_route` and `ensure_streaming`, and looks for another route when its stream drops. A plugin's `StreamSource` opens its own feed.
 - `worker.rs` is `StreamWorker`. It reads the feed, decodes it through media's frame reader (H.264) or two JPEG decoders side by side, runs the plugins' frame steps and feeds the virtual camera. It reconnects, hands over to another route without a gap, settles after camera restarts and reports the same status texts as Python.
+- `preview.rs` and `plugins/preview.rs` are the Preview card. The plugin keeps what the stage says and the toolbar; the window pulls the live worker's newest frame every 15 ms and paints it at the stage's size, or the pop-out's. With a GPU painter from the app (`preview::use_gpu_painter`, media's scaler in `app/src/main.rs`), the window opens one wgpu device, hands it to Slint (`WGPUConfiguration::Manual`) and the painter draws into textures Slint shows as they are, so every window can show them and core never names wgpu. Without one, or with `TELESCOPE_NO_GPU=1`, Slint keeps its default renderer and media's swscale scaler fills an RGB image.
 - `flow.rs` is the prototype's single stream, still used by `telescope-rs stream` until the app moves to `worker.rs`.
 
 ## Why interpreted
@@ -36,7 +37,7 @@ Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/
 python crates/shell/parity/scenes.py OUT [ids] [--mark]   # from rust/: Qt and Rust with the same ported plugins, compared
 ```
 
-That's the one command a card session needs. It asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it can draw, renders those scenes with the Python app's own scene builders on a Qt window that registers only those plugins (`OUT/qt`), renders them from Rust (`OUT/rust`) and runs `parity/compare_scenes.py --reduced` (`OUT/review/index.html`). `--mark` marks the scenes that match at 1x and 1.5x `ported` in the ledger. `verified` is for matching the full Qt scene (`parity/render_scenes.py`) once every card exists, so the ledger never claims more than was checked.
+That's the one command a card session needs. It asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it can draw, renders those scenes with the Python app's own scene builders on a Qt window that registers only those plugins (`OUT/qt`), renders them from Rust (`OUT/rust`) and runs `parity/compare_scenes.py --reduced` (`OUT/review/index.html`). A scene matches when, after a light blur (a Gaussian of one logical pixel, so glyph antialiasing drops out but a missing button doesn't), no more than 0.5% of its pixels differ at both scales; `--mark` marks those `ported` in the ledger. Up to 2% it's listed as close for a person to judge on the review page, and nothing marks it. `verified` is for matching the full Qt scene (`parity/render_scenes.py`) once every card exists, so the ledger never claims more than was checked.
 
 `telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for each scene, with a stand-in link that answers the phone check and pairing as the scene needs and a virtual camera check that never answers, the same way `desktop/scripts/translation_scenes*.py` patch the Python window. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to its columns like `text_fit._grow_to_content`. A dialog scene opens its popup through the card's own callback (`Window::call_ui`) and cuts it out of the window (`Page::Dialog`), since Qt draws dialogs as windows of their own.
 
@@ -49,6 +50,13 @@ Today it draws `main-*`, Connection's card states (but the two that need Windows
 3. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
 4. Run `scenes.py OUT <id>`, look at it next to the Qt one in the review page and fix what differs in your card.
 5. Once it matches, `scenes.py OUT <id> --mark` marks it `ported` in `rust/parity/ledger.toml`. From then on `compare_scenes.py --reduced` fails if it drifts.
-6. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
+6. A card on its own (Qt's card scenes, a plugin's panel 480 px wide with 16 px around it): `Page::Card { plugin }` with `CARD_WIDTH`. The window hides every other card and the card is cut out with its margin. `mic-off` is the example.
+7. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
+
+### Slint traps for card sessions
+
+- A wrapped `Text` inside an `if` is measured as one line, so the card lays out too short and the rest overlaps it. Keep the element and use `visible: …` with `height: visible ? self.preferred-height : 0px` instead.
+- Font sizes have to be whole pixels, the ones Qt draws at (the point size times 4/3, rounded): a fractional size lays every line out a pixel off Qt's. `Theme` has them.
+- A card's `out` properties are readable from the window (`p<slot>-<name>`), but only `in` and `in-out` ones can be set.
 
 `shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).

@@ -234,6 +234,8 @@ pub trait HostShell {
         false
     }
     fn copy_text(&mut self, _text: &str) {}
+    /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
+    fn open_url(&mut self, _url: &str) {}
 }
 
 /// Changing what a plugin put on screen after it's built.

@@ -17,11 +17,16 @@ export component PreviewCard inherits Rectangle {
     in property <bool> camera-on: true;
     in property <bool> camera-enabled: true;
     in property <string> camera-tip;
+    // The pop-out window is open (the window opens it, preview.rs), and how often Pop out asked to bring it forward
+    in property <bool> popout;
+    in property <int> popout-asks;
     // The stage's size in logical px, for the window to paint frames at
     out property <length> stage-width: surface.width;
     out property <length> stage-height: surface.height;
     callback toggle;
     callback camera-clicked;
+    callback pop-out;
+    callback popout-closed;
 
     visible: visible-card;
     preferred-height: 240px + 2px + 55px;
@@ -59,7 +64,7 @@ export component PreviewCard inherits Rectangle {
                     text: stage-text;
                     horizontal-alignment: center;
                     font-family: Theme.font;
-                    font-size: camera-off ? 14.667px : 13.333px;
+                    font-size: camera-off ? 15px : 13px;
                     color: camera-off ? Theme.accent-soft : Theme.text-faint;
                 }
             }
@@ -80,6 +85,7 @@ export component PreviewCard inherits Rectangle {
                     has-icon: true;
                     icon: showing ? Icons.eye-off : Icons.eye;
                     icon-tint: Theme.text-dim;
+                    enabled: !popout;
                     tip: @tr("Stop drawing this preview. The camera output doesn't change.");
                     clicked => { root.toggle(); }
                 }
@@ -108,6 +114,15 @@ export component PreviewCard inherits Rectangle {
                     enabled: false;
                     tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
                     accessible-label: @tr("Lens outlines");
+                }
+                Button {
+                    text: @tr("Pop out");
+                    role: "quiet";
+                    min-width: 92px;
+                    has-icon: true;
+                    icon: Icons.pop-out;
+                    icon-tint: Theme.text-dim;
+                    clicked => { root.pop-out(); }
                 }
             }
         }
