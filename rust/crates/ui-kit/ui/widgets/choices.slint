@@ -148,7 +148,7 @@ export component ChoiceField inherits Rectangle {
         accessible-role: none;
     }
     if compact: VerticalLayout {
-        padding-left: has-icon ? 32px : 12px;
+        padding-left: has-icon ? 33px : 12px; // the phone picker's 32px padding sits inside its border
         padding-right: 30px;
         alignment: center;
         Text {
