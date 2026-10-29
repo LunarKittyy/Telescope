@@ -1,0 +1,149 @@
+// The Webcam card (desktop/telescope/plugins/webcam.py): which webcam streams and how, plus whichever picture
+// settings the camera itself offers, as rows the plugin builds. Texts with blanks come filled from Rust.
+
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading } from "@ui-kit/ui-kit.slint";
+
+// One row of picture settings: a section heading, an Auto/Manual switch, an on/off tile, a menu or a slider.
+export struct ControlRow {
+    name: string,
+    label: string,
+    kind: string,
+    icon: string,
+    checked: bool,
+    options: [string],
+    index: int,
+    minimum: float,
+    maximum: float,
+    step: float,
+    position: float,
+    readout: string,
+    tip: string,
+    enabled: bool,
+}
+
+global Pick {
+    public pure function icon(name: string) -> image {
+        name == "sun" ? Icons.sun : name == "image" ? Icons.image : name == "focus" ? Icons.focus
+            : name == "crop" ? Icons.crop : name == "moon" ? Icons.moon : Icons.sun
+    }
+}
+
+export component WebcamCard inherits Card {
+    in property <string> status-text;
+    in property <string> status-kind: "status_dim";
+    in property <string> status-tip;
+    in property <[string]> size-items: ["Auto"];
+    in-out property <int> size-current;
+    in property <bool> size-enabled;
+    in property <string> size-tip;
+    in property <[string]> fps-items;
+    in-out property <int> fps-current;
+    in property <bool> fps-enabled;
+    in property <[ControlRow]> rows;
+    callback size-picked(int);
+    callback fps-picked(int);
+    callback control-set(string, float);
+
+    title: @tr("Webcam");
+    icon: Icons.video;
+    action-icon: Icons.reset;
+    action-label: @tr("Put the webcam's picture settings back to its defaults");
+    action-text: @tr("Reset");
+
+    FormRow {
+        label: @tr("Camera");
+        Text {
+            horizontal-stretch: 1;
+            text: root.status-text;
+            overflow: elide;
+            vertical-alignment: center;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            accessible-description: root.status-tip;
+            color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
+                : root.status-kind == "status_err" ? Theme.err : Theme.text-dim;
+        }
+    }
+    FormRow {
+        label: @tr("Resolution");
+        ChoiceField {
+            horizontal-stretch: 1;
+            items: root.size-items;
+            current <=> root.size-current;
+            enabled: root.size-enabled;
+            accessible-description: root.size-tip;
+            picked(i) => { root.size-picked(i); }
+        }
+    }
+    FormRow {
+        label: @tr("Frame rate");
+        ChoiceField {
+            horizontal-stretch: 1;
+            items: root.fps-items;
+            current <=> root.fps-current;
+            enabled: root.fps-enabled;
+            picked(i) => { root.fps-picked(i); }
+        }
+    }
+    for row in root.rows: VerticalLayout {
+        SectionHeading {
+            visible: row.kind == "heading";
+            height: row.kind == "heading" ? self.preferred-height : 0;
+            text: row.label;
+            icon: Pick.icon(row.icon);
+        }
+        FormRow {
+            visible: row.kind == "auto";
+            height: row.kind == "auto" ? self.preferred-height : 0;
+            label: row.label;
+            enabled: row.enabled;
+            Segmented {
+                horizontal-stretch: 1;
+                items: [@tr("Auto"), @tr("Manual")];
+                current: row.checked ? 0 : 1;
+                picked(i) => { root.control-set(row.name, i == 0 ? 1 : 0); }
+            }
+        }
+        SwitchTile {
+            visible: row.kind == "switch";
+            height: row.kind == "switch" ? self.preferred-height : 0;
+            icon: Pick.icon(row.icon);
+            text: row.label;
+            hue: root.hue;
+            checked: row.checked;
+            enabled: row.enabled;
+            toggled(on) => { root.control-set(row.name, on ? 1 : 0); }
+        }
+        FormRow {
+            visible: row.kind == "menu";
+            height: row.kind == "menu" ? self.preferred-height : 0;
+            label: row.label;
+            enabled: row.enabled;
+            ChoiceField {
+                horizontal-stretch: 1;
+                items: row.options;
+                current: row.index;
+                enabled: row.enabled;
+                picked(i) => { root.control-set(row.name, i); }
+            }
+        }
+        FormRow {
+            visible: row.kind == "slider";
+            height: row.kind == "slider" ? self.preferred-height : 0;
+            label: row.label;
+            enabled: row.enabled;
+            Slider {
+                horizontal-stretch: 1;
+                minimum: row.minimum;
+                maximum: row.maximum;
+                step: row.step;
+                value: row.position;
+                readout: row.readout;
+                label: row.label;
+                hue: root.hue;
+                enabled: row.enabled;
+                moved(v) => { root.control-set(row.name, v); }
+            }
+        }
+    }
+}
