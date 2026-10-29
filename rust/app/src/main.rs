@@ -153,7 +153,28 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) ->
     Some(())
 }
 
+/// The folder this program runs from, which an update replaces (main.py's APP_DIR).
+fn app_dir() -> PathBuf {
+    std::env::current_exe().ok().and_then(|p| p.parent().map(PathBuf::from)).unwrap_or_default()
+}
+
+/// The new version has started fine this long after its window came up (or once it's closed normally).
+const STARTED_FINE: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// main.py's started_fine: stop being ready to roll this version back, and delete what earlier ones left.
+fn started_fine() {
+    static DONE: std::sync::Once = std::sync::Once::new();
+    DONE.call_once(|| {
+        let dir = app_dir();
+        telescope_system::update_guard::confirm(&dir);
+        // Every start, not just after an update: an old version's files can still be locked the first time
+        telescope_system::update_guard::clean_up_after_update(&dir, None);
+    });
+}
+
 fn main() {
+    // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
+    telescope_system::update_guard::confirm_on_terminate(app_dir());
     init_log();
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     // --action takes every word after it
@@ -192,6 +213,11 @@ fn main() {
         log::info!("--minimized: starting in the tray isn't in this build yet, so the window opens");
     }
     let remote = telescope_system::shortcuts::RemoteActions::default();
+    let after_update = std::env::args().any(|a| a == "--after-update");
+    // Before the window: an update cut short is finished, or one that never started is rolled back
+    if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
+        return;
+    }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
         Box::new(GpuPreview { gpu: telescope_media::gpu::Gpu::on_device(device, queue), pictures: [None, None], next: 0 })
     }));
@@ -217,7 +243,15 @@ fn main() {
         }
         Some(other) => Err(format!("Unknown command {other}")),
         None => match take_lock(wait_for_lock, &remote) {
-            Some(()) => telescope_shell::run(services(args.device.clone(), remote), args.window(None)),
+            Some(()) => {
+                std::thread::spawn(|| {
+                    std::thread::sleep(STARTED_FINE);
+                    started_fine();
+                });
+                let result = telescope_shell::run(services(args.device.clone(), remote), args.window(None));
+                started_fine();
+                result
+            }
             None => Ok(()),
         },
     };
