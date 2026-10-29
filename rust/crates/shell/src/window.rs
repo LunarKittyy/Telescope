@@ -474,6 +474,11 @@ fn open_url(url: &str) {
     let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
 }
 
+/// Lets go of the window build() registered, once it's shut down (the scene renders build one after another).
+pub fn forget() {
+    WINDOW.with(|w| *w.borrow_mut() = None);
+}
+
 /// The window, until it's closed.
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let window = build(ConfigFile::default(), |bus| {

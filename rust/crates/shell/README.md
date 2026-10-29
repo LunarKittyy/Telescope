@@ -33,10 +33,21 @@ Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/
 ## Comparing with Qt
 
 ```bash
-python parity/qt_shell_scenes.py OUT/qt                   # Qt with only the ported plugins, plus builtins.json
-cargo run -p telescope-shell --bin shell-scenes OUT/rust  # the same scenes from the Rust window, offscreen
-python parity/region_diff.py OUT/qt OUT/rust              # how far apart, whole and by region
-python ../../parity/compare_scenes.py OUT/qt OUT/rust OUT/review
+python parity/render_scenes.py OUT/qt                          # every Qt scene at 1x and 1.5x
+cargo run -p telescope-app -- scenes OUT/rust                  # the scenes Rust can draw, same names (ids and --scale 1 1.5 optional)
+python parity/compare_scenes.py OUT/qt OUT/rust OUT/review     # what differs, with a review page
 ```
 
-`builtins.json` is every Python built-in plugin's `PluginInfo`. The scenes use it for stand-ins until those plugins are ported, so the Plugins tab can be compared whole.
+`telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for each scene, with a stand-in link that answers the phone check as the scene needs and a virtual camera check that never answers, the same way `desktop/scripts/translation_scenes*.py` patch the Python window. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to its columns like `text_fit._grow_to_content`.
+
+Today it draws `main-*`, Connection's card states (`connection-ready` and the rest, but the two that need Windows) and `settings-*`. None of them match yet. The Qt scenes show every built-in card and settings page, so the pictures differ until those are ported, even where the ported card itself looks the same.
+
+### Adding a card's scenes
+
+1. Find the scene in `desktop/scripts/translation_scenes*.py` and read what its builder patches and sets.
+2. Add a `Scene::new("<same id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone should give), `telescope_config.json` as the window should find it (`main_window_config(true)` is `main_window`'s Pixel 8), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for anything to do once the window has settled.
+3. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
+4. Render it, look at it next to the Qt one in the review page and fix what differs in your card.
+5. Once `compare_scenes.py` stops listing it, mark the scene `ported` in `rust/parity/ledger.toml` with `rust = "rust/app/src/scenes.rs"`. From then on the comparison fails if it drifts.
+
+`shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).

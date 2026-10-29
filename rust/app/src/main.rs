@@ -6,10 +6,12 @@
 //!   telescope-rs control JSON             send one /v1/control body to a streaming phone and show the state it changed
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
+//!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
 
 mod cli;
+mod scenes;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -76,6 +78,13 @@ fn main() {
         quit_after: value(&mut words, "--quit-after").and_then(|s| s.parse().ok()),
     };
     let command = words.first().map(String::as_str);
+    if command == Some("scenes") {
+        if let Err(e) = scenes::run(&words[1..]) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
     if command != Some("config-snapshot") {
         use_own_profile();
     }
