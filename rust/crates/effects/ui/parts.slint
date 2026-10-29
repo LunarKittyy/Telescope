@@ -1,0 +1,301 @@
+// What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
+// so it holds the only import line.
+
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, TipBody } from "@ui-kit/ui-kit.slint";
+
+global Status {
+    public pure function color(kind: string) -> color {
+        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
+            : kind == "status_dim" ? Theme.text-dim : Theme.text
+    }
+}
+
+// wrapped_note: a QLabel#dim, so body size
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    font-family: Theme.font;
+    font-size: Theme.body;
+    color: Status.color(kind);
+    wrap: word-wrap;
+}
+
+// control_row with a slider and its readout, and the tooltip the slider has in Qt
+component SliderRow inherits FormRow {
+    in property <string> tip;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> value: 0;
+    in property <float> step: 1;
+    in property <string> readout;
+    in property <color> hue: Theme.accent;
+    callback moved(float);
+    Rectangle {
+        horizontal-stretch: 1;
+        Slider {
+            width: parent.width;
+            height: parent.height;
+            hue: root.hue;
+            enabled: root.enabled;
+            label: root.label;
+            minimum: root.minimum;
+            maximum: root.maximum;
+            step: root.step;
+            value: root.value;
+            readout: root.readout;
+            moved(v) => { root.moved(v); }
+        }
+        if tip != "": Tooltip { TipBody { says: root.tip; } }
+    }
+}
+
+// The keys the two hand-drawn controls understand, by the names editors.rs knows
+global Keys {
+    public pure function name(text: string) -> string {
+        text == Key.LeftArrow ? "left" : text == Key.RightArrow ? "right" : text == Key.UpArrow ? "up" : text == Key.DownArrow ? "down"
+            : text == Key.Home ? "home" : text == Key.Delete ? "delete" : text == Key.Backspace ? "backspace"
+            : text == "[" ? "[" : text == "]" ? "]" : ""
+    }
+}
+
+// ColourWheel: a puck on a ring of hues. Drag anywhere (it doesn't jump to the pointer), arrows move it, Home or a
+// double-click puts it back. The pointer is reported in radii of the area the puck moves in.
+component Wheel inherits Rectangle {
+    in property <float> puck-x;
+    in property <float> puck-y;
+    in property <color> puck-colour: #808080;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> label;
+    callback pressed();
+    callback dragged(float, float, bool);
+    callback released();
+    callback reset();
+    callback key(string, bool);
+    height: 124px;
+    horizontal-stretch: 1;
+    min-width: 88px;
+    property <length> radius: min(self.width, self.height) / 2 - 11px;
+    property <length> cx: self.width / 2;
+    property <length> cy: self.height / 2;
+    property <length> px: cx + puck-x * radius;
+    property <length> py: cy - puck-y * radius;
+    forward-focus: focus;
+    accessible-role: slider;
+    accessible-label: label;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (Keys.name(e.text) != "" && Keys.name(e.text) != "[" && Keys.name(e.text) != "]") {
+                root.key(Keys.name(e.text), e.modifiers.shift);
+                return accept;
+            }
+            reject
+        }
+    }
+    // The ring of hues, each where a puck pointing at it would push the picture
+    Rectangle {
+        x: cx - (radius + 9px);
+        y: cy - (radius + 9px);
+        width: 2 * (radius + 9px);
+        height: 2 * (radius + 9px);
+        border-radius: self.width / 2;
+        opacity: enabled ? 1 : 0.3;
+        background: @conic-gradient(#ff4b80 0deg, #ff48a4 10deg, #ff47c7 20deg, #ff48e8 30deg, #ff4aff 40deg, #f14eff 50deg, #d853ff 60deg, #bc5aff 70deg, #9e62ff 80deg, #806aff 90deg, #6174ff 100deg, #437eff 110deg, #2788ff 120deg, #0e91ff 130deg, #009aff 140deg, #00a2e8 150deg, #00aac7 160deg, #00b0a4 170deg, #00b480 180deg, #00b75b 190deg, #00b838 200deg, #00b717 210deg, #00b500 220deg, #0eb100 230deg, #27ac00 240deg, #43a500 250deg, #619d00 260deg, #809500 270deg, #9e8b00 280deg, #bc8100 290deg, #d87700 300deg, #f16e00 310deg, #ff6500 320deg, #ff5d17 330deg, #ff5538 340deg, #ff4f5b 350deg, #ff4b80 360deg);
+    }
+    Rectangle {
+        x: cx - (radius + 4px);
+        y: cy - (radius + 4px);
+        width: 2 * (radius + 4px);
+        height: 2 * (radius + 4px);
+        border-radius: self.width / 2;
+        background: Theme.surface;
+    }
+    Rectangle {
+        x: cx - radius;
+        y: cy - radius;
+        width: 2 * radius;
+        height: 2 * radius;
+        border-radius: radius;
+        border-width: 1px;
+        border-color: Theme.border-strong;
+        background: @radial-gradient(circle, Theme.surface-hover 0%, Theme.surface-raise 100%);
+    }
+    Rectangle { x: cx - radius; y: cy - 0.5px; width: 2 * radius; height: 1px; background: Theme.border-strong; }
+    Rectangle { x: cx - 0.5px; y: cy - radius; width: 1px; height: 2 * radius; background: Theme.border-strong; }
+    for r in [0.33, 0.66]: Rectangle {
+        x: cx - radius * r;
+        y: cy - radius * r;
+        width: 2 * radius * r;
+        height: 2 * radius * r;
+        border-radius: radius * r;
+        border-width: 1px;
+        border-color: Theme.border-strong;
+    }
+    if puck-x != 0 || puck-y != 0: Path {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        commands: "M \{cx / 1px} \{cy / 1px} L \{px / 1px} \{py / 1px}";
+        stroke: Theme.text-dim;
+        stroke-width: 1.2px;
+    }
+    Rectangle {
+        x: px - 7px;
+        y: py - 7px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border-width: 2px;
+        border-color: enabled ? Theme.text : Theme.text-disabled;
+        background: enabled ? puck-colour : Theme.surface-raise;
+    }
+    FocusRing {
+        shown: focus.has-focus;
+        x: cx - (radius + 13px);
+        y: cy - (radius + 13px);
+        width: 2 * (radius + 13px);
+        height: 2 * (radius + 13px);
+        radius: radius + 13px;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        property <length> from-x;
+        property <length> from-y;
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                self.from-x = self.mouse-x;
+                self.from-y = self.mouse-y;
+                focus.focus();
+                root.pressed();
+            }
+            if (e.kind == PointerEventKind.move && self.pressed) {
+                root.dragged((self.mouse-x - self.from-x) / radius, (self.mouse-y - self.from-y) / radius, e.modifiers.shift);
+            }
+            if (e.kind == PointerEventKind.up) { root.released(); }
+        }
+        double-clicked => { root.reset(); }
+    }
+    if tip != "": Tooltip { TipBody { says: root.tip; } }
+}
+
+export struct CurvePoint {
+    x: float,
+    y: float,
+}
+
+// CurveEditor: points on a square joined by the curve the grade applies. The pointer goes out in pixels of this control.
+component CurveBox inherits Rectangle {
+    in property <bool> hue-curve;
+    in property <bool> enabled: true;
+    // The curve as an SVG path in a 1000 x 1000 box, y down
+    in property <string> line;
+    in property <[CurvePoint]> points: [{ x: 0, y: 0 }];
+    in property <int> picked: -1;
+    in property <color> colour: Theme.text;
+    in property <string> tip;
+    in property <string> label;
+    callback pressed(float, float, float, float, bool);
+    callback moved(float, float, float, float);
+    callback released();
+    callback double-clicked(float, float, float, float);
+    callback key(string, bool);
+    height: 200px;
+    horizontal-stretch: 1;
+    property <length> pad: 8px;
+    property <length> area-w: self.width - 2 * pad;
+    property <length> area-h: self.height - pad - (hue-curve ? 14px : pad);
+    property <color> tone: enabled ? colour : Theme.text-disabled;
+    forward-focus: focus;
+    accessible-role: slider;
+    accessible-label: label;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (Keys.name(e.text) != "") {
+                root.key(Keys.name(e.text), e.modifiers.shift);
+                return accept;
+            }
+            reject
+        }
+    }
+    Rectangle {
+        x: pad - 1px;
+        y: pad - 1px;
+        width: area-w + 2px;
+        height: area-h + 2px;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: Theme.border;
+        background: Theme.surface-sunk;
+    }
+    if hue-curve: Rectangle {
+        x: pad;
+        y: pad + area-h + 4px;
+        width: area-w;
+        height: 6px;
+        border-radius: 2px;
+        opacity: enabled ? 1 : 0.4;
+        background: @linear-gradient(90deg, #d96262 0%, #d99d62 8%, #d9d962 17%, #9dd962 25%, #62d962 33%, #62d99d 42%, #62d9d9 50%, #629dd9 58%, #6262d9 67%, #9d62d9 75%, #d962d9 83%, #d9629d 92%, #d96262 100%);
+    }
+    for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.border; }
+    for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.border; }
+    // The line nothing changes along
+    Path {
+        x: pad;
+        y: pad;
+        width: area-w;
+        height: area-h;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        commands: hue-curve ? "M 0 50 L 100 50" : "M 0 100 L 100 0";
+        stroke: Theme.border-strong;
+        stroke-width: 1px;
+    }
+    Rectangle {
+        x: pad - 2px;
+        y: pad - 2px;
+        width: area-w + 4px;
+        height: area-h + 4px;
+        clip: true;
+        Path {
+            x: 2px;
+            y: 2px;
+            width: area-w;
+            height: area-h;
+            viewbox-width: 1000;
+            viewbox-height: 1000;
+            commands: line;
+            stroke: tone;
+            stroke-width: 2px;
+        }
+    }
+    for p[i] in points: Rectangle {
+        x: pad + p.x * area-w - 5px;
+        y: pad + (1 - p.y) * area-h - 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        border-width: 1.5px;
+        border-color: tone;
+        background: i == picked && enabled ? colour : Theme.surface;
+    }
+    FocusRing { shown: focus.has-focus; radius: 6px; x: 1px; y: 1px; width: root.width - 2px; height: root.height - 2px; }
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.crosshair;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && (e.button == PointerEventButton.left || e.button == PointerEventButton.right)) {
+                focus.focus();
+                root.pressed(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px, e.button == PointerEventButton.right);
+            }
+            if (e.kind == PointerEventKind.move && self.pressed) {
+                root.moved(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px);
+            }
+            if (e.kind == PointerEventKind.up) { root.released(); }
+        }
+        double-clicked => { root.double-clicked(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px); }
+    }
+    if tip != "": Tooltip { TipBody { says: root.tip; } }
+}

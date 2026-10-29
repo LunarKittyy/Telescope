@@ -1,0 +1,372 @@
+// The Colour grading card (desktop/telescope/plugins/colour_grading.py). Joined after parts.slint, which has the imports.
+
+// One wheel: its name and readout over the puck's ring, and the master slider under it
+component WheelCell inherits VerticalLayout {
+    in property <string> name;
+    in property <string> tip;
+    in property <string> readout;
+    in property <float> puck-x;
+    in property <float> puck-y;
+    in property <color> puck-colour: #808080;
+    in property <float> master-min;
+    in property <float> master-max;
+    in property <float> master-value;
+    in property <float> master-step: 0.01;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    callback pressed();
+    callback dragged(float, float, bool);
+    callback released();
+    callback reset();
+    callback key(string, bool);
+    callback master-moved(float);
+    spacing: 4px;
+    horizontal-stretch: 1;
+    HorizontalLayout {
+        Text { text: name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+        Text { text: readout; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.accent; vertical-alignment: center; }
+    }
+    Wheel {
+        puck-x: root.puck-x;
+        puck-y: root.puck-y;
+        puck-colour: root.puck-colour;
+        tip: root.tip;
+        label: root.name;
+        enabled: root.enabled;
+        pressed => { root.pressed(); }
+        dragged(dx, dy, shift) => { root.dragged(dx, dy, shift); }
+        released => { root.released(); }
+        reset => { root.reset(); }
+        key(k, shift) => { root.key(k, shift); }
+    }
+    Rectangle {
+        height: 36px;
+        Slider {
+            width: parent.width;
+            height: parent.height;
+            has-readout: false;
+            hue: root.hue;
+            label: root.name;
+            minimum: master-min;
+            maximum: master-max;
+            step: master-step;
+            value: master-value;
+            moved(v) => { root.master-moved(v); }
+        }
+        if tip != "": Tooltip { TipBody { says: root.tip; } }
+    }
+}
+
+export component ColourGradingCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <bool> on: true;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <bool> compare;
+    in property <int> split: 50;
+    in property <string> split-text;
+    in property <int> page: 0;
+    // Where the wheels' pucks are (x and y in the unit circle), what they add and the readouts
+    in property <[float]> wheel-x: [0, 0, 0, 0];
+    in property <[float]> wheel-y: [0, 0, 0, 0];
+    in property <[color]> wheel-colour: [#808080, #808080, #808080, #808080];
+    in property <[string]> wheel-tips: ["", "", "", ""];
+    in property <[string]> master-text: ["", "", "", ""];
+    in property <[float]> master-min: [0, 0, 0, 0];
+    in property <[float]> master-max: [1, 1, 1, 1];
+    in property <[float]> master-value: [0, 0, 0, 0];
+    in property <[float]> master-step: [0.01, 0.01, 0.01, 0.01];
+    // The sliders under the wheels, in the card's order
+    in property <[string]> slider-tips: ["", "", "", "", "", "", ""];
+    in property <[string]> slider-text: ["", "", "", "", "", "", ""];
+    in property <[float]> slider-min: [0, 0, 0, 0, 0, 0, 0];
+    in property <[float]> slider-max: [1, 1, 1, 1, 1, 1, 1];
+    in property <[float]> slider-value: [0, 0, 0, 0, 0, 0, 0];
+    in property <[float]> slider-step: [1, 1, 1, 1, 1, 1, 1];
+    // The curve page
+    in property <int> curve: 0;
+    in property <int> channel: 0;
+    in property <string> curve-line;
+    in property <[CurvePoint]> curve-points: [{ x: 0, y: 0 }];
+    in property <int> curve-picked: -1;
+    in property <color> curve-colour: #e7eaef;
+    in property <string> curve-tip;
+    in property <string> curve-note;
+    // The LUT page
+    in property <string> lut-text: @tr("No LUT loaded");
+    in property <string> lut-path;
+    in property <bool> lut-loaded;
+    in property <int> strength: 100;
+    in property <string> strength-text;
+    in property <string> lut-note;
+    in property <string> export-note;
+    in property <string> export-kind: "dim";
+    callback switch-toggled-by-hand(bool);
+    callback compare-toggled(bool);
+    callback split-moved(float);
+    callback page-picked(int);
+    callback reset-clicked;
+    callback wheel-pressed(int);
+    callback wheel-dragged(int, float, float, bool);
+    callback wheel-released(int);
+    callback wheel-reset(int);
+    callback wheel-key(int, string, bool);
+    callback master-moved(int, float);
+    callback slider-moved(int, float);
+    callback curve-picked-by-hand(int);
+    callback channel-picked(int);
+    callback curve-pressed(float, float, float, float, bool);
+    callback curve-moved(float, float, float, float);
+    callback curve-released();
+    callback curve-double-clicked(float, float, float, float);
+    callback curve-key(string, bool);
+    callback load-clicked;
+    callback clear-clicked;
+    callback strength-moved(float);
+    callback export-clicked;
+
+    title: @tr("Colour grading");
+    icon: Icons.colour;
+    opacity: active ? 1 : 0.4;
+    has-switch: true;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    FormRow {
+        label: @tr("Compare");
+        Rectangle { horizontal-stretch: 1; }
+        Switch {
+            y: 8px;
+            checked: compare;
+            label: @tr("Compare");
+            tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
+            toggled(v) => { root.compare-toggled(v); }
+        }
+    }
+    // A hidden row keeps its height out of the layout with visible and max-height
+    if compare: SliderRow {
+        label: @tr("Split");
+        tip: @tr("Where the line between before and after is");
+        minimum: 0;
+        maximum: 100;
+        value: split;
+        readout: split-text;
+        hue: root.hue;
+        moved(v) => { root.split-moved(v); }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Segmented {
+            items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+            disabled: [false, false, false];
+            has-icons: [false, false, false];
+            icons: [Icons.colour, Icons.colour, Icons.colour];
+            label: @tr("Page");
+            current: page;
+            picked(i) => { root.page-picked(i); }
+        }
+        Rectangle {
+            width: 34px;
+            IconButton {
+                icon: Icons.reset;
+                label: @tr("Reset the grade");
+                clicked => { root.reset-clicked(); }
+            }
+            Tooltip { TipBody { says: @tr("Reset the grade"); } }
+        }
+    }
+
+    // ── Primaries ─────────────────────────────────────────────────────
+    if page == 0: VerticalLayout {
+        spacing: 10px;
+        padding-top: 4px;
+        HorizontalLayout {
+            spacing: 12px;
+            WheelCell {
+                name: @tr("Lift");
+                tip: wheel-tips[0];
+                readout: master-text[0];
+                puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
+                master-min: master-min[0]; master-max: master-max[0]; master-value: master-value[0]; master-step: master-step[0];
+                hue: root.hue;
+                pressed => { root.wheel-pressed(0); }
+                dragged(dx, dy, s) => { root.wheel-dragged(0, dx, dy, s); }
+                released => { root.wheel-released(0); }
+                reset => { root.wheel-reset(0); }
+                key(k, s) => { root.wheel-key(0, k, s); }
+                master-moved(v) => { root.master-moved(0, v); }
+            }
+            WheelCell {
+                name: @tr("Gamma");
+                tip: wheel-tips[1];
+                readout: master-text[1];
+                puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
+                master-min: master-min[1]; master-max: master-max[1]; master-value: master-value[1]; master-step: master-step[1];
+                hue: root.hue;
+                pressed => { root.wheel-pressed(1); }
+                dragged(dx, dy, s) => { root.wheel-dragged(1, dx, dy, s); }
+                released => { root.wheel-released(1); }
+                reset => { root.wheel-reset(1); }
+                key(k, s) => { root.wheel-key(1, k, s); }
+                master-moved(v) => { root.master-moved(1, v); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            WheelCell {
+                name: @tr("Gain");
+                tip: wheel-tips[2];
+                readout: master-text[2];
+                puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
+                master-min: master-min[2]; master-max: master-max[2]; master-value: master-value[2]; master-step: master-step[2];
+                hue: root.hue;
+                pressed => { root.wheel-pressed(2); }
+                dragged(dx, dy, s) => { root.wheel-dragged(2, dx, dy, s); }
+                released => { root.wheel-released(2); }
+                reset => { root.wheel-reset(2); }
+                key(k, s) => { root.wheel-key(2, k, s); }
+                master-moved(v) => { root.master-moved(2, v); }
+            }
+            WheelCell {
+                name: @tr("Offset");
+                tip: wheel-tips[3];
+                readout: master-text[3];
+                puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
+                master-min: master-min[3]; master-max: master-max[3]; master-value: master-value[3]; master-step: master-step[3];
+                hue: root.hue;
+                pressed => { root.wheel-pressed(3); }
+                dragged(dx, dy, s) => { root.wheel-dragged(3, dx, dy, s); }
+                released => { root.wheel-released(3); }
+                reset => { root.wheel-reset(3); }
+                key(k, s) => { root.wheel-key(3, k, s); }
+                master-moved(v) => { root.master-moved(3, v); }
+            }
+        }
+        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
+            label: name;
+            tip: slider-tips[i];
+            minimum: slider-min[i];
+            maximum: slider-max[i];
+            step: slider-step[i];
+            value: slider-value[i];
+            readout: slider-text[i];
+            hue: root.hue;
+            moved(v) => { root.slider-moved(i, v); }
+        }
+    }
+
+    // ── Curves ────────────────────────────────────────────────────────
+    if page == 1: VerticalLayout {
+        spacing: 8px;
+        padding-top: 4px;
+        Segmented {
+            items: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
+            disabled: [false, false, false];
+            has-icons: [false, false, false];
+            icons: [Icons.colour, Icons.colour, Icons.colour];
+            label: @tr("Curve");
+            current: curve;
+            picked(i) => { root.curve-picked-by-hand(i); }
+        }
+        if curve == 0: Segmented {
+            items: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
+            disabled: [false, false, false, false];
+            has-icons: [false, false, false, false];
+            icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
+            label: @tr("Channel");
+            current: channel;
+            picked(i) => { root.channel-picked(i); }
+        }
+        CurveBox {
+            hue-curve: curve != 0;
+            line: curve-line;
+            points: curve-points;
+            picked: curve-picked;
+            colour: curve-colour;
+            tip: curve-tip;
+            label: @tr("Curve");
+            pressed(x, y, w, h, right) => { root.curve-pressed(x, y, w, h, right); }
+            moved(x, y, w, h) => { root.curve-moved(x, y, w, h); }
+            released => { root.curve-released(); }
+            double-clicked(x, y, w, h) => { root.curve-double-clicked(x, y, w, h); }
+            key(k, s) => { root.curve-key(k, s); }
+        }
+        Note {
+            text: curve-note;
+            visible: curve-note != "";
+            height: curve-note != "" ? self.preferred-height : 0px;
+        }
+    }
+
+    // ── LUT ───────────────────────────────────────────────────────────
+    if page == 2: VerticalLayout {
+        spacing: 8px;
+        padding-top: 4px;
+        FormRow {
+            label: @tr("LUT");
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    text: @tr("Load…");
+                    tip: @tr("Pick a .cube LUT to put on top of the grade");
+                    clicked => { root.load-clicked(); }
+                }
+                Text {
+                    text: lut-text;
+                    horizontal-stretch: 1;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.dim;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                if lut-loaded: Rectangle {
+                    width: 34px;
+                    IconButton {
+                        icon: Icons.v-close;
+                        label: @tr("Take the LUT off");
+                        clicked => { root.clear-clicked(); }
+                    }
+                    Tooltip { TipBody { says: @tr("Take the LUT off"); } }
+                }
+            }
+        }
+        if lut-loaded: SliderRow {
+            label: @tr("Strength");
+            tip: @tr("How much of the LUT's look goes on the picture");
+            minimum: 0;
+            maximum: 100;
+            value: strength;
+            readout: strength-text;
+            hue: root.hue;
+            moved(v) => { root.strength-moved(v); }
+        }
+        Note {
+            text: lut-note;
+            kind: "status_warn";
+            visible: lut-note != "";
+            height: lut-note != "" ? self.preferred-height : 0px;
+        }
+        FormRow {
+            label: @tr("Export");
+            HorizontalLayout {
+                Button {
+                    text: @tr("Export grade…");
+                    tip: @tr("Save the grade, LUT included, as a .cube file for other apps");
+                    clicked => { root.export-clicked(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        Note {
+            text: export-note;
+            kind: "status_" + export-kind;
+            visible: export-note != "";
+            height: export-note != "" ? self.preferred-height : 0px;
+        }
+    }
+}

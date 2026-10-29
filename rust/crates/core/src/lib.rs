@@ -1,5 +1,6 @@
 //! What every crate agrees on. Crates only meet through what's here; see rust/ARCHITECTURE.md for why it's shaped this way.
 
+pub mod actions;
 pub mod audio;
 pub mod bus;
 pub mod colour;
