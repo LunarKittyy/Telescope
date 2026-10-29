@@ -6,6 +6,7 @@
 
 use telescope_core::actions::round_half_even;
 use telescope_core::frame::{Frame, PixelFormat};
+use crate::pixels::gaussian_blur;
 use telescope_core::text::{app_font, visual_order, Face, FontArc, Weight};
 
 pub const STYLES: [&str; 4] = ["bar", "pill", "light", "shadow"];
@@ -289,44 +290,6 @@ impl Canvas {
         let line = face.layout(&visual_order(&piece.text), 0.0);
         face.draw(&line, piece.x as f32, piece.baseline as f32, |x, y, cov| self.over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)));
     }
-}
-
-/// cv2.GaussianBlur(src, (0, 0), sigma) on one 8-bit channel: the kernel OpenCV picks for it, edges reflected.
-pub fn gaussian_blur(src: &[u8], w: usize, h: usize, sigma: f64) -> Vec<u8> {
-    let size = ((sigma * 3.0 * 2.0 + 1.0).round() as usize) | 1;
-    let half = (size / 2) as i64;
-    let mut kernel: Vec<f32> = (-half..=half).map(|i| (-(i * i) as f64 / (2.0 * sigma * sigma)).exp() as f32).collect();
-    let total: f32 = kernel.iter().sum();
-    kernel.iter_mut().for_each(|k| *k /= total);
-    let reflect = |i: i64, n: i64| {
-        let mut i = i;
-        if n == 1 {
-            return 0;
-        }
-        loop {
-            if i < 0 {
-                i = -i;
-            } else if i >= n {
-                i = 2 * (n - 1) - i;
-            } else {
-                return i as usize;
-            }
-        }
-    };
-    let mut mid = vec![0f32; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            mid[y * w + x] = kernel.iter().enumerate().map(|(k, c)| c * src[y * w + reflect(x as i64 + k as i64 - half, w as i64)] as f32).sum();
-        }
-    }
-    let mut out = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let v: f32 = kernel.iter().enumerate().map(|(k, c)| c * mid[reflect(y as i64 + k as i64 - half, h as i64) * w + x]).sum();
-            out[y * w + x] = v.round().clamp(0.0, 255.0) as u8;
-        }
-    }
-    out
 }
 
 /// The tag for a w x h canvas, painted once; None when there's nothing to show.
