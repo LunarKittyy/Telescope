@@ -111,24 +111,28 @@ impl CpuStep for Turn {
     }
 }
 
-/// The uniforms of the shader that does everything but a quarter turn: for the picture as given (turned by `done` quarters
-/// already) the output as `view` asks for it.
-fn uniforms(view: &View, done: u32) -> serde_json::Value {
-    let (zoom, pan_x, pan_y) = (view.zoom as f64, (view.pan_x as f64).clamp(-1.0, 1.0), (view.pan_y as f64).clamp(-1.0, 1.0));
-    let ((x0, w), (y0, h)) = (window(zoom, pan_x), window(zoom, pan_y));
-    json!({"x0": x0, "y0": y0, "crop_w": w, "crop_h": h, "flip_h": view.flip_h, "flip_v": view.flip_v,
-           "stretch_x": view.stretch_x, "stretch_y": view.stretch_y, "turn": quarters(view.rotation), "done": done})
+/// The uniforms of a shader pass for the picture as given (turned by `done` quarters already): `zoom` the crop, flips and half turn of
+/// `view`, `stretch` its stretch. Python does these in two resamplings, the stretch of the 8-bit result of the crop, and so does
+/// this, so thin lines blur the same amount.
+fn uniforms(view: &View, done: u32, zoom: bool, stretch: bool) -> serde_json::Value {
+    let (z, pan_x, pan_y) = if zoom { (view.zoom as f64, (view.pan_x as f64).clamp(-1.0, 1.0), (view.pan_y as f64).clamp(-1.0, 1.0)) } else { (1.0, 0.0, 0.0) };
+    let ((x0, w), (y0, h)) = (window(z, pan_x), window(z, pan_y));
+    let (sx, sy) = if stretch { (view.stretch_x, view.stretch_y) } else { (1.0, 1.0) };
+    json!({"x0": x0, "y0": y0, "crop_w": w, "crop_h": h, "flip_h": zoom && view.flip_h, "flip_v": zoom && view.flip_v,
+           "stretch_x": sx, "stretch_y": sy, "turn": if zoom { quarters(view.rotation) } else { 0 }, "done": if zoom { done } else { 0 }})
 }
 
-/// What the shader would do to the picture, short of a quarter turn: nothing for a view with no zoom, flip or stretch (and no
-/// half turn).
-fn shader_needed(view: &View) -> bool {
+/// Whether the crop, flips or a half turn of the view change the picture.
+fn crop_needed(view: &View) -> bool {
     view.zoom > 1.0 || view.flip_h || view.flip_v || quarters(view.rotation) == 2
-        || (view.stretch_x - 1.0).abs() >= 1e-6 || (view.stretch_y - 1.0).abs() >= 1e-6
 }
 
-/// The frame steps of a view, in order: a CPU quarter turn when the picture changes shape, then one shader. No steps for a
-/// view that changes nothing.
+fn stretch_needed(view: &View) -> bool {
+    (view.stretch_x - 1.0).abs() >= 1e-6 || (view.stretch_y - 1.0).abs() >= 1e-6
+}
+
+/// The frame steps of a view, in order: a CPU quarter turn when the picture changes shape, a shader for the crop, flips and half
+/// turn, and one for the stretch. No steps for a view that changes nothing.
 pub fn steps(view: &View) -> Vec<FrameStep> {
     let q = quarters(view.rotation);
     let mut out: Vec<FrameStep> = Vec::new();
@@ -137,8 +141,11 @@ pub fn steps(view: &View) -> Vec<FrameStep> {
     if done != 0 {
         out.push(FrameStep::Cpu(Box::new(Turn { quarters: done })));
     }
-    if shader_needed(view) {
-        out.push(FrameStep::Shader(ShaderStep { wgsl: WGSL.into(), uniforms: uniforms(view, done), textures: Vec::new() }));
+    if crop_needed(view) {
+        out.push(FrameStep::Shader(ShaderStep { wgsl: WGSL.into(), uniforms: uniforms(view, done, true, false), textures: Vec::new() }));
+    }
+    if stretch_needed(view) {
+        out.push(FrameStep::Shader(ShaderStep { wgsl: WGSL.into(), uniforms: uniforms(view, 0, false, true), textures: Vec::new() }));
     }
     out
 }
