@@ -266,3 +266,26 @@ fn the_shortcuts_switch_mark_and_pick_the_writing_and_shape() {
     let ids: Vec<String> = DeskPlugin::new().actions().into_iter().map(|a| a.id).collect();
     assert_eq!(ids, ["desk.on", "desk.mark", "desk.writing", "desk.shape"]);
 }
+
+#[test]
+fn the_warp_is_worked_out_once_until_something_changes() {
+    let mut r = Rig::new(true);
+    assert!(r.plugin.frame_step().is_none());
+    r.config(json!({"on": true, "corners": corners_json()}));
+    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    let posts = |r: &Rig| r.host.posted.lock().unwrap().len();
+    step.process(&mut frame(), &Ctx);
+    step.process(&mut frame(), &Ctx);
+    assert_eq!(posts(&r), 1);
+    // another size of picture: a warp of its own
+    let small = Frame::new(160, 90, PixelFormat::Rgba, [40, 40, 40, 255].repeat(160 * 90));
+    step.process(&mut small.clone(), &Ctx);
+    assert_eq!(posts(&r), 2);
+    // a different shape is a different step; off and unmarked have none
+    r.ui("shape-picked", vec![json!(4)]);
+    assert!(r.plugin.frame_step().is_some());
+    r.config(json!({"on": false, "corners": corners_json()}));
+    assert!(r.plugin.frame_step().is_none());
+    r.config(json!({"on": true}));
+    assert!(r.plugin.frame_step().is_none());
+}

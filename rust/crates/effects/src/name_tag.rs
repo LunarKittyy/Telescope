@@ -9,7 +9,7 @@ use telescope_core::actions;
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
 use telescope_core::host::Host;
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -199,7 +199,9 @@ impl Plugin for NameTagPlugin {
     }
 
     fn actions(&mut self) -> Vec<ActionSpec> {
-        vec![actions::toggle_action("name_tag.on", &tr("Name tag"), &tr("Name tag"), "", &[])]
+        // The card's search words (settings_search.keywords in Python) find its shortcut here
+        let words = tr_ctx("search", "lower third caption title label overlay text name pronouns role");
+        vec![actions::toggle_action("name_tag.on", &tr("Name tag"), &tr("Name tag"), &words, &[])]
     }
 
     fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {

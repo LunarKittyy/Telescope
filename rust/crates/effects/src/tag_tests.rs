@@ -227,3 +227,13 @@ fn a_gaussian_blur_spreads_a_dot_and_keeps_its_weight() {
     let total: u32 = out.iter().map(|v| *v as u32).sum();
     assert!((total as f32 - 255.0).abs() < 30.0, "{total}");
 }
+
+#[test]
+fn it_uses_the_apps_fonts() {
+    // Inter first, when the system has it
+    let (Some(inter), Some(app)) = (telescope_core::text::font_named(&["Inter-Regular.ttf"]), telescope_core::text::app_font(telescope_core::text::Weight::Regular)) else {
+        eprintln!("Inter isn't installed here: skipped");
+        return;
+    };
+    assert_eq!(Face::em(inter, 40.0).advance("Luna"), Face::em(app, 40.0).advance("Luna"));
+}
