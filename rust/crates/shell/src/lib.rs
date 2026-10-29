@@ -8,6 +8,7 @@ pub mod flow;
 pub mod layout;
 pub mod offscreen;
 pub mod plugins;
+pub mod preview;
 pub mod plugins_tab;
 pub mod scenes;
 pub mod search;

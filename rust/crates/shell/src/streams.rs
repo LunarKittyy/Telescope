@@ -187,6 +187,12 @@ impl Window {
         self.refresh_tiles();
     }
 
+    /// The newest frame of the stream the panels show (its worker is the live one), and its number.
+    pub(crate) fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
+        let workers = self.streams.workers.borrow();
+        workers.iter().find(|w| w.live.get()).and_then(|w| w.inner.slot().latest())
+    }
+
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
     pub fn refresh_frame_steps(self: &Rc<Self>) {
         let live: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.live.get()).cloned().collect();
