@@ -222,6 +222,11 @@ pub trait HostShell {
     fn open_settings(&mut self, tab: &str);
     /// Every plugin's actions, in registration order, as (plugin, action).
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;
+    /// Runs another plugin's action as a key would (Shortcuts and `--action` use it): what to say about it, or None
+    /// when it can't right now.
+    fn run_action(&mut self, _plugin: &str, _id: &str, _params: &Value) -> Option<String> {
+        None
+    }
 }
 
 /// Changing what a plugin put on screen after it's built.
