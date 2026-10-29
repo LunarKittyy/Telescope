@@ -4815,6 +4815,7 @@ dependencies = [
  "chrono",
  "libc",
  "log",
+ "qrcode",
  "serde",
  "serde_json",
 ]

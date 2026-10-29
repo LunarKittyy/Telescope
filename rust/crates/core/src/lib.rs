@@ -15,6 +15,7 @@ pub mod link;
 pub mod media;
 pub mod output;
 pub mod plugin;
+pub mod qr;
 pub mod services;
 pub mod shader;
 pub mod snapshot;
