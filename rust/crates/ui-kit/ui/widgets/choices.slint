@@ -147,26 +147,42 @@ export component ChoiceField inherits Rectangle {
         height: 14px;
         accessible-role: none;
     }
-    VerticalLayout {
-        padding-left: has-icon ? 32px : 12px;
+    if compact: VerticalLayout {
+        padding-left: has-icon ? 33px : 12px; // the phone picker's 32px padding sits inside its border
         padding-right: 30px;
         alignment: center;
-        spacing: 1px;
-        if !compact: Text {
-            text: caption;
-            font-family: Theme.font;
-            font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
-            color: enabled ? Theme.text-faint : Theme.text-disabled;
-            overflow: elide;
-        }
         Text {
             text: items[current];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: compact && !bold ? 400 : 600;
+            font-weight: bold ? 600 : 400;
             color: enabled ? Theme.text : Theme.text-disabled;
             overflow: elide;
         }
+    }
+    // _two_lines: the caption's capitals and the value's read as one block centred top to bottom, the value's capitals
+    // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
+    property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
+    if !compact: Text {
+        x: has-icon ? 32px : 12px;
+        y: first-baseline - 11px * 1984 / 2048;
+        width: root.width - self.x - 30px;
+        text: caption;
+        font-family: Theme.font;
+        font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
+        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        overflow: elide;
+    }
+    if !compact: Text {
+        x: has-icon ? 32px : 12px;
+        y: first-baseline + 18px - 13px * 1984 / 2048;
+        width: root.width - self.x - 30px;
+        text: items[current];
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: enabled ? Theme.text : Theme.text-disabled;
+        overflow: elide;
     }
     Icon {
         source: @image-url("../icons/chevron.svg");

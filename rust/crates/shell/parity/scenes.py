@@ -40,6 +40,10 @@ def qt_render(id: str, scale: float, plugins: list) -> tuple:
     try:
         import telescope.plugins as builtins
         from scripts import translation_preview as preview
+        from PyQt6.QtWidgets import QApplication
+        # render() grabs after one round of events, before a WrapLabel's new height has reached the layouts around it
+        settle = QApplication.processEvents
+        QApplication.processEvents = staticmethod(lambda *args: [settle(*args) for _ in range(5)][-1])
         everything = builtins.builtin_plugins
         builtins.builtin_plugins = lambda: [p for p in everything() if p.name in plugins]
         result = preview.render({"lang": "en", "scene": id})

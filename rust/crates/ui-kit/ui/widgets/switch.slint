@@ -79,9 +79,10 @@ export component SwitchTile inherits Rectangle {
         clicked => { sw.checked = !sw.checked; sw.toggled(sw.checked); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 11px;
+        padding-right: 11px;
         spacing: 9px;
         Icon {
             source: icon;
