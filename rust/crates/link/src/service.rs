@@ -91,13 +91,8 @@ impl LinkService {
         let video_url = format!("https://{host}{video_path}");
         let base = format!("https://{host}/v1");
         let auth = auth_of(phone);
-        let controls = match controls {
-            Some(c) => {
-                c.retarget(&base);
-                c
-            }
-            None => Arc::new(ControlClient::new(&video_url, auth.clone())) as Arc<dyn PhoneControl>,
-        };
+        // Carried controls keep going to the running route; the stream flow retargets them once this one proved itself
+        let controls = controls.unwrap_or_else(|| Arc::new(ControlClient::new(&video_url, auth.clone())) as Arc<dyn PhoneControl>);
         Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls, tunnels: self.tunnels.clone() })
     }
 }
@@ -462,9 +457,13 @@ mod tests {
         let link = LinkService::with_discovery(LanDiscovery::default());
         let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
         let first = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
-        let controls = first.controls();
-        let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, controls.clone()).unwrap();
-        assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls.unwrap()));
+        let client = Arc::new(ControlClient::new(&first.video_url, first.auth.clone()));
+        let controls: Arc<dyn PhoneControl> = client.clone();
+        let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, Some(controls.clone())).unwrap();
+        assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls));
+        // They keep going to the running stream until the new route proved itself (the stream flow retargets them)
+        assert_eq!(client.base(), first.base);
+        first.controls().unwrap().close();
         second.controls().unwrap().close();
     }
 

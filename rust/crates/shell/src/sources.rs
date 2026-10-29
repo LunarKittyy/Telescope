@@ -246,6 +246,10 @@ impl PhoneKind {
         if let Some(id) = &self.id {
             self.link.commit_route(id);
         }
+        // The same controls, so their settings carry on; only now, as the new route kept frames coming
+        if let Some(controls) = session.controls() {
+            controls.retarget(&session.stream_base());
+        }
         let mut inner = self.inner.borrow_mut();
         inner.route = Some(pending.route);
         inner.url = session.video_url();
@@ -278,6 +282,9 @@ impl PhoneKind {
 
     /// Recovery moved the stream to session's route.
     pub fn moved(&self, route: RouteSpec, session: Arc<dyn PhoneSession>, failed_tries: u32) {
+        if let Some(controls) = session.controls() {
+            controls.retarget(&session.stream_base()); // the old route is gone, so they follow straight away
+        }
         let mut inner = self.inner.borrow_mut();
         inner.recovery_route = Some(route.clone());
         inner.route_tries = failed_tries;
@@ -592,6 +599,26 @@ mod tests {
     struct FakeSession {
         url: String,
         released: AtomicBool,
+        controls: Arc<FakeControl>,
+    }
+
+    /// The stream's camera controls, which a hand-over carries along; where they were retargeted.
+    #[derive(Default)]
+    struct FakeControl(Mutex<Vec<String>>);
+
+    impl PhoneControl for FakeControl {
+        fn send(&self, _body: &Value) {}
+        fn get_state(&self) -> Option<Value> {
+            None
+        }
+        fn retarget(&self, stream_base: &str) {
+            self.0.lock().unwrap().push(stream_base.into());
+        }
+        fn resend_settings(&self) {}
+        fn close(&self) {}
+        fn closed(&self) -> bool {
+            false
+        }
     }
 
     impl ControlClient for FakeSession {
@@ -635,6 +662,7 @@ mod tests {
         opened: Mutex<Vec<Arc<FakeSession>>>,
         committed: Mutex<Vec<String>>,
         dropped: Mutex<Vec<(String, bool)>>,
+        controls: Arc<FakeControl>,
     }
 
     struct Shared(Arc<FakeSession>);
@@ -673,6 +701,12 @@ mod tests {
         fn video_url(&self) -> String {
             self.0.video_url()
         }
+        fn stream_base(&self) -> String {
+            format!("{}#base", self.0.url)
+        }
+        fn controls(&self) -> Option<Arc<dyn PhoneControl>> {
+            Some(self.0.controls.clone())
+        }
     }
 
     impl Link for FakeLink {
@@ -688,7 +722,8 @@ mod tests {
         fn open_route(&self, _phone: &PairedPhone, route: &RouteSpec, path: &str, _controls: Option<Arc<dyn PhoneControl>>)
                       -> Result<Box<dyn PhoneSession>, String> {
             let RouteSpec::Usb { serial } = route else { return Err("no route".into()) };
-            let s = Arc::new(FakeSession { url: format!("https://127.0.0.1:41000{path}#{serial}"), released: AtomicBool::new(false) });
+            let controls = self.controls.clone();
+            let s = Arc::new(FakeSession { url: format!("https://127.0.0.1:41000{path}#{serial}"), released: AtomicBool::new(false), controls });
             self.opened.lock().unwrap().push(s.clone());
             Ok(Box::new(Shared(s)))
         }
@@ -712,7 +747,8 @@ mod tests {
         let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };
         let request = StreamRequest { width: 0, height: 0, fps: 30 };
         let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamFormat::default), request, post, Rc::new(|_, _| {}));
-        let wifi = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false) });
+        let wifi = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false),
+                                          controls: link.controls.clone() });
         phone.woke(Arc::new(Shared(wifi.clone())));
         (phone, link, wifi, posted)
     }
@@ -733,6 +769,7 @@ mod tests {
         assert_eq!(*link.committed.lock().unwrap(), ["p1"]);
         assert_eq!(phone.url(), moved.video_url());
         assert!(!phone.handing_over());
+        assert_eq!(*link.controls.0.lock().unwrap(), [moved.stream_base()]); // only once the new route proved itself
         std::thread::sleep(Duration::from_millis(50));
         assert!(wifi.released.load(Ordering::SeqCst)); // the old route's session goes
     }
@@ -749,6 +786,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(50));
         assert!(link.opened.lock().unwrap()[0].released.load(Ordering::SeqCst));
         assert!(!wifi.released.load(Ordering::SeqCst));
+        assert!(link.controls.0.lock().unwrap().is_empty()); // the controls still go to the Wi-Fi stream
         assert!(!phone.handing_over()); // it can try again
         assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), false).is_some());
     }
