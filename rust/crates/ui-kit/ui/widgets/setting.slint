@@ -16,11 +16,12 @@ export component SettingRow inherits Rectangle {
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
+    // The QSS border sits outside the layout's 12px and 8px margins
     HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: 8px;
-        padding-bottom: 8px;
+        padding-left: 13px;
+        padding-right: 13px;
+        padding-top: 9px;
+        padding-bottom: 9px;
         spacing: 12px;
         VerticalLayout {
             horizontal-stretch: 1;
@@ -32,6 +33,7 @@ export component SettingRow inherits Rectangle {
                 font-size: Theme.body;
                 color: Theme.text;
                 wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
             }
             if sub != "": Text {
                 text: sub;
@@ -39,6 +41,7 @@ export component SettingRow inherits Rectangle {
                 font-size: Theme.small;
                 color: Theme.text-dim;
                 wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
             }
         }
         HorizontalLayout {
