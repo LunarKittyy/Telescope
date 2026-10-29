@@ -17,6 +17,12 @@ pub fn tr(msgid: &str) -> String {
     guard.as_ref().and_then(|t| t(msgid)).unwrap_or_else(|| msgid.to_string())
 }
 
+/// A text that has a context in the Python app (tr(text, ctx="search")): looked up as gettext does, "ctx\u{4}text".
+pub fn tr_ctx(ctx: &str, msgid: &str) -> String {
+    let guard = TRANSLATOR.read().unwrap_or_else(|e| e.into_inner());
+    guard.as_ref().and_then(|t| t(&format!("{ctx}\u{4}{msgid}"))).unwrap_or_else(|| msgid.to_string())
+}
+
 /// Marks text for extraction without translating it yet (N_ in Python).
 pub const fn n_(msgid: &str) -> &str {
     msgid
