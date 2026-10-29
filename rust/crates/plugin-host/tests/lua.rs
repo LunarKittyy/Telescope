@@ -276,3 +276,36 @@ fn the_plugin_api_only_changes_on_purpose() {
     panic!("The plugin API changed.\n{}{}\n\n{advice}", gone.iter().map(|l| format!("\n  - {l}")).collect::<String>(),
            added.iter().map(|l| format!("\n  + {l}")).collect::<String>());
 }
+
+#[test]
+fn a_plugin_ticks_with_core_timers() {
+    let folder = plugin("ticker", r#"
+        local ticks = 0
+        local plugin = { events = {} }
+        function plugin.setup() host.schedule(1000, "tick") end
+        function plugin.events.timer_fired(e)
+          if e.token ~= "tick" then return end
+          ticks = ticks + 1
+          if ticks < 3 then host.schedule(1000, "tick") end
+        end
+        function plugin.on_stream_stop() host.cancel_schedule("tick") end
+        function plugin.ticks() return ticks end
+        return plugin
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    t.setup();
+    assert_eq!(t.host.scheduled, [(1000, "tick".to_string())]);
+    let fired = Event::TimerFired { owner: "ticker".into(), token: "tick".into() };
+    t.host.scheduled.clear();
+    t.event(fired.clone());
+    assert!(t.host.is_scheduled("tick"), "scheduling again repeats it");
+    t.event(Event::TimerFired { owner: "someone_else".into(), token: "tick".into() });
+    assert_eq!(t.call("ticks", vec![]).unwrap(), json!(1), "another plugin's timer isn't this one's");
+    t.stop_stream();
+    assert!(!t.host.is_scheduled("tick"));
+    t.event(fired.clone());
+    t.host.scheduled.clear();
+    t.event(fired);
+    assert_eq!(t.call("ticks", vec![]).unwrap(), json!(3));
+    assert!(!t.host.is_scheduled("tick"), "it stops after three");
+}

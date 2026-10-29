@@ -36,6 +36,18 @@ The test machine: an 8-core desktop Ryzen with AMD graphics, Linux with KDE on W
 - Python's start time is to its main window. Its splash shows earlier than that.
 - 1066 frames in 35 s is 30.5 fps, the reader's own timing being a little loose. No app dropped frames.
 
+### After the media crate (Phase 1)
+
+The same fake phone and 1080p30 clip, measured with `tools/measure.py` on the merged `oxidized-telescope` build, one run each. No app dropped a frame (1066 in 35 s).
+
+| | Rust window | Rust window, VA-API | Rust, no window | Rust, no window, VA-API | Python app |
+|---|---|---|---|---|---|
+| CPU at 1080p30 | 11.1% | 3.0% | 10.0% | 2.3% | 21.4% |
+| Memory, RSS | 182 MB | 190 MB | 62 MB | 128 MB | 287 MB |
+
+- The merged window draws no preview yet and its row can't be compared with the prototype's 18.5%. Before the merge, with the preview drawn, it cost 13.2% with the preview scaled on the graphics card against 16.0% with swscale (5.4% against 9.2% with VA-API). That's 3 to 4 points saved rather than the whole 8, because the frame is still copied back from the card and Slint uploads it again.
+- wgpu and the graphics driver add about 25 MB, and only once something draws a preview or runs a shader step. The VA-API rows load the driver for decoding anyway.
+
 ### Size
 
 | | Size |
