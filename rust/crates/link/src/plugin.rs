@@ -586,6 +586,7 @@ impl ConnectionPlugin {
     }
 
     fn close_add(&mut self, host: &mut dyn Host) {
+        log::debug!("Add phone closed");
         // Dropping the offer stops the pairing server and takes down its adb reverses
         self.add = None;
         host.cancel_schedule(T_PAIR_POLL);
@@ -600,6 +601,7 @@ impl ConnectionPlugin {
             host.schedule(PAIR_POLL_MS, T_PAIR_POLL);
             return;
         };
+        log::info!("Paired with {} ({})", phone.name, phone.id);
         add.paired = Some(phone.name.clone());
         add.offer = None;
         host.cancel_schedule(T_PAIR_USB);
