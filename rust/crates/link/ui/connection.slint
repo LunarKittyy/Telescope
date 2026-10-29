@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -66,33 +66,6 @@ component QrCode inherits Rectangle {
 }
 
 // A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title
-component DialogFrame inherits Rectangle {
-    in property <string> title;
-    in property <string> subtitle;
-    background: Theme.bg;
-    drop-shadow-blur: 24px;
-    drop-shadow-color: #00000080;
-    VerticalLayout {
-        padding-left: 20px;
-        padding-right: 20px;
-        padding-top: 18px;
-        padding-bottom: 18px;
-        spacing: 14px;
-        VerticalLayout {
-            spacing: 2px;
-            Text {
-                text: title;
-                font-family: Theme.font;
-                font-size: 19px; // 14pt is 18.67px, drawn at 19
-                font-weight: 600;
-                color: Theme.text;
-            }
-            if subtitle != "": Note { text: subtitle; }
-        }
-        @children
-    }
-}
-
 export component ConnectionCard inherits Card {
     // The link block: how the phone is doing, over what, and what to do about it
     in property <string> status-text;

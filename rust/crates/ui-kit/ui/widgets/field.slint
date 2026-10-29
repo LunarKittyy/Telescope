@@ -46,9 +46,10 @@ export component TextField inherits Rectangle {
         vertical-alignment: center;
         height: parent.height;
     }
+    // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
     input := TextInput {
-        x: has-icon ? 39px : 11px;
-        width: parent.width - self.x - (clearable && text != "" ? 30px : 11px);
+        x: has-icon ? 39px : 13px;
+        width: parent.width - self.x - (clearable && text != "" ? 30px : 13px);
         height: parent.height;
         text <=> root.text;
         enabled: root.enabled;
