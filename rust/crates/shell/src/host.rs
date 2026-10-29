@@ -118,9 +118,16 @@ impl HostStreams for Ctx<'_> {
     fn background_streams(&self) -> Vec<BackgroundStream> {
         Vec::new()
     }
+    /// StreamFlow::pick_source's answer, known now from the streams as they are: the host takes over (moving the panels
+    /// to a stream that's up, or swapping the focused stream while several run); false leaves the pick to the caller.
     fn pick_source(&mut self, source_id: Option<&str>) -> bool {
-        self.state.effects.push(Effect::PickSource(source_id.map(String::from)));
-        true
+        let st = &self.state.streams;
+        let id = source_id.unwrap_or("");
+        let takes = st.ids.iter().any(|s| s == id) || (st.ids.len() > 1 && !st.waking && !st.preparing);
+        if takes {
+            self.state.effects.push(Effect::PickSource(source_id.map(String::from)));
+        }
+        takes
     }
     fn main_stream(&self) -> Option<(String, String)> {
         self.state.streams.main.clone()

@@ -75,6 +75,10 @@ pub struct Streams {
     pub live: Vec<String>,
     /// Stop all is under way: nothing becomes the main stream meanwhile.
     pub stopping_all: bool,
+    /// Every stream the flow has, up or still waking, and whether a start is waking or preparing one.
+    pub ids: Vec<String>,
+    pub waking: bool,
+    pub preparing: bool,
     /// Which camera each stream that's up feeds, as other apps list it, and the size it opened at.
     pub cameras: Vec<CameraUse>,
 }
@@ -816,6 +820,23 @@ mod tests {
         let change = OutputChange { width: None, height: None, fps: Some(Some(60)) };
         s.call(0, |_, host| host.update_stream_output(change.clone(), None));
         assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change: c, source_id: None } if c.fps == Some(Some(60)))));
+    }
+
+
+    #[test]
+    fn picking_a_phone_while_nothing_streams_is_left_to_connection() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(Box::new(Hears("connection".into(), Arc::default()))).unwrap();
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-2"))), Some(false));
+        assert!(!s.effects.iter().any(|e| matches!(e, Effect::PickSource(_))));
+        s.streams.ids = vec!["phone-1".into(), "phone-2".into()];
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-2"))), Some(true));
+        s.streams.ids = vec!["phone-1".into()];
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-3"))), Some(false), "one stream: Connection restarts it");
+        s.streams.ids = vec!["phone-1".into(), "phone-2".into()];
+        s.streams.waking = true;
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-3"))), Some(false));
     }
 
 }

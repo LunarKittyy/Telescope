@@ -168,6 +168,8 @@ impl Window {
             st.streams.main = flow.main_stream();
             st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
             st.streams.stopping_all = s.stopping_all;
+            st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+            (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
             let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
             st.streams.cameras = s.streams.iter().filter(|x| x.has_session()).map(|src| {
                 let slot = src.slot();
