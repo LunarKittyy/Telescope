@@ -7,6 +7,8 @@ import { Theme } from "../theme.slint";
 export component SettingRow inherits Rectangle {
     in property <string> title;
     in property <string> sub;
+    // A disabled row greys its text, as Qt greys a disabled strip's labels
+    in property <bool> enabled: true;
     min-height: 46px;
     border-radius: 9px;
     border-width: 1px;
@@ -30,14 +32,14 @@ export component SettingRow inherits Rectangle {
                 text: title;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text;
+                color: enabled ? Theme.text : Theme.text-disabled;
                 wrap: word-wrap;
             }
             if sub != "": Text {
                 text: sub;
                 font-family: Theme.font;
                 font-size: Theme.small;
-                color: Theme.text-dim;
+                color: enabled ? Theme.text-dim : Theme.text-disabled;
                 wrap: word-wrap;
             }
         }
