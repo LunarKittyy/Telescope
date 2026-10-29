@@ -366,11 +366,5 @@ pub fn right_to_left(text: &str) -> bool {
     false
 }
 
-/// The text in the order its glyphs are drawn left to right: reversed for a right-to-left line. Crude (it turns Latin and digits
-/// inside the line around too); `Face::layout` orders text properly itself, so only reach for this when it can't.
-pub fn visual_order(text: &str) -> String {
-    if right_to_left(text) { text.chars().rev().collect() } else { text.to_string() }
-}
-
 #[cfg(test)]
 mod tests;
