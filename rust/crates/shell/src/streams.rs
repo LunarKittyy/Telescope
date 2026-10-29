@@ -660,6 +660,11 @@ impl Window {
                     st.call(i, |p, host| p.on_phone_state(host, &state));
                 }
             }
+            if hearing.iter().any(|n| n == "view") {
+                let st = &mut *st;
+                let said = st.vc.phone_state(&st.view, &state, crate::shell::now_s());
+                st.apply_said(said);
+            }
         }
         if state.as_object().is_some_and(|o| !o.is_empty()) && source.has_session() {
             self.on_phone_state(source, &state);
@@ -791,7 +796,10 @@ impl Window {
     }
 
     fn plugin_list(&self) -> Vec<(String, bool)> {
-        self.state.borrow().slots.iter().map(|s| (s.info.name.clone(), s.info.follows_focus)).collect()
+        // The window's view controller hears the shown stream like a plugin that follows the panels
+        let mut list: Vec<(String, bool)> = self.state.borrow().slots.iter().map(|s| (s.info.name.clone(), s.info.follows_focus)).collect();
+        list.push(("view".into(), true));
+        list
     }
 
     /// At quit: every stream stopped and the phones told, waiting a moment for those stops.

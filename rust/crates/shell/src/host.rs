@@ -294,26 +294,25 @@ impl HostView for Ctx<'_> {
         0.0
     }
     fn set_view(&mut self, change: ViewChange) {
-        let v = &mut self.state.view;
-        if let Some(z) = change.zoom { v.zoom = z; }
-        if let Some(x) = change.pan_x { v.pan_x = x; }
-        if let Some(y) = change.pan_y { v.pan_y = y; }
-        if let Some(f) = change.flip_h { v.flip_h = f; }
-        if let Some(f) = change.flip_v { v.flip_v = f; }
-        if let Some(r) = change.rotation { v.rotation = r; }
-        if let Some(s) = change.stretch_x { v.stretch_x = s; }
-        if let Some(s) = change.stretch_y { v.stretch_y = s; }
-        let view = v.clone();
-        self.state.bus.emit(Event::ViewPannable { pannable: view.zoom > 1.0 });
-        self.state.bus.emit(Event::ViewChanged { view });
-        // The window's view step is built from it
-        self.state.effects.push(Effect::FrameStep("view".into()));
+        let st = &mut *self.state;
+        let said = st.vc.set_view(&mut st.view, &change, crate::shell::now_s());
+        st.apply_said(said);
     }
-    fn take_view(&mut self, _owner: &str) -> bool {
-        false
+    fn take_view(&mut self, owner: &str) -> bool {
+        let (took, said) = self.state.vc.take(owner);
+        self.state.apply_said(said);
+        took
     }
-    fn steer_view(&mut self, _owner: &str, _zoom: f32, _pan_x: f32, _pan_y: f32) {}
-    fn release_view(&mut self, _owner: &str) {}
+    fn steer_view(&mut self, owner: &str, zoom: f32, pan_x: f32, pan_y: f32) {
+        let st = &mut *self.state;
+        let said = st.vc.steer(&mut st.view, owner, zoom, pan_x, pan_y, crate::shell::now_s());
+        st.apply_said(said);
+    }
+    fn release_view(&mut self, owner: &str) {
+        let st = &mut *self.state;
+        let said = st.vc.release(&mut st.view, owner, crate::shell::now_s());
+        st.apply_said(said);
+    }
 }
 
 impl HostVision for Ctx<'_> {

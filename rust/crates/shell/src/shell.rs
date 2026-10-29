@@ -138,6 +138,11 @@ impl telescope_core::host::Poster for PluginPoster {
     }
 }
 
+/// Monotonic seconds, the view controller's clock.
+pub fn now_s() -> f64 {
+    telescope_core::time::monotonic_ns() as f64 / 1e9
+}
+
 pub struct State {
     pub slots: Vec<Slot>,
     pub panels: Panels,
@@ -150,6 +155,8 @@ pub struct State {
     pub selected: Option<String>,
     pub streams: Streams,
     pub view: View,
+    /// Splits the view's zoom between the phone and this computer (view_control.rs).
+    pub vc: crate::view_control::ViewController,
     /// Every plugin's colour change, baked into the one LUT the Colour stage runs.
     pub colour: ColourPipeline,
     pub output_slots: Map<String, Value>,
@@ -190,6 +197,7 @@ impl State {
             selected: None,
             streams: Streams::default(),
             view: View::default(),
+            vc: crate::view_control::ViewController::new(),
             colour: ColourPipeline::new(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
@@ -415,6 +423,17 @@ impl State {
     /// A stream hook on the named plugins, in registration order.
     pub fn call_hook(&mut self, names: &[String], hook: &crate::stream_flow::Hook) {
         use crate::stream_flow::Hook;
+        if names.iter().any(|n| n == "view") {
+            let (vc, view, now) = (&mut self.vc, &self.view, now_s());
+            let said = match hook {
+                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, now),
+                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, now),
+                Hook::StreamStop => vc.stream_stop(view, now),
+                Hook::FocusLost => vc.focus_lost(view, now),
+                _ => Vec::new(),
+            };
+            self.apply_said(said);
+        }
         for i in 0..self.slots.len() {
             if !names.contains(&self.slots[i].info.name) {
                 continue;
@@ -431,13 +450,29 @@ impl State {
         }
     }
 
+    /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
+    pub fn apply_said(&mut self, said: Vec<crate::view_control::Said>) {
+        use crate::view_control::Said;
+        for s in said {
+            match s {
+                Said::Emit(event) => self.bus.emit(event),
+                Said::Zoom(p) => self.effects.push(Effect::PhoneControl { source_id: None, body: crate::view_control::zoom_body(&p) }),
+                Said::Restep => {
+                    if !self.effects.contains(&Effect::FrameStep("view".into())) {
+                        self.effects.push(Effect::FrameStep("view".into()));
+                    }
+                }
+            }
+        }
+    }
+
     /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
     pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
         use telescope_core::frame::FrameStage;
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps(&self.view) {
+        for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
         }
         if let Some(step) = self.colour.step(None) {
@@ -571,6 +606,10 @@ impl State {
             while let Some(event) = self.bus.next() {
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
+                }
+                if let Event::CameraSwitched { camera } = &event {
+                    let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
+                    self.apply_said(said);
                 }
                 self.each(|p, host| p.on_event(host, &event));
             }
