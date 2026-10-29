@@ -62,6 +62,11 @@ pub trait PhoneSession: ControlClient {
     fn controls(&self) -> Option<std::sync::Arc<dyn PhoneControl>> {
         None
     }
+    /// The phone's microphone (/v1/audio: 48 kHz mono s16le) on this route. The error is the text to show next to the
+    /// Microphone card (the phone's own reason when it gives one).
+    fn open_audio(&self) -> Result<Box<dyn crate::audio::AudioFeed>, String> {
+        Err("not in this build".into())
+    }
 }
 
 /// A pairing offer while it's open: the QR code's contents, and the phone once one pairs.
