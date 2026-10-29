@@ -105,7 +105,9 @@ export component CameraCard inherits Card {
 
     title: @tr("Camera");
     icon: Icons.camera;
+    // dim_until_paired: faded and disabled until there's a phone
     opacity: active ? 1 : 0.4;
+    enabled: active;
 
     if lenses.length == 0: Text {
         text: @tr("Start streaming to load lenses");
@@ -138,7 +140,7 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("Exposure");
                 items: [@tr("Auto"), @tr("Manual")];
-                disabled: [false, false];
+                disabled: [!active, !active];
                 current <=> exposure-mode;
                 picked(i) => {
                     if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
@@ -150,6 +152,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("ISO");
                 hue: root.hue;
+                enabled: active;
                 minimum: 0;
                 maximum: 1;
                 step: 0.01;
@@ -163,6 +166,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("Shutter");
                 hue: root.hue;
+                enabled: active;
                 minimum: 0;
                 maximum: 1;
                 step: 0.01;
@@ -176,6 +180,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("Brightness");
                 hue: root.hue;
+                enabled: active;
                 minimum: ae-min;
                 maximum: ae-max;
                 step: 1;
@@ -189,7 +194,7 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
-                disabled: [false, !manual-wb-ok];
+                disabled: [!active, !active || !manual-wb-ok];
                 current <=> wb-mode;
                 picked(i) => {
                     if (i == 0) { control("wb_auto", 0); } else { manual-wb(kelvin, tint); }
@@ -201,6 +206,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("Temperature");
                 hue: root.hue;
+                enabled: active;
                 minimum: 2000;
                 maximum: 10000;
                 step: 100;
@@ -214,6 +220,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("Tint G–M");
                 hue: root.hue;
+                enabled: active;
                 minimum: -150;
                 maximum: 150;
                 step: 1;
@@ -234,7 +241,7 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("Focus");
                 items: [@tr("Auto"), @tr("Tap a point"), @tr("Manual")];
-                disabled: [false, !point-focus, false];
+                disabled: [!active, !active || !point-focus, !active];
                 current <=> focus-mode;
                 picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
             }
@@ -244,6 +251,7 @@ export component CameraCard inherits Card {
             Slider {
                 label: @tr("Distance");
                 hue: root.hue;
+                enabled: active;
                 minimum: 0;
                 maximum: 1;
                 step: 0.01;
@@ -266,6 +274,7 @@ export component CameraCard inherits Card {
                     icon: Icons.stabilize;
                     text: @tr("Stabilization");
                     hue: root.hue;
+                    enabled: active;
                     checked <=> ois;
                     toggled(on) => { control("ois", on ? 1 : 0); }
                 }
@@ -273,6 +282,7 @@ export component CameraCard inherits Card {
                     icon: Icons.lock;
                     text: @tr("Black level lock");
                     hue: root.hue;
+                    enabled: active;
                     checked <=> black-level-lock;
                     toggled(on) => { control("black_level_lock", on ? 1 : 0); }
                 }
@@ -283,6 +293,7 @@ export component CameraCard inherits Card {
                     icon: Icons.torch;
                     text: @tr("Torch");
                     hue: root.hue;
+                    enabled: active;
                     checked <=> torch;
                     toggled(on) => { control("torch", on ? 1 : 0); }
                 }
@@ -293,12 +304,14 @@ export component CameraCard inherits Card {
             ChoiceField {
                 caption: @tr("Noise reduction");
                 items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                enabled: active;
                 current <=> noise-reduction;
                 picked(i) => { control("nr_mode", i); }
             }
             ChoiceField {
                 caption: @tr("Sharpening");
                 items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                enabled: active;
                 current <=> sharpening;
                 picked(i) => { control("edge_mode", i); }
             }

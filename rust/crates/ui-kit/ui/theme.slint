@@ -32,6 +32,12 @@ export global Theme {
     out property <string> mono: "monospace";
 
     // theme.hue: a plugin group's colour (PLUGIN_HUES), the accent for an unknown group or with plugin colours off
+    // Qt lays wrapped lines out its font's ascent and descent apart, each rounded to whole pixels (16px for 13px Inter,
+    // where Slint's natural line is 15.73px): a wrapped Text's line-height-factor, so a paragraph doesn't drift off Qt's
+    public pure function line-factor(size: length) -> float {
+        (round(size * 1984 / 2048 / 1px) + round(size * 494 / 2048 / 1px)) / (size * 2478 / 2048 / 1px)
+    }
+
     public pure function plugin-hue(group: string) -> color {
         !own-hues ? accent
             : group == "camera" ? #7fd3c4 : group == "look" ? #e6a6e0 : group == "vision" ? #bcd98c

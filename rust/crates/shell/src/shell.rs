@@ -51,6 +51,8 @@ pub enum Effect {
     MakeMain(String),
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
+    /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
+    HandOver { source_id: String, route: telescope_core::source::RouteSpec, url: String },
     Quit,
     Restart,
     KeepInTray(bool),
@@ -75,8 +77,15 @@ pub struct Streams {
     pub live: Vec<String>,
     /// Stop all is under way: nothing becomes the main stream meanwhile.
     pub stopping_all: bool,
+    /// Every stream the flow has, up or still waking, and whether a start is waking or preparing one.
+    pub ids: Vec<String>,
+    pub waking: bool,
+    pub preparing: bool,
     /// Which camera each stream that's up feeds, as other apps list it, and the size it opened at.
     pub cameras: Vec<CameraUse>,
+    /// Phone streams that could move to another route now: up, not recovering, not moving already, and with a worker
+    /// that can take it (or the camera off).
+    pub can_hand_over: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -149,6 +158,8 @@ pub struct State {
     /// Added plugins that are on but didn't start: name to why.
     pub problems: BTreeMap<String, String>,
     pub keep_in_tray: bool,
+    /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
+    pub link: Option<Arc<dyn telescope_core::link::Link>>,
     next_request: u64,
 }
 
@@ -173,6 +184,7 @@ impl State {
             builtins: Vec::new(),
             problems: BTreeMap::new(),
             keep_in_tray: false,
+            link: None,
             next_request: 1,
         }
     }
@@ -596,6 +608,8 @@ mod tests {
     use super::*;
     use telescope_core::plugin::ConfigRejected;
     use telescope_core::testing::scratch_dir;
+    use telescope_core::source::RouteSpec;
+    use std::sync::Mutex;
 
     struct Stub {
         info: PluginInfo,
@@ -816,6 +830,62 @@ mod tests {
         let change = OutputChange { width: None, height: None, fps: Some(Some(60)) };
         s.call(0, |_, host| host.update_stream_output(change.clone(), None));
         assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change: c, source_id: None } if c.fps == Some(Some(60)))));
+    }
+
+
+    #[test]
+    fn picking_a_phone_while_nothing_streams_is_left_to_connection() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(Box::new(Hears("connection".into(), Arc::default()))).unwrap();
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-2"))), Some(false));
+        assert!(!s.effects.iter().any(|e| matches!(e, Effect::PickSource(_))));
+        s.streams.ids = vec!["phone-1".into(), "phone-2".into()];
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-2"))), Some(true));
+        s.streams.ids = vec!["phone-1".into()];
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-3"))), Some(false), "one stream: Connection restarts it");
+        s.streams.ids = vec!["phone-1".into(), "phone-2".into()];
+        s.streams.waking = true;
+        assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-3"))), Some(false));
+    }
+
+    struct Prepares(Mutex<Vec<(String, Option<String>)>>);
+
+    impl telescope_core::link::Link for Prepares {
+        fn new_identity(&self) -> (String, String) {
+            Default::default()
+        }
+        fn resolve(&self, _phone: &telescope_core::source::PairedPhone, _prefs: telescope_core::link::RoutePrefs)
+                   -> Result<Box<dyn telescope_core::link::PhoneSession>, telescope_core::link::Unreachable> {
+            unimplemented!()
+        }
+        fn pair(&self, _id: &str, _name: &str) -> Result<Arc<dyn telescope_core::link::PairingOffer>, String> {
+            Err("no".into())
+        }
+        fn prepare_route(&self, source_id: &str, _route: &RouteSpec) -> Option<String> {
+            let mut answers = self.0.lock().unwrap();
+            let i = answers.iter().position(|(id, _)| id == source_id)?;
+            answers.remove(i).1
+        }
+    }
+
+    #[test]
+    fn a_worker_that_cant_hand_over_lets_go_of_the_route_at_once() {
+        use telescope_core::host::HostStreams;
+        let usb = RouteSpec::Usb { serial: "SER".into() };
+        let url = "https://127.0.0.1:41000/v1/video".to_string();
+        let mut s = state();
+        s.register(Box::new(Hears("connection".into(), Arc::default()))).unwrap();
+        s.link = Some(Arc::new(Prepares(Mutex::new(vec![("p1".into(), Some(url.clone())), ("p1".into(), None)]))));
+        s.streams.live = vec!["p1".into()];
+        // A stream whose worker is stopping or busy, or that's recovering, isn't asked to: link isn't even asked
+        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false));
+        s.streams.can_hand_over = vec!["p1".into()];
+        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(true));
+        assert!(s.effects.contains(&Effect::HandOver { source_id: "p1".into(), route: usb.clone(), url }));
+        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "one at a time");
+        s.streams.can_hand_over = vec!["p1".into()];
+        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "link has no route ready");
     }
 
 }

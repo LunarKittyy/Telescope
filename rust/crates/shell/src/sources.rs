@@ -33,6 +33,8 @@ pub enum Report {
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
     /// recovery moved the stream to a new route: its session there.
     Moved { source_id: String, session_id: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
+    /// A hand-over with the camera off opened its session on url (None: it couldn't).
+    HandedOver { source_id: String, session_id: u64, url: String, session: Option<Arc<dyn PhoneSession>> },
 }
 
 /// Hands a report to the window's thread.
@@ -110,6 +112,15 @@ struct PhoneInner {
     route_tries: u32,
     unreachable_shown: bool,
     heat_shown: bool,
+    handover: Option<Handover>,
+}
+
+/// A hand-over under way: the session it's for, the route and URL it tries, and the session it opened there.
+struct Handover {
+    session_id: u64,
+    route: RouteSpec,
+    url: String,
+    opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>>,
 }
 
 /// A paired phone, by id.
@@ -191,6 +202,77 @@ impl PhoneKind {
             while !t.is_finished() && std::time::Instant::now() < deadline {
                 std::thread::sleep(Duration::from_millis(10));
             }
+        }
+    }
+
+    /// A hand-over to route begins: the opener the worker tries it with, which opens the phone's session there (passing
+    /// the controls on) and keeps it for moved_over. With the camera off (camera_off) the session opens on a thread
+    /// straight away and comes back as HandedOver, as there's no video to wait for.
+    pub fn begin_hand_over(&self, session_id: u64, route: RouteSpec, url: String, camera_off: bool) -> Option<Opener> {
+        let phone = self.phone()?;
+        let controls = self.session().and_then(|s| s.controls());
+        let opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>> = Arc::default();
+        self.inner.borrow_mut().handover = Some(Handover { session_id, route: route.clone(), url: url.clone(), opened: opened.clone() });
+        let link = self.link.clone();
+        let open = move || -> Result<Arc<dyn PhoneSession>, String> {
+            let mut slot = opened.lock().unwrap();
+            if let Some(s) = slot.as_ref() {
+                return Ok(s.clone());
+            }
+            let session: Arc<dyn PhoneSession> = link.open_route(&phone, &route, video_path(&url), controls.clone())?.into();
+            *slot = Some(session.clone());
+            Ok(session)
+        };
+        if camera_off {
+            let (post, sid, url) = (self.post.clone(), self.sid(), self.inner.borrow().handover.as_ref().map(|h| h.url.clone()).unwrap_or_default());
+            std::thread::spawn(move || {
+                let session = open().map_err(|e| log::info!("Moving the stream failed: {e}")).ok();
+                post(Report::HandedOver { source_id: sid, session_id, url, session });
+            });
+            return None;
+        }
+        Some(Arc::new(move || open()?.open_video().map(Opened::from)))
+    }
+
+    /// The hand-over to url worked for session_id: the session it opened is the stream's now, and link lets the old
+    /// route go. None if it isn't the one under way (a stop or another start came first).
+    pub fn moved_over(&self, session_id: u64, url: &str) -> Option<Arc<dyn PhoneSession>> {
+        let pending = self.inner.borrow_mut().handover.take()?;
+        let session = pending.opened.lock().unwrap().take();
+        let Some(session) = session.filter(|_| pending.session_id == session_id && pending.url == url) else {
+            self.drop_hand_over(pending, false);
+            return None;
+        };
+        if let Some(id) = &self.id {
+            self.link.commit_route(id);
+        }
+        let mut inner = self.inner.borrow_mut();
+        inner.route = Some(pending.route);
+        inner.url = session.video_url();
+        if let Some(old) = inner.session.replace(session.clone()) {
+            std::thread::spawn(move || old.release());
+        }
+        Some(session)
+    }
+
+    /// The hand-over to url didn't happen (failed: the route didn't keep frames coming, so it sits out a while).
+    pub fn hand_over_failed(&self, url: &str, failed: bool) {
+        let pending = self.inner.borrow_mut().handover.take_if(|h| h.url == url);
+        if let Some(pending) = pending {
+            self.drop_hand_over(pending, failed);
+        }
+    }
+
+    pub fn handing_over(&self) -> bool {
+        self.inner.borrow().handover.is_some()
+    }
+
+    fn drop_hand_over(&self, pending: Handover, failed: bool) {
+        if let Some(session) = pending.opened.lock().unwrap().take() {
+            std::thread::spawn(move || session.release());
+        }
+        if let Some(id) = &self.id {
+            self.link.drop_route(id, failed);
         }
     }
 
@@ -374,11 +456,14 @@ impl SourceKind for PhoneKind {
 
     fn stopped(&self, _source: &Source, remote_stop: bool, active: bool) {
         self.heat_timer.stop();
-        let session = {
+        let (session, handover) = {
             let mut inner = self.inner.borrow_mut();
             inner.wake_id += 1;
-            inner.session.take()
+            (inner.session.take(), inner.handover.take())
         };
+        if let Some(session) = handover.and_then(|h| h.opened.lock().unwrap().take()) {
+            std::thread::spawn(move || session.release()); // a stopped worker says nothing more about it
+        }
         let target = self.link.session_target(self.id.as_deref())
             .or_else(|| Some((self.phone()?, session.as_ref()?.route())));
         let link = self.link.clone();
@@ -498,5 +583,198 @@ mod tests {
         assert_eq!(camera_error_text(&json!({"camera_error_code": "camera_in_use", "camera_error": "busy"})),
                    "The camera didn't turn back on. Another app may be using it.");
         assert_eq!(camera_error_text(&json!({"camera_error": "Camera 2 failed"})), "Camera 2 failed");
+    }
+
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use telescope_core::link::{PairingOffer, RoutePrefs, Unreachable};
+    use telescope_core::media::{Codec, VideoFeed};
+
+    struct FakeSession {
+        url: String,
+        released: AtomicBool,
+    }
+
+    impl ControlClient for FakeSession {
+        fn send(&self, _body: &Value) -> Result<(), String> {
+            Ok(())
+        }
+        fn state(&self) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+        fn has_audio(&self) -> bool {
+            true
+        }
+    }
+
+    impl PhoneSession for FakeSession {
+        fn route(&self) -> RouteSpec {
+            RouteSpec::Network { address: "192.168.1.20".into() }
+        }
+        fn describe(&self) -> String {
+            String::new()
+        }
+        fn start(&self, _request: StreamRequest) -> Result<(), String> {
+            Ok(())
+        }
+        fn stop(&self) -> Result<(), String> {
+            Ok(())
+        }
+        fn open_video(&self) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+            Err("no video here".into())
+        }
+        fn release(&self) {
+            self.released.store(true, Ordering::SeqCst);
+        }
+        fn video_url(&self) -> String {
+            self.url.clone()
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeLink {
+        opened: Mutex<Vec<Arc<FakeSession>>>,
+        committed: Mutex<Vec<String>>,
+        dropped: Mutex<Vec<(String, bool)>>,
+    }
+
+    struct Shared(Arc<FakeSession>);
+
+    impl ControlClient for Shared {
+        fn send(&self, body: &Value) -> Result<(), String> {
+            self.0.send(body)
+        }
+        fn state(&self) -> Result<Value, String> {
+            self.0.state()
+        }
+        fn has_audio(&self) -> bool {
+            true
+        }
+    }
+
+    impl PhoneSession for Shared {
+        fn route(&self) -> RouteSpec {
+            self.0.route()
+        }
+        fn describe(&self) -> String {
+            String::new()
+        }
+        fn start(&self, r: StreamRequest) -> Result<(), String> {
+            self.0.start(r)
+        }
+        fn stop(&self) -> Result<(), String> {
+            Ok(())
+        }
+        fn open_video(&self) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+            self.0.open_video()
+        }
+        fn release(&self) {
+            self.0.release()
+        }
+        fn video_url(&self) -> String {
+            self.0.video_url()
+        }
+    }
+
+    impl Link for FakeLink {
+        fn new_identity(&self) -> (String, String) {
+            Default::default()
+        }
+        fn resolve(&self, _phone: &PairedPhone, _prefs: RoutePrefs) -> Result<Box<dyn PhoneSession>, Unreachable> {
+            unimplemented!()
+        }
+        fn pair(&self, _id: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
+            Err("no".into())
+        }
+        fn open_route(&self, _phone: &PairedPhone, route: &RouteSpec, path: &str, _controls: Option<Arc<dyn PhoneControl>>)
+                      -> Result<Box<dyn PhoneSession>, String> {
+            let RouteSpec::Usb { serial } = route else { return Err("no route".into()) };
+            let s = Arc::new(FakeSession { url: format!("https://127.0.0.1:41000{path}#{serial}"), released: AtomicBool::new(false) });
+            self.opened.lock().unwrap().push(s.clone());
+            Ok(Box::new(Shared(s)))
+        }
+        fn commit_route(&self, source_id: &str) {
+            self.committed.lock().unwrap().push(source_id.into());
+        }
+        fn drop_route(&self, source_id: &str, failed: bool) {
+            self.dropped.lock().unwrap().push((source_id.into(), failed));
+        }
+        fn phones(&self) -> Vec<PairedPhone> {
+            vec![PairedPhone { id: "p1".into(), name: "Pixel".into(), token: String::new(), ips: Vec::new(), active_ip: None, cert_sha256: String::new() }]
+        }
+    }
+
+    const USB_URL: &str = "https://127.0.0.1:41000/v1/video";
+
+    /// A phone streaming over Wi-Fi, and what it posts.
+    fn wifi_phone() -> (PhoneKind, Arc<FakeLink>, Arc<FakeSession>, Arc<Mutex<Vec<Report>>>) {
+        let link = Arc::new(FakeLink::default());
+        let posted: Arc<Mutex<Vec<Report>>> = Arc::default();
+        let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };
+        let request = StreamRequest { width: 0, height: 0, fps: 30 };
+        let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamFormat::default), request, post, Rc::new(|_, _| {}));
+        let wifi = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false) });
+        phone.woke(Arc::new(Shared(wifi.clone())));
+        (phone, link, wifi, posted)
+    }
+
+    fn usb() -> RouteSpec {
+        RouteSpec::Usb { serial: "SER".into() }
+    }
+
+    #[test]
+    fn a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now() {
+        let (phone, link, wifi, _) = wifi_phone();
+        let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
+        assert!(phone.handing_over());
+        assert!(opener().is_err()); // the fake has no video, but the session on the new route is open
+        assert_eq!(phone.url(), "https://192.168.1.20:8080/v1/video"); // still Wi-Fi until it's moved
+        let moved = phone.moved_over(1, USB_URL).unwrap();
+        assert_eq!(moved.video_url(), "https://127.0.0.1:41000/v1/video#SER");
+        assert_eq!(*link.committed.lock().unwrap(), ["p1"]);
+        assert_eq!(phone.url(), moved.video_url());
+        assert!(!phone.handing_over());
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(wifi.released.load(Ordering::SeqCst)); // the old route's session goes
+    }
+
+    #[test]
+    fn a_failed_hand_over_leaves_the_stream_where_it_was() {
+        let (phone, link, wifi, _) = wifi_phone();
+        let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
+        let _ = opener();
+        phone.hand_over_failed(USB_URL, true);
+        assert_eq!(*link.dropped.lock().unwrap(), [("p1".to_string(), true)]);
+        assert!(link.committed.lock().unwrap().is_empty());
+        assert_eq!(phone.url(), "https://192.168.1.20:8080/v1/video");
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(link.opened.lock().unwrap()[0].released.load(Ordering::SeqCst));
+        assert!(!wifi.released.load(Ordering::SeqCst));
+        assert!(!phone.handing_over()); // it can try again
+        assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), false).is_some());
+    }
+
+    #[test]
+    fn a_move_for_a_stream_thats_been_replaced_lets_go_of_the_route() {
+        let (phone, link, _, _) = wifi_phone();
+        let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
+        let _ = opener();
+        assert!(phone.moved_over(2, USB_URL).is_none());
+        assert_eq!(*link.dropped.lock().unwrap(), [("p1".to_string(), false)]);
+        assert!(link.committed.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn mic_only_session_can_hand_over_to_usb() {
+        let (phone, link, _, posted) = wifi_phone();
+        assert!(phone.begin_hand_over(1, usb(), USB_URL.into(), true).is_none());
+        assert!(phone.handing_over());
+        let until = std::time::Instant::now() + Duration::from_secs(2);
+        while posted.lock().unwrap().is_empty() && std::time::Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let Some(Report::HandedOver { session_id: 1, url, session: Some(_), .. }) = posted.lock().unwrap().pop() else { panic!("no session") };
+        assert!(phone.moved_over(1, &url).is_some());
+        assert_eq!(*link.committed.lock().unwrap(), ["p1"]);
+        assert_eq!(phone.url(), "https://127.0.0.1:41000/v1/video#SER");
     }
 }

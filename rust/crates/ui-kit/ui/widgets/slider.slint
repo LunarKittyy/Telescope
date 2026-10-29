@@ -83,7 +83,8 @@ export component Slider inherits HorizontalLayout {
         font-family: Theme.font;
         font-size: Theme.body;
         font-weight: 600;
-        color: enabled ? hue : Theme.text-disabled;
+        // QLabel#val outranks QLabel:disabled in the theme, so a disabled readout keeps the accent's soft shade
+        color: enabled ? hue : Theme.accent-soft;
         horizontal-alignment: right;
         vertical-alignment: center;
     }

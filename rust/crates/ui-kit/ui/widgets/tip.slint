@@ -17,7 +17,7 @@ export component TipBody inherits Rectangle {
         Text {
             text: root.says;
             max-width: 470px;
-            wrap: word-wrap;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text;

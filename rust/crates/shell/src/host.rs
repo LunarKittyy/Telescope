@@ -109,8 +109,18 @@ impl HostStreams for Ctx<'_> {
     fn reconnect_stream(&mut self) {
         self.state.effects.push(Effect::Reconnect);
     }
-    fn hand_over_stream(&mut self, _route: &RouteSpec, _source_id: Option<&str>) -> bool {
-        false
+    /// PhoneSource.hand_over: false unless that stream is up, isn't recovering or moving already, and link has the
+    /// route ready next to the running one; the worker then tries it and the Connection card hears how it went.
+    fn hand_over_stream(&mut self, route: &RouteSpec, source_id: Option<&str>) -> bool {
+        let st = &self.state.streams;
+        let Some(id) = source_id.map(String::from).or_else(|| st.source_id.clone()) else { return false };
+        if !st.can_hand_over.contains(&id) {
+            return false;
+        }
+        let Some(url) = self.state.link.as_ref().and_then(|l| l.prepare_route(&id, route)) else { return false };
+        self.state.streams.can_hand_over.retain(|s| *s != id);
+        self.state.effects.push(Effect::HandOver { source_id: id, route: route.clone(), url });
+        true
     }
     fn focused_source_id(&self) -> Option<String> {
         self.state.streams.source_id.clone().or_else(|| self.state.selected.clone())
@@ -118,9 +128,16 @@ impl HostStreams for Ctx<'_> {
     fn background_streams(&self) -> Vec<BackgroundStream> {
         Vec::new()
     }
+    /// StreamFlow::pick_source's answer, known now from the streams as they are: the host takes over (moving the panels
+    /// to a stream that's up, or swapping the focused stream while several run); false leaves the pick to the caller.
     fn pick_source(&mut self, source_id: Option<&str>) -> bool {
-        self.state.effects.push(Effect::PickSource(source_id.map(String::from)));
-        true
+        let st = &self.state.streams;
+        let id = source_id.unwrap_or("");
+        let takes = st.ids.iter().any(|s| s == id) || (st.ids.len() > 1 && !st.waking && !st.preparing);
+        if takes {
+            self.state.effects.push(Effect::PickSource(source_id.map(String::from)));
+        }
+        takes
     }
     fn main_stream(&self) -> Option<(String, String)> {
         self.state.streams.main.clone()

@@ -19,7 +19,7 @@ use telescope_core::event::Event;
 use telescope_core::i18n::tr;
 use telescope_core::link::PhoneStatus;
 use telescope_core::media::FrameSlot;
-use telescope_core::source::StreamSource;
+use telescope_core::source::{RouteSpec, StreamSource};
 use telescope_core::ui::{Issue, IssueAction, IssueDoes};
 
 /// A running worker as the flow sees it.
@@ -168,7 +168,14 @@ impl Window {
             st.streams.main = flow.main_stream();
             st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
             st.streams.stopping_all = s.stopping_all;
+            st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+            (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
             let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
+            st.streams.can_hand_over = s.streams.iter().filter(|src| {
+                let Some(session) = src.session() else { return false };
+                let worker_can = session.worker.is_none() || self.worker_of(src).is_some_and(|w| w.inner.can_hand_over());
+                !src.recovering() && worker_can && src.kind.as_phone().is_some_and(|p| !p.handing_over())
+            }).map(|x| x.id_str().to_string()).collect();
             st.streams.cameras = s.streams.iter().filter(|x| x.has_session()).map(|src| {
                 let slot = src.slot();
                 crate::shell::CameraUse {
@@ -288,8 +295,13 @@ impl Window {
         match event {
             WorkerEvent::Status(kind, msg) => self.worker_status(&source, &kind, &msg),
             WorkerEvent::Reconnected => self.with_flow(|flow, host| flow.stream_reconnected(host, &source)),
-            WorkerEvent::Moved(url) => log::info!("{} moved to {url}", source.kind.name()),
-            WorkerEvent::MoveFailed(url) => log::info!("Moving {} to {url} failed", source.kind.name()),
+            WorkerEvent::Moved(url) => self.moved_over(&source, Some(&worker), &url),
+            WorkerEvent::MoveFailed(url) => {
+                if let Some(phone) = source.kind.as_phone() {
+                    phone.hand_over_failed(&url, true);
+                    self.sync_streams();
+                }
+            }
             WorkerEvent::VcamOpened(w, h) => {
                 let slot = source.slot();
                 {
@@ -547,6 +559,19 @@ impl Window {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 self.recovery_probed(&source, session_id, generation, resolution);
             }
+            Report::HandedOver { source_id, session_id, url, session } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                let Some(phone) = source.kind.as_phone().filter(|p| p.handing_over()) else {
+                    if let Some(s) = session {
+                        std::thread::spawn(move || s.release()); // stopped meanwhile
+                    }
+                    return;
+                };
+                match session {
+                    Some(_) if source.session().is_some_and(|s| s.id == session_id) => self.moved_over(&source, None, &url),
+                    _ => phone.hand_over_failed(&url, true),
+                }
+            }
             Report::Moved { source_id, session_id, route, session } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 let Some(current) = source.session().filter(|s| s.id == session_id) else {
@@ -569,6 +594,47 @@ impl Window {
                 self.streams.flow.borrow_mut().sessions.add(&source, moved);
             }
         }
+    }
+
+    /// Host::hand_over_stream (PhoneSource.hand_over): the worker tries link's prepared url next to the running stream.
+    pub fn hand_over(self: &Rc<Self>, source_id: &str, route: RouteSpec, url: String) {
+        let source = self.source(Some(source_id));
+        let worker = source.session().and_then(|s| s.worker).and_then(|w| self.shell_worker(&w));
+        let phone = source.kind.as_phone();
+        let opener = phone.zip(source.session()).and_then(|(p, s)| p.begin_hand_over(s.id, route, url.clone(), worker.is_none()));
+        if !phone.is_some_and(PhoneKind::handing_over) {
+            if let Some(link) = self.services.as_ref().map(|s| s.link.clone()) {
+                link.drop_route(source_id, false);
+            }
+        } else if let (Some(opener), Some(worker)) = (opener, worker) {
+            if !worker.inner.hand_over(&url, opener) {
+                phone.unwrap().hand_over_failed(&url, false);
+            }
+        }
+        self.sync_streams();
+    }
+
+    /// PhoneSource.on_moved: the stream runs on url now, with the same control client, and the plugins hear about it as
+    /// a reconnect.
+    fn moved_over(self: &Rc<Self>, source: &SourceRef, worker: Option<&Rc<ShellWorker>>, url: &str) {
+        let Some(phone) = source.kind.as_phone() else { return };
+        let Some(current) = source.session() else { return };
+        let Some(session) = phone.moved_over(current.id, url) else {
+            self.sync_streams();
+            return;
+        };
+        log::info!("{} moved to {url}", source.kind.name());
+        if let Some(controls) = session.controls() {
+            controls.retarget(&session.stream_base());
+        }
+        if let Some(worker) = worker {
+            let s = session.clone();
+            worker.inner.set_opener(Arc::new(move || s.open_video().map(crate::worker::Opened::from)));
+        }
+        let mut moved = current.clone();
+        moved.url = session.video_url();
+        self.streams.flow.borrow_mut().sessions.add(source, moved);
+        self.with_flow(|flow, host| flow.stream_reconnected(host, source));
     }
 
     fn shell_worker(&self, w: &Rc<dyn Worker>) -> Option<Rc<ShellWorker>> {

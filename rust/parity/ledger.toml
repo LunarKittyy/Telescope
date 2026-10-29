@@ -1946,13 +1946,13 @@
 "test_app.py::test_a_dropped_stream_is_not_called_slow" = { status = "todo" }
 "test_app.py::test_a_dropped_stream_keeps_asking_the_phone_why" = { status = "todo" }
 "test_app.py::test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled" = { status = "todo" }
-"test_app.py::test_a_failed_hand_over_leaves_the_stream_where_it_was" = { status = "todo" }
+"test_app.py::test_a_failed_hand_over_leaves_the_stream_where_it_was" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_failed_hand_over_leaves_the_stream_where_it_was" }
 "test_app.py::test_a_finished_vision_download_makes_vision_look_for_the_pack_again" = { status = "todo" }
 "test_app.py::test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light" = { status = "todo" }
 "test_app.py::test_a_frame_rate_lowered_for_the_heat_says_so" = { status = "todo" }
 "test_app.py::test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped" = { status = "todo" }
 "test_app.py::test_a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for" = { status = "todo" }
-"test_app.py::test_a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now" = { status = "todo" }
+"test_app.py::test_a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now", note = "the source's half; streams.rs moved_over tells the plugins through stream_reconnected, as Python's stream_moved does" }
 "test_app.py::test_a_legacy_plugins_settings_actions_still_work" = { status = "todo" }
 "test_app.py::test_a_lens_switch_or_new_size_lets_the_stream_settle_before_it_counts_as_behind" = { status = "todo" }
 "test_app.py::test_a_lens_switch_starts_motion_over" = { status = "todo" }
@@ -2000,7 +2000,7 @@
 "test_app.py::test_a_tile_follows_its_stream_back_to_live" = { status = "todo" }
 "test_app.py::test_a_wake_that_finishes_after_stop_stops_the_phone_again" = { status = "todo" }
 "test_app.py::test_a_wake_that_lands_after_the_user_gave_up_is_discarded" = { status = "todo" }
-"test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "todo" }
+"test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_worker_that_cant_hand_over_lets_go_of_the_route_at_once", note = "the host answers from the streams snapshot (can_hand_over) before asking link, so there's no route to let go" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "todo" }
 "test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "todo" }
@@ -3984,7 +3984,7 @@
 "test_sources.py::test_a_wake_long_after_a_stop_doesnt_wait_for_the_phone_to_settle" = { status = "todo" }
 "test_sources.py::test_a_wake_right_after_stop_waits_for_the_stop_to_reach_the_phone" = { status = "todo" }
 "test_sources.py::test_a_wifi_route_that_hasnt_connected_yet_isnt_moved_again" = { status = "todo" }
-"test_sources.py::test_mic_only_session_can_hand_over_to_usb" = { status = "todo" }
+"test_sources.py::test_mic_only_session_can_hand_over_to_usb" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::mic_only_session_can_hand_over_to_usb", note = "the session on the new route opens on a thread and comes back as HandedOver" }
 "test_sources.py::test_the_same_cable_back_after_a_fresh_forward_died_gets_another" = { status = "todo" }
 "test_sources.py::test_the_window_offers_every_call_a_source_makes" = { status = "todo" }
 "test_sources.py::test_wake_progress_only_counts_while_the_host_is_waking" = { status = "todo" }
@@ -5100,7 +5100,7 @@
 # ── main
 "cool" = { status = "todo" }
 "hot" = { status = "todo" }
-"main-empty" = { status = "todo" }
+"main-empty" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-medium" = { status = "todo" }
 "main-narrow" = { status = "todo" }
 "main-wide" = { status = "todo" }
