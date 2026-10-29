@@ -142,6 +142,8 @@ def main(argv=None) -> int:
            "PATH": f"{adb.parent}{os.pathsep}{os.environ.get('PATH', '')}"}
     if not args.show:
         env["QT_QPA_PLATFORM"] = "offscreen"
+    # A SIGTERM (timeout, Ctrl+C in another terminal) still stops the desktop, which would keep holding its lock
+    signal.signal(signal.SIGTERM, lambda *_a: sys.exit(143))
     log = (profile / "desktop.log").open("w")
     app = subprocess.Popen(desktop, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     failed = None
