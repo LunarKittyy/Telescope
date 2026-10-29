@@ -14,5 +14,6 @@ ab_glyph = "0.2"
 harfrust = "0.12"
 unicode-bidi = "0.3"
 unicode-segmentation = "1"
+unicode-joining-type = "1"
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

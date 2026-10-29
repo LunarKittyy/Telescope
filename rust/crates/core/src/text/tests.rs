@@ -210,6 +210,30 @@ fn elision_cuts_where_qt_does() {
 }
 
 #[test]
+fn an_arabic_line_is_cut_with_a_joiner_so_the_last_letter_keeps_its_joining_form() {
+    // QFontMetricsF.elidedText at 40 px, DejaVu Sans: Qt puts a zero width joiner before the ellipsis when the first letter cut off
+    // would have joined to the one before (even across a space)
+    let Some(f) = dejavu(40.0) else { return };
+    let arabic = "\u{633}\u{644}\u{627}\u{645} \u{639}\u{644}\u{64a}\u{643}\u{645}";
+    for (width, want) in [
+        (40.0, "\u{200d}\u{2026}"),
+        (60.0, "\u{200d}\u{2026}"),
+        (80.0, "\u{633}\u{200d}\u{2026}"),
+        (100.0, "\u{633}\u{644}\u{627}\u{200d}\u{2026}"),
+        (120.0, "\u{633}\u{644}\u{627}\u{200d}\u{2026}"),
+        (150.0, "\u{633}\u{644}\u{627}\u{645} \u{200d}\u{2026}"),
+    ] {
+        assert_eq!(f.elide(arabic, width), want, "width {width}");
+    }
+    // the letter before the ellipsis is drawn in its initial form, not on its own
+    let cut = f.elide(arabic, 80.0);
+    let seen = *f.layout(&cut, 0.0).glyph_ids().last().unwrap();
+    assert_ne!(seen, nominal(&f, '\u{633}'), "the seen is drawn as if it stood alone");
+    // Hebrew and Latin do not join, so they get none
+    assert_eq!(f.elide("\u{5e9}\u{5dc}\u{5d5}\u{5dd}\u{5dd}\u{5dd}", 100.0), "\u{5e9}\u{5dc}\u{2026}");
+}
+
+#[test]
 fn a_line_with_no_room_for_the_ellipsis_is_dropped() {
     // QFontMetricsF.elidedText at 40 px: the ellipsis is 40 px wide, so under that nothing is left, not even the ellipsis
     let Some(f) = dejavu(40.0) else { return };

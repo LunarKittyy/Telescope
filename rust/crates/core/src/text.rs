@@ -363,7 +363,9 @@ impl Face {
                 break at;
             }
         };
-        format!("{}\u{2026}", &text[..starts[at]])
+        // When the first letter cut off would have joined to the one before, a joiner keeps that letter in its joining form
+        let joiner = if next_char_joins(text, starts[at]) { "\u{200d}" } else { "" };
+        format!("{}{joiner}\u{2026}", &text[..starts[at]])
     }
 
     /// Calls `cover(x, y, coverage)` for each pixel the line touches, with its start at `x` and its baseline at `baseline`.
@@ -376,6 +378,13 @@ impl Face {
             outlined.draw(|gx, gy, c| cover(bounds.min.x as i32 + gx as i32, bounds.min.y as i32 + gy as i32, c));
         }
     }
+}
+
+/// Whether the letter at `pos`, past any marks, joins to the one before it (Qt's nextCharJoins).
+fn next_char_joins(text: &str, pos: usize) -> bool {
+    use unicode_joining_type::{get_joining_type, JoiningType};
+    let Some(ch) = text[pos..].chars().find(|&c| bidi_class(c) != BidiClass::NSM) else { return false };
+    matches!(get_joining_type(ch), JoiningType::DualJoining | JoiningType::JoinCausing)
 }
 
 /// Whether text starts out right to left (its first strongly directional character is Arabic, Hebrew and the like), by bidi class
