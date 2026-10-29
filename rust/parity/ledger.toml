@@ -18,7 +18,7 @@
 "Add camera" = { status = "ported", rust = "rust/crates/shell/src/doc.rs" }
 "Canvas updated" = { status = "todo" }
 "Connecting" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
-"Copy diagnostics has the details." = { status = "todo" }
+"Copy diagnostics has the details." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Could not save settings. Check disk space and permissions." = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "Couldn't add more virtual cameras" = { status = "todo" }
 "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection." = { status = "todo" }
@@ -35,7 +35,7 @@
 "Plugins ({n} off)" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Plugins…" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "Quit" = { status = "todo" }
-"Reconnecting" = { status = "todo" }
+"Reconnecting" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Reload failed: {message}" = { status = "todo" }
 "Reloading v4l2loopback…" = { status = "todo" }
 "Resize the virtual camera" = { status = "todo" }
@@ -48,14 +48,14 @@
 "Start" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Start mic only" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Start streaming" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
-"Starting" = { status = "todo" }
+"Starting" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Stop" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Stop all but one camera first, then apply again" = { status = "todo" }
 "Stop streaming" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Stop the streams going to them first" = { status = "todo" }
 "Stream another camera at the same time, to a virtual camera of its own" = { status = "ported", rust = "rust/crates/shell/src/doc.rs" }
 "Streaming continues in the background." = { status = "todo" }
-"Streaming the mic, camera off" = { status = "todo" }
+"Streaming the mic, camera off" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Telescope (dev)" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Telescope - Save failed" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "Telescope didn't answer in time." = { status = "todo" }
@@ -71,8 +71,8 @@
 "The phone got hot and lowered the frame rate to {fps} fps for now." = { status = "todo" }
 "The phone sent data this version can't read. Update both apps to the same version." = { status = "todo" }
 "The phone's camera is making fewer frames than asked for. Dim light slows it down." = { status = "todo" }
-"The stream from {name} stopped unexpectedly" = { status = "todo" }
-"The stream stopped unexpectedly" = { status = "todo" }
+"The stream from {name} stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"The stream stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "There are none to remove" = { status = "todo" }
 "This Telescope has no shortcuts." = { status = "todo" }
 "This asks for your password." = { status = "todo" }
@@ -82,7 +82,7 @@
 "Turn on the phone mic first. With the camera off, the mic is all that streams." = { status = "todo" }
 "Turning the phone's camera on…" = { status = "todo" }
 "Update Telescope on the phone to turn its camera off while streaming." = { status = "todo" }
-"Waiting" = { status = "todo" }
+"Waiting" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Windows asks for permission." = { status = "todo" }
 "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on." = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "Your settings couldn't be read" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
@@ -1111,7 +1111,7 @@
 "The live picture in the middle of the window, and the camera on/off button under it." = { status = "todo" }
 "Turn the phone's camera back on." = { status = "todo" }
 "Turn the phone's camera off. Its mic keeps streaming." = { status = "todo" }
-"Waiting for the first frame…" = { status = "todo" }
+"Waiting for the first frame…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Without it the window doesn't show the picture but apps using the virtual camera still get it." = { status = "todo" }
 # ── privacy_blur
 "Blur all but me" = { status = "todo" }
@@ -1404,27 +1404,27 @@
 "a local socket" = { status = "todo" }
 "port {port}" = { status = "todo" }
 # ── sources
-"Another app on the phone is using the camera" = { status = "todo" }
-"Can't reach {name}" = { status = "todo" }
+"Another app on the phone is using the camera" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"Can't reach {name}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Check that it's still on." = { status = "todo" }
-"Couldn't reach the phone." = { status = "todo" }
-"It's streaming at {size} and {fps} fps until it cools down." = { status = "todo" }
-"It's streaming at {size} until it cools down." = { status = "todo" }
-"Open Telescope on it." = { status = "todo" }
+"Couldn't reach the phone." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"It's streaming at {size} and {fps} fps until it cools down." = { status = "ported", rust = "rust/crates/shell/src/sources.rs" }
+"It's streaming at {size} until it cools down." = { status = "ported", rust = "rust/crates/shell/src/sources.rs" }
+"Open Telescope on it." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Open the Telescope page in it again." = { status = "todo" }
-"Start again when you're ready." = { status = "todo" }
-"Stop it there or on the phone, then start again." = { status = "todo" }
+"Start again when you're ready." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"Stop it there or on the phone, then start again." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "The camera didn't turn back on" = { status = "todo" }
-"The camera didn't turn back on. Another app may be using it." = { status = "todo" }
-"The phone is streaming to {computer}" = { status = "todo" }
-"The phone is very hot" = { status = "todo" }
-"The phone stopped streaming" = { status = "todo" }
-"The stream comes back by itself once that app closes or lets go of it." = { status = "todo" }
+"The camera didn't turn back on. Another app may be using it." = { status = "ported", rust = "rust/crates/shell/src/sources.rs" }
+"The phone is streaming to {computer}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"The phone is very hot" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"The phone stopped streaming" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"The stream comes back by itself once that app closes or lets go of it." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "This phone can't turn its camera off yet" = { status = "todo" }
 "Update Telescope on the phone to stream the mic with the camera off." = { status = "todo" }
-"the phone" = { status = "todo" }
-"{phone} is streaming to {computer}" = { status = "todo" }
-"{phone} stopped streaming" = { status = "todo" }
+"the phone" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"{phone} is streaming to {computer}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
+"{phone} stopped streaming" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 # ── splash
 "Extract Telescope first" = { status = "todo" }
 "Starting Telescope…" = { status = "todo" }
@@ -1475,22 +1475,22 @@
 "This phone can't take photos from Telescope. Update the app on the phone." = { status = "todo" }
 "This phone's camera can't take that photo." = { status = "todo" }
 # ── stream
-"Can't reach the phone's stream. Trying again in {seconds} s…" = { status = "todo" }
-"Connecting to {url}..." = { status = "todo" }
-"Connecting..." = { status = "todo" }
+"Can't reach the phone's stream. Trying again in {seconds} s…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Connecting to {url}..." = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Connecting..." = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Getting ready… The first start after installing can take a minute." = { status = "todo" }
-"Stream dropped - reconnecting" = { status = "todo" }
-"Stream error: {error}" = { status = "todo" }
-"Stream reconnected" = { status = "todo" }
-"Streaming {size} at {fps} fps to {camera}" = { status = "todo" }
-"The video is paused while the phone takes a photo" = { status = "todo" }
-"Virtual camera error: {error}" = { status = "todo" }
+"Stream dropped - reconnecting" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Stream error: {error}" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Stream reconnected" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Streaming {size} at {fps} fps to {camera}" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"The video is paused while the phone takes a photo" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"Virtual camera error: {error}" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 # ── stream_flow
 "Couldn't start streaming" = { status = "todo" }
-"Couldn't start the phone's camera" = { status = "todo" }
+"Couldn't start the phone's camera" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "Something went wrong. Copy diagnostics has the details." = { status = "todo" }
-"Starting the phone's camera…" = { status = "todo" }
-"Starting the phone's mic…" = { status = "todo" }
+"Starting the phone's camera…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"Starting the phone's mic…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 # ── stream_output
 "All the way right is Dynamic, which adjusts to what your connection can handle." = { status = "todo" }
 "Aspect ratio" = { status = "todo" }
@@ -1822,7 +1822,7 @@
 "Start streaming to load lenses" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Start two or more streams to put them together. The + next to Stop adds one." = { status = "todo" }
 "Starting the build..." = { status = "todo" }
-"Stop streaming {name}" = { status = "todo" }
+"Stop streaming {name}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Stream" = { status = "todo" }
 "Streaming stops while Telescope restarts. It takes a few seconds." = { status = "todo" }
 "Streams" = { status = "todo" }
@@ -1871,7 +1871,7 @@
 "plugins|Off" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "plugins|On" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "search|plugins extensions addons add ons modules features turn off on disable enable install zip" = { status = "todo" }
-"to {output}" = { status = "todo" }
+"to {output}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "{mode}, no snapping" = { status = "todo" }
 "{name} (not streaming)" = { status = "todo" }
 "{name} isn't streaming" = { status = "todo" }
@@ -3820,12 +3820,12 @@
 "test_sensors.py::test_unknown_kinds_are_ignored" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::unknown_kinds_are_ignored" }
 "test_sensors.py::test_wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" }
 # ── session
-"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "todo" }
-"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "todo" }
-"test_session.py::test_a_worker_finds_its_stream" = { status = "todo" }
-"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "todo" }
-"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "todo" }
-"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "todo" }
+"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_a_worker_finds_its_stream" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
 # ── session_client
 "test_session_client.py::test_a_base_url_with_a_trailing_slash_does_not_double_up" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_base_url_with_a_trailing_slash_does_not_double_up" }
 "test_session_client.py::test_a_listener_that_answers_with_something_other_than_http_is_not_a_phone" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_listener_that_answers_with_something_other_than_http_is_not_a_phone" }
@@ -4084,13 +4084,13 @@
 # ── stream
 "test_stream.py::test_a_crash_in_the_worker_ends_with_an_error_and_idle" = { status = "todo" }
 "test_stream.py::test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it" = { status = "todo" }
-"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "todo" }
-"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "todo" }
-"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "todo" }
+"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick" = { status = "todo" }
 "test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
-"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "todo" }
-"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "todo" }
+"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_a_slow_decoder_skips_to_the_newest_packet" = { status = "todo" }
 "test_stream.py::test_a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken" = { status = "todo" }
 "test_stream.py::test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route" = { status = "todo" }
@@ -4099,51 +4099,51 @@
 "test_stream.py::test_another_slot_opens_its_own_camera" = { status = "todo" }
 "test_stream.py::test_failed_tries_count_only_the_url_it_was_pointed_at" = { status = "todo" }
 "test_stream.py::test_fit_frame_letterboxes_and_preserves_dtype" = { status = "todo" }
-"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "todo" }
-"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "todo" }
-"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "todo" }
-"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "todo" }
+"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_frames_reach_an_i420_camera_converted" = { status = "todo" }
 "test_stream.py::test_frames_stopping_for_a_photo_reconnect_quietly" = { status = "todo" }
 "test_stream.py::test_frames_that_arrived_together_all_count_as_arrived" = { status = "todo" }
-"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "todo" }
+"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one" = { status = "todo" }
-"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "todo" }
+"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs" }
-"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "todo" }
+"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "todo" }
-"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "todo" }
+"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }
 "test_stream.py::test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay" = { status = "todo" }
 "test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "todo" }
-"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "todo" }
-"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "todo" }
+"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_accumulates_bytes_from_successful_reads" = { status = "todo" }
 "test_stream.py::test_stream_reader_drops_pipeline_errors_and_releases_capture" = { status = "todo" }
-"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "todo" }
+"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_resizes_and_runs_pipeline_keeping_bgr" = { status = "todo" }
 "test_stream.py::test_the_fps_readout_counts_frames_from_the_phone_not_resends" = { status = "todo" }
-"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "todo" }
-"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "todo" }
+"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_the_virtual_camera_opens_in_its_own_format" = { status = "todo" }
 "test_stream.py::test_update_output_distinguishes_omitted_from_pass_through" = { status = "todo" }
 "test_stream.py::test_windows_opens_the_camera_named_telescope_or_any_older_registration" = { status = "todo" }
 "test_stream.py::test_worker_processes_pipeline_in_order" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
 # ── stream_flow
-"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "todo" }
-"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "todo" }
-"test_stream_flow.py::test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later" = { status = "todo" }
-"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "todo" }
-"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "todo" }
-"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "todo" }
-"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "todo" }
+"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later" = { status = "dropped", reason = "Rust has no sees_final_frame: a step in FrameStage::Final sorts last, which media's pipeline stage test covers" }
+"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs", note = "an unknown stage counting as effects is PluginInfo deserialising in core, not covered here" }
-"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "todo" }
-"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "todo" }
-"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "todo" }
-"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "todo" }
-"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "todo" }
+"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
 # ── text_fit
 "test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "todo" }

@@ -1,9 +1,7 @@
 //! The window: builds the document from the registered plugins (doc.rs), wires its callbacks back to them and carries
-//! out what they ask for (shell::Effect). Streaming is still the prototype's single phone stream (flow.rs) until the
-//! stream flow is ported.
+//! out what they ask for (shell::Effect). Streams go through the stream flow (streams.rs).
 
 use crate::doc::{self, CardPlace, HeaderPlace, Piece};
-use crate::flow::{Stats, StreamEvents, StreamOptions, Streaming};
 use crate::layout::Region;
 use crate::shell::{Effect, State};
 use crate::source::{scan, to_json, to_slint};
@@ -17,8 +15,8 @@ use std::time::Duration;
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
-use telescope_core::link::{PhoneSession, RoutePrefs, StreamRequest};
-use telescope_core::plugin::{Plugin, StreamInfo};
+use telescope_core::link::{RoutePrefs, StreamRequest};
+use telescope_core::plugin::Plugin;
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
@@ -52,9 +50,9 @@ pub struct Window {
     pieces: Vec<PieceRef>,
     fold_version: Cell<i32>,
     save_timer: slint::Timer,
-    services: Option<Arc<Services>>,
-    opts: Option<WindowOptions>,
-    stream: RefCell<Option<(Streaming, Arc<dyn PhoneSession>)>>,
+    pub(crate) services: Option<Arc<Services>>,
+    pub(crate) opts: Option<WindowOptions>,
+    pub(crate) streams: crate::streams::Streams,
 }
 
 thread_local! {
@@ -62,7 +60,7 @@ thread_local! {
 }
 
 /// The window on this thread, for callbacks that come back from other threads.
-fn with_window(f: impl FnOnce(&Rc<Window>)) {
+pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
     if let Some(w) = WINDOW.with(|w| w.borrow().clone()) {
         f(&w);
     }
@@ -133,7 +131,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         save_timer: slint::Timer::default(),
         services,
         opts,
-        stream: RefCell::new(None),
+        streams: crate::streams::Streams::new(),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     // Events emitted from other threads get delivered on this one
@@ -202,6 +200,22 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("tile-focus", move |args| {
+            if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
+                let id = id.to_string();
+                w.with_flow(move |flow, host| flow.focus_stream(host, &id));
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("tile-stop", move |args| {
+            if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
+                let id = id.to_string();
+                w.with_flow(move |flow, host| flow.stop_stream(host, Some(&id)));
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("banner-action", move |args| {
             if let (Some(w), Some(SValue::String(key)), Some(SValue::Number(i))) = (weak.upgrade(), args.first(), args.get(1)) {
                 let pressed = w.state.borrow_mut().banners.press(key, *i as usize);
@@ -258,7 +272,7 @@ impl Window {
                 self.state.borrow_mut().effects.push(Effect::OpenSettings(tab));
             }
             Pressed::Action(IssueDoes::OpenUrl { url }) => open_url(&url),
-            Pressed::Action(IssueDoes::StartAgain { source_id, .. }) => self.state.borrow_mut().effects.push(Effect::StartAgain(source_id)),
+            Pressed::Action(IssueDoes::StartAgain { source_id, .. }) => self.start_source(source_id),
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
             Pressed::Dismissed => {
                 if key == "plugins_off" {
@@ -328,20 +342,26 @@ impl Window {
                     n.notify(&title, &body, urgent);
                 }
             }
-            Effect::Start { .. } | Effect::StartAgain(_) => {
-                if self.stream.borrow().is_none() {
-                    self.start_stream();
+            Effect::Start { interactive } => {
+                if !self.is_streaming() {
+                    self.with_flow(|flow, host| flow.start(host, interactive, None));
                 }
             }
-            Effect::Stop(_) | Effect::StopAll => self.stop_stream(),
-            Effect::PhoneControl { body, .. } => {
-                if let Some((_, session)) = self.stream.borrow().as_ref() {
-                    let session = session.clone();
-                    std::thread::spawn(move || {
-                        let _ = session.send(&body);
-                    });
+            Effect::StartAgain(id) => self.start_source(id),
+            Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
+            Effect::StopAll => self.stop_all_streams(),
+            Effect::Reconnect => self.with_flow(|flow, host| flow.reconnect_stream(host, None)),
+            Effect::PickSource(id) => {
+                let handled = Cell::new(false);
+                self.with_flow(|flow, host| handled.set(flow.pick_source(host, id.as_deref())));
+                if !handled.get() {
+                    let prev = self.state.borrow().selected.clone();
+                    self.state.borrow_mut().switch_device(prev.as_deref(), id.as_deref());
+                    self.refresh_frame_steps(); // set_config has no host, so its frame step is asked for again
                 }
             }
+            Effect::FrameStep(_) => self.refresh_frame_steps(),
+            Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
             Effect::Quit => {
                 let _ = slint::quit_event_loop();
             }
@@ -378,115 +398,35 @@ impl Window {
         let _ = self.ui.set_property("banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
-    fn set(&self, name: &str, text: impl Into<SharedString>) {
+    pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {
         let _ = self.ui.set_property(name, SValue::String(text.into()));
     }
 
     /// _show_focus_stopped and the start button as it is while idle.
     fn show_idle(&self) {
-        let camera_off = self.state.borrow().streams.camera_off;
-        self.set("start-text", if camera_off { tr("Start mic only") } else { tr("Start streaming") });
-        self.set("start-short", if camera_off { tr("Start mic only") } else { tr("Start") });
-        let _ = self.ui.set_property("streaming", SValue::Bool(false));
+        self.show_idle_button();
         self.set("status", tr("Not streaming"));
         self.set("status-kind", "status_dim");
         self.set("fps", "—");
         self.set("net", "—");
     }
 
-    fn show_streaming(&self) {
+    /// _set_start_button(streaming=False).
+    pub(crate) fn show_idle_button(&self) {
+        let camera_off = self.state.borrow().streams.camera_off;
+        self.set("start-text", if camera_off { tr("Start mic only") } else { tr("Start streaming") });
+        self.set("start-short", if camera_off { tr("Start mic only") } else { tr("Start") });
+        let _ = self.ui.set_property("streaming", SValue::Bool(false));
+    }
+
+    pub(crate) fn show_streaming(&self) {
         self.set("start-text", tr("Stop streaming"));
         self.set("start-short", tr("Stop"));
         let _ = self.ui.set_property("streaming", SValue::Bool(true));
     }
 
-    fn toggle_stream(self: &Rc<Self>) {
-        if self.stream.borrow().is_some() {
-            self.stop_stream();
-        } else if !self.state.borrow().streams.starting {
-            self.start_stream();
-        }
-        self.process();
-    }
-
-    fn start_stream(self: &Rc<Self>) {
-        let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else { return };
-        let phones = phones_from_file(&self.state.borrow().file);
-        let Some(phone) = phones.selected().cloned() else { return };
-        self.state.borrow_mut().streams.starting = true;
-        let _ = self.ui.set_property("start-enabled", SValue::Bool(false));
-        self.set("status", tr("Connecting"));
-        let weak = self.ui.as_weak();
-        std::thread::spawn(move || {
-            let result = services.link.resolve(&phone, opts.prefs).map_err(|e| format!("{e:?}")).and_then(|s| {
-                let s: Arc<dyn PhoneSession> = s.into();
-                s.start(opts.request).map(|_| s)
-            });
-            let services = services.clone();
-            let _ = weak.upgrade_in_event_loop(move |_| with_window(|w| w.started(result, services)));
-        });
-    }
-
-    fn started(self: &Rc<Self>, result: Result<Arc<dyn PhoneSession>, String>, services: Arc<Services>) {
-        self.state.borrow_mut().streams.starting = false;
-        let _ = self.ui.set_property("start-enabled", SValue::Bool(true));
-        let session = match result {
-            Ok(s) => s,
-            Err(e) => {
-                self.set("status", e);
-                self.set("status-kind", "status_err");
-                self.state.borrow_mut().bus.emit(Event::StreamStartFailed);
-                self.process();
-                return;
-            }
-        };
-        let opts = self.opts.clone().expect("a stream needs options");
-        let streaming = Streaming::start(session.clone(), services.media.clone(), services.outputs.clone(),
-            StreamOptions { fps: opts.request.fps, slot: 0, hardware_decode: opts.hardware_decode },
-            Arc::new(Events { ui: self.ui.as_weak() }));
-        let info = StreamInfo { source_id: self.state.borrow().selected.clone().unwrap_or_default(), url: session.describe() };
-        *self.stream.borrow_mut() = Some((streaming, session));
-        {
-            let mut s = self.state.borrow_mut();
-            s.streams.streaming = true;
-            s.streams.source_id = Some(info.source_id.clone());
-            s.each(|p, host| p.on_stream_start(host, &info));
-            s.bus.emit(Event::StreamStarted { url: info.url.clone() });
-        }
-        self.show_streaming();
-        self.process();
-    }
-
-    fn stop_stream(self: &Rc<Self>) {
-        let Some((streaming, session)) = self.stream.borrow_mut().take() else { return };
-        std::thread::spawn(move || {
-            streaming.stop();
-            let _ = session.stop();
-            session.release();
-        });
-        {
-            let mut s = self.state.borrow_mut();
-            s.streams.streaming = false;
-            s.streams.phone_state = None;
-            s.each(|p, host| p.on_stream_stop(host));
-            s.bus.emit(Event::StreamStopped);
-        }
-        self.show_idle();
-        self.process();
-    }
-
-    fn phone_state(self: &Rc<Self>, state: Value) {
-        {
-            let mut s = self.state.borrow_mut();
-            s.streams.phone_state = Some(state.clone());
-            s.bus.emit(Event::PhoneStateUpdated { state: state.clone() });
-            s.each(|p, host| p.on_phone_state(host, &state));
-        }
-        self.process();
-    }
-
     pub fn shut_down(self: &Rc<Self>) {
-        self.stop_stream();
+        self.stop_streams_for_quit();
         if self.save_timer.running() {
             self.save_timer.stop();
             self.state.borrow_mut().save_now();
@@ -505,39 +445,6 @@ fn open_url(url: &str) {
     let _ = std::process::Command::new("xdg-open").arg(url).spawn();
     #[cfg(target_os = "windows")]
     let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
-}
-
-struct Events {
-    ui: slint::Weak<ComponentInstance>,
-}
-
-impl StreamEvents for Events {
-    fn preview(&self, _rgb: Vec<u8>, _width: u32, _height: u32) {}
-
-    fn state(&self, state: Value) {
-        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| w.phone_state(state)));
-    }
-
-    fn stats(&self, s: Stats) {
-        let fps = format!("{:.0}", s.fps);
-        let net = format!("{:.1} Mbps", s.mbps);
-        let status = format!("{} {}x{}", tr("Live"), s.width, s.height);
-        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| {
-            w.set("fps", fps);
-            w.set("net", net);
-            w.set("status", status);
-            w.set("status-kind", "status_ok");
-        }));
-    }
-
-    fn ended(&self, why: String) {
-        let _ = self.ui.upgrade_in_event_loop(move |_| with_window(|w| {
-            w.stop_stream();
-            if !why.is_empty() {
-                w.set("status", why);
-            }
-        }));
-    }
 }
 
 /// The window, until it's closed.

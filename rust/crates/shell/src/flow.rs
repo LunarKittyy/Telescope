@@ -1,4 +1,4 @@
-//! One phone's stream: video in, decoded, out to the virtual camera and scaled for the preview; a second thread polls /v1/state, which also keeps the phone counting this computer as its viewer.
+//! The headless CLI's one phone stream (telescope-rs stream), kept until it moves to worker.rs: video in, decoded, out to the virtual camera and scaled for the preview; a second thread polls /v1/state, which also keeps the phone counting this computer as its viewer.
 
 use serde_json::Value;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

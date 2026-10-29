@@ -14,6 +14,10 @@ pub mod search;
 pub mod profiles;
 pub mod snapshot;
 pub mod source;
+pub mod sources;
+pub mod stream_flow;
+pub mod streams;
+pub mod session;
 pub mod settings;
 pub mod switches;
 pub mod texts;
@@ -21,5 +25,6 @@ pub mod shell;
 pub mod host;
 pub mod view;
 pub mod window;
+pub mod worker;
 
 pub use window::{run, WindowOptions};

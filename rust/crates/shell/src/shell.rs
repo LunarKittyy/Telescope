@@ -281,6 +281,75 @@ impl State {
         }
     }
 
+    /// _save_profile: the named plugins' device-local settings stored as id's.
+    pub fn save_profile(&mut self, id: Option<&str>, names: &[String]) {
+        let Some(id) = id.filter(|i| !i.is_empty()) else { return };
+        let Ok(mut cfg) = self.file.load_strict() else { return };
+        let saved = profiles::device_plugin_configs(&cfg, Some(id));
+        let sections: Vec<PluginSection> = (0..self.slots.len())
+            .filter(|&i| self.slots[i].info.device_local && names.contains(&self.slots[i].info.name))
+            .filter_map(|i| {
+                let name = &self.slots[i].info.name;
+                self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id.into()), config })
+            }).collect();
+        let window = WindowState::from_config(&cfg);
+        merge_for_save(&mut cfg, &window, &sections);
+        profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
+        self.file.save(&mut cfg);
+    }
+
+    /// _apply_device_profile for the named plugins only: their defaults, then id's saved settings.
+    pub fn apply_profile(&mut self, id: Option<&str>, names: &[String]) {
+        let cfg = self.file.load();
+        let saved = profiles::device_plugin_configs(&cfg, id);
+        for i in 0..self.slots.len() {
+            let (name, local, defaults) = (self.slots[i].info.name.clone(), self.slots[i].info.device_local, self.slots[i].defaults.clone());
+            if !local || !names.contains(&name) {
+                continue;
+            }
+            self.with_plugin(i, |p| {
+                let _ = p.set_config(&defaults);
+                if let Some(s) = saved.get(&name) {
+                    load_config_tolerantly(p, &defaults, s);
+                }
+            });
+        }
+    }
+
+    /// A stream hook on the named plugins, in registration order.
+    pub fn call_hook(&mut self, names: &[String], hook: &crate::stream_flow::Hook) {
+        use crate::stream_flow::Hook;
+        for i in 0..self.slots.len() {
+            if !names.contains(&self.slots[i].info.name) {
+                continue;
+            }
+            self.call(i, |p, host| match hook {
+                Hook::StreamStarting => p.on_stream_starting(host),
+                Hook::StreamStart(info) => p.on_stream_start(host, info),
+                Hook::StreamStop => p.on_stream_stop(host),
+                Hook::FocusGained(info) => p.on_focus_gained(host, info),
+                Hook::FocusLost => p.on_focus_lost(host),
+                Hook::CameraOff => p.on_camera_off(host),
+                Hook::CameraOn => p.on_camera_on(host),
+            });
+        }
+    }
+
+    /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
+    pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
+        let mut steps = Vec::new();
+        for i in 0..self.slots.len() {
+            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
+            let Some(p) = self.slots[i].plugin.as_mut() else { continue };
+            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
+                Ok(Some(step)) => steps.push(telescope_core::media::StagedStep { owner, stage, step }),
+                Ok(None) => {}
+                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+            }
+        }
+        steps
+    }
+
     /// _config_of: a plugin's settings, or what was saved before when it gives something the file can't hold.
     fn config_of(&self, i: usize, saved: Option<&Value>) -> Option<Value> {
         let p = self.slots[i].plugin.as_ref()?;

@@ -12,6 +12,14 @@ At startup `window::build` registers the plugins into `shell::State` (settings, 
 - Folding goes through the kit's `Folds` global. A card gets its key (`<plugin>/<title in English>`) from the window, and a `Section` gets its key from `scope: root.fold-key` plus its `key`.
 - `settings.rs` builds the settings window the same way, the first time it opens. Its search reads the window's accessible tree (`i-slint-backend-testing`'s `ElementHandle`): elements with `accessible-id: "setting"` or `"card"` are what it finds.
 
+## How streams run
+
+- `stream_flow.rs` is `stream_flow.py`: starting, stopping, waking and moving the panels between streams, with the bookkeeping in `session.rs`. It reaches the window only through `FlowHost`, so its tests use a stand-in.
+- `streams.rs` is the window's side (app.py's `_FlowHost`, `_SourceHost` and the worker's signals). It keeps a `Source` per id, starts workers and updates the footer and tiles. Phones' threads report back to it on the UI thread.
+- `sources.rs` holds the two kinds of source. A phone wakes through link's `check`, `open_route` and `ensure_streaming`, and looks for another route when its stream drops. A plugin's `StreamSource` opens its own feed.
+- `worker.rs` is `StreamWorker`. It reads the feed, decodes it through media's frame reader (H.264) or two JPEG decoders side by side, runs the plugins' frame steps and feeds the virtual camera. It reconnects, hands over to another route without a gap, settles after camera restarts and reports the same status texts as Python.
+- `flow.rs` is the prototype's single stream, still used by `telescope-rs stream` until the app moves to `worker.rs`.
+
 ## Why interpreted
 
 Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/cards/camera.slint` in one window, compiled with `slint-build` or interpreted), release build, median of 5 on the 8-core Ryzen from `rust/FINDINGS.md`:
