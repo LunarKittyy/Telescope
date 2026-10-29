@@ -61,7 +61,7 @@ fn stop(st: &mut State) {
 
 /// Runs owner's frame step as the stream would, then lets its posts reach it.
 fn run_step(st: &mut State, owner: &str, frame: &mut Frame) {
-    let mut step = st.pipeline_steps().into_iter().find(|s| s.owner == owner).expect("the plugin's frame step").step;
+    let mut step = st.pipeline_steps(Some("phone")).into_iter().find(|s| s.owner == owner).expect("the plugin's frame step").step;
     let FrameStep::Cpu(step) = &mut step else { panic!("a CPU step") };
     step.process(frame, &Ctx);
     st.deliver_events();

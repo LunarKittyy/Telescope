@@ -373,6 +373,11 @@ impl StreamWorker {
         self.shared.url.lock().unwrap().clone()
     }
 
+    /// The stream's source id, or None for the one with no id.
+    pub fn source_id(&self) -> Option<&str> {
+        Some(self.shared.source_id.as_str()).filter(|id| !id.is_empty())
+    }
+
     /// The packet steps this stream's H.264 goes through (HostPackets); None for a media without them.
     pub fn tap(&self) -> Option<Arc<dyn PacketTap>> {
         self.shared.tap.clone()

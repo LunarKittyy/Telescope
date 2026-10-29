@@ -527,8 +527,9 @@ impl State {
         }
     }
 
-    /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
-    pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
+    /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage), with the colour
+    /// stages source_id's stream gets.
+    pub fn pipeline_steps(&mut self, source_id: Option<&str>) -> Vec<telescope_core::media::StagedStep> {
         use telescope_core::frame::FrameStage;
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
@@ -536,12 +537,15 @@ impl State {
         for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
         }
-        if let Some(step) = self.colour.step(None) {
+        let colour = self.colour.step(source_id);
+        // The picture from before is kept only while there's a colour step to compare with
+        if colour.is_none() || self.colour.split().is_none() {
+            self.colour_before.lock().unwrap().clear();
+        }
+        if let Some(step) = colour {
             if self.colour.split().is_some() {
                 let keep = KeepBefore(self.colour_before.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
-            } else {
-                self.colour_before.lock().unwrap().clear();
             }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
         }
@@ -1134,11 +1138,11 @@ mod tests {
         let mut s = state();
         let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
         s.colour.set_stage("grade", Some(warm), 0, None);
-        let colour = |s: &mut State| s.pipeline_steps().into_iter().filter(|st| st.stage == FrameStage::Colour)
+        let colour = |s: &mut State| s.pipeline_steps(None).into_iter().filter(|st| st.stage == FrameStage::Colour)
             .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();
         assert_eq!(colour(&mut s), [false], "just the LUT");
         s.colour.set_split("grade", Some(0.5));
-        let mut steps = s.pipeline_steps();
+        let mut steps = s.pipeline_steps(None);
         let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
         let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
         let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
@@ -1147,6 +1151,27 @@ mod tests {
         s.colour.set_split("grade", None);
         assert_eq!(colour(&mut s), [false]);
         assert!(s.colour_before.lock().unwrap().is_empty());
+        // The last stage going away while comparing lets the picture go too
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps(None);
+        let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
+        let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
+        step.process(&mut frame, &NoCtx);
+        s.colour.set_stage("grade", None, 0, None);
+        assert!(colour(&mut s).is_empty());
+        assert!(s.colour_before.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_stream_gets_the_colour_stages_set_for_it_alone() {
+        use telescope_core::frame::FrameStage;
+        let mut s = state();
+        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        s.colour.set_stage("grade", Some(warm), 0, Some("tablet"));
+        let colour = |s: &mut State, id| s.pipeline_steps(id).into_iter().filter(|st| st.stage == FrameStage::Colour).count();
+        assert_eq!(colour(&mut s, Some("tablet")), 1);
+        assert_eq!(colour(&mut s, Some("phone")), 0);
+        assert_eq!(colour(&mut s, None), 0);
     }
 
 }

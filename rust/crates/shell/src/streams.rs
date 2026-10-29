@@ -196,7 +196,7 @@ impl Window {
         }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         for w in due {
-            let steps = self.state.borrow_mut().pipeline_steps();
+            let steps = self.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }
         if let Some(frames) = self.services.as_ref().and_then(|sv| sv.media.stream_frames()) {
@@ -240,7 +240,7 @@ impl Window {
     pub fn refresh_frame_steps(self: &Rc<Self>) {
         let live: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.live.get()).cloned().collect();
         for w in live {
-            let steps = self.state.borrow_mut().pipeline_steps();
+            let steps = self.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }
     }
@@ -1014,7 +1014,7 @@ impl FlowHost for Host<'_> {
         });
         let inner = Arc::new(StreamWorker::start(setup, services.media.clone(), services.outputs.clone(), slot, events)
             .expect("a thread for the stream worker"));
-        let steps = self.w.state.borrow_mut().pipeline_steps();
+        let steps = self.w.state.borrow_mut().pipeline_steps(inner.source_id());
         inner.set_steps(steps);
         let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), makers: self.w.streams.packet_makers.clone() });
         self.w.streams.workers.borrow_mut().push(worker.clone());
