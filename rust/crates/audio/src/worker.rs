@@ -177,6 +177,12 @@ impl Drop for AudioWorker {
     }
 }
 
+impl AudioWorker {
+    pub fn set_settings(&mut self, settings: &MicSettings) {
+        MicStream::set_settings(self, settings)
+    }
+}
+
 impl MicStream for AudioWorker {
     fn set_settings(&mut self, settings: &MicSettings) {
         let c = self.controls();
