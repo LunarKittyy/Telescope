@@ -173,3 +173,94 @@ def test_phone_recordings_differ_on_values_order_and_requests(tmp_path):
     assert "  only py asks: GET :8080 /v1/state" in lines
     assert compare_phone.compare(a, b, unordered=True, names=("py", "rs")) == [
         "[s] differs", "  only py asks: GET :8080 /v1/state"]
+
+
+def test_adb_commands_count_as_asked_and_usb_is_its_own_route(tmp_path):
+    import compare_phone
+
+    def adb(*args):
+        return {"t": 1.0, "port": 5037, "method": "ADB", "path": args[0], "query": {}, "body": list(args), "via": "usb"}
+    usb = {**poll("/v1/video.h264", 8080), "via": "usb"}
+    a = compare_phone.phases(recording(tmp_path, "a", [{"mark": "plug"}, adb("devices"), adb("devices"), usb]))
+    b = compare_phone.phases(recording(tmp_path, "b", [{"mark": "plug"}, adb("devices"), usb]))
+    assert compare_phone.compare(a, b) == []
+    c = compare_phone.phases(recording(tmp_path, "c", [{"mark": "plug"}, adb("devices"), poll("/v1/video.h264", 8080)]))
+    assert compare_phone.compare(a, c, names=("py", "rs")) == [
+        "[plug] differs", "  only py asks: GET :8080 /v1/video.h264 (usb)", "  only rs asks: GET :8080 /v1/video.h264"]
+
+
+def tools():
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+    import fake_adb
+    import fake_phone
+    return fake_adb, fake_phone
+
+
+def test_fake_adb_lists_and_forwards_only_while_plugged_in():
+    fake_adb, _ = tools()
+    unplugged = {"devices": [], "ports": {"8766": 40001, "8080": 40002}}
+    assert fake_adb.run(["devices"], unplugged) == (0, "List of devices attached\n\n", "")
+    assert fake_adb.run(["-s", "FAKE0001", "forward", "tcp:0", "tcp:8766"], unplugged)[0] == 1
+    plugged = {**unplugged, "devices": [["FAKE0001", "device", "Fake phone"]]}
+    assert "FAKE0001\tdevice" in fake_adb.run(["devices"], plugged)[1]
+    assert "model:Fake_phone" in fake_adb.run(["devices", "-l"], plugged)[1]
+    assert fake_adb.run(["-s", "FAKE0001", "forward", "tcp:0", "tcp:8080"], plugged) == (0, "40002\n", "")
+    assert fake_adb.run(["-s", "FAKE0001", "shell", "getprop", "ro.product.model"], plugged)[1] == "Fake phone\n"
+
+
+def test_fake_adb_records_what_changes_every_run_as_a_stand_in():
+    fake_adb, _ = tools()
+    state = {"ports": {"8766": 40001}}
+    assert fake_adb.recorded(["forward", "--remove", "tcp:40001"], state) == ["forward", "--remove", "tcp:<local>"]
+    assert fake_adb.recorded(["shell", "am", "broadcast", "--es", "payload", "eyJ9"], state) == [
+        "shell", "am", "broadcast", "--es", "payload", "<payload>"]
+
+
+def test_fake_phone_pairs_with_a_proof_of_the_offers_token():
+    import hashlib
+    import hmac
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    _, fake_phone = tools()
+    got = {}
+
+    class Desktop(BaseHTTPRequestHandler):
+        def do_POST(self):
+            got["path"] = self.path
+            got["body"] = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            got["from"] = self.client_address[0]
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+    server = HTTPServer(("127.0.0.1", 0), Desktop)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    lines = []
+    phone = fake_phone.Phone([b""], 30.0, "old", "1.0", lambda *args, **kw: lines.append((args, kw)))
+    phone.pin = "ab" * 32
+    offer = {"version": 4, "port": server.server_address[1], "nonce": "n1", "token": "t1", "candidates": []}
+    assert phone.pair(offer, "127.0.0.2") == 200
+    server.server_close()
+    message = f"telescope-pair-v4\nn1\n{fake_phone.PHONE_ID}\n{'ab' * 32}".encode()
+    assert got["path"] == "/pair/n1" and got["from"] == "127.0.0.2"
+    assert got["body"]["proof"] == hmac.new(b"t1", message, hashlib.sha256).hexdigest()
+    assert got["body"]["ips"] == ["127.0.0.2"] and phone.token == "t1"
+    assert lines == [((8765, "PAIR", "/pair", {"status": 200, "version": 4,
+                                               "offer": ["candidates", "nonce", "port", "token", "version"]}),
+                      {"via": "wifi"})]
+
+
+def test_fake_phone_switches_lens_drops_off_and_unplugs():
+    _, fake_phone = tools()
+    phone = fake_phone.Phone([b""], 30.0, "t", "1.0")
+    assert [c["id"] for c in phone.state["cameras"] if c["current"]] == ["2"]
+    phone.switch_lens("3")
+    assert [c["id"] for c in phone.state["cameras"] if c["current"]] == ["3"]
+    phone.drop()
+    assert phone.gone("wifi") and phone.gone("usb")
+    phone.back()
+    assert not phone.gone("wifi") and phone.gone("usb")
+    phone.plug()
+    assert not phone.gone("usb")

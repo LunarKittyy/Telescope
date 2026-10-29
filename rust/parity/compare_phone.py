@@ -6,6 +6,7 @@ each action's values in the same order. Different actions may interleave differe
 at the start of a stream comes from several threads (--strict-order holds that to the same order too, --unordered
 lets go of order altogether). What it asks has to cover the same requests: the set of GETs (path and query names),
 since how often a desktop polls /v1/ping or /v1/state depends on timing. --counts shows how often each GET came.
+Commands the fake adb got count as asked too (the desktop polls `adb devices`), and a request over USB says so.
 
     python compare_phone.py python.jsonl rust.jsonl [--strict-order | --unordered] [--counts]
 
@@ -35,13 +36,23 @@ def phases(path: Path) -> dict:
     return {k: v for k, v in found.items() if v or k != "start"}
 
 
+ASKED = ("GET", "ADB")
+
+
+def via(entry) -> str:
+    return " (usb)" if entry.get("via") == "usb" and entry["method"] != "ADB" else ""
+
+
 def told(entry) -> str:
-    return f"{entry['method']} :{entry['port']} {entry['path']} {json.dumps(entry.get('body'), sort_keys=True, ensure_ascii=False)}"
+    body = json.dumps(entry.get("body"), sort_keys=True, ensure_ascii=False)
+    return f"{entry['method']} :{entry['port']} {entry['path']}{via(entry)} {body}"
 
 
 def asked(entry) -> str:
+    if entry["method"] == "ADB":
+        return "adb " + " ".join(entry.get("body") or [])
     query = "&".join(sorted(entry.get("query") or {}))
-    return f"GET :{entry['port']} {entry['path']}" + (f"?{query}" if query else "")
+    return f"GET :{entry['port']} {entry['path']}" + (f"?{query}" if query else "") + via(entry)
 
 
 def per_action(sent: list) -> list:
@@ -50,7 +61,7 @@ def per_action(sent: list) -> list:
     for entry in sent:
         body = entry.get("body")
         action = body.get("action") if isinstance(body, dict) else None
-        groups.setdefault((entry["method"], entry["port"], entry["path"], str(action)), []).append(told(entry))
+        groups.setdefault((entry["method"], entry["port"], entry["path"], via(entry), str(action)), []).append(told(entry))
     return [line for key in sorted(groups) for line in groups[key]]
 
 
@@ -62,8 +73,8 @@ def compare(a: dict, b: dict, unordered=False, counts=False, names=("a", "b"), s
             continue
         out = []
         order = (lambda sent: [told(e) for e in sent]) if strict or unordered else per_action
-        sent_a = order([e for e in a[phase] if e["method"] != "GET"])
-        sent_b = order([e for e in b[phase] if e["method"] != "GET"])
+        sent_a = order([e for e in a[phase] if e["method"] not in ASKED])
+        sent_b = order([e for e in b[phase] if e["method"] not in ASKED])
         if unordered:
             extra_a, extra_b = Counter(sent_a) - Counter(sent_b), Counter(sent_b) - Counter(sent_a)
             out += [f"  only {names[0]}: {k}" + (f" (x{n})" if n > 1 else "") for k, n in sorted(extra_a.items())]
@@ -71,8 +82,8 @@ def compare(a: dict, b: dict, unordered=False, counts=False, names=("a", "b"), s
         elif sent_a != sent_b:
             out += [f"  {line}" for line in difflib.unified_diff(sent_a, sent_b, names[0], names[1], lineterm="", n=1)
                     if not line.startswith(("---", "+++"))]
-        get_a = Counter(asked(e) for e in a[phase] if e["method"] == "GET")
-        get_b = Counter(asked(e) for e in b[phase] if e["method"] == "GET")
+        get_a = Counter(asked(e) for e in a[phase] if e["method"] in ASKED)
+        get_b = Counter(asked(e) for e in b[phase] if e["method"] in ASKED)
         out += [f"  only {names[0]} asks: {k}" for k in sorted(set(get_a) - set(get_b))]
         out += [f"  only {names[1]} asks: {k}" for k in sorted(set(get_b) - set(get_a))]
         if out:
