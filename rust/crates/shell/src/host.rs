@@ -203,6 +203,9 @@ impl HostShell for Ctx<'_> {
     fn diagnostics_report(&self) -> String {
         self.state.diagnostics().iter().map(|(k, v)| format!("{k}: {v}\n")).collect()
     }
+    fn open_url(&mut self, url: &str) {
+        self.state.effects.push(Effect::OpenUrl(url.into()));
+    }
     fn open_settings(&mut self, tab: &str) {
         self.state.effects.push(Effect::OpenSettings(tab.into()));
     }

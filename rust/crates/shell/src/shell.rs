@@ -45,6 +45,8 @@ pub enum Effect {
     PhoneControl { source_id: Option<String>, body: Value },
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
+    /// Host::open_url: a link for the browser.
+    OpenUrl(String),
     Quit,
     Restart,
     KeepInTray(bool),
@@ -759,4 +761,13 @@ mod tests {
         s.deliver_events(); // both post from a thread; each hears its own
         assert_eq!(*heard.lock().unwrap(), ["connection from_thread", "other from_thread"]);
     }
+
+    #[test]
+    fn a_plugins_link_goes_to_the_browser() {
+        let mut s = state();
+        s.register(Box::new(Hears("microphone".into(), Arc::default()))).unwrap();
+        s.call(0, |_, host| telescope_core::host::HostShell::open_url(host, "https://vb-audio.com/Cable/"));
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::OpenUrl(u) if u == "https://vb-audio.com/Cable/")));
+    }
+
 }

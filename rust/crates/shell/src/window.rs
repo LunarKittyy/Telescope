@@ -550,6 +550,7 @@ impl Window {
                 let _ = slint::quit_event_loop();
             }
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
+            Effect::OpenUrl(url) => open_url(&url),
             other => log::debug!("not handled yet: {other:?}"),
         }
     }
