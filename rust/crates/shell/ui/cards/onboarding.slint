@@ -73,7 +73,8 @@ component StepRow inherits HorizontalLayout {
     }
     VerticalLayout {
         alignment: start;
-        width: 160px;
+        // A hidden button takes no room, as in Qt
+        width: step.button != "" ? 160px : 0px;
         if step.button != "": Button {
             text: step.button;
             role: step.primary ? "primary" : "";
