@@ -4,6 +4,8 @@
 pub mod denoise;
 pub mod jitter;
 pub mod shape;
+pub mod sink;
+pub mod virtual_mic;
 pub mod worker;
 
 use telescope_core::audio::{Audio, AudioFeed, MicSettings, MicStream};
