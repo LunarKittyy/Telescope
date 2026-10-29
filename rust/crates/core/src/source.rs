@@ -1,6 +1,6 @@
 //! What a stream comes from: a paired phone, or a plugin's StreamSource (sources.py).
 
-use crate::media::{Codec, VideoFeed};
+use crate::media::{Codec, Decoder, VideoFeed};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
@@ -81,6 +81,15 @@ pub trait StreamSource: Send + Sync {
     }
     /// What to check when it can't be reached for a while.
     fn lost_hint(&self) -> String {
+        String::new()
+    }
+    /// A decoder for packets only the source itself understands (a webcam's raw frames); None: media decodes them as
+    /// open_feed's codec says. Asked each time a feed opens, after open_feed.
+    fn decoder(&self) -> Option<Box<dyn Decoder>> {
+        None
+    }
+    /// Why it isn't streaming yet while the stream waits to try again (WebcamReader.waiting_text), "" for the usual.
+    fn waiting_text(&self) -> String {
         String::new()
     }
 }
