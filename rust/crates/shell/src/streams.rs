@@ -137,8 +137,15 @@ impl Window {
                 w.source_timer(what, sid);
             }
         });
-        let file = self.state.borrow().file.clone();
-        Box::new(PhoneKind::new(id.map(String::from), services.link.clone(), file, opts.request, post, on_timer))
+        let me = Rc::downgrade(self);
+        let format: Rc<dyn Fn() -> telescope_core::link::StreamFormat> = Rc::new(move || {
+            // Light (H.264) until the Stream output card is ported and says otherwise
+            let cfg = me.upgrade().and_then(|w| w.state.borrow().plugin_config("stream_output"))
+                .unwrap_or_else(|| serde_json::json!({"format": "h264"}));
+            let dynamic = cfg.get("bitrate_mbps").and_then(Value::as_f64) == Some(-1.0);
+            telescope_core::link::StreamFormat { h264: cfg.get("format").and_then(Value::as_str) == Some("h264"), dynamic }
+        });
+        Box::new(PhoneKind::new(id.map(String::from), services.link.clone(), format, opts.request, post, on_timer))
     }
 
     fn find_worker(&self, id: u64) -> Option<(SourceRef, Rc<ShellWorker>)> {
@@ -483,14 +490,14 @@ impl Window {
                     }
                     return;
                 }
-                let (ok, reason) = match result {
+                match result {
                     Ok(session) => {
                         phone.woke(session);
-                        (true, String::new())
+                        self.with_flow(|flow, host| flow.wake_done(host, &source, true, ""));
                     }
-                    Err(reason) => (false, reason),
-                };
-                self.with_flow(|flow, host| flow.wake_done(host, &source, ok, &reason));
+                    Err(Some(reason)) => self.with_flow(|flow, host| flow.wake_done(host, &source, false, &reason)),
+                    Err(None) => self.with_flow(|flow, host| flow.wake_refused(host, &source)),
+                }
             }
             Report::State { source_id, session_id, state } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
@@ -592,9 +599,10 @@ impl Window {
         let name = source.kind.name();
         match res.status {
             PhoneStatus::NotPaired | PhoneStatus::LocalOnly | PhoneStatus::PhoneOutdated | PhoneStatus::DesktopOutdated => {
-                // The phone answers but won't take the stream back: stop instead of retrying forever.
+                // The phone answers but won't take the stream back: say why instead of retrying forever.
                 let s = source.clone();
                 self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
+                phone.show_problem(&res);
                 return;
             }
             PhoneStatus::Ready if !res.streaming_for.is_empty() => {
@@ -743,7 +751,7 @@ impl FlowHost for Host<'_> {
         self.w.services.is_some()
     }
     fn selected_device(&self) -> Option<String> {
-        self.w.state.borrow().selected.clone()
+        self.w.services.as_ref().and_then(|s| s.link.picked_source()).or_else(|| self.w.state.borrow().selected.clone())
     }
     fn select_device(&mut self, source_id: Option<&str>) {
         let prev = self.w.state.borrow().selected.clone();

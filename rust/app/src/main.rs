@@ -31,15 +31,23 @@ fn use_own_profile() {
 }
 
 fn services(device: Option<String>) -> Arc<Services> {
+    let link = Arc::new(telescope_link::LinkService::new());
+    // Added plugins can't take a built-in's name; "en" until the shell loads languages
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into()], "en".into());
+    let connection = link.clone();
     Arc::new(Services {
-        link: Arc::new(telescope_link::LinkService::new()),
+        link,
         media: Arc::new(telescope_media::FfmpegMedia),
         outputs: Arc::new(telescope_outputs::VirtualCameras { device }),
         audio: Some(Arc::new(telescope_audio::VirtualMic)),
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
-        plugins: Box::new(Vec::new),
+        plugins: Box::new(move || {
+            let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![Box::new(connection.connection_plugin())];
+            plugins.extend(added());
+            plugins
+        }),
     })
 }
 

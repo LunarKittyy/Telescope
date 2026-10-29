@@ -216,6 +216,17 @@ impl StreamFlow {
         self.begin_stream(host, source);
     }
 
+    /// No route to start on (the Connection plugin says why): the start ends like a prepare that said no.
+    pub fn wake_refused(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        self.sessions.waking = false;
+        self.sessions.wake_source = None;
+        host.enable_start(true);
+        host.later(Later::AfterStart);
+        host.set_start_button(!self.sessions.streams.is_empty());
+        host.source_status(source, &tr("Not streaming"), "dim");
+        self.start_failed(host, source);
+    }
+
     pub fn begin_stream(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
         let url = source.kind.url();
         let ctrl = source.kind.control_client(source);

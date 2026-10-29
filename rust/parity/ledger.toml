@@ -2823,7 +2823,7 @@
 "test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "todo" }
 # ── frames
 "test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "todo", note = "the stream code hands FramePipeline::process a FrameContext whose source_id says it" }
+"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
 "test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
 "test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
@@ -3232,12 +3232,12 @@
 "test_packets.py::test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_packets.py::test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_packets.py::test_a_step_that_hands_back_the_wrong_thing_is_ignored" = { status = "dropped", reason = "PacketStep::step can only return byte vectors in Rust; a panicking step is covered by the failing-step test" }
-"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "todo", note = "the stream code passes Media::packet_tap() to decoder_with_tap for H.264 routes only" }
+"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_packets.py::test_each_open_gives_every_owner_a_fresh_step" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
 "test_packets.py::test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
 "test_packets.py::test_nothing_extra_runs_while_no_plugin_changes_packets" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_packets.py::test_steps_run_one_after_the_other" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
-"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "todo", note = "the stream code passes Media::packet_tap() to decoder_with_tap for H.264 routes only" }
+"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 # ── pairing
 "test_pairing_server.py::test_a_malformed_fingerprint_is_rejected" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::a_malformed_fingerprint_is_rejected" }
 "test_pairing_server.py::test_a_peer_trickling_bytes_is_cut_off_at_the_deadline" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::a_peer_trickling_bytes_is_cut_off_at_the_deadline" }

@@ -328,6 +328,15 @@ impl Host for Ctx<'_> {
     fn has_plugin(&self, name: &str) -> bool {
         self.state.index(name).is_some() || name == self.me
     }
+    fn schedule(&mut self, after_ms: u64, token: &str) {
+        self.state.effects.push(Effect::Schedule { plugin: self.me.clone(), token: token.into(), ms: after_ms });
+    }
+    fn cancel_schedule(&mut self, token: &str) {
+        self.state.effects.push(Effect::CancelSchedule { plugin: self.me.clone(), token: token.into() });
+    }
+    fn poster(&self) -> Option<Arc<dyn telescope_core::host::Poster>> {
+        Some(Arc::new(crate::shell::PluginPoster { owner: self.me.clone(), posts: self.state.posts.clone() }))
+    }
 }
 
 /// copy_action's Rust form, for a plugin's Issue: a button that copies text and leaves the banner up.

@@ -7,6 +7,7 @@ use crate::layout::{Panels, Region};
 use crate::{profiles, switches};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use telescope_core::config::{merge_for_save, ConfigFile, PluginSection, WindowState};
 use telescope_core::event::Event;
@@ -49,6 +50,9 @@ pub enum Effect {
     KeepInTray(bool),
     SaveSoon,
     PickSource(Option<String>),
+    /// host.schedule: Event::TimerFired for plugin after ms (moves a pending one with the same token).
+    Schedule { plugin: String, token: String, ms: u64 },
+    CancelSchedule { plugin: String, token: String },
 }
 
 /// How streaming stands, as the stream flow last said.
@@ -60,6 +64,43 @@ pub struct Streams {
     pub camera_off: bool,
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
+}
+
+/// Posts waiting for the host thread, and how to wake it.
+#[derive(Default)]
+pub struct Posts {
+    queue: std::sync::Mutex<Vec<(String, String, Value)>>,
+    waker: std::sync::Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+}
+
+impl Posts {
+    pub fn set_waker(&self, waker: impl Fn() + Send + Sync + 'static) {
+        *self.waker.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(waker));
+    }
+
+    pub fn push(&self, owner: &str, token: &str, data: Value) {
+        self.queue.lock().unwrap_or_else(|e| e.into_inner()).push((owner.into(), token.into(), data));
+        let waker = self.waker.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(w) = waker {
+            w();
+        }
+    }
+
+    fn take(&self) -> Vec<(String, String, Value)> {
+        std::mem::take(&mut *self.queue.lock().unwrap_or_else(|e| e.into_inner()))
+    }
+}
+
+/// A plugin's handle for posting from its threads.
+pub struct PluginPoster {
+    pub owner: String,
+    pub posts: Arc<Posts>,
+}
+
+impl telescope_core::host::Poster for PluginPoster {
+    fn post(&self, token: &str, data: Value) {
+        self.posts.push(&self.owner, token, data);
+    }
 }
 
 pub struct State {
@@ -78,6 +119,8 @@ pub struct State {
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
+    /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
+    pub posts: Arc<Posts>,
     /// Built-in plugins that are off this run (not the optional ones never switched on), by name.
     pub off: Vec<PluginInfo>,
     /// Every built-in plugin, on or off, for the Plugins tab.
@@ -104,6 +147,7 @@ impl State {
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
+            posts: Arc::default(),
             off: Vec::new(),
             builtins: Vec::new(),
             problems: BTreeMap::new(),
@@ -459,10 +503,27 @@ impl State {
         }
     }
 
-    /// Hands every queued event to every plugin, in order; events emitted while delivering go after.
+    /// Hands every queued event to every plugin, in order; events emitted while delivering go after. Then each post
+    /// from a plugin's threads goes to that plugin alone.
     pub fn deliver_events(&mut self) {
-        while let Some(event) = self.bus.next() {
-            self.each(|p, host| p.on_event(host, &event));
+        loop {
+            while let Some(event) = self.bus.next() {
+                self.each(|p, host| p.on_event(host, &event));
+            }
+            let posts = self.posts.take();
+            if posts.is_empty() {
+                break;
+            }
+            for (owner, token, data) in posts {
+                self.deliver_to(&owner, &Event::Posted { owner: owner.clone(), token, data });
+            }
+        }
+    }
+
+    /// An event only plugin `owner` hears (a timer it scheduled, a post from its threads); dropped once it's gone.
+    pub fn deliver_to(&mut self, owner: &str, event: &Event) {
+        if let Some(i) = self.index(owner) {
+            self.call(i, |p, host| p.on_event(host, event));
         }
     }
 
@@ -662,5 +723,40 @@ mod tests {
         s.bus.emit(Event::StreamStopped);
         s.deliver_events();
         assert!(s.slots.iter().all(|slot| slot.plugin.is_some()));
+    }
+
+    struct Hears(String, Arc<std::sync::Mutex<Vec<String>>>);
+
+    impl Plugin for Hears {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: self.0.clone(), ..PluginInfo::default() }
+        }
+        fn on_event(&mut self, host: &mut dyn telescope_core::host::Host, event: &Event) {
+            match event {
+                Event::Posted { token, .. } => self.1.lock().unwrap().push(format!("{} {token}", self.0)),
+                Event::StreamStopped => {
+                    if let Some(poster) = host.poster() {
+                        std::thread::spawn(move || poster.post("from_thread", json!({}))).join().unwrap();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn a_post_from_a_plugins_thread_reaches_only_that_plugin() {
+        let mut s = state();
+        let heard = Arc::new(std::sync::Mutex::new(Vec::new()));
+        s.register(Box::new(Hears("connection".into(), heard.clone()))).unwrap();
+        s.register(Box::new(Hears("other".into(), heard.clone()))).unwrap();
+        s.posts.push("connection", "resolved", json!({"check_id": 3}));
+        s.posts.push("gone", "dropped", json!({}));
+        s.deliver_events();
+        assert_eq!(*heard.lock().unwrap(), ["connection resolved"]);
+        heard.lock().unwrap().clear();
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events(); // both post from a thread; each hears its own
+        assert_eq!(*heard.lock().unwrap(), ["connection from_thread", "other from_thread"]);
     }
 }
