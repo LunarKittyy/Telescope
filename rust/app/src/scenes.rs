@@ -20,6 +20,31 @@ const USB_SERIAL: &str = "R5CT123ABC";
 struct SceneLink {
     answer: Option<Resolution>,
     adb: bool,
+    /// This computer is on a network, so pairing offers an address.
+    network: bool,
+}
+
+/// translation_scenes_connection.pairing_dialog's Server: a fixed payload, and nobody ever pairs.
+struct SceneOffer {
+    network: bool,
+}
+
+impl PairingOffer for SceneOffer {
+    fn payload(&self) -> String {
+        "telescope://pair/example".into()
+    }
+    fn port(&self) -> u16 {
+        47000
+    }
+    fn addresses(&self) -> Vec<String> {
+        if self.network { vec![WIFI_IP.into()] } else { Vec::new() }
+    }
+    fn offer_over_usb(&self, _package: &str) -> usize {
+        0
+    }
+    fn poll(&self) -> Option<PairedPhone> {
+        None
+    }
 }
 
 impl Link for SceneLink {
@@ -30,7 +55,7 @@ impl Link for SceneLink {
         Err(Unreachable::NoAnswer)
     }
     fn pair(&self, _cid: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
-        Err("no pairing in scenes".into())
+        Ok(Arc::new(SceneOffer { network: self.network }))
     }
     fn check(&self, _phone: &PairedPhone, _preference: RoutePreference) -> Resolution {
         match &self.answer {
@@ -96,7 +121,7 @@ fn services(link: SceneLink) -> Arc<Services> {
 }
 
 fn quiet() -> SceneLink {
-    SceneLink { answer: None, adb: true }
+    SceneLink { answer: None, adb: true, network: true }
 }
 
 fn res(status: PhoneStatus, route: Option<&str>, note: Option<UsbNote>) -> Resolution {
@@ -139,6 +164,25 @@ fn with_route(mut config: Value, route: &str) -> Value {
     config
 }
 
+/// The Add phone dialog as translation_scenes.add_phone and pairing_dialog show it: (id, adb, on a network).
+const ADD_PHONE: &[(&str, bool, bool)] = &[("dialog-add-phone", false, true), ("dialog-add-phone-usb", true, true),
+                                            ("dialog-add-phone-no-network", true, false)];
+
+/// The window with nothing paired on a computer called Studio PC, and the Add phone dialog open.
+fn add_phone(adb: bool, network: bool) -> Setup {
+    let mut config = main_window_config(false);
+    config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
+    config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
+    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb, network };
+    Setup {
+        page: Page::Dialog { frame: "DialogFrame".into(), owner: "ConnectionCard".into() },
+        then: Some(Box::new(|w| {
+            w.call_ui("connection", "card", "add-phone");
+        })),
+        ..Setup::window(Some(services(link)), config, WIDTH_THREE_COL, 900.0)
+    }
+}
+
 /// settings_window._SIZE.
 const SETTINGS_SIZE: (f32, f32) = (940.0, 680.0);
 
@@ -155,9 +199,12 @@ pub fn all() -> Vec<Scene> {
     ];
     for (id, answer, route, adb) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
-            let link = SceneLink { answer: Some(answer.clone()), adb };
+            let link = SceneLink { answer: Some(answer.clone()), adb, network: true };
             Setup::window(Some(services(link)), with_route(main_window_config(true), route), WIDTH_THREE_COL, 700.0)
         }));
+    }
+    for &(id, adb, network) in ADD_PHONE {
+        scenes.push(Scene::new(id, move || add_phone(adb, network)));
     }
     for &tab in SETTINGS_PAGES {
         scenes.push(Scene::new(format!("settings-{tab}"), move || Setup {
