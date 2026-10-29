@@ -1,6 +1,7 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
+use crate::imgops::resize_area;
 use crate::pixels::gaussian_blur;
 use telescope_core::actions::round_half_even;
 use telescope_core::view::{view_to_shown, Geometry};
@@ -219,29 +220,6 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
     out
 }
 
-/// cv2.resize(INTER_AREA) of one channel to a smaller size: each new pixel is the average of the area it covers.
-fn area_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<f32> {
-    let (sx, sy) = (w as f64 / dw as f64, h as f64 / dh as f64);
-    let mut out = vec![0f32; dw * dh];
-    for dy in 0..dh {
-        let (y0, y1) = (dy as f64 * sy, (dy as f64 + 1.0) * sy);
-        for dx in 0..dw {
-            let (x0, x1) = (dx as f64 * sx, (dx as f64 + 1.0) * sx);
-            let (mut sum, mut weight) = (0.0f64, 0.0f64);
-            for yy in (y0.floor() as usize)..(y1.ceil() as usize).min(h) {
-                let wy = ((yy as f64 + 1.0).min(y1) - (yy as f64).max(y0)).max(0.0);
-                for xx in (x0.floor() as usize)..(x1.ceil() as usize).min(w) {
-                    let wx = ((xx as f64 + 1.0).min(x1) - (xx as f64).max(x0)).max(0.0);
-                    sum += src[yy * w + xx] as f64 * wx * wy;
-                    weight += wx * wy;
-                }
-            }
-            out[dy * dw + dx] = (sum / weight.max(1e-9)) as f32;
-        }
-    }
-    out
-}
-
 /// cv2.resize(INTER_LINEAR) of one channel to a bigger size, pixel centres lined up.
 fn linear_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<u8> {
     let (sx, sy) = (w as f64 / dw as f64, h as f64 / dh as f64);
@@ -274,7 +252,7 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let mut paper_map: Vec<Vec<u8>> = Vec::new();
     for c in 0..3 {
         let plane: Vec<u8> = sheet.chunks_exact(3).map(|p| p[c]).collect();
-        let small: Vec<u8> = area_resize(&plane, w, h, sw, sh).iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
+        let small = resize_area(&plane, w, h, 1, sw, sh);
         // Ink is thin: the max is paper
         let mut dilated = vec![0u8; sw * sh];
         for y in 0..sh as i32 {
