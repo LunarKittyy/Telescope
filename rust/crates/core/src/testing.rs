@@ -75,6 +75,16 @@ pub struct FakeHost {
     /// in the background).
     pub clipboard: Option<String>,
     pub clipboard_deaf: bool,
+    /// The banners that are up, as (key, issue): show_issue puts one up in place of that key's, clear_issue takes it down.
+    pub issues: Vec<(String, Issue)>,
+    /// What each plugin has on the preview, by owner.
+    pub layers: HashMap<String, PreviewLayer>,
+    /// What still_caps() answers: the lens's photo options as JSON, or None for a stream that can't take photos.
+    pub still_caps: Option<Value>,
+    /// What still_busy() answers.
+    pub still_busy: bool,
+    /// The photos asked for, as (options, folder) in order.
+    pub stills_taken: Vec<(Value, String)>,
     next_request: u64,
 }
 
@@ -244,9 +254,12 @@ impl HostSources for FakeHost {
 impl HostShell for FakeHost {
     fn show_issue(&mut self, key: &str, issue: Issue) {
         self.note(format!("show_issue {key} {}", issue.title));
+        self.issues.retain(|(k, _)| k != key);
+        self.issues.push((key.to_string(), issue));
     }
     fn clear_issue(&mut self, key: Option<&str>, _issue: Option<&Issue>) {
         self.note(format!("clear_issue {key:?}"));
+        self.issues.retain(|(k, _)| key.is_some_and(|key| k != key));
     }
     fn send_notification(&mut self, title: &str, _body: &str, _urgent: bool) {
         self.note(format!("send_notification {title}"));
@@ -376,11 +389,13 @@ impl HostMotion for FakeHost {
 }
 
 impl HostPreview for FakeHost {
-    fn add_preview_layer(&mut self, owner: &str, _layer: PreviewLayer) {
+    fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
         self.note(format!("add_preview_layer {owner}"));
+        self.layers.insert(owner.to_string(), layer);
     }
     fn remove_preview_layer(&mut self, owner: &str) {
         self.note(format!("remove_preview_layer {owner}"));
+        self.layers.remove(owner);
     }
     fn refresh_preview(&mut self) {
         self.note("refresh_preview");
@@ -404,13 +419,17 @@ impl HostPreview for FakeHost {
 
 impl HostStills for FakeHost {
     fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        None
+        self.still_caps.clone()
     }
-    fn take_still(&mut self, _options: &Value, _folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        None
+    fn take_still(&mut self, options: &Value, folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
+        if self.still_caps.is_none() || self.still_busy {
+            return None;
+        }
+        self.stills_taken.push((options.clone(), folder.to_string()));
+        Some(self.request())
     }
     fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        false
+        self.still_busy
     }
 }
 
