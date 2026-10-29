@@ -92,7 +92,7 @@ impl HostStreams for Ctx<'_> {
         self.state.streams.streaming && self.state.streams.source_id.as_deref() == source_id
     }
     fn stream_count(&self) -> u32 {
-        self.state.streams.streaming as u32
+        self.state.streams.live.len().max(self.state.streams.streaming as usize) as u32
     }
     fn start_stream(&mut self, interactive: bool) {
         self.state.effects.push(Effect::Start { interactive });
@@ -123,10 +123,15 @@ impl HostStreams for Ctx<'_> {
         true
     }
     fn main_stream(&self) -> Option<(String, String)> {
-        None
+        self.state.streams.main.clone()
     }
-    fn make_main(&mut self, _source_id: &str) -> bool {
-        false
+    fn make_main(&mut self, source_id: &str) -> bool {
+        let st = &self.state.streams;
+        if st.stopping_all || st.restarting || !st.live.iter().any(|id| id == source_id) {
+            return false;
+        }
+        self.state.effects.push(Effect::MakeMain(source_id.into()));
+        true
     }
     fn update_stream_output(&mut self, _change: OutputChange, _source_id: Option<&str>) {}
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {

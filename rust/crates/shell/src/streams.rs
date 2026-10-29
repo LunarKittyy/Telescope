@@ -165,6 +165,9 @@ impl Window {
             st.streams.starting = s.is_starting();
             st.streams.restarting = s.restarting;
             st.streams.source_id = s.focus.as_ref().map(|f| f.id_str().to_string());
+            st.streams.main = flow.main_stream();
+            st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
+            st.streams.stopping_all = s.stopping_all;
             if s.streams.is_empty() {
                 st.streams.phone_state = None;
             }

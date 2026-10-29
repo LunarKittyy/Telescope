@@ -520,6 +520,9 @@ impl Window {
             Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
             Effect::StopAll => self.stop_all_streams(),
             Effect::Reconnect => self.with_flow(|flow, host| flow.reconnect_stream(host, None)),
+            Effect::MakeMain(id) => self.with_flow(|flow, host| {
+                flow.make_main(host, &id);
+            }),
             Effect::PickSource(id) => {
                 let handled = Cell::new(false);
                 self.with_flow(|flow, host| handled.set(flow.pick_source(host, id.as_deref())));

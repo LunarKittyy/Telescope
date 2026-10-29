@@ -45,6 +45,8 @@ pub enum Effect {
     PhoneControl { source_id: Option<String>, body: Value },
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
+    /// Host::make_main: the mic and the plugins that stay with it move to this stream.
+    MakeMain(String),
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     Quit,
@@ -66,6 +68,11 @@ pub struct Streams {
     pub camera_off: bool,
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
+    /// (id, name) of the stream the mic follows, and the ids of every stream that's up.
+    pub main: Option<(String, String)>,
+    pub live: Vec<String>,
+    /// Stop all is under way: nothing becomes the main stream meanwhile.
+    pub stopping_all: bool,
 }
 
 /// Posts waiting for the host thread, and how to wake it.
@@ -768,6 +775,21 @@ mod tests {
         s.register(Box::new(Hears("microphone".into(), Arc::default()))).unwrap();
         s.call(0, |_, host| telescope_core::host::HostShell::open_url(host, "https://vb-audio.com/Cable/"));
         assert!(s.effects.iter().any(|e| matches!(e, Effect::OpenUrl(u) if u == "https://vb-audio.com/Cable/")));
+    }
+
+
+    #[test]
+    fn make_main_moves_the_mic_only_onto_a_stream_thats_up() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(Box::new(Hears("microphone".into(), Arc::default()))).unwrap();
+        s.streams.live = vec!["a".into(), "b".into()];
+        s.streams.main = Some(("a".into(), "Pixel 8".into()));
+        assert_eq!(s.call(0, |_, host| host.main_stream()).flatten(), Some(("a".to_string(), "Pixel 8".to_string())));
+        assert_eq!(s.call(0, |_, host| (host.make_main("b"), host.make_main("gone"))), Some((true, false)));
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::MakeMain(id) if id == "b")));
+        s.streams.stopping_all = true;
+        assert_eq!(s.call(0, |_, host| host.make_main("b")), Some(false));
     }
 
 }
