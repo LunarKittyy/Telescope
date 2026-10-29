@@ -275,6 +275,9 @@ impl HostShell for FakeHost {
     fn copy_text(&mut self, text: &str) {
         self.note(format!("copy_text {text}"));
     }
+    fn set_shortcut_menu(&mut self, bindings: Option<Vec<crate::ui::ShortcutEntry>>) {
+        self.note(format!("set_shortcut_menu {}", serde_json::to_string(&bindings).unwrap_or_default()));
+    }
     fn open_url(&mut self, url: &str) {
         self.note(format!("open_url {url}"));
     }

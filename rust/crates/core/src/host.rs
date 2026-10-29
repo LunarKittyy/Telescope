@@ -262,6 +262,10 @@ pub trait HostShell {
     fn copy_text(&mut self, _text: &str) {}
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
+    /// "Add keyboard shortcut…" on a right-click of controls that name an action, with the saved shortcuts listed
+    /// under it; None takes it off. Its items come back to this plugin as on_ui with ui "shortcut-menu" and callback
+    /// "add" (the action id) or "edit" (the binding id).
+    fn set_shortcut_menu(&mut self, _bindings: Option<Vec<crate::ui::ShortcutEntry>>) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
