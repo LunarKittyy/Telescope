@@ -50,6 +50,10 @@ pub enum Effect {
     UpdateOutput { change: telescope_core::host::OutputChange, source_id: Option<String> },
     /// Host::make_main: the mic and the plugins that stay with it move to this stream.
     MakeMain(String),
+    /// Host::pick_file: plugin's request, answered by a RequestDone once the person picks.
+    PickFile { plugin: String, request: RequestId, dialog: telescope_core::host::FileDialog },
+    /// Host::copy_text: this goes on the clipboard.
+    CopyText(String),
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
@@ -163,6 +167,13 @@ pub struct State {
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
+    /// One of Telescope's windows is in front (keys.rs watches it).
+    pub window_active: bool,
+    /// The Microphone card's (enabled, muted), for the tray's tooltip.
+    pub mic: (bool, bool),
+    /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
+    pub shown: Option<bool>,
+    pub tray_close_notified: bool,
     next_request: u64,
 }
 
@@ -189,6 +200,10 @@ impl State {
             problems: BTreeMap::new(),
             keep_in_tray: false,
             link: None,
+            window_active: false,
+            mic: (false, false),
+            shown: None,
+            tray_close_notified: false,
             next_request: 1,
         }
     }
@@ -554,6 +569,9 @@ impl State {
     pub fn deliver_events(&mut self) {
         loop {
             while let Some(event) = self.bus.next() {
+                if let Event::MicChanged { enabled, muted } = event {
+                    self.mic = (enabled, muted);
+                }
                 self.each(|p, host| p.on_event(host, &event));
             }
             let posts = self.posts.take();

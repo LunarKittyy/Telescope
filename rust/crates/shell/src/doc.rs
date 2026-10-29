@@ -230,6 +230,14 @@ export component TelescopeWindow inherits Window {
     callback banner-dismissed(string);
     callback tile-focus(string);
     callback tile-stop(string);
+    // A key pressed (or let go) anywhere in the window, before the focused control: true takes it (Plugin::on_key)
+    callback key(KeyEvent, bool, bool) -> bool;
+    // Host::copy_text, through a hidden TextInput's copy()
+    public function copy-text(text: string) {
+        clipboard.text = text;
+        clipboard.select-all();
+        clipboard.copy();
+    }
     out property <int> mode: root.width >= 1300px ? 0 : root.width >= 900px ? 1 : 2;
     in-out property <length> scroll0;
     in-out property <length> scroll1;
@@ -253,9 +261,20 @@ export component TelescopeWindow inherits Window {
     background: Theme.bg;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
+    clipboard := TextInput { visible: false; width: 0px; height: 0px; }
 "#;
 
 const HEADER: &str = r#"
+    keys := FocusScope {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { self.focus(); }
+        capture-key-pressed(e) => { root.key(e, false, TextInputInterface.text-input-focused) ? accept : reject }
+        capture-key-released(e) => { root.key(e, true, TextInputInterface.text-input-focused) ? accept : reject }
     Rectangle {
         x: 0;
         y: 0;
@@ -360,6 +379,7 @@ const BODY_BOTTOM: &str = r#"        }
         fps-tip: root.fps-tip;
         net: root.net;
         net-color: root.net-color;
+    }
     }
 }
 "#;

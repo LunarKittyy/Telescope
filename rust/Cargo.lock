@@ -4900,6 +4900,7 @@ name = "telescope-shell"
 version = "0.1.0"
 dependencies = [
  "i-slint-backend-testing",
+ "i-slint-core",
  "log",
  "png",
  "qrcode",
@@ -4909,6 +4910,7 @@ dependencies = [
  "telescope-core",
  "telescope-ui-kit",
  "unicode-normalization",
+ "zbus",
 ]
 
 [[package]]
