@@ -1,0 +1,369 @@
+{
+ "width": 96,
+ "height": 64,
+ "cases": [
+  {
+   "name": "neutral",
+   "config": {},
+   "file": "colour_00.rgba",
+   "kind": "none"
+  },
+  {
+   "name": "warmer",
+   "config": {
+    "temperature": 40
+   },
+   "file": "colour_01.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "cooler and greener",
+   "config": {
+    "temperature": -35,
+    "tint": 30
+   },
+   "file": "colour_02.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "contrast",
+   "config": {
+    "contrast": 1.4
+   },
+   "file": "colour_03.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "contrast around another pivot",
+   "config": {
+    "contrast": 0.7,
+    "pivot": 0.6
+   },
+   "file": "colour_04.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "saturation up",
+   "config": {
+    "saturation": 1.6
+   },
+   "file": "colour_05.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "saturation down",
+   "config": {
+    "saturation": 0.3
+   },
+   "file": "colour_06.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "shadows and highlights",
+   "config": {
+    "shadows": 60,
+    "highlights": -40
+   },
+   "file": "colour_07.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "lift gamma gain offset",
+   "config": {
+    "masters": {
+     "lift": 0.08,
+     "gamma": 0.3,
+     "gain": 1.2,
+     "offset": -0.03
+    }
+   },
+   "file": "colour_08.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "a gain that clips",
+   "config": {
+    "masters": {
+     "lift": 0.0,
+     "gamma": 0.0,
+     "gain": 1.6,
+     "offset": 0.0
+    }
+   },
+   "file": "colour_09.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "wheels",
+   "config": {
+    "wheels": {
+     "lift": [
+      0.2,
+      0.1
+     ],
+     "gamma": [
+      -0.3,
+      0.4
+     ],
+     "gain": [
+      0.1,
+      -0.5
+     ],
+     "offset": [
+      0.5,
+      0.0
+     ]
+    }
+   },
+   "file": "colour_10.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "a tone curve",
+   "config": {
+    "curves": {
+     "all": [
+      [
+       0,
+       0
+      ],
+      [
+       0.3,
+       0.2
+      ],
+      [
+       0.7,
+       0.85
+      ],
+      [
+       1,
+       1
+      ]
+     ]
+    }
+   },
+   "file": "colour_11.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "curves per channel",
+   "config": {
+    "curves": {
+     "r": [
+      [
+       0,
+       0.1
+      ],
+      [
+       0.5,
+       0.45
+      ],
+      [
+       1,
+       1
+      ]
+     ],
+     "b": [
+      [
+       0,
+       0
+      ],
+      [
+       0.6,
+       0.8
+      ],
+      [
+       1,
+       0.9
+      ]
+     ]
+    }
+   },
+   "file": "colour_12.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "hue vs sat",
+   "config": {
+    "hue_sat": [
+     [
+      0,
+      0.5
+     ],
+     [
+      0.1667,
+      0.9
+     ],
+     [
+      0.3333,
+      0.1
+     ],
+     [
+      0.5,
+      0.5
+     ],
+     [
+      0.6667,
+      0.5
+     ],
+     [
+      0.8333,
+      0.5
+     ]
+    ]
+   },
+   "file": "colour_13.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "hue vs hue",
+   "config": {
+    "hue_hue": [
+     [
+      0,
+      0.58
+     ],
+     [
+      0.1667,
+      0.5
+     ],
+     [
+      0.3333,
+      0.45
+     ],
+     [
+      0.5,
+      0.5
+     ],
+     [
+      0.6667,
+      0.5
+     ],
+     [
+      0.8333,
+      0.5
+     ]
+    ]
+   },
+   "file": "colour_14.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "a 3D LUT file",
+   "config": {
+    "lut": "@fixtures/Look.cube"
+   },
+   "file": "colour_15.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "a 3D LUT at 40% strength",
+   "config": {
+    "lut": "@fixtures/Invert.cube",
+    "lut_strength": 0.4
+   },
+   "file": "colour_16.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "a 1D LUT file",
+   "config": {
+    "lut": "@fixtures/Shaper.cube"
+   },
+   "file": "colour_17.rgba",
+   "kind": "1D"
+  },
+  {
+   "name": "a grade and a LUT",
+   "config": {
+    "contrast": 1.2,
+    "saturation": 1.2,
+    "temperature": 15,
+    "lut": "@fixtures/Look.cube",
+    "lut_strength": 0.7
+   },
+   "file": "colour_18.rgba",
+   "kind": "3D 33"
+  },
+  {
+   "name": "everything",
+   "config": {
+    "temperature": 20,
+    "tint": -10,
+    "contrast": 1.15,
+    "pivot": 0.5,
+    "saturation": 1.25,
+    "shadows": 25,
+    "highlights": 15,
+    "masters": {
+     "lift": 0.03,
+     "gamma": 0.1,
+     "gain": 1.1,
+     "offset": 0.01
+    },
+    "wheels": {
+     "lift": [
+      0.1,
+      0.0
+     ],
+     "gamma": [
+      0.0,
+      0.2
+     ],
+     "gain": [
+      -0.2,
+      0.1
+     ],
+     "offset": [
+      0.0,
+      0.0
+     ]
+    },
+    "curves": {
+     "all": [
+      [
+       0,
+       0
+      ],
+      [
+       0.5,
+       0.55
+      ],
+      [
+       1,
+       1
+      ]
+     ]
+    },
+    "hue_sat": [
+     [
+      0,
+      0.55
+     ],
+     [
+      0.1667,
+      0.5
+     ],
+     [
+      0.3333,
+      0.5
+     ],
+     [
+      0.5,
+      0.5
+     ],
+     [
+      0.6667,
+      0.5
+     ],
+     [
+      0.8333,
+      0.5
+     ]
+    ]
+   },
+   "file": "colour_19.rgba",
+   "kind": "3D 33"
+  }
+ ]
+}

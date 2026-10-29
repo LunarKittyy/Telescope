@@ -4780,6 +4780,7 @@ dependencies = [
  "serde_json",
  "telescope-audio",
  "telescope-core",
+ "telescope-effects",
  "telescope-link",
  "telescope-media",
  "telescope-outputs",

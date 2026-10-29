@@ -12,6 +12,7 @@ const ALLOWED: &[(&str, &[&str])] = &[
     ("audio", &["telescope-core", "telescope-ui-kit"]),
     ("system", &["telescope-core", "telescope-ui-kit"]),
     ("plugin-host", &["telescope-core", "telescope-ui-kit"]),
+    ("effects", &["telescope-core", "telescope-ui-kit"]),
     ("shell", &["telescope-core", "telescope-ui-kit"]),
 ];
 
