@@ -4,3 +4,6 @@
 pub mod cube;
 pub mod editors;
 pub mod grade;
+pub mod colour_grading;
+pub mod shared;
+pub mod transforms;
