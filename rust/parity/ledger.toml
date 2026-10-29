@@ -111,7 +111,7 @@
 "Edges" = { status = "todo" }
 "How soft the edge around you is" = { status = "todo" }
 "No picture yet" = { status = "todo" }
-"Off" = { status = "todo" }
+"Off" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Pick the picture that goes behind you" = { status = "todo" }
 "Picture" = { status = "todo" }
 "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)" = { status = "todo" }
@@ -124,13 +124,13 @@
 "Browser camera" = { status = "todo" }
 "Browser camera isn't available" = { status = "todo" }
 "Browser, last connected {date}" = { status = "todo" }
-"Can't keep up" = { status = "todo" }
+"Can't keep up" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Cancel" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Connected" = { status = "todo" }
 "Copy" = { status = "todo" }
 "Copy the link, to open it on a device that can't scan the code" = { status = "todo" }
 "Couldn't start: {error}" = { status = "todo" }
-"Frame rate" = { status = "todo" }
+"Frame rate" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
 "Keep the page open with the screen on: phones pause the camera when you leave the browser." = { status = "todo" }
 "Link" = { status = "todo" }
 "Make a new code; the old one stops working" = { status = "todo" }
@@ -139,7 +139,7 @@
 "New link" = { status = "todo" }
 "No microphone: {problem}" = { status = "todo" }
 "Nothing has reached this computer yet. Check that the device is on the same network as the address in the code, and that the firewall allows port {port}." = { status = "todo" }
-"Resolution" = { status = "todo" }
+"Resolution" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Scan" = { status = "todo" }
 "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects." = { status = "todo" }
 "Streaming from any device's web browser, by scanning a code." = { status = "todo" }
@@ -319,15 +319,15 @@
 "Colour wheels, curves and LUT files for the look of the picture." = { status = "todo" }
 "Compare" = { status = "todo" }
 "Compare before and after" = { status = "todo" }
-"Contrast" = { status = "todo" }
+"Contrast" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Curve" = { status = "todo" }
 "Curves" = { status = "todo" }
 "Everything: colour and level" = { status = "todo" }
 "Export" = { status = "todo" }
 "Export grade…" = { status = "todo" }
 "Export the grade" = { status = "todo" }
-"Gain" = { status = "todo" }
-"Gamma" = { status = "todo" }
+"Gain" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Gamma" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Highlights" = { status = "todo" }
 "Highlights: colour and level, with black staying put" = { status = "todo" }
 "How colourful the picture is" = { status = "todo" }
@@ -350,7 +350,7 @@
 "RGB" = { status = "todo" }
 "Replace" = { status = "todo" }
 "Reset the grade" = { status = "todo" }
-"Saturation" = { status = "todo" }
+"Saturation" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Save the grade, LUT included, as a .cube file for other apps" = { status = "todo" }
 "Saved {file}." = { status = "todo" }
 "Shadows" = { status = "todo" }
@@ -470,7 +470,7 @@
 "Set up the virtual camera" = { status = "todo" }
 "Setup guide" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Starting the phone's camera..." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Starting…" = { status = "todo" }
+"Starting…" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Still streaming over {now}, so Connect via stays on {kept}." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Stop it there or on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Streaming over USB" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
@@ -546,8 +546,8 @@
 "Mark the sheet's corners to straighten it." = { status = "todo" }
 "Part of the sheet is outside the picture. Zoom out or mark it again." = { status = "todo" }
 "Put the width and height back to 100%" = { status = "todo" }
-"Reset" = { status = "todo" }
-"Shape" = { status = "todo" }
+"Reset" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
+"Shape" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
 "Sheet shape" = { status = "todo" }
 "Square" = { status = "todo" }
 "Start streaming to mark the sheet on the preview." = { status = "todo" }
@@ -580,7 +580,7 @@
 "Easy" = { status = "todo" }
 "Fidget" = { status = "todo" }
 "Follow you with the zoom and pan" = { status = "todo" }
-"Framing" = { status = "todo" }
+"Framing" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Head" = { status = "todo" }
 "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you" = { status = "todo" }
 "How quickly the framing catches up when you move" = { status = "todo" }
@@ -745,7 +745,7 @@
 "Bottom centre" = { status = "todo" }
 "Bottom left" = { status = "todo" }
 "Bottom right" = { status = "todo" }
-"Light" = { status = "todo" }
+"Light" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Name tag" = { status = "todo" }
 "Pill" = { status = "todo" }
 "Position" = { status = "todo" }
@@ -894,7 +894,7 @@
 "Distortion fix" = { status = "todo" }
 "Exposure bracket" = { status = "todo" }
 "Focus bracket" = { status = "todo" }
-"Format" = { status = "todo" }
+"Format" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Full resolution" = { status = "todo" }
 "HDR" = { status = "todo" }
 "HEIC" = { status = "todo" }
@@ -941,7 +941,7 @@
 "Without it there's no Photos card and no Take photo shortcut." = { status = "todo" }
 "{seconds} s" = { status = "todo" }
 # ── platform
-"Already persisted: {path}" = { status = "todo" }
+"Already persisted: {path}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Another app already uses this key" = { status = "todo" }
 "Bind a Copy command line in its own keyboard settings instead." = { status = "todo" }
 "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
@@ -969,26 +969,26 @@
 "Everywhere" = { status = "todo" }
 "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "todo" }
 "Everywhere: {keys}" = { status = "todo" }
-"Existing v4l2loopback config found in {paths} - remove it first" = { status = "todo" }
-"Failed to remove persistence files" = { status = "todo" }
-"Failed to write persistence files" = { status = "todo" }
+"Existing v4l2loopback config found in {paths} - remove it first" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"Failed to remove persistence files" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"Failed to write persistence files" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Finding the current adb…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google's download doesn't have adb.exe in it anymore." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google's list of downloads wasn't what Telescope expected. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Google's server said {code}. Try again later." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Installed" = { status = "todo" }
-"Loaded: {phone} + {obs}" = { status = "todo" }
-"Module unloaded" = { status = "todo" }
+"Loaded: {phone} + {obs}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"Module unloaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "No key set in the desktop's shortcut settings" = { status = "todo" }
 "Not available on this desktop" = { status = "todo" }
 "Not confirmed in the desktop's dialog" = { status = "todo" }
-"Nothing to remove" = { status = "todo" }
+"Nothing to remove" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again" = { status = "todo" }
 "Registering (admin access required)..." = { status = "todo" }
 "Registration failed (cancelled or denied?)" = { status = "todo" }
-"Removed {paths}" = { status = "todo" }
-"Telescope couldn't ask for your password here. Run this in a terminal, then try again." = { status = "todo" }
+"Removed {paths}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"Telescope couldn't ask for your password here. Run this in a terminal, then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "That doesn't have adb.exe in it." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
 "The download didn't match Google's checksum, so it wasn't used. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
@@ -998,7 +998,7 @@
 "The sound server didn't answer (pactl list failed)." = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
 "This desktop doesn't offer global shortcuts to apps ({why})." = { status = "todo" }
 "This desktop doesn't offer global shortcuts to apps." = { status = "todo" }
-"This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "todo" }
+"This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Timed out" = { status = "todo" }
 "Unpacking…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "VB-Audio's download doesn't have the setup it used to. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
@@ -1009,23 +1009,23 @@
 "Windows can't use this key everywhere" = { status = "todo" }
 "Windows didn't get permission to install VB-Cable." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Windows refused to register the driver (regsvr32 failed)" = { status = "todo" }
-"Wrote {first} and {second}" = { status = "todo" }
+"Wrote {first} and {second}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one." = { status = "todo" }
 "adb install failed" = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
-"modprobe -r failed" = { status = "todo" }
-"modprobe failed" = { status = "todo" }
-"reload failed" = { status = "todo" }
-"v4l2loopback is already loaded with other settings, so {device} isn't there. Close any app using a virtual camera, click Unload and then Load." = { status = "todo" }
-"v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again." = { status = "todo" }
-"v4l2loopback-ctl add failed" = { status = "todo" }
-"v4l2loopback-ctl delete failed (an app may still have one open)" = { status = "todo" }
-"v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too." = { status = "todo" }
-"{device} already exists and is not a v4l2loopback device." = { status = "todo" }
+"modprobe -r failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"modprobe failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"reload failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"v4l2loopback is already loaded with other settings, so {device} isn't there. Close any app using a virtual camera, click Unload and then Load." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"v4l2loopback-ctl add failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"v4l2loopback-ctl delete failed (an app may still have one open)" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"{device} already exists and is not a v4l2loopback device." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "{file} failed checksum verification (got {digest}...) - not registering" = { status = "todo" }
 "{file} failed checksum verification - not registering" = { status = "todo" }
 # ── plugin
 "Audio" = { status = "todo" }
-"Camera" = { status = "todo" }
+"Camera" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
 "Extras" = { status = "todo" }
 "General" = { status = "todo" }
 "Keyboard shortcuts" = { status = "todo" }
@@ -1309,12 +1309,12 @@
 "Add shortcut for {action}…" = { status = "todo" }
 "Already streaming" = { status = "todo" }
 "Also works while another app is in front" = { status = "todo" }
-"By" = { status = "todo" }
+"By" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Control" = { status = "todo" }
 "Copy command" = { status = "todo" }
 "Copy command line" = { status = "todo" }
 "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "todo" }
-"Decrease by" = { status = "todo" }
+"Decrease by" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Desktop shortcut settings" = { status = "todo" }
 "Edit" = { status = "todo" }
 "Edit {shortcut}" = { status = "todo" }
@@ -1325,7 +1325,7 @@
 "In Telescope" = { status = "todo" }
 "In Telescope (no global shortcuts here)" = { status = "todo" }
 "In Telescope: {status}" = { status = "todo" }
-"Increase by" = { status = "todo" }
+"Increase by" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Key" = { status = "todo" }
 "Key used by a shortcut above" = { status = "todo" }
 "Keyboard shortcut" = { status = "todo" }
@@ -1348,10 +1348,10 @@
 "Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "todo" }
 "Raise by" = { status = "todo" }
 "Remove {shortcut}" = { status = "todo" }
-"Reset to default" = { status = "todo" }
+"Reset to default" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Save" = { status = "todo" }
 "Search: mute, zoom, exposure, preset…" = { status = "todo" }
-"Set to" = { status = "todo" }
+"Set to" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Shortcuts" = { status = "todo" }
 "Show or hide Telescope" = { status = "todo" }
 "Start or stop" = { status = "todo" }
@@ -1365,7 +1365,7 @@
 "Turn off" = { status = "todo" }
 "Turn on" = { status = "todo" }
 "Unknown ({action})" = { status = "todo" }
-"Value" = { status = "todo" }
+"Value" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Where your desktop lets you change the keys of global shortcuts" = { status = "todo" }
 "While Telescope is in the background" = { status = "todo" }
 "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "todo" }
@@ -1492,43 +1492,43 @@
 "Starting the phone's camera…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "Starting the phone's mic…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 # ── stream_output
-"All the way right is Dynamic, which adjusts to what your connection can handle." = { status = "todo" }
-"Aspect ratio" = { status = "todo" }
-"Bitrate" = { status = "todo" }
-"Dynamic" = { status = "todo" }
-"Good for most calls" = { status = "todo" }
-"H.264 at {size} stopped the camera on this phone" = { status = "todo" }
-"H.264 from the phone's hardware encoder, like video calls use." = { status = "todo" }
-"H.264 isn't available at {size} on this phone" = { status = "todo" }
-"H.264. Needs PyAV on this computer (pip install av)." = { status = "todo" }
-"H.264. This phone has no H.264 encoder." = { status = "todo" }
-"Heavy" = { status = "todo" }
-"JPEG quality" = { status = "todo" }
-"MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion." = { status = "todo" }
-"Sharper, more data" = { status = "todo" }
-"Start at {size}" = { status = "todo" }
-"Stream output" = { status = "todo" }
-"Switch to Dynamic" = { status = "todo" }
-"Switch to Heavy" = { status = "todo" }
-"Switch to Light" = { status = "todo" }
-"Switched to Heavy" = { status = "todo" }
-"The camera can't feed H.264 at {size} on this phone" = { status = "todo" }
-"The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most." = { status = "todo" }
-"The phone's H.264 encoder stopped" = { status = "todo" }
-"The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most." = { status = "todo" }
-"The phone's capture rate and the virtual camera's. Lower saves data and battery." = { status = "todo" }
-"The resolution, frame rate and format of the stream." = { status = "todo" }
-"This phone's app is too old for Dynamic and uses Auto until it's updated." = { status = "todo" }
-"Too much for the phone's H.264 encoder" = { status = "todo" }
-"Try Dynamic or lower quality." = { status = "todo" }
-"Try Light or lower quality." = { status = "todo" }
-"Try a lower resolution or FPS." = { status = "todo" }
-"Try lower quality." = { status = "todo" }
-"Without it there's no Stream output card and streams use whatever size and format the phone picks." = { status = "todo" }
-"{error}. It's set back to {size}, the last size that worked." = { status = "todo" }
-"{error}. Try a lower resolution or FPS, or switch to Heavy." = { status = "todo" }
-"{error}. You can try Light again in Stream output." = { status = "todo" }
-"{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS." = { status = "todo" }
+"All the way right is Dynamic, which adjusts to what your connection can handle." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Aspect ratio" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Bitrate" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Dynamic" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Good for most calls" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
+"H.264 at {size} stopped the camera on this phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"H.264 from the phone's hardware encoder, like video calls use." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"H.264 isn't available at {size} on this phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"H.264. Needs PyAV on this computer (pip install av)." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"H.264. This phone has no H.264 encoder." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Heavy" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"JPEG quality" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Sharper, more data" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
+"Start at {size}" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Stream output" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Switch to Dynamic" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Switch to Heavy" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Switch to Light" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Switched to Heavy" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The camera can't feed H.264 at {size} on this phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The phone's H.264 encoder stopped" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The phone's capture rate and the virtual camera's. Lower saves data and battery." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"The resolution, frame rate and format of the stream." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"This phone's app is too old for Dynamic and uses Auto until it's updated." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Too much for the phone's H.264 encoder" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Try Dynamic or lower quality." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Try Light or lower quality." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Try a lower resolution or FPS." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Try lower quality." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Without it there's no Stream output card and streams use whatever size and format the phone picks." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{error}. It's set back to {size}, the last size that worked." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{error}. Try a lower resolution or FPS, or switch to Heavy." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{error}. You can try Light again in Stream output." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 # ── transforms
 "Clear flip, rotation, zoom, pan and stretch back to defaults" = { status = "todo" }
 "Dots mark where the phone switches to another lens" = { status = "todo" }
@@ -1538,7 +1538,7 @@
 "H {x}\nV {y}" = { status = "todo" }
 "It can wobble for a moment while it switches." = { status = "todo" }
 "Mirror" = { status = "todo" }
-"Pan" = { status = "todo" }
+"Pan" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Pan left/right" = { status = "todo" }
 "Pan up/down" = { status = "todo" }
 "Panned past what {tele} can see, so it's on {live}. Pan back to switch again." = { status = "todo" }
@@ -1551,7 +1551,7 @@
 "Transforms" = { status = "todo" }
 "Upside down" = { status = "todo" }
 "Without it there's no Transforms card and the picture goes out exactly as the phone sends it." = { status = "todo" }
-"Zoom" = { status = "todo" }
+"Zoom" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 "Zoom, pan, flip, rotate and stretch the picture." = { status = "todo" }
 "Zoomed on the phone's sensor" = { status = "todo" }
 "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer" = { status = "todo" }
@@ -1629,7 +1629,7 @@
 "search|update upgrade new version release download install latest" = { status = "todo" }
 "{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "todo" }
 # ── vcam
-"Waiting for camera" = { status = "todo" }
+"Waiting for camera" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::default_screen" }
 # ── vision_pack
 "The download contains unexpected paths, so it wasn't used." = { status = "todo" }
 "The download didn't match what this version of Telescope expects, so it wasn't used." = { status = "todo" }
@@ -1649,41 +1649,41 @@
 "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all." = { status = "todo" }
 "search|idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo" = { status = "todo" }
 # ── webcam
-"50 Hz" = { status = "todo" }
-"60 Hz" = { status = "todo" }
-"Another app may be using it. Close it there and it starts here." = { status = "todo" }
-"Anti-flicker" = { status = "todo" }
-"Backlight compensation" = { status = "todo" }
-"Brightens a face in front of a bright window." = { status = "todo" }
-"Can't open {name}" = { status = "todo" }
-"Check that it's plugged in." = { status = "todo" }
-"Exposure time" = { status = "todo" }
-"Focus position" = { status = "todo" }
-"Hue" = { status = "todo" }
-"In use by another app" = { status = "todo" }
-"In use by {app}" = { status = "todo" }
-"Lets the webcam lower its frame rate in dim light for a brighter picture." = { status = "todo" }
-"Not plugged in" = { status = "todo" }
-"Not sending anything" = { status = "todo" }
-"Plug it in, or pick another camera." = { status = "todo" }
-"Put the webcam's picture settings back to its defaults" = { status = "todo" }
-"Set it to your mains frequency to stop lights flickering or banding." = { status = "todo" }
-"Sharpness" = { status = "todo" }
-"Slow down in the dark" = { status = "todo" }
-"Streaming from webcams and capture cards plugged into this computer." = { status = "todo" }
-"The shutter speed: slower is brighter but blurs movement." = { status = "todo" }
-"The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate" = { status = "todo" }
-"The webcam's ISO: more is brighter but grainier." = { status = "todo" }
-"Tilt" = { status = "todo" }
-"Webcam" = { status = "todo" }
-"Webcams" = { status = "todo" }
-"Without it webcams aren't in the phone picker and the Webcam card is gone too." = { status = "todo" }
-"{app} is using it. Close it there and it starts here." = { status = "todo" }
-"{name} isn't plugged in" = { status = "todo" }
+"50 Hz" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"60 Hz" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Another app may be using it. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Anti-flicker" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Backlight compensation" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Brightens a face in front of a bright window." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Can't open {name}" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Check that it's plugged in." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Exposure time" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Focus position" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Hue" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"In use by another app" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"In use by {app}" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Lets the webcam lower its frame rate in dim light for a brighter picture." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Not plugged in" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Not sending anything" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Plug it in, or pick another camera." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Put the webcam's picture settings back to its defaults" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
+"Set it to your mains frequency to stop lights flickering or banding." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Sharpness" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Slow down in the dark" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Streaming from webcams and capture cards plugged into this computer." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The shutter speed: slower is brighter but blurs movement." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"The webcam's ISO: more is brighter but grainier." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Tilt" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Webcam" = { status = "ported", rust = "rust/crates/outputs/ui/webcam.slint" }
+"Webcams" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"Without it webcams aren't in the phone picker and the Webcam card is gone too." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"{app} is using it. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
+"{name} isn't plugged in" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
 # ── webcams
-"Another app is using the webcam. Close it there and it starts here." = { status = "todo" }
-"The webcam isn't plugged in. Plug it back in and it carries on." = { status = "todo" }
-"The webcam isn't sending anything. Try another resolution or frame rate." = { status = "todo" }
+"Another app is using the webcam. Close it there and it starts here." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
+"The webcam isn't plugged in. Plug it back in and it carries on." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
+"The webcam isn't sending anything. Try another resolution or frame rate." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
 # ── widgets
 "A plugin can do anything on your computer. Only switch it on if you trust its source." = { status = "todo" }
 "AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "todo" }
@@ -1880,10 +1880,10 @@
 "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share." = { status = "todo" }
 "{plugin} was installed, but it can't run yet. {problem}" = { status = "todo" }
 "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope." = { status = "todo" }
-"{q}%: Balanced" = { status = "todo" }
-"{q}%: High" = { status = "todo" }
-"{q}%: Low" = { status = "todo" }
-"{q}%: Very low" = { status = "todo" }
+"{q}%: Balanced" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{q}%: High" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{q}%: Low" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"{q}%: Very low" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 
 [test]
 # Python tests, file::Class::name
@@ -3403,28 +3403,28 @@
 "test_platform.py::test_telescope_starts_adbs_server_as_its_own_child_once" = { status = "ported", rust = "rust/crates/link/src/adb.rs::telescope_starts_adbs_server_as_its_own_child_once" }
 "test_platform.py::test_the_windows_job_fails_softly_elsewhere" = { status = "ported", rust = "rust/crates/link/src/winjob.rs::the_windows_job_fails_softly_elsewhere" }
 "test_platform.py::test_with_serial" = { status = "ported", rust = "rust/crates/link/src/adb.rs::with_serial" }
-"test_platform_linux.py::test_adding_cameras_runs_one_privileged_script" = { status = "todo" }
-"test_platform_linux.py::test_adding_cameras_without_the_tool_says_what_to_install" = { status = "todo" }
-"test_platform_linux.py::test_cancelling_the_prompt_is_not_an_error_to_explain" = { status = "todo" }
-"test_platform_linux.py::test_device_and_combined_loaded_checks" = { status = "todo" }
-"test_platform_linux.py::test_find_conflicting_configs_skips_ours_comments_and_read_errors" = { status = "todo" }
-"test_platform_linux.py::test_load_invokes_modprobe_and_handles_failure" = { status = "todo" }
-"test_platform_linux.py::test_load_refuses_existing_module_or_conflicting_device" = { status = "todo" }
-"test_platform_linux.py::test_module_loaded" = { status = "todo" }
-"test_platform_linux.py::test_no_polkit_agent_tries_cached_sudo_then_hands_back_the_command" = { status = "todo" }
-"test_platform_linux.py::test_options_line_contains_every_runtime_parameter" = { status = "todo" }
-"test_platform_linux.py::test_other_failures_pass_through" = { status = "todo" }
-"test_platform_linux.py::test_persist_disable_noop_remove_and_error" = { status = "todo" }
-"test_platform_linux.py::test_persist_enable_is_idempotent_and_refuses_conflicts" = { status = "todo" }
-"test_platform_linux.py::test_persist_enable_writes_both_files_and_surfaces_errors" = { status = "todo" }
-"test_platform_linux.py::test_persist_script_writes_the_exact_boot_config" = { status = "todo" }
-"test_platform_linux.py::test_persist_status_reports_each_file" = { status = "todo" }
-"test_platform_linux.py::test_pkexec_runs_the_whole_operation_behind_one_prompt" = { status = "todo" }
-"test_platform_linux.py::test_reload_uses_shared_parameters" = { status = "todo" }
-"test_platform_linux.py::test_removing_cameras_deletes_each_in_one_privileged_script" = { status = "todo" }
-"test_platform_linux.py::test_setup_leaves_someone_elses_boot_config_alone" = { status = "todo" }
-"test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "todo" }
-"test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "todo" }
+"test_platform_linux.py::test_adding_cameras_runs_one_privileged_script" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::adding_cameras_runs_one_privileged_script" }
+"test_platform_linux.py::test_adding_cameras_without_the_tool_says_what_to_install" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::adding_cameras_without_the_tool_says_what_to_install" }
+"test_platform_linux.py::test_cancelling_the_prompt_is_not_an_error_to_explain" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::cancelling_the_prompt_is_not_an_error_to_explain" }
+"test_platform_linux.py::test_device_and_combined_loaded_checks" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::device_and_combined_loaded_checks" }
+"test_platform_linux.py::test_find_conflicting_configs_skips_ours_comments_and_read_errors" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::find_conflicting_configs_skips_ours_comments_and_read_errors" }
+"test_platform_linux.py::test_load_invokes_modprobe_and_handles_failure" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::load_invokes_modprobe_and_handles_failure" }
+"test_platform_linux.py::test_load_refuses_existing_module_or_conflicting_device" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::load_refuses_existing_module_or_conflicting_device" }
+"test_platform_linux.py::test_module_loaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_loaded" }
+"test_platform_linux.py::test_no_polkit_agent_tries_cached_sudo_then_hands_back_the_command" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::no_polkit_agent_tries_cached_sudo_then_hands_back_the_command" }
+"test_platform_linux.py::test_options_line_contains_every_runtime_parameter" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::options_line_contains_every_runtime_parameter" }
+"test_platform_linux.py::test_other_failures_pass_through" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::other_failures_pass_through" }
+"test_platform_linux.py::test_persist_disable_noop_remove_and_error" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_disable_noop_remove_and_error" }
+"test_platform_linux.py::test_persist_enable_is_idempotent_and_refuses_conflicts" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_enable_is_idempotent_and_refuses_conflicts" }
+"test_platform_linux.py::test_persist_enable_writes_both_files_and_surfaces_errors" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_enable_writes_both_files_and_surfaces_errors" }
+"test_platform_linux.py::test_persist_script_writes_the_exact_boot_config" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_script_writes_the_exact_boot_config" }
+"test_platform_linux.py::test_persist_status_reports_each_file" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_status_reports_each_file" }
+"test_platform_linux.py::test_pkexec_runs_the_whole_operation_behind_one_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::pkexec_runs_the_whole_operation_behind_one_prompt" }
+"test_platform_linux.py::test_reload_uses_shared_parameters" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::reload_uses_shared_parameters" }
+"test_platform_linux.py::test_removing_cameras_deletes_each_in_one_privileged_script" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::removing_cameras_deletes_each_in_one_privileged_script" }
+"test_platform_linux.py::test_setup_leaves_someone_elses_boot_config_alone" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_leaves_someone_elses_boot_config_alone" }
+"test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_with_persist_writes_the_boot_config_in_the_same_prompt" }
+"test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::sudo_is_never_run_where_it_could_ask_for_a_password" }
 "test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "todo" }
 "test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "todo" }
 "test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "todo" }
@@ -4462,54 +4462,54 @@
 "test_vb_cable.py::test_the_question_names_vb_audio_and_says_what_they_ask" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_question_names_vb_audio_and_says_what_they_ask", note = "the question is a popup in the card" }
 "test_vb_cable.py::test_the_setup_opens_as_admin_only_when_its_hash_still_matches" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::the_setup_opens_as_admin_only_when_its_hash_still_matches" }
 # ── vcam
-"test_vcam.py::test_a_camera_that_wont_open_is_tried_again" = { status = "todo" }
-"test_vcam.py::test_a_filter_never_found_still_gets_the_idle_pace" = { status = "todo" }
-"test_vcam.py::test_a_frame_of_another_size_is_fitted_to_what_the_app_picked" = { status = "todo" }
-"test_vcam.py::test_a_long_animation_is_thinned_to_the_memory_budget" = { status = "todo" }
-"test_vcam.py::test_a_normal_image_is_not_prescaled" = { status = "todo" }
-"test_vcam.py::test_a_photo_over_qts_allocation_limit_still_loads" = { status = "todo" }
-"test_vcam.py::test_a_size_too_big_for_the_shared_memory_is_never_written" = { status = "todo" }
-"test_vcam.py::test_a_stopped_screen_stays_stopped_after_a_reload" = { status = "todo" }
-"test_vcam.py::test_a_wait_screen_on_an_extra_camera_opens_that_one" = { status = "todo" }
-"test_vcam.py::test_a_wait_screen_that_failed_to_prepare_starts_again_when_asked" = { status = "todo" }
-"test_vcam.py::test_a_write_cut_off_half_way_is_finished_with_an_even_count" = { status = "todo" }
-"test_vcam.py::test_an_animation_keeps_its_frames_and_timing_fitted_to_the_camera" = { status = "todo" }
-"test_vcam.py::test_an_app_that_stopped_asking_for_frames_counts_as_gone" = { status = "todo" }
-"test_vcam.py::test_an_image_that_wont_load_falls_back_to_the_default" = { status = "todo" }
-"test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera" = { status = "todo" }
-"test_vcam.py::test_camera_holders_skips_this_process" = { status = "todo" }
-"test_vcam.py::test_convert_runs_on_each_frame_as_it_loads" = { status = "todo" }
-"test_vcam.py::test_extra_slots_are_found_by_their_label" = { status = "todo" }
-"test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera" = { status = "todo" }
-"test_vcam.py::test_holds_the_camera_until_stopped" = { status = "todo" }
-"test_vcam.py::test_lets_go_for_a_driver_reload_and_takes_it_back" = { status = "todo" }
-"test_vcam.py::test_linux_sends_the_cameras_own_format_prepared_once" = { status = "todo" }
-"test_vcam.py::test_linux_watch_retries_while_the_device_is_missing" = { status = "todo" }
-"test_vcam.py::test_locked_size_is_linux_only" = { status = "todo" }
-"test_vcam.py::test_locked_size_reads_the_drivers_format" = { status = "todo" }
-"test_vcam.py::test_memory_from_another_program_is_refused" = { status = "todo" }
-"test_vcam.py::test_mirror_flips_the_screen_left_to_right" = { status = "todo" }
-"test_vcam.py::test_no_image_is_the_default_screen_at_the_camera_size" = { status = "todo" }
-"test_vcam.py::test_odd_sizes_and_windows_send_rgb" = { status = "todo" }
-"test_vcam.py::test_old_drivers_fall_back_to_looking_for_other_processes" = { status = "todo" }
-"test_vcam.py::test_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "todo" }
-"test_vcam.py::test_read_image_frames_is_empty_for_an_image_that_wont_load" = { status = "todo" }
-"test_vcam.py::test_sends_rarely_until_someone_watches" = { status = "todo" }
-"test_vcam.py::test_showing_the_same_thing_again_keeps_the_camera_open" = { status = "todo" }
-"test_vcam.py::test_the_camera_is_let_go_once_the_app_stops_reading" = { status = "todo" }
-"test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout" = { status = "todo" }
-"test_vcam.py::test_the_wait_screen_moves_to_a_camera_installed_while_it_runs" = { status = "todo" }
-"test_vcam.py::test_the_watch_counts_a_stalled_reader_as_gone" = { status = "todo" }
-"test_vcam.py::test_the_watch_follows_the_windows_11_cameras_reader" = { status = "todo" }
-"test_vcam.py::test_the_windows_11_camera_gets_nv12_at_the_readers_size" = { status = "todo" }
-"test_vcam.py::test_the_windows_11_camera_only_takes_rgb_or_bgr" = { status = "todo" }
-"test_vcam.py::test_unitycapture_event_follows_the_camera_number" = { status = "todo" }
-"test_vcam.py::test_watch_reports_only_changes" = { status = "todo" }
-"test_vcam.py::test_windows_opens_the_windows_11_camera_where_it_is_set_up" = { status = "todo" }
-"test_vcam.py::test_windows_sends_the_moment_an_app_opens_the_camera" = { status = "todo" }
-"test_vcam.py::test_windows_slots_need_their_numbered_registration" = { status = "todo" }
-"test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched" = { status = "todo" }
-"test_vcam.py::test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" = { status = "todo" }
+"test_vcam.py::test_a_camera_that_wont_open_is_tried_again" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_camera_that_wont_open_is_tried_again" }
+"test_vcam.py::test_a_filter_never_found_still_gets_the_idle_pace" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_filter_never_found_still_gets_the_idle_pace" }
+"test_vcam.py::test_a_frame_of_another_size_is_fitted_to_what_the_app_picked" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::a_frame_of_another_size_is_fitted_to_what_the_app_picked" }
+"test_vcam.py::test_a_long_animation_is_thinned_to_the_memory_budget" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_long_animation_is_thinned_to_the_memory_budget" }
+"test_vcam.py::test_a_normal_image_is_not_prescaled" = { status = "dropped", reason = "Qt's QImageReader prescaling; the image crate decodes at full size with no allocation limit" }
+"test_vcam.py::test_a_photo_over_qts_allocation_limit_still_loads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_big_photo_still_loads_fitted_to_the_camera" }
+"test_vcam.py::test_a_size_too_big_for_the_shared_memory_is_never_written" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::a_size_too_big_for_the_shared_memory_is_never_written" }
+"test_vcam.py::test_a_stopped_screen_stays_stopped_after_a_reload" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_stopped_screen_stays_stopped_after_a_reload" }
+"test_vcam.py::test_a_wait_screen_on_an_extra_camera_opens_that_one" = { status = "ported", rust = "rust/crates/outputs/src/lib.rs::a_wait_screen_on_an_extra_camera_opens_that_one" }
+"test_vcam.py::test_a_wait_screen_that_failed_to_prepare_starts_again_when_asked" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::a_wait_screen_that_failed_to_prepare_starts_again_when_asked" }
+"test_vcam.py::test_a_write_cut_off_half_way_is_finished_with_an_even_count" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::a_write_cut_off_half_way_is_finished_with_an_even_count" }
+"test_vcam.py::test_an_animation_keeps_its_frames_and_timing_fitted_to_the_camera" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::an_animation_keeps_its_frames_and_timing_fitted_to_the_camera" }
+"test_vcam.py::test_an_app_that_stopped_asking_for_frames_counts_as_gone" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::an_app_that_stopped_asking_for_frames_counts_as_gone" }
+"test_vcam.py::test_an_image_that_wont_load_falls_back_to_the_default" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::an_image_that_wont_load_falls_back_to_the_default" }
+"test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::a_camera_whose_slot_moved_off_the_windows_11_camera_is_outdated" }
+"test_vcam.py::test_camera_holders_skips_this_process" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::camera_holders_skips_this_process" }
+"test_vcam.py::test_convert_runs_on_each_frame_as_it_loads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::frames_are_prepared_in_the_cameras_format_with_their_timing" }
+"test_vcam.py::test_extra_slots_are_found_by_their_label" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::extra_slots_are_found_by_their_label" }
+"test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::frames_are_dropped_until_an_app_opens_the_camera" }
+"test_vcam.py::test_holds_the_camera_until_stopped" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::holds_the_camera_until_stopped" }
+"test_vcam.py::test_lets_go_for_a_driver_reload_and_takes_it_back" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::lets_go_for_a_driver_reload_and_takes_it_back" }
+"test_vcam.py::test_linux_sends_the_cameras_own_format_prepared_once" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::sends_the_cameras_own_format_prepared_once" }
+"test_vcam.py::test_linux_watch_retries_while_the_device_is_missing" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_retries_while_the_device_is_missing_and_stops_when_asked" }
+"test_vcam.py::test_locked_size_is_linux_only" = { status = "ported", rust = "rust/crates/outputs/src/lib.rs", note = "locked_size on Windows only asks the Windows 11 camera; UnityCapture has none (not unit-tested off Windows)" }
+"test_vcam.py::test_locked_size_reads_the_drivers_format" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::locked_size_reads_the_drivers_format" }
+"test_vcam.py::test_memory_from_another_program_is_refused" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::memory_from_another_program_is_refused" }
+"test_vcam.py::test_mirror_flips_the_screen_left_to_right" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::mirror_flips_the_screen_left_to_right" }
+"test_vcam.py::test_no_image_is_the_default_screen_at_the_camera_size" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::no_image_is_the_default_screen_at_the_camera_size" }
+"test_vcam.py::test_odd_sizes_and_windows_send_rgb" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::odd_sizes_send_rgba", note = "Windows' cameras take I420 here too, so only odd sizes send RGBA" }
+"test_vcam.py::test_old_drivers_fall_back_to_looking_for_other_processes" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::old_drivers_fall_back_to_looking_for_other_processes" }
+"test_vcam.py::test_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::opens_at_the_size_a_reader_holds_the_camera_at" }
+"test_vcam.py::test_read_image_frames_is_empty_for_an_image_that_wont_load" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::read_image_frames_is_empty_for_an_image_that_wont_load" }
+"test_vcam.py::test_sends_rarely_until_someone_watches" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::sends_rarely_until_someone_watches" }
+"test_vcam.py::test_showing_the_same_thing_again_keeps_the_camera_open" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::showing_the_same_thing_again_keeps_the_camera_open" }
+"test_vcam.py::test_the_camera_is_let_go_once_the_app_stops_reading" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::the_camera_is_let_go_once_the_app_stops_reading" }
+"test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::the_layout_matches_the_dlls_shared_memory" }
+"test_vcam.py::test_the_wait_screen_moves_to_a_camera_installed_while_it_runs" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_wait_screen_moves_to_a_camera_installed_while_it_runs" }
+"test_vcam.py::test_the_watch_counts_a_stalled_reader_as_gone" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_counts_a_stalled_reader_as_gone" }
+"test_vcam.py::test_the_watch_follows_the_windows_11_cameras_reader" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_follows_the_windows_11_cameras_reader" }
+"test_vcam.py::test_the_windows_11_camera_gets_nv12_at_the_readers_size" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::the_windows_11_camera_gets_nv12_at_the_readers_size" }
+"test_vcam.py::test_the_windows_11_camera_only_takes_rgb_or_bgr" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::the_windows_11_camera_only_takes_i420_or_rgba", note = "takes I420 or RGBA, as the stream sends I420" }
+"test_vcam.py::test_unitycapture_event_follows_the_camera_number" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::unitycapture_objects_follow_the_camera_number" }
+"test_vcam.py::test_watch_reports_only_changes" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::watch_reports_only_changes" }
+"test_vcam.py::test_windows_opens_the_windows_11_camera_where_it_is_set_up" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_windows_11_camera_needs_windows_11_its_dll_and_windows_having_it", note = "open_slot itself is Windows-only and only compile-checked" }
+"test_vcam.py::test_windows_sends_the_moment_an_app_opens_the_camera" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::sends_the_moment_an_app_opens_the_camera" }
+"test_vcam.py::test_windows_slots_need_their_numbered_registration" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::windows_slots_need_their_numbered_registration" }
+"test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::a_camera_no_app_has_opened_counts_as_unwatched" }
+"test_vcam.py::test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" }
 # ── version
 "test_version.py::test_a_source_checkout_is_dev_and_reads_the_version_file" = { status = "todo" }
 "test_version.py::test_a_stamped_build_reports_itself" = { status = "todo" }
@@ -4600,74 +4600,74 @@
 "test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "todo" }
 "test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "todo" }
 # ── webcam
-"test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "todo" }
-"test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "todo" }
-"test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" = { status = "todo" }
-"test_webcam_controls.py::test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" = { status = "todo" }
-"test_webcam_controls.py::test_auto_switches_are_applied_before_the_values_they_grey_out" = { status = "todo" }
-"test_webcam_controls.py::test_exposure_shows_as_a_shutter_speed" = { status = "todo" }
-"test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is" = { status = "todo" }
-"test_webcam_controls.py::test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" = { status = "todo" }
-"test_webcam_controls.py::test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" = { status = "todo" }
-"test_webcam_controls.py::test_saved_settings_that_arent_numbers_are_ignored" = { status = "todo" }
-"test_webcam_controls.py::test_setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" = { status = "todo" }
-"test_webcam_controls.py::test_the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" = { status = "todo" }
-"test_webcam_controls.py::test_v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" = { status = "todo" }
-"test_webcam_controls.py::test_values_are_kept_to_the_cameras_range_and_step" = { status = "todo" }
-"test_webcam_plugin.py::test_a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" = { status = "todo" }
-"test_webcam_plugin.py::test_a_busy_webcam_without_a_known_app_still_says_what_to_do" = { status = "todo" }
-"test_webcam_plugin.py::test_a_camera_that_lists_no_modes_gets_what_was_picked" = { status = "todo" }
-"test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found" = { status = "todo" }
-"test_webcam_plugin.py::test_a_renamed_webcam_is_offered_again_under_its_new_name" = { status = "todo" }
-"test_webcam_plugin.py::test_a_saved_size_the_camera_no_longer_offers_stays_shown" = { status = "todo" }
-"test_webcam_plugin.py::test_a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" = { status = "todo" }
-"test_webcam_plugin.py::test_a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" = { status = "todo" }
-"test_webcam_plugin.py::test_an_unplugged_webcam_leaves_once_its_stream_stops" = { status = "todo" }
-"test_webcam_plugin.py::test_bad_config_is_ignored" = { status = "todo" }
-"test_webcam_plugin.py::test_changing_a_streaming_webcams_settings_reopens_it" = { status = "todo" }
-"test_webcam_plugin.py::test_diagnostics_list_the_webcams_and_their_streams" = { status = "todo" }
-"test_webcam_plugin.py::test_settings_are_kept_per_camera_and_used_for_the_capture" = { status = "todo" }
-"test_webcam_plugin.py::test_start_on_a_webcam_unplugged_since_it_was_picked_says_so" = { status = "todo" }
-"test_webcam_plugin.py::test_the_card_offers_the_cameras_sizes_and_the_rates_at_each" = { status = "todo" }
-"test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked" = { status = "todo" }
-"test_webcam_plugin.py::test_the_source_reads_through_the_plugin" = { status = "todo" }
-"test_webcam_plugin.py::test_webcams_are_listed_by_name" = { status = "todo" }
+"test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_whose_settings_cant_be_reached_shows_none" }
+"test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_replugged_webcam_gets_a_fresh_handle_on_its_settings" }
+"test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains" }
+"test_webcam_controls.py::test_an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::an_opening_that_reads_like_the_last_one_still_puts_the_settings_back" }
+"test_webcam_controls.py::test_auto_switches_are_applied_before_the_values_they_grey_out" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::auto_switches_are_applied_before_the_values_they_grey_out" }
+"test_webcam_controls.py::test_exposure_shows_as_a_shutter_speed" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::exposure_shows_as_a_shutter_speed" }
+"test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::mains_frequency_comes_from_where_the_computer_is" }
+"test_webcam_controls.py::test_picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::picked_settings_are_kept_per_camera_and_put_back_when_it_opens_again" }
+"test_webcam_controls.py::test_reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::reset_puts_the_cameras_defaults_back_and_forgets_what_was_picked" }
+"test_webcam_controls.py::test_saved_settings_that_arent_numbers_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::saved_settings_that_arent_numbers_are_ignored" }
+"test_webcam_controls.py::test_setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::setting_auto_exposure_writes_the_cameras_own_auto_mode_or_manual" }
+"test_webcam_controls.py::test_the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_shows_only_what_the_camera_offers_and_greys_manual_ones_under_auto" }
+"test_webcam_controls.py::test_v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::v4l2_controls_are_read_under_our_names_and_auto_exposure_is_a_switch" }
+"test_webcam_controls.py::test_values_are_kept_to_the_cameras_range_and_step" = { status = "ported", rust = "rust/crates/outputs/src/webcam_controls.rs::values_are_kept_to_the_cameras_range_and_step" }
+"test_webcam_plugin.py::test_a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens" }
+"test_webcam_plugin.py::test_a_busy_webcam_without_a_known_app_still_says_what_to_do" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_busy_webcam_without_a_known_app_still_says_what_to_do" }
+"test_webcam_plugin.py::test_a_camera_that_lists_no_modes_gets_what_was_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_that_lists_no_modes_gets_what_was_picked" }
+"test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_failing_scan_keeps_what_was_found" }
+"test_webcam_plugin.py::test_a_renamed_webcam_is_offered_again_under_its_new_name" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_renamed_webcam_is_offered_again_under_its_new_name" }
+"test_webcam_plugin.py::test_a_saved_size_the_camera_no_longer_offers_stays_shown" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_saved_size_the_camera_no_longer_offers_stays_shown" }
+"test_webcam_plugin.py::test_a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_streaming_webcam_that_is_unplugged_waits_for_it_and_carries_on" }
+"test_webcam_plugin.py::test_a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves" }
+"test_webcam_plugin.py::test_an_unplugged_webcam_leaves_once_its_stream_stops" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::an_unplugged_webcam_leaves_once_its_stream_stops" }
+"test_webcam_plugin.py::test_bad_config_is_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::bad_config_is_ignored" }
+"test_webcam_plugin.py::test_changing_a_streaming_webcams_settings_reopens_it" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::changing_a_streaming_webcams_settings_reopens_it" }
+"test_webcam_plugin.py::test_diagnostics_list_the_webcams_and_their_streams" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::diagnostics_list_the_webcams_and_their_streams" }
+"test_webcam_plugin.py::test_settings_are_kept_per_camera_and_used_for_the_capture" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::settings_are_kept_per_camera_and_used_for_the_capture" }
+"test_webcam_plugin.py::test_start_on_a_webcam_unplugged_since_it_was_picked_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::start_on_a_webcam_unplugged_since_it_was_picked_says_so" }
+"test_webcam_plugin.py::test_the_card_offers_the_cameras_sizes_and_the_rates_at_each" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_offers_the_cameras_sizes_and_the_rates_at_each" }
+"test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_card_shows_only_while_a_webcam_is_picked" }
+"test_webcam_plugin.py::test_the_source_reads_through_the_plugin" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin" }
+"test_webcam_plugin.py::test_webcams_are_listed_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::webcams_are_listed_by_name" }
 # ── webcams
-"test_webcams.py::test_a_card_name_with_its_cut_off_repeat_is_tidied" = { status = "todo" }
-"test_webcams.py::test_a_choice_describes_itself" = { status = "todo" }
-"test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again" = { status = "todo" }
-"test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced" = { status = "todo" }
-"test_webcams.py::test_a_node_that_cant_be_opened_is_tried_again" = { status = "todo" }
-"test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size" = { status = "todo" }
-"test_webcams.py::test_a_size_the_camera_lacks_takes_the_next_bigger_one" = { status = "todo" }
-"test_webcams.py::test_a_webcam_another_program_holds_says_which" = { status = "todo" }
-"test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy" = { status = "todo" }
-"test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so" = { status = "todo" }
-"test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in" = { status = "todo" }
-"test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" = { status = "todo" }
-"test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" = { status = "todo" }
-"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "todo" }
-"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "todo" }
-"test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "todo" }
-"test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "todo" }
-"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "todo" }
-"test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up" = { status = "todo" }
-"test_webcams.py::test_modes_are_read_from_the_driver" = { status = "todo" }
-"test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" = { status = "todo" }
-"test_webcams.py::test_rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" = { status = "todo" }
-"test_webcams.py::test_raw_is_used_where_it_keeps_the_frame_rate" = { status = "todo" }
-"test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest" = { status = "todo" }
-"test_webcams.py::test_sizes_and_rates_for_the_card" = { status = "todo" }
-"test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual" = { status = "todo" }
-"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "todo" }
-"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "todo" }
-"test_webcams.py::test_two_cameras_of_one_model_are_numbered" = { status = "todo" }
-"test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so" = { status = "todo" }
-"test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" = { status = "todo" }
-"test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "todo" }
-"test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "todo" }
-"test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "todo" }
-"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo" }
+"test_webcams.py::test_a_card_name_with_its_cut_off_repeat_is_tidied" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_card_name_with_its_cut_off_repeat_is_tidied" }
+"test_webcams.py::test_a_choice_describes_itself" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_choice_describes_itself" }
+"test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_key_that_fell_back_to_the_node_is_looked_up_again" }
+"test_webcams.py::test_a_node_is_only_opened_again_once_it_was_replaced" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_node_is_only_opened_again_once_it_was_replaced" }
+"test_webcams.py::test_a_node_that_cant_be_opened_is_tried_again" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_node_that_cant_be_opened_is_tried_again" }
+"test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_raw_frame_counts_what_crossed_the_cable" }
+"test_webcams.py::test_a_size_the_camera_lacks_takes_the_next_bigger_one" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::a_size_the_camera_lacks_takes_the_next_bigger_one" }
+"test_webcams.py::test_a_webcam_another_program_holds_says_which" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_webcam_another_program_holds_says_which" }
+"test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_webcam_that_wont_open_counts_as_busy" }
+"test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::an_open_webcam_that_sends_nothing_says_so" }
+"test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::an_unplugged_webcam_waits_to_be_plugged_back_in" }
+"test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" }
+"test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" }
+"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "todo", note = "" }
+"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "todo", note = "" }
+"test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::formats_we_cant_read_are_ignored" }
+"test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::identical_webcams_without_a_serial_are_told_apart_by_their_port" }
+"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own" }
+"test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::mjpeg_is_used_where_raw_cant_keep_up" }
+"test_webcams.py::test_modes_are_read_from_the_driver" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::modes_are_read_from_the_driver" }
+"test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" }
+"test_webcams.py::test_rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::rates_close_to_the_wanted_one_count_and_the_next_faster_is_asked_for" }
+"test_webcams.py::test_raw_is_used_where_it_keeps_the_frame_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::raw_is_used_where_it_keeps_the_frame_rate" }
+"test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::scanning_lists_capture_nodes_and_skips_the_rest" }
+"test_webcams.py::test_sizes_and_rates_for_the_card" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::sizes_and_rates_for_the_card" }
+"test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::telescopes_own_and_loopback_cameras_are_virtual" }
+"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin" }
+"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::the_reader_hands_out_the_frame_it_checked_first" }
+"test_webcams.py::test_two_cameras_of_one_model_are_numbered" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::two_cameras_of_one_model_are_numbered" }
+"test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::unplugging_mid_stream_drops_the_stream_and_says_so" }
+"test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" }
+"test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::v4l2_structs_match_the_kernel" }
+"test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::virtual_cameras_are_told_apart_by_name" }
+"test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
+"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo", note = "" }
 # ── widgets
 "test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "todo" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "todo" }
@@ -5629,11 +5629,11 @@
 "global.startup.stop_delay_s" = { status = "todo" }
 "global.startup.stop_idle" = { status = "todo" }
 # ── stream_output
-"device.stream_output.bitrate_mbps" = { status = "todo" }
-"device.stream_output.format" = { status = "todo" }
-"device.stream_output.fps" = { status = "todo" }
-"device.stream_output.jpeg_quality" = { status = "todo" }
-"device.stream_output.resolution" = { status = "todo" }
+"device.stream_output.bitrate_mbps" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::get_config" }
+"device.stream_output.format" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::get_config" }
+"device.stream_output.fps" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::get_config" }
+"device.stream_output.jpeg_quality" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::get_config" }
+"device.stream_output.resolution" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::get_config" }
 # ── transforms
 "device.transforms.flip_h" = { status = "todo" }
 "device.transforms.flip_v" = { status = "todo" }
@@ -5653,7 +5653,7 @@
 "global.wait_screen.last_size" = { status = "todo" }
 "global.wait_screen.mirror" = { status = "todo" }
 # ── webcam
-"global.webcam.cameras" = { status = "todo" }
+"global.webcam.cameras" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs::get_config", note = "keys come out sorted, Python keeps the order they were added" }
 
 [config]
 # top-level fields of telescope_config.json
@@ -5764,12 +5764,12 @@
 "streaming.start_stop" = { status = "todo" }
 "window.show_hide" = { status = "todo" }
 # ── stream_output
-"stream.aspect_ratio" = { status = "todo" }
-"stream.bitrate" = { status = "todo" }
-"stream.format" = { status = "todo" }
-"stream.fps" = { status = "todo" }
-"stream.quality" = { status = "todo" }
-"stream.resolution" = { status = "todo" }
+"stream.aspect_ratio" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
+"stream.bitrate" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
+"stream.format" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
+"stream.fps" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
+"stream.quality" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
+"stream.resolution" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
 # ── transforms
 "transforms.flip_horizontal" = { status = "todo" }
 "transforms.flip_vertical" = { status = "todo" }
@@ -6087,10 +6087,10 @@
 "run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "todo" }
 "run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "todo" }
 # ── vcam
-"path:/dev/" = { status = "todo" }
-"path:/proc/" = { status = "todo" }
-"path:/sys/class/video4linux/" = { status = "todo" }
-"path:/sys/class/video4linux/video*/name" = { status = "todo" }
+"path:/dev/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs" }
+"path:/proc/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::camera_holders" }
+"path:/sys/class/video4linux/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::locked_size_in" }
+"path:/sys/class/video4linux/video*/name" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::find_by_label_in" }
 # ── vision_pack
 "folder:telescope/vision_pack.py:_unpack:shutil.rmtree" = { status = "todo" }
 "folder:telescope/vision_pack.py:default_dir:Path.home" = { status = "todo" }
@@ -6099,10 +6099,10 @@
 # ── wait_screen
 "folder:telescope/plugins/wait_screen.py:_choose:Path.home" = { status = "todo" }
 # ── webcams
-"path:/dev/v4l/by-id" = { status = "todo" }
-"path:/dev/v4l/by-path" = { status = "todo" }
-"path:/sys/class/video4linux" = { status = "todo" }
-"path:/sys/devices" = { status = "todo" }
+"path:/dev/v4l/by-id" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::stable_keys" }
+"path:/dev/v4l/by-path" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::stable_keys" }
+"path:/sys/class/video4linux" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::SYSFS" }
+"path:/sys/devices" = { status = "ported", rust = "rust/crates/outputs/src/webcams.rs::usb_key" }
 # ── widgets
 "folder:telescope/widgets/plugin_updater.py:_on_done:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
 "folder:telescope/widgets/plugin_updater.py:_run:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }

@@ -1,0 +1,156 @@
+// The Stream output card (desktop/telescope/plugins/stream_output.py): resolution, frame rate and shape as three
+// tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
+
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, TipBody } from "@ui-kit/ui-kit.slint";
+
+// One of the two format buttons (widgets.controls.OptionCard): a title, a plain note and an icon.
+component OptionCard inherits Rectangle {
+    in property <string> title;
+    in property <string> note;
+    in property <image> icon;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <color> hue: Theme.accent;
+    callback clicked;
+    horizontal-stretch: 1;
+    min-height: 54px;
+    border-radius: 9px;
+    border-width: 1px;
+    background: checked ? hue.with-alpha(0.12) : touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
+    border-color: checked ? hue : touch.has-hover && enabled ? Theme.border-hover : Theme.border-strong;
+    opacity: enabled ? 1 : 0.5;
+    accessible-role: button;
+    accessible-label: title;
+    accessible-description: note;
+    accessible-checked: checked;
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
+        Icon { source: icon; tint: checked ? hue : Theme.text-dim; width: 16px; height: 16px; y: (parent.height - self.height) / 2; }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text { text: title; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: checked ? hue : Theme.text; }
+            Text { text: note; font-family: Theme.font; font-size: 11px; color: Theme.text-dim; }
+        }
+    }
+    if tip != "" && touch.has-hover: TipBody { says: tip; x: 0; y: parent.height + 4px; }
+}
+
+export component StreamOutputCard inherits Card {
+    in property <[string]> res-items: ["—"];
+    in-out property <int> res-current;
+    in property <bool> res-enabled;
+    in property <[string]> fps-items;
+    in-out property <int> fps-current;
+    in property <string> fps-tip;
+    in property <[string]> ar-items: ["—"];
+    in-out property <int> ar-current;
+    in property <bool> ar-enabled;
+    in property <bool> h264: true;
+    in property <bool> h264-enabled: true;
+    in property <string> light-tip;
+    in property <string> heavy-tip;
+    in-out property <float> quality: 85;
+    in property <string> quality-readout;
+    in property <string> quality-tip;
+    in-out property <float> bitrate: 0;
+    in property <string> bitrate-readout;
+    in property <string> bitrate-tip;
+    callback res-picked(int);
+    callback fps-picked(int);
+    callback ar-picked(int);
+    callback format-picked(bool);
+    callback quality-moved(float);
+    callback bitrate-moved(float);
+
+    title: @tr("Stream output");
+    icon: Icons.v-stream;
+
+    HorizontalLayout {
+        spacing: 8px;
+        ChoiceField {
+            horizontal-stretch: 3;
+            caption: @tr("Resolution");
+            items: root.res-items;
+            current <=> root.res-current;
+            enabled: root.res-enabled;
+            picked(i) => { root.res-picked(i); }
+        }
+        ChoiceField {
+            horizontal-stretch: 2;
+            caption: @tr("Frame rate");
+            items: root.fps-items;
+            current <=> root.fps-current;
+            accessible-description: root.fps-tip;
+            picked(i) => { root.fps-picked(i); }
+        }
+        ChoiceField {
+            horizontal-stretch: 2;
+            caption: @tr("Shape");
+            items: root.ar-items;
+            current <=> root.ar-current;
+            enabled: root.ar-enabled;
+            picked(i) => { root.ar-picked(i); }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        OptionCard {
+            title: @tr("Light");
+            note: @tr("Good for most calls");
+            icon: Icons.bolt;
+            hue: root.hue;
+            checked: root.h264;
+            enabled: root.h264-enabled;
+            tip: root.light-tip;
+            clicked => { root.format-picked(true); }
+        }
+        OptionCard {
+            title: @tr("Heavy");
+            note: @tr("Sharper, more data");
+            icon: Icons.heavy;
+            hue: root.hue;
+            checked: !root.h264;
+            tip: root.heavy-tip;
+            clicked => { root.format-picked(false); }
+        }
+    }
+    FormRow {
+        label: @tr("JPEG quality");
+        visible: !root.h264;
+        height: root.h264 ? 0 : self.preferred-height;
+        Slider {
+            horizontal-stretch: 1;
+            minimum: 1;
+            maximum: 95;
+            value <=> root.quality;
+            readout: root.quality-readout;
+            label: @tr("JPEG quality");
+            hue: root.hue;
+            moved(v) => { root.quality-moved(v); }
+        }
+    }
+    FormRow {
+        label: @tr("Bitrate");
+        visible: root.h264;
+        height: root.h264 ? self.preferred-height : 0;
+        Slider {
+            horizontal-stretch: 1;
+            minimum: 0;
+            maximum: 101;
+            value <=> root.bitrate;
+            readout: root.bitrate-readout;
+            label: @tr("Bitrate");
+            hue: root.hue;
+            moved(v) => { root.bitrate-moved(v); }
+        }
+    }
+}
