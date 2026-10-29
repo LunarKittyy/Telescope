@@ -50,7 +50,8 @@ Today it draws `main-*`, Connection's card states (but the two that need Windows
 3. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
 4. Run `scenes.py OUT <id>`, look at it next to the Qt one in the review page and fix what differs in your card.
 5. Once it matches, `scenes.py OUT <id> --mark` marks it `ported` in `rust/parity/ledger.toml`. From then on `compare_scenes.py --reduced` fails if it drifts.
-6. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
+6. A card on its own (Qt's card scenes, a plugin's panel 480 px wide with 16 px around it): `Page::Card { plugin }` with `CARD_WIDTH`. The window hides every other card and the card is cut out with its margin. `mic-off` is the example.
+7. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
 
 ### Slint traps for card sessions
 

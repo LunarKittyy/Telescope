@@ -463,6 +463,26 @@ impl Window {
         }
     }
 
+    /// Hides every card but plugin's, so it alone sits at the top of its column; false when the plugin has no card.
+    pub fn only_card(&self, plugin: &str) -> bool {
+        let mut found = false;
+        for r in self.pieces.iter().filter(|r| r.ui == "card") {
+            found |= r.plugin == plugin;
+            if r.plugin != plugin {
+                let _ = self.ui.set_property(&format!("{}-visible", r.id), SValue::Bool(false));
+            }
+        }
+        found
+    }
+
+    /// Where plugin's card is in the window, in logical pixels: (x, y, width, height).
+    pub fn card_rect(&self, plugin: &str) -> Option<(f32, f32, f32, f32)> {
+        let r = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == "card")?;
+        let e = i_slint_backend_testing::ElementHandle::find_by_element_id(&self.ui, &format!("TelescopeWindow::{}", r.id)).next()?;
+        let (pos, size) = (e.absolute_position(), e.size());
+        Some((pos.x, pos.y, size.width, size.height))
+    }
+
     /// Runs a callback of a plugin's card or header widget as if it had been clicked (scene renders open dialogs this way).
     pub fn call_ui(self: &Rc<Self>, plugin: &str, ui: &str, callback: &str) -> bool {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
