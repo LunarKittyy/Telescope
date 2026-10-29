@@ -10,6 +10,7 @@ pub mod shortcuts;
 pub mod single_instance;
 #[cfg(target_os = "linux")]
 pub mod tray;
+pub mod tray_windows;
 #[cfg(all(test, target_os = "linux"))]
 mod test_bus;
 pub mod update_guard;
@@ -37,6 +38,16 @@ pub fn open_url(url: &str) {
 }
 
 /// This computer's desktop.
+/// This desktop's tray icon: StatusNotifierItem on Linux, the notification area on Windows; None where neither shows.
+pub fn system_tray() -> Option<Box<dyn telescope_core::system::Tray>> {
+    #[cfg(target_os = "linux")]
+    return tray::SniTray::new().map(|t| Box::new(t) as Box<dyn telescope_core::system::Tray>);
+    #[cfg(windows)]
+    return tray_windows::WindowsTray::new().map(|t| Box::new(t) as Box<dyn telescope_core::system::Tray>);
+    #[cfg(not(any(target_os = "linux", windows)))]
+    None
+}
+
 #[derive(Default)]
 pub struct Desktop;
 
@@ -63,7 +74,11 @@ impl Notifier for Desktop {
             }
             return;
         }
-        // Windows shows it as a tray balloon, which needs the tray
+        // Windows shows it as the tray icon's balloon, which needs the tray
+        #[cfg(windows)]
+        if tray_windows::balloon(title, body, urgent) {
+            return;
+        }
         log::info!("Notification: {title}: {body}");
     }
 }

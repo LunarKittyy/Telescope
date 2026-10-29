@@ -51,7 +51,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
-        tray: if tray { telescope_system::tray::SniTray::new().map(|t| std::sync::Mutex::new(Box::new(t) as Box<dyn telescope_core::system::Tray>)) } else { None },
+        tray: if tray { telescope_system::system_tray().map(std::sync::Mutex::new) } else { None },
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 Box::new(connection.connection_plugin()),
