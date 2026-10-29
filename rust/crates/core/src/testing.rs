@@ -464,3 +464,67 @@ impl FakeHost {
         std::mem::take(&mut *self.posted.lock().unwrap())
     }
 }
+
+/// One server a FakeWeb was asked to start.
+pub struct FakeServed {
+    pub serve: crate::web::Serve,
+    pub handler: Arc<dyn crate::web::PageHandler>,
+    pub stats: Arc<crate::web::ServerStats>,
+    /// How many times it was stopped.
+    pub stopped: Arc<AtomicU64>,
+}
+
+struct FakeServer {
+    stats: Arc<crate::web::ServerStats>,
+    stopped: Arc<AtomicU64>,
+}
+
+impl crate::web::WebServer for FakeServer {
+    fn port(&self) -> u16 {
+        self.stats.port
+    }
+    fn stats(&self) -> Arc<crate::web::ServerStats> {
+        self.stats.clone()
+    }
+    fn stop(&self) {
+        self.stopped.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+/// A Web that opens nothing: it hands out the addresses it's given and keeps what was served, for tests of what a plugin
+/// serves.
+#[derive(Default)]
+pub struct FakeWeb {
+    pub addresses: Mutex<Vec<String>>,
+    /// Why certificate() fails, instead of answering.
+    pub certificate_error: Mutex<Option<String>>,
+    /// Why serve() fails, instead of starting.
+    pub serve_error: Mutex<Option<String>>,
+    /// Every folder and set of hosts a certificate was asked for.
+    pub certificates: Mutex<Vec<(PathBuf, Vec<String>)>>,
+    pub served: Mutex<Vec<FakeServed>>,
+}
+
+impl crate::web::Web for FakeWeb {
+    fn addresses(&self) -> Vec<String> {
+        self.addresses.lock().unwrap().clone()
+    }
+    fn certificate(&self, folder: &std::path::Path, hosts: &[String]) -> Result<crate::web::Certificate, String> {
+        self.certificates.lock().unwrap().push((folder.to_path_buf(), hosts.to_vec()));
+        match self.certificate_error.lock().unwrap().clone() {
+            Some(why) => Err(why),
+            None => Ok(crate::web::Certificate { cert: folder.join("cert.pem"), key: folder.join("key.pem") }),
+        }
+    }
+    fn serve(&self, _certificate: &crate::web::Certificate, serve: &crate::web::Serve, handler: Arc<dyn crate::web::PageHandler>)
+        -> Result<Box<dyn crate::web::WebServer>, String> {
+        if let Some(why) = self.serve_error.lock().unwrap().clone() {
+            return Err(why);
+        }
+        let port = if serve.port == 0 { 8768 } else { serve.port };
+        let stats = Arc::new(crate::web::ServerStats::new(port, serve.port, false, &serve.label));
+        let stopped = Arc::new(AtomicU64::new(0));
+        self.served.lock().unwrap().push(FakeServed { serve: serve.clone(), handler, stats: stats.clone(), stopped: stopped.clone() });
+        Ok(Box::new(FakeServer { stats, stopped }))
+    }
+}
