@@ -91,6 +91,14 @@ pub fn create_backend(app_id: &str, signals: Signals) -> Option<Box<dyn HotkeyBa
         let connect = Box::new(zbus::blocking::Connection::session);
         return Some(Box::new(crate::hotkeys_portal::PortalHotkeys::new(app_id, signals, connect, Some(prepare))));
     }
-    let _ = (app_id, signals);
-    None
+    #[cfg(windows)]
+    {
+        let _ = app_id;
+        Some(Box::new(crate::hotkeys_windows::WindowsHotkeys::new(signals)))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app_id, signals);
+        None
+    }
 }

@@ -4,6 +4,7 @@ pub mod autostart;
 pub mod hotkeys;
 #[cfg(target_os = "linux")]
 pub mod hotkeys_portal;
+pub mod hotkeys_windows;
 pub mod keys;
 pub mod shortcuts;
 pub mod single_instance;

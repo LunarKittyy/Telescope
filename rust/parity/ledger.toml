@@ -942,7 +942,7 @@
 "{seconds} s" = { status = "todo" }
 # ── platform
 "Already persisted: {path}" = { status = "todo" }
-"Another app already uses this key" = { status = "todo" }
+"Another app already uses this key" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Bind a Copy command line in its own keyboard settings instead." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
 "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
@@ -966,8 +966,8 @@
 "Downloading adb {version} from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Downloading driver files..." = { status = "todo" }
 "Downloading {file}..." = { status = "todo" }
-"Everywhere" = { status = "todo" }
-"Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "todo" }
+"Everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
+"Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys::note" }
 "Everywhere: {keys}" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
 "Existing v4l2loopback config found in {paths} - remove it first" = { status = "todo" }
 "Failed to remove persistence files" = { status = "todo" }
@@ -1006,7 +1006,7 @@
 "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site." = { status = "todo" }
 "VB-Cable's setup changed after it was checked, so it wasn't opened." = { status = "todo" }
 "Waiting for you to confirm it" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status" }
-"Windows can't use this key everywhere" = { status = "todo" }
+"Windows can't use this key everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Windows didn't get permission to install VB-Cable." = { status = "todo" }
 "Windows refused to register the driver (regsvr32 failed)" = { status = "todo" }
 "Wrote {first} and {second}" = { status = "todo" }
@@ -2942,10 +2942,10 @@
 "test_hotkeys.py::test_to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::portal_triggers" }
 "test_hotkeys.py::test_to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
 "test_hotkeys.py::test_to_windows_asks_the_layout_for_punctuation" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
-"test_hotkeys.py::test_windows_backend_lets_go_while_suspended" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "todo" }
+"test_hotkeys.py::test_windows_backend_lets_go_while_suspended" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::lets_go_while_suspended" }
+"test_hotkeys.py::test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::masks_alt_so_the_app_in_front_shows_no_menu_keys" }
+"test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::presses_and_watches_for_the_release" }
+"test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::registers_and_reports" }
 # ── i18n
 "test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "todo" }
 "test_i18n.py::test_a_field_can_have_any_name" = { status = "todo" }
@@ -5973,7 +5973,7 @@
 "platform:hotkeys_portal.py:PortalHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::PortalHotkeys" }
 "platform:hotkeys_portal.py:portal_possible" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::portal_possible" }
 "platform:hotkeys_portal.py:to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_trigger" }
-"platform:hotkeys_windows.py:WindowsHotkeys" = { status = "todo" }
+"platform:hotkeys_windows.py:WindowsHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys" }
 "platform:hotkeys_windows.py:to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_windows" }
 "platform:linux.py:PrivResult" = { status = "todo" }
 "platform:linux.py:limit_malloc_arenas" = { status = "todo" }
