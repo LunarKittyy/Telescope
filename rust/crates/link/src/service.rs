@@ -367,6 +367,10 @@ impl PairingOffer for Offer {
     fn poll(&self) -> Option<PairedPhone> {
         self.paired.lock().unwrap().try_recv().ok().map(|r| r.phone())
     }
+
+    fn offer_to(&self, serial: &str, package: &str) -> bool {
+        Offer::offer_to(self, &Adb::system(), serial, package)
+    }
 }
 
 impl Drop for Offer {

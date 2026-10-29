@@ -19,3 +19,8 @@ if-addrs.workspace = true
 zip.workspace = true
 ureq = { workspace = true, features = ["platform-verifier"] }
 roxmltree.workspace = true
+qrcode.workspace = true
+
+[dev-dependencies]
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true
