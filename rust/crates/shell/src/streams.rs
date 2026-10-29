@@ -29,7 +29,8 @@ pub struct ShellWorker {
     live: Cell<bool>,
     /// The panels moved: its frame steps are taken again once the flow's call is through.
     steps_due: Cell<bool>,
-    owners: RefCell<Vec<String>>,
+    /// The plugins' packet step makers, shared with Streams: set_packets hands the tap those of the owners it's given.
+    makers: Rc<RefCell<crate::shell::PacketMakers>>,
 }
 
 impl Worker for ShellWorker {
@@ -38,10 +39,9 @@ impl Worker for ShellWorker {
         self.steps_due.set(true);
     }
     fn set_packets(&self, owners: &[String]) -> bool {
-        // No plugin changes packets yet (HostPackets isn't wired), so only the owners are kept.
-        let changed = *self.owners.borrow() != owners;
-        *self.owners.borrow_mut() = owners.to_vec();
-        changed && self.inner.tap().is_some_and(|t| t.on())
+        let Some(tap) = self.inner.tap() else { return false };
+        let makers = self.makers.borrow();
+        tap.set(owners.iter().filter_map(|o| makers.0.iter().find(|(m, _)| m == o).cloned()).collect())
     }
     fn parked(&self) -> bool {
         self.inner.parked()
@@ -65,6 +65,8 @@ pub struct Streams {
     next_worker: Cell<u64>,
     later: RefCell<Vec<Later>>,
     reconnecting: RefCell<Option<(slint::Timer, String, Cell<u32>)>>,
+    /// The packet steps plugins asked for, which go with the panels from stream to stream.
+    packet_makers: Rc<RefCell<crate::shell::PacketMakers>>,
 }
 
 impl Streams {
@@ -169,6 +171,7 @@ impl Window {
             st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
             st.streams.stopping_all = s.stopping_all;
             st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+            st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
             st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
                 .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name() }).collect();
             (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
@@ -281,6 +284,18 @@ impl Window {
         };
         if let Some(session) = source.and_then(|s| s.session()) {
             session.client.send(body);
+        }
+    }
+
+    /// host.change_packets: the makers as they are now, on the shown stream's tap.
+    pub fn change_packets(&self, makers: crate::shell::PacketMakers) {
+        let owners = makers.owners();
+        *self.streams.packet_makers.borrow_mut() = makers;
+        let focus = self.streams.flow.borrow().sessions.focus.clone();
+        let Some(source) = focus else { return };
+        let Some(worker) = source.session().and_then(|s| s.worker).and_then(|w| self.shell_worker(&w)) else { return };
+        if worker.set_packets(&owners) {
+            ask_keyframe(&source);
         }
     }
 
@@ -1001,7 +1016,7 @@ impl FlowHost for Host<'_> {
             .expect("a thread for the stream worker"));
         let steps = self.w.state.borrow_mut().pipeline_steps();
         inner.set_steps(steps);
-        let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), owners: RefCell::default() });
+        let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), makers: self.w.streams.packet_makers.clone() });
         self.w.streams.workers.borrow_mut().push(worker.clone());
         worker
     }
@@ -1013,12 +1028,17 @@ impl FlowHost for Host<'_> {
         std::thread::spawn(move || inner.stop());
     }
     fn packet_steps(&self) -> Vec<String> {
-        Vec::new()
+        self.w.streams.packet_makers.borrow().owners()
     }
     fn ask_keyframe(&mut self, source: &SourceRef) {
-        if let Some(session) = source.session() {
-            session.client.send(&serde_json::json!({"action": "keyframe"}));
-        }
+        ask_keyframe(source);
+    }
+}
+
+/// Steps came on or off source's H.264: a keyframe gives a new one a start and brings back a picture they broke.
+fn ask_keyframe(source: &SourceRef) {
+    if let Some(session) = source.session().filter(|s| s.url.ends_with(".h264") || s.url.ends_with(".udp")) {
+        session.client.send(&serde_json::json!({"action": "keyframe"}));
     }
 }
 

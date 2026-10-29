@@ -33,6 +33,28 @@ pub struct Slot {
     pub defaults: Value,
 }
 
+/// The plugins' packet step makers by owner, in the order they came on (HostPackets).
+#[derive(Clone, Default)]
+pub struct PacketMakers(pub Vec<(String, Arc<dyn telescope_core::host::PacketStepFactory>)>);
+
+impl PacketMakers {
+    pub fn owners(&self) -> Vec<String> {
+        self.0.iter().map(|(o, _)| o.clone()).collect()
+    }
+}
+
+impl std::fmt::Debug for PacketMakers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PacketMakers({:?})", self.owners())
+    }
+}
+
+impl PartialEq for PacketMakers {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len() && self.0.iter().zip(&other.0).all(|(a, b)| a.0 == b.0 && Arc::ptr_eq(&a.1, &b.1))
+    }
+}
+
 /// Something a plugin asked for that the window (or the stream flow) carries out once the hook returns.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
@@ -48,6 +70,8 @@ pub enum Effect {
     Reconnect,
     PhoneControl { source_id: Option<String>, body: Value },
     RequestPhoneState { source_id: Option<String> },
+    /// The packet steps the shown stream's H.264 goes through now, after one plugin's change_packets.
+    Packets(PacketMakers),
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
     /// Host::update_stream_output: a new size or rate for a stream's camera (the focused one's without an id).
@@ -99,6 +123,8 @@ pub struct Streams {
     pub can_hand_over: Vec<String>,
     /// The streams the panels don't show (Sessions.background), for host.background_streams.
     pub background: Vec<telescope_core::host::BackgroundStream>,
+    /// The shown stream's URL, for host.packets_problem.
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -168,6 +194,7 @@ pub struct State {
     pub file: ConfigFile,
     pub bus: EventBus,
     pub effects: Vec<Effect>,
+    pub packet_makers: PacketMakers,
     /// The picked source (Connection's selected_device), whose device profile the panels show.
     pub selected: Option<String>,
     pub streams: Streams,
@@ -220,6 +247,7 @@ impl State {
             file,
             bus: EventBus::new(),
             effects: Vec::new(),
+            packet_makers: PacketMakers::default(),
             selected: None,
             streams: Streams::default(),
             view: View::default(),

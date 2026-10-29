@@ -409,9 +409,25 @@ impl HostSensors for Ctx<'_> {
 
 impl HostPackets for Ctx<'_> {
     fn packets_problem(&self) -> String {
-        String::new()
+        let heavy = match &self.state.streams.url {
+            Some(url) => url.ends_with(".mjpeg"),
+            None => self.state.plugin_config("stream_output").is_some_and(|c| c["format"] == "mjpeg"),
+        };
+        if heavy { telescope_core::i18n::tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with.") } else { String::new() }
     }
-    fn change_packets(&mut self, _owner: &str, _factory: Option<Arc<dyn PacketStepFactory>>) {}
+    /// Each change reaches the stream on its own, so taking a step off and on again gives it a fresh one.
+    fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {
+        let makers = &mut self.state.packet_makers.0;
+        match (makers.iter().position(|(o, _)| o == owner), factory) {
+            (Some(i), Some(f)) => makers[i].1 = f,
+            (None, Some(f)) => makers.push((owner.to_string(), f)),
+            (Some(i), None) => {
+                makers.remove(i);
+            }
+            (None, None) => {}
+        }
+        self.state.effects.push(Effect::Packets(self.state.packet_makers.clone()));
+    }
 }
 
 impl Host for Ctx<'_> {

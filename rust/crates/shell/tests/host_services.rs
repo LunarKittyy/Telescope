@@ -189,3 +189,34 @@ fn notes_ask_the_window_for_the_phones_state_while_theyre_sent() {
     st.deliver_to("notes", &Event::TimerFired { owner: "notes".into(), token: "first-poll".into() });
     assert!(st.effects.contains(&Effect::RequestPhoneState { source_id: Some("phone".into()) }), "{:?}", st.effects);
 }
+
+fn packet_owners(st: &State) -> Vec<Vec<String>> {
+    st.effects.iter().filter_map(|e| if let Effect::Packets(m) = e { Some(m.owners()) } else { None }).collect()
+}
+
+#[test]
+fn datamosh_puts_its_packet_step_on_the_stream_and_says_why_on_heavy() {
+    use telescope_effects::fun_pack::{FunPackPlugin, EFFECTS};
+    let mut st = state("host-packets", vec![Box::new(FunPackPlugin::new())]);
+    start(&mut st);
+    st.streams.url = Some("http://phone/v1/video.h264".into());
+    st.effects.clear();
+    let mosh = EFFECTS.iter().position(|(k, _)| *k == "mosh").unwrap();
+    st.ui_event("fun_pack", UiEvent { ui: "card".into(), callback: "effect-picked".into(), args: vec![json!(mosh)] });
+    assert_eq!(packet_owners(&st), [vec!["fun_pack".to_string()]]);
+    // Clean up takes the step off and puts a fresh one on, each reaching the stream
+    st.effects.clear();
+    st.ui_event("fun_pack", UiEvent { ui: "card".into(), callback: "clean-clicked".into(), args: vec![] });
+    assert_eq!(packet_owners(&st), [vec![], vec!["fun_pack".to_string()]]);
+    st.ui_event("fun_pack", UiEvent { ui: "card".into(), callback: "effect-picked".into(), args: vec![json!(0)] });
+    assert!(st.packet_makers.0.is_empty());
+
+    // Heavy sends whole pictures
+    st.streams.url = Some("http://phone/v1/video.mjpeg".into());
+    st.effects.clear();
+    st.ui_event("fun_pack", UiEvent { ui: "card".into(), callback: "effect-picked".into(), args: vec![json!(mosh)] });
+    assert!(packet_owners(&st).is_empty());
+    let i = st.index("fun_pack").unwrap();
+    let problem = st.call(i, |_, host| telescope_core::host::HostPackets::packets_problem(host)).unwrap();
+    assert!(problem.starts_with("Needs Light"), "{problem}");
+}

@@ -638,6 +638,7 @@ impl Window {
             }
             Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
             Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
+            Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),
             Effect::Tray(_) => self.refresh_tray_menu(),
             Effect::ToggleWindow => self.toggle_window(),
