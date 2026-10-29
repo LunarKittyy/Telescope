@@ -56,7 +56,8 @@ struct AddPhone {
     last_offer: HashMap<String, Instant>,
     /// Paired: the phone's name.
     paired: Option<String>,
-    downloading: bool,
+    /// Get adb was pressed: the licence question shows until they agree.
+    confirming: bool,
 }
 
 /// A phone that paired with a new id but may be an earlier one again, waiting for the person to say.
@@ -90,6 +91,8 @@ pub struct ConnectionPlugin {
     stale: bool,
     adb_available: bool,
     apk_bundled: bool,
+    /// Kept across closing Add phone, so a download under way isn't started twice.
+    downloader: adb_download::AdbDownloader,
 }
 
 impl ConnectionPlugin {
@@ -97,8 +100,14 @@ impl ConnectionPlugin {
         ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
             updating_phone: false, update_note: None, add: None, phones_open: false, same_phone: None, picker_ids: Vec::new(),
-            stale: true, adb_available: false, apk_bundled: false,
+            stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
         }
+    }
+
+    /// With another way to get adb (tests).
+    pub fn with_downloader(mut self, downloader: adb_download::AdbDownloader) -> ConnectionPlugin {
+        self.downloader = downloader;
+        self
     }
 
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
@@ -389,7 +398,7 @@ impl ConnectionPlugin {
         let mut add = AddPhone {
             offer: None, qr: (Vec::new(), 0), wifi_text: String::new(), usb_text: String::new(), usb_kind: "status_dim",
             usb_action: String::new(), usb_states: Vec::new(), chosen: None, last_offer: HashMap::new(), paired: None,
-            downloading: false,
+            confirming: false,
         };
         match self.link.pair(&cid, &cname) {
             Ok(offer) => {
@@ -418,7 +427,8 @@ impl ConnectionPlugin {
         self.adb_available = adb;
         let Some(add) = self.add.as_mut() else { return };
         add.usb_action.clear();
-        if add.downloading {
+        if self.downloader.running() {
+            // Reopened mid-download: its progress shows on the next step
             add.usb_text = tr("Getting adb from Google…");
         } else if adb {
             add.usb_text = tr("Or plug the phone in with a USB cable to pair it over USB.");
@@ -512,39 +522,52 @@ impl ConnectionPlugin {
 
     fn get_adb(&mut self, host: &mut dyn Host) {
         let Some(add) = self.add.as_mut() else { return };
-        if add.downloading {
+        if self.downloader.running() {
             return;
         }
-        add.downloading = true;
+        if !add.confirming {
+            // confirm(): Google's software, so their licence applies
+            add.confirming = true;
+            add.usb_text = format!("{} {}", tr("USB needs adb, Google's tool for talking to Android phones."),
+                                   tr("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: {url}")
+                                       .replace("{size}", adb_download::APPROX_SIZE).replace("{url}", adb_download::LICENSE_URL));
+            add.usb_kind = "status_dim";
+            add.usb_action = tr("Agree and download");
+            self.render_add(host, true);
+            return;
+        }
+        add.confirming = false;
         add.usb_action.clear();
         add.usb_text = tr("Getting adb from Google…");
-        let poster = self.poster.clone();
-        self.spawn(P_ADB, move || {
-            let say = |msg: &str| {
-                if let Some(p) = &poster {
-                    p.post(P_ADB_PROGRESS, json!(msg));
-                }
-            };
-            match adb_download::download_adb(&adb_download::Web, None, &say) {
-                Ok(_) => json!({"ok": true}),
-                Err(detail) => json!({"ok": false, "detail": detail}),
+        let (progress_poster, done_poster) = (self.poster.clone(), self.poster.clone());
+        self.downloader.start(None, Box::new(move |msg| {
+            if let Some(p) = &progress_poster {
+                p.post(P_ADB_PROGRESS, json!(msg));
             }
-        });
+        }), Box::new(move |result| {
+            if let Some(p) = &done_poster {
+                p.post(P_ADB, match result {
+                    Ok(_) => json!({"ok": true}),
+                    Err(detail) => json!({"ok": false, "detail": detail}),
+                });
+            }
+        }));
         self.render_add(host, true);
     }
 
     fn on_adb(&mut self, host: &mut dyn Host, data: &Value) {
+        // Closed meanwhile: opening it again starts USB if adb is there
         let Some(add) = self.add.as_mut() else { return };
-        add.downloading = false;
-        if add.paired.is_some() {
+        if add.paired.is_some() || add.offer.is_none() {
             return;
         }
         if data["ok"].as_bool() == Some(true) {
             self.start_usb(host);
-        } else {
+        } else if let Some(add) = self.add.as_mut() {
             add.usb_text = data["detail"].as_str().unwrap_or_default().to_string();
             add.usb_kind = "status_err";
             add.usb_action = tr("Try again");
+            add.confirming = true; // they agreed already
         }
         self.render_add(host, true);
     }
@@ -1941,12 +1964,80 @@ mod tests {
         let mut e = env();
         *e.link.adb.lock().unwrap() = false;
         e.ui("card", "add-phone", vec![]);
-        e.plugin.add.as_mut().unwrap().downloading = true;
         e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_ADB.into(),
                                                          data: json!({"ok": false, "detail": "Couldn't reach Google."}) });
         assert_eq!(e.props("card")["usb-text"], "Couldn't reach Google.");
         assert_eq!(e.props("card")["usb-kind"], "status_err");
         assert_eq!(e.props("card")["usb-action"], "Try again");
+    }
+
+    fn held_downloader() -> (adb_download::AdbDownloader, std::sync::mpsc::Sender<()>) {
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let rx = Mutex::new(rx);
+        let downloader = adb_download::AdbDownloader::new(Arc::new(move |_say| {
+            rx.lock().unwrap().recv_timeout(Duration::from_secs(5)).ok();
+            Ok("37.0.1".into())
+        }));
+        (downloader, tx)
+    }
+
+    #[test]
+    fn on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb() {
+        let link = FakeLink::new();
+        *link.adb.lock().unwrap() = false;
+        let shared = Shared::new(Arc::new(NoTunnels));
+        let (downloader, release) = held_downloader();
+        let mut e = Env { plugin: ConnectionPlugin::new(link.clone(), shared.clone()).with_downloader(downloader), host: FakeHost::new(), link, shared };
+        e.plugin.setup(&mut e.host);
+        e.ui("card", "add-phone", vec![]);
+        e.ui("card", "usb-action-clicked", vec![]);
+        assert_eq!(e.props("card")["usb-action"], "Agree and download");
+        assert!(e.props("card")["usb-text"].as_str().unwrap().contains("Android SDK License"));
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "usb-action-clicked".into(), args: vec![] });
+        assert_eq!(e.props("card")["usb-text"], "Getting adb from Google…");
+        *e.link.adb.lock().unwrap() = true;
+        release.send(()).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert!(e.host.is_scheduled(T_PAIR_USB));
+        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
+    }
+
+    #[test]
+    fn reopened_mid_download_it_says_so_instead_of_offering_it_again() {
+        let link = FakeLink::new();
+        *link.adb.lock().unwrap() = false;
+        let shared = Shared::new(Arc::new(NoTunnels));
+        let (downloader, release) = held_downloader();
+        let mut e = Env { plugin: ConnectionPlugin::new(link.clone(), shared.clone()).with_downloader(downloader), host: FakeHost::new(), link, shared };
+        e.plugin.setup(&mut e.host);
+        e.ui("card", "add-phone", vec![]);
+        e.ui("card", "usb-action-clicked", vec![]);
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "usb-action-clicked".into(), args: vec![] });
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "add-closed".into(), args: vec![] });
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "add-phone".into(), args: vec![] });
+        assert_eq!(e.props("card")["usb-text"], "Getting adb from Google…");
+        assert_eq!(e.props("card")["usb-action"], "");
+        release.send(()).unwrap();
+    }
+
+    #[test]
+    fn an_adb_download_that_ends_after_closing_doesn_t_poll_usb() {
+        let link = FakeLink::new();
+        *link.adb.lock().unwrap() = false;
+        let shared = Shared::new(Arc::new(NoTunnels));
+        let (downloader, release) = held_downloader();
+        let mut e = Env { plugin: ConnectionPlugin::new(link.clone(), shared.clone()).with_downloader(downloader), host: FakeHost::new(), link, shared };
+        e.plugin.setup(&mut e.host);
+        e.ui("card", "add-phone", vec![]);
+        e.ui("card", "usb-action-clicked", vec![]);
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "usb-action-clicked".into(), args: vec![] });
+        e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "add-closed".into(), args: vec![] });
+        *e.link.adb.lock().unwrap() = true;
+        release.send(()).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert!(!e.host.is_scheduled(T_PAIR_USB));
     }
 
     #[test]

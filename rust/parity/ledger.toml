@@ -1689,7 +1689,7 @@
 "AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "todo" }
 "Added" = { status = "todo" }
 "Added plugins" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"Agree and download" = { status = "todo" }
+"Agree and download" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Background colour" = { status = "todo" }
 "Background picture" = { status = "todo" }
 "Being written" = { status = "todo" }
@@ -1852,7 +1852,7 @@
 "There's no download of what it needs for this computer yet, so it can't be switched on." = { status = "todo" }
 "There's no vision download for this computer yet." = { status = "todo" }
 "Turn all back on" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"USB needs adb, Google's tool for talking to Android phones." = { status = "todo" }
+"USB needs adb, Google's tool for talking to Android phones." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Updated to {version} automatically. The new version runs after Telescope restarts." = { status = "todo" }
 "Use it" = { status = "todo" }
 "Use the standard one" = { status = "todo" }
@@ -1916,8 +1916,8 @@
 "test_adb_download.py::test_the_index_gives_the_windows_zip_its_size_and_checksum" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::the_index_gives_the_windows_zip_its_size_and_checksum" }
 "test_adb_download.py::test_two_downloads_at_once_fetch_only_once" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::two_downloads_at_once_fetch_only_once" }
 # ── adb_widget
-"test_adb_widget.py::test_a_download_that_raises_still_reports_back" = { status = "todo" }
-"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "todo" }
+"test_adb_widget.py::test_a_download_that_raises_still_reports_back" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_download_that_raises_still_reports_back" }
+"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::asking_while_a_download_runs_doesn_t_ask_or_start_another" }
 # ── app
 "test_app.py::test_a_background_phone_without_h264_falls_back_to_mjpeg" = { status = "todo" }
 "test_app.py::test_a_background_stream_says_which_one_dropped_and_came_back" = { status = "todo" }
@@ -2721,15 +2721,15 @@
 "test_connection_dialogs.py::test_a_picked_phone_gets_the_pairing_offer_over_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_picked_phone_gets_the_pairing_offer_over_usb" }
 "test_connection_dialogs.py::test_a_plugged_in_phone_waits_to_be_picked" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
 "test_connection_dialogs.py::test_a_scanned_phone_pairs_while_another_is_plugged_in" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_scanned_phone_pairs_while_another_is_plugged_in" }
-"test_connection_dialogs.py::test_an_adb_download_that_ends_after_closing_doesn_t_poll_usb" = { status = "todo" }
+"test_connection_dialogs.py::test_an_adb_download_that_ends_after_closing_doesn_t_poll_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::an_adb_download_that_ends_after_closing_doesn_t_poll_usb" }
 "test_connection_dialogs.py::test_an_unauthorized_phone_asks_for_the_debugging_prompt" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
 "test_connection_dialogs.py::test_buttons_name_the_phone_as_it_names_itself" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
 "test_connection_dialogs.py::test_closing_stops_the_pairing_server" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::closing_stops_the_pairing_server" }
 "test_connection_dialogs.py::test_lots_of_phones_scroll_instead_of_growing_the_dialog" = { status = "todo" }
-"test_connection_dialogs.py::test_on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" = { status = "todo" }
+"test_connection_dialogs.py::test_on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" }
 "test_connection_dialogs.py::test_plugging_in_after_it_opened_grows_the_dialog_to_fit" = { status = "todo" }
 "test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::qr_widget_builds_matrix_and_renders" }
-"test_connection_dialogs.py::test_reopened_mid_download_it_says_so_instead_of_offering_it_again" = { status = "todo" }
+"test_connection_dialogs.py::test_reopened_mid_download_it_says_so_instead_of_offering_it_again" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::reopened_mid_download_it_says_so_instead_of_offering_it_again" }
 "test_connection_dialogs.py::test_shows_a_qr_code_when_the_computer_is_on_a_network" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::add_phone_request_on_the_bus_opens_pairing" }
 "test_connection_dialogs.py::test_success_shows_the_phone_and_hands_the_result_over" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_phone_that_scans_the_code_is_added_and_the_dialog_says_so" }
 "test_connection_dialogs.py::test_unplugging_the_picked_phone_forgets_the_pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::unplugging_the_picked_phone_forgets_the_pick" }
