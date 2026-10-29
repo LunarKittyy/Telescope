@@ -392,3 +392,14 @@ fn an_effect_that_is_off_or_not_a_picture_step_forgets_the_trail() {
         assert!(r.stream("phone", &dark) == dark, "{between}: the old trail is gone");
     }
 }
+
+#[test]
+fn a_clone_is_not_cut_out_against_an_empty_room_of_another_shape() {
+    let mut r = Rig::new();
+    r.pick("clones");
+    r.take_room(&room());
+    r.count_down("clone", 3);
+    // the picture turned portrait since the room was taken: stretching it would only bend it
+    r.stream("phone", &with_person(&room(), 20, 50).nearest(H, W));
+    assert!(r.look().clones.is_none());
+}
