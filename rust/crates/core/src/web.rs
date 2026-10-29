@@ -60,9 +60,9 @@ impl Reply {
 }
 
 /// What a page does with each request. Called on the connection's own thread, so it may wait (a page held open until
-/// something changes) without holding up anything else.
+/// something changes) without holding up anything else. `stats` is the server's, for counting a page loaded or a link refused.
 pub trait PageHandler: Send + Sync {
-    fn handle(&self, request: &Request) -> Reply;
+    fn handle(&self, request: &Request, stats: &ServerStats) -> Reply;
 }
 
 /// How far devices got, for telling a firewall from a certificate warning from an old link.
