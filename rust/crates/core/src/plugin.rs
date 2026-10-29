@@ -187,6 +187,49 @@ pub trait Plugin: Send {
     }
 }
 
+/// What a plugin following the panels keeps about a stream they moved away from while it streams on, so coming back to it
+/// picks up where it was instead of starting over (StreamsBehind in plugin.py). A stream is told apart by its url, as the
+/// phone's ctrl object was.
+#[derive(Clone, Debug)]
+pub struct StreamsBehind<T> {
+    kept: std::collections::HashMap<Option<String>, (String, T)>,
+}
+
+impl<T> Default for StreamsBehind<T> {
+    fn default() -> Self {
+        StreamsBehind { kept: std::collections::HashMap::new() }
+    }
+}
+
+impl<T> StreamsBehind<T> {
+    /// From on_focus_lost: `value` is kept for the stream the panels are leaving (`stream` its url, None when it has none).
+    pub fn keep(&mut self, host: &dyn crate::host::HostStreams, stream: Option<&str>, value: T) {
+        let sid = host.focused_source_id();
+        match stream {
+            Some(url) => {
+                self.kept.insert(sid, (url.to_string(), value));
+            }
+            None => {
+                self.kept.remove(&sid);
+            }
+        }
+    }
+
+    /// From on_focus_gained: what keep() held for this stream, or None if it has started again since.
+    pub fn take(&mut self, host: &dyn crate::host::HostStreams, stream: Option<&str>) -> Option<T> {
+        let kept = self.kept.remove(&host.focused_source_id())?;
+        (stream == Some(kept.0.as_str())).then_some(kept.1)
+    }
+
+    /// From on_stream_stop: the shown stream ended, so nothing about it is kept (and nothing at all once idle).
+    pub fn drop_shown(&mut self, host: &dyn crate::host::HostStreams) {
+        self.kept.remove(&host.focused_source_id());
+        if !host.is_streaming() {
+            self.kept.clear();
+        }
+    }
+}
+
 /// _set_plugin_config: load cfg; if the plugin rejects it, keep the fields that load on their own and the defaults for the rest.
 pub fn load_config_tolerantly(plugin: &mut dyn Plugin, defaults: &Value, cfg: &Value) {
     let Err(why) = plugin.set_config(cfg) else { return };
@@ -240,6 +283,30 @@ mod tests {
         assert_eq!(info.frame_stage, FrameStage::Overlay);
         assert_eq!(info.category, "extras");
         assert!(info.follows_focus);
+    }
+
+    #[test]
+    fn a_stream_left_behind_is_picked_up_where_it_was() {
+        let mut host = crate::testing::FakeHost::new();
+        host.streaming = true;
+        host.focused = Some("a".into());
+        let mut behind: StreamsBehind<i32> = StreamsBehind::default();
+        behind.keep(&host, Some("http://a/v1/video"), 7);
+        assert_eq!(behind.take(&host, Some("http://a/v1/video")), Some(7));
+        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None, "taken once");
+        // It started again in between: a new url, so what was kept doesn't apply
+        behind.keep(&host, Some("http://a/v1/video"), 8);
+        assert_eq!(behind.take(&host, Some("http://a/other")), None);
+        // Nothing to keep without a stream, and nothing kept once idle
+        behind.keep(&host, Some("http://a/v1/video"), 9);
+        behind.keep(&host, None, 10);
+        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None);
+        behind.keep(&host, Some("http://a/v1/video"), 11);
+        host.focused = Some("b".into());
+        host.streaming = false;
+        behind.drop_shown(&host);
+        host.focused = Some("a".into());
+        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None);
     }
 
     #[test]
