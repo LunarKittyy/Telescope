@@ -4084,13 +4084,13 @@
 # ── stream
 "test_stream.py::test_a_crash_in_the_worker_ends_with_an_error_and_idle" = { status = "todo" }
 "test_stream.py::test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it" = { status = "todo" }
-"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "todo" }
-"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "todo" }
-"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "todo" }
+"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick" = { status = "todo" }
 "test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
-"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "todo" }
-"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "todo" }
+"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_a_slow_decoder_skips_to_the_newest_packet" = { status = "todo" }
 "test_stream.py::test_a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken" = { status = "todo" }
 "test_stream.py::test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route" = { status = "todo" }
@@ -4099,33 +4099,33 @@
 "test_stream.py::test_another_slot_opens_its_own_camera" = { status = "todo" }
 "test_stream.py::test_failed_tries_count_only_the_url_it_was_pointed_at" = { status = "todo" }
 "test_stream.py::test_fit_frame_letterboxes_and_preserves_dtype" = { status = "todo" }
-"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "todo" }
-"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "todo" }
-"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "todo" }
-"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "todo" }
+"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_frames_reach_an_i420_camera_converted" = { status = "todo" }
 "test_stream.py::test_frames_stopping_for_a_photo_reconnect_quietly" = { status = "todo" }
 "test_stream.py::test_frames_that_arrived_together_all_count_as_arrived" = { status = "todo" }
-"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "todo" }
+"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one" = { status = "todo" }
-"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "todo" }
+"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs" }
-"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "todo" }
+"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "todo" }
-"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "todo" }
+"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }
 "test_stream.py::test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay" = { status = "todo" }
 "test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "todo" }
-"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "todo" }
-"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "todo" }
+"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_accumulates_bytes_from_successful_reads" = { status = "todo" }
 "test_stream.py::test_stream_reader_drops_pipeline_errors_and_releases_capture" = { status = "todo" }
-"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "todo" }
+"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_resizes_and_runs_pipeline_keeping_bgr" = { status = "todo" }
 "test_stream.py::test_the_fps_readout_counts_frames_from_the_phone_not_resends" = { status = "todo" }
-"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "todo" }
-"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "todo" }
+"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_the_virtual_camera_opens_in_its_own_format" = { status = "todo" }
 "test_stream.py::test_update_output_distinguishes_omitted_from_pass_through" = { status = "todo" }
 "test_stream.py::test_windows_opens_the_camera_named_telescope_or_any_older_registration" = { status = "todo" }

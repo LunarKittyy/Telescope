@@ -23,5 +23,6 @@ pub mod shell;
 pub mod host;
 pub mod view;
 pub mod window;
+pub mod worker;
 
 pub use window::{run, WindowOptions};
