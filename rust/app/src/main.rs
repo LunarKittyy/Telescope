@@ -39,14 +39,15 @@ fn use_own_profile() {
 /// tray: the window's run, which shows the tray icon.
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
+    let outputs = Arc::new(telescope_outputs::VirtualCameras { device });
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into()], "en".into());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into(), "presets".into(), "wait_screen".into(), "startup".into()], "en".into());
     let connection = link.clone();
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     Arc::new(Services {
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
-        outputs: Arc::new(telescope_outputs::VirtualCameras { device }),
+        outputs: outputs.clone(),
         audio: Some(Arc::new(telescope_audio::VirtualMic::default())),
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
@@ -65,6 +66,8 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
+                Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(outputs.clone())),
+                Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
             ];
             plugins.extend(added());
             plugins
