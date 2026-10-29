@@ -40,9 +40,7 @@ impl LinkService {
     }
 
     fn with_discovery(lan: LanDiscovery) -> LinkService {
-        let tunnels = UsbTunnels::new(|serial, remote| Adb::system().forward_auto(remote, Some(serial)),
-                                      |serial, local| Adb::system().unforward(local, Some(serial)));
-        LinkService::with_tunnels(lan, tunnels)
+        LinkService::with_tunnels(lan, adb_tunnels(Arc::new(Adb::system)))
     }
 
     fn with_tunnels(lan: LanDiscovery, tunnels: UsbTunnels) -> LinkService {
@@ -95,6 +93,16 @@ impl LinkService {
         let controls = controls.unwrap_or_else(|| Arc::new(ControlClient::new(&video_url, auth.clone())) as Arc<dyn PhoneControl>);
         Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls, tunnels: self.tunnels.clone() })
     }
+}
+
+/// Forwards through adb. A forward goes on a thread: the last release often comes with the connection model locked,
+/// or on the UI thread, and the bookkeeping is done by then so a new acquire opens a fresh one.
+fn adb_tunnels(adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> UsbTunnels {
+    let unforward = adb.clone();
+    UsbTunnels::new(move |serial, remote| adb().forward_auto(remote, Some(serial)), move |serial, local| {
+        let (adb, serial) = (unforward.clone(), serial.to_string());
+        std::thread::spawn(move || adb().unforward(local, Some(&serial)));
+    })
 }
 
 impl Default for LinkService {
@@ -489,6 +497,28 @@ mod tests {
         link.shared.release_stream("p");
         assert_eq!(link.tunnels.held_port("serial-1", STREAM_PORT), None);
         session.controls().unwrap().close();
+    }
+
+    #[test]
+    fn a_forward_goes_without_waiting_for_adb() {
+        let (tx, rx) = mpsc::channel::<Vec<String>>();
+        let tx = Mutex::new(tx);
+        let tunnels = adb_tunnels(Arc::new(move || {
+            let tx = Mutex::new(tx.lock().unwrap().clone());
+            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+                if cmd.iter().any(|a| a == "--remove") {
+                    std::thread::sleep(Duration::from_millis(800)); // a stalled adb
+                }
+                let _ = tx.lock().unwrap().send(cmd.to_vec());
+                (0, "41000\n".into(), String::new())
+            }) }
+        }));
+        assert_eq!(tunnels.acquire("serial-1", STREAM_PORT), Some(41000));
+        let started = std::time::Instant::now();
+        tunnels.release("serial-1", STREAM_PORT);
+        assert!(started.elapsed() < Duration::from_millis(300), "release waited {:?} for adb", started.elapsed());
+        let removed = rx.iter().find(|cmd| cmd.iter().any(|a| a == "--remove"));
+        assert!(removed.is_some_and(|cmd| cmd.contains(&"tcp:41000".to_string())));
     }
 
     struct ToServer(u16);
