@@ -56,6 +56,10 @@ pub struct FakeHost {
     pub scheduled: Vec<(u64, String)>,
     /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
     pub posted: Arc<Mutex<Vec<(String, Value)>>>,
+    /// The phone's camera is off (set_camera_on(false) turns it off too).
+    pub camera_off: bool,
+    /// What can_turn_camera_off() answers instead of (false, "Not streaming").
+    pub can_turn_off: Option<(bool, String)>,
     next_request: u64,
 }
 
@@ -196,15 +200,16 @@ impl HostStreams for FakeHost {
 
 impl HostCamera for FakeHost {
     fn is_camera_on(&self) -> bool {
-        true
+        !self.camera_off
     }
     fn is_camera_off_auto(&self) -> bool {
         false
     }
     fn can_turn_camera_off(&self) -> (bool, String) {
-        (false, "Not streaming".into())
+        self.can_turn_off.clone().unwrap_or((false, "Not streaming".into()))
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
+        self.camera_off = !on;
         self.note(format!("set_camera_on {on} {auto}"));
     }
 }
