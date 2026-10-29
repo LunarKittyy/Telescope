@@ -353,3 +353,31 @@ fn the_effects_shaders_compile() {
         telescope_plugin_host::testing::validate_shader(&step, name).unwrap();
     }
 }
+
+#[test]
+fn a_picture_far_bigger_than_the_frame_is_averaged_over_everything_each_pixel_covers() {
+    if !gpu_here() {
+        return;
+    }
+    // 2400 x 1350 shown at 160 x 90 is 15 x 15 pixels to the one; stripes that repeat every 15 show up any dropped column
+    let (pw, ph) = (2400usize, 1350usize);
+    let mut source = Rgb::new(pw, ph);
+    for y in 0..ph {
+        for x in 0..pw {
+            let on = |v: bool| if v { 255 } else { 0 };
+            source.set(x, y, [on(x % 15 < 8), on(y % 15 < 5), on((x + y) % 15 < 8)]);
+        }
+    }
+    let picture_frame = frame_rgb(&source);
+    let reader: telescope_effects::shared::PictureReader = Arc::new(move |_| Ok(picture_frame.clone()));
+    let mut plugin = ChromaKeyPlugin::with_reader(reader);
+    plugin.set_config(&json!({"on": true, "screen": "green", "background": "picture", "picture": "big.png"})).unwrap();
+    let (w, h) = (160usize, 90usize);
+    // all screen: the whole frame is the picture behind
+    let scene = frame_rgb(&Rgb::filled(w, h, [50, 180, 60]));
+    let got = run(vec![StagedStep { owner: "chroma_key".into(), stage: FrameStage::Background, step: plugin.frame_step().expect("a key") }], scene);
+    let want = Rgb { w, h, data: telescope_effects::imgops::resize_area(&source.data, pw, ph, 3, w, h) };
+    let g = gap(&got, &frame_rgb(&want), 1);
+    eprintln!("a picture 15 times the frame: max {} mean {:.3} over {:.4}", g.max, g.mean, g.over);
+    assert!(g.max <= 2 && g.mean <= 0.1 && g.over <= 0.005, "{g:?}");
+}

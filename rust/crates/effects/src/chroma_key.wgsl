@@ -62,7 +62,7 @@ fn behind(px: vec2<f32>) -> vec3<f32> {
     let lo = (floor(px) + cut) * ratio;
     let hi = lo + ratio;
     let first = vec2<i32>(floor(lo));
-    let last = min(vec2<i32>(ceil(hi)), first + vec2<i32>(12));
+    let last = vec2<i32>(ceil(hi));
     var sum = vec3<f32>(0.0);
     var total = 0.0;
     for (var y = first.y; y < last.y; y++) {
