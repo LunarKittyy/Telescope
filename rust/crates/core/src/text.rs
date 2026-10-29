@@ -13,6 +13,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use unicode_bidi::{bidi_class, BidiClass, BidiInfo, Level};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The two weights the app draws with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -130,6 +131,8 @@ struct Placed {
     y: f32,
     /// Where its cluster starts in the text (a byte offset).
     cluster: usize,
+    /// How far the pen moved for it, before any letter spacing.
+    advance: f32,
 }
 
 /// A line of text worked out for one face: where each glyph goes (left to right, whatever the text's direction), and how wide it is.
@@ -303,6 +306,7 @@ impl Face {
                                 x: x + g.x_offset as f32 * per_unit,
                                 y: -(g.y_offset as f32) * per_unit,
                                 cluster: g.cluster,
+                                advance: g.x_advance as f32 * per_unit,
                             });
                             x += g.x_advance as f32 * per_unit;
                         }
@@ -328,8 +332,10 @@ impl Face {
         self.advance("\u{2026}")
     }
 
-    /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight): the end of the text
-    /// goes, which is the left side of a right-to-left line. It is cut between clusters, never through a letter and its marks.
+    /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight, which is
+    /// QStackTextEngine::elidedText): the end of the text goes, which is the left side of a right-to-left line. It is cut between
+    /// graphemes, never through a letter and its marks. Qt adds up the width each grapheme has in the whole line (kerning and
+    /// joining included) until the sum reaches what is left after the ellipsis, and keeps what came before the grapheme that reached it.
     pub fn elide(&self, text: &str, width: f32) -> String {
         let line = self.layout(text, 0.0);
         // Qt leaves a text of one UTF-16 unit whole, however narrow
@@ -337,19 +343,27 @@ impl Face {
             return text.to_string();
         }
         // and drops all of it when not even the ellipsis fits
-        if width < self.ellipsis_width() {
+        let available = width - self.ellipsis_width();
+        if available < 0.0 {
             return String::new();
         }
-        let mut cuts: Vec<usize> = line.placed.iter().map(|p| p.cluster).collect();
-        cuts.sort_unstable();
-        cuts.dedup();
-        for &cut in cuts.iter().rev() {
-            let shorter = format!("{}\u{2026}", &text[..cut]);
-            if self.advance(&shorter) <= width {
-                return shorter;
-            }
+        let starts: Vec<usize> = text.grapheme_indices(true).map(|(i, _)| i).collect();
+        // A glyph's advance goes to the grapheme its cluster starts in; a ligature's other graphemes have no width of their own
+        let mut widths = vec![0.0f32; starts.len()];
+        for p in &line.placed {
+            let grapheme = starts.partition_point(|&s| s <= p.cluster).saturating_sub(1);
+            widths[grapheme] += p.advance;
         }
-        "\u{2026}".into()
+        let (mut taken, mut sum) = (0, 0.0);
+        let at = loop {
+            let at = taken;
+            sum += widths[at];
+            taken += 1;
+            if taken >= starts.len() || sum >= available {
+                break at;
+            }
+        };
+        format!("{}\u{2026}", &text[..starts[at]])
     }
 
     /// Calls `cover(x, y, coverage)` for each pixel the line touches, with its start at `x` and its baseline at `baseline`.

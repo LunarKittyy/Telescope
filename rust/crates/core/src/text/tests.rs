@@ -194,6 +194,22 @@ fn a_line_is_never_cut_between_a_letter_and_its_mark() {
 }
 
 #[test]
+fn elision_cuts_where_qt_does() {
+    // QFontMetricsF.elidedText(ElideRight) at 40 px, DejaVu Sans, hinting off. Qt keeps what comes before the grapheme whose width
+    // takes the sum past what is left after the ellipsis, so it can overshoot: "T\u{2026}" is 64.4 px wide in a width of 60
+    let Some(f) = dejavu(40.0) else { return };
+    for (width, want) in [(60.0, "T\u{2026}"), (80.0, "T\u{2026}"), (100.0, "Tel\u{2026}"), (120.0, "Tele\u{2026}"), (150.0, "Teles\u{2026}"), (200.0, "Telescope")] {
+        assert_eq!(f.elide("Telescope", width), want, "width {width}");
+    }
+    let hebrew = "\u{5e9}\u{5dc}\u{5d5}\u{5dd} \u{5e2}\u{5d5}\u{5dc}\u{5dd}";
+    for (width, want) in [(60.0, "\u{2026}"), (80.0, "\u{5e9}\u{2026}"), (100.0, "\u{5e9}\u{5dc}\u{2026}"), (120.0, "\u{5e9}\u{5dc}\u{5d5}\u{2026}"), (150.0, "\u{5e9}\u{5dc}\u{5d5}\u{5dd} \u{2026}")] {
+        assert_eq!(f.elide(hebrew, width), want, "width {width}");
+    }
+    assert_eq!(f.elide("a\u{1F600}b", 80.0), "a\u{2026}");
+    assert_eq!(f.elide("x\u{301}y\u{301}z\u{301}", 60.0), "\u{2026}");
+}
+
+#[test]
 fn a_line_with_no_room_for_the_ellipsis_is_dropped() {
     // QFontMetricsF.elidedText at 40 px: the ellipsis is 40 px wide, so under that nothing is left, not even the ellipsis
     let Some(f) = dejavu(40.0) else { return };
