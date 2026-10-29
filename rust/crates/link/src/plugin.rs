@@ -757,6 +757,10 @@ impl ConnectionPlugin {
             Some(next) => {
                 self.active_key = None; // nothing to save back: its settings are being deleted
                 self.select(host, next.as_deref(), false, false);
+                if next.is_none() {
+                    // select saw no change of profile, but the shell still holds the forgotten phone as picked
+                    host.switch_device(None, None);
+                }
             }
             None => self.refresh_picker(host),
         }
