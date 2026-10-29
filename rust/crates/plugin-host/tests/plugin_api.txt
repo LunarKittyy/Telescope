@@ -30,6 +30,7 @@ event phone_ready
 event phone_state_updated
 event phone_wanted
 event phones_changed
+event posted
 event preview_pick_changed
 event preview_picked
 event remembered_sources
@@ -52,6 +53,7 @@ event stream_started
 event stream_stopped
 event stream_transport_changed
 event streams_changed
+event timer_fired
 event update_requested
 event vcam_opened
 event view_changed

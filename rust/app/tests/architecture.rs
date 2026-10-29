@@ -2,15 +2,15 @@
 
 use std::path::PathBuf;
 
-/// Which telescope crates each crate may use; anything else has to go through a trait in core.
+/// Which telescope crates each crate may use (ui-kit is a leaf every card needs); anything else has to go through a trait in core.
 const ALLOWED: &[(&str, &[&str])] = &[
     ("core", &[]),
     ("ui-kit", &[]),
-    ("link", &["telescope-core"]),
-    ("media", &["telescope-core"]),
-    ("outputs", &["telescope-core"]),
-    ("audio", &["telescope-core"]),
-    ("system", &["telescope-core"]),
+    ("link", &["telescope-core", "telescope-ui-kit"]),
+    ("media", &["telescope-core", "telescope-ui-kit"]),
+    ("outputs", &["telescope-core", "telescope-ui-kit"]),
+    ("audio", &["telescope-core", "telescope-ui-kit"]),
+    ("system", &["telescope-core", "telescope-ui-kit"]),
     ("plugin-host", &["telescope-core", "telescope-ui-kit"]),
     ("shell", &["telescope-core", "telescope-ui-kit"]),
 ];
