@@ -108,29 +108,31 @@ fn res(status: PhoneStatus, route: Option<&str>, note: Option<UsbNote>) -> Resol
     Resolution { route, usb_note: note, ..Resolution::new(status) }
 }
 
-/// translation_scenes_connection.card_states, but the two that need Windows (which the Rust plugin reads from cfg!).
-fn card_states() -> Vec<(&'static str, Resolution, &'static str, bool)> {
+/// translation_scenes_connection.card_states: id, the check's answer, the route setting, adb there, as on Windows.
+fn card_states() -> Vec<(&'static str, Resolution, &'static str, bool, bool)> {
     use PhoneStatus::*;
     use UsbNote::*;
     vec![
-        ("ready", res(Ready, Some("wifi"), Some(NoCable)), "auto", true),
-        ("ready-usb", res(Ready, Some("usb"), None), "auto", true),
-        ("cable-unauthorized", res(Ready, Some("wifi"), Some(Unauthorized)), "auto", true),
-        ("cable-other-phone", res(Ready, Some("wifi"), Some(OtherPhone)), "auto", true),
-        ("cable-app-closed", res(Ready, Some("wifi"), Some(AppClosed)), "auto", true),
-        ("unreachable", res(Unreachable, None, None), "auto", true),
-        ("not-paired", res(NotPaired, None, None), "auto", true),
-        ("not-paired-old", Resolution { before_tls: true, ..res(NotPaired, None, None) }, "auto", true),
-        ("local-only", res(LocalOnly, None, None), "auto", true),
-        ("usb-unknown", res(UsbNeedsAttention, None, None), "usb", true),
-        ("usb-no-adb", res(UsbNeedsAttention, None, Some(NoAdb)), "usb", false),
-        ("usb-no-cable", res(UsbNeedsAttention, None, Some(NoCable)), "usb", true),
-        ("usb-unauthorized", res(UsbNeedsAttention, None, Some(Unauthorized)), "usb", true),
-        ("usb-other-phone", res(UsbNeedsAttention, None, Some(OtherPhone)), "usb", true),
-        ("usb-app-closed", res(UsbNeedsAttention, None, Some(AppClosed)), "usb", true),
-        ("phone-outdated", res(PhoneOutdated, Some("wifi"), None), "auto", true),
-        ("phone-outdated-usb", res(PhoneOutdated, Some("usb"), None), "auto", true),
-        ("desktop-outdated", res(DesktopOutdated, Some("wifi"), None), "auto", true),
+        ("ready", res(Ready, Some("wifi"), Some(NoCable)), "auto", true, false),
+        ("ready-usb", res(Ready, Some("usb"), None), "auto", true, false),
+        ("cable-unauthorized", res(Ready, Some("wifi"), Some(Unauthorized)), "auto", true, false),
+        ("cable-other-phone", res(Ready, Some("wifi"), Some(OtherPhone)), "auto", true, false),
+        ("cable-app-closed", res(Ready, Some("wifi"), Some(AppClosed)), "auto", true, false),
+        ("unreachable", res(Unreachable, None, None), "auto", true, false),
+        ("not-paired", res(NotPaired, None, None), "auto", true, false),
+        ("not-paired-old", Resolution { before_tls: true, ..res(NotPaired, None, None) }, "auto", true, false),
+        ("local-only", res(LocalOnly, None, None), "auto", true, false),
+        ("local-only-windows", res(LocalOnly, None, None), "auto", false, true),
+        ("usb-unknown", res(UsbNeedsAttention, None, None), "usb", true, false),
+        ("usb-no-adb", res(UsbNeedsAttention, None, Some(NoAdb)), "usb", false, false),
+        ("usb-no-adb-windows", res(UsbNeedsAttention, None, Some(NoAdb)), "usb", false, true),
+        ("usb-no-cable", res(UsbNeedsAttention, None, Some(NoCable)), "usb", true, false),
+        ("usb-unauthorized", res(UsbNeedsAttention, None, Some(Unauthorized)), "usb", true, false),
+        ("usb-other-phone", res(UsbNeedsAttention, None, Some(OtherPhone)), "usb", true, false),
+        ("usb-app-closed", res(UsbNeedsAttention, None, Some(AppClosed)), "usb", true, false),
+        ("phone-outdated", res(PhoneOutdated, Some("wifi"), None), "auto", true, false),
+        ("phone-outdated-usb", res(PhoneOutdated, Some("usb"), None), "auto", true, false),
+        ("desktop-outdated", res(DesktopOutdated, Some("wifi"), None), "auto", true, false),
     ]
 }
 
@@ -153,8 +155,9 @@ pub fn all() -> Vec<Scene> {
         Scene::new("main-medium", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_TWO_COL, 900.0)),
         Scene::new("main-narrow", || Setup::window(Some(services(quiet())), main_window_config(true), 560.0, 900.0)),
     ];
-    for (id, answer, route, adb) in card_states() {
+    for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
+            telescope_link::platform::set_windows(windows.then_some(true));
             let link = SceneLink { answer: Some(answer.clone()), adb };
             Setup::window(Some(services(link)), with_route(main_window_config(true), route), WIDTH_THREE_COL, 700.0)
         }));

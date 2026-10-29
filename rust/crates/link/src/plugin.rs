@@ -435,7 +435,7 @@ impl ConnectionPlugin {
             add.usb_kind = "status_dim";
             host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
             self.poll_usb();
-        } else if cfg!(windows) {
+        } else if crate::platform::windows() {
             add.usb_text = tr("Needs adb, which Telescope can get from Google. Wi-Fi works without it.");
             add.usb_action = tr("Get adb from Google");
         } else {

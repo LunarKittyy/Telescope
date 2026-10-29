@@ -804,7 +804,7 @@ pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> Strin
         PhoneStatus::NotPaired => with_phone(tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."), phone),
         PhoneStatus::LocalOnly => {
             let mut text = with_phone(tr("Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."), phone);
-            if cfg!(windows) && !adb_available {
+            if crate::platform::windows() && !adb_available {
                 text += &format!(" {}", tr("USB needs adb, which Add phone can get."));
             }
             text
@@ -1159,9 +1159,14 @@ mod tests {
 
     #[test]
     fn local_only_on_windows_without_adb_points_at_add_phone() {
+        let _lock = crate::platform::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let without = problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", false);
         assert_eq!(without.contains("Add phone can get"), cfg!(windows));
         assert!(!problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", true).contains("adb"));
+        crate::platform::set_windows(Some(true));
+        assert!(problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", false).contains("Add phone can get"));
+        assert!(crate::phones::usb_note_text(Some(UsbNote::NoAdb)).contains("Add phone can get it"));
+        crate::platform::set_windows(None);
     }
 
     #[test]
