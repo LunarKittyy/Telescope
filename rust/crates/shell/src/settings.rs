@@ -98,6 +98,8 @@ pub struct Settings {
     plugins_tab: Option<usize>,
     /// (plugin, section id, element id) of every section and footer.
     pieces: Vec<(String, String, String)>,
+    /// (plugin, section id) of the sections on each tab, which hear "shown" when it comes on screen.
+    tab_sections: Vec<Vec<(String, String)>>,
     panel: RefCell<Panel>,
     hits: RefCell<Vec<Entry>>,
     asking: RefCell<Option<(String, bool)>>,
@@ -134,6 +136,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
         settings.show_tab(tab);
     }
     let _ = settings.ui.show();
+    settings.tell_shown();
     let _ = settings.ui.invoke("focus-search", &[]);
 }
 
@@ -182,6 +185,12 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
             places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer, hue });
         }
     }
+    let mut tab_sections = vec![Vec::new(); tabs.len()];
+    for place in &places {
+        if let Some((plugin, id, _)) = pieces.iter().find(|p| p.2 == place.piece.id) {
+            tab_sections[place.tab].push((plugin.clone(), id.clone()));
+        }
+    }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     let ui = def.create().map_err(|e| e.to_string())?;
@@ -190,6 +199,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         tabs: tabs.iter().map(|(id, n, _)| (id.clone(), n.clone())).collect(),
         plugins_tab,
         pieces,
+        tab_sections,
         panel: RefCell::new(panel),
         hits: RefCell::new(Vec::new()),
         asking: RefCell::new(None),
@@ -345,6 +355,26 @@ impl Settings {
     fn on_row(&self, row: usize) {
         self.leave_search();
         self.show_row(row);
+        self.tell_shown();
+    }
+
+    /// The sections on the tab in front hear "shown", as a SettingsSection's on_show is called each time its tab comes
+    /// on screen: they bring what they show up to date.
+    pub fn tell_shown(&self) {
+        let tab = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };
+        let Some(w) = self.window.upgrade() else { return };
+        for (plugin, id) in self.tab_sections.get(tab).into_iter().flatten() {
+            w.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.clone(), callback: "shown".into(), args: Vec::new() });
+        }
+        w.process();
+    }
+
+    /// Sets an image property on one of a plugin's sections.
+    pub fn set_image(&self, plugin: &str, ui: &str, prop: &str, image: slint::Image) {
+        let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return };
+        if let Err(e) = self.ui.set_property(&format!("{id}-{prop}"), SValue::Image(image)) {
+            log::warn!("{plugin} set {prop} on its {ui}: {e:?}");
+        }
     }
 
     fn leave_search(&self) {
@@ -437,6 +467,7 @@ impl Settings {
     /// Shows the tab the setting is on, scrolled to it and lit up for a moment.
     pub fn go_to(self: &Rc<Self>, entry: &Entry) {
         self.show_tab(&entry.tab);
+        self.tell_shown();
         if entry.tab_entry {
             return;
         }

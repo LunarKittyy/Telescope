@@ -20,7 +20,7 @@ use telescope_core::plugin::Plugin;
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
-use telescope_core::BusSender;
+use telescope_core::{BusSender, Frame, PixelFormat};
 
 /// How the window streams, from the command line.
 #[derive(Clone, Debug)]
@@ -107,6 +107,19 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
     if let Some(w) = WINDOW.with(|w| w.borrow().clone()) {
         f(&w);
     }
+}
+
+/// A picture as a Slint image, for the formats that are plain pixels.
+fn image_of(frame: &Frame) -> Option<slint::Image> {
+    let pixels: Vec<u8> = match frame.format {
+        PixelFormat::Rgba => frame.data.to_vec(),
+        PixelFormat::Bgra => frame.data.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
+        _ => return None,
+    };
+    if pixels.len() != frame.width as usize * frame.height as usize * 4 {
+        return None;
+    }
+    Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(&pixels, frame.width, frame.height)))
 }
 
 /// Where a UiSpec's text comes from and the file the document imports it as.
@@ -541,7 +554,13 @@ impl Window {
     }
 
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
-        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return };
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
+            // Not a card or a header: one of its settings sections, if the settings window has been built
+            if let Some(settings) = crate::settings::current() {
+                settings.set_props(plugin, ui, props);
+            }
+            return;
+        };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
             let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
@@ -551,9 +570,38 @@ impl Window {
         }
     }
 
+    /// Host::set_ui_image: the picture goes onto the card's or section's image property.
+    fn set_image(&self, plugin: &str, ui: &str, prop: &str, picture: &Frame) {
+        let Some(image) = image_of(picture) else {
+            log::warn!("{plugin} gave its {ui} a {:?} picture, which can't be shown", picture.format);
+            return;
+        };
+        match self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) {
+            Some(r) => {
+                if let Err(e) = self.ui.set_property(&format!("{}-{prop}", r.id), SValue::Image(image)) {
+                    log::warn!("{plugin} set {prop} on its {ui}: {e:?}");
+                }
+            }
+            None => {
+                if let Some(settings) = crate::settings::current() {
+                    settings.set_image(plugin, ui, prop, image);
+                }
+            }
+        }
+    }
+
     fn apply(self: &Rc<Self>, effect: Effect) {
         match effect {
             Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
+            Effect::Image { plugin, ui, prop, picture } => self.set_image(&plugin, &ui, &prop, &picture.0),
+            Effect::RefreshActions(plugin) => {
+                let mut state = self.state.borrow_mut();
+                if let Some(i) = state.index(&plugin) {
+                    if let Some(actions) = state.call(i, |p, _| p.actions()) {
+                        state.slots[i].actions = actions;
+                    }
+                }
+            }
             Effect::SaveSoon => self.schedule_save(),
             Effect::Notify { title, body, urgent } => {
                 if let Some(n) = self.services.as_ref().and_then(|s| s.notifier.clone()) {
