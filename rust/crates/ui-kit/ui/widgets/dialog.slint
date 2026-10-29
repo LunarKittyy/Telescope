@@ -1,0 +1,38 @@
+// A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title and a dim
+// line under it. A plugin shows it inside a PopupWindow.
+
+import { Theme } from "../theme.slint";
+
+export component DialogFrame inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    background: Theme.bg;
+    drop-shadow-blur: 24px;
+    drop-shadow-color: #00000080;
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 18px;
+        padding-bottom: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: title;
+                font-family: Theme.font;
+                font-size: 19px; // 14pt is 18.67px, drawn at 19
+                font-weight: 600;
+                color: Theme.text;
+            }
+            if subtitle != "": Text {
+                text: subtitle;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
+                wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
+            }
+        }
+        @children
+    }
+}
