@@ -41,9 +41,9 @@ component Note inherits Text {
     font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
-    // Slint's box for text wrapped onto two lines or more ends 4px below the last one, where Qt's label ends at it
-    height: !shown ? 0px : self.preferred-height > 1.5 * (self.font-metrics.ascent - self.font-metrics.descent) ? self.preferred-height - 4px
-        : self.preferred-height;
+    // Qt's line pitch, so a wrapped note lines up line by line
+    line-height-factor: Theme.line-factor(self.font-size);
+    height: shown ? self.preferred-height : 0px;
 }
 
 component QrCode inherits Rectangle {
@@ -206,7 +206,8 @@ export component ConnectionCard inherits Card {
                 visible: shown;
                 max-height: shown ? 100000px : 0px;
                 padding-top: shown ? 4px : 0px;
-                Rectangle { width: 46px; }
+                // Lined up with the status: the 35px icon and the 12px after it
+                Rectangle { width: 47px; }
                 VerticalLayout {
                     horizontal-stretch: 1;
                     padding-bottom: parent.shown ? 2px : 0px;
@@ -217,8 +218,12 @@ export component ConnectionCard inherits Card {
                     }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;
-                        padding-top: note-text != "" ? 8px : 0px;
+                        // Qt's 8px from the label's box, which ends a pixel above Slint's
+                        padding-top: note-text != "" ? 7px : 0px;
+                        // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
+                            width: 160px;
+                            height: 32px;
                             text: @tr("Switch to USB");
                             role: "primary";
                             tip: @tr("The phone was plugged in; reconnect over the cable");
@@ -227,8 +232,11 @@ export component ConnectionCard inherits Card {
                     }
                     if update-shown: HorizontalLayout {
                         alignment: start;
-                        padding-top: note-text != "" || switch-usb-shown ? 8px : 0px;
+                        padding-top: switch-usb-shown ? 8px : note-text != "" ? 7px : 0px;
+                        // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
+                            width: 160px;
+                            height: 32px;
                             text: update-text;
                             role: "primary";
                             enabled: update-enabled;
@@ -238,8 +246,9 @@ export component ConnectionCard inherits Card {
                 }
             }
             // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
+            // A note with nothing under it: Qt's label box ends 4px above Slint's there
             if route-shown: VerticalLayout {
-                padding-top: 12px;
+                padding-top: note-text != "" && !switch-usb-shown && !update-shown ? 8px : 12px;
                 spacing: 4px;
                 Rectangle { height: 1px; background: Theme.border; }
                 FormRow {
