@@ -458,8 +458,7 @@ fn token(len: usize) -> String {
 mod tests {
     use super::*;
     use serde_json::Value as Json;
-    use std::io::{BufRead, BufReader};
-    use std::process::{Child, Command, Stdio};
+    use crate::test_bus::Bus;
     use std::time::Instant;
     use telescope_core::host::Poster;
     use zbus::message::Type;
@@ -482,30 +481,6 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         cond()
-    }
-
-    /// A private session bus, gone when dropped.
-    struct Bus(Child, String);
-
-    impl Bus {
-        fn start() -> Option<Bus> {
-            let mut child = Command::new("dbus-daemon").args(["--session", "--nofork", "--print-address"])
-                .stdout(Stdio::piped()).spawn().ok()?;
-            let mut address = String::new();
-            BufReader::new(child.stdout.take()?).read_line(&mut address).ok()?;
-            Some(Bus(child, address.trim().to_string()))
-        }
-
-        fn connect(&self) -> zbus::Result<Connection> {
-            zbus::blocking::connection::Builder::address(self.1.as_str())?.build()
-        }
-    }
-
-    impl Drop for Bus {
-        fn drop(&mut self) {
-            let _ = self.0.kill();
-            let _ = self.0.wait();
-        }
     }
 
     #[derive(Default)]

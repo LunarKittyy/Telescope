@@ -8,6 +8,10 @@ pub mod hotkeys_windows;
 pub mod keys;
 pub mod shortcuts;
 pub mod single_instance;
+#[cfg(target_os = "linux")]
+pub mod tray;
+#[cfg(all(test, target_os = "linux"))]
+mod test_bus;
 pub mod update_guard;
 pub mod updates;
 pub mod updates_plugin;
