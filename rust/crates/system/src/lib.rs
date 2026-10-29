@@ -1,5 +1,7 @@
 //! The desktop around the window, behind core's system traits: a skeleton (tray, notifications, autostart, single instance, global shortcuts, updater and update guard to come).
 
+pub mod single_instance;
+
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
 
 /// This computer's desktop.
