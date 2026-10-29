@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use telescope_core::colour::ColourPipeline;
 use telescope_core::config::{merge_for_save, ConfigFile, PluginSection, WindowState};
 use telescope_core::event::Event;
 use telescope_core::host::{RequestId, View};
@@ -145,6 +146,8 @@ pub struct State {
     pub selected: Option<String>,
     pub streams: Streams,
     pub view: View,
+    /// Every plugin's colour change, baked into the one LUT the Colour stage runs.
+    pub colour: ColourPipeline,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -176,6 +179,7 @@ impl State {
             selected: None,
             streams: Streams::default(),
             view: View::default(),
+            colour: ColourPipeline::new(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -414,7 +418,16 @@ impl State {
 
     /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
     pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
+        use telescope_core::frame::FrameStage;
+        use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
+        // The window's own steps: its view first, and the colour pipeline's LUT after the effects
+        for step in telescope_core::view_step::steps(&self.view) {
+            steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
+        }
+        if let Some(step) = self.colour.step(None) {
+            steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
+        }
         for i in 0..self.slots.len() {
             let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
             let Some(p) = self.slots[i].plugin.as_mut() else { continue };

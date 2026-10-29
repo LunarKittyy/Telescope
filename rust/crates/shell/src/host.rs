@@ -276,7 +276,10 @@ impl HostView for Ctx<'_> {
         if let Some(s) = change.stretch_x { v.stretch_x = s; }
         if let Some(s) = change.stretch_y { v.stretch_y = s; }
         let view = v.clone();
+        self.state.bus.emit(Event::ViewPannable { pannable: view.zoom > 1.0 });
         self.state.bus.emit(Event::ViewChanged { view });
+        // The window's view step is built from it
+        self.state.effects.push(Effect::FrameStep("view".into()));
     }
     fn take_view(&mut self, _owner: &str) -> bool {
         false
@@ -335,8 +338,14 @@ impl HostStills for Ctx<'_> {
 }
 
 impl HostColour for Ctx<'_> {
-    fn set_colour_stage(&mut self, _owner: &str, _stage: Option<ColourStage>, _order: i32, _source_id: Option<&str>) {}
-    fn colour_split(&mut self, _owner: &str, _position: Option<f32>) {}
+    fn set_colour_stage(&mut self, owner: &str, stage: Option<ColourStage>, order: i32, source_id: Option<&str>) {
+        self.state.colour.set_stage(owner, stage, order, source_id);
+        // The pipeline bakes the stages into a new LUT for the stream's step
+        self.state.effects.push(Effect::FrameStep("colour".into()));
+    }
+    fn colour_split(&mut self, owner: &str, position: Option<f32>) {
+        self.state.colour.set_split(owner, position);
+    }
 }
 
 impl HostSensors for Ctx<'_> {

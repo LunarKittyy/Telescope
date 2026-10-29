@@ -16,6 +16,13 @@ export component Slider inherits HorizontalLayout {
     in property <bool> enabled: true;
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;
+    // Dots on the groove (NoScrollSlider.set_snaps, at most four) that a dragged handle sticks to within snap-px; only a
+    // drag snaps, keys and clicks on the groove step freely
+    in property <[float]> marks;
+    in property <length> snap-px: 5px;
+    // A double-click puts the slider back here (NoScrollSlider.set_default)
+    in property <bool> has-default;
+    in property <float> default-value;
     callback moved(float);
     callback released(float);
     spacing: 8px;
@@ -26,6 +33,14 @@ export component Slider inherits HorizontalLayout {
         height: 36px;
         property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
         property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
+        // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
+        function snapped(v: float) -> float {
+            if (marks.length > 0 && abs((marks[0] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[0]; }
+            if (marks.length > 1 && abs((marks[1] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[1]; }
+            if (marks.length > 2 && abs((marks[2] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[2]; }
+            if (marks.length > 3 && abs((marks[3] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[3]; }
+            return v;
+        }
         accessible-role: slider;
         accessible-label: label;
         accessible-value: value;
@@ -49,6 +64,14 @@ export component Slider inherits HorizontalLayout {
             border-radius: 2px;
             background: enabled ? Theme.border-strong : Theme.surface-raise;
         }
+        for mark in marks: Rectangle {
+            x: track.inset - 2.5px + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
+            y: (parent.height - 5px) / 2;
+            width: 5px;
+            height: 5px;
+            border-radius: 2.5px;
+            background: enabled ? Theme.text-faint : Theme.text-disabled;
+        }
         handle := Rectangle {
             width: 14px;
             height: 14px;
@@ -61,9 +84,13 @@ export component Slider inherits HorizontalLayout {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
             pointer-event(e) => {
-                if (e.kind == PointerEventKind.down || (e.kind == PointerEventKind.move && self.pressed)) {
+                if (e.kind == PointerEventKind.down) {
                     value = round((minimum + picked * (maximum - minimum)) / step) * step;
-                    moved(value);
+                    root.moved(value);
+                }
+                if (e.kind == PointerEventKind.move && self.pressed) {
+                    value = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
+                    root.moved(value);
                 }
                 if (e.kind == PointerEventKind.up) {
                     released(value);
@@ -71,8 +98,15 @@ export component Slider inherits HorizontalLayout {
             }
             moved => {
                 if (self.pressed) {
-                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    value = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
                     root.moved(value);
+                }
+            }
+            double-clicked => {
+                if (has-default) {
+                    value = default-value;
+                    root.moved(value);
+                    root.released(value);
                 }
             }
         }

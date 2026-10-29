@@ -4780,6 +4780,7 @@ dependencies = [
  "serde_json",
  "telescope-audio",
  "telescope-core",
+ "telescope-effects",
  "telescope-link",
  "telescope-media",
  "telescope-outputs",
@@ -4815,6 +4816,17 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "telescope-effects"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "slint-interpreter",
+ "telescope-core",
+ "telescope-ui-kit",
 ]
 
 [[package]]

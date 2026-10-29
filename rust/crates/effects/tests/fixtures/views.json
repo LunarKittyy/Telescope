@@ -1,0 +1,199 @@
+{
+ "width": 96,
+ "height": 64,
+ "cases": [
+  {
+   "name": "a view that changes nothing",
+   "view": {},
+   "width": 96,
+   "height": 64,
+   "file": "view_00.rgba"
+  },
+  {
+   "name": "zoomed in the middle",
+   "view": {
+    "zoom": 2.0
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_01.rgba"
+  },
+  {
+   "name": "zoomed and panned top left",
+   "view": {
+    "zoom": 2.0,
+    "pan_x": -1.0,
+    "pan_y": -1.0
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_02.rgba"
+  },
+  {
+   "name": "zoomed and panned bottom right",
+   "view": {
+    "zoom": 2.0,
+    "pan_x": 1.0,
+    "pan_y": 1.0
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_03.rgba"
+  },
+  {
+   "name": "a fractional zoom",
+   "view": {
+    "zoom": 1.37,
+    "pan_x": 0.3,
+    "pan_y": -0.6
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_04.rgba"
+  },
+  {
+   "name": "zoomed in a lot",
+   "view": {
+    "zoom": 6.0,
+    "pan_x": 0.2,
+    "pan_y": 0.4
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_05.rgba"
+  },
+  {
+   "name": "mirrored",
+   "view": {
+    "flip_h": true
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_06.rgba"
+  },
+  {
+   "name": "upside down",
+   "view": {
+    "flip_v": true
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_07.rgba"
+  },
+  {
+   "name": "mirrored and upside down",
+   "view": {
+    "flip_h": true,
+    "flip_v": true
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_08.rgba"
+  },
+  {
+   "name": "turned a quarter",
+   "view": {
+    "rotation": "90 CW"
+   },
+   "width": 64,
+   "height": 96,
+   "file": "view_09.rgba"
+  },
+  {
+   "name": "turned a half",
+   "view": {
+    "rotation": "180"
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_10.rgba"
+  },
+  {
+   "name": "turned three quarters",
+   "view": {
+    "rotation": "90 CCW"
+   },
+   "width": 64,
+   "height": 96,
+   "file": "view_11.rgba"
+  },
+  {
+   "name": "squished sideways",
+   "view": {
+    "stretch_x": 0.6
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_12.rgba"
+  },
+  {
+   "name": "stretched sideways",
+   "view": {
+    "stretch_x": 1.6
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_13.rgba"
+  },
+  {
+   "name": "squished up and down",
+   "view": {
+    "stretch_y": 0.7
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_14.rgba"
+  },
+  {
+   "name": "stretched and squished",
+   "view": {
+    "stretch_x": 1.3,
+    "stretch_y": 0.8
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_15.rgba"
+  },
+  {
+   "name": "a quarter turn with a zoom and a flip",
+   "view": {
+    "rotation": "90 CW",
+    "zoom": 2.0,
+    "pan_x": 0.5,
+    "pan_y": -0.5,
+    "flip_h": true
+   },
+   "width": 64,
+   "height": 96,
+   "file": "view_16.rgba"
+  },
+  {
+   "name": "three quarters with a stretch",
+   "view": {
+    "rotation": "90 CCW",
+    "stretch_x": 0.7,
+    "stretch_y": 1.2,
+    "flip_v": true
+   },
+   "width": 64,
+   "height": 96,
+   "file": "view_17.rgba"
+  },
+  {
+   "name": "everything at once",
+   "view": {
+    "rotation": "180",
+    "zoom": 3.0,
+    "pan_x": -0.7,
+    "pan_y": 0.3,
+    "flip_h": true,
+    "flip_v": true,
+    "stretch_x": 1.2,
+    "stretch_y": 0.9
+   },
+   "width": 96,
+   "height": 64,
+   "file": "view_18.rgba"
+  }
+ ]
+}

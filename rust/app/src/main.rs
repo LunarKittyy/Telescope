@@ -39,7 +39,7 @@ fn use_own_profile() {
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into()], "en".into());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into()], "en".into());
     let connection = link.clone();
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     Arc::new(Services {
@@ -58,6 +58,8 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
                 Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
+                Box::new(telescope_effects::transforms::TransformsPlugin::new()),
+                Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
             ];
             plugins.extend(added());
             plugins

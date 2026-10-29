@@ -8,6 +8,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
+/// What a file dialog asks for (QFileDialog's getOpenFileName, getSaveFileName and getExistingDirectory).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileDialogKind {
+    Open,
+    Save,
+    Folder,
+}
+
+/// A file or folder to ask the person for. Texts are already translated.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FileDialog {
+    pub kind: FileDialogKind,
+    pub title: String,
+    /// The folder it opens in, or a folder and file name for a Save.
+    pub start: String,
+    /// Qt's filter strings ("LUT files (*.cube)"); the one first is picked to begin with.
+    #[serde(default)]
+    pub filters: Vec<String>,
+}
+
 /// A request that finishes later; its Event::RequestDone (and any RequestProgress) carries the same id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RequestId(pub u64);
@@ -91,6 +112,11 @@ pub struct ColourStage {
     pub size: u32,
     /// size³ RGB triples, red changing fastest, 0..1.
     pub rgb: Arc<Vec<f32>>,
+    /// Only for a change where each channel's output depends on that channel's input alone (curves, gains): its
+    /// output for every input level 0..255 as 256 RGB triples. A pipeline of only such stages is applied as exact
+    /// tables instead of a 3D LUT, as per_channel does in Python.
+    #[serde(default)]
+    pub table: Option<Arc<Vec<f32>>>,
 }
 
 /// The newest frames of every stream, from any thread and without copying (HostFrames).
@@ -236,6 +262,11 @@ pub trait HostShell {
     fn copy_text(&mut self, _text: &str) {}
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
+    /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
+    /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
+    fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
+        None
+    }
 }
 
 /// Changing what a plugin put on screen after it's built.

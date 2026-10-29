@@ -11,6 +11,7 @@ members = [
     "crates/shell",
     "crates/system",
     "crates/plugin-host",
+    "crates/effects",
 ]
 
 [workspace.package]
@@ -29,6 +30,7 @@ telescope-audio = { path = "crates/audio" }
 telescope-shell = { path = "crates/shell" }
 telescope-system = { path = "crates/system" }
 telescope-plugin-host = { path = "crates/plugin-host" }
+telescope-effects = { path = "crates/effects" }
 
 # preserve_order: settings keep the key order Python saved them in
 serde = { version = "1", features = ["derive", "rc"] }
