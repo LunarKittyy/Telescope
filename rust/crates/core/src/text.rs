@@ -1,13 +1,18 @@
 //! Text drawn on pictures: finding the fonts the app uses, measuring a line and putting its glyphs on pixels. The wait screen and
 //! the name tag both draw this way; where the pixels go (a pixmap, a tile) is left to the caller through `Face::draw`.
 //!
-//! Glyphs come from ab_glyph, one font per script as the system has them: the primary font first, then the fallbacks below for
-//! a character it lacks. There is no shaping, so scripts that join or reorder letters (Arabic, Indic) come out as separate glyphs.
+//! A line is split into runs by direction (unicode-bidi) and by which font covers its characters (the primary font first, then the
+//! fallbacks below for a character it lacks), each run is shaped with its font (harfrust, so Arabic joins, Indic marks land where
+//! they belong and kerning applies) and the glyphs are placed from the shaped advances and offsets, runs in visual order.
 
-pub use ab_glyph::FontArc;
-use ab_glyph::{Font, FontVec, GlyphId, PxScale, ScaleFont, VariableFont};
+mod shape;
+
+pub use shape::FontArc;
+use ab_glyph::{Font, GlyphId, PxScale, ScaleFont};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use unicode_bidi::{bidi_class, BidiClass, BidiInfo, Level};
 
 /// The two weights the app draws with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,9 +81,7 @@ pub fn find_font_file(names: &[&str]) -> Option<Vec<u8>> {
 
 /// A font from its bytes; a variable one is set to this weight (400 regular, 600 demi-bold), else its default look.
 fn load(bytes: Vec<u8>, weight: f32) -> Option<FontArc> {
-    let mut font = FontVec::try_from_vec(bytes).ok()?;
-    font.set_variation(b"wght", weight);
-    Some(FontArc::new(font))
+    FontArc::from_bytes(bytes, weight)
 }
 
 /// The first of these file names the system has, as a font.
@@ -121,15 +124,31 @@ struct Placed {
     font: FontArc,
     scale: PxScale,
     glyph: GlyphId,
-    /// Pen position along the line, from its start.
+    /// Pen position along the line, from its start, with the glyph's own offset (a mark over its base) in.
     x: f32,
+    /// How far the glyph sits below the baseline (negative: above).
+    y: f32,
+    /// Where its cluster starts in the text (a byte offset).
+    cluster: usize,
 }
 
-/// A line of text worked out for one face: where each glyph goes, and how wide it is.
+/// A line of text worked out for one face: where each glyph goes (left to right, whatever the text's direction), and how wide it is.
 #[derive(Clone)]
 pub struct Line {
     placed: Vec<Placed>,
     pub width: f32,
+}
+
+impl Line {
+    /// Where in the text each glyph's cluster starts, left to right as drawn.
+    pub fn clusters(&self) -> Vec<usize> {
+        self.placed.iter().map(|p| p.cluster).collect()
+    }
+
+    /// The glyph ids, left to right as drawn.
+    pub fn glyph_ids(&self) -> Vec<u16> {
+        self.placed.iter().map(|p| p.glyph.0).collect()
+    }
 }
 
 /// A font at a size, with the fallbacks for the characters it lacks.
@@ -142,6 +161,17 @@ pub struct Face {
     fallbacks: bool,
     /// Fallbacks for other scripts are demi-bold too.
     heavy: bool,
+}
+
+/// Characters that take the font of their neighbours when it has them: spaces, punctuation, marks and joiners.
+fn takes_neighbours_font(ch: char) -> bool {
+    use BidiClass::*;
+    matches!(bidi_class(ch), WS | ON | CS | ES | ET | S | B | NSM | BN)
+}
+
+/// Marks and joiners that belong to the letter before them.
+fn is_mark(ch: char) -> bool {
+    matches!(bidi_class(ch), BidiClass::NSM | BidiClass::BN)
 }
 
 impl Face {
@@ -178,7 +208,7 @@ impl Face {
         }
     }
 
-    fn scaled(&self) -> ab_glyph::PxScaleFont<&FontArc> {
+    fn scaled(&self) -> ab_glyph::PxScaleFont<&ab_glyph::FontArc> {
         self.font.as_scaled(self.scale_in(&self.font))
     }
 
@@ -197,43 +227,95 @@ impl Face {
         self.ascent() + self.descent()
     }
 
-    /// The text on one line; `spacing` is added between letters (negative to tighten).
+    /// The font that has this character: the main one, else a fallback.
+    fn pick(&self, ch: char) -> Option<FontArc> {
+        if self.font.glyph_id(ch).0 != 0 {
+            return Some(self.font.clone());
+        }
+        if self.fallbacks { fallback_for(ch, self.heavy) } else { None }
+    }
+
+    /// `run` split into stretches that one font covers, in text order. A space or a mark stays in its neighbours' font when that
+    /// has it, so one Arabic phrase is not cut into a piece per word.
+    fn pieces(&self, text: &str, run: Range<usize>) -> Vec<(Range<usize>, FontArc)> {
+        let chars: Vec<(usize, char)> = text[run.clone()].char_indices().map(|(i, c)| (run.start + i, c)).collect();
+        let weak: Vec<bool> = chars.iter().map(|&(_, c)| takes_neighbours_font(c)).collect();
+        let picked: Vec<Option<FontArc>> = chars.iter().zip(&weak).map(|(&(_, c), &w)| if w { None } else { self.pick(c) }).collect();
+        // The font of the next letter at or after each character; none when there is no such letter or no font has it
+        let mut ahead: Vec<Option<&FontArc>> = vec![None; chars.len()];
+        let mut next = None;
+        for i in (0..chars.len()).rev() {
+            if !weak[i] {
+                next = picked[i].as_ref();
+            }
+            ahead[i] = next;
+        }
+        let mut out: Vec<(Range<usize>, FontArc)> = Vec::new();
+        let mut cur: Option<FontArc> = None;
+        for (i, &(at, ch)) in chars.iter().enumerate() {
+            let font = if weak[i] {
+                let stay = cur.as_ref().filter(|c| c.glyph_id(ch).0 != 0 && (is_mark(ch) || ahead[i].is_none_or(|n| n.same(c))));
+                stay.cloned().or_else(|| self.pick(ch))
+            } else {
+                picked[i].clone()
+            };
+            let font = font.or_else(|| cur.clone()).unwrap_or_else(|| self.font.clone());
+            cur = Some(font.clone());
+            let end = at + ch.len_utf8();
+            match out.last_mut() {
+                Some((range, last)) if last.same(&font) => range.end = end,
+                _ => out.push((at..end, font)),
+            }
+        }
+        out
+    }
+
+    /// The text on one line, in the order it reads (right to left when it starts with a right-to-left letter, with the
+    /// Latin and digits inside it still left to right); `spacing` is added between letters (negative to tighten).
     pub fn layout(&self, text: &str, spacing: f32) -> Line {
-        let mut x = 0.0;
         let mut placed = Vec::new();
-        // The glyph before, when it came from the main font (kerning is only worked out inside one font)
-        let mut last: Option<GlyphId> = None;
-        let mut started = false;
-        for ch in text.chars() {
-            let mut font = self.font.clone();
-            let mut id = font.glyph_id(ch);
-            let mut own = true;
-            if id.0 == 0 && self.fallbacks {
-                if let Some(other) = fallback_for(ch, self.heavy) {
-                    id = other.glyph_id(ch);
-                    font = other;
-                    own = false;
+        let mut x = 0.0;
+        if !text.is_empty() {
+            let base = if right_to_left(text) { Level::rtl() } else { Level::ltr() };
+            let bidi = BidiInfo::new(text, Some(base));
+            for para in &bidi.paragraphs {
+                let (levels, runs) = bidi.visual_runs(para, para.range.clone());
+                for run in runs {
+                    let rtl = levels[run.start].is_rtl();
+                    let mut pieces = self.pieces(text, run);
+                    if rtl {
+                        pieces.reverse();
+                    }
+                    for (range, font) in pieces {
+                        let scale = self.scale_in(&font);
+                        let per_unit = scale.x / font.height_unscaled();
+                        let mut last = None;
+                        for g in font.shape(text, range, rtl, spacing != 0.0) {
+                            // Letters are spaced apart by cluster; a mark rides on its base
+                            if last != Some(g.cluster) && !placed.is_empty() {
+                                x += spacing;
+                            }
+                            last = Some(g.cluster);
+                            placed.push(Placed {
+                                font: font.clone(),
+                                scale,
+                                glyph: GlyphId(g.glyph),
+                                x: x + g.x_offset as f32 * per_unit,
+                                y: -(g.y_offset as f32) * per_unit,
+                                cluster: g.cluster,
+                            });
+                            x += g.x_advance as f32 * per_unit;
+                        }
+                    }
                 }
             }
-            let scale = self.scale_in(&font);
-            let scaled = font.as_scaled(scale);
-            if started {
-                if let (Some(prev), true) = (last, own) {
-                    x += scaled.kern(prev, id);
-                }
-                x += spacing;
-            }
-            placed.push(Placed { font: font.clone(), scale, glyph: id, x });
-            x += scaled.h_advance(id);
-            last = own.then_some(id);
-            started = true;
         }
         Line { placed, width: x }
     }
 
     /// Whether the font, or a fallback for it, has a glyph for this character.
     pub fn has_glyph(&self, ch: char) -> bool {
-        self.font.glyph_id(ch).0 != 0 || (self.fallbacks && fallback_for(ch, self.heavy).is_some())
+        self.pick(ch).is_some()
     }
 
     /// How wide the text is on one line.
@@ -241,16 +323,20 @@ impl Face {
         self.layout(text, 0.0).width
     }
 
-    /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight).
+    /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight): the end of the text
+    /// goes, which is the left side of a right-to-left line. It is cut between clusters, never through a letter and its marks.
     pub fn elide(&self, text: &str, width: f32) -> String {
-        if self.advance(text) <= width {
+        let line = self.layout(text, 0.0);
+        if line.width <= width {
             return text.to_string();
         }
-        let chars: Vec<char> = text.chars().collect();
-        for keep in (0..chars.len()).rev() {
-            let cut: String = chars[..keep].iter().collect::<String>() + "\u{2026}";
-            if self.advance(&cut) <= width {
-                return cut;
+        let mut cuts: Vec<usize> = line.placed.iter().map(|p| p.cluster).collect();
+        cuts.sort_unstable();
+        cuts.dedup();
+        for &cut in cuts.iter().rev() {
+            let shorter = format!("{}\u{2026}", &text[..cut]);
+            if self.advance(&shorter) <= width {
+                return shorter;
             }
         }
         "\u{2026}".into()
@@ -260,7 +346,7 @@ impl Face {
     /// Pixels may be reported more than once where glyphs overlap.
     pub fn draw(&self, line: &Line, x: f32, baseline: f32, mut cover: impl FnMut(i32, i32, f32)) {
         for p in &line.placed {
-            let glyph = p.glyph.with_scale_and_position(p.scale, ab_glyph::point(x + p.x, baseline));
+            let glyph = p.glyph.with_scale_and_position(p.scale, ab_glyph::point(x + p.x, baseline + p.y));
             let Some(outlined) = p.font.outline_glyph(glyph) else { continue };
             let bounds = outlined.px_bounds();
             outlined.draw(|gx, gy, c| cover(bounds.min.x as i32 + gx as i32, bounds.min.y as i32 + gy as i32, c));
@@ -280,63 +366,5 @@ pub fn right_to_left(text: &str) -> bool {
     false
 }
 
-/// The text in the order its glyphs are drawn left to right: reversed for a right-to-left line.
-pub fn visual_order(text: &str) -> String {
-    if right_to_left(text) { text.chars().rev().collect() } else { text.to_string() }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn face(px: f32) -> Option<Face> {
-        let face = app_font(Weight::Regular).map(|f| Face::em(f, px));
-        if face.is_none() {
-            eprintln!("no font on this machine: text measuring is skipped");
-        }
-        face
-    }
-
-    #[test]
-    fn text_is_wider_the_more_of_it_and_the_bigger() {
-        let Some(small) = face(20.0) else { return };
-        let big = face(40.0).unwrap();
-        assert!(small.advance("Luna Kozankiewicz") > small.advance("Luna"));
-        let ratio = big.advance("Luna") / small.advance("Luna");
-        assert!((ratio - 2.0).abs() < 0.02, "{ratio}");
-        assert!(small.height() > 20.0 && small.ascent() > small.descent());
-    }
-
-    #[test]
-    fn a_long_line_is_cut_with_an_ellipsis_to_fit() {
-        let Some(f) = face(30.0) else { return };
-        let text = "Wolfeschlegelsteinhausenbergerdorff";
-        let cut = f.elide(text, 200.0);
-        assert!(cut.ends_with('\u{2026}') && f.advance(&cut) <= 200.0 && cut.len() < text.len());
-        assert_eq!(f.elide("Luna", 200.0), "Luna");
-    }
-
-    #[test]
-    fn drawing_reports_pixels_inside_the_line() {
-        let Some(f) = face(30.0) else { return };
-        let line = f.layout("Hi", 0.0);
-        let (mut hits, mut max_x) = (0, 0);
-        f.draw(&line, 10.0, 40.0, |x, y, c| {
-            if c > 0.5 {
-                hits += 1;
-                max_x = max_x.max(x);
-                assert!(y > 40 - 35 && y < 40 + 2, "{y}");
-            }
-        });
-        assert!(hits > 20 && max_x as f32 <= 10.0 + line.width + 1.0);
-    }
-
-    #[test]
-    fn direction_comes_from_the_first_strong_letter() {
-        assert!(right_to_left("\u{633}\u{627}\u{631}\u{629}"));
-        assert!(!right_to_left("Luna") && !right_to_left("\u{5c71}\u{7530}") && !right_to_left("   "));
-        assert!(right_to_left("  \u{647}\u{64a}"));
-        assert_eq!(visual_order("abc"), "abc");
-        assert_eq!(visual_order("\u{5d0}\u{5d1}"), "\u{5d1}\u{5d0}");
-    }
-}
+mod tests;

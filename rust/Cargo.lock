@@ -4813,10 +4813,12 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "chrono",
+ "harfrust",
  "libc",
  "log",
  "serde",
  "serde_json",
+ "unicode-bidi",
 ]
 
 [[package]]
