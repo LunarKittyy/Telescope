@@ -4646,8 +4646,8 @@
 "test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::an_unplugged_webcam_waits_to_be_plugged_back_in" }
 "test_webcams.py::test_auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_falls_back_to_the_fastest_size_when_none_keeps_the_rate" }
 "test_webcams.py::test_auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::auto_takes_the_largest_size_up_to_1080p_that_keeps_the_rate" }
-"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "todo", note = "" }
-"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "todo", note = "" }
+"test_webcams.py::test_directshow_gets_the_rate_first_and_the_format_with_the_size" = { status = "dropped", reason = "Rust reads webcams through Media Foundation (a source reader set to the native type), not OpenCV's DirectShow backend" }
+"test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "dropped", reason = "Rust opens a webcam by its Media Foundation symbolic link, so there is no DirectShow index to look up again" }
 "test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::formats_we_cant_read_are_ignored" }
 "test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::identical_webcams_without_a_serial_are_told_apart_by_their_port" }
 "test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own" }
@@ -4667,7 +4667,7 @@
 "test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::v4l2_structs_match_the_kernel" }
 "test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::virtual_cameras_are_told_apart_by_name" }
 "test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
-"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo", note = "" }
+"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs" }
 # ── widgets
 "test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "todo" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "todo" }

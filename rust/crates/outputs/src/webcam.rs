@@ -169,7 +169,14 @@ impl Default for System {
             users: Arc::new(|p: &str| webcams::who_uses(p, "/proc")),
             exists: Arc::new(|p: &str| std::path::Path::new(p).exists()),
         };
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(windows)]
+        return System {
+            opener: Arc::new(|d: &Device, c: &Choice| crate::webcams_win::open(&d.location, c)),
+            // Windows doesn't say which app holds a camera
+            users: Arc::new(|_: &str| String::new()),
+            exists: Arc::new(crate::webcams_win::present),
+        };
+        #[cfg(not(any(target_os = "linux", windows)))]
         System {
             opener: Arc::new(|_: &Device, _: &Choice| Err((false, "Webcams on this system aren't in this build yet".into()))),
             users: Arc::new(|_: &str| String::new()),
@@ -308,7 +315,12 @@ impl WebcamPlugin {
             let mut scanner = webcams::linux_scanner();
             Box::new(move || Ok(scanner.scan()))
         };
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(windows)]
+        let scan: Scanner = {
+            let mut scanner = crate::webcams_win::WindowsScanner::default();
+            Box::new(move || Ok(scanner.scan()))
+        };
+        #[cfg(not(any(target_os = "linux", windows)))]
         let scan: Scanner = Box::new(|| Ok(Vec::new()));
         WebcamPlugin::new(scan, Box::new(crate::webcam_controls::controls_for), System::default())
     }
