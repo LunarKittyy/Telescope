@@ -76,6 +76,19 @@ fn direction_comes_from_the_first_strong_letter() {
 }
 
 #[test]
+fn direction_follows_bidi_classes_not_script_ranges() {
+    // Qt's drawText and name_tag.right_to_left both pick left to right for these (an Arabic comma and an Arabic-Indic digit are
+    // not strong), checked by painting each with and without a left-to-right mark
+    assert!(!right_to_left("\u{60c}ABC \u{5e9}\u{5dc}\u{5d5}\u{5dd}"));
+    assert!(!right_to_left("\u{661}ABC \u{5e9}\u{5dc}\u{5d5}\u{5dd}"));
+    assert!(right_to_left("123 \u{5e9}\u{5dc}\u{5d5}\u{5dd}"));
+    let text = "\u{60c}ABC \u{5e9}\u{5dc}\u{5d5}\u{5dd}";
+    let Some(f) = face_with(40.0, text, "Arabic comma, Latin and Hebrew") else { return };
+    // read from the left: the comma, the Latin and the space as they are written, then the Hebrew from its right end
+    assert_eq!(f.layout(text, 0.0).clusters(), [0, 2, 3, 4, 5, 12, 10, 8, 6]);
+}
+
+#[test]
 fn pairs_of_letters_are_kerned() {
     let Some(f) = face(40.0) else { return };
     let (pair, apart) = (f.advance("AV"), f.advance("A") + f.advance("V"));

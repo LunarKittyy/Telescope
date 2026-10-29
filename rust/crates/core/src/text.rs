@@ -354,12 +354,13 @@ impl Face {
     }
 }
 
-/// Whether text starts out right to left (its first strongly directional character is Arabic, Hebrew and the like).
+/// Whether text starts out right to left (its first strongly directional character is Arabic, Hebrew and the like), by bidi class
+/// like Python's unicodedata.bidirectional: an Arabic comma or digit is not strong.
 pub fn right_to_left(text: &str) -> bool {
     for ch in text.chars() {
-        match ch as u32 {
-            0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF | 0x10800..=0x10FFF | 0x1E800..=0x1EFFF => return true,
-            _ if ch.is_alphabetic() => return false,
+        match bidi_class(ch) {
+            BidiClass::R | BidiClass::AL => return true,
+            BidiClass::L => return false,
             _ => {}
         }
     }
