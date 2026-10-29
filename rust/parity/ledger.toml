@@ -2239,7 +2239,7 @@
 "test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 "test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 # ── bench_frames
-"test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "todo" }
+"test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "todo", note = "times the effects plugins as well; a Rust benchmark fits once the effects are ported (media has an ignored decode_speed bench in h264.rs)" }
 # ── browser_camera
 "test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "todo" }
 "test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "todo" }
