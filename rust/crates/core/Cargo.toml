@@ -10,6 +10,7 @@ serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
 chrono.workspace = true
+ab_glyph = "0.2"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
