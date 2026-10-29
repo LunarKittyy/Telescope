@@ -128,6 +128,7 @@ fn services(link: SceneLink) -> Arc<Services> {
     let link: Arc<dyn Link> = Arc::new(link);
     let connection = link.clone();
     Arc::new(Services {
+        tray: None,
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
         outputs: Arc::new(SceneOutputs),

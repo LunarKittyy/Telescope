@@ -35,6 +35,8 @@ pub struct WindowOptions {
     pub quit_after: Option<u64>,
     /// Save the window as a PPM here once it has drawn.
     pub snapshot: Option<String>,
+    /// --minimized: start in the tray (minimized where there's none).
+    pub minimized: bool,
 }
 
 /// Which element of the document a plugin's piece of UI is.
@@ -563,9 +565,10 @@ impl Window {
                 self.timers.borrow_mut().remove(&(plugin, token));
             }
             Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
-            Effect::Quit => {
-                let _ = slint::quit_event_loop();
-            }
+            Effect::Quit => self.quit("A plugin quit the app"),
+            Effect::Tray(_) => self.refresh_tray_menu(),
+            Effect::ToggleWindow => self.toggle_window(),
+            Effect::KeepInTray(_) => {}
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
             Effect::OpenUrl(url) => match url.strip_prefix(crate::banners::COPY_SCHEME) {
                 Some(text) => self.copy_text(text),
@@ -649,6 +652,8 @@ fn open_url(url: &str) {
     let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
 }
 
+pub use crate::tray::raise;
+
 /// Lets go of the window build() registered, once it's shut down (the scene renders build one after another).
 pub fn forget() {
     WINDOW.with(|w| *w.borrow_mut() = None);
@@ -703,7 +708,27 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             let _ = slint::quit_event_loop();
         });
     }
-    window.ui.run().map_err(|e| e.to_string())?;
+    if opts.minimized {
+        window.start_hidden();
+    } else {
+        window.show_window();
+    }
+    let weak = Rc::downgrade(&window);
+    window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));
+    window.refresh_tray_menu();
+    let tray_timer = slint::Timer::default();
+    if window.has_tray() {
+        let weak = Rc::downgrade(&window);
+        tray_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
+            if let Some(w) = weak.upgrade() {
+                w.poll_tray();
+            }
+        });
+    }
+    window.process();
+    slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
+    drop(tray_timer);
+    let _ = window.ui.hide();
     window.shut_down();
     WINDOW.with(|w| *w.borrow_mut() = None);
     Ok(())

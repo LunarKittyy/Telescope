@@ -265,6 +265,12 @@ impl HostUi for Ctx<'_> {
         self.state.effects.push(Effect::Props { plugin: self.me.clone(), ui: ui.into(), props: props.clone() });
     }
     fn update_tray_action(&mut self, action: &TrayAction) {
+        if let Some(i) = self.state.index(&self.me) {
+            match self.state.slots[i].tray.iter_mut().find(|a| a.id == action.id) {
+                Some(a) => *a = action.clone(),
+                None => self.state.slots[i].tray.push(action.clone()),
+            }
+        }
         self.state.effects.push(Effect::Tray(action.clone()));
     }
     fn refresh_frame_step(&mut self) {

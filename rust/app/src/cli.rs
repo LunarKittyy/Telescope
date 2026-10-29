@@ -34,7 +34,7 @@ impl Args {
         StreamRequest { width: self.width, height: self.height, fps: self.fps }
     }
 
-    pub fn window(&self, snapshot: Option<String>) -> WindowOptions {
+    pub fn window(&self, snapshot: Option<String>, minimized: bool) -> WindowOptions {
         WindowOptions {
             prefs: self.prefs(),
             request: self.request(),
@@ -43,6 +43,7 @@ impl Args {
             autostart: self.autostart,
             quit_after: self.quit_after,
             snapshot,
+            minimized,
         }
     }
 }

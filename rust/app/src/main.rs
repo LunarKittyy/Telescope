@@ -36,7 +36,8 @@ fn use_own_profile() {
     std::env::set_var(DEV_PROFILE_ENV, folder);
 }
 
-fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions) -> Arc<Services> {
+/// tray: the window's run, which shows the tray icon.
+fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
     let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into()], "en".into());
@@ -50,6 +51,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
+        tray: if tray { telescope_system::tray::SniTray::new().map(|t| std::sync::Mutex::new(Box::new(t) as Box<dyn telescope_core::system::Tray>)) } else { None },
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 Box::new(connection.connection_plugin()),
@@ -155,7 +157,7 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) ->
     // Straight away: an --action from a sign-in script mustn't find the last run's key
     let key = si::write_control_key(&si::control_key_path(&telescope_core::config::config_path()));
     let remote = remote.clone();
-    si::listen(lock, || log::info!("Another start asked this window to show itself"), move |request| remote.handle(request), key);
+    si::listen(lock, telescope_shell::window::raise, move |request| remote.handle(request), key);
     Some(())
 }
 
@@ -215,9 +217,6 @@ fn main() {
     let minimized = flag(&mut words, "--minimized");
     let wait_for_lock = flag(&mut words, "--after-update") | flag(&mut words, "--restarted");
     let _moved_from = value(&mut words, "--moved-from");
-    if minimized {
-        log::info!("--minimized: starting in the tray isn't in this build yet, so the window opens");
-    }
     let remote = telescope_system::shortcuts::RemoteActions::default();
     let after_update = std::env::args().any(|a| a == "--after-update");
     // Before the window: an update cut short is finished, or one that never started is rolled back
@@ -245,12 +244,12 @@ fn main() {
     }
     let result = match command {
         Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
-        Some("pair") => cli::pair(&args, &services(None, remote)),
-        Some("stream") => cli::stream(&args, &services(args.device.clone(), remote)),
-        Some("control") => cli::control(&args, &services(None, remote), words.get(1).map(String::as_str).unwrap_or("{}")),
+        Some("pair") => cli::pair(&args, &services(None, remote, false)),
+        Some("stream") => cli::stream(&args, &services(args.device.clone(), remote, false)),
+        Some("control") => cli::control(&args, &services(None, remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
-            telescope_shell::run(services(args.device.clone(), remote), args.window(Some(out)))
+            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false))
         }
         Some(other) => Err(format!("Unknown command {other}")),
         None => match take_lock(wait_for_lock, &remote) {
@@ -259,7 +258,7 @@ fn main() {
                     std::thread::sleep(STARTED_FINE);
                     started_fine();
                 });
-                let result = telescope_shell::run(services(args.device.clone(), remote), args.window(None));
+                let result = telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized));
                 started_fine();
                 result
             }

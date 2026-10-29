@@ -167,6 +167,11 @@ pub struct State {
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
     pub window_active: bool,
+    /// The Microphone card's (enabled, muted), for the tray's tooltip.
+    pub mic: (bool, bool),
+    /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
+    pub shown: Option<bool>,
+    pub tray_close_notified: bool,
     next_request: u64,
 }
 
@@ -194,6 +199,9 @@ impl State {
             keep_in_tray: false,
             link: None,
             window_active: false,
+            mic: (false, false),
+            shown: None,
+            tray_close_notified: false,
             next_request: 1,
         }
     }
@@ -559,6 +567,9 @@ impl State {
     pub fn deliver_events(&mut self) {
         loop {
             while let Some(event) = self.bus.next() {
+                if let Event::MicChanged { enabled, muted } = event {
+                    self.mic = (enabled, muted);
+                }
                 self.each(|p, host| p.on_event(host, &event));
             }
             let posts = self.posts.take();
