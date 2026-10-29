@@ -267,10 +267,13 @@ const HEADER: &str = r#"
             padding-bottom: 10px;
             spacing: 12px;
             HorizontalLayout {
+                // Header widgets keep their own width, like Qt's header row; the gap takes the rest
+                horizontal-stretch: 0;
                 spacing: 14px;
 {left}            }
             Rectangle { horizontal-stretch: 1; }
             HorizontalLayout {
+                horizontal-stretch: 0;
                 spacing: 8px;
 {right}            }
             HeaderIconButton {
