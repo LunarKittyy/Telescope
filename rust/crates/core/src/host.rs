@@ -309,6 +309,14 @@ pub trait HostPackets {
     fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>);
 }
 
+/// Hands results from a plugin's own threads back to the host thread (Python's queued Qt signals). Plain data, so a
+/// Lua or WASM plugin's threads can use it too.
+pub trait Poster: Send + Sync {
+    /// From any thread: Event::Posted with this token and data soon reaches the plugin the poster belongs to, on the
+    /// host thread. Posts arrive in the order sent; after the plugin is gone they're dropped.
+    fn post(&self, token: &str, data: Value);
+}
+
 /// Everything a plugin may call on the host. Handed to each hook rather than kept, so nothing holds the host between calls.
 pub trait Host:
     HostSettings + HostStreams + HostCamera + HostSources + HostShell + HostUi + HostView + HostVision + HostFrames
@@ -318,4 +326,14 @@ pub trait Host:
     fn emit(&mut self, event: Event);
     /// Whether a plugin by this name is loaded and switched on.
     fn has_plugin(&self, name: &str) -> bool;
+
+    /// Event::TimerFired with this token reaches this plugin (only) after after_ms, once (QTimer.singleShot; schedule
+    /// again to repeat). Scheduling a token that's still pending moves it instead of adding a second one.
+    fn schedule(&mut self, _after_ms: u64, _token: &str) {}
+    /// Drops this plugin's pending timer with this token, if any.
+    fn cancel_schedule(&mut self, _token: &str) {}
+    /// A handle for this plugin's own threads to post results back through; None on a host without one.
+    fn poster(&self) -> Option<Arc<dyn Poster>> {
+        None
+    }
 }

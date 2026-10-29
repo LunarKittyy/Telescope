@@ -174,6 +174,10 @@ events! {
     "request_done" => RequestDone { request: RequestId, ok: bool, message: String, data: Value },
     /// Not in plugin.py: progress on a host request that's still going (take_still's on_progress).
     "request_progress" => RequestProgress { request: RequestId, data: Value },
+    /// Not in plugin.py: a timer from Host::schedule went off; only the plugin that scheduled it (owner) hears it.
+    "timer_fired" => TimerFired { owner: String, token: String },
+    /// Not in plugin.py: a Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.
+    "posted" => Posted { owner: String, token: String, data: Value },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }
@@ -205,6 +209,15 @@ mod tests {
         for signal in signals {
             assert!(Event::NAMES.contains(&signal), "plugin.py's {signal} has no Event");
         }
+    }
+
+    #[test]
+    fn timers_and_posts_are_plain_data() {
+        let e = Event::Posted { owner: "connection".into(), token: "resolved".into(), data: json!({"check_id": 3}) };
+        assert_eq!(serde_json::to_value(&e).unwrap(),
+                   json!({"event": "posted", "owner": "connection", "token": "resolved", "data": {"check_id": 3}}));
+        let t = Event::TimerFired { owner: "connection".into(), token: "poll".into() };
+        assert_eq!(serde_json::from_value::<Event>(serde_json::to_value(&t).unwrap()).unwrap(), t);
     }
 
     #[test]
