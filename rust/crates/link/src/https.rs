@@ -367,6 +367,15 @@ impl PhoneAuth {
     /// Like urlopen: a 2xx response with its body unread, else the error. https needs the pin; plain http only goes
     /// out when there's no pin.
     pub fn open(&self, req: Request<'_>) -> Result<Response, Error> {
+        let resp = self.open_any(req)?;
+        if !(200..300).contains(&resp.status) {
+            return Err(Error::Http(resp.status));
+        }
+        Ok(resp)
+    }
+
+    /// Like open, but an answer with any status comes back, so an error's body can be read (urllib's HTTPError).
+    pub fn open_any(&self, req: Request<'_>) -> Result<Response, Error> {
         let url = Url::parse(req.url)?;
         if url.tls && !is_fingerprint(&self.pin) {
             return Err(Error::PinMismatch);
@@ -439,9 +448,6 @@ impl PhoneAuth {
         } else {
             Body::UntilClose
         };
-        if !(200..300).contains(&status) {
-            return Err(Error::Http(status));
-        }
         let aborter = Aborter { aborted, socket: Some(Arc::downgrade(&shared)) };
         Ok(Response { status, headers, reader, body, aborter, _socket: shared })
     }

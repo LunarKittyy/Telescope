@@ -2,6 +2,7 @@
 
 pub mod adb;
 pub mod adb_download;
+pub mod audio;
 pub mod connection;
 pub mod discovery;
 pub mod feeds;

@@ -91,13 +91,13 @@
 "{plugins} didn't start" = { status = "todo" }
 "{plugins} is turned off" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 # ── audio
-"Allow the microphone in Telescope on the phone" = { status = "todo" }
-"Can't reach the phone's microphone." = { status = "todo" }
+"Allow the microphone in Telescope on the phone" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
+"Can't reach the phone's microphone." = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "Couldn't open the virtual microphone: {error}" = { status = "todo" }
-"No microphone" = { status = "todo" }
-"Open Telescope on the phone once, then try again" = { status = "todo" }
-"The phone refused the microphone (HTTP {code})." = { status = "todo" }
-"The phone's microphone is in use" = { status = "todo" }
+"No microphone" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
+"Open Telescope on the phone once, then try again" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
+"The phone refused the microphone (HTTP {code})." = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
+"The phone's microphone is in use" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "The phone's microphone stopped." = { status = "todo" }
 "The virtual microphone stopped taking audio." = { status = "todo" }
 # ── background
@@ -5821,7 +5821,7 @@
 "/v1/video.h264" = { status = "ported", rust = "rust/crates/link/src/service.rs", note = "prototype" }
 "/v1/video.udp" = { status = "ported", rust = "rust/crates/link/src/udp.rs" }
 # ── microphone
-"/v1/audio" = { status = "todo" }
+"/v1/audio" = { status = "ported", rust = "rust/crates/link/src/audio.rs::open_audio" }
 # ── notes
 "control.notes" = { status = "todo" }
 "control.notes_scroll" = { status = "todo" }

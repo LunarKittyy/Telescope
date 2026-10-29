@@ -322,6 +322,10 @@ impl PhoneSession for Session {
         self.base.clone()
     }
 
+    fn open_audio(&self) -> Result<Box<dyn telescope_core::audio::AudioFeed>, String> {
+        Ok(Box::new(crate::audio::open_audio(&format!("{}/audio", self.base), &self.auth)?))
+    }
+
     fn controls(&self) -> Option<Arc<dyn PhoneControl>> {
         Some(self.controls.clone())
     }
