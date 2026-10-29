@@ -2,6 +2,7 @@
 //! LUT files (`cube`) are here too; the pixel work goes through core's shader steps and colour pipeline.
 
 pub mod cube;
+pub mod desk;
 pub mod editors;
 pub mod grade;
 pub mod name_tag;

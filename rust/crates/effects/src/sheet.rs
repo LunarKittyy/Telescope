@@ -427,4 +427,4 @@ pub fn straighten(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp) ->
 
 #[cfg(test)]
 #[path = "sheet_tests.rs"]
-mod tests;
+pub(crate) mod tests;

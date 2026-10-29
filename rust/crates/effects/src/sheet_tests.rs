@@ -1,12 +1,12 @@
 use super::*;
 
-const W: usize = 320;
-const H: usize = 180;
-const CORNERS: [P; 4] = [[110.0, 20.0], [210.0, 28.0], [222.0, 170.0], [98.0, 162.0]];
+pub(crate) const W: usize = 320;
+pub(crate) const H: usize = 180;
+pub(crate) const CORNERS: [P; 4] = [[110.0, 20.0], [210.0, 28.0], [222.0, 170.0], [98.0, 162.0]];
 const A4: f64 = 210.0 / 297.0;
 
 /// A dark desk with a white sheet at CORNERS and a black bar across the sheet's middle, as RGB.
-fn desk_frame() -> Vec<u8> {
+pub(crate) fn desk_frame() -> Vec<u8> {
     let matrix = perspective(&[[0.0, 0.0], [150.0, 0.0], [150.0, 200.0], [0.0, 200.0]], &CORNERS);
     let inv = invert(&matrix);
     let mut frame = vec![40u8; W * H * 3];

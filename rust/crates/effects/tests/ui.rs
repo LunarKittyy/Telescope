@@ -5,6 +5,7 @@ use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::SlintSource;
 use telescope_effects::colour_grading::ColourGradingPlugin;
+use telescope_effects::desk::DeskPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::transforms::TransformsPlugin;
@@ -78,4 +79,9 @@ fn the_cards_have_what_their_plugins_use() {
     let mut tag = NameTagPlugin::new();
     compile(&mut tag);
     has_what_the_plugin_uses(&mut tag, &["switch-toggled-by-hand", "text-edited", "choice-picked"]);
+    let mut desk = DeskPlugin::new();
+    compile(&mut desk);
+    has_what_the_plugin_uses(&mut desk, &[
+        "switch-toggled-by-hand", "mark-clicked", "done-clicked", "cancel-clicked", "reset-clicked", "clean-picked", "shape-picked", "stretch-moved",
+    ]);
 }

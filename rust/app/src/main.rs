@@ -62,6 +62,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+                Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
             ];

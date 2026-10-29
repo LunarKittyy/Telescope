@@ -6,7 +6,9 @@ use serde_json::Value;
 use std::path::PathBuf;
 use telescope_core::plugin::Plugin;
 use telescope_effects::name_tag::NameTagPlugin;
+use telescope_effects::desk::DeskPlugin;
 use telescope_effects::notes::NotesPlugin;
+use telescope_effects::sheet::{self, Sheet};
 use telescope_effects::tag::{self, Spec};
 
 fn fixtures() -> PathBuf {
@@ -37,7 +39,7 @@ fn settings_load_and_save_as_python_does() {
         let mut plugin: Box<dyn Plugin> = match case["plugin"].as_str().unwrap() {
             "notes" => Box::new(NotesPlugin::new()),
             "name_tag" => Box::new(NameTagPlugin::new()),
-            "desk" => continue,
+            "desk" => Box::new(DeskPlugin::new()),
             other => panic!("{other}"),
         };
         let loaded = plugin.set_config(&case["input"]);
@@ -105,5 +107,48 @@ fn name_tags_are_laid_out_and_drawn_like_python() {
         assert!((got[2] - want[2]).abs() <= want[2] * 0.015 + 2.0, "{}: the box's width", case["name"]);
         assert!((got[1] - want[1]).abs() <= 1.0, "{}: the box's top", case["name"]);
         assert!(sum_alpha as f64 / n < 14.0 && big_alpha as f64 / n < 0.08, "{}: the tile", case["name"]);
+    }
+}
+
+/// How close Rust's straightened sheet has to be to OpenCV's: it looks up in whole floats, OpenCV in 1/32 pixel.
+const DESK_MEAN: f64 = 1.0;
+const DESK_OVER: f64 = 0.005;
+
+#[test]
+fn the_desk_makes_the_same_pictures_as_python() {
+    let all = json_of("desk.json");
+    let (w, h) = (all["width"].as_u64().unwrap() as usize, all["height"].as_u64().unwrap() as usize);
+    let raw = std::fs::read(fixtures().join(all["frame"].as_str().unwrap())).unwrap();
+    let rgb: Vec<u8> = raw.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let mut worst = Vec::new();
+    for case in all["cases"].as_array().unwrap() {
+        let s = &case["settings"];
+        let c = s["corners"].as_array().unwrap();
+        let corners = [0, 1, 2, 3].map(|i| [c[i][0].as_f64().unwrap(), c[i][1].as_f64().unwrap()]);
+        let stretch = [s["stretch"][0].as_i64().unwrap() as i32, s["stretch"][1].as_i64().unwrap() as i32];
+        let sheet = Sheet { corners, cleanup: s["cleanup"].as_str().unwrap().into(), shape: s["shape"].as_str().unwrap().into(), stretch, geometry: Default::default() };
+        let warp = sheet::warp_for(&sheet, w, h);
+        let rect: Vec<u64> = case["rect"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap()).collect();
+        assert_eq!([warp.rect.0 as u64, warp.rect.1 as u64, warp.rect.2 as u64, warp.rect.3 as u64], rect[..], "{}: where the sheet goes", case["name"]);
+        for (row, want) in warp.on_preview.iter().zip(case["on_preview"].as_array().unwrap()) {
+            for (got, want) in row.iter().zip(want.as_array().unwrap()) {
+                assert!((got - want.as_f64().unwrap()).abs() < 1e-6 * want.as_f64().unwrap().abs().max(1.0), "{}: the preview's warp", case["name"]);
+            }
+        }
+        let got = sheet::straighten(&rgb, w, h, &sheet, &warp);
+        let want = std::fs::read(fixtures().join(case["file"].as_str().unwrap())).unwrap();
+        let (mut sum, mut over, mut max) = (0u64, 0usize, 0u32);
+        for (g, p) in got.chunks(3).zip(want.chunks(4)) {
+            let worst_channel = (0..3).map(|k| (g[k] as i32 - p[k] as i32).unsigned_abs()).max().unwrap();
+            sum += (0..3).map(|k| (g[k] as i32 - p[k] as i32).unsigned_abs() as u64).sum::<u64>();
+            over += (worst_channel > 24) as usize;
+            max = max.max(worst_channel);
+        }
+        let (mean, over) = (sum as f64 / (w * h * 3) as f64, over as f64 / (w * h) as f64);
+        eprintln!("{:<26} max {max:>3} mean {mean:.3} over {over:.4}", case["name"].as_str().unwrap());
+        worst.push((case["name"].as_str().unwrap().to_string(), mean, over));
+    }
+    for (name, mean, over) in worst {
+        assert!(mean <= DESK_MEAN && over <= DESK_OVER, "{name}: mean {mean} over {over}");
     }
 }

@@ -278,7 +278,7 @@ impl NotesPlugin {
             "show-auto": self.scroll_auto,
             "playing": self.playing, "play-text": if self.playing { tr("Pause") } else { tr("Play") },
             "send-enabled": self.send_enabled(), "clear-enabled": sent, "nav-enabled": sent,
-            "status": status, "status-kind": kind,
+            "status": status, "status-kind": if kind == "dim" { "status_dim" } else { kind },
         })
     }
 
