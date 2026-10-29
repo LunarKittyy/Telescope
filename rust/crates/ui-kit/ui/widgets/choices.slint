@@ -90,20 +90,28 @@ export component Segmented inherits Rectangle {
 }
 
 // controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
+// compact: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
 export component ChoiceField inherits Rectangle {
     in property <string> caption;
+    in property <bool> compact;
+    // A small icon before the text (the header's phone picker), and its text in bold
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <color> icon-tint: Theme.text-dim;
+    in property <bool> bold;
     in property <[string]> items;
     in-out property <int> current;
     in property <bool> enabled: true;
     callback picked(int);
-    height: 48px;
+    height: compact ? 32px : 48px;
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    border-radius: 10px;
+    border-radius: compact ? 7px : 10px;
     border-width: 1px;
     background: touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
-    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
+    // Qt's plain combo box has the strong border; the tile its quiet one
+    border-color: touch.has-hover && enabled ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[current];
@@ -118,18 +126,26 @@ export component ChoiceField inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    FocusRing { shown: focus.has-focus; radius: compact ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { popup.show(); }
     }
+    if has-icon: Icon {
+        source: icon;
+        tint: icon-tint;
+        x: 11px;
+        width: 14px;
+        height: 14px;
+        accessible-role: none;
+    }
     VerticalLayout {
-        padding-left: 12px;
+        padding-left: has-icon ? 32px : 12px;
         padding-right: 30px;
         alignment: center;
         spacing: 1px;
-        Text {
+        if !compact: Text {
             text: caption;
             font-family: Theme.font;
             font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
@@ -140,16 +156,16 @@ export component ChoiceField inherits Rectangle {
             text: items[current];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: 600;
+            font-weight: compact && !bold ? 400 : 600;
             color: enabled ? Theme.text : Theme.text-disabled;
             overflow: elide;
         }
     }
     Icon {
         source: @image-url("../icons/chevron.svg");
-        x: parent.width - 12px - 14px;
-        width: 14px;
-        height: 14px;
+        x: parent.width - 12px - self.width;
+        width: compact ? 10px : 14px;
+        height: compact ? 10px : 14px;
     }
     popup := PopupWindow {
         x: 0;

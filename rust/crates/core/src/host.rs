@@ -222,6 +222,18 @@ pub trait HostShell {
     fn open_settings(&mut self, tab: &str);
     /// Every plugin's actions, in registration order, as (plugin, action).
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;
+    /// Runs another plugin's action as a key would (Shortcuts and `--action` use it): what to say about it, or None
+    /// when it can't right now.
+    fn run_action(&mut self, _plugin: &str, _id: &str, _params: &Value) -> Option<String> {
+        None
+    }
+    /// The key held for another plugin's action came back up (Plugin::release_action).
+    fn release_action(&mut self, _plugin: &str, _id: &str, _params: &Value) {}
+    /// Whether one of Telescope's windows is the one in front (QApplication.activeWindow()).
+    fn window_active(&self) -> bool {
+        false
+    }
+    fn copy_text(&mut self, _text: &str) {}
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
 }

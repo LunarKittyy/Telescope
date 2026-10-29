@@ -56,6 +56,9 @@ pub struct FakeHost {
     pub scheduled: Vec<(u64, String)>,
     /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
     pub posted: Arc<Mutex<Vec<(String, Value)>>>,
+    /// What shortcut_actions() lists; run_action answers "{id} ran" for these.
+    pub actions: Vec<(String, ActionSpec)>,
+    pub window_active: bool,
     /// The phone's camera is off (set_camera_on(false) turns it off too).
     pub camera_off: bool,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
@@ -257,7 +260,20 @@ impl HostShell for FakeHost {
         self.note(format!("open_settings {tab}"));
     }
     fn shortcut_actions(&self) -> Vec<(String, ActionSpec)> {
-        Vec::new()
+        self.actions.clone()
+    }
+    fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
+        self.note(format!("run_action {plugin} {id} {params}"));
+        self.actions.iter().any(|(p, a)| p == plugin && a.id == id).then(|| format!("{id} ran"))
+    }
+    fn release_action(&mut self, plugin: &str, id: &str, params: &Value) {
+        self.note(format!("release_action {plugin} {id} {params}"));
+    }
+    fn window_active(&self) -> bool {
+        self.window_active
+    }
+    fn copy_text(&mut self, text: &str) {
+        self.note(format!("copy_text {text}"));
     }
     fn open_url(&mut self, url: &str) {
         self.note(format!("open_url {url}"));

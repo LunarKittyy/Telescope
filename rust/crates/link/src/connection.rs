@@ -1035,8 +1035,11 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
 /// The opening body for a StreamRequest.
 pub fn opening_of(width: u32, height: u32, fps: u32) -> Map<String, Value> {
     let mut m = Map::new();
-    m.insert("width".into(), json!(width));
-    m.insert("height".into(), json!(height));
+    // No size picked (Stream output's Auto): the fps alone, as StreamOutputPlugin.opening() sends it
+    if width > 0 && height > 0 {
+        m.insert("width".into(), json!(width));
+        m.insert("height".into(), json!(height));
+    }
     m.insert("fps".into(), json!(fps));
     m
 }

@@ -314,7 +314,7 @@
 "All" = { status = "todo" }
 "Brightens or darkens the brighter parts" = { status = "todo" }
 "Brightens or darkens the darker parts" = { status = "todo" }
-"Channel" = { status = "todo" }
+"Channel" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Colour grading" = { status = "todo" }
 "Colour wheels, curves and LUT files for the look of the picture." = { status = "todo" }
 "Compare" = { status = "todo" }
@@ -942,8 +942,8 @@
 "{seconds} s" = { status = "todo" }
 # ── platform
 "Already persisted: {path}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"Another app already uses this key" = { status = "todo" }
-"Bind a Copy command line in its own keyboard settings instead." = { status = "todo" }
+"Another app already uses this key" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
+"Bind a Copy command line in its own keyboard settings instead." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
 "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
@@ -956,8 +956,8 @@
 "Couldn't put adb in place. Is another program using it? Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach Google. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach vb-audio.com. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
-"Couldn't set Telescope to open at sign-in: {error}" = { status = "todo" }
-"Couldn't stop Telescope opening at sign-in: {error}" = { status = "todo" }
+"Couldn't set Telescope to open at sign-in: {error}" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::enable" }
+"Couldn't stop Telescope opening at sign-in: {error}" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::disable" }
 "Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't unpack adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Download failed: {error}" = { status = "todo" }
@@ -966,9 +966,9 @@
 "Downloading adb {version} from Google…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Downloading driver files..." = { status = "todo" }
 "Downloading {file}..." = { status = "todo" }
-"Everywhere" = { status = "todo" }
-"Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "todo" }
-"Everywhere: {keys}" = { status = "todo" }
+"Everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
+"Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another." = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys::note" }
+"Everywhere: {keys}" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
 "Existing v4l2loopback config found in {paths} - remove it first" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Failed to remove persistence files" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Failed to write persistence files" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
@@ -980,9 +980,9 @@
 "Installed" = { status = "todo" }
 "Loaded: {phone} + {obs}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Module unloaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"No key set in the desktop's shortcut settings" = { status = "todo" }
-"Not available on this desktop" = { status = "todo" }
-"Not confirmed in the desktop's dialog" = { status = "todo" }
+"No key set in the desktop's shortcut settings" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
+"Not available on this desktop" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status" }
+"Not confirmed in the desktop's dialog" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status_of" }
 "Nothing to remove" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again" = { status = "todo" }
 "Registering (admin access required)..." = { status = "todo" }
@@ -996,8 +996,8 @@
 "The driver install hit an error while running as admin - not registering" = { status = "todo" }
 "The phone already has a newer Telescope app." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
 "The sound server didn't answer (pactl list failed)." = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
-"This desktop doesn't offer global shortcuts to apps ({why})." = { status = "todo" }
-"This desktop doesn't offer global shortcuts to apps." = { status = "todo" }
+"This desktop doesn't offer global shortcuts to apps ({why})." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
+"This desktop doesn't offer global shortcuts to apps." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "Timed out" = { status = "todo" }
 "Unpacking…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
@@ -1005,12 +1005,12 @@
 "VB-Audio's download has changed since this version of Telescope. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "VB-Cable's setup changed after it was checked, so it wasn't opened." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
-"Waiting for you to confirm it" = { status = "todo" }
-"Windows can't use this key everywhere" = { status = "todo" }
+"Waiting for you to confirm it" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::status" }
+"Windows can't use this key everywhere" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::Registrar::apply" }
 "Windows didn't get permission to install VB-Cable." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Windows refused to register the driver (regsvr32 failed)" = { status = "todo" }
 "Wrote {first} and {second}" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
-"Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one." = { status = "todo" }
+"Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one." = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::note" }
 "adb install failed" = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
 "modprobe -r failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
 "modprobe failed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
@@ -1185,7 +1185,7 @@
 "Choose APK..." = { status = "todo" }
 "Colourful" = { status = "todo" }
 "Comes with this app" = { status = "todo" }
-"Copied" = { status = "todo" }
+"Copied" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Copies info for a bug report, leaving out pairing tokens, addresses and file paths." = { status = "todo" }
 "Copies the diagnostics and opens the bug form on GitHub." = { status = "todo" }
 "Copy diagnostics" = { status = "todo" }
@@ -1270,7 +1270,7 @@
 "Unload" = { status = "todo" }
 "Unloaded - {message}" = { status = "todo" }
 "Unloading..." = { status = "todo" }
-"Update" = { status = "todo" }
+"Update" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Update ready" = { status = "todo" }
 "Use my own adb…" = { status = "todo" }
 "Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later." = { status = "todo" }
@@ -1301,88 +1301,88 @@
 "search|zoom limit magnify telephoto digital crop 10x 30x slider range" = { status = "todo" }
 # ── shortcuts
 " stops" = { status = "todo" }
-"A command can't hold a key down; pick another choice to copy one" = { status = "todo" }
-"A command line that does the same, for your desktop's own keyboard settings" = { status = "todo" }
-"A modifier can't be a shortcut on its own. Add a key to it." = { status = "todo" }
-"Add" = { status = "todo" }
+"A command can't hold a key down; pick another choice to copy one" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"A command line that does the same, for your desktop's own keyboard settings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
+"Add" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Add keyboard shortcut…" = { status = "todo" }
 "Add shortcut for {action}…" = { status = "todo" }
-"Already streaming" = { status = "todo" }
-"Also works while another app is in front" = { status = "todo" }
+"Already streaming" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Also works while another app is in front" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "By" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Control" = { status = "todo" }
-"Copy command" = { status = "todo" }
-"Copy command line" = { status = "todo" }
-"Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "todo" }
+"Control" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Copy command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Copy command line" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Decrease by" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Desktop shortcut settings" = { status = "todo" }
+"Desktop shortcut settings" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Edit" = { status = "todo" }
-"Edit {shortcut}" = { status = "todo" }
-"Everywhere (setting up)" = { status = "todo" }
-"Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "todo" }
-"Find" = { status = "todo" }
-"Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings." = { status = "todo" }
-"In Telescope" = { status = "todo" }
-"In Telescope (no global shortcuts here)" = { status = "todo" }
-"In Telescope: {status}" = { status = "todo" }
+"Edit {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Everywhere (setting up)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Find" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"In Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"In Telescope (no global shortcuts here)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"In Telescope: {status}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Increase by" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Key" = { status = "todo" }
-"Key used by a shortcut above" = { status = "todo" }
-"Keyboard shortcut" = { status = "todo" }
-"Keys for Telescope's controls, including ones that work in other apps." = { status = "todo" }
-"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "todo" }
+"Key" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Key used by a shortcut above" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"Keyboard shortcut" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Keys for Telescope's controls, including ones that work in other apps." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Lower by" = { status = "todo" }
-"No action called {action}. telescope --list-actions lists them." = { status = "todo" }
-"No control matches that search." = { status = "todo" }
-"No shortcuts yet. Add one, or right-click a control in the main window." = { status = "todo" }
-"Not in this version of Telescope" = { status = "todo" }
-"Notify when one runs" = { status = "todo" }
-"Open" = { status = "todo" }
+"No action called {action}. telescope --list-actions lists them." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"No control matches that search." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"No shortcuts yet. Add one, or right-click a control in the main window." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Not in this version of Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"Notify when one runs" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Open" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Option" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Phone camera: off" = { status = "todo" }
-"Phone camera: on" = { status = "todo" }
+"Phone camera: off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Phone camera: on" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Pick a control and the key for it" = { status = "todo" }
-"Pick a control, what the key does to it, then press the key." = { status = "todo" }
-"Pick a control." = { status = "todo" }
-"Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "todo" }
+"Pick a control and the key for it" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Pick a control, what the key does to it, then press the key." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Pick a control." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Raise by" = { status = "todo" }
-"Remove {shortcut}" = { status = "todo" }
+"Remove {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Reset to default" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Save" = { status = "todo" }
-"Search: mute, zoom, exposure, preset…" = { status = "todo" }
+"Save" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Search: mute, zoom, exposure, preset…" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Set to" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Shortcuts" = { status = "todo" }
-"Show or hide Telescope" = { status = "todo" }
-"Start or stop" = { status = "todo" }
+"Shortcuts" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Show or hide Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Start or stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Stops" = { status = "todo" }
-"Streaming: starting" = { status = "todo" }
-"Streaming: stopped" = { status = "todo" }
-"Switch on or off" = { status = "todo" }
+"Streaming: starting" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Streaming: stopped" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Switch on or off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Switch while held, back on release" = { status = "todo" }
-"Telescope: hidden" = { status = "todo" }
-"Telescope: shown" = { status = "todo" }
-"Turn off" = { status = "todo" }
-"Turn on" = { status = "todo" }
-"Unknown ({action})" = { status = "todo" }
+"Telescope: hidden" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Telescope: shown" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Turn off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Turn on" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"Unknown ({action})" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Value" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Where your desktop lets you change the keys of global shortcuts" = { status = "todo" }
-"While Telescope is in the background" = { status = "todo" }
-"Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "todo" }
-"hold needs a key to let go of; use toggle, on or off with --action." = { status = "todo" }
+"Where your desktop lets you change the keys of global shortcuts" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"While Telescope is in the background" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"hold needs a key to let go of; use toggle, on or off with --action." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "next" = { status = "todo" }
-"nothing right now" = { status = "todo" }
+"nothing right now" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "off" = { status = "todo" }
 "on" = { status = "todo" }
 "previous" = { status = "todo" }
-"search|global hotkeys portal kde plasma gnome desktop keys rebind" = { status = "todo" }
-"search|global system wide hotkeys background other apps" = { status = "todo" }
-"search|hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove" = { status = "todo" }
-"search|notification notify toast confirmation popup" = { status = "todo" }
-"{action} can't be used right now (no phone, or the control is off)." = { status = "todo" }
+"search|global hotkeys portal kde plasma gnome desktop keys rebind" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|global system wide hotkeys background other apps" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"search|notification notify toast confirmation popup" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{action} can't be used right now (no phone, or the control is off)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{action} has no setting {name}." = { status = "todo" }
 "{action} needs {name}=… for that." = { status = "todo" }
-"{keys} already does \"{action}\". Pick another key." = { status = "todo" }
+"{keys} already does \"{action}\". Pick another key." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{label}: decrease by {amount}" = { status = "todo" }
 "{label}: increase by {amount}" = { status = "todo" }
 "{label}: lower by {stops} stop" = { status = "todo" }
@@ -1391,7 +1391,7 @@
 "{label}: set to {value}" = { status = "todo" }
 "{name} can be {options}, not {value}." = { status = "todo" }
 "{name} has to be a number, not {value}." = { status = "todo" }
-"{value} (not there now)" = { status = "todo" }
+"{value} (not there now)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── single_instance
 "Telescope can't start" = { status = "todo" }
 "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "todo" }
@@ -1569,65 +1569,65 @@
 "{n}×" = { status = "todo" }
 "{owner} is moving the zoom and pan" = { status = "todo" }
 # ── updates
-"Cancelled." = { status = "todo" }
-"Check daily" = { status = "todo" }
-"Check now" = { status = "todo" }
-"Checking for new versions of Telescope and installing them." = { status = "todo" }
-"Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "todo" }
-"Couldn't check for updates (HTTP {code})." = { status = "todo" }
+"Cancelled." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"Check daily" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Check now" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Checking for new versions of Telescope and installing them." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
+"Couldn't check for updates (HTTP {code})." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't check for updates." = { status = "todo" }
-"Couldn't check for updates. Check the internet connection." = { status = "todo" }
-"Couldn't replace Telescope's files: {error}" = { status = "todo" }
+"Couldn't check for updates. Check the internet connection." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
+"Couldn't replace Telescope's files: {error}" = { status = "ported", rust = "rust/crates/system/src/updates.rs::swap" }
 "Couldn't start the installer: {error}" = { status = "todo" }
-"Downloading {percent}%…" = { status = "todo" }
-"Downloading…" = { status = "todo" }
-"Installing…" = { status = "todo" }
-"Keep this copy where it is" = { status = "todo" }
-"Nightly" = { status = "todo" }
+"Downloading {percent}%…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Downloading…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Installing…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Keep this copy where it is" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Nightly" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Nightly: built from every change. Fixes first, less tested." = { status = "todo" }
-"Only the packaged app can update itself." = { status = "todo" }
-"Open download page" = { status = "todo" }
-"Stable" = { status = "todo" }
-"Stop streaming to update." = { status = "todo" }
+"Only the packaged app can update itself." = { status = "dropped", reason = "A Rust build is always the packaged app; only a dev-channel build is a source checkout" }
+"Open download page" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Stable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Stop streaming to update." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu." = { status = "todo" }
-"Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "todo" }
-"Telescope {version} is available" = { status = "todo" }
-"Telescope {version} is available." = { status = "todo" }
-"Telescope's folder isn't writable, so it can't update itself." = { status = "todo" }
-"The download couldn't be unpacked." = { status = "todo" }
-"The download didn't match its checksum, so it wasn't installed." = { status = "todo" }
-"The download doesn't contain Telescope, so it wasn't installed." = { status = "todo" }
-"The download failed. Check the internet connection and try again." = { status = "todo" }
-"The download is bigger than it should be." = { status = "todo" }
-"The download was cut short. Check the internet connection and try again." = { status = "todo" }
+"Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Telescope {version} is available" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Telescope {version} is available." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Telescope's folder isn't writable, so it can't update itself." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
+"The download couldn't be unpacked." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
+"The download didn't match its checksum, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download doesn't contain Telescope, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
+"The download failed. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download is bigger than it should be." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
+"The download was cut short. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "The installer stopped (code {code}), so this copy stays as it is." = { status = "todo" }
 "The installer took too long, so this copy stays as it is." = { status = "todo" }
-"The latest nightly build is {version}." = { status = "todo" }
-"The latest stable build is {version}." = { status = "todo" }
-"The update contains unexpected files, so it wasn't installed." = { status = "todo" }
-"The update contains unexpected paths, so it wasn't installed." = { status = "todo" }
-"The update failed." = { status = "todo" }
-"The update information couldn't be read." = { status = "todo" }
-"There's no nightly release yet." = { status = "todo" }
-"There's no stable release yet." = { status = "todo" }
-"This is a source checkout, so it doesn't update itself." = { status = "todo" }
-"This is a source checkout. Update it with git." = { status = "todo" }
-"This version" = { status = "todo" }
-"Unzipped copy" = { status = "todo" }
-"Update and restart" = { status = "todo" }
-"Updated. Close and reopen Telescope to finish." = { status = "todo" }
-"Updated. Telescope restarts when you stop streaming." = { status = "todo" }
-"Updates" = { status = "todo" }
+"The latest nightly build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"The latest stable build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"The update contains unexpected files, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
+"The update contains unexpected paths, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
+"The update failed." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"The update information couldn't be read." = { status = "ported", rust = "rust/crates/system/src/updates.rs::parse_manifest" }
+"There's no nightly release yet." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"There's no stable release yet." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"This is a source checkout, so it doesn't update itself." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"This is a source checkout. Update it with git." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
+"This version" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Unzipped copy" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Update and restart" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updated. Close and reopen Telescope to finish." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updated. Telescope restarts when you stop streaming." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Updates this unzipped folder in place instead of installing Telescope for your user." = { status = "todo" }
 "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along." = { status = "todo" }
-"What's new" = { status = "todo" }
-"You have the latest version." = { status = "todo" }
-"search|automatic updates auto check every day background" = { status = "todo" }
-"search|current build number" = { status = "todo" }
+"What's new" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"You have the latest version." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|automatic updates auto check every day background" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|current build number" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|portable keep this copy where it is zip folder in place windows" = { status = "todo" }
-"search|stable nightly beta release track builds testing" = { status = "todo" }
-"search|update upgrade new version release download install latest" = { status = "todo" }
-"{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "todo" }
+"search|stable nightly beta release track builds testing" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|update upgrade new version release download install latest" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 # ── vcam
 "Waiting for camera" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::default_screen" }
 # ── vision_pack
@@ -2002,12 +2002,12 @@
 "test_app.py::test_a_wake_that_lands_after_the_user_gave_up_is_discarded" = { status = "todo" }
 "test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "todo" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "todo" }
-"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_an_action_reaches_the_running_copy_with_its_key" = { status = "todo" }
 "test_app.py::test_an_action_when_the_key_couldnt_be_written" = { status = "todo" }
 "test_app.py::test_an_action_with_nothing_running" = { status = "todo" }
@@ -2096,7 +2096,7 @@
 "test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_app.py::test_send_notification_falls_back_to_tray" = { status = "todo" }
-"test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "todo" }
+"test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "ported", rust = "rust/crates/system/src/lib.rs::notifications_go_through_notify_send" }
 "test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "ported", rust = "rust/crates/shell/src/profiles.rs" }
 "test_app.py::test_settings_window_collects_sections_from_every_plugin" = { status = "todo" }
 "test_app.py::test_start_asks_the_phone_to_open_at_the_size_picked" = { status = "todo" }
@@ -2933,19 +2933,19 @@
 "test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 "test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 # ── hotkeys
-"test_hotkeys.py::test_portal_binds_and_relays_presses" = { status = "todo" }
-"test_hotkeys.py::test_portal_has_plasma_forget_shortcuts_no_session_binds_any_more" = { status = "todo" }
-"test_hotkeys.py::test_portal_keeps_shortcuts_the_user_turned_down_and_works_without_plasma" = { status = "todo" }
-"test_hotkeys.py::test_portal_shortcuts_the_user_turned_down" = { status = "todo" }
-"test_hotkeys.py::test_portal_tidies_plasma_without_a_session_when_nothing_is_global" = { status = "todo" }
-"test_hotkeys.py::test_portal_without_global_shortcuts_says_so" = { status = "todo" }
-"test_hotkeys.py::test_to_trigger" = { status = "todo" }
-"test_hotkeys.py::test_to_windows" = { status = "todo" }
-"test_hotkeys.py::test_to_windows_asks_the_layout_for_punctuation" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_lets_go_while_suspended" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "todo" }
-"test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "todo" }
+"test_hotkeys.py::test_portal_binds_and_relays_presses" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::binds_and_relays_presses" }
+"test_hotkeys.py::test_portal_has_plasma_forget_shortcuts_no_session_binds_any_more" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::has_plasma_forget_shortcuts_no_session_binds_any_more" }
+"test_hotkeys.py::test_portal_keeps_shortcuts_the_user_turned_down_and_works_without_plasma" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::keeps_shortcuts_the_user_turned_down_and_works_without_plasma" }
+"test_hotkeys.py::test_portal_shortcuts_the_user_turned_down" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::shortcuts_the_user_turned_down" }
+"test_hotkeys.py::test_portal_tidies_plasma_without_a_session_when_nothing_is_global" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::tidies_plasma_without_a_session_when_nothing_is_global" }
+"test_hotkeys.py::test_portal_without_global_shortcuts_says_so" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::without_global_shortcuts_says_so" }
+"test_hotkeys.py::test_to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::portal_triggers" }
+"test_hotkeys.py::test_to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
+"test_hotkeys.py::test_to_windows_asks_the_layout_for_punctuation" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
+"test_hotkeys.py::test_windows_backend_lets_go_while_suspended" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::lets_go_while_suspended" }
+"test_hotkeys.py::test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::masks_alt_so_the_app_in_front_shows_no_menu_keys" }
+"test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::presses_and_watches_for_the_release" }
+"test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::registers_and_reports" }
 # ── i18n
 "test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "todo" }
 "test_i18n.py::test_a_field_can_have_any_name" = { status = "todo" }
@@ -3001,7 +3001,7 @@
 # ── main
 "test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "todo" }
 "test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "todo" }
-"test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "todo" }
+"test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
 "test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "todo" }
 # ── microphone
 "test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
@@ -3922,56 +3922,56 @@
 "test_shortcuts.py::test_choice_on_exclusive_buttons_clicks_the_next" = { status = "todo" }
 "test_shortcuts.py::test_choice_over_buttons_that_come_and_go" = { status = "todo" }
 "test_shortcuts.py::test_choice_without_wrap_stops_at_the_end" = { status = "todo" }
-"test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "todo" }
-"test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "todo" }
+"test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clashes_marks_later_bindings_on_the_same_keys" }
+"test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clean_bindings_keeps_good_ones_and_fixes_ids" }
 "test_shortcuts.py::test_control_ready_needs_enabled_and_shown_in_its_card" = { status = "todo" }
-"test_shortcuts.py::test_edits_text" = { status = "todo" }
+"test_shortcuts.py::test_edits_text" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
 "test_shortcuts.py::test_hold_flips_while_held_and_back_on_release" = { status = "todo" }
-"test_shortcuts.py::test_keys_from_event_drops_keypad_and_bare_modifiers" = { status = "todo" }
+"test_shortcuts.py::test_keys_from_event_drops_keypad_and_bare_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::slint_key_events_drop_bare_modifiers_and_name_shift_tab" }
 "test_shortcuts.py::test_log_slider_moves_in_stops" = { status = "todo" }
-"test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "todo" }
-"test_shortcuts.py::test_normalize_keys" = { status = "todo" }
-"test_shortcuts.py::test_param_clean" = { status = "todo" }
+"test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "ported", rust = "rust/crates/system/src/keys.rs::native_keys_names_the_windows_key_after_the_system" }
+"test_shortcuts.py::test_normalize_keys" = { status = "ported", rust = "rust/crates/system/src/keys.rs::normalize_keys_reads_qt_portable_text" }
+"test_shortcuts.py::test_param_clean" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::params_are_cleaned" }
 "test_shortcuts.py::test_plain_button_clicks" = { status = "todo" }
 "test_shortcuts.py::test_slider_steps_in_shown_units" = { status = "todo" }
 "test_shortcuts.py::test_slider_without_default_offers_no_reset" = { status = "todo" }
-"test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "todo" }
-"test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "todo" }
-"test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "todo" }
-"test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "todo" }
+"test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
+"test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_background_press_notifies_only_when_asked" }
+"test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_global_press_runs_the_action_and_hold_comes_back_on_release" }
+"test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_key_whose_control_is_off_goes_to_the_control_with_focus" }
 "test_shortcuts_plugin.py::test_a_right_click_that_reaches_the_window_finds_the_later_control" = { status = "todo" }
-"test_shortcuts_plugin.py::test_action_command" = { status = "todo" }
-"test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "todo" }
-"test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "todo" }
+"test_shortcuts_plugin.py::test_action_command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::action_command_runs_the_action_in_the_running_copy" }
+"test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "dropped", reason = "Slint hands the shell one key event per press; Qt's walk up the parents is gone" }
+"test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
 "test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "todo" }
-"test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "todo" }
+"test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::desktop_settings_button_asks_again_for_unconfirmed_ones" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "todo" }
-"test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "todo" }
-"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "todo" }
-"test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "todo" }
-"test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "todo" }
-"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "todo" }
-"test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "todo" }
-"test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "todo" }
-"test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "todo" }
+"test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::dialog_lists_bindings" }
+"test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_builds_a_binding" }
+"test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_keeps_an_option_that_is_gone" }
+"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
+"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
+"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys" }
+"test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
+"test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::global_presses_are_ignored_while_the_editor_records_a_key" }
+"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "dropped", reason = "Slint gives no scan codes; a held binding comes back when its key comes up whatever its case, or when Telescope loses focus" }
+"test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
+"test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
+"test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "todo" }
-"test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "todo" }
-"test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_actions" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "todo" }
-"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "todo" }
-"test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "todo" }
+"test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::one_key_press_seen_globally_and_inside_runs_once" }
+"test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::only_global_bindings_without_clashes_go_to_the_system" }
+"test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::showing_the_window_from_the_background_doesnt_notify" }
 "test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_search_forgives_typos_and_still_wants_word_starts" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "todo" }
-"test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "todo" }
+"test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
+"test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
+"test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::without_a_backend_global_bindings_still_work_inside" }
 # ── smoke_check
 "test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "todo" }
 # ── sources
@@ -4009,12 +4009,12 @@
 "test_startup.py::test_changing_the_wait_mid_count_restarts_it" = { status = "todo" }
 "test_startup.py::test_config_round_trip_and_bad_values" = { status = "todo" }
 "test_startup.py::test_diagnostics_say_what_is_on_and_who_owns_the_stream" = { status = "todo" }
-"test_startup.py::test_exec_quoting_follows_the_desktop_entry_rules" = { status = "todo" }
-"test_startup.py::test_launch_command_prefers_start_sh_on_linux" = { status = "todo" }
-"test_startup.py::test_linux_desktop_entry_round_trip" = { status = "todo" }
-"test_startup.py::test_menu_entry_follows_this_copy_and_only_writes_on_change" = { status = "todo" }
-"test_startup.py::test_menu_entry_opens_the_window_and_skips_dev_checkouts" = { status = "todo" }
-"test_startup.py::test_menu_entry_trouble_is_not_fatal" = { status = "todo" }
+"test_startup.py::test_exec_quoting_follows_the_desktop_entry_rules" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::exec_quoting_follows_the_desktop_entry_rules" }
+"test_startup.py::test_launch_command_prefers_start_sh_on_linux" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command_prefers_start_sh_on_linux" }
+"test_startup.py::test_linux_desktop_entry_round_trip" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::linux_desktop_entry_round_trip" }
+"test_startup.py::test_menu_entry_follows_this_copy_and_only_writes_on_change" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_entry_follows_this_copy_and_only_writes_on_change" }
+"test_startup.py::test_menu_entry_opens_the_window_and_skips_dev_checkouts" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command_prefers_start_sh_on_linux", note = "No channel in Rust: a debug build skips refresh in rust/app/src/main.rs instead" }
+"test_startup.py::test_menu_entry_trouble_is_not_fatal" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_entry_trouble_is_not_fatal" }
 "test_startup.py::test_never_stops_a_stream_it_did_not_start" = { status = "todo" }
 "test_startup.py::test_never_stops_before_the_watch_has_reported" = { status = "todo" }
 "test_startup.py::test_no_notice_when_it_is_switched_off" = { status = "todo" }
@@ -4037,7 +4037,7 @@
 "test_startup.py::test_switching_phones_is_a_new_arrival" = { status = "todo" }
 "test_startup.py::test_switching_the_stop_off_cancels_the_wait" = { status = "todo" }
 "test_startup.py::test_the_camera_comes_back_when_an_app_opens_it_again" = { status = "todo" }
-"test_startup.py::test_the_sign_in_entry_follows_this_copy_when_it_is_on" = { status = "todo" }
+"test_startup.py::test_the_sign_in_entry_follows_this_copy_when_it_is_on" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::the_sign_in_entry_follows_this_copy_when_it_is_on" }
 "test_startup.py::test_the_two_old_checkboxes_carry_over" = { status = "todo" }
 "test_startup.py::test_the_wait_ending_checks_again_before_stopping" = { status = "todo" }
 "test_startup.py::test_wait_fields_read_and_write_the_wait" = { status = "todo" }
@@ -4045,7 +4045,7 @@
 "test_startup.py::test_waits_the_chosen_time" = { status = "todo" }
 "test_startup.py::test_watch_start_without_idle_stop_keeps_streaming" = { status = "todo" }
 "test_startup.py::test_watching_is_off_by_default" = { status = "todo" }
-"test_startup.py::test_windows_run_key_round_trip" = { status = "todo" }
+"test_startup.py::test_windows_run_key_round_trip" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::windows_run_key_round_trip" }
 "test_startup.py::test_with_the_mic_on_the_idle_stop_turns_only_the_camera_off" = { status = "todo" }
 "test_startup.py::test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left" = { status = "todo" }
 "test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" = { status = "todo" }
@@ -4356,77 +4356,77 @@
 "test_udp_reader.py::test_reports_say_how_much_got_through" = { status = "ported", rust = "rust/crates/link/src/udp.rs::frames_arrive_over_udp_and_lost_datagrams_are_sent_again" }
 "test_udp_reader.py::test_seals_exactly_like_the_phone" = { status = "ported", rust = "rust/crates/link/src/udp.rs::seals_exactly_like_the_phone" }
 # ── update_guard
-"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "todo" }
-"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "todo" }
-"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "todo" }
-"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "todo" }
-"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "todo" }
-"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "todo" }
-"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "todo" }
-"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "todo" }
-"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "todo" }
-"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "todo" }
+"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "todo" }
-"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "todo" }
+"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "todo" }
 "test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "todo" }
-"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "todo" }
-"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "todo" }
-"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "todo" }
+"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs", note = "confirm_on_terminate is a no-op off unix" }
 # ── updates
-"test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "todo" }
-"test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "todo" }
-"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "todo" }
-"test_updates.py::test_a_rolled_back_build_is_named_and_can_be_tried_again" = { status = "todo" }
-"test_updates.py::test_a_source_checkout_or_read_only_folder_only_gets_a_link" = { status = "todo" }
-"test_updates.py::test_an_archive_escaping_its_folder_is_refused" = { status = "todo" }
-"test_updates.py::test_clean_up_leaves_lib_folders_alone_without_knowing_which_one_is_running" = { status = "todo" }
-"test_updates.py::test_default_channel_follows_the_build" = { status = "todo" }
-"test_updates.py::test_download_can_be_cancelled" = { status = "todo" }
-"test_updates.py::test_download_refuses_what_doesnt_match" = { status = "todo" }
-"test_updates.py::test_download_update_does_not_accept_an_invalid_replacement" = { status = "todo" }
-"test_updates.py::test_download_update_does_not_refresh_after_success_or_cancellation" = { status = "todo" }
-"test_updates.py::test_download_update_recovers_when_a_nightly_is_replaced" = { status = "todo" }
-"test_updates.py::test_download_verifies_and_reports_progress" = { status = "todo" }
-"test_updates.py::test_fetch_uses_the_channel_url_and_treats_404_as_no_release" = { status = "todo" }
-"test_updates.py::test_linux_install_rolls_back_when_a_swap_fails" = { status = "todo" }
-"test_updates.py::test_linux_install_swaps_the_app_and_keeps_the_old_one" = { status = "todo" }
-"test_updates.py::test_newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" = { status = "todo" }
+"test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_check_without_internet_fails_with_a_message" }
+"test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_download_without_internet_fails_and_leaves_nothing" }
+"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_folder_build_update_adds_its_own_libs_and_the_old_ones_wait_for_the_confirm", note = "This app has no lib folder of its own, so clean_up_after_update removes every lib-* once confirmed" }
+"test_updates.py::test_a_rolled_back_build_is_named_and_can_be_tried_again" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_rolled_back_build_is_named_and_can_be_tried_again" }
+"test_updates.py::test_a_source_checkout_or_read_only_folder_only_gets_a_link" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_source_checkout_or_read_only_folder_only_gets_a_link" }
+"test_updates.py::test_an_archive_escaping_its_folder_is_refused" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_archive_escaping_its_folder_is_refused" }
+"test_updates.py::test_clean_up_leaves_lib_folders_alone_without_knowing_which_one_is_running" = { status = "dropped", reason = "The Rust app has no lib-<build> folder; once an update is confirmed every lib-* left is the Python build's and goes" }
+"test_updates.py::test_default_channel_follows_the_build" = { status = "ported", rust = "rust/crates/system/src/updates.rs::default_channel_follows_the_build" }
+"test_updates.py::test_download_can_be_cancelled" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_can_be_cancelled" }
+"test_updates.py::test_download_refuses_what_doesnt_match" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_refuses_what_doesnt_match" }
+"test_updates.py::test_download_update_does_not_accept_an_invalid_replacement" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_does_not_accept_an_invalid_replacement" }
+"test_updates.py::test_download_update_does_not_refresh_after_success_or_cancellation" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_does_not_refresh_after_success_or_cancellation" }
+"test_updates.py::test_download_update_recovers_when_a_nightly_is_replaced" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_recovers_when_a_nightly_is_replaced" }
+"test_updates.py::test_download_verifies_and_reports_progress" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_verifies_and_reports_progress" }
+"test_updates.py::test_fetch_uses_the_channel_url_and_treats_404_as_no_release" = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_uses_the_channel_url_and_treats_404_as_no_release" }
+"test_updates.py::test_linux_install_rolls_back_when_a_swap_fails" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_rolls_back_when_a_swap_fails" }
+"test_updates.py::test_linux_install_swaps_the_app_and_keeps_the_old_one" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_swaps_the_app_and_keeps_the_old_one" }
+"test_updates.py::test_newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" = { status = "ported", rust = "rust/crates/system/src/updates.rs::newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" }
 "test_updates.py::test_note_installed_version_leaves_another_copys_entry" = { status = "todo" }
 "test_updates.py::test_note_installed_version_updates_the_apps_entry" = { status = "todo" }
-"test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "todo" }
-"test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "todo" }
-"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "todo" }
-"test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "todo" }
-"test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "todo" }
-"test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "todo" }
-"test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "todo" }
-"test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "todo" }
-"test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "todo" }
+"test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "ported", rust = "rust/crates/system/src/updates.rs::parses_a_manifest_and_names_its_version" }
+"test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "ported", rust = "rust/crates/system/src/updates.rs::rejects_a_manifest_it_cant_trust" }
+"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_first_folder_build_installs_over_the_single_exe" }
+"test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_new_lib_folder_is_in_place_before_the_exe_is_swapped" }
+"test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_refuses_an_archive_without_the_app" }
+"test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_renames_the_running_exe_and_replaces_changed_files" }
+"test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_copy_that_cant_replace_itself_links_to_the_release" }
+"test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_failed_update_says_why_and_keeps_running" }
+"test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_launch_without_internet_checks_again_on_the_next_tick" }
 "test_updates_plugin.py::test_a_move_needs_no_writable_folder" = { status = "todo" }
-"test_updates_plugin.py::test_a_newer_build_shows_the_update_button" = { status = "todo" }
-"test_updates_plugin.py::test_a_newer_phone_app_opens_settings_on_updates" = { status = "todo" }
-"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "todo" }
+"test_updates_plugin.py::test_a_newer_build_shows_the_update_button" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_build_shows_the_update_button" }
+"test_updates_plugin.py::test_a_newer_phone_app_opens_settings_on_updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_phone_app_opens_settings_on_updates" }
+"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_recovers_when_a_nightly_is_replaced", note = "RealBackend installs the build download_update picked; the setup route is still todo" }
 "test_updates_plugin.py::test_adb_is_stopped_before_the_setup_runs" = { status = "todo" }
 "test_updates_plugin.py::test_an_installed_copy_never_moves" = { status = "todo" }
 "test_updates_plugin.py::test_an_unzipped_copy_updates_through_the_installer_and_says_so" = { status = "todo" }
-"test_updates_plugin.py::test_an_update_that_cant_restart_stays_open_and_says_so" = { status = "todo" }
-"test_updates_plugin.py::test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops" = { status = "todo" }
-"test_updates_plugin.py::test_background_failures_stay_quiet_but_a_manual_check_explains" = { status = "todo" }
-"test_updates_plugin.py::test_config_round_trips_and_defaults_to_the_build_s_channel" = { status = "todo" }
-"test_updates_plugin.py::test_each_launch_checks_even_if_the_last_check_was_recent" = { status = "todo" }
+"test_updates_plugin.py::test_an_update_that_cant_restart_stays_open_and_says_so" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_cant_restart_stays_open_and_says_so" }
+"test_updates_plugin.py::test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_lands_during_a_stream_restarts_only_once_it_stops" }
+"test_updates_plugin.py::test_background_failures_stay_quiet_but_a_manual_check_explains" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::background_failures_stay_quiet_but_a_manual_check_explains" }
+"test_updates_plugin.py::test_config_round_trips_and_defaults_to_the_build_s_channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::config_round_trips_and_defaults_to_the_build_s_channel" }
+"test_updates_plugin.py::test_each_launch_checks_even_if_the_last_check_was_recent" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::each_launch_checks_even_if_the_last_check_was_recent" }
 "test_updates_plugin.py::test_keeping_it_portable_updates_in_place" = { status = "todo" }
 "test_updates_plugin.py::test_no_move_without_a_setup_or_with_the_driver_in_this_folder" = { status = "todo" }
-"test_updates_plugin.py::test_no_update_while_streaming" = { status = "todo" }
+"test_updates_plugin.py::test_no_update_while_streaming" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::no_update_while_streaming" }
 "test_updates_plugin.py::test_the_camera_driver_check_is_remembered_for_half_a_minute" = { status = "todo" }
-"test_updates_plugin.py::test_the_daily_check_waits_a_day_and_skips_source_checkouts" = { status = "todo" }
-"test_updates_plugin.py::test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" = { status = "todo" }
+"test_updates_plugin.py::test_the_daily_check_waits_a_day_and_skips_source_checkouts" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_daily_check_waits_a_day_and_skips_source_checkouts" }
+"test_updates_plugin.py::test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" }
 "test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy" = { status = "todo" }
-"test_updates_plugin.py::test_the_relaunched_app_unpacks_its_own_copy" = { status = "todo" }
-"test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "todo" }
-"test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "todo" }
+"test_updates_plugin.py::test_the_relaunched_app_unpacks_its_own_copy" = { status = "dropped", reason = "PYINSTALLER_RESET_ENVIRONMENT is for the PyInstaller bundle; the Rust exe has nothing to unpack" }
+"test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::up_to_date_and_no_release_yet" }
+"test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::updating_downloads_installs_relaunches_and_quits" }
 # ── vaapi_setup
 "test_vaapi_setup.py::test_a_build_that_raises_still_finishes_and_can_be_retried" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "test_vaapi_setup.py::test_a_check_that_raises_still_finishes_and_can_run_again" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
@@ -4511,8 +4511,8 @@
 "test_vcam.py::test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::a_camera_no_app_has_opened_counts_as_unwatched" }
 "test_vcam.py::test_windows_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_moves_to_the_windows_11_camera_while_an_app_holds_unitycapture" }
 # ── version
-"test_version.py::test_a_source_checkout_is_dev_and_reads_the_version_file" = { status = "todo" }
-"test_version.py::test_a_stamped_build_reports_itself" = { status = "todo" }
+"test_version.py::test_a_source_checkout_is_dev_and_reads_the_version_file" = { status = "ported", rust = "rust/crates/system/src/version.rs::a_source_build_is_dev_with_the_repo_version" }
+"test_version.py::test_a_stamped_build_reports_itself" = { status = "ported", rust = "rust/crates/system/src/version.rs::a_stamped_build_reports_itself" }
 # ── view_controller
 "test_view_controller.py::test_a_framing_the_phone_share_cant_show_gets_one_at_once" = { status = "todo" }
 "test_view_controller.py::test_a_frozen_step_keeps_the_view_it_was_taken_with" = { status = "todo" }
@@ -5106,7 +5106,7 @@
 "main-wide" = { status = "todo" }
 "warm" = { status = "todo" }
 # ── settings
-"settings-about" = { status = "todo" }
+"settings-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-audio" = { status = "todo" }
 "settings-devices" = { status = "todo" }
 "settings-general" = { status = "todo" }
@@ -5784,13 +5784,13 @@
 [cli]
 # command line flags
 # ── main
-"--action" = { status = "todo" }
-"--after-update" = { status = "todo" }
-"--list-actions" = { status = "todo" }
+"--action" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--after-update" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--list-actions" = { status = "ported", rust = "rust/app/src/main.rs" }
 "--minimized" = { status = "todo" }
 "--moved-from" = { status = "todo" }
-"--restarted" = { status = "todo" }
-"--warm-up" = { status = "todo" }
+"--restarted" = { status = "ported", rust = "rust/app/src/main.rs" }
+"--warm-up" = { status = "dropped", reason = "Windows PyAV preload for the Python bundle's loader lock; the Rust exe has nothing to warm up" }
 
 [phone]
 # phone protocol endpoints and the actions sent to them
@@ -5855,7 +5855,7 @@
 [system]
 # where the app touches the system: subprocesses, registry, D-Bus, env vars, paths, ports, tray, platform/
 # ── app
-"run:telescope/app.py:send_notification:subprocess.Popen:notify-send" = { status = "todo" }
+"run:telescope/app.py:send_notification:subprocess.Popen:notify-send" = { status = "ported", rust = "rust/crates/system/src/lib.rs::Desktop::notify" }
 "tray-message:telescope/app.py:send_notification" = { status = "todo" }
 "tray:telescope/app.py:_setup_tray" = { status = "todo" }
 # ── background
@@ -5915,8 +5915,8 @@
 "folder:telescope/platform/adb_download.py:downloaded_dir:Path.home" = { status = "ported", rust = "rust/crates/link/src/adb.rs::downloaded_dir" }
 "folder:telescope/platform/adb_download.py:use_own_adb:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
 "folder:telescope/platform/adb_download.py:use_own_adb:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
-"folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "todo" }
-"folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "todo" }
+"folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::data_home" }
+"folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::config_home" }
 "folder:telescope/platform/virtual_mic.py:_private_temp_dir:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::private_temp_dir" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::clear_old_tries" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
@@ -5953,28 +5953,28 @@
 "platform:adb_download.py:downloaded_revision" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::downloaded_revision" }
 "platform:adb_download.py:find_archive" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::find_archive" }
 "platform:adb_download.py:use_own_adb" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::use_own_adb" }
-"platform:autostart.py:app_dir" = { status = "todo" }
-"platform:autostart.py:desktop_entry" = { status = "todo" }
-"platform:autostart.py:desktop_file" = { status = "todo" }
-"platform:autostart.py:disable" = { status = "todo" }
-"platform:autostart.py:enable" = { status = "todo" }
-"platform:autostart.py:ensure_portal_entry" = { status = "todo" }
-"platform:autostart.py:icon_file" = { status = "todo" }
-"platform:autostart.py:is_dev_checkout" = { status = "todo" }
-"platform:autostart.py:is_enabled" = { status = "todo" }
-"platform:autostart.py:launch_command" = { status = "todo" }
-"platform:autostart.py:menu_file" = { status = "todo" }
-"platform:autostart.py:refresh" = { status = "todo" }
-"platform:autostart.py:update_menu_entry" = { status = "todo" }
-"platform:hotkeys.py:Hotkey" = { status = "todo" }
-"platform:hotkeys.py:HotkeyBackend" = { status = "todo" }
-"platform:hotkeys.py:HotkeyStatus" = { status = "todo" }
-"platform:hotkeys.py:create_backend" = { status = "todo" }
-"platform:hotkeys_portal.py:PortalHotkeys" = { status = "todo" }
-"platform:hotkeys_portal.py:portal_possible" = { status = "todo" }
-"platform:hotkeys_portal.py:to_trigger" = { status = "todo" }
-"platform:hotkeys_windows.py:WindowsHotkeys" = { status = "todo" }
-"platform:hotkeys_windows.py:to_windows" = { status = "todo" }
+"platform:autostart.py:app_dir" = { status = "ported", rust = "rust/crates/system/src/lib.rs::app_dir" }
+"platform:autostart.py:desktop_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::desktop_entry" }
+"platform:autostart.py:desktop_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::desktop_file" }
+"platform:autostart.py:disable" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::disable" }
+"platform:autostart.py:enable" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::enable" }
+"platform:autostart.py:ensure_portal_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::ensure_portal_entry" }
+"platform:autostart.py:icon_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::icon_file" }
+"platform:autostart.py:is_dev_checkout" = { status = "dropped", reason = "No release channel in the Rust build; main skips the sign-in refresh in debug builds and dev profiles" }
+"platform:autostart.py:is_enabled" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::is_enabled" }
+"platform:autostart.py:launch_command" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::launch_command" }
+"platform:autostart.py:menu_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_file" }
+"platform:autostart.py:refresh" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::refresh" }
+"platform:autostart.py:update_menu_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::update_menu_entry" }
+"platform:hotkeys.py:Hotkey" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::Hotkey" }
+"platform:hotkeys.py:HotkeyBackend" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::HotkeyBackend" }
+"platform:hotkeys.py:HotkeyStatus" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::HotkeyStatus" }
+"platform:hotkeys.py:create_backend" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::create_backend" }
+"platform:hotkeys_portal.py:PortalHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::PortalHotkeys" }
+"platform:hotkeys_portal.py:portal_possible" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::portal_possible" }
+"platform:hotkeys_portal.py:to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_trigger" }
+"platform:hotkeys_windows.py:WindowsHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys" }
+"platform:hotkeys_windows.py:to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_windows" }
 "platform:linux.py:PrivResult" = { status = "todo" }
 "platform:linux.py:limit_malloc_arenas" = { status = "todo" }
 "platform:linux.py:manual_command" = { status = "todo" }
@@ -6077,15 +6077,15 @@
 # ── updates
 "env:OneDrive" = { status = "todo" }
 "env:USERPROFILE" = { status = "todo" }
-"folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "todo" }
-"folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "todo" }
-"folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "todo" }
+"folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
+"folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
+"folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "folder:telescope/updates.py:_keep_adb:shutil.rmtree" = { status = "todo" }
-"folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "todo" }
-"folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "todo" }
+"folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
+"folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 "registry:Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" = { status = "todo" }
-"run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "todo" }
-"run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "todo" }
+"run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::open_notes" }
+"run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::update_now" }
 # ── vcam
 "path:/dev/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs" }
 "path:/proc/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::camera_holders" }

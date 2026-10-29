@@ -3,7 +3,7 @@
 use crate::event::Event;
 use crate::frame::{FrameStage, FrameStep};
 use crate::host::Host;
-use crate::ui::{ActionSpec, CardSpec, SettingsSection, TrayAction, UiEvent, UiSpec};
+use crate::ui::{ActionSpec, CardSpec, KeyInput, SettingsSection, TrayAction, UiEvent, UiSpec};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -143,6 +143,13 @@ pub trait Plugin: Send {
     }
     /// A key held for an ActionSpec with on_release came back up.
     fn release_action(&mut self, _host: &mut dyn Host, _id: &str, _params: &Value) {}
+    /// A key pressed or let go in one of Telescope's windows, before the control with focus sees it; true keeps it from
+    /// that control (Shortcuts' key filter).
+    fn on_key(&mut self, _host: &mut dyn Host, _key: &KeyInput) -> bool {
+        false
+    }
+    /// Keys held in Telescope's windows won't come back up there: it lost focus.
+    fn on_keys_lost(&mut self, _host: &mut dyn Host) {}
     fn on_ui(&mut self, _host: &mut dyn Host, _event: &UiEvent) {}
     /// A banner button with IssueDoes::Plugin, or "dismiss" for an Issue with tell_dismiss.
     fn on_issue_action(&mut self, _host: &mut dyn Host, _key: &str, _id: &str) {}

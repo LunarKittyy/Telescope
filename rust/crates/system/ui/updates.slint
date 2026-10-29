@@ -1,0 +1,152 @@
+// The Updates plugin (desktop/telescope/plugins/updates.py): the green Update button in the header and the Telescope card on
+// Updates & About. Texts with blanks come filled from Rust.
+
+import { Theme, Icons, Icon, Button, Card, FormRow, ChoiceField, Switch } from "@ui-kit/ui-kit.slint";
+
+global Status {
+    public pure function color(kind: string) -> color {
+        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
+            : kind == "status_dim" ? Theme.text-dim : Theme.text
+    }
+}
+
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    font-family: Theme.font;
+    font-size: Theme.body;
+    font-weight: kind == "val" ? 600 : 400;
+    color: Status.color(kind);
+    wrap: word-wrap;
+    vertical-alignment: center;
+}
+
+// Green, not the accent blue: Start streaming stays the one primary button in the header
+export component UpdateButton inherits Rectangle {
+    in property <bool> shown;
+    in property <string> tip;
+    callback clicked;
+    visible: shown;
+    width: shown ? lay.preferred-width : 0px;
+    height: 36px;
+    border-radius: 10px;
+    background: touch.pressed ? Theme.ok.darker(0.2) : touch.has-hover ? Theme.ok.brighter(0.1) : Theme.ok;
+    accessible-role: button;
+    accessible-label: @tr("Update");
+    accessible-description: tip;
+    accessible-action-default => { root.clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    lay := HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        spacing: 8px;
+        alignment: center;
+        Icon { source: Icons.v-update; tint: white; width: 16px; height: 16px; y: (parent.height - self.height) / 2; accessible-role: none; }
+        Text {
+            text: @tr("Update");
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: white;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component UpdatesSettings inherits Card {
+    in property <string> version-text;
+    in property <[string]> channels;
+    in property <int> channel;
+    in property <bool> auto;
+    in property <bool> portable-shown;
+    in property <bool> portable;
+    in property <string> status-text;
+    in property <string> status-kind: "status_dim";
+    in property <bool> busy;
+    in property <bool> actions-shown;
+    in property <bool> retry-shown;
+    in property <string> update-text;
+    in property <bool> update-enabled;
+    callback check-now;
+    callback channel-picked(int);
+    callback auto-toggled(bool);
+    callback portable-toggled(bool);
+    callback update;
+    callback notes;
+    callback retry;
+    title: "Telescope";
+    icon: Icons.v-update;
+    hue: Theme.plugin-hue("extras");
+    has-action: true;
+    action-icon: Icons.reset;
+    action-label: @tr("Check now");
+    action-text: @tr("Check now");
+    action => { if (!busy) { root.check-now(); } }
+    FormRow {
+        label: @tr("This version");
+        Note { text: version-text; kind: "val"; horizontal-stretch: 1; }
+    }
+    FormRow {
+        label: @tr("Channel");
+        enabled: !busy;
+        ChoiceField {
+            compact: true;
+            y: (parent.height - self.height) / 2;
+            caption: @tr("Channel");
+            items: channels;
+            current: channel;
+            enabled: !busy;
+            picked(i) => { root.channel-picked(i); }
+        }
+    }
+    FormRow {
+        label: @tr("Check daily");
+        HorizontalLayout {
+            alignment: end;
+            Switch {
+                y: (parent.height - self.height) / 2;
+                checked: auto;
+                label: @tr("Check daily");
+                toggled(on) => { root.auto-toggled(on); }
+            }
+        }
+    }
+    if portable-shown: FormRow {
+        label: @tr("Unzipped copy");
+        HorizontalLayout {
+            spacing: 10px;
+            Switch {
+                y: (parent.height - self.height) / 2;
+                checked: portable;
+                label: @tr("Keep this copy where it is");
+                toggled(on) => { root.portable-toggled(on); }
+            }
+            Note { text: @tr("Keep this copy where it is"); kind: ""; }
+        }
+    }
+    // Qt's control_row keeps its height with nothing shown in it, so these three rows do too
+    FormRow {
+        label: "";
+        Note { text: status-text; kind: status-kind; horizontal-stretch: 1; }
+    }
+    FormRow {
+        label: "";
+        HorizontalLayout {
+            visible: actions-shown;
+            spacing: 8px;
+            alignment: start;
+            Button { text: @tr("What's new"); clicked => { root.notes(); } }
+            Button { text: update-text; role: "primary"; enabled: update-enabled; clicked => { root.update(); } }
+        }
+    }
+    FormRow {
+        label: "";
+        HorizontalLayout {
+            visible: retry-shown;
+            alignment: start;
+            Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
+        }
+    }
+}

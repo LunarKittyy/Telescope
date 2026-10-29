@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -34,20 +34,26 @@ global Status {
 // wrapped_note: a QLabel#dim, so body size
 component Note inherits Text {
     in property <string> kind: "status_dim";
+    // False takes it out of its layout, height and all
+    in property <bool> shown: true;
+    visible: shown;
     font-family: Theme.font;
     font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
+    // Slint's box for text wrapped onto two lines or more ends 4px below the last one, where Qt's label ends at it
+    height: !shown ? 0px : self.preferred-height > 1.5 * (self.font-metrics.ascent - self.font-metrics.descent) ? self.preferred-height - 4px
+        : self.preferred-height;
 }
 
 component QrCode inherits Rectangle {
     in property <[int]> cells;
     in property <int> size;
-    property <length> cell: 4px;
+    // QRCodeWidget: 6px modules and a quiet zone of four
+    property <length> cell: 6px;
     width: (size + 8) * cell;
     height: (size + 8) * cell;
     background: white;
-    border-radius: 6px;
     accessible-role: image;
     accessible-label: @tr("Pairing code");
     for i in cells: Rectangle {
@@ -59,26 +65,30 @@ component QrCode inherits Rectangle {
     }
 }
 
+// A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title
 component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border-strong;
-    border-radius: 12px;
+    background: Theme.bg;
     drop-shadow-blur: 24px;
     drop-shadow-color: #00000080;
     VerticalLayout {
-        padding: 20px;
-        spacing: 12px;
-        Text {
-            text: title;
-            font-family: Theme.font;
-            font-size: Theme.card-title;
-            font-weight: 600;
-            color: Theme.text;
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 18px;
+        padding-bottom: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: title;
+                font-family: Theme.font;
+                font-size: 19px; // 14pt is 18.67px, drawn at 19
+                font-weight: 600;
+                color: Theme.text;
+            }
+            if subtitle != "": Note { text: subtitle; }
         }
-        if subtitle != "": Note { text: subtitle; }
         @children
     }
 }
@@ -151,11 +161,12 @@ export component ConnectionCard inherits Card {
         border-width: 1px;
         border-color: Theme.border;
         border-radius: 8px;
+        // Qt's 12/8/12/6 margins sit inside the frame's 1px border
         VerticalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-top: 8px;
-            padding-bottom: 6px;
+            padding-left: 13px;
+            padding-right: 13px;
+            padding-top: 9px;
+            padding-bottom: 7px;
             spacing: 0px;
             HorizontalLayout {
                 spacing: 12px;
@@ -170,6 +181,8 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     alignment: center;
                     spacing: 1px;
+                    // Qt's two lines come to 36px, a pixel more than the icon
+                    min-height: using-shown ? 36px : 0px;
                     Text {
                         text: status-text;
                         font-family: Theme.font;
@@ -200,8 +213,7 @@ export component ConnectionCard inherits Card {
                     Note {
                         text: note-text;
                         kind: note-kind;
-                        visible: note-text != "";
-                        height: note-text != "" ? self.preferred-height : 0px;
+                        shown: note-text != "";
                     }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;
@@ -286,9 +298,13 @@ export component ConnectionCard inherits Card {
                 color: Theme.text;
                 horizontal-alignment: center;
             }
+            // dialog_buttons: 4px above, 96px wide
             HorizontalLayout {
                 alignment: end;
+                padding-top: 4px;
                 Button {
+                    width: 96px;
+                    height: 32px;
                     text: paired ? @tr("Done") : @tr("Cancel");
                     role: paired ? "primary" : "";
                     clicked => { root.add-closed(); }
@@ -327,9 +343,16 @@ export component PhonePicker inherits HorizontalLayout {
         }
     }
 
+    // The header bar is taller than these; Qt centres them in it
     ChoiceField {
         min-width: 180px;
         height: 34px;
+        y: (parent.height - self.height) / 2;
+        compact: true;
+        bold: true;
+        has-icon: true;
+        icon: Icons.phone;
+        icon-tint: Theme.plugin-hue("streaming");
         caption: names.length == 0 ? @tr("No phone yet") : "";
         items: names;
         current <=> root.current;
@@ -340,6 +363,7 @@ export component PhonePicker inherits HorizontalLayout {
     Button {
         width: 34px;
         height: 34px;
+        y: (parent.height - self.height) / 2;
         role: "quiet";
         padding-x: 0px;
         has-icon: true;
@@ -430,27 +454,12 @@ export component ConnectionSettings inherits Card {
     callback udp-toggled(bool);
     title: @tr("Connection");
     icon: Icons.v-connection;
-    HorizontalLayout {
-        spacing: 12px;
-        accessible-role: groupbox;
-        accessible-id: "setting";
-        accessible-label: @tr("UDP on Wi-Fi");
-        accessible-description: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 2px;
-            Text { text: @tr("UDP on Wi-Fi"); font-family: Theme.font; font-size: Theme.body; color: Theme.text; }
-            Note { text: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see."); }
-        }
-        Rectangle {
-            border-radius: 6px;
-            background: Theme.warn.with-alpha(0.14);
-            height: 20px;
-            width: tag.preferred-width + 14px;
-            y: (parent.height - self.height) / 2;
-            tag := Text { text: @tr("Experimental"); font-family: Theme.font; font-size: Theme.small; color: Theme.warn; }
-        }
+    SettingRow {
+        title: @tr("UDP on Wi-Fi");
+        sub: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
+        Tag { y: (parent.height - self.height) / 2; text: @tr("Experimental"); }
         Switch {
+            y: (parent.height - self.height) / 2;
             checked: udp;
             label: @tr("UDP on Wi-Fi");
             toggled(on) => { root.udp-toggled(on); }

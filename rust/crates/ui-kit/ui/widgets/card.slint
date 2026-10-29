@@ -89,6 +89,8 @@ export component Card inherits Rectangle {
     in property <string> extra-label;
     in property <string> extra-name: extra-label;
     callback extra;
+    // A folding card's title is a styled label 6px taller than the 30px chip; a settings card's header is the chip's height
+    property <length> lift: fold-key != "" ? 3px : 0px;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -102,9 +104,9 @@ export component Card inherits Rectangle {
         HorizontalLayout {
             spacing: 10px;
             padding-bottom: 2px;
-            height: 38px;
+            height: fold-key != "" ? 38px : 32px;
             Rectangle {
-                y: 3px;
+                y: lift;
                 width: 30px;
                 height: 30px;
                 border-radius: 9px;
@@ -117,7 +119,7 @@ export component Card inherits Rectangle {
                 Icon { source: icon; tint: hue; width: 16px; height: 16px; accessible-role: none; }
             }
             FoldTitle {
-                y: 3px;
+                y: lift;
                 key: fold-key;
                 text: title;
                 font-size: Theme.card-title;
@@ -129,7 +131,7 @@ export component Card inherits Rectangle {
             Rectangle { horizontal-stretch: 1; }
             // card_action with no text: Qt keeps room for the text either side of the icon
             if has-extra: Button {
-                y: 4px;
+                y: lift;
                 height: 30px;
                 width: 38px;
                 role: "quiet";
@@ -142,7 +144,7 @@ export component Card inherits Rectangle {
                 clicked => { root.extra(); }
             }
             if has-action && action-text != "": Button {
-                y: 4px;
+                y: lift;
                 height: 30px;
                 role: "quiet";
                 padding-x: 10px;
@@ -156,7 +158,7 @@ export component Card inherits Rectangle {
                 clicked => { root.action(); }
             }
             if has-action && action-text == "": Button {
-                y: 4px;
+                y: lift;
                 height: 30px;
                 width: 30px;
                 role: "quiet";
@@ -171,7 +173,7 @@ export component Card inherits Rectangle {
             if has-switch: Rectangle {
                 width: 36px;
                 Switch {
-                    y: 12px;
+                    y: lift + 9px;
                     checked <=> root.switch-checked;
                     enabled: root.switch-enabled;
                     label: root.switch-label;

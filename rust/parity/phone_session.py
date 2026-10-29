@@ -142,6 +142,8 @@ def main(argv=None) -> int:
            "PATH": f"{adb.parent}{os.pathsep}{os.environ.get('PATH', '')}"}
     if not args.show:
         env["QT_QPA_PLATFORM"] = "offscreen"
+    # A SIGTERM (timeout, Ctrl+C in another terminal) still stops the desktop, which would keep holding its lock
+    signal.signal(signal.SIGTERM, lambda *_a: sys.exit(143))
     log = (profile / "desktop.log").open("w")
     app = subprocess.Popen(desktop, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     failed = None
@@ -173,7 +175,8 @@ def main(argv=None) -> int:
                 deadline = time.monotonic() + 20  # the desktop may still be starting up and not listening yet
                 while True:
                     done = subprocess.run(desktop + ["--action", *step[1:]], env=env, capture_output=True, text=True)
-                    if done.returncode == 0 or time.monotonic() > deadline:
+                    starting = "isn't running" in done.stderr or "didn't answer" in done.stderr
+                    if done.returncode == 0 or not starting or time.monotonic() > deadline:
                         break
                     time.sleep(0.5)
                 print(f"  --action {' '.join(step[1:])}: {(done.stdout or done.stderr).strip()}", flush=True)
