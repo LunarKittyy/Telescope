@@ -2329,6 +2329,8 @@ checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
 dependencies = [
  "bytemuck",
  "byteorder-lite",
+ "color_quant",
+ "gif",
  "moxcms",
  "num-traits",
  "png",
@@ -4703,9 +4705,15 @@ dependencies = [
 name = "telescope-outputs"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
+ "image",
  "libc",
  "log",
+ "serde_json",
+ "slint-interpreter",
  "telescope-core",
+ "telescope-ui-kit",
+ "tiny-skia 0.12.0",
 ]
 
 [[package]]
