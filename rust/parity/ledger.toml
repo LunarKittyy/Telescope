@@ -1318,16 +1318,16 @@
 "Desktop shortcut settings" = { status = "todo" }
 "Edit" = { status = "todo" }
 "Edit {shortcut}" = { status = "todo" }
-"Everywhere (setting up)" = { status = "todo" }
+"Everywhere (setting up)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "todo" }
 "Find" = { status = "todo" }
 "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings." = { status = "todo" }
-"In Telescope" = { status = "todo" }
-"In Telescope (no global shortcuts here)" = { status = "todo" }
-"In Telescope: {status}" = { status = "todo" }
+"In Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"In Telescope (no global shortcuts here)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
+"In Telescope: {status}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Increase by" = { status = "todo" }
 "Key" = { status = "todo" }
-"Key used by a shortcut above" = { status = "todo" }
+"Key used by a shortcut above" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Keyboard shortcut" = { status = "todo" }
 "Keys for Telescope's controls, including ones that work in other apps." = { status = "todo" }
 "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "todo" }
@@ -1335,7 +1335,7 @@
 "No action called {action}. telescope --list-actions lists them." = { status = "todo" }
 "No control matches that search." = { status = "todo" }
 "No shortcuts yet. Add one, or right-click a control in the main window." = { status = "todo" }
-"Not in this version of Telescope" = { status = "todo" }
+"Not in this version of Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Notify when one runs" = { status = "todo" }
 "Open" = { status = "todo" }
 "Option" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
@@ -3922,8 +3922,8 @@
 "test_shortcuts.py::test_choice_on_exclusive_buttons_clicks_the_next" = { status = "todo" }
 "test_shortcuts.py::test_choice_over_buttons_that_come_and_go" = { status = "todo" }
 "test_shortcuts.py::test_choice_without_wrap_stops_at_the_end" = { status = "todo" }
-"test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "todo" }
-"test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "todo" }
+"test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clashes_marks_later_bindings_on_the_same_keys" }
+"test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clean_bindings_keeps_good_ones_and_fixes_ids" }
 "test_shortcuts.py::test_control_ready_needs_enabled_and_shown_in_its_card" = { status = "todo" }
 "test_shortcuts.py::test_edits_text" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
 "test_shortcuts.py::test_hold_flips_while_held_and_back_on_release" = { status = "todo" }
@@ -3931,18 +3931,18 @@
 "test_shortcuts.py::test_log_slider_moves_in_stops" = { status = "todo" }
 "test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "ported", rust = "rust/crates/system/src/keys.rs::native_keys_names_the_windows_key_after_the_system" }
 "test_shortcuts.py::test_normalize_keys" = { status = "ported", rust = "rust/crates/system/src/keys.rs::normalize_keys_reads_qt_portable_text" }
-"test_shortcuts.py::test_param_clean" = { status = "todo" }
+"test_shortcuts.py::test_param_clean" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::params_are_cleaned" }
 "test_shortcuts.py::test_plain_button_clicks" = { status = "todo" }
 "test_shortcuts.py::test_slider_steps_in_shown_units" = { status = "todo" }
 "test_shortcuts.py::test_slider_without_default_offers_no_reset" = { status = "todo" }
 "test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
-"test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "todo" }
-"test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "todo" }
-"test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "todo" }
+"test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_background_press_notifies_only_when_asked" }
+"test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_global_press_runs_the_action_and_hold_comes_back_on_release" }
+"test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_key_whose_control_is_off_goes_to_the_control_with_focus" }
 "test_shortcuts_plugin.py::test_a_right_click_that_reaches_the_window_finds_the_later_control" = { status = "todo" }
 "test_shortcuts_plugin.py::test_action_command" = { status = "todo" }
 "test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "todo" }
-"test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "todo" }
+"test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
 "test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "todo" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "todo" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "todo" }
@@ -3952,26 +3952,26 @@
 "test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "todo" }
 "test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "todo" }
 "test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "todo" }
-"test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "todo" }
+"test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "todo" }
 "test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "todo" }
-"test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "todo" }
-"test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "todo" }
-"test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "todo" }
+"test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
+"test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
+"test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "todo" }
-"test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "todo" }
-"test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "todo" }
+"test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::one_key_press_seen_globally_and_inside_runs_once" }
+"test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::only_global_bindings_without_clashes_go_to_the_system" }
 "test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "todo" }
+"test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::showing_the_window_from_the_background_doesnt_notify" }
 "test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_editors_search_forgives_typos_and_still_wants_word_starts" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "todo" }
 "test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "todo" }
-"test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "todo" }
+"test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::without_a_backend_global_bindings_still_work_inside" }
 # ── smoke_check
 "test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "todo" }
 # ── sources
@@ -5966,9 +5966,9 @@
 "platform:autostart.py:menu_file" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::menu_file" }
 "platform:autostart.py:refresh" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::refresh" }
 "platform:autostart.py:update_menu_entry" = { status = "ported", rust = "rust/crates/system/src/autostart.rs::update_menu_entry" }
-"platform:hotkeys.py:Hotkey" = { status = "todo" }
-"platform:hotkeys.py:HotkeyBackend" = { status = "todo" }
-"platform:hotkeys.py:HotkeyStatus" = { status = "todo" }
+"platform:hotkeys.py:Hotkey" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::Hotkey" }
+"platform:hotkeys.py:HotkeyBackend" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::HotkeyBackend" }
+"platform:hotkeys.py:HotkeyStatus" = { status = "ported", rust = "rust/crates/system/src/hotkeys.rs::HotkeyStatus" }
 "platform:hotkeys.py:create_backend" = { status = "todo" }
 "platform:hotkeys_portal.py:PortalHotkeys" = { status = "todo" }
 "platform:hotkeys_portal.py:portal_possible" = { status = "todo" }
