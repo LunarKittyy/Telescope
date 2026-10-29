@@ -53,6 +53,8 @@ pub struct Window {
     pub(crate) services: Option<Arc<Services>>,
     pub(crate) opts: Option<WindowOptions>,
     pub(crate) streams: crate::streams::Streams,
+    /// Plugins' pending host.schedule timers, by (plugin, token).
+    timers: RefCell<std::collections::BTreeMap<(String, String), slint::Timer>>,
 }
 
 thread_local! {
@@ -132,10 +134,14 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         services,
         opts,
         streams: crate::streams::Streams::new(),
+        timers: RefCell::default(),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     // Events emitted from other threads get delivered on this one
     window.state.borrow().bus.set_waker(|| {
+        let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
+    });
+    window.state.borrow().posts.set_waker(|| {
         let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
     });
     window.wire(&files, &cards, &headers);
@@ -361,6 +367,21 @@ impl Window {
                 }
             }
             Effect::FrameStep(_) => self.refresh_frame_steps(),
+            Effect::Schedule { plugin, token, ms } => {
+                let timer = slint::Timer::default();
+                let (weak, key) = (Rc::downgrade(self), (plugin.clone(), token.clone()));
+                timer.start(slint::TimerMode::SingleShot, Duration::from_millis(ms), move || {
+                    let Some(w) = weak.upgrade() else { return };
+                    w.timers.borrow_mut().remove(&key);
+                    let event = Event::TimerFired { owner: key.0.clone(), token: key.1.clone() };
+                    w.state.borrow_mut().deliver_to(&key.0, &event);
+                    w.process();
+                });
+                self.timers.borrow_mut().insert((plugin, token), timer);
+            }
+            Effect::CancelSchedule { plugin, token } => {
+                self.timers.borrow_mut().remove(&(plugin, token));
+            }
             Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
             Effect::Quit => {
                 let _ = slint::quit_event_loop();
