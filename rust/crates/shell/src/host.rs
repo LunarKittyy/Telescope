@@ -45,7 +45,8 @@ impl HostSettings for Ctx<'_> {
         self.state.effects.push(Effect::SaveSoon);
     }
     fn save_now(&mut self) {
-        self.state.save_now();
+        // This plugin is out of its slot while its hook runs, so the save waits until it's back
+        self.state.save_after_call = true;
     }
     fn plugin_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_config(name)
