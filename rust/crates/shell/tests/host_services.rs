@@ -8,7 +8,7 @@ use telescope_core::host::BackgroundStream;
 use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::ui::UiEvent;
 use telescope_core::{Frame, PixelFormat};
-use telescope_shell::shell::State;
+use telescope_shell::shell::{Effect, State};
 use telescope_shell::stream_flow::Hook;
 
 struct Ctx;
@@ -177,4 +177,15 @@ fn notes_on_a_phone_streaming_in_the_background_stay_sent() {
     focus(&mut st, "tablet", &[]);
     focus(&mut st, "phone", &["tablet"]);
     assert_eq!(diagnostic(&mut st, "notes", "Notes"), "not sent", "its stream stopped meanwhile");
+}
+
+#[test]
+fn notes_ask_the_window_for_the_phones_state_while_theyre_sent() {
+    let mut st = state("host-notes-poll", vec![Box::new(telescope_effects::notes::NotesPlugin::new())]);
+    start(&mut st);
+    st.ui_event("notes", UiEvent { ui: "card".into(), callback: "text-edited".into(), args: vec![json!("Say hello")] });
+    st.ui_event("notes", UiEvent { ui: "card".into(), callback: "send-clicked".into(), args: vec![] });
+    st.effects.clear();
+    st.deliver_to("notes", &Event::TimerFired { owner: "notes".into(), token: "first-poll".into() });
+    assert!(st.effects.contains(&Effect::RequestPhoneState { source_id: Some("phone".into()) }), "{:?}", st.effects);
 }

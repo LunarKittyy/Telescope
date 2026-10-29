@@ -187,6 +187,8 @@ pub trait SourceKind {
     fn started(&self, _source: &Source, _session_id: u64) {}
     /// The panels came back to this stream: its state again, as it is now.
     fn refresh_state(&self, _source: &Source, _session_id: u64) {}
+    /// A plugin asked for its state (host.request_phone_state): fetched now, on a thread.
+    fn fetch_state(&self, _source: &Source, _session_id: u64) {}
     /// The stream ended, or a start was given up; active: there was a stream or a wake to stop.
     fn stopped(&self, _source: &Source, _remote_stop: bool, _active: bool) {}
     /// The stream dropped. With no other route, the reader waits for the source to come back.

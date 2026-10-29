@@ -178,6 +178,9 @@ impl HostStreams for Ctx<'_> {
     fn phone_state(&self, _source_id: Option<&str>) -> Option<Value> {
         self.state.streams.phone_state.clone()
     }
+    fn request_phone_state(&mut self, source_id: Option<&str>) {
+        self.state.effects.push(Effect::RequestPhoneState { source_id: source_id.map(String::from) });
+    }
 }
 
 impl HostCamera for Ctx<'_> {

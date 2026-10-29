@@ -28,6 +28,11 @@ pub const MAX_SETS: usize = 9;
 /// The phone reads control requests up to 64 KiB.
 pub const NOTES_MAX_BYTES: usize = 60_000;
 pub const NAME_CHARS: usize = 32;
+/// How often to ask the phone whether the notes are on its screen, and the first ask soon after sending.
+const POLL_MS: u64 = 3000;
+const FIRST_POLL_MS: u64 = 1200;
+const T_POLL: &str = "poll";
+const T_FIRST_POLL: &str = "first-poll";
 /// The phone lost notes sent longer ago than this (its stream started again): send them again.
 const RESEND_AFTER_S: f64 = 8.0;
 
@@ -355,6 +360,8 @@ impl NotesPlugin {
         self.shown = true; // until the phone says otherwise; it opens them right away when Telescope is on screen
         self.closed = false;
         self.preview = false;
+        host.schedule(POLL_MS, T_POLL);
+        host.schedule(FIRST_POLL_MS, T_FIRST_POLL);
         self.show(host);
     }
 
@@ -459,7 +466,18 @@ impl NotesPlugin {
         self.sent.retain(|c, _| running.contains(c));
     }
 
+    /// Asks the phone for its state, which comes back through on_phone_state; nothing to follow until notes are sent.
+    fn poll(&mut self, host: &mut dyn Host) {
+        let Some(ctrl) = self.ctrl.clone() else { return };
+        if self.takes_notes.is_some() && !self.sent.contains_key(&ctrl) {
+            return;
+        }
+        host.request_phone_state(Some(&ctrl));
+    }
+
     fn leave_stream(&mut self, host: &mut dyn Host) {
+        host.cancel_schedule(T_POLL);
+        host.cancel_schedule(T_FIRST_POLL);
         self.ctrl = None;
         self.takes_notes = None;
         self.front = None;
@@ -525,6 +543,14 @@ impl Plugin for NotesPlugin {
                 }
             }
             Event::StreamsChanged { .. } => self.forget_stopped(host),
+            Event::TimerFired { owner, token } if owner == NAME && self.ctrl.is_some() => {
+                if token == T_POLL {
+                    host.schedule(POLL_MS, T_POLL);
+                }
+                if token == T_POLL || token == T_FIRST_POLL {
+                    self.poll(host);
+                }
+            }
             _ => {}
         }
     }
@@ -633,6 +659,7 @@ impl Plugin for NotesPlugin {
 
     fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.ctrl = Some(stream.source_id.clone());
+        host.schedule(POLL_MS, T_POLL);
         self.show(host);
     }
 
@@ -651,6 +678,7 @@ impl Plugin for NotesPlugin {
         self.ctrl = Some(stream.source_id.clone());
         self.takes_notes = None;
         self.front = None;
+        host.schedule(POLL_MS, T_POLL);
         self.show(host);
     }
 

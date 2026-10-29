@@ -335,7 +335,7 @@ impl PhoneKind {
         self.link.show_problem(self.id.as_deref(), res);
     }
 
-    /// Asks the phone for its state on a thread, as a heat check.
+    /// Asks the phone for its state on a thread (a heat check, or a plugin asking).
     pub fn check_heat(&self, session_id: u64) {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
@@ -440,6 +440,10 @@ impl SourceKind for PhoneKind {
         });
         let (cb, sid) = (self.on_timer.clone(), self.sid());
         self.heat_timer.start(slint::TimerMode::Repeated, HEAT_CHECK, move || cb("heat", &sid));
+    }
+
+    fn fetch_state(&self, _source: &Source, session_id: u64) {
+        self.check_heat(session_id);
     }
 
     fn refresh_state(&self, _source: &Source, session_id: u64) {

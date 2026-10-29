@@ -216,6 +216,9 @@ pub trait HostStreams {
     fn phone_control(&mut self, source_id: Option<&str>, body: &Value);
     /// The last /v1/state source_id's stream answered with.
     fn phone_state(&self, source_id: Option<&str>) -> Option<Value>;
+    /// Asks source_id's phone (the shown one by default) for its /v1/state now; it comes to on_phone_state as the
+    /// stream's other states do, and not at all once that stream has stopped.
+    fn request_phone_state(&mut self, source_id: Option<&str>);
 }
 
 /// The phone's camera going off while its mic streams on, and back.

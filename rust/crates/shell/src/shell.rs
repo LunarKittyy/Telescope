@@ -47,6 +47,7 @@ pub enum Effect {
     StopAll,
     Reconnect,
     PhoneControl { source_id: Option<String>, body: Value },
+    RequestPhoneState { source_id: Option<String> },
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
     /// Host::update_stream_output: a new size or rate for a stream's camera (the focused one's without an id).

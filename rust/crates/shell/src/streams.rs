@@ -284,6 +284,18 @@ impl Window {
         }
     }
 
+    /// host.request_phone_state: the phone fetches its state on a thread, and apply_state drops it if the stream stopped.
+    pub fn request_phone_state(&self, source_id: Option<&str>) {
+        let flow = self.streams.flow.borrow();
+        let source = match source_id {
+            Some(id) => flow.sessions.find(Some(id)),
+            None => flow.sessions.focus.clone(),
+        };
+        if let Some((source, session)) = source.and_then(|s| s.session().map(|session| (s, session))) {
+            source.kind.fetch_state(&source, session.id);
+        }
+    }
+
     pub fn stop_all_streams(self: &Rc<Self>) {
         if self.is_streaming() {
             self.with_flow(|flow, host| flow.stop_all(host, true));

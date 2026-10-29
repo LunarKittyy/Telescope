@@ -228,6 +228,9 @@ impl HostStreams for FakeHost {
     fn phone_state(&self, _source_id: Option<&str>) -> Option<Value> {
         None
     }
+    fn request_phone_state(&mut self, source_id: Option<&str>) {
+        self.note(format!("request_phone_state {source_id:?}"));
+    }
 }
 
 impl HostCamera for FakeHost {
