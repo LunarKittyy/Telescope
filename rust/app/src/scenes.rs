@@ -1,4 +1,4 @@
-//! telescope-rs scenes OUT [ids] [--scale 1 1.5]: parity/render_scenes.py's scenes from the Rust window, drawn offscreen
+//! telescope-rs scenes OUT [ids] [--scale 1 1.5] (or --list): parity/render_scenes.py's scenes from the Rust window, drawn offscreen
 //! as OUT/<scale>x/<id>.png for parity/compare_scenes.py. Each scene is the real window with stand-ins for the phone
 //! and the virtual camera, like the Python ones (desktop/scripts/translation_scenes*.py).
 
@@ -168,8 +168,23 @@ pub fn all() -> Vec<Scene> {
     scenes
 }
 
-/// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5).
+/// The plugins the scene window loads and the scenes it can draw, as JSON, for parity scripts to match on the Qt side.
+fn list() -> Value {
+    let bus = telescope_core::EventBus::new();
+    let s = services(quiet());
+    let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
+    plugins.extend((s.plugins)());
+    let names: Vec<String> = telescope_shell::plugins::in_order(plugins).iter().map(|p| p.info().name).collect();
+    json!({"plugins": names, "scenes": all().iter().map(|s| s.id.clone()).collect::<Vec<_>>()})
+}
+
+/// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5); or
+/// --list for what list() says.
 pub fn run(words: &[String]) -> Result<(), String> {
+    if words.first().map(String::as_str) == Some("--list") {
+        println!("{}", list());
+        return Ok(());
+    }
     let Some(out) = words.first() else {
         return Err("usage: telescope-rs scenes OUT [ids] [--scale 1 1.5]".into());
     };
