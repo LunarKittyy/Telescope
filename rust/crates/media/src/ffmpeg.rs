@@ -279,6 +279,75 @@ impl Drop for Codec {
     }
 }
 
+/// A PNG, JPEG, WebP or BMP file as RGBA, in the colours a picture viewer shows (a JPEG's full range kept).
+pub fn decode_picture(bytes: &[u8]) -> Result<Frame, String> {
+    let id = if bytes.starts_with(b"\x89PNG") {
+        ff::AVCodecID::AV_CODEC_ID_PNG
+    } else if bytes.starts_with(&[0xff, 0xd8]) {
+        ff::AVCodecID::AV_CODEC_ID_MJPEG
+    } else if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        ff::AVCodecID::AV_CODEC_ID_WEBP
+    } else if bytes.starts_with(b"BM") {
+        ff::AVCodecID::AV_CODEC_ID_BMP
+    } else {
+        return Err("not a picture Telescope reads".into());
+    };
+    // The decoders read a few bytes past the end
+    let mut data = bytes.to_vec();
+    data.extend_from_slice(&[0; 64]);
+    // SAFETY: every pointer is checked before use and freed on each way out; the packet points at data for the length of send_packet
+    unsafe {
+        let codec = ff::avcodec_find_decoder(id);
+        if codec.is_null() {
+            return Err("this FFmpeg can't read that kind of picture".into());
+        }
+        let mut ctx = ff::avcodec_alloc_context3(codec);
+        let mut packet = ff::av_packet_alloc();
+        let mut frame = ff::av_frame_alloc();
+        let mut sws: *mut ff::SwsContext = ptr::null_mut();
+        let result = (|| {
+            if ctx.is_null() || packet.is_null() || frame.is_null() {
+                return Err("out of memory".to_string());
+            }
+            let r = ff::avcodec_open2(ctx, codec, ptr::null_mut());
+            if r < 0 {
+                return Err(err_text(r));
+            }
+            (*packet).data = data.as_mut_ptr();
+            (*packet).size = bytes.len() as i32;
+            let mut r = ff::avcodec_send_packet(ctx, packet);
+            (*packet).data = ptr::null_mut();
+            (*packet).size = 0;
+            if r >= 0 {
+                ff::avcodec_send_packet(ctx, ptr::null());
+                r = ff::avcodec_receive_frame(ctx, frame);
+            }
+            if r < 0 {
+                return Err(err_text(r));
+            }
+            let (w, h) = ((*frame).width, (*frame).height);
+            if w <= 0 || h <= 0 {
+                return Err("an empty picture".into());
+            }
+            sws = ff::sws_getCachedContext(sws, w, h, std::mem::transmute::<i32, ff::AVPixelFormat>((*frame).format), w, h, ff::AVPixelFormat::AV_PIX_FMT_RGBA,
+                                           ff::SwsFlags::SWS_BILINEAR as i32, ptr::null_mut(), ptr::null_mut(), ptr::null());
+            if sws.is_null() {
+                return Err("can't convert that picture".into());
+            }
+            let mut rgba = vec![0u8; (w * h * 4) as usize];
+            let dst = [rgba.as_mut_ptr(), ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
+            let dst_stride = [w * 4, 0, 0, 0];
+            ff::sws_scale(sws, (*frame).data.as_ptr() as *const *const u8, (*frame).linesize.as_ptr(), 0, h, dst.as_ptr(), dst_stride.as_ptr());
+            Ok(Frame::new(w as u32, h as u32, PixelFormat::Rgba, rgba))
+        })();
+        ff::sws_freeContext(sws);
+        ff::av_frame_free(&mut frame);
+        ff::av_packet_free(&mut packet);
+        ff::avcodec_free_context(&mut ctx);
+        result
+    }
+}
+
 /// I420 to RGB on the processor, scaled to the size the window shows it at: the preview when there's no graphics card.
 pub struct CpuScaler {
     sws: *mut ff::SwsContext,
@@ -321,5 +390,40 @@ impl Drop for CpuScaler {
     fn drop(&mut self) {
         // SAFETY: made by sws_getCachedContext, freed once
         unsafe { ff::sws_freeContext(self.sws) }
+    }
+}
+
+#[cfg(test)]
+mod picture_tests {
+    use super::*;
+
+    /// A 2 x 1 BMP: a red pixel then a blue one.
+    fn bmp() -> Vec<u8> {
+        let mut b = b"BM".to_vec();
+        b.extend_from_slice(&(54u32 + 8).to_le_bytes());
+        b.extend_from_slice(&[0; 4]);
+        b.extend_from_slice(&54u32.to_le_bytes());
+        b.extend_from_slice(&40u32.to_le_bytes());
+        b.extend_from_slice(&2i32.to_le_bytes());
+        b.extend_from_slice(&1i32.to_le_bytes());
+        b.extend_from_slice(&1u16.to_le_bytes());
+        b.extend_from_slice(&24u16.to_le_bytes());
+        b.extend_from_slice(&[0; 24]);
+        // BGR rows pad to four bytes
+        b.extend_from_slice(&[0, 0, 255, 255, 0, 0, 0, 0]);
+        b
+    }
+
+    #[test]
+    fn a_bmp_reads_as_rgba() {
+        let f = decode_picture(&bmp()).unwrap();
+        assert_eq!((f.width, f.height, f.format), (2, 1, PixelFormat::Rgba));
+        assert_eq!(&f.data[..8], &[255, 0, 0, 255, 0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn something_else_is_refused() {
+        assert!(decode_picture(b"hello there, not a picture").is_err());
+        assert!(decode_picture(&bmp()[..30]).is_err());
     }
 }
