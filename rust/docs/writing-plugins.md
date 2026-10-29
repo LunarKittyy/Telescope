@@ -231,6 +231,7 @@ Each function gets the event as a table with its fields (`e.source_id` here). Th
 | `host.watch_motion({ { 0.6, 0, 1, 1 } }, 5)` | Hear `motion_seen` when something moves in those parts of the picture |
 | `host.add_preview_layer({ shapes = { ... } })` | Draw on the preview only, never in the camera output |
 | `host.want_sensors({ "orientation" })`, `host.sensor_reading()` | The phone's motion and light sensors |
+| `host.schedule(1000, "tick")`, `host.cancel_schedule("tick")` | A timer: `plugin.events.timer_fired` gets `{ token = "tick" }` once after a second. Schedule it again from there to repeat |
 
 Methods that need an owner (the view, preview layers, motion zones) use your plugin's title, which is also what the window shows when your plugin has the view.
 
@@ -246,7 +247,7 @@ Some calls need a permission in `plugin.json`. People see the permissions on the
 
 A call without its permission raises an error naming the one it needs.
 
-`card()`, `frame_step()`, `get_config()`, `set_config()` and the other functions that describe your plugin run without the host because the window can ask for them at any time. Asking the host something there raises an error, but `set_ui_props`, `refresh_frame_step`, `schedule_save`, `update_tray_action` and `emit` still work. They're sent once the next event or hook comes along. That's how the example updates its card from `set_config()`.
+`card()`, `frame_step()`, `get_config()`, `set_config()` and the other functions that describe your plugin run without the host because the window can ask for them at any time. Asking the host something there raises an error, but `set_ui_props`, `refresh_frame_step`, `schedule_save`, `update_tray_action`, `emit`, `schedule` and `cancel_schedule` still work. They're sent once the next event or hook comes along. That's how the example updates its card from `set_config()`.
 
 ## Translating your plugin
 

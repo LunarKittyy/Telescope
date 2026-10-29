@@ -87,6 +87,7 @@ host.apply_preset(name, cfg) [settings]
 host.background_streams()
 host.can_turn_camera_off()
 host.cancel_pick()
+host.cancel_schedule(token) [waits for the host]
 host.canvas_size()
 host.clear_issue(key?)
 host.colour_split(position?)
@@ -127,6 +128,7 @@ host.remove_preview_layer()
 host.restart_app() [app]
 host.restart_vcam_canvas(width, height) [streams]
 host.save_now()
+host.schedule(after_ms, token) [waits for the host]
 host.schedule_save() [waits for the host]
 host.send_notification(title, body, urgent?) [notifications]
 host.sensor_reading(source_id?)

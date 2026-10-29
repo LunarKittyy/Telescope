@@ -205,6 +205,9 @@ pub const HOST_API: &[HostMethod] = &[
     m("packets_problem", &[], None),
     // The bus and other plugins
     later("emit", &["name", "data?"]),
+    // Timers (core's schedule service): Event::TimerFired with the token reaches this plugin only
+    later("schedule", &["after_ms", "token"]),
+    later("cancel_schedule", &["token"]),
     m("has_plugin", &["name"], None),
 ];
 
@@ -419,6 +422,8 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "packets_problem" => return out(host.packets_problem()),
         "emit" => host.emit(guest_event(info, &arg::<String>(args, "name")?, args.get("data").unwrap_or(&Value::Null))?),
         "has_plugin" => return out(host.has_plugin(&arg::<String>(args, "name")?)),
+        "schedule" => host.schedule(arg(args, "after_ms")?, &arg::<String>(args, "token")?),
+        "cancel_schedule" => host.cancel_schedule(&arg::<String>(args, "token")?),
         other => return Err(format!("host has no method {other}")),
     }
     done
@@ -550,6 +555,8 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         let name = match event {
             Event::Custom { name, .. } => name.as_str(),
+            // Another plugin's timer or post, should a host hand it round
+            Event::TimerFired { owner, .. } | Event::Posted { owner, .. } if *owner != self.info.name => return,
             other => other.name(),
         };
         if self.guest.borrow().listens(name) {
