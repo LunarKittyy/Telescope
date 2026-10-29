@@ -314,7 +314,7 @@
 "All" = { status = "todo" }
 "Brightens or darkens the brighter parts" = { status = "todo" }
 "Brightens or darkens the darker parts" = { status = "todo" }
-"Channel" = { status = "todo" }
+"Channel" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Colour grading" = { status = "todo" }
 "Colour wheels, curves and LUT files for the look of the picture." = { status = "todo" }
 "Compare" = { status = "todo" }
@@ -1270,7 +1270,7 @@
 "Unload" = { status = "todo" }
 "Unloaded - {message}" = { status = "todo" }
 "Unloading..." = { status = "todo" }
-"Update" = { status = "todo" }
+"Update" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Update ready" = { status = "todo" }
 "Use my own adb…" = { status = "todo" }
 "Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later." = { status = "todo" }
@@ -1570,29 +1570,29 @@
 "{owner} is moving the zoom and pan" = { status = "todo" }
 # ── updates
 "Cancelled." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
-"Check daily" = { status = "todo" }
-"Check now" = { status = "todo" }
-"Checking for new versions of Telescope and installing them." = { status = "todo" }
+"Check daily" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Check now" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Checking for new versions of Telescope and installing them." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't check for updates (HTTP {code})." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't check for updates." = { status = "todo" }
 "Couldn't check for updates. Check the internet connection." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't replace Telescope's files: {error}" = { status = "ported", rust = "rust/crates/system/src/updates.rs::swap" }
 "Couldn't start the installer: {error}" = { status = "todo" }
-"Downloading {percent}%…" = { status = "todo" }
-"Downloading…" = { status = "todo" }
-"Installing…" = { status = "todo" }
-"Keep this copy where it is" = { status = "todo" }
-"Nightly" = { status = "todo" }
+"Downloading {percent}%…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Downloading…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Installing…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Keep this copy where it is" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Nightly" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Nightly: built from every change. Fixes first, less tested." = { status = "todo" }
 "Only the packaged app can update itself." = { status = "dropped", reason = "A Rust build is always the packaged app; only a dev-channel build is a source checkout" }
-"Open download page" = { status = "todo" }
-"Stable" = { status = "todo" }
-"Stop streaming to update." = { status = "todo" }
+"Open download page" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Stable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Stop streaming to update." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu." = { status = "todo" }
-"Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "todo" }
-"Telescope {version} is available" = { status = "todo" }
-"Telescope {version} is available." = { status = "todo" }
+"Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Telescope {version} is available" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Telescope {version} is available." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Telescope's folder isn't writable, so it can't update itself." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
 "The download couldn't be unpacked." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "The download didn't match its checksum, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
@@ -1602,31 +1602,31 @@
 "The download was cut short. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "The installer stopped (code {code}), so this copy stays as it is." = { status = "todo" }
 "The installer took too long, so this copy stays as it is." = { status = "todo" }
-"The latest nightly build is {version}." = { status = "todo" }
-"The latest stable build is {version}." = { status = "todo" }
+"The latest nightly build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"The latest stable build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "The update contains unexpected files, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "The update contains unexpected paths, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
-"The update failed." = { status = "todo" }
+"The update failed." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "The update information couldn't be read." = { status = "ported", rust = "rust/crates/system/src/updates.rs::parse_manifest" }
-"There's no nightly release yet." = { status = "todo" }
-"There's no stable release yet." = { status = "todo" }
-"This is a source checkout, so it doesn't update itself." = { status = "todo" }
+"There's no nightly release yet." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"There's no stable release yet." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"This is a source checkout, so it doesn't update itself." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "This is a source checkout. Update it with git." = { status = "ported", rust = "rust/crates/system/src/updates.rs::self_update_blocker" }
-"This version" = { status = "todo" }
-"Unzipped copy" = { status = "todo" }
-"Update and restart" = { status = "todo" }
-"Updated. Close and reopen Telescope to finish." = { status = "todo" }
-"Updated. Telescope restarts when you stop streaming." = { status = "todo" }
-"Updates" = { status = "todo" }
+"This version" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Unzipped copy" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Update and restart" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updated. Close and reopen Telescope to finish." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updated. Telescope restarts when you stop streaming." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"Updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Updates this unzipped folder in place instead of installing Telescope for your user." = { status = "todo" }
 "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along." = { status = "todo" }
-"What's new" = { status = "todo" }
-"You have the latest version." = { status = "todo" }
-"search|automatic updates auto check every day background" = { status = "todo" }
-"search|current build number" = { status = "todo" }
+"What's new" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"You have the latest version." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|automatic updates auto check every day background" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|current build number" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|portable keep this copy where it is zip folder in place windows" = { status = "todo" }
-"search|stable nightly beta release track builds testing" = { status = "todo" }
-"search|update upgrade new version release download install latest" = { status = "todo" }
+"search|stable nightly beta release track builds testing" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"search|update upgrade new version release download install latest" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 # ── vcam
 "Waiting for camera" = { status = "todo" }
@@ -4402,31 +4402,31 @@
 "test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_new_lib_folder_is_in_place_before_the_exe_is_swapped" }
 "test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_refuses_an_archive_without_the_app" }
 "test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_renames_the_running_exe_and_replaces_changed_files" }
-"test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "todo" }
-"test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "todo" }
-"test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "todo" }
+"test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_copy_that_cant_replace_itself_links_to_the_release" }
+"test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_failed_update_says_why_and_keeps_running" }
+"test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_launch_without_internet_checks_again_on_the_next_tick" }
 "test_updates_plugin.py::test_a_move_needs_no_writable_folder" = { status = "todo" }
-"test_updates_plugin.py::test_a_newer_build_shows_the_update_button" = { status = "todo" }
-"test_updates_plugin.py::test_a_newer_phone_app_opens_settings_on_updates" = { status = "todo" }
-"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "todo" }
+"test_updates_plugin.py::test_a_newer_build_shows_the_update_button" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_build_shows_the_update_button" }
+"test_updates_plugin.py::test_a_newer_phone_app_opens_settings_on_updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_phone_app_opens_settings_on_updates" }
+"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_recovers_when_a_nightly_is_replaced", note = "RealBackend installs the build download_update picked; the setup route is still todo" }
 "test_updates_plugin.py::test_adb_is_stopped_before_the_setup_runs" = { status = "todo" }
 "test_updates_plugin.py::test_an_installed_copy_never_moves" = { status = "todo" }
 "test_updates_plugin.py::test_an_unzipped_copy_updates_through_the_installer_and_says_so" = { status = "todo" }
-"test_updates_plugin.py::test_an_update_that_cant_restart_stays_open_and_says_so" = { status = "todo" }
-"test_updates_plugin.py::test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops" = { status = "todo" }
-"test_updates_plugin.py::test_background_failures_stay_quiet_but_a_manual_check_explains" = { status = "todo" }
-"test_updates_plugin.py::test_config_round_trips_and_defaults_to_the_build_s_channel" = { status = "todo" }
-"test_updates_plugin.py::test_each_launch_checks_even_if_the_last_check_was_recent" = { status = "todo" }
+"test_updates_plugin.py::test_an_update_that_cant_restart_stays_open_and_says_so" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_cant_restart_stays_open_and_says_so" }
+"test_updates_plugin.py::test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_lands_during_a_stream_restarts_only_once_it_stops" }
+"test_updates_plugin.py::test_background_failures_stay_quiet_but_a_manual_check_explains" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::background_failures_stay_quiet_but_a_manual_check_explains" }
+"test_updates_plugin.py::test_config_round_trips_and_defaults_to_the_build_s_channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::config_round_trips_and_defaults_to_the_build_s_channel" }
+"test_updates_plugin.py::test_each_launch_checks_even_if_the_last_check_was_recent" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::each_launch_checks_even_if_the_last_check_was_recent" }
 "test_updates_plugin.py::test_keeping_it_portable_updates_in_place" = { status = "todo" }
 "test_updates_plugin.py::test_no_move_without_a_setup_or_with_the_driver_in_this_folder" = { status = "todo" }
-"test_updates_plugin.py::test_no_update_while_streaming" = { status = "todo" }
+"test_updates_plugin.py::test_no_update_while_streaming" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::no_update_while_streaming" }
 "test_updates_plugin.py::test_the_camera_driver_check_is_remembered_for_half_a_minute" = { status = "todo" }
-"test_updates_plugin.py::test_the_daily_check_waits_a_day_and_skips_source_checkouts" = { status = "todo" }
-"test_updates_plugin.py::test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" = { status = "todo" }
+"test_updates_plugin.py::test_the_daily_check_waits_a_day_and_skips_source_checkouts" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_daily_check_waits_a_day_and_skips_source_checkouts" }
+"test_updates_plugin.py::test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" }
 "test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy" = { status = "todo" }
-"test_updates_plugin.py::test_the_relaunched_app_unpacks_its_own_copy" = { status = "todo" }
-"test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "todo" }
-"test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "todo" }
+"test_updates_plugin.py::test_the_relaunched_app_unpacks_its_own_copy" = { status = "dropped", reason = "PYINSTALLER_RESET_ENVIRONMENT is for the PyInstaller bundle; the Rust exe has nothing to unpack" }
+"test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::up_to_date_and_no_release_yet" }
+"test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::updating_downloads_installs_relaunches_and_quits" }
 # ── vaapi_setup
 "test_vaapi_setup.py::test_a_build_that_raises_still_finishes_and_can_be_retried" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "test_vaapi_setup.py::test_a_check_that_raises_still_finishes_and_can_run_again" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
@@ -6077,15 +6077,15 @@
 # ── updates
 "env:OneDrive" = { status = "todo" }
 "env:USERPROFILE" = { status = "todo" }
-"folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "todo" }
-"folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "todo" }
+"folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
+"folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
 "folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
 "folder:telescope/updates.py:_keep_adb:shutil.rmtree" = { status = "todo" }
 "folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
 "folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
 "registry:Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" = { status = "todo" }
-"run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "todo" }
-"run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "todo" }
+"run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::open_notes" }
+"run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::update_now" }
 # ── vcam
 "path:/dev/" = { status = "todo" }
 "path:/proc/" = { status = "todo" }

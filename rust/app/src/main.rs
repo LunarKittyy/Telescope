@@ -53,6 +53,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 Box::new(connection.connection_plugin()),
                 Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
+                Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
             ];
             plugins.extend(added());
             plugins

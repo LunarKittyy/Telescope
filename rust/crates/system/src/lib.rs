@@ -5,6 +5,7 @@ pub mod shortcuts;
 pub mod single_instance;
 pub mod update_guard;
 pub mod updates;
+pub mod updates_plugin;
 pub mod version;
 
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
@@ -12,6 +13,18 @@ use telescope_core::system::{Autostart, Notifier, Release, Updater};
 /// The folder this program runs from (autostart.app_dir).
 pub fn app_dir() -> std::path::PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(std::path::PathBuf::from)).unwrap_or_default()
+}
+
+/// Opens a link in the default browser.
+pub fn open_url(url: &str) {
+    let spawned = if cfg!(windows) {
+        std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn()
+    } else {
+        std::process::Command::new("xdg-open").arg(url).spawn()
+    };
+    if let Err(e) = spawned {
+        log::warn!("Couldn't open {url}: {e}");
+    }
 }
 
 /// This computer's desktop.

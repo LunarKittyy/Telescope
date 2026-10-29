@@ -15,3 +15,7 @@ ureq.workspace = true
 zip.workspace = true
 tar.workspace = true
 flate2.workspace = true
+
+[dev-dependencies]
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true

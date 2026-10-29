@@ -10,6 +10,8 @@ use telescope_core::output::{Outputs, Slot, VideoOutput};
 use telescope_core::services::Services;
 use telescope_core::source::{PairedPhone, RouteSpec};
 use telescope_core::link::PhoneSession;
+use telescope_system::updates::{Asset, InstallResult, Manifest};
+use telescope_system::updates_plugin::{Backend, UpdatesPlugin};
 use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, WIDTH_THREE_COL, WIDTH_TWO_COL};
 
 /// translation_scenes_connection.WIFI_IP and USB_SERIAL.
@@ -115,9 +117,41 @@ fn services(link: SceneLink) -> Arc<Services> {
         updater: None,
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
-            vec![Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>]
+            vec![
+                Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
+                Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
+            ]
         }),
     })
+}
+
+/// Never checks: the scenes show the card before its first check.
+struct NoUpdates;
+
+impl Backend for NoUpdates {
+    fn fetch(&self, _channel: &str) -> Result<Option<Manifest>, String> {
+        Ok(None)
+    }
+    fn install(&self, _m: &Manifest, _a: &Asset, _p: &mut dyn FnMut(Option<(u64, u64)>), _c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+        Err(String::new())
+    }
+    fn blocker(&self) -> Option<String> {
+        None
+    }
+    fn is_newer(&self, _m: Option<&Manifest>) -> bool {
+        false
+    }
+    fn was_rolled_back(&self, _m: Option<&Manifest>) -> bool {
+        false
+    }
+    fn forget_rolled_back(&self) {}
+    fn relaunch(&self, _argv: &[String]) -> std::io::Result<()> {
+        Ok(())
+    }
+    fn open_url(&self, _url: &str) {}
+    fn threaded(&self) -> bool {
+        false
+    }
 }
 
 fn quiet() -> SceneLink {
