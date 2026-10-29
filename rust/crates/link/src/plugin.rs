@@ -1213,6 +1213,13 @@ impl Plugin for ConnectionPlugin {
         self.render(host);
     }
 
+    /// The window moved the panels onto a stream that was already running (show_selected), with its settings.
+    fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
+        let pid = Some(stream.source_id.as_str()).filter(|s| !s.is_empty());
+        self.show_selected(host, pid);
+        self.on_stream_start(host, stream);
+    }
+
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         let now = self.now();
         host.cancel_schedule(T_USB_WATCH);
@@ -1814,6 +1821,18 @@ mod tests {
         assert_eq!(e.plugin.run_action(&mut e.host, "phone.pick", &json!({"op": "next"})).as_deref(), Some("Phone: Pixel"));
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         assert_eq!(e.plugin.run_action(&mut e.host, "phone.pick", &json!({"op": "set", "option": "Galaxy"})).as_deref(), Some("Phone: Galaxy"));
+    }
+
+    #[test]
+    fn moving_the_panels_to_another_running_stream_shows_it_as_picked() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.add("id-b", "Galaxy");
+        let switches = e.host.calls.iter().filter(|c| c.starts_with("switch_device")).count();
+        e.plugin.on_focus_gained(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into() });
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
+        // The window swapped the settings itself
+        assert_eq!(e.host.calls.iter().filter(|c| c.starts_with("switch_device")).count(), switches);
     }
 
     #[test]
