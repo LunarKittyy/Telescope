@@ -96,6 +96,8 @@ pub struct Streams {
     /// Phone streams that could move to another route now: up, not recovering, not moving already, and with a worker
     /// that can take it (or the camera off).
     pub can_hand_over: Vec<String>,
+    /// The streams the panels don't show (Sessions.background), for host.background_streams.
+    pub background: Vec<telescope_core::host::BackgroundStream>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

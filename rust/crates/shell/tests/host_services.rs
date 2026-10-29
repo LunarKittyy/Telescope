@@ -4,6 +4,7 @@ use std::sync::Arc;
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::Event;
 use telescope_core::frame::{FrameContext, FrameStep};
+use telescope_core::host::BackgroundStream;
 use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::ui::UiEvent;
 use telescope_core::{Frame, PixelFormat};
@@ -144,4 +145,36 @@ fn chroma_keys_picked_colour_comes_from_a_click_on_the_preview() {
     let cfg = st.plugin_config("chroma_key").unwrap();
     assert_eq!(cfg["screen"], json!("picked"));
     assert_eq!(cfg["picked"], json!([120, 40, 200]), "B, G, R of the spot clicked");
+}
+
+/// The panels move to `to`; `behind` keep streaming in the background, as sync_streams leaves them.
+fn focus(st: &mut State, to: &str, behind: &[&str]) {
+    let names: Vec<String> = st.slots.iter().map(|s| s.info.name.clone()).collect();
+    st.call_hook(&names, &Hook::FocusLost);
+    st.streams.source_id = Some(to.into());
+    st.streams.background = behind.iter().map(|id| BackgroundStream { source_id: (*id).into(), name: (*id).into() }).collect();
+    st.call_hook(&names, &Hook::FocusGained(StreamInfo { source_id: to.into(), url: format!("http://{to}") }));
+    st.bus.emit(Event::StreamsChanged { count: behind.len() as u32 + 1 });
+    st.deliver_events();
+}
+
+fn diagnostic(st: &mut State, plugin: &str, key: &str) -> String {
+    let i = st.index(plugin).unwrap();
+    st.call(i, |p, _| p.diagnostics()).unwrap().into_iter().find(|(k, _)| k == key).map(|(_, v)| v).unwrap_or_default()
+}
+
+#[test]
+fn notes_on_a_phone_streaming_in_the_background_stay_sent() {
+    let mut st = state("host-notes-background", vec![Box::new(telescope_effects::notes::NotesPlugin::new())]);
+    start(&mut st);
+    let ui = |st: &mut State, callback: &str, args: Vec<Value>| st.ui_event("notes", UiEvent { ui: "card".into(), callback: callback.into(), args });
+    ui(&mut st, "text-edited", vec![json!("Say hello")]);
+    ui(&mut st, "send-clicked", vec![]);
+    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "on the phone");
+    focus(&mut st, "tablet", &["phone"]);
+    focus(&mut st, "phone", &["tablet"]);
+    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "on the phone", "the phone kept streaming, so it still shows them");
+    focus(&mut st, "tablet", &[]);
+    focus(&mut st, "phone", &["tablet"]);
+    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "not sent", "its stream stopped meanwhile");
 }
