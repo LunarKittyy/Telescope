@@ -264,3 +264,17 @@ def test_fake_phone_switches_lens_drops_off_and_unplugs():
     assert not phone.gone("wifi") and phone.gone("usb")
     phone.plug()
     assert not phone.gone("usb")
+
+
+def test_the_blur_forgives_glyph_edges_but_not_a_missing_box():
+    import numpy as np
+    import compare_scenes
+    base = np.full((60, 80, 4), 30, np.uint8)
+    base[..., 3] = 255
+    edges = base.copy()
+    edges[20:40:2, 10:70:3, :3] = 90  # scattered pixels off by 60, as two rasterisers' antialiasing differs
+    assert compare_scenes.difference(base, edges, 24, 0)[0] > 0.03
+    assert compare_scenes.difference(base, edges, 24, 1.0)[0] == 0
+    boxed = base.copy()
+    boxed[20:30, 20:40, :3] = 200  # a button one side doesn't have
+    assert compare_scenes.difference(base, boxed, 24, 1.0)[0] > 0.03

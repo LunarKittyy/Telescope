@@ -5,7 +5,7 @@
     python scenes.py OUT connection-ready      # just these
     python scenes.py OUT --mark                # and mark the scenes that match at every scale `ported` in the ledger
 
-A scene matches when, after both pictures are averaged down by 2, no more than 0.5% of pixels differ. Up to 2% it's
+A scene matches when, after compare_scenes.py's light blur, no more than 0.5% of pixels differ. Up to 2% it's
 close and listed for a person to judge; that's never marked.
 
 Asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it draws, renders those
@@ -80,7 +80,7 @@ def matching(qt: Path, rust: Path, ids: list, scales: list, threshold: float, re
                 worst = 1.0
                 break
             x, y = compare_scenes.load(a), compare_scenes.load(b)
-            share, _ = compare_scenes.difference(x, y, tolerance)
+            share, _ = compare_scenes.difference(x, y, tolerance, float(scale))
             worst = max(worst, share if x.shape == y.shape else 1.0)
         if worst <= threshold:
             same.append(id)
