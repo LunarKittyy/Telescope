@@ -70,7 +70,15 @@ export component Card inherits Rectangle {
     in property <bool> has-action;
     in property <image> action-icon;
     in property <string> action-label;
+    // Shown next to the action's icon when set (card_action with text, like Connection's Add phone)
+    in property <string> action-text;
     callback action;
+    // A second icon button before the action (Connection's setup guide)
+    in property <bool> has-extra;
+    in property <image> extra-icon;
+    in property <string> extra-label;
+    in property <string> extra-name: extra-label;
+    callback extra;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -109,7 +117,35 @@ export component Card inherits Rectangle {
                 hovered-elsewhere: chip-touch.has-hover;
             }
             Rectangle { horizontal-stretch: 1; }
-            if has-action: Button {
+            // card_action with no text: Qt keeps room for the text either side of the icon
+            if has-extra: Button {
+                y: 4px;
+                height: 30px;
+                width: 38px;
+                role: "quiet";
+                padding-x: 0px;
+                has-icon: true;
+                icon: extra-icon;
+                icon-tint: Theme.text-dim;
+                tip: extra-label;
+                accessible-label: extra-name;
+                clicked => { root.extra(); }
+            }
+            if has-action && action-text != "": Button {
+                y: 4px;
+                height: 30px;
+                role: "quiet";
+                padding-x: 10px;
+                gap: 6px;
+                text: action-text;
+                has-icon: true;
+                icon: action-icon;
+                icon-tint: Theme.text-dim;
+                tip: action-label;
+                accessible-label: action-text;
+                clicked => { root.action(); }
+            }
+            if has-action && action-text == "": Button {
                 y: 4px;
                 height: 30px;
                 width: 30px;

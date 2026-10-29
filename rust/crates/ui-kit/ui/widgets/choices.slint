@@ -8,6 +8,9 @@ import { Icon, FocusRing } from "basics.slint";
 export component Segmented inherits Rectangle {
     in property <[string]> items;
     in property <[bool]> disabled;
+    // A 13px line icon before each item's text, where has-icons says so
+    in property <[image]> icons;
+    in property <[bool]> has-icons;
     in property <string> label;
     in-out property <int> current: 0;
     callback picked(int);
@@ -60,15 +63,27 @@ export component Segmented inherits Rectangle {
                     }
                 }
             }
-            Text {
-                text: item;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                font-weight: on ? 600 : 400;
-                color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                overflow: elide;
+            HorizontalLayout {
+                alignment: center;
+                spacing: 6px;
+                if has-icons[i]: Icon {
+                    y: (parent.height - 13px) / 2;
+                    source: icons[i];
+                    tint: off ? Theme.text-disabled : on ? white : Theme.text-dim;
+                    width: 13px;
+                    height: 13px;
+                    accessible-role: none;
+                }
+                Text {
+                    text: item;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    font-weight: on ? 600 : 400;
+                    color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
             }
         }
     }
