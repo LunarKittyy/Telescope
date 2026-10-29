@@ -360,6 +360,9 @@ impl Window {
             _ => 0,
         };
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), (px("stage-width"), px("stage-height")));
+        if self.painted.get() == 0 {
+            log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
+        }
         let mut painter = self.painter.borrow_mut();
         if painter.is_none() {
             let Some(services) = &self.services else { return };
