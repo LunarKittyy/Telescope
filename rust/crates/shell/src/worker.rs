@@ -314,7 +314,10 @@ impl StreamWorker {
     /// Starts reading at once. slot is the stream's frame slot (media's stream_frames), which the plugins read.
     pub fn start(setup: WorkerSetup, media: Arc<dyn Media>, outputs: Arc<dyn Outputs>, slot: Arc<dyn FrameSlot>,
                  events: Events) -> Result<StreamWorker, String> {
-        let pipeline = media.pipeline()?;
+        let pipeline = media.pipeline().unwrap_or_else(|e| {
+            log::warn!("No frame steps for this stream: {e}");
+            Box::new(NoSteps)
+        });
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
             url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), media, outputs, events,
@@ -915,6 +918,19 @@ impl Shared {
         drop(cam);
         self.vcam_free.set();
         ok
+    }
+}
+
+/// Frames through unchanged, for a media without frame steps.
+struct NoSteps;
+
+impl FramePipeline for NoSteps {
+    fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+    fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+        frame
+    }
+    fn is_empty(&self) -> bool {
+        true
     }
 }
 
