@@ -161,12 +161,20 @@ impl Face {
         Face { font, size: px, em: false, fallbacks: false, heavy: false }
     }
 
+    /// Characters this font lacks come from the fallbacks for other scripts, at the same em.
+    pub fn with_fallbacks(mut self) -> Face {
+        self.fallbacks = true;
+        self
+    }
+
     /// The scale that makes this face's size in a font: the same em in every font, so a fallback matches its neighbours.
     fn scale_in(&self, font: &FontArc) -> PxScale {
         if self.em {
             PxScale::from(self.size * font.height_unscaled() / font.units_per_em().unwrap_or(1000.0))
         } else {
-            PxScale::from(self.size)
+            // A tall size is this face's font's own; a fallback gets the same em
+            let em = |f: &FontArc| f.units_per_em().unwrap_or(1000.0) / f.height_unscaled();
+            PxScale::from(self.size * em(&self.font) / em(font))
         }
     }
 
