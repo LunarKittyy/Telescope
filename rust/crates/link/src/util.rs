@@ -40,29 +40,8 @@ pub fn same(a: &str, b: &str) -> bool {
     a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-pub const MAX_NAME_CHARS: usize = 64;
-
-/// Python's str.isspace(): Unicode whitespace plus the separators \x1c to \x1f.
-fn is_space(c: char) -> bool {
-    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
-}
-
-/// Format and private-use characters, which Python's isprintable() leaves out (a right-to-left override, say).
-fn is_format_or_private(c: char) -> bool {
-    matches!(c as u32, 0xAD | 0x600..=0x605 | 0x61C | 0x6DD | 0x70F | 0x8E2 | 0x180E | 0x200B..=0x200F | 0x202A..=0x202E
-        | 0x2060..=0x2064 | 0x2066..=0x206F | 0xFEFF | 0xFFF9..=0xFFFB | 0x110BD | 0x110CD | 0x13430..=0x1343F
-        | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A | 0xE0001 | 0xE0020..=0xE007F | 0xE000..=0xF8FF | 0xF0000..=0x10FFFF)
-}
-
-/// A phone's name as safe display text: no control characters, no < or >, capped (session_client.clean_name).
-pub fn clean_name(raw: &str) -> String {
-    let text: String = raw
-        .chars()
-        .filter(|&c| (is_space(c) || !(c.is_control() || is_format_or_private(c))) && c != '<' && c != '>')
-        .map(|c| if is_space(c) { ' ' } else { c })
-        .collect();
-    text.split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ").chars().take(MAX_NAME_CHARS).collect()
-}
+// Shared with the Presets plugin, so it lives in core
+pub use telescope_core::names::{clean_name, MAX_NAME_CHARS};
 
 pub fn hostname() -> String {
     #[cfg(unix)]

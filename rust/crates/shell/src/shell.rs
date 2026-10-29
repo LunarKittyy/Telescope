@@ -33,10 +33,25 @@ pub struct Slot {
     pub defaults: Value,
 }
 
+/// A picture a plugin set on its UI, which Effect compares by what it shows.
+#[derive(Clone, Debug)]
+pub struct Picture(pub telescope_core::Frame);
+
+impl PartialEq for Picture {
+    fn eq(&self, other: &Picture) -> bool {
+        let (a, b) = (&self.0, &other.0);
+        (a.width, a.height, a.format) == (b.width, b.height, b.format) && (Arc::ptr_eq(&a.data, &b.data) || a.data == b.data)
+    }
+}
+
 /// Something a plugin asked for that the window (or the stream flow) carries out once the hook returns.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     Props { plugin: String, ui: String, props: Value },
+    /// Host::set_ui_image: a picture for an image property of plugin's piece of UI.
+    Image { plugin: String, ui: String, prop: String, picture: Picture },
+    /// Host::refresh_actions: plugin's actions are asked for again.
+    RefreshActions(String),
     Tray(TrayAction),
     FrameStep(String),
     OpenSettings(String),

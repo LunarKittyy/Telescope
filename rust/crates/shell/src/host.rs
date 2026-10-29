@@ -2,7 +2,7 @@
 //! into State::effects. Services that live in crates still being ported (vision, sensors, stills, colour, motion,
 //! packets, the preview's layers) answer as "not available" until those land.
 
-use crate::shell::{Effect, State};
+use crate::shell::{Effect, Picture, State};
 use crate::{banners::COPY_SCHEME, profiles};
 use serde_json::Value;
 use std::sync::Arc;
@@ -54,9 +54,10 @@ impl HostSettings for Ctx<'_> {
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {
             let cfg = cfg.clone();
-            self.state.call(i, |p, host| {
-                let _ = p.apply_preset(host, &cfg);
-            });
+            let rejected = self.state.call(i, |p, host| p.apply_preset(host, &cfg));
+            if let Some(Err(why)) = rejected {
+                log::warn!("{name} couldn't take its part of a preset: {}", why.0);
+            }
         }
     }
     fn preset_plugins(&self) -> Vec<String> {
@@ -288,6 +289,12 @@ impl HostUi for Ctx<'_> {
     }
     fn refresh_frame_step(&mut self) {
         self.state.effects.push(Effect::FrameStep(self.me.clone()));
+    }
+    fn set_ui_image(&mut self, ui: &str, prop: &str, frame: &Frame) {
+        self.state.effects.push(Effect::Image { plugin: self.me.clone(), ui: ui.into(), prop: prop.into(), picture: Picture(frame.clone()) });
+    }
+    fn refresh_actions(&mut self) {
+        self.state.effects.push(Effect::RefreshActions(self.me.clone()));
     }
 }
 

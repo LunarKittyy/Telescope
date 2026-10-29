@@ -1,0 +1,123 @@
+// The Startup plugin (desktop/telescope/plugins/startup.py): the sign-in switch on the General tab and the Automatic
+// streaming card on Streaming. Texts that are lists, or have blanks, come filled from Rust.
+
+import { Theme, Icons, Card, SettingRow, Switch, ChoiceField, TextField } from "@ui-kit/ui-kit.slint";
+
+export component StartupSettings inherits Card {
+    in-out property <bool> open-checked;
+    // Off in a dev profile, whose sign-in entry would be the real app's
+    in property <bool> open-enabled: true;
+    in property <string> open-tip;
+    callback open-toggled(bool);
+    title: @tr("Startup");
+    icon: Icons.monitor;
+    SettingRow {
+        title: @tr("Open Telescope when I sign in");
+        Switch {
+            y: (parent.height - self.height) / 2;
+            checked <=> root.open-checked;
+            enabled: open-enabled;
+            label: @tr("Open Telescope when I sign in");
+            tip: open-tip;
+            toggled(on) => { root.open-toggled(on); }
+        }
+    }
+}
+
+export component AutomaticSettings inherits Card {
+    in property <[string]> start-items;
+    in-out property <int> start-current;
+    in property <[string]> stop-items;
+    in-out property <int> stop-current;
+    // The idle stop is on: its note shows and the wait and the notice are in use
+    in property <bool> stops;
+    in-out property <string> delay-text;
+    in property <[string]> unit-items;
+    in-out property <int> unit-current;
+    in-out property <bool> notify-checked;
+    in property <string> start-title;
+    in property <string> stop-title;
+    in property <string> delay-title;
+    in property <string> delay-sub;
+    callback start-picked(int);
+    callback stop-picked(int);
+    callback delay-committed(string);
+    callback delay-step(int);
+    callback unit-picked(int);
+    callback notify-toggled(bool);
+    title: @tr("Automatic streaming");
+    icon: Icons.bolt;
+    SettingRow {
+        title: start-title;
+        ChoiceField {
+            y: (parent.height - self.height) / 2;
+            width: 320px;
+            compact: true;
+            caption: start-title;
+            items: start-items;
+            current <=> root.start-current;
+            picked(i) => { root.start-picked(i); }
+        }
+    }
+    SettingRow {
+        title: stop-title;
+        ChoiceField {
+            y: (parent.height - self.height) / 2;
+            width: 320px;
+            compact: true;
+            caption: stop-title;
+            items: stop-items;
+            current <=> root.stop-current;
+            picked(i) => { root.stop-picked(i); }
+        }
+    }
+    if stops: Text {
+        text: @tr("With the phone mic on, only the camera turns off.");
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-factor(self.font-size);
+    }
+    SettingRow {
+        enabled: stops;
+        title: delay-title;
+        sub: delay-sub;
+        HorizontalLayout {
+            spacing: 8px;
+            // Saved once it's typed (on Enter or when the box is left), not at every digit
+            TextField {
+                y: (parent.height - self.height) / 2;
+                width: 90px;
+                align-right: true;
+                enabled: stops;
+                label: delay-title;
+                text <=> root.delay-text;
+                accepted => { root.delay-committed(self.text); }
+                step(d) => { root.delay-step(d); }
+                changed has-focus => { if (!self.has-focus) { root.delay-committed(self.text); } }
+            }
+            ChoiceField {
+                y: (parent.height - self.height) / 2;
+                width: 90px;
+                compact: true;
+                enabled: stops;
+                caption: delay-title;
+                items: unit-items;
+                current <=> root.unit-current;
+                picked(i) => { root.unit-picked(i); }
+            }
+        }
+    }
+    SettingRow {
+        enabled: stops;
+        title: @tr("Tell me when it stops a stream");
+        Switch {
+            y: (parent.height - self.height) / 2;
+            checked <=> root.notify-checked;
+            enabled: stops;
+            label: @tr("Tell me when it stops a stream");
+            toggled(on) => { root.notify-toggled(on); }
+        }
+    }
+}
