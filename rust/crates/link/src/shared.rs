@@ -2,6 +2,7 @@
 //! a way to tell the plugin about it on the host thread (it shows the card and the Start banner).
 
 use crate::connection::{default_computer_name, Connection, StreamFormat, Tunnels};
+use crate::phones::STREAM_PORT;
 use crate::util::random_hex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -137,6 +138,18 @@ impl Shared {
     pub fn prepare_route(&self, pid: &str, route: &RouteSpec) -> Option<String> {
         let format = self.format();
         self.conn().prepare_stream_route(route, pid, format)
+    }
+
+    /// Opens the stream forward to serial ahead of a hand-over, off the UI thread, so prepare_route only counts it.
+    pub fn hold_stream_forward(&self, serial: &str) -> bool {
+        let tunnels = self.conn().tunnels();
+        tunnels.acquire(serial, STREAM_PORT).is_some()
+    }
+
+    /// Lets go of hold_stream_forward's hold; the forward goes unless a prepared route still uses it.
+    pub fn release_stream_forward(&self, serial: &str) {
+        let tunnels = self.conn().tunnels();
+        tunnels.release(serial, STREAM_PORT);
     }
 
     pub fn commit_route(&self, pid: &str) {

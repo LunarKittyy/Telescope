@@ -500,6 +500,10 @@ impl Connection {
         }
     }
 
+    pub fn tunnels(&self) -> std::sync::Arc<dyn Tunnels> {
+        self.tunnels.clone()
+    }
+
     /// The video URL for pid's stream on route while it still runs on its old one (a hand-over).
     pub fn prepare_stream_route(&mut self, route: &RouteSpec, pid: &str, format: StreamFormat) -> Option<String> {
         let held = self.holds.get(pid)?;
