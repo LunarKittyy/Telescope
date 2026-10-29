@@ -715,7 +715,7 @@ impl ConnectionPlugin {
             host.clear_issue(Some("start"), Some(&issue)); // a Start pressed before there was a phone left it up
         }
         if paired.reconnect {
-            host.reconnect_stream(); // the running stream still holds the old token
+            host.reconnect_source(&pid); // its running stream still holds the old token
         }
         host.save_now();
     }

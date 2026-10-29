@@ -142,6 +142,7 @@ impl Pipeline {
             window_frames += decoded.count;
             stats.frames += decoded.count as u64;
             let Some(mut frame) = decoded.newest else { continue };
+            feed.decoded();
             frame.number = FRAME_NUMBER.fetch_add(1, Ordering::Relaxed) + 1;
             if camera.as_ref().is_none_or(|c| c.size() != (frame.width, frame.height)) {
                 camera = self.outputs.open(self.opts.slot, frame.width, frame.height, self.opts.fps).map_err(|e| camera_error = e).ok();

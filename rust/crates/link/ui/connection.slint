@@ -153,8 +153,8 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     alignment: center;
                     spacing: 1px;
-                    // Qt's two lines come to 36px, a pixel more than the icon
-                    min-height: using-shown ? 36px : 0px;
+                    // Qt's two lines fit the icon's 35px; Slint's line boxes would make them a pixel taller
+                    max-height: 35px;
                     Text {
                         text: status-text;
                         font-family: Theme.font;
@@ -220,7 +220,8 @@ export component ConnectionCard inherits Card {
             // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
             // A note with nothing under it: Qt's label box ends 4px above Slint's there
             if route-shown: VerticalLayout {
-                padding-top: note-text != "" && !switch-usb-shown && !update-shown ? 8px : 12px;
+                // Qt keeps the note box when there's nothing in it, so its 2px bottom margin still counts
+                padding-top: switch-usb-shown || update-shown ? 9px : note-text != "" ? 8px : 14px;
                 spacing: 4px;
                 Rectangle { height: 1px; background: Theme.border; }
                 FormRow {

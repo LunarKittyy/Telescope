@@ -15,7 +15,9 @@ pub mod webcam;
 pub mod webcam_capture;
 pub mod webcam_controls;
 pub mod webcams;
+pub mod webcams_win;
 pub mod wincam;
+pub mod wininstall;
 
 #[cfg(test)]
 mod ui_check;
@@ -311,7 +313,21 @@ impl Outputs for VirtualCameras {
                 SetupAction::Install { .. } => SetupResult { ok: false, message: "Linux sets up v4l2loopback instead".into(), command: None },
             };
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(windows)]
+        {
+            let (devices, reset) = match action {
+                SetupAction::Install { devices, reset } => (devices, reset),
+                SetupAction::AddSlots => (MAX_SLOTS, false),
+                SetupAction::RemoveSlots => {
+                    let _released = self.release_devices();
+                    (1, true)
+                }
+                _ => return SetupResult { ok: false, message: "Windows installs the camera instead".into(), command: None },
+            };
+            let (ok, message) = wininstall::install_camera(&wininstall::Windows, devices.max(1), reset, _progress);
+            return SetupResult { ok, message, command: None };
+        }
+        #[cfg(not(any(target_os = "linux", windows)))]
         {
             let _ = action;
             SetupResult { ok: false, message: "Installing the camera from here isn't in this build yet".into(), command: None }

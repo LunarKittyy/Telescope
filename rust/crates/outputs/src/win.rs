@@ -45,6 +45,7 @@ struct OsVersionInfo {
 
 #[link(name = "kernel32")]
 extern "system" {
+    fn GetSystemDirectoryW(buffer: *mut u16, size: u32) -> u32;
     fn OpenFileMappingW(access: u32, inherit: i32, name: *const u16) -> Handle;
     fn MapViewOfFile(map: Handle, access: u32, high: u32, low: u32, bytes: usize) -> *mut c_void;
     fn UnmapViewOfFile(address: *const c_void) -> i32;
@@ -175,6 +176,15 @@ pub fn release_mutex(handle: &Owned) {
 pub fn set_event(handle: &Owned) {
     // SAFETY: a live handle
     unsafe { SetEvent(handle.0) };
+}
+
+/// Windows' own system folder (System32), asked of Windows rather than PATH or %SystemRoot%, so the programs started
+/// from it are the real ones.
+pub fn system_dir() -> Option<std::path::PathBuf> {
+    let mut buf = [0u16; 260];
+    // SAFETY: the buffer's length is passed with it
+    let n = unsafe { GetSystemDirectoryW(buf.as_mut_ptr(), buf.len() as u32) } as usize;
+    (n > 0 && n < buf.len()).then(|| std::path::PathBuf::from(String::from_utf16_lossy(&buf[..n])))
 }
 
 /// Windows' build number (22000 and up is Windows 11), 0 if it can't be told.

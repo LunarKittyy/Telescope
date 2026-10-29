@@ -352,7 +352,8 @@ struct Udp {
     last_hello: f64,
     last_report: f64,
     last_key_ask: f64,
-    taken_any: bool,
+    /// The reader made a picture from what came over it (Python's _decoded_any).
+    decoded_any: bool,
 }
 
 impl Udp {
@@ -418,12 +419,14 @@ pub struct UdpFeed {
     tcp: Option<H264Feed>,
     pub fell_back: bool,
     stop: StopHandle,
+    /// How long frames that arrive may take to make a picture before UDP gives up (FIRST_DECODE_S).
+    first_decode_s: f64,
 }
 
 impl UdpFeed {
     pub fn open(url: &str, auth: &PhoneAuth, timeout: Duration, stop: StopHandle) -> Result<UdpFeed, String> {
         let mut feed = UdpFeed { url: url.to_string(), auth: auth.clone(), timeout, origin: Instant::now(), udp: None, tcp: None,
-                                 fell_back: false, stop };
+                                 fell_back: false, stop, first_decode_s: FIRST_DECODE_S };
         let host = Url::hostname(url).unwrap_or_default();
         if !udp_failed(&host) {
             match feed.open_udp() {
@@ -465,7 +468,7 @@ impl UdpFeed {
         let now = clock(self.origin);
         let mut udp = Udp { sock, _response: resp, phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
                             seal_out: Seal::new(&key, TO_PHONE)?, frames: Reassembler::new(), opened_at: now, received: 0,
-                            last_hello: 0.0, last_report: 0.0, last_key_ask: 0.0, taken_any: false };
+                            last_hello: 0.0, last_report: 0.0, last_key_ask: 0.0, decoded_any: false };
         udp.hello(now, true);
         self.udp = Some(udp);
         Ok(())
@@ -509,8 +512,8 @@ impl VideoFeed for UdpFeed {
             }
             let Some(udp) = self.udp.as_mut() else { return Err(FeedEnd::Closed) };
             let now = clock(origin);
-            let limit = if udp.received > 0 { FIRST_DECODE_S } else { FIRST_FRAME_S };
-            if !udp.taken_any && now - udp.opened_at > limit {
+            let limit = if udp.received > 0 { self.first_decode_s } else { FIRST_FRAME_S };
+            if !udp.decoded_any && now - udp.opened_at > limit {
                 // Likely a firewall: don't wait for it again
                 mark_failed(&udp.phone.ip().to_string());
                 if let Some(host) = Url::hostname(&self.url) {
@@ -519,14 +522,13 @@ impl VideoFeed for UdpFeed {
                 self.fall_back().map_err(FeedEnd::Error)?;
                 return self.read();
             }
-            if now > deadline && udp.taken_any {
+            if now > deadline && udp.decoded_any {
                 return Err(FeedEnd::Closed); // the phone stopped sending: the session's over
             }
             udp.hello(now, false);
             udp.report(now);
             udp.receive(origin);
             if let Some((data, _frames)) = udp.frames.take() {
-                udp.taken_any = true;
                 return Ok(Packet { data, time_ns: telescope_core::time::monotonic_ns() });
             }
             udp.chase(now);
@@ -535,6 +537,12 @@ impl VideoFeed for UdpFeed {
 
     fn stopper(&self) -> Box<dyn FeedStopper> {
         Box::new(self.stop.clone())
+    }
+
+    fn decoded(&mut self) {
+        if let Some(udp) = self.udp.as_mut() {
+            udp.decoded_any = true;
+        }
     }
 }
 
@@ -853,15 +861,23 @@ mod tests {
         }).collect()
     }
 
-    fn read_all(feed: &mut UdpFeed, limit: usize) -> Vec<Vec<u8>> {
+    /// Reads as the media reader does: every packet decodes (decodes: false, none does).
+    fn read_decoding(feed: &mut UdpFeed, limit: usize, decodes: bool) -> Vec<Vec<u8>> {
         let mut out = Vec::new();
         while out.len() < limit {
             match feed.read() {
                 Ok(p) => out.push(p.data),
                 Err(_) => break,
             }
+            if decodes {
+                feed.decoded();
+            }
         }
         out
+    }
+
+    fn read_all(feed: &mut UdpFeed, limit: usize) -> Vec<Vec<u8>> {
+        read_decoding(feed, limit, true)
     }
 
     fn url(phone: &FakePhone) -> String {
@@ -930,6 +946,21 @@ mod tests {
     }
 
     #[test]
+    fn frames_that_arrive_but_never_decode_fall_back_to_tcp() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let sent = frames(3);
+        let phone = fake_phone(sent.clone(), Behaviour::default());
+        let mut feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        feed.first_decode_s = 1.5;
+        // Whole frames come off UDP, but the first key unit is broken, so nothing decodes
+        let got = read_decoding(&mut feed, sent.len() * 2, false);
+        assert!(feed.fell_back, "{} frames and still on UDP", got.len());
+        assert!(got.len() > sent.len(), "TCP's frames follow UDP's");
+        forget_failures();
+    }
+
+    #[test]
     fn a_session_whose_hello_doesnt_parse_is_closed_before_falling_back() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
@@ -946,7 +977,7 @@ mod tests {
         });
         let mut feed = UdpFeed { url: format!("http://127.0.0.1:{port}/v1/video.udp"), auth: PhoneAuth::new("t", ""),
                                  timeout: Duration::from_secs(3), origin: Instant::now(), udp: None, tcp: None, fell_back: false,
-                                 stop: StopHandle::default() };
+                                 stop: StopHandle::default(), first_decode_s: FIRST_DECODE_S };
         assert!(feed.open_udp().is_err());
         std::thread::sleep(Duration::from_millis(200));
         assert!(*closed.lock().unwrap(), "the phone holds the session and a stream slot until it times out");
@@ -955,7 +986,8 @@ mod tests {
     #[test]
     fn the_tcp_url_is_the_same_path_as_h264() {
         let feed = UdpFeed { url: "https://h:8080/v1/video.udp".into(), auth: PhoneAuth::default(), timeout: Duration::from_secs(1),
-                             origin: Instant::now(), udp: None, tcp: None, fell_back: false, stop: StopHandle::default() };
+                             origin: Instant::now(), udp: None, tcp: None, fell_back: false, stop: StopHandle::default(),
+                             first_decode_s: FIRST_DECODE_S };
         assert_eq!(feed.tcp_url(), "https://h:8080/v1/video.h264");
     }
 }

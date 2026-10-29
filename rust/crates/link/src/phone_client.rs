@@ -390,10 +390,14 @@ pub fn send_now(auth: &PhoneAuth, base: &str, params: &Value) -> bool {
     let body = crate::util::python_json_utf8(params);
     let url = format!("{base}/control");
     match auth.open(Request::post(&url, body.as_bytes(), Duration::from_secs(3))) {
-        Ok(mut r) => {
-            let _ = std::io::copy(&mut r, &mut std::io::sink());
-            true
-        }
+        // A reply cut off on the way may not have been acted on either
+        Ok(mut r) => match std::io::copy(&mut r, &mut std::io::sink()) {
+            Ok(_) => true,
+            Err(e) => {
+                log::debug!("Control request failed: {e}");
+                false
+            }
+        },
         Err(Error::Http(code)) => {
             log::debug!("The phone refused a control request: HTTP {code}"); // it got there: again won't change that
             true
@@ -644,6 +648,20 @@ mod tests {
     #[test]
     fn send_now_swallows_transport_errors() {
         assert!(!send_now(&PhoneAuth::new("tok", ""), "http://127.0.0.1:1", &json!({"action": "iso", "value": 100})));
+    }
+
+    #[test]
+    fn a_reply_cut_off_mid_body_is_worth_sending_again() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = conn.read(&mut buf);
+            let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{\"ok\"");
+        });
+        assert!(!send_now(&PhoneAuth::new("tok", ""), &format!("http://127.0.0.1:{port}/v1"), &json!({"action": "iso", "value": 100})));
     }
 
     #[test]

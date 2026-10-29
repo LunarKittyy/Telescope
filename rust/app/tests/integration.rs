@@ -40,6 +40,8 @@ struct App {
     file: PathBuf,
     /// Timers plugins asked for, fired by tick() rather than waited out.
     timers: Vec<(String, String)>,
+    /// Every effect the plugins asked the window for, in order.
+    seen: Vec<Effect>,
 }
 
 impl App {
@@ -51,7 +53,7 @@ impl App {
         state.link = Some(link.clone());
         state.load_builtins(plugins(link));
         state.apply_saved_config();
-        let mut app = App { state, file, timers: Vec::new() };
+        let mut app = App { state, file, timers: Vec::new(), seen: Vec::new() };
         app.settle();
         app
     }
@@ -64,6 +66,7 @@ impl App {
             if effects.is_empty() && self.state.bus.is_empty() {
                 return;
             }
+            self.seen.extend(effects.iter().cloned());
             for effect in effects {
                 match effect {
                     Effect::SaveSoon => {
@@ -275,4 +278,29 @@ fn a_shortcut_runs_another_plugins_action_and_its_setting_is_saved() {
     let (owner, entries) = app.state.shortcut_menu.clone().expect("Shortcuts set the menu");
     assert_eq!(owner, "shortcuts");
     assert_eq!((entries[0].id.as_str(), entries[0].action.as_str()), ("s1", "transforms.flip_horizontal"));
+}
+
+#[test]
+fn pairing_a_streaming_phone_again_restarts_that_phones_stream() {
+    let base = environment();
+    let dir = folder("repair");
+    let mut app = App::start(&dir, connection_only);
+    let _pairing = pairing();
+    pair(&mut app, &base, "ph-1", "Pixel");
+    pair(&mut app, &base, "ph-2", "Galaxy");
+    // ph-1 streams behind ph-2, which the panels show
+    let streams = &mut app.state.streams;
+    (streams.streaming, streams.source_id, streams.ids) = (true, Some("ph-2".into()), vec!["ph-1".into(), "ph-2".into()]);
+    app.seen.clear();
+
+    // ph-1 pairs again (its app was reinstalled): its stream still holds the old token
+    let offer_file = base.join("offer.json");
+    let _ = std::fs::remove_file(&offer_file);
+    app.ui("connection", "card", "add-phone", vec![]);
+    let offer: Value = serde_json::from_str(&std::fs::read_to_string(&offer_file).unwrap()).unwrap();
+    assert_eq!(pair_as_phone(&offer, "ph-1", "Pixel"), 200);
+    app.until("the re-pairing to land", |a| a.seen.iter().any(|e| matches!(e, Effect::Reconnect(_))));
+    let reconnects: Vec<_> = app.seen.iter().filter(|e| matches!(e, Effect::Reconnect(_))).collect();
+    assert_eq!(reconnects, [&Effect::Reconnect(Some("ph-1".into()))], "the shown ph-2 keeps streaming");
+    app.ui("connection", "card", "add-closed", vec![]);
 }

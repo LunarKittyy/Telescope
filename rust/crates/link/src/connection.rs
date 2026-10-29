@@ -500,6 +500,16 @@ impl Connection {
         }
     }
 
+    /// Lets go of the forward pid's stream holds, keeping its route held (recovery, ahead of a fresh one).
+    pub fn let_go_of_forward(&mut self, pid: Option<&str>) {
+        let k = key(self.pid(pid));
+        if let Some((_, forward)) = self.holds.get_mut(&k) {
+            if let Some(serial) = forward.take() {
+                self.tunnels.release(&serial, STREAM_PORT);
+            }
+        }
+    }
+
     pub fn tunnels(&self) -> std::sync::Arc<dyn Tunnels> {
         self.tunnels.clone()
     }
