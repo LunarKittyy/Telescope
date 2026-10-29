@@ -19,6 +19,9 @@ use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueAction, IssueDoes, Tr
 use telescope_core::EventBus;
 
 /// One registered plugin and what it put in the window. `plugin` is out (None) only while one of its hooks runs.
+/// How many events one drain hands out before letting the window draw, so plugins feeding each other can't freeze it.
+const DELIVERY_BATCH: u32 = 10_000;
+
 pub struct Slot {
     pub plugin: Option<Box<dyn Plugin>>,
     pub info: PluginInfo,
@@ -58,6 +61,8 @@ pub enum Effect {
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
     HandOver { source_id: String, route: telescope_core::source::RouteSpec, url: String },
+    /// Host::set_shortcut_menu: the controls' right-click menu changed.
+    ShortcutMenu,
     Quit,
     Restart,
     KeepInTray(bool),
@@ -192,7 +197,12 @@ pub struct State {
     /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
     pub shown: Option<bool>,
     pub tray_close_notified: bool,
+    /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
+    pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
     next_request: u64,
+    // Plugin hooks running right now, and whether one asked for save_now
+    calls: u32,
+    pub(crate) save_after_call: bool,
 }
 
 impl State {
@@ -224,7 +234,7 @@ impl State {
             mic: (false, false),
             shown: None,
             tray_close_notified: false,
-            next_request: 1,
+            shortcut_menu: None, next_request: 1, calls: 0, save_after_call: false,
         }
     }
 
@@ -242,11 +252,16 @@ impl State {
     pub fn call<R>(&mut self, i: usize, f: impl FnOnce(&mut dyn Plugin, &mut crate::host::Ctx) -> R) -> Option<R> {
         let mut plugin = self.slots.get_mut(i)?.plugin.take()?;
         let name = self.slots[i].info.name.clone();
+        self.calls += 1;
         let result = {
             let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
             catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)))
         };
         self.slots[i].plugin = Some(plugin);
+        self.calls -= 1;
+        if self.calls == 0 && std::mem::take(&mut self.save_after_call) {
+            self.save_now();
+        }
         match result {
             Ok(r) => Some(r),
             Err(_) => {
@@ -618,10 +633,12 @@ impl State {
     }
 
     /// Hands every queued event to every plugin, in order; events emitted while delivering go after. Then each post
-    /// from a plugin's threads goes to that plugin alone.
+    /// from a plugin's threads goes to that plugin alone. Past DELIVERY_BATCH the rest waits for the next loop turn.
     pub fn deliver_events(&mut self) {
+        let mut budget = DELIVERY_BATCH;
         loop {
-            while let Some(event) = self.bus.next() {
+            while let Some(event) = (budget > 0).then(|| self.bus.next()).flatten() {
+                budget -= 1;
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
                 }
@@ -630,6 +647,11 @@ impl State {
                     self.apply_said(said);
                 }
                 self.each(|p, host| p.on_event(host, &event));
+            }
+            if budget == 0 && !self.bus.is_empty() {
+                log::warn!("Plugins keep answering events with more events; delivering the rest after the window catches up");
+                self.bus.wake();
+                return;
             }
             let posts = self.posts.take();
             if posts.is_empty() {
@@ -846,6 +868,52 @@ mod tests {
         s.bus.emit(Event::StreamStopped);
         s.deliver_events();
         assert!(s.slots.iter().all(|slot| slot.plugin.is_some()));
+    }
+
+    #[test]
+    fn save_now_from_a_hook_saves_what_the_plugin_has_just_changed() {
+        struct Renames(&'static str);
+        impl Plugin for Renames {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "renames".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                json!({"name": self.0})
+            }
+            fn on_event(&mut self, host: &mut dyn telescope_core::Host, _e: &Event) {
+                self.0 = "new";
+                host.save_now();
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Renames("old"))).unwrap();
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert_eq!(s.file.load()["plugin_configs"]["renames"], json!({"name": "new"}));
+    }
+
+    #[test]
+    fn plugins_feeding_each_other_events_cant_hold_the_window_forever() {
+        struct Echo;
+        impl Plugin for Echo {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "echo".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, host: &mut dyn telescope_core::Host, e: &Event) {
+                host.emit(e.clone());
+            }
+        }
+        let mut s = state();
+        let wakes = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let w = wakes.clone();
+        s.bus.set_waker(move || {
+            w.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        });
+        s.register(Box::new(Echo)).unwrap();
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert!(!s.bus.is_empty());
+        assert!(wakes.load(std::sync::atomic::Ordering::SeqCst) >= 2, "the rest is scheduled for later");
     }
 
     struct Hears(String, Arc<std::sync::Mutex<Vec<String>>>);

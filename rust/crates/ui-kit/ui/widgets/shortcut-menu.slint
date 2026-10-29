@@ -1,0 +1,38 @@
+// "Add keyboard shortcut…" on a right-click, for a control a key can stand in for (plugins/shortcuts.py: control_menu).
+
+// A saved shortcut listed under it: its keys and what it does, to edit it.
+export struct ShortcutEntry {
+    id: string,
+    text: string,
+}
+
+// The window fills these in from the Shortcuts plugin; without it on, controls have no menu.
+export global Shortcuts {
+    in property <bool> available;
+    // Goes up whenever the saved shortcuts change, so bindings-for asks again
+    in property <int> version;
+    pure callback bindings-for(string, int) -> [ShortcutEntry];
+    callback add(string);
+    callback edit(string);
+}
+
+// Laid over a control (after its other children) for its action id; other clicks go through to the control.
+export component ShortcutMenu inherits ContextMenuArea {
+    in property <string> action;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+    enabled: Shortcuts.available && root.action != "";
+    Menu {
+        MenuItem {
+            title: @tr("Add keyboard shortcut…");
+            activated => { Shortcuts.add(root.action); }
+        }
+        if Shortcuts.bindings-for(root.action, Shortcuts.version).length > 0: MenuSeparator { }
+        for entry in Shortcuts.bindings-for(root.action, Shortcuts.version): MenuItem {
+            title: entry.text;
+            activated => { Shortcuts.edit(entry.id); }
+        }
+    }
+}

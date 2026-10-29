@@ -39,6 +39,7 @@ const P_PROBED: &str = "probed";
 const P_USB: &str = "usb";
 const P_UPDATED: &str = "updated";
 const P_USB_STATE: &str = "usb_state";
+const P_USB_FORWARD: &str = "usb_forward";
 const P_EARLIER: &str = "earlier";
 const P_ADB: &str = "adb";
 const P_ADB_PROGRESS: &str = "adb_progress";
@@ -383,12 +384,37 @@ impl ConnectionPlugin {
             UsbWatch::Ignore => {}
             UsbWatch::HideButton => self.render(host),
             UsbWatch::HandOver(route) => {
-                let selected = self.conn().selected_id.clone();
-                if !host.hand_over_stream(&route, selected.as_deref()) {
-                    self.conn().switch_usb_visible = true;
-                    self.render(host);
-                }
+                // adb opens the forward here, not on the UI thread, which would freeze the window while it answers
+                let RouteSpec::Usb { serial } = &route else { return self.hand_over(host, &route, false) };
+                let (shared, serial) = (self.shared.clone(), serial.clone());
+                self.spawn(P_USB_FORWARD, move || json!({"route": route, "held": shared.hold_stream_forward(&serial)}));
             }
+        }
+    }
+
+    fn on_usb_forward(&mut self, host: &mut dyn Host, data: &Value) {
+        let Ok(route) = serde_json::from_value::<RouteSpec>(data["route"].clone()) else { return };
+        let held = data["held"].as_bool() == Some(true);
+        if held {
+            self.hand_over(host, &route, true);
+        } else {
+            self.conn().switch_usb_visible = true;
+            self.render(host);
+        }
+    }
+
+    /// Hands the stream over to route; held: hold_stream_forward holds its forward, let go once prepare_route counted it.
+    fn hand_over(&mut self, host: &mut dyn Host, route: &RouteSpec, held: bool) {
+        let selected = self.conn().selected_id.clone();
+        let moving = host.hand_over_stream(route, selected.as_deref());
+        if let (true, RouteSpec::Usb { serial }) = (held, route) {
+            // Removing the forward is adb too when the hand-over didn't take it
+            let (shared, serial) = (self.shared.clone(), serial.clone());
+            std::thread::spawn(move || shared.release_stream_forward(&serial));
+        }
+        if !moving {
+            self.conn().switch_usb_visible = true;
+            self.render(host);
         }
     }
 
@@ -815,6 +841,7 @@ impl ConnectionPlugin {
             P_RESOLVED => self.on_resolved(host, data),
             P_PROBED => self.on_probed(host, data),
             P_USB => self.on_usb_available(host, data),
+            P_USB_FORWARD => self.on_usb_forward(host, data),
             P_USB_STATE => self.on_usb_state(host, data),
             P_EARLIER => self.on_earlier(host, data),
             P_ADB => self.on_adb(host, data),
@@ -2210,5 +2237,49 @@ mod tests {
         let (cells, size) = qr("telescope://pair/example");
         let got: Vec<String> = (0..size).map(|r| (0..size).map(|c| if cells.contains(&(r * size + c)) { '#' } else { '.' }).collect()).collect();
         assert_eq!(got, want);
+    }
+
+    /// Counts forwards and says which thread opened them.
+    #[derive(Default)]
+    struct WatchedTunnels {
+        seen: Mutex<Vec<String>>,
+        test_thread: Option<std::thread::ThreadId>,
+    }
+
+    impl Tunnels for WatchedTunnels {
+        fn acquire(&self, _serial: &str, _remote_port: u16) -> Option<u16> {
+            let on_ui = Some(std::thread::current().id()) == self.test_thread;
+            self.seen.lock().unwrap().push(format!("acquire on_ui={on_ui}"));
+            Some(41000)
+        }
+        fn release(&self, _serial: &str, _remote_port: u16) {
+            self.seen.lock().unwrap().push("release".into());
+        }
+    }
+
+    #[test]
+    fn plugging_in_while_streaming_opens_the_usb_forward_off_the_ui_thread() {
+        let tunnels = Arc::new(WatchedTunnels { test_thread: Some(std::thread::current().id()), ..Default::default() });
+        let link = FakeLink::new();
+        let shared = Shared::new(tunnels.clone());
+        let mut plugin = ConnectionPlugin::new(link.clone(), shared.clone());
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        let mut e = Env { plugin, host, link, shared };
+        e.add("id-a", "Pixel");
+        let watch_id = {
+            let mut c = e.shared.conn();
+            c.streaming = true;
+            c.watch_usb().unwrap().0
+        };
+        let data = json!({"watch_id": watch_id, "route": usb()});
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data });
+        assert!(!e.called("hand_over_stream"), "waits for the forward first");
+        e.settle();
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(e.called("hand_over_stream"));
+        assert_eq!(*tunnels.seen.lock().unwrap(), ["acquire on_ui=false", "release"]);
+        // FakeHost refuses the hand-over, so the button shows to try by hand
+        assert!(e.shared.conn().switch_usb_visible);
     }
 }

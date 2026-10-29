@@ -47,6 +47,14 @@ impl EventBus {
         self.sender().emit(event);
     }
 
+    /// Asks for another drain even though the queue isn't empty, for a host that stopped partway to let its UI breathe.
+    pub fn wake(&self) {
+        let waker = self.inner.lock().unwrap_or_else(|e| e.into_inner()).waker.clone();
+        if let Some(w) = waker {
+            w();
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).queue.is_empty()
     }

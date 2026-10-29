@@ -108,6 +108,16 @@ pub struct ActionSpec {
     pub keywords: String,
 }
 
+/// A saved shortcut as a control's right-click menu lists it (Host::set_shortcut_menu).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ShortcutEntry {
+    /// The binding's id, which "edit" gives back.
+    pub id: String,
+    pub action: String,
+    /// Its keys and what it does: "Ctrl+Alt+M: Mute".
+    pub text: String,
+}
+
 /// A key event in one of Telescope's windows, as Slint gives it (KeyEvent): text is the key's text, special keys as
 /// Slint's Key codes.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

@@ -45,7 +45,8 @@ impl HostSettings for Ctx<'_> {
         self.state.effects.push(Effect::SaveSoon);
     }
     fn save_now(&mut self) {
-        self.state.save_now();
+        // This plugin is out of its slot while its hook runs, so the save waits until it's back
+        self.state.save_after_call = true;
     }
     fn plugin_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_config(name)
@@ -257,6 +258,10 @@ impl HostShell for Ctx<'_> {
     }
     fn copy_text(&mut self, text: &str) {
         self.state.effects.push(Effect::CopyText(text.into()));
+    }
+    fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
+        self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
+        self.state.effects.push(Effect::ShortcutMenu);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         if !cfg!(target_os = "linux") {

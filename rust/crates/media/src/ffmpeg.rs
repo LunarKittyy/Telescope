@@ -83,6 +83,17 @@ pub struct Codec {
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
+    // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
+    parse_buf: Vec<u8>,
+    unit_buf: Vec<u8>,
+}
+
+/// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
+fn padded<'a>(buf: &'a mut Vec<u8>, data: &[u8]) -> &'a [u8] {
+    buf.clear();
+    buf.extend_from_slice(data);
+    buf.resize(data.len() + ff::AV_INPUT_BUFFER_PADDING_SIZE as usize, 0);
+    buf
 }
 
 // SAFETY: a Codec is used from one thread at a time; FFmpeg contexts aren't tied to the thread that made them
@@ -114,6 +125,8 @@ impl Codec {
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
+                parse_buf: Vec::new(),
+                unit_buf: Vec::new(),
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
@@ -142,33 +155,40 @@ impl Codec {
     }
 
     /// Splits stream bytes into access units (H.264), calling unit for each one the parser finishes.
-    pub fn parse(&mut self, mut data: &[u8], mut unit: impl FnMut(&mut Codec, &[u8])) {
-        // SAFETY: the parser reads data within its length and hands back a pointer into its own buffer, valid until the
-        // next parse call; unit copies what it needs before that
+    pub fn parse(&mut self, data: &[u8], mut unit: impl FnMut(&mut Codec, &[u8])) {
+        let mut buf = std::mem::take(&mut self.parse_buf);
+        let len = data.len();
+        let input = padded(&mut buf, data);
+        let mut at = 0;
+        // SAFETY: input has FFmpeg's padding after len; the parser hands back a pointer into its own (padded) buffer or
+        // into input, valid until the next parse call, and unit gets a copy
         unsafe {
-            while !data.is_empty() {
+            while at < len {
                 let mut out: *mut u8 = ptr::null_mut();
                 let mut out_len: i32 = 0;
-                let used = ff::av_parser_parse2(self.parser, self.ctx, &mut out, &mut out_len, data.as_ptr(), data.len().min(i32::MAX as usize) as i32,
+                let used = ff::av_parser_parse2(self.parser, self.ctx, &mut out, &mut out_len, input[at..].as_ptr(), (len - at).min(i32::MAX as usize) as i32,
                                                 ff::AV_NOPTS_VALUE, ff::AV_NOPTS_VALUE, 0);
                 if used < 0 {
                     break;
                 }
-                data = &data[used as usize..];
+                at += used as usize;
                 if out_len > 0 {
                     let piece = std::slice::from_raw_parts(out, out_len as usize).to_vec();
                     unit(self, &piece);
                 }
             }
         }
+        self.parse_buf = buf;
     }
 
     /// Decodes one access unit (or one whole JPEG); every frame it finishes goes to done.
     pub fn decode(&mut self, unit: &[u8], mut done: impl FnMut(Frame)) -> Result<u32, Fault> {
         let mut count = 0;
-        // SAFETY: the packet points at unit for the length of send_packet, which copies it (the packet isn't refcounted)
+        let input = padded(&mut self.unit_buf, unit).as_ptr();
+        // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet
+        // isn't refcounted)
         unsafe {
-            (*self.packet).data = unit.as_ptr() as *mut u8;
+            (*self.packet).data = input as *mut u8;
             (*self.packet).size = unit.len() as i32;
             let r = ff::avcodec_send_packet(self.ctx, self.packet);
             (*self.packet).data = ptr::null_mut();
@@ -321,5 +341,19 @@ impl Drop for CpuScaler {
     fn drop(&mut self) {
         // SAFETY: made by sws_getCachedContext, freed once
         unsafe { ff::sws_freeContext(self.sws) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn input_reaches_ffmpeg_with_a_zeroed_padding_tail() {
+        let mut buf = vec![7; 200];
+        let out = padded(&mut buf, &[1, 2, 3]);
+        assert_eq!(out.len(), 3 + ff::AV_INPUT_BUFFER_PADDING_SIZE as usize);
+        assert_eq!(&out[..3], &[1, 2, 3]);
+        assert!(out[3..].iter().all(|&b| b == 0));
     }
 }

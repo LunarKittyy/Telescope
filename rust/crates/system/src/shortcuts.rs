@@ -21,7 +21,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
-use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, SlintSource, UiEvent, UiSpec};
+use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, ShortcutEntry, SlintSource, UiEvent, UiSpec};
 
 const WINDOW_SHOWN: &str = n_("Telescope: shown");
 const REMOTE: &str = "remote";
@@ -176,6 +176,10 @@ pub struct ShortcutsPlugin {
     section_made: bool,
     /// Why the desktop's settings didn't open, in place of the backend's note.
     note_override: Option<String>,
+    /// What the controls' right-click menu was last handed.
+    menu: Option<Vec<ShortcutEntry>>,
+    /// A shortcut a right-click asked for, to edit once Settings is up.
+    from_menu: Option<Binding>,
 }
 
 impl ShortcutsPlugin {
@@ -187,7 +191,7 @@ impl ShortcutsPlugin {
         ShortcutsPlugin {
             remote, factory: Some(factory), poster: None, bindings: Vec::new(), notify: false, actions: Vec::new(),
             backend: None, started: false, held: HashMap::new(), editing: false, last_global: None, recent: HashMap::new(),
-            editor: None, section_made: false, note_override: None,
+            editor: None, section_made: false, note_override: None, menu: None, from_menu: None,
         }
     }
 
@@ -670,6 +674,9 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
 const UI: &str = include_str!("../ui/shortcuts.slint");
 const SECTION: &str = "shortcuts";
 const COPIED: &str = "copied";
+// A right-click asked for a shortcut: the editor opens this long after Settings, once its page is built
+const FROM_MENU: &str = "from_menu";
+const FROM_MENU_MS: u64 = 150;
 
 /// The command line that runs this action in the running Telescope (for a desktop's own shortcut settings).
 pub fn action_command(action: &str, params: &Map<String, Value>) -> Vec<String> {
@@ -914,6 +921,35 @@ impl ShortcutsPlugin {
         if self.section_made {
             host.set_ui_props(SECTION, &self.section_props());
         }
+        let entries = self.started.then(|| self.menu_entries());
+        if entries.is_some() && entries != self.menu {
+            host.set_shortcut_menu(entries.clone());
+            self.menu = entries;
+        }
+    }
+
+    /// The saved shortcuts as a control's right-click lists them: "Ctrl+Alt+M: Mute".
+    fn menu_entries(&self) -> Vec<ShortcutEntry> {
+        self.bindings.iter().map(|b| ShortcutEntry {
+            id: b.id.clone(), action: b.action.clone(), text: format!("{}: {}", keys::native_keys(&b.keys), self.describe(b)),
+        }).collect()
+    }
+
+    /// A right-click menu's item: a new shortcut for an action ("add") or a saved one ("edit"), in Settings' editor.
+    fn on_menu(&mut self, host: &mut dyn Host, callback: &str, args: &[Value]) {
+        let id = args.first().and_then(Value::as_str).unwrap_or_default();
+        let binding = match callback {
+            "add" if self.action(id).is_some() => {
+                Some(Binding { id: new_binding_id(), keys: String::new(), action: id.into(), params: Map::new(), global: true })
+            }
+            "edit" => self.bindings.iter().find(|b| b.id == id).cloned(),
+            _ => None,
+        };
+        let Some(binding) = binding else { return };
+        host.open_settings("shortcuts");
+        // The editor opens on a change, which a page Settings is only now building wouldn't see
+        self.from_menu = Some(binding);
+        host.schedule(FROM_MENU_MS, FROM_MENU);
     }
 
     fn copy_command(&self, host: &mut dyn Host, action: &str, params: &Map<String, Value>) {
@@ -1108,7 +1144,8 @@ impl Plugin for ShortcutsPlugin {
         self.start(host);
     }
 
-    fn shutdown(&mut self, _host: &mut dyn Host) {
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        host.set_shortcut_menu(None);
         self.remote.0.lock().unwrap().poster = None;
         if let Some(backend) = self.backend.as_mut() {
             backend.stop();
@@ -1136,6 +1173,8 @@ impl Plugin for ShortcutsPlugin {
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
         if event.ui == SECTION {
             self.on_section(host, &event.callback, &event.args);
+        } else if event.ui == "shortcut-menu" {
+            self.on_menu(host, &event.callback, &event.args);
         }
     }
 
@@ -1185,6 +1224,10 @@ impl Plugin for ShortcutsPlugin {
                     e.copied = false;
                 }
                 self.refresh(host);
+            } else if owner == "shortcuts" && token == FROM_MENU {
+                if let Some(binding) = self.from_menu.take() {
+                    self.open_editor(host, binding);
+                }
             }
             return;
         }
@@ -1683,5 +1726,34 @@ mod tests {
         };
         plugin.on_event(&mut host, &Event::Posted { owner: "shortcuts".into(), token: posted.0, data: posted.1 });
         assert_eq!(worker.join().unwrap()["ok"], json!(true));
+    }
+
+    #[test]
+    fn controls_right_click_menu_lists_the_saved_shortcuts_and_opens_the_editor() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+M", "microphone.mute", json!({}), true)]), false, true);
+        let menu = plugin.menu.clone().unwrap();
+        assert_eq!((menu[0].id.as_str(), menu[0].action.as_str()), ("a", "microphone.mute"));
+        assert!(menu[0].text.starts_with("Ctrl+M: "), "{}", menu[0].text);
+        plugin.settings_sections();
+        let event = |callback: &str, id: &str| UiEvent { ui: "shortcut-menu".into(), callback: callback.into(), args: vec![json!(id)] };
+        plugin.on_ui(&mut host, &event("add", "camera.torch"));
+        assert!(host.calls.iter().any(|c| c == "open_settings shortcuts"));
+        assert_eq!(plugin.section_props()["editor-open"], json!(false), "waits for Settings to build its page");
+        assert!(host.scheduled.iter().any(|(_, t)| t == FROM_MENU));
+        plugin.on_event(&mut host, &Event::TimerFired { owner: "shortcuts".into(), token: FROM_MENU.into() });
+        let props = plugin.section_props();
+        assert_eq!(props["editor-open"], json!(true));
+        assert_eq!(controls(&plugin)[props["control"].as_i64().unwrap() as usize], "Camera: Torch");
+        // A saved one opens as it is; an action that isn't there does nothing
+        plugin.on_ui(&mut host, &event("edit", "a"));
+        plugin.on_event(&mut host, &Event::TimerFired { owner: "shortcuts".into(), token: FROM_MENU.into() });
+        assert_eq!(plugin.section_props()["keys-text"], json!("Ctrl+M"));
+        host.calls.clear();
+        plugin.on_ui(&mut host, &event("add", "nothing.here"));
+        assert!(host.calls.is_empty());
+        plugin.set_bindings(&mut host, Vec::new());
+        assert!(host.calls.iter().any(|c| c == "set_shortcut_menu []"));
+        plugin.shutdown(&mut host);
+        assert!(host.calls.iter().any(|c| c == "set_shortcut_menu null"));
     }
 }
