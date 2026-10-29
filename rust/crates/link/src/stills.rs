@@ -248,14 +248,14 @@ pub type BeforeFetch = Arc<dyn Fn() -> bool + Send + Sync>;
 
 /// Why a request failed, as far as the photo cares.
 enum Failure {
-    Http(u16, String),
+    Http(u16),
     Other(String),
 }
 
 impl Failure {
     fn text(&self) -> String {
         match self {
-            Failure::Http(code, _) => format!("HTTP Error {code}"),
+            Failure::Http(code) => format!("HTTP Error {code}"),
             Failure::Other(e) => e.clone(),
         }
     }
@@ -401,7 +401,7 @@ impl Runner<'_> {
         let mut resp = self.auth.open_any(req).map_err(|e| Failure::Other(e.to_string()))?;
         let raw = resp.read_capped(MAX_REPLY).map_err(|e| Failure::Other(e.to_string()))?;
         if !(200..300).contains(&resp.status) {
-            return Err(Failure::Http(resp.status, String::from_utf8_lossy(&raw).into_owned()));
+            return Err(Failure::Http(resp.status));
         }
         match serde_json::from_slice::<Value>(&raw) {
             Ok(Value::Object(m)) => Ok(m),
@@ -424,7 +424,7 @@ impl Runner<'_> {
         let started = match self.request("/still", Some(&Value::Object(body))) {
             Ok(started) => started,
             // An older phone has no /v1/still
-            Err(Failure::Http(404, _)) => return StillResult::failed("no_photos", "", &[]),
+            Err(Failure::Http(404)) => return StillResult::failed("no_photos", "", &[]),
             Err(e @ Failure::Http(..)) => return StillResult::failed("failed", &e.text(), &[]),
             Err(e) => return StillResult::failed("lost", &e.text(), &[]),
         };
@@ -460,7 +460,7 @@ impl Runner<'_> {
                     if !alive_now() {
                         continue;
                     }
-                    if matches!(e, Failure::Http(404, _)) {
+                    if matches!(e, Failure::Http(404)) {
                         return StillResult::failed("dropped", "", &saved); // the phone let go of it
                     }
                     if heard.elapsed() > t.lost_after {
