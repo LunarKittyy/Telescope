@@ -134,8 +134,9 @@ export component Card inherits Rectangle {
             // card_action with no text: Qt keeps room for the text either side of the icon
             if has-extra: Button {
                 y: lift;
+                // card_action with only an icon: 10px each side of it inside a 1px border
                 height: 30px;
-                width: 38px;
+                width: 40px;
                 role: "quiet";
                 padding-x: 0px;
                 has-icon: true;
@@ -149,7 +150,8 @@ export component Card inherits Rectangle {
                 y: lift;
                 height: 30px;
                 role: "quiet";
-                padding-x: 10px;
+                // card_action's 10px padding sits inside its 1px border; here the border is inside the padding
+                padding-x: 11px;
                 gap: 6px;
                 text: action-text;
                 has-icon: true;
