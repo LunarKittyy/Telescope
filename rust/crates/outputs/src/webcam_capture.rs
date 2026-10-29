@@ -21,6 +21,10 @@ pub trait Capture: Send {
     fn read(&mut self) -> Result<Vec<u8>, String>;
     /// Unblocks a read from another thread.
     fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper>;
+    /// What the driver actually gave when it adjusted the request, which raw frames have to be decoded as.
+    fn negotiated(&self) -> Option<Choice> {
+        None
+    }
 }
 
 /// Opens a capture of device asking for choice: Err((opened at all, why)).
@@ -65,6 +69,7 @@ pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>
     match opened {
         Ok((capture, first)) => {
             (deps.report)("ok", &choice.describe());
+            let choice = capture.negotiated().unwrap_or(choice);
             let feed = WebcamFeed { capture, first: Some(first), deps: deps.clone(), location: device.location.clone(), waiting: waiting.clone() };
             Ok((choice, feed))
         }
@@ -196,6 +201,35 @@ pub fn raw_to_i420(fourcc: &str, width: u32, height: u32, data: &[u8]) -> Option
     Some(Frame::new(width, height, PixelFormat::I420, out))
 }
 
+/// Rows stride bytes apart (a driver may pad them) packed tight for raw_to_i420, in V4L2's single-buffer plane layouts.
+pub fn tight_rows(fourcc: &str, width: u32, height: u32, stride: u32, data: &[u8]) -> Vec<u8> {
+    let (w, h, stride) = (width as usize, height as usize, stride as usize);
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    // (row bytes, rows, stride) of each plane in turn
+    let planes: Vec<(usize, usize, usize)> = match fourcc {
+        "YUYV" | "UYVY" => vec![(w * 2, h, stride)],
+        "RGB3" | "BGR3" => vec![(w * 3, h, stride)],
+        "GREY" => vec![(w, h, stride)],
+        "NV12" => vec![(w, h, stride), (cw * 2, ch, stride)],
+        "YU12" | "YV12" => vec![(w, h, stride), (cw, ch, stride / 2), (cw, ch, stride / 2)],
+        _ => return data.to_vec(),
+    };
+    if planes.iter().all(|&(row, _, step)| step <= row) {
+        return data.to_vec();
+    }
+    let mut out = Vec::with_capacity(planes.iter().map(|&(row, rows, _)| row * rows).sum());
+    let mut at = 0;
+    for (row, rows, step) in planes {
+        for r in 0..rows {
+            let start = at + r * step;
+            let Some(line) = data.get(start..start + row) else { return out };
+            out.extend_from_slice(line);
+        }
+        at += rows * step;
+    }
+    out
+}
+
 /// A webcam's JPEG is decoded by media's MJPEG decoder; raw frames by RawDecoder.
 pub fn is_jpeg(choice: &Choice) -> bool {
     choice.compressed()
@@ -242,6 +276,8 @@ pub mod v4l2 {
 
     pub struct V4l2Capture {
         file: File,
+        format: Choice,
+        stride: u32,
         maps: Vec<(*mut libc::c_void, usize)>,
         stop: Arc<AtomicBool>,
     }
@@ -281,6 +317,9 @@ pub mod v4l2 {
         if !io.call(VIDIOC_S_FMT, &mut fmt) {
             return Err((false, "the camera refused the format (busy?)".into()));
         }
+        // The driver writes back what it can do, which may not be what was asked
+        let format = Choice { fourcc: String::from_utf8_lossy(&fmt[16..20]).into_owned(), width: u32_at(&fmt, 8), height: u32_at(&fmt, 12), fps: choice.fps };
+        let stride = u32_at(&fmt, 24);
         if choice.fps > 0.0 {
             let mut parm = [0u8; 204];
             put_u32(&mut parm, 0, TYPE_CAPTURE);
@@ -295,7 +334,7 @@ pub mod v4l2 {
         if !io.call(VIDIOC_REQBUFS, &mut req) {
             return Err((false, "no buffers (another app has the camera?)".into()));
         }
-        let mut cap = V4l2Capture { file, maps: Vec::new(), stop: Arc::default() };
+        let mut cap = V4l2Capture { file, format, stride, maps: Vec::new(), stop: Arc::default() };
         for i in 0..u32_at(&req, 0) {
             let io = super::Fd(&cap.file);
             let mut b = buffer(i);
@@ -351,7 +390,14 @@ pub mod v4l2 {
             // SAFETY: the driver filled used bytes of this mapped buffer and hands it back only after QBUF
             let data = unsafe { std::slice::from_raw_parts(addr as *const u8, used.min(length)) }.to_vec();
             io.call(VIDIOC_QBUF, &mut b);
-            Ok(data)
+            if self.format.compressed() {
+                return Ok(data);
+            }
+            Ok(super::tight_rows(&self.format.fourcc, self.format.width, self.format.height, self.stride, &data))
+        }
+
+        fn negotiated(&self) -> Option<Choice> {
+            Some(self.format.clone())
         }
 
         fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
@@ -450,6 +496,36 @@ mod tests {
         let out = d.decode(&Packet { data: vec![10, 100, 20, 200, 30, 101, 40, 201], time_ns: 0 }).newest.unwrap();
         assert_eq!(&out.data[..], &[10, 20, 30, 40, 100, 200]);
         assert!(d.decode(&Packet { data: vec![1, 2], time_ns: 0 }).newest.is_none());
+    }
+
+    #[test]
+    fn padded_rows_from_the_driver_are_packed_tight() {
+        // 2x2 YUYV with 4-byte rows padded to 6
+        let padded = [1, 2, 3, 4, 0, 0, 5, 6, 7, 8, 0, 0];
+        assert_eq!(tight_rows("YUYV", 2, 2, 6, &padded), (1..=8).collect::<Vec<u8>>());
+        // 2x2 YU12 with a 4-byte stride: Y rows of 2 at 4, chroma rows of 1 at 2
+        let planar = [1, 2, 0, 0, 3, 4, 0, 0, 5, 0, 6, 0];
+        assert_eq!(tight_rows("YU12", 2, 2, 4, &planar), vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(tight_rows("YUYV", 2, 2, 4, &[1, 2, 3, 4, 5, 6, 7, 8]), (1..=8).collect::<Vec<u8>>());
+    }
+
+    #[test]
+    fn raw_frames_decode_at_the_size_the_driver_gave() {
+        struct Adjusted(FakeCap);
+        impl Capture for Adjusted {
+            fn read(&mut self) -> Result<Vec<u8>, String> {
+                self.0.read()
+            }
+            fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
+                self.0.stopper()
+            }
+            fn negotiated(&self) -> Option<Choice> {
+                Some(Choice { fourcc: "YUYV".into(), width: 2, height: 2, fps: 30.0 })
+            }
+        }
+        let r = rig(Arc::new(|_, _| Ok(Box::new(Adjusted(FakeCap(vec![Ok(vec![0; 8])]))) as Box<dyn Capture>)), "");
+        let (choice, _) = open(&r.deps, &Arc::new(Mutex::new(String::new()))).unwrap();
+        assert_eq!((choice.width, choice.height), (2, 2));
     }
 
     // test_webcams.py::test_an_unplugged_webcam_waits_to_be_plugged_back_in
