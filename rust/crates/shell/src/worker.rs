@@ -1374,4 +1374,116 @@ mod tests {
         wait_for(|| cams.sent.lock().unwrap().contains(&77)); // its frames reach the camera
         w.stop();
     }
+
+    // What a stream hands media: the tap for H.264 only, and which stream each frame is from.
+
+    struct Seen {
+        tapped: Mutex<Vec<Codec>>,
+        plain: Mutex<Vec<Codec>>,
+        sources: Mutex<Vec<String>>,
+    }
+
+    struct Tap;
+
+    impl PacketTap for Tap {
+        fn set(&self, _makers: Vec<(String, Arc<dyn telescope_core::host::PacketStepFactory>)>) -> bool {
+            false
+        }
+        fn on(&self) -> bool {
+            false
+        }
+    }
+
+    struct Reader(Feed);
+
+    impl FrameReader for Reader {
+        fn read(&mut self) -> Result<telescope_core::media::ReadFrame, FeedEnd> {
+            let p = self.0.read()?;
+            Ok(telescope_core::media::ReadFrame { frame: grey(4, 2, p.data[0]), bytes: 1, count: 1 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            self.0.stopper()
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    struct Says(Arc<Seen>);
+
+    impl FramePipeline for Says {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
+            self.0.sources.lock().unwrap().push(ctx.source_id().to_string());
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    struct Watching(Arc<Seen>);
+
+    impl Media for Watching {
+        fn decoder(&self, codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            self.0.plain.lock().unwrap().push(codec);
+            Ok(Box::new(Jpeg))
+        }
+        fn decoder_with_tap(&self, codec: Codec, _options: &DecodeOptions, _tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
+            self.0.tapped.lock().unwrap().push(codec);
+            Ok(Box::new(Jpeg))
+        }
+        fn frame_reader(&self, feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            let _ = feed; // the fake reads its own packets
+            Ok(Box::new(Reader(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None })))
+        }
+        fn packet_tap(&self) -> Option<Arc<dyn PacketTap>> {
+            Some(Arc::new(Tap))
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            Box::new(Rgb)
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(Says(self.0.clone())))
+        }
+    }
+
+    fn watched(url: &str, codec: Codec) -> Arc<Seen> {
+        let seen = Arc::new(Seen { tapped: Mutex::default(), plain: Mutex::default(), sources: Mutex::default() });
+        let opener: Opener = Arc::new(move || {
+            Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>))
+        });
+        let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false };
+        let cams = Arc::new(Cams::default());
+        let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
+                                    telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
+        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        w.stop();
+        seen
+    }
+
+    #[test]
+    fn the_stream_worker_gives_its_tap_to_light_readers_only() {
+        let light = watched("https://phone/v1/video.h264", Codec::H264);
+        assert_eq!(*light.tapped.lock().unwrap(), [Codec::H264]);
+        let heavy = watched("https://phone/v1/video", Codec::Mjpeg);
+        assert!(heavy.tapped.lock().unwrap().is_empty());
+        assert!(heavy.plain.lock().unwrap().iter().all(|c| *c == Codec::Mjpeg));
+    }
+
+    #[test]
+    fn both_readers_hand_their_tap_to_the_decoder() {
+        // TCP and UDP H.264 both come from link as H.264 feeds
+        for url in ["https://phone/v1/video.h264", "https://phone/v1/video.udp"] {
+            assert_eq!(*watched(url, Codec::H264).tapped.lock().unwrap(), [Codec::H264]);
+        }
+    }
+
+    #[test]
+    fn a_frame_step_can_tell_which_stream_its_frame_is_from() {
+        let seen = watched("https://phone/v1/video.h264", Codec::H264);
+        let sources = seen.sources.lock().unwrap();
+        assert!(!sources.is_empty() && sources.iter().all(|s| s == "phone-1"));
+    }
 }
