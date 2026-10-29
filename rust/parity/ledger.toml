@@ -93,13 +93,13 @@
 # ── audio
 "Allow the microphone in Telescope on the phone" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "Can't reach the phone's microphone." = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
-"Couldn't open the virtual microphone: {error}" = { status = "todo" }
+"Couldn't open the virtual microphone: {error}" = { status = "ported", rust = "rust/crates/audio/src/worker.rs" }
 "No microphone" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "Open Telescope on the phone once, then try again" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "The phone refused the microphone (HTTP {code})." = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
 "The phone's microphone is in use" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
-"The phone's microphone stopped." = { status = "todo" }
-"The virtual microphone stopped taking audio." = { status = "todo" }
+"The phone's microphone stopped." = { status = "ported", rust = "rust/crates/audio/src/worker.rs" }
+"The virtual microphone stopped taking audio." = { status = "ported", rust = "rust/crates/audio/src/worker.rs" }
 # ── background
 "Background" = { status = "todo" }
 "Background blur" = { status = "todo" }
@@ -525,8 +525,8 @@
 "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "{source}, no phone needed" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 # ── denoise
-"Couldn't load RNNoise: {error}" = { status = "todo" }
-"The pyrnnoise package isn't installed." = { status = "todo" }
+"Couldn't load RNNoise: {error}" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
+"The pyrnnoise package isn't installed." = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
 # ── desk
 "A4" = { status = "todo" }
 "Auto works the shape out from the corners" = { status = "todo" }
@@ -656,51 +656,51 @@
 "percentage|{n}%" = { status = "todo" }
 "{items} and {last}" = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
 # ── microphone
-"<a href=\"{url}\">Donate or read more</a>" = { status = "todo" }
-"Apps hear silence, but the microphone stays connected." = { status = "todo" }
-"Apps hear the mic again." = { status = "todo" }
-"Auto level" = { status = "todo" }
-"Browser mic" = { status = "todo" }
-"Browser microphone" = { status = "todo" }
-"Camera mic" = { status = "todo" }
-"Camera microphone" = { status = "todo" }
-"Couldn't install VB-Cable: {error}" = { status = "todo" }
-"Download and install" = { status = "todo" }
-"Downloading VB-Cable from vb-audio.com…" = { status = "todo" }
-"Evens out quiet and loud speech." = { status = "todo" }
-"Get VB-Cable" = { status = "todo" }
-"Install VB-Cable" = { status = "todo" }
-"Makes the browser mic louder or quieter for other apps. The range is in Advanced." = { status = "todo" }
-"Makes the phone mic louder or quieter for other apps. The range is in Advanced." = { status = "todo" }
-"Microphone" = { status = "todo" }
-"Mute" = { status = "todo" }
-"Mute microphone" = { status = "todo" }
-"Mute or unmute" = { status = "todo" }
-"Muted" = { status = "todo" }
-"Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio." = { status = "todo" }
-"Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)." = { status = "todo" }
-"On for {name}. Turning it on here turns it off there." = { status = "todo" }
-"Once VB-Cable's setup says it's done, restart the computer, then switch this off and on." = { status = "todo" }
-"Open setup again" = { status = "todo" }
-"Phone mic" = { status = "todo" }
-"Phone microphone" = { status = "todo" }
-"Setting up…" = { status = "todo" }
-"Starts with the stream." = { status = "todo" }
-"Switch while held (push to talk while muted)" = { status = "todo" }
-"Takes out typing, fans and room hiss." = { status = "todo" }
-"The phone's mic needs VB-Audio Virtual Cable on Windows." = { status = "todo" }
-"The sounddevice package isn't installed." = { status = "todo" }
-"This camera's microphone isn't passed on. Pick it in your call app instead." = { status = "todo" }
-"Unmute" = { status = "todo" }
-"Use the browser's microphone on this computer while streaming. Apps list it as “{name}”." = { status = "todo" }
-"Use the phone's microphone on this computer while streaming. Apps list it as “{name}”." = { status = "todo" }
-"Using the phone's microphone on this computer." = { status = "todo" }
-"VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done." = { status = "todo" }
-"Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone." = { status = "todo" }
-"muted" = { status = "todo" }
-"search|push to talk silence" = { status = "todo" }
-"search|volume loudness" = { status = "todo" }
-"unmuted" = { status = "todo" }
+"<a href=\"{url}\">Donate or read more</a>" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Apps hear silence, but the microphone stays connected." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Apps hear the mic again." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Auto level" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Browser mic" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Browser microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Camera mic" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Camera microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Couldn't install VB-Cable: {error}" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Download and install" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Downloading VB-Cable from vb-audio.com…" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Evens out quiet and loud speech." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Get VB-Cable" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Install VB-Cable" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Makes the browser mic louder or quieter for other apps. The range is in Advanced." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Makes the phone mic louder or quieter for other apps. The range is in Advanced." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Microphone" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Mute" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Mute microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Mute or unmute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Muted" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio." = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)." = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"On for {name}. Turning it on here turns it off there." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Once VB-Cable's setup says it's done, restart the computer, then switch this off and on." = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"Open setup again" = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"Phone mic" = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Phone microphone" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Setting up…" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Starts with the stream." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Switch while held (push to talk while muted)" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Takes out typing, fans and room hiss." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"The phone's mic needs VB-Audio Virtual Cable on Windows." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"The sounddevice package isn't installed." = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"This camera's microphone isn't passed on. Pick it in your call app instead." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Unmute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Use the browser's microphone on this computer while streaming. Apps list it as “{name}”." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Use the phone's microphone on this computer while streaming. Apps list it as “{name}”." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"Using the phone's microphone on this computer." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
+"Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"muted" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"search|push to talk silence" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"search|volume loudness" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
+"unmuted" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 # ── monitoring
 "Battery under" = { status = "todo" }
 "Charging" = { status = "todo" }
@@ -946,19 +946,19 @@
 "Bind a Copy command line in its own keyboard settings instead." = { status = "todo" }
 "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again" = { status = "todo" }
 "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "todo" }
+"Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't copy adb from there." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Couldn't create the virtual microphone: {error}" = { status = "todo" }
+"Couldn't create the virtual microphone: {error}" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
 "Couldn't create {path}: {error}" = { status = "todo" }
-"Couldn't download VB-Cable. Try again, or get it from their site." = { status = "todo" }
+"Couldn't download VB-Cable. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't download adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Couldn't open VB-Cable's setup. Try again, or get it from their site." = { status = "todo" }
+"Couldn't open VB-Cable's setup. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't put adb in place. Is another program using it? Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Couldn't reach Google. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"Couldn't reach vb-audio.com. Check the internet connection and try again." = { status = "todo" }
+"Couldn't reach vb-audio.com. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't set Telescope to open at sign-in: {error}" = { status = "todo" }
 "Couldn't stop Telescope opening at sign-in: {error}" = { status = "todo" }
-"Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "todo" }
+"Couldn't unpack VB-Cable. Try again, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Couldn't unpack adb. Try again." = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
 "Download failed: {error}" = { status = "todo" }
 "Downloaded" = { status = "todo" }
@@ -995,19 +995,19 @@
 "The driver copy in Program Files failed checksum verification - not registering" = { status = "todo" }
 "The driver install hit an error while running as admin - not registering" = { status = "todo" }
 "The phone already has a newer Telescope app." = { status = "ported", rust = "rust/crates/link/src/adb.rs" }
-"The sound server didn't answer (pactl list failed)." = { status = "todo" }
+"The sound server didn't answer (pactl list failed)." = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs" }
 "This desktop doesn't offer global shortcuts to apps ({why})." = { status = "todo" }
 "This desktop doesn't offer global shortcuts to apps." = { status = "todo" }
 "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again." = { status = "todo" }
 "Timed out" = { status = "todo" }
 "Unpacking…" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs" }
-"VB-Audio's download doesn't have the setup it used to. Get it from their site instead." = { status = "todo" }
-"VB-Audio's download has changed since this version of Telescope. Get it from their site instead." = { status = "todo" }
-"VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site." = { status = "todo" }
-"VB-Cable's setup changed after it was checked, so it wasn't opened." = { status = "todo" }
+"VB-Audio's download doesn't have the setup it used to. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
+"VB-Audio's download has changed since this version of Telescope. Get it from their site instead." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
+"VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
+"VB-Cable's setup changed after it was checked, so it wasn't opened." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Waiting for you to confirm it" = { status = "todo" }
 "Windows can't use this key everywhere" = { status = "todo" }
-"Windows didn't get permission to install VB-Cable." = { status = "todo" }
+"Windows didn't get permission to install VB-Cable." = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs" }
 "Windows refused to register the driver (regsvr32 failed)" = { status = "todo" }
 "Wrote {first} and {second}" = { status = "todo" }
 "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one." = { status = "todo" }
@@ -1859,7 +1859,7 @@
 "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one." = { status = "todo" }
 "Waits for a restart" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on." = { status = "todo" }
-"Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)." = { status = "todo" }
+"Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
 "Your distro's PyAV" = { status = "todo" }
 "adb.exe or platform-tools zip (adb.exe *.zip)" = { status = "todo" }
 "dev_desktop.py --plugin loads this one, so it's always on" = { status = "todo" }
@@ -2168,55 +2168,55 @@
 "test_architecture.py::test_status_kinds_are_ones_the_theme_styles" = { status = "todo" }
 "test_architecture.py::test_the_pieces_the_window_drives_dont_import_it" = { status = "todo" }
 # ── audio
-"test_audio.py::test_a_hand_over_that_cant_connect_keeps_the_old_route" = { status = "todo" }
-"test_audio.py::test_a_shared_or_linked_fallback_folder_is_refused" = { status = "todo" }
-"test_audio.py::test_a_short_pause_after_a_burst_never_wraps_back_to_the_end_of_the_buffer" = { status = "todo" }
-"test_audio.py::test_a_splice_fades_out_the_old_connection_and_in_the_new_one" = { status = "todo" }
-"test_audio.py::test_audio_lost_on_the_way_doesnt_keep_the_target_up" = { status = "todo" }
-"test_audio.py::test_automatic_level_brings_loud_speech_down" = { status = "todo" }
-"test_audio.py::test_automatic_level_brings_quiet_speech_up" = { status = "todo" }
-"test_audio.py::test_automatic_level_changes_gain_without_clicks" = { status = "todo" }
-"test_audio.py::test_automatic_level_doesnt_turn_up_the_room_while_nobody_speaks" = { status = "todo" }
-"test_audio.py::test_automatic_level_is_off_unless_asked_for" = { status = "todo" }
-"test_audio.py::test_extra_delay_goes_in_the_next_pause" = { status = "todo" }
-"test_audio.py::test_extra_delay_under_constant_sound_drains_by_playing_faster_without_jumps" = { status = "todo" }
-"test_audio.py::test_fifo_sink_drops_audio_nobody_reads_instead_of_blocking" = { status = "todo" }
-"test_audio.py::test_fifo_sink_fails_fast_when_the_source_is_gone" = { status = "todo" }
-"test_audio.py::test_fifo_sink_refuses_a_file_or_a_link_in_place_of_the_pipe" = { status = "todo" }
-"test_audio.py::test_fifo_sink_writes_everything_at_real_time_pace" = { status = "todo" }
-"test_audio.py::test_gain_fades_to_its_new_level_and_clips_at_full_scale_without_the_limiter" = { status = "todo" }
-"test_audio.py::test_handover_interrupts_a_stalled_tls_read_instead_of_waiting_for_its_timeout" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_caps_what_piles_up_while_nothing_reads" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_drift_correction_keeps_high_notes_sharp" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_fades_back_to_the_target_when_far_behind" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_fades_out_when_it_runs_dry_and_refills" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks_again" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_holds_the_target_when_the_phones_clock_runs_fast_or_slow" = { status = "todo" }
-"test_audio.py::test_jitter_buffer_waits_for_the_target_then_fades_in_and_plays_in_order" = { status = "todo" }
-"test_audio.py::test_level_counts_the_gain_and_keeps_samples_whole_across_odd_reads" = { status = "todo" }
-"test_audio.py::test_level_is_the_loudest_since_the_last_look_and_ignores_mute" = { status = "todo" }
-"test_audio.py::test_limiter_holds_loud_peaks_under_the_ceiling_then_lets_go_slowly" = { status = "todo" }
-"test_audio.py::test_linux_needs_only_pactl" = { status = "todo" }
-"test_audio.py::test_linux_setup_clears_what_an_earlier_run_left_loaded" = { status = "todo" }
-"test_audio.py::test_linux_setup_creates_an_input_only_source" = { status = "todo" }
-"test_audio.py::test_linux_setup_reports_a_failed_load" = { status = "todo" }
-"test_audio.py::test_meter_keeps_moving_while_nothing_reads_the_mic" = { status = "todo" }
-"test_audio.py::test_moving_to_usb_lowers_the_buffer_target_without_discarding_audio" = { status = "todo" }
-"test_audio.py::test_muting_fades_out_over_one_chunk_then_writes_silence" = { status = "todo" }
-"test_audio.py::test_quiet_audio_goes_through_untouched_with_the_limiter_on" = { status = "todo" }
-"test_audio.py::test_remove_stale_source_is_quiet_without_a_sound_server" = { status = "todo" }
-"test_audio.py::test_remove_stale_source_unloads_only_ours" = { status = "todo" }
-"test_audio.py::test_speech_is_never_skipped" = { status = "todo" }
-"test_audio.py::test_startup_silence_does_not_make_room_noise_count_as_speech" = { status = "todo" }
-"test_audio.py::test_switching_automatic_level_off_fades_its_gain_out" = { status = "todo" }
-"test_audio.py::test_usb_starts_with_a_shorter_buffer_than_wifi" = { status = "todo" }
-"test_audio.py::test_vb_cable_is_found_by_its_playback_end" = { status = "todo" }
-"test_audio.py::test_without_a_runtime_dir_the_fifo_goes_in_a_private_folder" = { status = "todo" }
-"test_audio.py::test_worker_hands_over_to_another_route_without_restarting" = { status = "todo" }
-"test_audio.py::test_worker_plays_the_phone_audio_into_the_sink_with_the_token" = { status = "todo" }
-"test_audio.py::test_worker_reopens_an_output_that_stopped_taking_audio" = { status = "todo" }
-"test_audio.py::test_worker_reports_an_output_that_wont_open" = { status = "todo" }
-"test_audio.py::test_worker_reports_the_phones_reason_and_keeps_trying" = { status = "todo" }
+"test_audio.py::test_a_hand_over_that_cant_connect_keeps_the_old_route" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::a_hand_over_that_cant_connect_keeps_the_old_route" }
+"test_audio.py::test_a_shared_or_linked_fallback_folder_is_refused" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::a_shared_or_linked_fallback_folder_is_refused" }
+"test_audio.py::test_a_short_pause_after_a_burst_never_wraps_back_to_the_end_of_the_buffer" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::a_short_pause_after_a_burst_never_wraps_back_to_the_end_of_the_buffer" }
+"test_audio.py::test_a_splice_fades_out_the_old_connection_and_in_the_new_one" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::a_splice_fades_out_the_old_connection_and_in_the_new_one" }
+"test_audio.py::test_audio_lost_on_the_way_doesnt_keep_the_target_up" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::audio_lost_on_the_way_doesnt_keep_the_target_up" }
+"test_audio.py::test_automatic_level_brings_loud_speech_down" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::automatic_level_brings_loud_speech_down" }
+"test_audio.py::test_automatic_level_brings_quiet_speech_up" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::automatic_level_brings_quiet_speech_up" }
+"test_audio.py::test_automatic_level_changes_gain_without_clicks" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::automatic_level_changes_gain_without_clicks" }
+"test_audio.py::test_automatic_level_doesnt_turn_up_the_room_while_nobody_speaks" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::automatic_level_doesnt_turn_up_the_room_while_nobody_speaks" }
+"test_audio.py::test_automatic_level_is_off_unless_asked_for" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::automatic_level_is_off_unless_asked_for" }
+"test_audio.py::test_extra_delay_goes_in_the_next_pause" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::extra_delay_goes_in_the_next_pause" }
+"test_audio.py::test_extra_delay_under_constant_sound_drains_by_playing_faster_without_jumps" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::extra_delay_under_constant_sound_drains_by_playing_faster_without_jumps" }
+"test_audio.py::test_fifo_sink_drops_audio_nobody_reads_instead_of_blocking" = { status = "ported", rust = "rust/crates/audio/src/sink.rs::fifo_sink_drops_audio_nobody_reads_instead_of_blocking" }
+"test_audio.py::test_fifo_sink_fails_fast_when_the_source_is_gone" = { status = "ported", rust = "rust/crates/audio/src/sink.rs::fifo_sink_fails_fast_when_the_source_is_gone" }
+"test_audio.py::test_fifo_sink_refuses_a_file_or_a_link_in_place_of_the_pipe" = { status = "ported", rust = "rust/crates/audio/src/sink.rs::fifo_sink_refuses_a_file_or_a_link_in_place_of_the_pipe" }
+"test_audio.py::test_fifo_sink_writes_everything_at_real_time_pace" = { status = "ported", rust = "rust/crates/audio/src/sink.rs::fifo_sink_writes_everything_at_real_time_pace" }
+"test_audio.py::test_gain_fades_to_its_new_level_and_clips_at_full_scale_without_the_limiter" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::gain_fades_to_its_new_level_and_clips_at_full_scale_without_the_limiter" }
+"test_audio.py::test_handover_interrupts_a_stalled_tls_read_instead_of_waiting_for_its_timeout" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::handover_interrupts_a_stalled_read_instead_of_waiting_for_its_timeout", note = "each connection reads on its own thread, so a stalled feed stands in for the TLS server" }
+"test_audio.py::test_jitter_buffer_caps_what_piles_up_while_nothing_reads" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_caps_what_piles_up_while_nothing_reads" }
+"test_audio.py::test_jitter_buffer_drift_correction_keeps_high_notes_sharp" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_drift_correction_keeps_high_notes_sharp" }
+"test_audio.py::test_jitter_buffer_fades_back_to_the_target_when_far_behind" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_fades_back_to_the_target_when_far_behind" }
+"test_audio.py::test_jitter_buffer_fades_out_when_it_runs_dry_and_refills" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_fades_out_when_it_runs_dry_and_refills" }
+"test_audio.py::test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks_again" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks_again" }
+"test_audio.py::test_jitter_buffer_holds_the_target_when_the_phones_clock_runs_fast_or_slow" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_holds_the_target_when_the_phones_clock_runs_fast_or_slow" }
+"test_audio.py::test_jitter_buffer_waits_for_the_target_then_fades_in_and_plays_in_order" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::jitter_buffer_waits_for_the_target_then_fades_in_and_plays_in_order" }
+"test_audio.py::test_level_counts_the_gain_and_keeps_samples_whole_across_odd_reads" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::level_counts_the_gain_and_keeps_samples_whole_across_odd_reads" }
+"test_audio.py::test_level_is_the_loudest_since_the_last_look_and_ignores_mute" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::level_is_the_loudest_since_the_last_look_and_ignores_mute" }
+"test_audio.py::test_limiter_holds_loud_peaks_under_the_ceiling_then_lets_go_slowly" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::limiter_holds_loud_peaks_under_the_ceiling_then_lets_go_slowly" }
+"test_audio.py::test_linux_needs_only_pactl" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_needs_only_pactl" }
+"test_audio.py::test_linux_setup_clears_what_an_earlier_run_left_loaded" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup_clears_what_an_earlier_run_left_loaded" }
+"test_audio.py::test_linux_setup_creates_an_input_only_source" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup_creates_an_input_only_source" }
+"test_audio.py::test_linux_setup_reports_a_failed_load" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup_reports_a_failed_load" }
+"test_audio.py::test_meter_keeps_moving_while_nothing_reads_the_mic" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::meter_keeps_moving_while_nothing_reads_the_mic" }
+"test_audio.py::test_moving_to_usb_lowers_the_buffer_target_without_discarding_audio" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::moving_to_usb_lowers_the_buffer_target_without_discarding_audio" }
+"test_audio.py::test_muting_fades_out_over_one_chunk_then_writes_silence" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::muting_fades_out_over_one_chunk_then_writes_silence" }
+"test_audio.py::test_quiet_audio_goes_through_untouched_with_the_limiter_on" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::quiet_audio_goes_through_untouched_with_the_limiter_on" }
+"test_audio.py::test_remove_stale_source_is_quiet_without_a_sound_server" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source_is_quiet_without_a_sound_server" }
+"test_audio.py::test_remove_stale_source_unloads_only_ours" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source_unloads_only_ours" }
+"test_audio.py::test_speech_is_never_skipped" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::speech_is_never_skipped" }
+"test_audio.py::test_startup_silence_does_not_make_room_noise_count_as_speech" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::startup_silence_does_not_make_room_noise_count_as_speech" }
+"test_audio.py::test_switching_automatic_level_off_fades_its_gain_out" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::switching_automatic_level_off_fades_its_gain_out" }
+"test_audio.py::test_usb_starts_with_a_shorter_buffer_than_wifi" = { status = "ported", rust = "rust/crates/audio/src/jitter.rs::usb_starts_with_a_shorter_buffer_than_wifi" }
+"test_audio.py::test_vb_cable_is_found_by_its_playback_end" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::vb_cable_is_found_by_its_playback_end" }
+"test_audio.py::test_without_a_runtime_dir_the_fifo_goes_in_a_private_folder" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::without_a_runtime_dir_the_fifo_goes_in_a_private_folder" }
+"test_audio.py::test_worker_hands_over_to_another_route_without_restarting" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_hands_over_to_another_route_without_restarting" }
+"test_audio.py::test_worker_plays_the_phone_audio_into_the_sink_with_the_token" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_plays_the_phone_audio_into_the_sink", note = "the token is link's: link/src/audio.rs the_microphone_streams_its_pcm_with_the_token" }
+"test_audio.py::test_worker_reopens_an_output_that_stopped_taking_audio" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_reopens_an_output_that_stopped_taking_audio" }
+"test_audio.py::test_worker_reports_an_output_that_wont_open" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_reports_an_output_that_wont_open" }
+"test_audio.py::test_worker_reports_the_phones_reason_and_keeps_trying" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_reports_the_phones_reason_and_keeps_trying" }
 # ── background
 "test_background.py::test_a_frozen_step_keeps_its_settings" = { status = "todo" }
 "test_background.py::test_a_picture_covers_the_frame_and_is_cut_evenly" = { status = "todo" }
@@ -2737,24 +2737,24 @@
 "test_connection_dialogs.py::test_without_a_network_it_steers_to_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::without_a_network_it_steers_to_usb" }
 "test_connection_dialogs.py::test_without_adb_usb_says_so" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::without_adb_usb_says_so" }
 # ── denoise
-"test_denoise.py::test_a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on" = { status = "todo" }
-"test_denoise.py::test_a_library_that_wont_load_says_why" = { status = "todo" }
-"test_denoise.py::test_a_missing_library_says_the_package_isnt_installed" = { status = "todo" }
-"test_denoise.py::test_close_frees_the_state_once" = { status = "todo" }
-"test_denoise.py::test_noise_reduction_comes_before_gain" = { status = "todo" }
-"test_denoise.py::test_once_chunks_stop_lining_up_it_shifts_once_and_never_again" = { status = "todo" }
-"test_denoise.py::test_problem_explains_each_case" = { status = "todo" }
-"test_denoise.py::test_real_rnnoise_keeps_up_with_10_ms_chunks_easily" = { status = "todo" }
-"test_denoise.py::test_real_rnnoise_takes_the_room_out_and_keeps_the_voice" = { status = "todo" }
-"test_denoise.py::test_rnnoise_starts_on_the_audio_just_before_so_it_doesnt_open_with_silence" = { status = "todo" }
-"test_denoise.py::test_switching_in_a_pause_fades_over_one_chunk_each_way_and_lets_go_of_rnnoise" = { status = "todo" }
-"test_denoise.py::test_switching_mid_sentence_waits_for_the_pause_so_no_speech_is_repeated_or_dropped" = { status = "todo" }
-"test_denoise.py::test_the_stream_is_already_what_rnnoise_takes_so_nothing_is_resampled_or_held_back" = { status = "todo" }
-"test_denoise.py::test_the_writer_lets_go_of_rnnoise_when_it_stops" = { status = "todo" }
-"test_denoise.py::test_uneven_chunks_come_out_in_order_just_under_a_frame_late" = { status = "todo" }
-"test_denoise.py::test_whole_frames_go_straight_through_with_no_delay" = { status = "todo" }
-"test_denoise.py::test_with_no_pause_it_switches_anyway_after_two_seconds" = { status = "todo" }
-"test_denoise.py::test_without_the_library_switching_it_on_leaves_the_audio_as_it_was" = { status = "todo" }
+"test_denoise.py::test_a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on" }
+"test_denoise.py::test_a_library_that_wont_load_says_why" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::a_library_that_wont_load_says_why" }
+"test_denoise.py::test_a_missing_library_says_the_package_isnt_installed" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::a_missing_library_says_the_package_isnt_installed" }
+"test_denoise.py::test_close_frees_the_state_once" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::close_frees_the_state_once" }
+"test_denoise.py::test_noise_reduction_comes_before_gain" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::noise_reduction_comes_before_gain" }
+"test_denoise.py::test_once_chunks_stop_lining_up_it_shifts_once_and_never_again" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::once_chunks_stop_lining_up_it_shifts_once_and_never_again" }
+"test_denoise.py::test_problem_explains_each_case" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::problem_explains_each_case" }
+"test_denoise.py::test_real_rnnoise_keeps_up_with_10_ms_chunks_easily" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::real_rnnoise_keeps_up_with_10_ms_chunks_easily", note = "runs when librnnoise is next to the test binary, like Python's skip" }
+"test_denoise.py::test_real_rnnoise_takes_the_room_out_and_keeps_the_voice" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::real_rnnoise_takes_the_room_out_and_keeps_the_voice", note = "runs when librnnoise is next to the test binary, like Python's skip" }
+"test_denoise.py::test_rnnoise_starts_on_the_audio_just_before_so_it_doesnt_open_with_silence" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::rnnoise_starts_on_the_audio_just_before_so_it_doesnt_open_with_silence" }
+"test_denoise.py::test_switching_in_a_pause_fades_over_one_chunk_each_way_and_lets_go_of_rnnoise" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::switching_in_a_pause_fades_over_one_chunk_each_way_and_lets_go_of_rnnoise" }
+"test_denoise.py::test_switching_mid_sentence_waits_for_the_pause_so_no_speech_is_repeated_or_dropped" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::switching_mid_sentence_waits_for_the_pause_so_no_speech_is_repeated_or_dropped" }
+"test_denoise.py::test_the_stream_is_already_what_rnnoise_takes_so_nothing_is_resampled_or_held_back" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::the_stream_is_already_what_rnnoise_takes_so_nothing_is_resampled_or_held_back" }
+"test_denoise.py::test_the_writer_lets_go_of_rnnoise_when_it_stops" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::the_writer_lets_go_of_rnnoise_when_it_stops" }
+"test_denoise.py::test_uneven_chunks_come_out_in_order_just_under_a_frame_late" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::uneven_chunks_come_out_in_order_just_under_a_frame_late" }
+"test_denoise.py::test_whole_frames_go_straight_through_with_no_delay" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs::whole_frames_go_straight_through_with_no_delay" }
+"test_denoise.py::test_with_no_pause_it_switches_anyway_after_two_seconds" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::with_no_pause_it_switches_anyway_after_two_seconds" }
+"test_denoise.py::test_without_the_library_switching_it_on_leaves_the_audio_as_it_was" = { status = "ported", rust = "rust/crates/audio/src/shape.rs::without_the_library_switching_it_on_leaves_the_audio_as_it_was" }
 # ── desk
 "test_desk.py::test_a_cancelled_pick_changes_nothing" = { status = "todo" }
 "test_desk.py::test_a_paper_size_turns_the_way_the_sheet_lies_and_the_stretch_scales_it" = { status = "todo" }
@@ -2993,45 +2993,45 @@
 "test_jpeg_guard.py::test_the_dht_marker_is_not_a_frame_header" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
 "test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs" }
 # ── level_meter
-"test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "todo" }
-"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "todo" }
-"test_level_meter.py::test_limiting_lights_the_dot_without_counting_as_a_clip" = { status = "todo" }
-"test_level_meter.py::test_peak_holds_then_sinks" = { status = "todo" }
-"test_level_meter.py::test_to_db_floors_silence" = { status = "todo" }
+"test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::a_louder_peak_moves_the_hold_up_at_once" }
+"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it" }
+"test_level_meter.py::test_limiting_lights_the_dot_without_counting_as_a_clip" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::limiting_lights_the_dot_without_counting_as_a_clip" }
+"test_level_meter.py::test_peak_holds_then_sinks" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::peak_holds_then_sinks" }
+"test_level_meter.py::test_to_db_floors_silence" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::to_db_floors_silence" }
 # ── main
 "test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "todo" }
 "test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "todo" }
 "test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "todo" }
 "test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "todo" }
 # ── microphone
-"test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "todo" }
-"test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "todo" }
-"test_microphone.py::test_a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it" = { status = "todo" }
-"test_microphone.py::test_a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is" = { status = "todo" }
-"test_microphone.py::test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic" = { status = "todo" }
-"test_microphone.py::test_audio_follows_a_route_change_on_the_same_control_client" = { status = "todo" }
-"test_microphone.py::test_audio_follows_the_stream_onto_another_route" = { status = "todo" }
-"test_microphone.py::test_auto_level_reaches_the_worker_and_is_saved_per_phone" = { status = "todo" }
-"test_microphone.py::test_gain_reaches_the_worker_and_is_saved_per_phone" = { status = "todo" }
-"test_microphone.py::test_limiter_switch_from_advanced_reaches_the_worker" = { status = "todo" }
-"test_microphone.py::test_max_gain_from_advanced_sets_the_range_and_pulls_a_higher_gain_down" = { status = "todo" }
-"test_microphone.py::test_meter_follows_the_worker_and_clears_when_the_stream_stops" = { status = "todo" }
-"test_microphone.py::test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved" = { status = "todo" }
-"test_microphone.py::test_noise_reduction_reaches_the_worker_and_is_saved_per_phone" = { status = "todo" }
-"test_microphone.py::test_on_follows_the_stream" = { status = "todo" }
-"test_microphone.py::test_once_every_plugin_is_in_the_mic_says_again_whether_its_on" = { status = "todo" }
-"test_microphone.py::test_phone_refusal_is_shown" = { status = "todo" }
-"test_microphone.py::test_setup_failure_is_shown" = { status = "todo" }
-"test_microphone.py::test_setup_runs_off_the_ui_thread_and_a_late_result_is_ignored" = { status = "todo" }
-"test_microphone.py::test_shutdown_stops_and_tears_down" = { status = "todo" }
-"test_microphone.py::test_switching_off_mid_stream_stops_and_removes_the_virtual_mic" = { status = "todo" }
-"test_microphone.py::test_switching_off_queues_teardown_after_the_stop" = { status = "todo" }
-"test_microphone.py::test_the_card_calls_the_mic_by_the_source_picked" = { status = "todo" }
-"test_microphone.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "todo" }
-"test_microphone.py::test_the_mic_stays_on_when_the_stream_with_it_stops" = { status = "todo" }
-"test_microphone.py::test_tray_mute_follows_the_card_both_ways" = { status = "todo" }
-"test_microphone.py::test_typing_a_gain_moves_the_slider" = { status = "todo" }
-"test_microphone.py::test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" = { status = "todo" }
+"test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
+"test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_missing_piece_is_shown_with_its_fix_and_nothing_starts" }
+"test_microphone.py::test_a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it" }
+"test_microphone.py::test_a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is" }
+"test_microphone.py::test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic", note = "plugin level, with a stand-in window; the window side is the shell's" }
+"test_microphone.py::test_audio_follows_a_route_change_on_the_same_control_client" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::audio_follows_a_route_change_on_the_same_control_client" }
+"test_microphone.py::test_audio_follows_the_stream_onto_another_route" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::audio_follows_the_stream_onto_another_route" }
+"test_microphone.py::test_auto_level_reaches_the_worker_and_is_saved_per_phone" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::auto_level_reaches_the_worker_and_is_saved_per_phone" }
+"test_microphone.py::test_gain_reaches_the_worker_and_is_saved_per_phone" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::gain_reaches_the_worker_and_is_saved_per_phone" }
+"test_microphone.py::test_limiter_switch_from_advanced_reaches_the_worker" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::limiter_switch_from_advanced_reaches_the_worker" }
+"test_microphone.py::test_max_gain_from_advanced_sets_the_range_and_pulls_a_higher_gain_down" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::max_gain_from_advanced_sets_the_range_and_pulls_a_higher_gain_down" }
+"test_microphone.py::test_meter_follows_the_worker_and_clears_when_the_stream_stops" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::meter_follows_the_worker_and_clears_when_the_stream_stops" }
+"test_microphone.py::test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::mute_writes_silence_without_dropping_the_mic_and_isnt_saved" }
+"test_microphone.py::test_noise_reduction_reaches_the_worker_and_is_saved_per_phone" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::noise_reduction_reaches_the_worker_and_is_saved_per_phone" }
+"test_microphone.py::test_on_follows_the_stream" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::on_follows_the_stream" }
+"test_microphone.py::test_once_every_plugin_is_in_the_mic_says_again_whether_its_on" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::once_every_plugin_is_in_the_mic_says_again_whether_its_on" }
+"test_microphone.py::test_phone_refusal_is_shown" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::phone_refusal_is_shown" }
+"test_microphone.py::test_setup_failure_is_shown" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::setup_failure_is_shown" }
+"test_microphone.py::test_setup_runs_off_the_ui_thread_and_a_late_result_is_ignored" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::setup_runs_off_the_ui_thread_and_a_late_result_is_ignored" }
+"test_microphone.py::test_shutdown_stops_and_tears_down" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::shutdown_stops_and_tears_down" }
+"test_microphone.py::test_switching_off_mid_stream_stops_and_removes_the_virtual_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::switching_off_mid_stream_stops_and_removes_the_virtual_mic" }
+"test_microphone.py::test_switching_off_queues_teardown_after_the_stop" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::switching_off_queues_teardown_after_the_stop" }
+"test_microphone.py::test_the_card_calls_the_mic_by_the_source_picked" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_card_calls_the_mic_by_the_source_picked" }
+"test_microphone.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
+"test_microphone.py::test_the_mic_stays_on_when_the_stream_with_it_stops" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_mic_stays_on_when_the_stream_with_it_stops", note = "plugin level, with a stand-in window" }
+"test_microphone.py::test_tray_mute_follows_the_card_both_ways" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::tray_mute_follows_the_card_both_ways" }
+"test_microphone.py::test_typing_a_gain_moves_the_slider" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::typing_a_gain_moves_the_slider" }
+"test_microphone.py::test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" }
 # ── mjpeg_reader
 "test_mjpeg_reader.py::test_a_negative_or_zero_length_part_ends_the_stream" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::a_negative_or_zero_length_part_ends_the_stream" }
 "test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" }
@@ -4445,22 +4445,22 @@
 "test_vaapi_setup.py::test_replacing_the_active_build_still_asks_for_a_restart" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "test_vaapi_setup.py::test_with_the_tools_there_it_offers_a_build" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 # ── vb_cable
-"test_vb_cable.py::test_a_changed_pack_isnt_unpacked" = { status = "todo" }
-"test_vb_cable.py::test_a_download_far_bigger_than_the_pack_stops" = { status = "todo" }
-"test_vb_cable.py::test_a_failed_download_says_so_plainly" = { status = "todo" }
-"test_vb_cable.py::test_a_failed_install_falls_back_to_the_link" = { status = "todo" }
-"test_vb_cable.py::test_a_failure_after_the_mic_was_switched_off_stays_quiet" = { status = "todo" }
-"test_vb_cable.py::test_a_hidden_file_in_the_pack_isn_t_unpacked_and_one_planted_later_blocks_the_setup" = { status = "todo" }
-"test_vb_cable.py::test_a_refused_download_doesnt_blame_the_internet" = { status = "todo" }
-"test_vb_cable.py::test_an_earlier_tries_folder_is_cleared_first" = { status = "todo" }
-"test_vb_cable.py::test_an_unchecked_certificate_says_so" = { status = "todo" }
-"test_vb_cable.py::test_nothing_runs_as_admin_from_a_folder_someone_changed" = { status = "todo" }
-"test_vb_cable.py::test_paths_in_the_pack_stay_in_its_folder" = { status = "todo" }
-"test_vb_cable.py::test_saying_no_to_uac_is_reported_plainly" = { status = "todo" }
-"test_vb_cable.py::test_the_card_offers_the_install_and_asks_first" = { status = "todo" }
-"test_vb_cable.py::test_the_pack_comes_from_vb_audio_and_unpacks_next_to_its_setup" = { status = "todo" }
-"test_vb_cable.py::test_the_question_names_vb_audio_and_says_what_they_ask" = { status = "todo" }
-"test_vb_cable.py::test_the_setup_opens_as_admin_only_when_its_hash_still_matches" = { status = "todo" }
+"test_vb_cable.py::test_a_changed_pack_isnt_unpacked" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::a_changed_pack_isnt_unpacked" }
+"test_vb_cable.py::test_a_download_far_bigger_than_the_pack_stops" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::a_download_far_bigger_than_the_pack_stops" }
+"test_vb_cable.py::test_a_failed_download_says_so_plainly" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::a_failed_download_says_so_plainly" }
+"test_vb_cable.py::test_a_failed_install_falls_back_to_the_link" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_failed_install_falls_back_to_the_link" }
+"test_vb_cable.py::test_a_failure_after_the_mic_was_switched_off_stays_quiet" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_failure_after_the_mic_was_switched_off_stays_quiet" }
+"test_vb_cable.py::test_a_hidden_file_in_the_pack_isn_t_unpacked_and_one_planted_later_blocks_the_setup" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::a_hidden_file_in_the_pack_isn_t_unpacked_and_one_planted_later_blocks_the_setup" }
+"test_vb_cable.py::test_a_refused_download_doesnt_blame_the_internet" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::a_refused_download_doesnt_blame_the_internet" }
+"test_vb_cable.py::test_an_earlier_tries_folder_is_cleared_first" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::an_earlier_tries_folder_is_cleared_first" }
+"test_vb_cable.py::test_an_unchecked_certificate_says_so" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::an_unchecked_certificate_says_so" }
+"test_vb_cable.py::test_nothing_runs_as_admin_from_a_folder_someone_changed" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::nothing_runs_as_admin_from_a_folder_someone_changed" }
+"test_vb_cable.py::test_paths_in_the_pack_stay_in_its_folder" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::paths_in_the_pack_stay_in_its_folder" }
+"test_vb_cable.py::test_saying_no_to_uac_is_reported_plainly" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::saying_no_to_uac_is_reported_plainly" }
+"test_vb_cable.py::test_the_card_offers_the_install_and_asks_first" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_card_offers_the_install_and_asks_first" }
+"test_vb_cable.py::test_the_pack_comes_from_vb_audio_and_unpacks_next_to_its_setup" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::the_pack_comes_from_vb_audio_and_unpacks_next_to_its_setup" }
+"test_vb_cable.py::test_the_question_names_vb_audio_and_says_what_they_ask" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_question_names_vb_audio_and_says_what_they_ask", note = "the question is a popup in the card" }
+"test_vb_cable.py::test_the_setup_opens_as_admin_only_when_its_hash_still_matches" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::the_setup_opens_as_admin_only_when_its_hash_still_matches" }
 # ── vcam
 "test_vcam.py::test_a_camera_that_wont_open_is_tried_again" = { status = "todo" }
 "test_vcam.py::test_a_filter_never_found_still_gets_the_idle_pace" = { status = "todo" }
@@ -5542,10 +5542,10 @@
 "global.fun_pack.smear" = { status = "todo" }
 "global.fun_pack.spread" = { status = "todo" }
 # ── microphone
-"device.microphone.auto_level" = { status = "todo" }
-"device.microphone.enabled" = { status = "todo" }
-"device.microphone.gain_db" = { status = "todo" }
-"device.microphone.noise_reduction" = { status = "todo" }
+"device.microphone.auto_level" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
+"device.microphone.enabled" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
+"device.microphone.gain_db" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
+"device.microphone.noise_reduction" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::get_config" }
 # ── monitoring
 "device.monitoring.battery_alert" = { status = "todo" }
 "device.monitoring.battery_notify" = { status = "todo" }
@@ -5729,9 +5729,9 @@
 "fun_pack.plate" = { status = "todo" }
 "fun_pack.smear" = { status = "todo" }
 # ── microphone
-"microphone.gain" = { status = "todo" }
-"microphone.mute" = { status = "todo" }
-"microphone.on" = { status = "todo" }
+"microphone.gain" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
+"microphone.mute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
+"microphone.on" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::actions" }
 # ── name_tag
 "name_tag.on" = { status = "todo" }
 # ── notes
@@ -5883,7 +5883,7 @@
 "folder:main.py:main:tempfile.gettempdir" = { status = "todo" }
 "run:main.py:_warm_up:subprocess.run:<sys.executable>" = { status = "todo" }
 # ── microphone
-"run:telescope/plugins/microphone.py:_open_action:QDesktopServices.openUrl:<QUrl(self._action_url)>" = { status = "todo" }
+"run:telescope/plugins/microphone.py:_open_action:QDesktopServices.openUrl:<QUrl(self._action_url)>" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::open_url", note = "xdg-open / url.dll stand-in until the window offers plugins a way to open links" }
 # ── on_air
 "port:telescope/on_air.py:ON_AIR_PORT=8768" = { status = "todo" }
 # ── pairing
@@ -5917,10 +5917,10 @@
 "folder:telescope/platform/adb_download.py:use_own_adb:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
 "folder:telescope/platform/autostart.py:_data_home:Path.home" = { status = "todo" }
 "folder:telescope/platform/autostart.py:desktop_file:Path.home" = { status = "todo" }
-"folder:telescope/platform/virtual_mic.py:_private_temp_dir:tempfile.gettempdir" = { status = "todo" }
-"folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "todo" }
-"folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "todo" }
-"folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.mkdtemp" = { status = "todo" }
+"folder:telescope/platform/virtual_mic.py:_private_temp_dir:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::private_temp_dir" }
+"folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::clear_old_tries" }
+"folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
+"folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::new_folder" }
 "path:/dev/video10" = { status = "todo" }
 "path:/dev/video11" = { status = "todo" }
 "path:/etc/modprobe.d/*.conf" = { status = "todo" }
@@ -5993,14 +5993,14 @@
 "platform:linux.py:v4l2_remove_devices" = { status = "todo" }
 "platform:linux.py:v4l2_setup" = { status = "todo" }
 "platform:linux.py:v4l2_unload" = { status = "todo" }
-"platform:virtual_mic.py:download_vb_cable" = { status = "todo" }
-"platform:virtual_mic.py:fifo_path" = { status = "todo" }
-"platform:virtual_mic.py:find_vb_cable" = { status = "todo" }
-"platform:virtual_mic.py:linux_setup" = { status = "todo" }
-"platform:virtual_mic.py:linux_teardown" = { status = "todo" }
-"platform:virtual_mic.py:linux_tools_missing" = { status = "todo" }
-"platform:virtual_mic.py:remove_stale_source" = { status = "todo" }
-"platform:virtual_mic.py:run_vb_cable_setup" = { status = "todo" }
+"platform:virtual_mic.py:download_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
+"platform:virtual_mic.py:fifo_path" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::fifo_path" }
+"platform:virtual_mic.py:find_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::find_vb_cable" }
+"platform:virtual_mic.py:linux_setup" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup" }
+"platform:virtual_mic.py:linux_teardown" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_teardown" }
+"platform:virtual_mic.py:linux_tools_missing" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_tools_missing" }
+"platform:virtual_mic.py:remove_stale_source" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
+"platform:virtual_mic.py:run_vb_cable_setup" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::run_vb_cable_setup" }
 "platform:windows.py:camera_access_off" = { status = "todo" }
 "platform:windows.py:camera_installed" = { status = "todo" }
 "platform:windows.py:download_unitycapture" = { status = "todo" }
@@ -6038,10 +6038,10 @@
 "run:telescope/platform/linux.py:_privileged:_run:pkexec sh" = { status = "todo" }
 "run:telescope/platform/linux.py:_privileged:_run:sudo sh" = { status = "todo" }
 "run:telescope/platform/linux.py:v4l2_module_installed:_run:modinfo v4l2loopback" = { status = "todo" }
-"run:telescope/platform/virtual_mic.py:_run:subprocess.run:<cmd>" = { status = "todo" }
-"run:telescope/platform/virtual_mic.py:linux_setup:run:pactl list" = { status = "todo" }
-"run:telescope/platform/virtual_mic.py:linux_teardown:run:pactl unload-module" = { status = "todo" }
-"run:telescope/platform/virtual_mic.py:remove_stale_source:run:pactl list" = { status = "todo" }
+"run:telescope/platform/virtual_mic.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::run" }
+"run:telescope/platform/virtual_mic.py:linux_setup:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup" }
+"run:telescope/platform/virtual_mic.py:linux_teardown:run:pactl unload-module" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_teardown" }
+"run:telescope/platform/virtual_mic.py:remove_stale_source:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
 "run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "todo" }
 # ── plugin_loader
 "folder:telescope/plugin_loader.py:_clear_caches:shutil.rmtree" = { status = "dropped", reason = "no __pycache__ to clear for Lua plugins" }
