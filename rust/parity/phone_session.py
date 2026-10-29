@@ -173,7 +173,8 @@ def main(argv=None) -> int:
                 deadline = time.monotonic() + 20  # the desktop may still be starting up and not listening yet
                 while True:
                     done = subprocess.run(desktop + ["--action", *step[1:]], env=env, capture_output=True, text=True)
-                    if done.returncode == 0 or time.monotonic() > deadline:
+                    starting = "isn't running" in done.stderr or "didn't answer" in done.stderr
+                    if done.returncode == 0 or not starting or time.monotonic() > deadline:
                         break
                     time.sleep(0.5)
                 print(f"  --action {' '.join(step[1:])}: {(done.stdout or done.stderr).strip()}", flush=True)
