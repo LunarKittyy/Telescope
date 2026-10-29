@@ -131,6 +131,62 @@ pub fn slider_target(params: &Value, current: i64, scale: f64, minimum: i64, max
     Some(new.clamp(minimum, maximum))
 }
 
+/// The action for a row of choices only one of which is on: the next one, the previous one, or a named one
+/// (choice_action). `options` are (stable value, shown text), already translated.
+pub fn choice_action(id: &str, label: &str, group: &str, keywords: &str, options: &[(&str, String)]) -> ActionSpec {
+    let choices: Vec<Value> = options.iter().map(|(v, shown)| json!([v, shown])).collect();
+    ActionSpec {
+        id: id.into(),
+        label: label.into(),
+        group: group.into(),
+        params: vec![
+            json!({"name": "op", "label": tr("Does"), "kind": "choice", "default": "next",
+                   "choices": [["next", tr("Next")], ["previous", tr("Previous")], ["set", tr("Pick")]]}),
+            json!({"name": "option", "label": tr("Option"), "kind": "choice", "default": "", "choices": choices, "shown_if": ["op", ["set"]]}),
+        ],
+        repeats: true,
+        on_release: false,
+        current: None,
+        keywords: keywords.into(),
+    }
+}
+
+/// One choice as a key sees it.
+pub struct Choice<'a> {
+    pub value: &'a str,
+    pub shown: &'a str,
+    pub enabled: bool,
+}
+
+/// What a choice key does: (the choice to say something about, whether to pick it). None when there's nothing to say.
+/// `current` is the one that's on; `wrap` goes round at the ends.
+pub fn choice_target(params: &Value, options: &[Choice], current: Option<usize>, wrap: bool) -> Option<(usize, bool)> {
+    if options.is_empty() {
+        return None;
+    }
+    let op = params.get("op").and_then(Value::as_str).unwrap_or("next");
+    if op == "set" {
+        let want = params.get("option").and_then(Value::as_str);
+        let target = options.iter().position(|o| o.enabled && (want == Some(o.value) || want == Some(o.shown)))?;
+        return Some((target, current != Some(target)));
+    }
+    let n = options.len() as i64;
+    let step: i64 = if op == "next" { 1 } else { -1 };
+    let cur = current.map_or(-1, |c| c as i64);
+    let mut i = cur;
+    for _ in 0..n {
+        i += step;
+        if !wrap && !(0..n).contains(&i) {
+            break;
+        }
+        i = i.rem_euclid(n);
+        if options[i as usize].enabled && i != cur {
+            return Some((i as usize, true));
+        }
+    }
+    current.filter(|c| *c < options.len()).map(|c| (c, false))
+}
+
 /// A value as shown: percent for a "%" suffix, the number and its suffix otherwise.
 pub fn shown(value: f64, decimals: usize, suffix: &str, signed: bool) -> String {
     if suffix == "%" { percent(value, decimals, signed) } else { number(value, decimals, signed) + suffix }
@@ -184,6 +240,24 @@ mod tests {
         assert_eq!(round_half_even(2.5), 2.0);
         assert_eq!(round_half_even(3.5), 4.0);
         assert_eq!(round_half_even(-2.5), -2.0);
+    }
+
+    #[test]
+    fn a_choice_goes_next_previous_or_to_a_named_one() {
+        let opts = [Choice { value: "None", shown: "0\u{b0}", enabled: true }, Choice { value: "90 CW", shown: "90\u{b0}", enabled: true },
+                    Choice { value: "180", shown: "180\u{b0}", enabled: false }, Choice { value: "90 CCW", shown: "270\u{b0}", enabled: true }];
+        let go = |p: Value, cur: Option<usize>, wrap: bool| choice_target(&p, &opts, cur, wrap);
+        assert_eq!(go(json!({}), Some(0), true), Some((1, true)));
+        assert_eq!(go(json!({"op": "next"}), Some(1), true), Some((3, true)), "the one that's off is skipped");
+        assert_eq!(go(json!({"op": "next"}), Some(3), true), Some((0, true)));
+        assert_eq!(go(json!({"op": "next"}), Some(3), false), Some((3, false)));
+        assert_eq!(go(json!({"op": "previous"}), Some(0), true), Some((3, true)));
+        assert_eq!(go(json!({"op": "set", "option": "90 CW"}), Some(0), true), Some((1, true)));
+        assert_eq!(go(json!({"op": "set", "option": "270\u{b0}"}), Some(3), true), Some((3, false)), "by what it shows too");
+        assert_eq!(go(json!({"op": "set", "option": "180"}), Some(0), true), None);
+        assert_eq!(choice_target(&json!({}), &[], None, true), None);
+        let spec = choice_action("t.rot", "Rotation", "T", "", &[("None", "0\u{b0}".into())]);
+        assert!(spec.repeats && spec.params[1]["choices"][0] == json!(["None", "0\u{b0}"]));
     }
 
     #[test]
