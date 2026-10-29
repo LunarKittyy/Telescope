@@ -1,0 +1,5 @@
+//! Transforms and Colour grading, the two plugins that change how the picture looks. Colour grading's maths (`grade`) and its
+//! LUT files (`cube`) are here too; the pixel work goes through core's shader steps and colour pipeline.
+
+pub mod cube;
+pub mod grade;

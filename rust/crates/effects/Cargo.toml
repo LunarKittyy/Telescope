@@ -1,0 +1,15 @@
+[package]
+name = "telescope-effects"
+description = "Transforms and Colour grading: the picture's zoom, flips and turns, and its colour wheels, curves and LUT files"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true
