@@ -48,7 +48,7 @@ Telescope loads a plugin you're working on straight from its folder when it runs
   "description": "Turns the picture black and white. An example to start your own plugin from.",
   "api": 2,
   "category": "look",
-  "icon": "palette",
+  "icon": "colour",
   "when_off": "Without it there's no Black and white card and the picture keeps its colours.",
   "device_local": true
 }
@@ -66,7 +66,7 @@ These are optional and work like the class attributes of a built-in plugin:
 
 | Key | What it does |
 |---|---|
-| `icon` | One of the icon names the built-in cards use |
+| `icon` | The plugin's icon on the Plugins tab, one of the kit's icon names like `colour` or `bell` |
 | `main` | The script to start from, if it isn't `main.lua` |
 | `device_local` | Each phone gets its own copy of your settings |
 | `in_presets` | Presets save your settings and bring them back through `apply_preset` |
@@ -142,7 +142,7 @@ end
 `region` is the column the card goes in (`left`, `right` or `center`). The `.slint` file is written in [Slint](https://slint.dev/), the toolkit the window is built with. It can use the same widgets as Telescope's own cards:
 
 ```slint
-import { Card, Slider, Switch } from "@ui-kit/ui-kit.slint";
+import { Card, FormRow, Icons, Slider, SwitchTile } from "@ui-kit/ui-kit.slint";
 
 export component BlackAndWhiteCard inherits Card {
     in-out property <bool> on;
@@ -150,8 +150,13 @@ export component BlackAndWhiteCard inherits Card {
     callback toggled(bool);
     callback strength-moved(float);
 
-    Switch {
-        label: @tr("Black and white picture");
+    title: @tr("Black and white");
+    icon: Icons.colour;
+
+    SwitchTile {
+        icon: Icons.colour;
+        text: @tr("Black and white picture");
+        hue: root.hue;
         checked <=> root.on;
         toggled(value) => { root.toggled(value); }
     }
@@ -159,7 +164,7 @@ export component BlackAndWhiteCard inherits Card {
 }
 ```
 
-Inherit `Card` and Telescope fills in the title, icon and colour from your `plugin.json`. Each `callback` your component declares reaches `on_ui()` with the callback's name and its arguments, written with `_` instead of `-` (`strength-moved` arrives as `strength_moved`). To change what the card shows later, set its properties with `host.set_ui_props("card", { on = true })`.
+Inherit `Card` and give it a `title` and an `icon` from the kit's `Icons`, the way the example does. Telescope sets the card's colour from your plugin's group and makes it foldable. A control's `label` is only what screen readers announce, so put a visible name on a row with `FormRow` or use a `SwitchTile`. Each `callback` your component declares reaches `on_ui()` with the callback's name and its arguments, written with `_` instead of `-` (`strength-moved` arrives as `strength_moved`). To change what the card shows later, set its properties with `host.set_ui_props("card", { on = true })`.
 
 `header_widget()` and each entry of `settings_sections()` work the same way. A settings section also takes an `id` (used as `event.ui` and in `set_ui_props`), a `tab` (`general`, `streaming`, `video`, `audio`, `devices`, `shortcuts`, `about` or a new one with a `tab_title`), `order` and `keywords` for the Settings search.
 
