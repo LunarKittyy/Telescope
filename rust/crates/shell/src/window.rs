@@ -203,6 +203,30 @@ fn phones_from_file(file: &ConfigFile) -> Phones {
 }
 
 impl Window {
+    /// The Shortcuts global behind ui-kit's ShortcutMenu: what a control's right-click lists, and its items back to
+    /// the plugin that set it (Host::set_shortcut_menu).
+    fn wire_shortcut_menu(self: &Rc<Self>) {
+        let state = self.state.clone();
+        let _ = self.ui.set_global_callback("Shortcuts", "bindings-for", move |args| {
+            let action = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
+            let st = state.borrow();
+            let listed = st.shortcut_menu.iter().flat_map(|(_, b)| b).filter(|b| b.action == action)
+                .map(|b| crate::source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
+            SValue::Model(slint::ModelRc::new(slint::VecModel::from(listed)))
+        });
+        for callback in ["add", "edit"] {
+            let weak = Rc::downgrade(self);
+            let _ = self.ui.set_global_callback("Shortcuts", callback, move |args| {
+                let Some(w) = weak.upgrade() else { return SValue::Void };
+                let Some(plugin) = w.state.borrow().shortcut_menu.as_ref().map(|(p, _)| p.clone()) else { return SValue::Void };
+                let event = UiEvent { ui: "shortcut-menu".into(), callback: callback.into(), args: args.iter().map(to_json).collect() };
+                w.state.borrow_mut().ui_event(&plugin, event);
+                w.process();
+                SValue::Void
+            });
+        }
+    }
+
     fn wire(self: &Rc<Self>, files: &[(String, String)], cards: &[CardPlace], headers: &[HeaderPlace]) {
         let ui = &self.ui;
         let state = self.state.clone();
@@ -238,6 +262,7 @@ impl Window {
             }
         }
         let _ = files;
+        self.wire_shortcut_menu();
         let weak = Rc::downgrade(self);
         let _ = ui.set_global_callback("Reveal", "show", move |args| {
             if let (Some(w), [SValue::Number(x), SValue::Number(y), _, SValue::Number(h)]) = (weak.upgrade(), args) {
@@ -594,6 +619,12 @@ impl Window {
                 });
             }
             Effect::HandOver { source_id, route, url } => self.hand_over(&source_id, route, url),
+            Effect::ShortcutMenu => {
+                let on = self.state.borrow().shortcut_menu.is_some();
+                let version = match self.ui.get_global_property("Shortcuts", "version") { Ok(SValue::Number(n)) => n, _ => 0.0 };
+                let _ = self.ui.set_global_property("Shortcuts", "available", SValue::Bool(on));
+                let _ = self.ui.set_global_property("Shortcuts", "version", SValue::Number(version + 1.0));
+            }
             other => log::debug!("not handled yet: {other:?}"),
         }
     }

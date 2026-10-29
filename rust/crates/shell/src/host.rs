@@ -258,6 +258,10 @@ impl HostShell for Ctx<'_> {
     fn copy_text(&mut self, text: &str) {
         self.state.effects.push(Effect::CopyText(text.into()));
     }
+    fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
+        self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
+        self.state.effects.push(Effect::ShortcutMenu);
+    }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         if !cfg!(target_os = "linux") {
             return None;

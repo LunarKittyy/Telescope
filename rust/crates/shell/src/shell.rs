@@ -58,6 +58,8 @@ pub enum Effect {
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
     HandOver { source_id: String, route: telescope_core::source::RouteSpec, url: String },
+    /// Host::set_shortcut_menu: the controls' right-click menu changed.
+    ShortcutMenu,
     Quit,
     Restart,
     KeepInTray(bool),
@@ -192,6 +194,8 @@ pub struct State {
     /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
     pub shown: Option<bool>,
     pub tray_close_notified: bool,
+    /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
+    pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
     next_request: u64,
 }
 
@@ -224,7 +228,7 @@ impl State {
             mic: (false, false),
             shown: None,
             tray_close_notified: false,
-            next_request: 1,
+            shortcut_menu: None, next_request: 1,
         }
     }
 
