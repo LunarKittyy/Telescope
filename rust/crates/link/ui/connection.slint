@@ -467,9 +467,8 @@ export component ConnectionSettings inherits Card {
     SettingRow {
         title: @tr("UDP on Wi-Fi");
         sub: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
-        Tag { y: (parent.height - self.height) / 2; text: @tr("Experimental"); }
+        Tag { text: @tr("Experimental"); }
         Switch {
-            y: (parent.height - self.height) / 2;
             checked: udp;
             label: @tr("UDP on Wi-Fi");
             toggled(on) => { root.udp-toggled(on); }
