@@ -167,6 +167,9 @@ fn aliases(piece: &Piece) -> String {
     for p in &piece.iface.props {
         out.push_str(&format!("    in-out property {}-{p} <=> {}.{p};\n", piece.id, piece.id));
     }
+    for p in &piece.iface.outs {
+        out.push_str(&format!("    out property {}-{p} <=> {}.{p};\n", piece.id, piece.id));
+    }
     for c in &piece.iface.callbacks {
         out.push_str(&format!("    callback {}-{c} <=> {}.{c};\n", piece.id, piece.id));
     }

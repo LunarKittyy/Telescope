@@ -58,7 +58,21 @@ pub enum WorkerEvent {
 pub type Events = Arc<dyn Fn(WorkerEvent) + Send + Sync>;
 
 /// Opens a fresh feed of the stream's video (a phone session's open_video, or a StreamSource's open_feed).
-pub type Opener = Arc<dyn Fn() -> Result<(Codec, Box<dyn VideoFeed>), String> + Send + Sync>;
+pub type Opener = Arc<dyn Fn() -> Result<Opened, String> + Send + Sync>;
+
+/// A feed an opener opened: its codec, and a decoder of the source's own for packets media can't decode (a webcam's
+/// raw YUYV or NV12 frames, StreamSource::decoder).
+pub struct Opened {
+    pub codec: Codec,
+    pub feed: Box<dyn VideoFeed>,
+    pub own_decoder: Option<Box<dyn Decoder>>,
+}
+
+impl From<(Codec, Box<dyn VideoFeed>)> for Opened {
+    fn from((codec, feed): (Codec, Box<dyn VideoFeed>)) -> Opened {
+        Opened { codec, feed, own_decoder: None }
+    }
+}
 
 /// What a worker starts with.
 pub struct WorkerSetup {
@@ -75,7 +89,12 @@ pub struct WorkerSetup {
     pub hardware_decode: bool,
     /// A plugin's StreamSource: it has no other route to hand over to.
     pub plugin_source: bool,
+    /// Why a plugin source isn't streaming yet, shown while the stream waits to try again (WebcamReader.waiting_text).
+    pub waiting_text: Option<WaitingText>,
 }
+
+/// StreamSource::waiting_text, asked each time opening the stream fails.
+pub type WaitingText = Arc<dyn Fn() -> String + Send + Sync>;
 
 /// A one-shot flag threads can wait on (threading.Event).
 #[derive(Default)]
@@ -238,7 +257,8 @@ impl FrameContext for Ctx {
 /// Where frames come from while connected: H.264 through media's frame reader, or JPEGs each decoded on their own.
 enum Cap {
     Frames(Box<dyn FrameReader>),
-    Jpegs { feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder> },
+    /// own: the decoder is the source's, the only one there is, so it's used alone instead of media's JPEG decoders.
+    Jpegs { feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder>, own: bool },
 }
 
 impl Cap {
@@ -253,7 +273,7 @@ impl Cap {
     fn read_frame(&mut self) -> Result<(Frame, u64, u32), FeedEnd> {
         match self {
             Cap::Frames(r) => r.read().map(|f| (f.frame, f.bytes, f.count)),
-            Cap::Jpegs { feed, decoder } => loop {
+            Cap::Jpegs { feed, decoder, .. } => loop {
                 let packet = feed.read()?;
                 let bytes = packet.data.len() as u64;
                 if let Some(frame) = decoder.decode(&packet).newest {
@@ -267,6 +287,7 @@ impl Cap {
 struct Shared {
     url: Mutex<String>,
     opener: Mutex<Opener>,
+    waiting_text: Option<WaitingText>,
     media: Arc<dyn Media>,
     outputs: Arc<dyn Outputs>,
     events: Events,
@@ -320,7 +341,7 @@ impl StreamWorker {
         });
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
-            url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), media, outputs, events,
+            url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
             slot_number: setup.slot, source_id: setup.source_id, hardware: setup.hardware_decode,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
@@ -502,10 +523,14 @@ impl Shared {
     }
 
     fn open_cap_with(&self, opener: &Opener) -> Result<Cap, String> {
-        let (codec, feed) = opener()?;
+        let Opened { codec, feed, own_decoder } = opener()?;
         let options = DecodeOptions { hardware: self.hardware };
+        // Packets only the source understands go through its decoder, one at a time like JPEGs, newest first
+        if let Some(decoder) = own_decoder {
+            return Ok(Cap::Jpegs { feed, decoder, own: true });
+        }
         match codec {
-            Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)? }),
+            Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }),
             _ => {
                 let decoder = match &self.tap {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
@@ -569,7 +594,8 @@ impl Shared {
                     log::info!("Opening the stream failed: {e}");
                     failed = true;
                     let secs = RECONNECT_DELAY.as_secs().to_string();
-                    self.status("waiting", &fill(&tr("Can't reach the phone's stream. Trying again in {seconds} s…"), &[("seconds", &secs)]));
+                    let own = self.waiting_text.as_ref().map(|f| f()).filter(|t| !t.is_empty());
+                    self.status("waiting", &own.unwrap_or_else(|| fill(&tr("Can't reach the phone's stream. Trying again in {seconds} s…"), &[("seconds", &secs)])));
                     self.restart_vcam.wait(RECONNECT_DELAY);
                     self.restart_vcam.clear();
                     continue;
@@ -648,7 +674,11 @@ impl Shared {
             }
             let ended = match &mut cap {
                 Cap::Frames(reader) => self.read_h264(reader.as_mut()),
-                Cap::Jpegs { feed, .. } => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
+                Cap::Jpegs { feed, own: false, .. } => self.read_jpegs(feed.as_mut(), &mut jpeg_decoders(self)),
+                Cap::Jpegs { feed, decoder, own: true } => {
+                    // Its decoder goes to the decoding thread; a reconnect opens the feed again and asks for a new one
+                    self.read_jpegs(feed.as_mut(), &mut vec![std::mem::replace(decoder, Box::new(NoDecoder))])
+                }
             };
             match ended {
                 Ended::Stopped => return,
@@ -829,6 +859,8 @@ impl Shared {
         let Some((src0, _)) = self.slot.latest() else { return false };
         let cam_w = self.canvas.0.unwrap_or(src0.width);
         let cam_h = self.canvas.1.unwrap_or(src0.height);
+        // An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
+        let (cam_w, cam_h) = self.outputs.locked_size(self.slot_number).unwrap_or((cam_w, cam_h));
         let fps = self.fps.load(Ordering::SeqCst);
         self.vcam_free.clear();
         let result = self.outputs.open(self.slot_number, cam_w, cam_h, fps);
@@ -894,6 +926,9 @@ impl Shared {
             }
             let elapsed = t0.elapsed();
             if elapsed >= Duration::from_secs(2) {
+                if cam.outdated() {
+                    self.restart_vcam.set(); // the camera was installed or updated while streaming
+                }
                 let secs = elapsed.as_secs_f64();
                 let (src_w, src_h) = self.slot.latest().map_or((cam_w, cam_h), |(f, _)| (f.width, f.height));
                 // Frames that came from the phone, not what the camera was sent: resends of the last frame padded that out.
@@ -918,6 +953,18 @@ impl Shared {
         drop(cam);
         self.vcam_free.set();
         ok
+    }
+}
+
+/// Stands in for a source's decoder once it's gone to the decoding thread.
+struct NoDecoder;
+
+impl Decoder for NoDecoder {
+    fn decode(&mut self, _packet: &telescope_core::media::Packet) -> telescope_core::media::Decoded {
+        telescope_core::media::Decoded { newest: None, count: 0 }
+    }
+    fn hardware(&self) -> bool {
+        false
     }
 }
 
@@ -1174,6 +1221,10 @@ mod tests {
     struct Cams {
         opened: Mutex<Vec<(u32, u32, u32, u32)>>,
         sent: Mutex<Vec<u8>>,
+        /// What locked_size answers.
+        locked: Mutex<Option<(u32, u32)>>,
+        /// The open camera reports itself outdated once.
+        outdated: AtomicBool,
     }
 
     struct Cam(Arc<Cams>, (u32, u32));
@@ -1188,6 +1239,9 @@ mod tests {
         }
         fn device(&self) -> String {
             "/dev/video9".into()
+        }
+        fn outdated(&self) -> bool {
+            self.0.outdated.swap(false, Ordering::SeqCst)
         }
     }
 
@@ -1204,6 +1258,9 @@ mod tests {
             self.0.opened.lock().unwrap().push((slot, width, height, fps));
             Ok(Box::new(Cam(self.0.clone(), (width, height))))
         }
+        fn locked_size(&self, _slot: u32) -> Option<(u32, u32)> {
+            *self.0.locked.lock().unwrap()
+        }
     }
 
     fn worker(packets: Arc<Mutex<VecDeque<Option<u8>>>>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>) -> StreamWorker {
@@ -1213,10 +1270,15 @@ mod tests {
     fn worker_from(packets: Arc<Mutex<VecDeque<Option<u8>>>>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>,
                    plugin_source: bool, endless: Option<u8>) -> StreamWorker {
         let opener: Opener = Arc::new(move || {
-            Ok((Codec::Mjpeg, Box::new(Feed { packets: packets.clone(), stop: Arc::default(), endless }) as Box<dyn VideoFeed>))
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: packets.clone(), stop: Arc::default(), endless }) as Box<dyn VideoFeed>).into())
         });
+        worker_with(opener, None, cams, log, plugin_source)
+    }
+
+    fn worker_with(opener: Opener, waiting_text: Option<WaitingText>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>,
+                   plugin_source: bool) -> StreamWorker {
         let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
-                                  canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false,
+                                  canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text,
                                   plugin_source };
         let events: Events = Arc::new(move |e| {
             if !matches!(e, WorkerEvent::Preview(..)) {
@@ -1263,6 +1325,64 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert!(what(), "timed out");
+    }
+
+    #[test]
+    fn the_camera_opens_at_the_size_an_app_already_holds_it_at() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        *cams.locked.lock().unwrap() = Some((8, 6));
+        let w = worker(Arc::new(Mutex::new(VecDeque::from([Some(10)]))), cams.clone(), log);
+        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        w.stop();
+        assert_eq!(cams.opened.lock().unwrap()[0], (0, 8, 6, 30)); // the 4x2 frames are fitted into it
+    }
+
+    #[test]
+    fn a_camera_replaced_while_streaming_is_opened_again() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let w = worker_from(Arc::default(), cams.clone(), log, false, Some(1));
+        wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        cams.outdated.store(true, Ordering::SeqCst);
+        let until = Instant::now() + Duration::from_secs(5);
+        while cams.opened.lock().unwrap().len() < 2 && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        w.stop();
+        assert_eq!(cams.opened.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_sources_own_decoder_decodes_what_media_cant() {
+        struct Raw;
+        impl Decoder for Raw {
+            fn decode(&mut self, packet: &Packet) -> Decoded {
+                Decoded { newest: Some(grey(6, 2, packet.data[0])), count: 1 }
+            }
+            fn hardware(&self) -> bool {
+                false
+            }
+        }
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let opener: Opener = Arc::new(|| Ok(Opened {
+            codec: Codec::Mjpeg,
+            feed: Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(40)]))), stop: Arc::default(), endless: None }),
+            own_decoder: Some(Box::new(Raw)),
+        }));
+        let w = worker_with(opener, None, cams.clone(), log, true);
+        wait_for(|| cams.sent.lock().unwrap().contains(&40));
+        w.stop();
+        assert_eq!(cams.opened.lock().unwrap()[0], (0, 6, 2, 30), "the source's decoder made the frame, not media's 4x2 one");
+    }
+
+    #[test]
+    fn a_source_says_why_it_isnt_streaming_while_it_waits() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let opener: Opener = Arc::new(|| Err("busy".into()));
+        let waiting: WaitingText = Arc::new(|| "Another app is using this camera.".into());
+        let w = worker_with(opener, Some(waiting), cams, log.clone(), true);
+        wait_for(|| log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Status(k, _) if k == "waiting")));
+        w.stop();
+        assert!(log.lock().unwrap().contains(&WorkerEvent::Status("waiting".into(), "Another app is using this camera.".into())));
     }
 
     #[test]
@@ -1362,7 +1482,7 @@ mod tests {
         let w = worker_from(Arc::default(), cams.clone(), log.clone(), false, Some(1)); // the old route keeps going
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
         let opener: Opener = Arc::new(move || {
-            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(77) }) as Box<dyn VideoFeed>))
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(77) }) as Box<dyn VideoFeed>).into())
         });
         assert!(w.hand_over("https://usb/v1/video", opener.clone()));
         assert!(!w.hand_over("https://usb/v1/video", opener)); // one at a time
@@ -1451,9 +1571,9 @@ mod tests {
     fn watched(url: &str, codec: Codec) -> Arc<Seen> {
         let seen = Arc::new(Seen { tapped: Mutex::default(), plain: Mutex::default(), sources: Mutex::default() });
         let opener: Opener = Arc::new(move || {
-            Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>))
+            Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
-        let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+        let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
                                   source_id: "phone-1".into(), hardware_decode: false, plugin_source: false };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),

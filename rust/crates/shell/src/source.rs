@@ -11,6 +11,8 @@ use telescope_core::i18n::tr;
 pub struct Interface {
     /// `in` and `in-out` properties, in the order declared.
     pub props: Vec<String>,
+    /// `out` properties, which the window can read but not set.
+    pub outs: Vec<String>,
     pub callbacks: Vec<String>,
 }
 
@@ -179,6 +181,16 @@ fn declare(stmt: &str, iface: &mut Interface) {
         other => (other, other == "callback"),
     };
     match kind {
+        "property" if first == "out" => {
+            let after = stmt.splitn(2, "property").nth(1).unwrap_or("");
+            let after = match after.trim_start().strip_prefix('<') {
+                Some(t) => skip_type(t),
+                None => after,
+            };
+            if let Some(name) = ident(after) {
+                iface.outs.push(name);
+            }
+        }
         "property" if settable && first != "property" => {
             // Skip the <type>, which may hold spaces
             let after = stmt.splitn(2, "property").nth(1).unwrap_or("");

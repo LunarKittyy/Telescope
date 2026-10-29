@@ -10,7 +10,7 @@ use telescope_core::output::{Outputs, Slot, VideoOutput};
 use telescope_core::services::Services;
 use telescope_core::source::{PairedPhone, RouteSpec};
 use telescope_core::link::PhoneSession;
-use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, WIDTH_THREE_COL, WIDTH_TWO_COL};
+use telescope_shell::scenes::{main_window_config, Page, Scene, Setup, CARD_WIDTH, WIDTH_THREE_COL, WIDTH_TWO_COL};
 
 /// translation_scenes_connection.WIFI_IP and USB_SERIAL.
 const WIFI_IP: &str = "192.168.1.20";
@@ -228,6 +228,11 @@ pub fn all() -> Vec<Scene> {
             Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
         }),
     ];
+    // translation_scenes_audio.mic_scene: the Microphone card alone, switched off (the worked example of a card scene)
+    scenes.push(Scene::new("mic-off", || Setup {
+        page: Page::Card { plugin: "microphone".into() },
+        ..Setup::window(Some(services(quiet())), main_window_config(true), CARD_WIDTH, 400.0)
+    }));
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
             telescope_link::platform::set_windows(windows.then_some(true));

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Compares the Rust app's scene renders with the Qt ones and writes a side-by-side review page for the ones that differ.
 
-Both folders hold <scale>x/<scene id>.png, as render_scenes.py writes them for Qt. A pixel counts as different when
-a channel is off by more than --tolerance (so antialiasing doesn't count), and a scene goes on the page when more
-than --threshold of its pixels differ or its size does.
+Both folders hold <scale>x/<scene id>.png, as render_scenes.py writes them for Qt. Both pictures are first blurred a
+little (a Gaussian of --blur logical pixels, so 1.5 pixels at 1.5x), so how Qt and Slint antialias glyph edges drops
+out while a missing button or a line out of place still shows; then a pixel counts as
+different when a channel is off by more than --tolerance, and a scene matches when no more than --threshold of its
+pixels differ and its size is the same. One that doesn't goes on the page: within --review (2%) it's marked for a
+person to look at, and nothing marks it automatically.
 
-    python compare_scenes.py QT_DIR RUST_DIR REVIEW_DIR [--threshold 0.005] [--tolerance 24]
+    python compare_scenes.py QT_DIR RUST_DIR REVIEW_DIR [--threshold 0.005] [--review 0.02] [--tolerance 24] [--blur 1]
 
 A scene the ledger marks verified fails the run when it differs or has no Rust render; the rest are only reported,
 since most scenes aren't ported yet. With --reduced, QT_DIR holds renders of a Qt window with only the plugins Rust has
@@ -42,14 +45,33 @@ def save(array, path: Path):
     QImage(array.data, array.shape[1], array.shape[0], array.shape[1] * 4, QImage.Format.Format_RGBA8888).save(str(path))
 
 
-def difference(qt, rust, tolerance: int) -> tuple:
-    """The share of pixels that differ (over the larger of the two sizes) and a picture marking them in red."""
+def blurred(picture, sigma: float):
+    """picture under a Gaussian blur of sigma pixels, applied along each axis (edges repeat)."""
+    radius = max(1, int(round(sigma * 3)))
+    x = np.arange(-radius, radius + 1)
+    kernel = np.exp(-x * x / (2 * sigma * sigma))
+    kernel /= kernel.sum()
+    out = picture.astype(np.float32)
+    for axis in (0, 1):
+        pad = [(0, 0)] * out.ndim
+        pad[axis] = (radius, radius)
+        padded = np.pad(out, pad, mode="edge")
+        out = sum(k * np.take(padded, range(i, i + out.shape[axis]), axis=axis) for i, k in enumerate(kernel))
+    return out
+
+
+def difference(qt, rust, tolerance: int, sigma: float = 1.0) -> tuple:
+    """The share of pixels that differ (over the larger of the two sizes, after a blur of sigma pixels, none at 0) and a
+    picture marking them in red."""
     height, width = max(qt.shape[0], rust.shape[0]), max(qt.shape[1], rust.shape[1])
     a = np.zeros((height, width, 4), np.int16)
     b = np.zeros((height, width, 4), np.int16)
     a[:qt.shape[0], :qt.shape[1]] = qt
     b[:rust.shape[0], :rust.shape[1]] = rust
-    off = (np.abs(a - b).max(axis=2) > tolerance)
+    if sigma > 0:
+        off = np.abs(blurred(a, sigma) - blurred(b, sigma)).max(axis=2) > tolerance
+    else:
+        off = np.abs(a - b).max(axis=2) > tolerance
     marked = (a // 3 + 170).clip(0, 255).astype(np.uint8)  # the Qt picture faded, differences in red on top
     marked[..., 3] = 255
     marked[off] = (220, 30, 30, 255)
@@ -63,6 +85,8 @@ def page(rows: list, missing: list, out: Path, threshold: float) -> str:
     cards = []
     for r in rows:
         badge = '<span class="must">ported</span>' if r["ported"] else ""
+        if r["share"] <= r["review"] and r["qt_size"] == r["rust_size"]:
+            badge += '<span class="look">close: a person decides</span>'
         size = "" if r["qt_size"] == r["rust_size"] else f' · size {r["qt_size"]} vs {r["rust_size"]}'
         cards.append(f'<section><h2>{html.escape(r["id"])} <small>{r["scale"]} · {r["share"]:.2%} differ{size}</small>'
                      f'{badge}</h2><div class="row">{img(r["qt"], "Qt")}{img(r["rust"], "Rust")}'
@@ -79,12 +103,13 @@ h1 {{ font-size: 22px; margin: 24px 0 4px; }} p {{ color: var(--muted); margin: 
 section {{ background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 14px 0; }}
 h2 {{ font-size: 16px; margin: 0 0 10px; }} small {{ color: var(--muted); font-weight: normal; }}
 .must {{ color: var(--must); font-size: 12px; margin-left: 8px; }}
+.look {{ color: var(--muted); font-size: 12px; margin-left: 8px; }}
 .row {{ display: flex; gap: 12px; overflow-x: auto; align-items: flex-start; }}
 figure {{ margin: 0; flex: 1 1 0; min-width: 0; }} figcaption {{ color: var(--muted); font-size: 13px; }}
 img {{ max-width: 100%; max-height: 70vh; border: 1px solid var(--line); }}
 </style></head><body>
 <h1>Scene review</h1>
-<p>{len(rows)} renders differ by more than {threshold:.2%} of their pixels. {len(missing)} ported scenes have no Rust render.</p>
+<p>{len(rows)} renders differ by more than {threshold:.2%} of their pixels (after a light blur), {sum(1 for r in rows if r["share"] <= r["review"] and r["qt_size"] == r["rust_size"])} of them only a little. {len(missing)} ported scenes have no Rust render.</p>
 {"<h2>Ported but not rendered by Rust</h2><ul>" + gone + "</ul>" if missing else ""}
 {"".join(cards)}
 </body></html>
@@ -97,7 +122,9 @@ def main(argv=None) -> int:
     parser.add_argument("rust", type=Path)
     parser.add_argument("review", type=Path)
     parser.add_argument("--threshold", type=float, default=0.005, help="share of pixels that may differ (0.005 = 0.5%%)")
+    parser.add_argument("--review", dest="close", type=float, default=0.02, help="up to this share a scene that doesn't match is close, for a person to judge")
     parser.add_argument("--tolerance", type=int, default=24, help="how far a channel may be off before a pixel differs")
+    parser.add_argument("--blur", type=float, default=1.0, help="Gaussian blur in logical pixels before comparing, 0 for none")
     parser.add_argument("--ledger", type=Path, default=LEDGER)
     parser.add_argument("--reduced", action="store_true", help="QT_DIR has only the ported plugins: ported scenes must match")
     args = parser.parse_args(argv)
@@ -118,13 +145,13 @@ def main(argv=None) -> int:
                 missing.append(f"{scale} {id}")
             continue
         qt, rust = load(qt_path), load(rust_path)
-        share, marked = difference(qt, rust, args.tolerance)
+        share, marked = difference(qt, rust, args.tolerance, args.blur * float(scale.rstrip("x")))
         compared += 1
         if share > args.threshold or qt.shape != rust.shape:
             diff_path = args.review / scale / qt_path.name
             diff_path.parent.mkdir(parents=True, exist_ok=True)
             save(marked, diff_path)
-            rows.append({"id": id, "scale": scale, "share": share, "ported": id in ported, "qt": qt_path.resolve(),
+            rows.append({"id": id, "scale": scale, "share": share, "ported": id in ported, "review": args.close, "qt": qt_path.resolve(),
                          "rust": rust_path.resolve(), "diff": diff_path.resolve(),
                          "qt_size": f"{qt.shape[1]}x{qt.shape[0]}", "rust_size": f"{rust.shape[1]}x{rust.shape[0]}"})
     rows.sort(key=lambda r: (not r["ported"], -r["share"]))

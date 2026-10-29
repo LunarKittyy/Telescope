@@ -44,7 +44,7 @@
 "Set up more virtual cameras" = { status = "todo" }
 "Setting up more virtual cameras…" = { status = "todo" }
 "Settings" = { status = "ported", rust = "rust/crates/shell/src/doc.rs" }
-"Show" = { status = "todo" }
+"Show" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "Start" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Start mic only" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
 "Start streaming" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
@@ -1088,31 +1088,31 @@
 "This phone's saved camera, output, transform, framing and background settings" = { status = "todo" }
 "Without it there's no Presets button in the header (your saved presets aren't deleted)." = { status = "todo" }
 # ── preview
-"Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it." = { status = "todo" }
-"Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it." = { status = "todo" }
+"Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "Draw the skeleton MediaPipe finds. Doesn't show in the camera output." = { status = "todo" }
-"Hide" = { status = "todo" }
-"Keep showing what the phone's longer lenses see. Doesn't show in the camera output." = { status = "todo" }
-"Lens outlines" = { status = "todo" }
-"Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects." = { status = "todo" }
-"Not streaming\n\nPress Start streaming and the phone's camera comes up on its own." = { status = "todo" }
-"Not streaming\n\nPress Start streaming to use this camera." = { status = "todo" }
-"Not streaming\n\nStart mic only streams the phone's mic with its camera off." = { status = "todo" }
-"Phone camera" = { status = "todo" }
-"Pop out" = { status = "todo" }
-"Pop out the preview" = { status = "todo" }
-"Preview" = { status = "todo" }
-"Preview hidden" = { status = "todo" }
-"Show or hide the preview" = { status = "todo" }
+"Hide" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Keep showing what the phone's longer lenses see. Doesn't show in the camera output." = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
+"Lens outlines" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
+"Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Not streaming\n\nPress Start streaming and the phone's camera comes up on its own." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Not streaming\n\nPress Start streaming to use this camera." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Not streaming\n\nStart mic only streams the phone's mic with its camera off." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Phone camera" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
+"Pop out" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
+"Pop out the preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Preview hidden" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Show or hide the preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "Skeleton" = { status = "todo" }
-"Start with the phone's camera off, streaming just its mic." = { status = "todo" }
-"Stop drawing this preview. The camera output doesn't change." = { status = "todo" }
-"Telescope - Video Preview" = { status = "todo" }
-"The live picture in the middle of the window, and the camera on/off button under it." = { status = "todo" }
-"Turn the phone's camera back on." = { status = "todo" }
-"Turn the phone's camera off. Its mic keeps streaming." = { status = "todo" }
+"Start with the phone's camera off, streaming just its mic." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Stop drawing this preview. The camera output doesn't change." = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
+"Telescope - Video Preview" = { status = "ported", rust = "rust/crates/shell/src/window.rs" }
+"The live picture in the middle of the window, and the camera on/off button under it." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Turn the phone's camera back on." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Turn the phone's camera off. Its mic keeps streaming." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "Waiting for the first frame…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"Without it the window doesn't show the picture but apps using the virtual camera still get it." = { status = "todo" }
+"Without it the window doesn't show the picture but apps using the virtual camera still get it." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 # ── privacy_blur
 "Blur all but me" = { status = "todo" }
 "Blur automatically when a second person shows up" = { status = "todo" }
@@ -3707,7 +3707,7 @@
 "test_preview.py::test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame" = { status = "todo" }
 "test_preview.py::test_a_pick_shows_a_hidden_preview" = { status = "todo" }
 "test_preview.py::test_a_pick_takes_the_mouse_from_focusing_and_panning" = { status = "todo" }
-"test_preview.py::test_a_popout_opened_with_the_card_hidden_leaves_it_hidden" = { status = "todo" }
+"test_preview.py::test_a_popout_opened_with_the_card_hidden_leaves_it_hidden" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "test_preview.py::test_card_preview_copies_small_frame_and_popout_keeps_full_resolution" = { status = "todo" }
 "test_preview.py::test_card_preview_downscales_large_frame_before_signal" = { status = "todo" }
 "test_preview.py::test_dragging_the_preview_pans_instead_of_focusing" = { status = "todo" }
@@ -3717,18 +3717,18 @@
 "test_preview.py::test_layers_tint_the_preview_copy_and_not_the_frame_apps_get" = { status = "todo" }
 "test_preview.py::test_lens_boxes_show_for_a_moment_after_a_move_then_fade" = { status = "todo" }
 "test_preview.py::test_on_frame_updates_card_pixmap_and_clears_busy" = { status = "todo" }
-"test_preview.py::test_open_and_close_popout_disables_then_restores_toggle" = { status = "todo" }
+"test_preview.py::test_open_and_close_popout_disables_then_restores_toggle" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "test_preview.py::test_popout_set_frame_and_resize_guards" = { status = "todo" }
-"test_preview.py::test_preview_placeholder_says_waiting_while_a_stream_is_up" = { status = "todo" }
-"test_preview.py::test_preview_starts_active_and_toggles_off_and_back_on" = { status = "todo" }
+"test_preview.py::test_preview_placeholder_says_waiting_while_a_stream_is_up" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_preview_starts_active_and_toggles_off_and_back_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "test_preview.py::test_process_frame_is_zero_copy_when_inactive_or_busy" = { status = "todo" }
-"test_preview.py::test_second_popout_request_reuses_visible_window" = { status = "todo" }
-"test_preview.py::test_stream_start_and_stop_swap_the_placeholder" = { status = "todo" }
-"test_preview.py::test_the_camera_button_turns_the_camera_off_and_says_so" = { status = "todo" }
-"test_preview.py::test_the_camera_can_only_go_off_with_the_mic_on" = { status = "todo" }
-"test_preview.py::test_the_idle_text_names_the_browser_while_a_browser_source_is_picked" = { status = "todo" }
+"test_preview.py::test_second_popout_request_reuses_visible_window" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_stream_start_and_stop_swap_the_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_the_camera_button_turns_the_camera_off_and_says_so" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_the_camera_can_only_go_off_with_the_mic_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_the_idle_text_names_the_browser_while_a_browser_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "test_preview.py::test_the_popout_pans_zooms_and_shows_boxes_too" = { status = "todo" }
-"test_preview.py::test_the_preview_copy_is_never_scaled_above_the_stream" = { status = "todo" }
+"test_preview.py::test_the_preview_copy_is_never_scaled_above_the_stream" = { status = "ported", rust = "rust/crates/shell/src/preview.rs" }
 "test_preview.py::test_the_skeleton_button_only_shows_with_the_vision_download" = { status = "todo" }
 "test_preview.py::test_the_skeleton_draws_the_shown_streams_people_over_the_preview" = { status = "todo" }
 "test_preview.py::test_the_skeleton_follows_the_zoom_and_marks_an_arm_held_out" = { status = "todo" }
@@ -4116,7 +4116,7 @@
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }
 "test_stream.py::test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay" = { status = "todo" }
-"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "todo" }
+"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "test_stream.py::test_stream_reader_accumulates_bytes_from_successful_reads" = { status = "todo" }
@@ -5601,8 +5601,8 @@
 # ── presets
 "device.presets.presets" = { status = "todo" }
 # ── preview
-"global.preview.lens_boxes" = { status = "todo" }
-"global.preview.skeleton" = { status = "todo" }
+"global.preview.lens_boxes" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"global.preview.skeleton" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs", note = "saved off until vision is ported, as Python saves a hidden button" }
 # ── privacy_blur
 "global.privacy_blur.mode" = { status = "todo" }
 "global.privacy_blur.on" = { status = "todo" }
@@ -5750,8 +5750,8 @@
 "presets.cycle" = { status = "todo" }
 # ── preview
 "preview.lens_outlines" = { status = "todo" }
-"preview.pop_out" = { status = "todo" }
-"preview.show_hide" = { status = "todo" }
+"preview.pop_out" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"preview.show_hide" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "preview.skeleton" = { status = "todo" }
 # ── privacy_blur
 "privacy_blur.auto" = { status = "todo" }

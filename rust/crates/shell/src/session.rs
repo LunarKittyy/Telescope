@@ -204,6 +204,10 @@ pub trait SourceKind {
     fn opener(&self) -> Option<crate::worker::Opener> {
         None
     }
+    /// What the stream says while it waits to try again, when the source has its own words for it.
+    fn waiting_text(&self) -> Option<crate::worker::WaitingText> {
+        None
+    }
     fn as_phone(&self) -> Option<&crate::sources::PhoneKind> {
         None
     }

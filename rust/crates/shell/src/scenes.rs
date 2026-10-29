@@ -26,7 +26,14 @@ pub enum Page {
     /// The type name of the component that frames the popup, and of the one that opens it at its own top left (positions
     /// inside a popup start from the popup).
     Dialog { frame: String, owner: String },
+    /// One plugin's card alone, CARD_WIDTH wide with CARD_MARGIN around it, as translation_scenes_audio.show_card and
+    /// the other card scenes draw a card's panel in a widget of its own.
+    Card { plugin: String },
 }
+
+/// The card scenes' widget: 480 px wide, the card inside it 16 px in from every edge.
+pub const CARD_WIDTH: f32 = 480.0;
+pub const CARD_MARGIN: f32 = 16.0;
 
 /// How to put the window in a scene's state.
 pub struct Setup {
@@ -130,6 +137,20 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }
     let picture = match &setup.page {
         Page::Window => grown(&w, setup.width, setup.height, scale),
+        Page::Card { plugin } => {
+            if !w.only_card(plugin) {
+                return Err(format!("{plugin} has no card"));
+            }
+            settle(&w);
+            // One column at this width; the column keeps room for its scrollbar, so widen the window by what the card lacks
+            grown(&w, CARD_WIDTH, setup.height, scale).ok_or("nothing drawn")?;
+            let lack = w.card_rect(plugin).map_or(0.0, |(_, _, cw, _)| CARD_WIDTH - 2.0 * CARD_MARGIN - cw);
+            grown(&w, CARD_WIDTH + lack, setup.height, scale).and_then(|p| {
+                let (x, y, cw, ch) = w.card_rect(plugin)?;
+                let m = CARD_MARGIN;
+                crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)
+            })
+        }
         Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w, &p, frame, owner, scale)),
         Page::Settings(tab) => {
             let settings = crate::settings::build(&w)?;
@@ -203,9 +224,14 @@ fn cut_out(w: &window::Window, picture: &crate::offscreen::Picture, frame: &str,
     let (mut pos, size) = (found.absolute_position(), found.size());
     pos.x += at.x;
     pos.y += at.y;
-    let px = |v: f32| (v * scale).round().max(0.0) as u32;
-    let (x, y) = (px(pos.x).min(picture.width), px(pos.y).min(picture.height));
-    let (width, height) = (px(size.width).min(picture.width - x), px(size.height).min(picture.height - y));
+    crop(picture, pos.x * scale, pos.y * scale, size.width * scale, size.height * scale)
+}
+
+/// The part of picture in this rectangle, in its pixels (clamped to the picture).
+fn crop(picture: &crate::offscreen::Picture, x: f32, y: f32, w: f32, h: f32) -> Option<crate::offscreen::Picture> {
+    let px = |v: f32| v.round().max(0.0) as u32;
+    let (x, y) = (px(x).min(picture.width), px(y).min(picture.height));
+    let (width, height) = (px(w).min(picture.width - x), px(h).min(picture.height - y));
     let mut rgba = Vec::with_capacity((width * height * 4) as usize);
     for row in y..y + height {
         let start = ((row * picture.width + x) * 4) as usize;

@@ -45,6 +45,12 @@ pub enum Effect {
     PhoneControl { source_id: Option<String>, body: Value },
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
+    /// Host::update_stream_output: a new size or rate for a stream's camera (the focused one's without an id).
+    UpdateOutput { change: telescope_core::host::OutputChange, source_id: Option<String> },
+    /// Host::make_main: the mic and the plugins that stay with it move to this stream.
+    MakeMain(String),
+    /// Host::open_url: a link for the browser.
+    OpenUrl(String),
     Quit,
     Restart,
     KeepInTray(bool),
@@ -64,6 +70,21 @@ pub struct Streams {
     pub camera_off: bool,
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
+    /// (id, name) of the stream the mic follows, and the ids of every stream that's up.
+    pub main: Option<(String, String)>,
+    pub live: Vec<String>,
+    /// Stop all is under way: nothing becomes the main stream meanwhile.
+    pub stopping_all: bool,
+    /// Which camera each stream that's up feeds, as other apps list it, and the size it opened at.
+    pub cameras: Vec<CameraUse>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CameraUse {
+    pub source_id: String,
+    pub slot: u32,
+    pub label: String,
+    pub size: Option<(u32, u32)>,
 }
 
 /// Posts waiting for the host thread, and how to wake it.
@@ -759,4 +780,42 @@ mod tests {
         s.deliver_events(); // both post from a thread; each hears its own
         assert_eq!(*heard.lock().unwrap(), ["connection from_thread", "other from_thread"]);
     }
+
+    #[test]
+    fn a_plugins_link_goes_to_the_browser() {
+        let mut s = state();
+        s.register(Box::new(Hears("microphone".into(), Arc::default()))).unwrap();
+        s.call(0, |_, host| telescope_core::host::HostShell::open_url(host, "https://vb-audio.com/Cable/"));
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::OpenUrl(u) if u == "https://vb-audio.com/Cable/")));
+    }
+
+
+    #[test]
+    fn make_main_moves_the_mic_only_onto_a_stream_thats_up() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(Box::new(Hears("microphone".into(), Arc::default()))).unwrap();
+        s.streams.live = vec!["a".into(), "b".into()];
+        s.streams.main = Some(("a".into(), "Pixel 8".into()));
+        assert_eq!(s.call(0, |_, host| host.main_stream()).flatten(), Some(("a".to_string(), "Pixel 8".to_string())));
+        assert_eq!(s.call(0, |_, host| (host.make_main("b"), host.make_main("gone"))), Some((true, false)));
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::MakeMain(id) if id == "b")));
+        s.streams.stopping_all = true;
+        assert_eq!(s.call(0, |_, host| host.make_main("b")), Some(false));
+    }
+
+
+    #[test]
+    fn stream_output_plugins_reach_the_streams_camera_and_worker() {
+        use telescope_core::host::{HostStreams, OutputChange};
+        let mut s = state();
+        s.register(Box::new(Hears("stream_output".into(), Arc::default()))).unwrap();
+        s.streams.cameras = vec![CameraUse { source_id: "phone-1".into(), slot: 0, label: "Phone Camera".into(), size: Some((1920, 1080)) }];
+        let answers = s.call(0, |_, host| (host.stream_output("phone-1"), host.stream_on_camera(0), host.stream_on_camera(1)));
+        assert_eq!(answers, Some(("Phone Camera".to_string(), Some(("phone-1".to_string(), Some(1920), Some(1080))), None)));
+        let change = OutputChange { width: None, height: None, fps: Some(Some(60)) };
+        s.call(0, |_, host| host.update_stream_output(change.clone(), None));
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change: c, source_id: None } if c.fps == Some(Some(60)))));
+    }
+
 }

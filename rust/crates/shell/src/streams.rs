@@ -165,6 +165,19 @@ impl Window {
             st.streams.starting = s.is_starting();
             st.streams.restarting = s.restarting;
             st.streams.source_id = s.focus.as_ref().map(|f| f.id_str().to_string());
+            st.streams.main = flow.main_stream();
+            st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
+            st.streams.stopping_all = s.stopping_all;
+            let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
+            st.streams.cameras = s.streams.iter().filter(|x| x.has_session()).map(|src| {
+                let slot = src.slot();
+                crate::shell::CameraUse {
+                    source_id: src.id_str().to_string(),
+                    slot,
+                    label: labels.iter().find(|l| l.slot == slot).map(|l| l.name.clone()).unwrap_or_default(),
+                    size: self.worker_of(src).and_then(|w| w.inner.camera_size()),
+                }
+            }).collect();
             if s.streams.is_empty() {
                 st.streams.phone_state = None;
             }
@@ -191,6 +204,24 @@ impl Window {
     pub(crate) fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
         let workers = self.streams.workers.borrow();
         workers.iter().find(|w| w.live.get()).and_then(|w| w.inner.slot().latest())
+    }
+
+    /// The worker a source's session streams through, while it has one.
+    fn worker_of(&self, src: &crate::session::Source) -> Option<Rc<ShellWorker>> {
+        let worker = src.session()?.worker?;
+        self.streams.workers.borrow().iter().find(|x| Rc::as_ptr(x) as *const () == Rc::as_ptr(&worker) as *const ()).cloned()
+    }
+
+    /// Host::update_stream_output: the new size or rate goes to that stream's worker (the focused one without an id).
+    pub(crate) fn update_output(self: &Rc<Self>, change: &telescope_core::host::OutputChange, source_id: Option<&str>) {
+        let flow = self.streams.flow.borrow();
+        let source = match source_id {
+            Some(id) => flow.sessions.find(Some(id)),
+            None => flow.sessions.focus.clone(),
+        };
+        if let Some(w) = source.and_then(|s| self.worker_of(&s)) {
+            w.inner.update_output(change.width, change.height, change.fps.flatten());
+        }
     }
 
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
@@ -263,6 +294,9 @@ impl Window {
                 let slot = source.slot();
                 {
                     let st = &mut *self.state.borrow_mut();
+                    if let Some(c) = st.streams.cameras.iter_mut().find(|c| c.source_id == source.id_str()) {
+                        c.size = Some((w, h));
+                    }
                     if slot == 0 {
                         st.bus.emit(Event::VcamOpened { width: w, height: h });
                     }
@@ -521,7 +555,7 @@ impl Window {
                 };
                 let Some(phone) = source.kind.as_phone() else { return };
                 let url = session.video_url();
-                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video()) };
+                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video().map(crate::worker::Opened::from)) };
                 if let Some(controls) = session.controls() {
                     controls.retarget(&session.stream_base()); // the same client, so its settings carry on
                 }
@@ -866,7 +900,7 @@ impl FlowHost for Host<'_> {
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
-                                  plugin_source: source.kind.as_phone().is_none() };
+                                  plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text() };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
