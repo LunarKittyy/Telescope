@@ -2,7 +2,28 @@
 //! phone is paired.
 
 use serde_json::Value;
+use std::sync::Arc;
+use telescope_core::frame::Frame;
+use telescope_core::media::Media;
 use telescope_core::Event;
+
+/// Reads a picture file (a PNG, JPEG, WebP or BMP) into a frame. The binary makes one from its Media.
+pub type PictureReader = Arc<dyn Fn(&str) -> Result<Frame, String> + Send + Sync>;
+
+/// pictures.read_picture: a file's picture through this Media, or why not.
+pub fn picture_reader(media: Arc<dyn Media>) -> PictureReader {
+    Arc::new(move |path| media.decode_picture(&std::fs::read(path).map_err(|e| e.to_string())?))
+}
+
+/// A reader for a plugin made without a Media: every picture fails to open.
+pub fn no_pictures() -> PictureReader {
+    Arc::new(|_| Err("no picture reader".into()))
+}
+
+/// A colour as "#rrggbb".
+pub fn hex(rgb: [u8; 3]) -> String {
+    format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2])
+}
 
 /// float(value) as Python does it for what a settings file can hold: numbers, booleans and numeric strings.
 pub fn py_float(value: &Value) -> Option<f64> {

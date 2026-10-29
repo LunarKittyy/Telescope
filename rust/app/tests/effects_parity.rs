@@ -5,12 +5,14 @@
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use std::sync::Arc;
 use telescope_core::colour::ColourPipeline;
 use telescope_core::frame::{Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
 use telescope_core::host::View;
 use telescope_core::media::{Media, StagedStep};
 use telescope_core::plugin::Plugin;
 use telescope_core::view;
+use telescope_effects::chroma_key::{chroma_of, key_tables, keyable, ChromaKeyPlugin};
 use telescope_effects::colour_grading::{ColourGradingPlugin, OWNER};
 use telescope_effects::transforms::TransformsPlugin;
 
@@ -171,6 +173,7 @@ fn settings_load_and_save_as_python_does() {
         let mut plugin: Box<dyn Plugin> = match case["plugin"].as_str().unwrap() {
             "colour_grading" => Box::new(ColourGradingPlugin::new()),
             "transforms" => Box::new(TransformsPlugin::new()),
+            "chroma_key" => Box::new(ChromaKeyPlugin::new()),
             other => panic!("{other}"),
         };
         plugin.set_config(&case["input"]).unwrap();
@@ -188,4 +191,57 @@ fn the_cards_say_they_are_what_python_says() {
     assert_eq!((g.name.as_str(), g.category.as_str(), g.icon.as_str(), g.optional, g.in_presets, g.device_local), ("colour_grading", "look", "colour", true, true, true));
     assert_eq!((t.name.as_str(), t.category.as_str(), t.icon.as_str(), t.pinned, t.in_presets, t.device_local), ("transforms", "camera", "crop", true, true, true));
     assert_eq!(json!(g.frame_stage), json!("effects"));
+}
+
+/// How close the key's picture has to be: the matte is looked up in the very tables Python uses and only the scaling around it
+/// differs (OpenCV's fixed-point resize against the card's float), which only shows where a table has a cliff.
+const CHROMA_MAX: u32 = 16;
+const CHROMA_MEAN: f64 = 0.1;
+const CHROMA_OVER: f64 = 0.005;
+
+#[test]
+fn the_key_makes_the_same_picture_as_python() {
+    if !gpu_here() {
+        return;
+    }
+    let chroma = json_of("chroma.json");
+    let media: Arc<dyn Media> = Arc::new(telescope_media::FfmpegMedia);
+    let mut results = Vec::new();
+    for case in chroma["cases"].as_array().unwrap() {
+        let mut plugin = ChromaKeyPlugin::with_reader(telescope_effects::shared::picture_reader(media.clone()));
+        let mut cfg = with_fixtures(&case["config"]);
+        cfg["on"] = json!(true);
+        plugin.set_config(&cfg).unwrap();
+        let step = plugin.frame_step().expect("a key");
+        let (w, h) = (case["width"].as_u64().unwrap() as u32, case["height"].as_u64().unwrap() as u32);
+        let scene = picture(case["scene"].as_str().unwrap(), w, h);
+        let got = run(vec![StagedStep { owner: "chroma_key".into(), stage: FrameStage::Background, step }], scene);
+        let want = picture(case["file"].as_str().unwrap(), w, h);
+        let g = gap(&got, &want, 4);
+        eprintln!("{:<40} max {:>3} mean {:.3} over {:.4}", case["name"].as_str().unwrap(), g.max, g.mean, g.over);
+        results.push((case["name"].as_str().unwrap().to_string(), g));
+    }
+    for (name, g) in &results {
+        assert!(g.max <= CHROMA_MAX && g.mean <= CHROMA_MEAN && g.over <= CHROMA_OVER, "{name}: {g:?}");
+    }
+}
+
+#[test]
+fn the_keys_tables_are_pythons_to_the_last_entry() {
+    let chroma = json_of("chroma.json");
+    for p in chroma["probes"].as_array().unwrap() {
+        let bgr: Vec<u8> = p["bgr"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+        let bgr = [bgr[0], bgr[1], bgr[2]];
+        let (cb, cr) = chroma_of(bgr);
+        assert_eq!((json!(cb), json!(cr)), (p["chroma"][0].clone(), p["chroma"][1].clone()), "{bgr:?}");
+        assert_eq!(keyable(bgr), p["keyable"].as_bool().unwrap(), "{bgr:?}");
+    }
+    for t in chroma["tables"].as_array().unwrap() {
+        let key: Vec<u8> = t["key"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+        let n = |k: &str| t[k].as_i64().unwrap();
+        let got = key_tables([key[0], key[1], key[2]], n("tolerance"), n("softness"), n("spill"));
+        let differ = |a: &[u8], b: &str| a.iter().zip(b.as_bytes().chunks(2)).filter(|(x, y)| format!("{x:02x}").as_bytes() != *y).count();
+        let (a, cr, cb) = (differ(&got.alpha, t["alpha"].as_str().unwrap()), differ(&got.cr, t["cr"].as_str().unwrap()), differ(&got.cb, t["cb"].as_str().unwrap()));
+        assert_eq!((a, cr, cb), (0, 0, 0), "entries that differ for {} {} {} {}", t["key"], t["tolerance"], t["softness"], t["spill"]);
+    }
 }

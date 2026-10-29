@@ -164,11 +164,91 @@ def grades() -> list:
     return out
 
 
+def screen_scene(w: int, h: int, screen) -> np.ndarray:
+    """A BGR green or blue screen with creases, a skin block, a green-lit edge, a grey block and a little noise."""
+    rng = np.random.default_rng(5)
+    img = np.empty((h, w, 3), np.float32)
+    img[:] = screen
+    shade = np.linspace(-14, 10, w, dtype=np.float32)[None, :, None]
+    img += shade * np.array([0.4, 1.0, 0.4], np.float32)
+    img[h // 8:h // 3, w // 10:w // 4] += np.array([-20, 22, -20], np.float32)
+    img[h // 4:h * 7 // 8, w // 3:w * 2 // 3] = (120, 150, 210)
+    img[h // 3:h // 2, w * 2 // 3 - 4:w * 2 // 3 + 6] = (110, 170, 140)
+    img[h * 2 // 3:h * 5 // 6, w * 3 // 4:w * 7 // 8] = (128, 128, 128)
+    img[h // 2:h * 3 // 5, w // 3 + 6:w // 3 + 20] = (40, 40, 220)
+    img += rng.normal(0, 3, img.shape)
+    img = np.clip(img, 0, 255).astype(np.uint8)
+    return cv2.GaussianBlur(img, (3, 3), 0.8)
+
+
+def backdrops() -> dict:
+    """Pictures to put behind the person: one smaller than the frame and one a good deal bigger and of another shape."""
+    small = np.zeros((30, 40, 3), np.uint8)
+    small[..., 0] = np.linspace(0, 255, 40, dtype=np.uint8)[None, :]
+    small[..., 1] = np.linspace(255, 0, 30, dtype=np.uint8)[:, None]
+    small[..., 2] = 90
+    big = np.zeros((300, 240, 3), np.uint8)
+    for i in range(0, 300, 20):
+        big[i:i + 10, :, 2] = 200
+    for j in range(0, 240, 30):
+        big[:, j:j + 15, 0] = 180
+    big[100:200, 80:160] = (30, 220, 240)
+    out = {}
+    for name, img in (("backdrop_small.png", small), ("backdrop_big.png", big)):
+        cv2.imwrite(str(HERE / name), img)
+        out[name] = cv2.imread(str(HERE / name))
+    return out
+
+
+def chroma() -> dict:
+    """The Chroma key's picture for a few scenes and settings: the screen swapped for a colour or a picture."""
+    from telescope.plugins.chroma_key import Settings, SCREENS, key, key_tables
+    pics = backdrops()
+    scenes = {"chroma_green.rgba": screen_scene(96, 64, (60, 180, 50)), "chroma_blue.rgba": screen_scene(95, 63, (190, 80, 20)),
+              "chroma_wide.rgba": screen_scene(160, 90, (60, 180, 50))}
+    for file, scene in scenes.items():
+        (HERE / file).write_bytes(rgba(scene))
+    cases = [
+        ("the default green key on a colour", "chroma_green.rgba", {"screen": "green"}),
+        ("a tight key", "chroma_green.rgba", {"screen": "green", "tolerance": 5, "softness": 0, "spill": 0}),
+        ("a loose soft key", "chroma_green.rgba", {"screen": "green", "tolerance": 85, "softness": 90, "spill": 100}),
+        ("no spill removal", "chroma_green.rgba", {"screen": "green", "spill": 0}),
+        ("a picked colour", "chroma_green.rgba", {"screen": "picked", "picked": [70, 175, 60]}),
+        ("a blue screen at an odd size", "chroma_blue.rgba", {"screen": "blue"}),
+        ("a pale colour behind", "chroma_green.rgba", {"screen": "green", "colour": [230, 220, 200]}),
+        ("a small picture behind", "chroma_green.rgba", {"screen": "green", "background": "picture", "picture": "@fixtures/backdrop_small.png"}),
+        ("a big picture behind", "chroma_wide.rgba", {"screen": "green", "background": "picture", "picture": "@fixtures/backdrop_big.png"}),
+        ("a picture that can't open", "chroma_green.rgba", {"screen": "green", "background": "picture", "picture": "@fixtures/missing.png"}),
+    ]
+    out = []
+    for i, (name, scene, cfg) in enumerate(cases):
+        frame = scenes[scene]
+        screen = cfg.get("screen", "green")
+        picked = cfg.get("picked")
+        colour = next(bgr for k, _t, bgr in SCREENS if k == screen) if screen != "picked" else tuple(picked)
+        tables = key_tables(colour, cfg.get("tolerance", 40), cfg.get("softness", 30), cfg.get("spill", 60))
+        picture = pics.get(Path(cfg.get("picture", "")).name) if cfg.get("background") == "picture" else None
+        settings = Settings(True, tables, cfg.get("background", "colour"), tuple(cfg.get("colour", (40, 34, 30))), picture)
+        keyed = key(frame, settings)
+        file = f"chroma_{i:02d}.rgba"
+        (HERE / file).write_bytes(rgba(keyed))
+        out.append({"name": name, "scene": scene, "width": frame.shape[1], "height": frame.shape[0], "config": cfg, "file": file})
+    from telescope.plugins.chroma_key import chroma_of, keyable
+    colours = [[60, 180, 50], [190, 80, 20], [160, 40, 150], [128, 128, 128], [0, 0, 0], [255, 255, 255], [12, 200, 90], [200, 10, 10], [5, 5, 40], [250, 240, 230]]
+    probes = [{"bgr": c, "chroma": list(chroma_of(c)), "keyable": keyable(c)} for c in colours]
+    tabs = []
+    for key_bgr, t, s, sp in (((60, 180, 50), 40, 30, 60), ((190, 80, 20), 90, 0, 100), ((160, 40, 150), 0, 100, 0), ((70, 175, 60), 55, 45, 30)):
+        a, cr, cb = key_tables(key_bgr, t, s, sp)
+        tabs.append({"key": list(key_bgr), "tolerance": t, "softness": s, "spill": sp, "alpha": a.tobytes().hex(), "cr": cr.tobytes().hex(), "cb": cb.tobytes().hex()})
+    return {"cases": out, "probes": probes, "tables": tabs}
+
+
 def configs() -> list:
     """Settings as saved, and what each plugin makes of them: set_config(input), then get_config()."""
     from PyQt6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
     from telescope.plugin import EventBus
+    from telescope.plugins.chroma_key import ChromaKeyPlugin
     from telescope.plugins.colour_grading import ColourGradingPlugin
     from telescope.plugins.transforms import TransformsPlugin
 
@@ -235,6 +315,15 @@ def configs() -> list:
         {"rotation": "sideways", "stretch_x": 0.333, "stretch_y": 1.999},
         {"zoom": 50, "pan_x": -9, "pan_y": 0.123456},
     ])
+    run(ChromaKeyPlugin, "chroma_key", [
+        {},
+        {"on": True, "screen": "picked", "picked": [160, 40, 150], "tolerance": 70, "softness": 10, "spill": 0, "background": "colour", "colour": [1, 2, 3], "picture": ""},
+        {"screen": "picked", "picked": [128, 128, 128], "tolerance": 500, "colour": "red", "background": "video"},
+        {"screen": "blue", "picked": [1.5, 2, 3], "colour": [1, 2, 300], "on": 1, "softness": "12", "spill": None},
+        {"picked": [True, 2, 3], "colour": [-1, 0, 0], "tolerance": -4, "softness": 12.7, "spill": "x", "picture": 7},
+        {"on": "yes", "screen": "sepia", "background": "picture", "picture": "/nowhere/pic.png"},
+        {"screen": "picked", "picked": [0, 0, 255], "colour": [255, 255, 255, 255], "tolerance": [1]},
+    ])
     return out
 
 
@@ -245,6 +334,7 @@ def main():
     (HERE / "views.json").write_text(json.dumps({**manifest, "cases": views()}, indent=1, allow_nan=True))
     (HERE / "colours.json").write_text(json.dumps({**manifest, "cases": grades()}, indent=1))
     (HERE / "configs.json").write_text(json.dumps(configs(), indent=1, allow_nan=True))
+    (HERE / "chroma.json").write_text(json.dumps(chroma(), indent=1))
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::SlintSource;
+use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 
@@ -44,4 +45,9 @@ fn the_colour_grading_card_compiles() {
 #[test]
 fn the_transforms_card_compiles() {
     compile(&mut TransformsPlugin::new());
+}
+
+#[test]
+fn the_chroma_key_card_compiles() {
+    compile(&mut ChromaKeyPlugin::new());
 }
