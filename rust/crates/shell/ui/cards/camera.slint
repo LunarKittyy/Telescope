@@ -82,6 +82,10 @@ export component CameraCard inherits Card {
     in property <int> ae-max: 8;
     in property <float> ae-step: 0.167;
     in-out property <int> wb-mode;
+    // The lens takes manual white balance (supportsManualWB); Qt's button is enabled until a lens says it can't
+    in property <bool> manual-wb-ok: true;
+    in-out property <float> kelvin: 5500;
+    in-out property <float> tint: 0;
     in-out property <int> focus-mode;
     in-out property <float> focus-pos;
     in property <bool> point-focus;
@@ -94,6 +98,7 @@ export component CameraCard inherits Card {
     callback lens-picked(string);
     callback control(string, float);
     callback manual-exposure(float, float);
+    callback manual-wb(float, float);
 
     property <float> iso: 50 * pow(6400 / 50, iso-pos);
     property <float> shutter-ns: 100000 * pow(10000, shutter-pos);
@@ -184,9 +189,37 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
-                disabled: [false, true];
+                disabled: [false, !manual-wb-ok];
                 current <=> wb-mode;
-                picked(i) => { control("wb_auto", 0); }
+                picked(i) => {
+                    if (i == 0) { control("wb_auto", 0); } else { manual-wb(kelvin, tint); }
+                }
+            }
+        }
+        if wb-mode == 1: FormRow {
+            label: @tr("Temperature");
+            Slider {
+                label: @tr("Temperature");
+                hue: root.hue;
+                minimum: 2000;
+                maximum: 10000;
+                step: 100;
+                value <=> kelvin;
+                readout: round(kelvin) + " K";
+                released => { manual-wb(kelvin, tint); }
+            }
+        }
+        if wb-mode == 1: FormRow {
+            label: @tr("Tint G–M");
+            Slider {
+                label: @tr("Tint G–M");
+                hue: root.hue;
+                minimum: -150;
+                maximum: 150;
+                step: 1;
+                value <=> tint;
+                readout: (tint >= 0 ? "+" : "") + round(tint);
+                released => { manual-wb(kelvin, tint); }
             }
         }
     }

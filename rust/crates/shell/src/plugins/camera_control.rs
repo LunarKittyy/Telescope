@@ -63,6 +63,10 @@ impl Plugin for CameraControl {
         let bodies = match event.callback.as_str() {
             "lens-picked" => vec![json!({"action": "camera", "id": s(0)})],
             "control" => vec![control_body(&s(0), n(1))],
+            "manual-wb" => {
+                let (r, g, b) = kelvin_to_rggb(n(0), n(1));
+                vec![json!({"action": "wb_gains", "r": r, "ge": g, "go": g, "b": b})]
+            }
             "manual-exposure" => vec![json!({"action": "iso", "value": n(0).round() as i64}),
                                       json!({"action": "shutter", "value": n(1).round() as i64})],
             _ => return,
@@ -71,6 +75,18 @@ impl Plugin for CameraControl {
             host.phone_control(None, &body);
         }
     }
+}
+
+/// Python's _WB_NEUTRAL: the temperature where the red and blue gains are equal.
+const WB_NEUTRAL: f64 = 5500.0;
+
+/// _kelvin_to_rggb: Camera2 channel gains (red, both greens, blue) for a temperature and a tint from -150 (green) to +150 (magenta).
+pub fn kelvin_to_rggb(kelvin: f64, tint: f64) -> (f64, f64, f64) {
+    let t = ((kelvin - WB_NEUTRAL) / WB_NEUTRAL).clamp(-1.0, 1.0);
+    let r = (2.0 * 2f64.powf(t)).max(0.3);
+    let b = (2.0 * 2f64.powf(-t)).max(0.3);
+    let g = (1.0 - tint / 500.0).clamp(0.5, 2.5);
+    (r, g, b)
 }
 
 /// One control from the card as the /v1/control body the phone takes.
@@ -117,6 +133,7 @@ pub fn card_props(state: &Value) -> Value {
         "lenses": cams.iter().map(lens_tile).collect::<Vec<_>>(),
         "current-lens": current,
         "exposure-mode": if b("auto", true) { 0 } else { 1 },
+        "wb-mode": if b("wb_manual", false) { 1 } else { 0 },
         "ae-comp": n("ae_comp", 0),
         "ois": b("ois", true),
         "black-level-lock": b("black_level_lock", false),
@@ -130,6 +147,11 @@ pub fn card_props(state: &Value) -> Value {
         props["ae-min"] = json!(i("aeCompMin", -8));
         props["ae-max"] = json!(i("aeCompMax", 8));
         props["ae-step"] = json!(cam.get("aeCompStep").and_then(Value::as_f64).unwrap_or(0.167));
+        let manual_wb = cam.get("supportsManualWB").and_then(Value::as_bool).unwrap_or(true);
+        props["manual-wb-ok"] = json!(manual_wb);
+        if !manual_wb {
+            props["wb-mode"] = json!(0);
+        }
         props["point-focus"] = json!(cam.get("supportsFocusPoint").and_then(Value::as_bool).unwrap_or(false));
     }
     props
@@ -139,6 +161,22 @@ pub fn card_props(state: &Value) -> Value {
 mod tests {
     use super::*;
     use telescope_core::testing::FakeHost;
+
+    #[test]
+    fn white_balance_gains_follow_python() {
+        assert_eq!(kelvin_to_rggb(5500.0, 0.0), (2.0, 1.0, 2.0));
+        let (r, g, b) = kelvin_to_rggb(11000.0, 150.0);
+        assert_eq!((r, b), (4.0, 1.0));
+        assert!((g - 0.7).abs() < 1e-9);
+        assert_eq!(kelvin_to_rggb(2000.0, -2000.0).1, 2.5);
+    }
+
+    #[test]
+    fn a_lens_without_manual_white_balance_greys_manual_out() {
+        let p = card_props(&json!({"wb_manual": true, "cameras": [{"id": "0", "current": true, "supportsManualWB": false}]}));
+        assert_eq!((p["wb-mode"].as_i64(), p["manual-wb-ok"].as_bool()), (Some(0), Some(false)));
+        assert_eq!(card_props(&json!({"wb_manual": true}))["wb-mode"], 1);
+    }
 
     #[test]
     fn lens_labels_become_tiles() {
