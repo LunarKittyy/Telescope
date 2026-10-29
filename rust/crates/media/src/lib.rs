@@ -13,8 +13,14 @@ pub mod mjpeg;
 pub mod packets;
 pub mod pipeline;
 pub mod reader;
+#[cfg(test)]
+mod guard_alloc;
 #[cfg(all(test, ffmpeg))]
 mod testenc;
+
+#[cfg(test)]
+#[global_allocator]
+static ALLOC: guard_alloc::Guard = guard_alloc::Guard;
 
 use std::sync::{Arc, OnceLock};
 use telescope_core::frame::Frame;

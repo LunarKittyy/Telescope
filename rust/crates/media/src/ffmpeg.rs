@@ -354,10 +354,17 @@ pub fn decode_picture(bytes: &[u8]) -> Result<Frame, String> {
             if sws.is_null() {
                 return Err("can't convert that picture".into());
             }
-            let mut rgba = vec![0u8; (w * h * 4) as usize];
-            let dst = [rgba.as_mut_ptr(), ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
-            let dst_stride = [w * 4, 0, 0, 0];
+            // Written to a padded buffer, since swscale's SIMD loops run past the end of a tight one
+            let (row, stride) = ((w * 4) as usize, padded_stride((w * 4) as usize));
+            let mut padded = Padded::default();
+            let out = padded.reserve(stride * h as usize);
+            let dst = [out, ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
+            let dst_stride = [stride as i32, 0, 0, 0];
             ff::sws_scale(sws, (*frame).data.as_ptr() as *const *const u8, (*frame).linesize.as_ptr(), 0, h, dst.as_ptr(), dst_stride.as_ptr());
+            let mut rgba = vec![0u8; row * h as usize];
+            for (i, line) in rgba.chunks_exact_mut(row).enumerate() {
+                line.copy_from_slice(padded.bytes(i * stride, row));
+            }
             Ok(Frame::new(w as u32, h as u32, PixelFormat::Rgba, rgba))
         })();
         ff::sws_freeContext(sws);
@@ -368,9 +375,65 @@ pub fn decode_picture(bytes: &[u8]) -> Result<Frame, String> {
     }
 }
 
+/// Alignment and tail swscale's SIMD loops are allowed: they work in whole vectors, so they touch bytes past a row's end
+/// and past the last row.
+const SIMD_ALIGN: usize = 64;
+const SIMD_TAIL: usize = 64;
+
+/// A row length rounded up to what swscale's SIMD loops stride by.
+fn padded_stride(bytes: usize) -> usize {
+    bytes.next_multiple_of(SIMD_ALIGN)
+}
+
+/// A buffer swscale can run on: aligned, rows padded to a stride, a spare tail after the last row. Reused between calls.
+#[derive(Default)]
+struct Padded {
+    buf: Vec<u8>,
+    off: usize,
+}
+
+impl Padded {
+    /// An aligned pointer to len usable bytes with SIMD_TAIL more behind them.
+    fn reserve(&mut self, len: usize) -> *mut u8 {
+        let need = len + SIMD_TAIL + SIMD_ALIGN;
+        if self.buf.len() < need {
+            self.buf = vec![0; need];
+        }
+        self.off = self.buf.as_ptr().align_offset(SIMD_ALIGN);
+        // SAFETY: off is under SIMD_ALIGN and buf holds len + SIMD_TAIL bytes after it
+        unsafe { self.buf.as_mut_ptr().add(self.off) }
+    }
+
+    fn bytes(&self, from: usize, len: usize) -> &[u8] {
+        &self.buf[self.off + from..self.off + from + len]
+    }
+
+    /// Copies packed I420 planes in with padded rows; the pointers and strides swscale takes come back.
+    fn load_i420(&mut self, w: usize, h: usize, planes: (&[u8], &[u8], &[u8])) -> ([*const u8; 4], [i32; 4]) {
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let (ys, cs) = (padded_stride(w), padded_stride(cw));
+        let base = self.reserve(ys * h + 2 * cs * ch);
+        let mut ptrs = [ptr::null(); 4];
+        let mut at = 0;
+        for (i, (plane, pw, ph, stride)) in [(planes.0, w, h, ys), (planes.1, cw, ch, cs), (planes.2, cw, ch, cs)].into_iter().enumerate() {
+            // SAFETY: the planes sit one after another inside the len reserved above
+            unsafe {
+                ptrs[i] = base.add(at);
+                for row in 0..ph {
+                    ptr::copy_nonoverlapping(plane.as_ptr().add(row * pw), base.add(at + row * stride), pw);
+                }
+            }
+            at += stride * ph;
+        }
+        (ptrs, [ys as i32, cs as i32, cs as i32, 0])
+    }
+}
+
 /// I420 to RGB on the processor, scaled to the size the window shows it at: the preview when there's no graphics card.
 pub struct CpuScaler {
     sws: *mut ff::SwsContext,
+    src: Padded,
+    dst: Padded,
 }
 
 // SAFETY: used from one thread at a time
@@ -378,17 +441,20 @@ unsafe impl Send for CpuScaler {}
 
 impl Default for CpuScaler {
     fn default() -> Self {
-        CpuScaler { sws: ptr::null_mut() }
+        CpuScaler { sws: ptr::null_mut(), src: Padded::default(), dst: Padded::default() }
     }
 }
 
 impl CpuScaler {
     pub fn rgb(&mut self, frame: &Frame, out_w: u32, out_h: u32) -> Vec<u8> {
         let mut rgb = vec![0u8; (out_w * out_h * 3) as usize];
-        let Some((y, u, v)) = frame.i420_planes() else { return rgb };
+        let Some(planes) = frame.i420_planes() else { return rgb };
         let (w, h) = (frame.width as i32, frame.height as i32);
-        let cw = (w + 1) / 2;
-        // SAFETY: plane pointers and strides describe frame.data exactly; rgb holds out_w * out_h * 3 bytes
+        let (row, stride) = ((out_w * 3) as usize, padded_stride((out_w * 3) as usize));
+        // swscale runs on padded copies of both sides, then the picture is copied out tight
+        let (src, src_stride) = self.src.load_i420(w as usize, h as usize, planes);
+        let out = self.dst.reserve(stride * out_h as usize);
+        // SAFETY: src and out are padded buffers laid out as the strides say, with swscale's SIMD tail behind them
         unsafe {
             self.sws = ff::sws_getCachedContext(self.sws, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P, out_w as i32, out_h as i32,
                                                 ff::AVPixelFormat::AV_PIX_FMT_RGB24, ff::SwsFlags::SWS_BILINEAR as i32,
@@ -396,11 +462,12 @@ impl CpuScaler {
             if self.sws.is_null() {
                 return rgb;
             }
-            let src = [y.as_ptr(), u.as_ptr(), v.as_ptr(), ptr::null()];
-            let src_stride = [w, cw, cw, 0];
-            let dst = [rgb.as_mut_ptr(), ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
-            let dst_stride = [(out_w * 3) as i32, 0, 0, 0];
+            let dst = [out, ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
+            let dst_stride = [stride as i32, 0, 0, 0];
             ff::sws_scale(self.sws, src.as_ptr(), src_stride.as_ptr(), 0, h, dst.as_ptr(), dst_stride.as_ptr());
+        }
+        for (i, line) in rgb.chunks_exact_mut(row).enumerate() {
+            line.copy_from_slice(self.dst.bytes(i * stride, row));
         }
         rgb
     }
@@ -424,6 +491,37 @@ mod tests {
         assert_eq!(out.len(), 3 + ff::AV_INPUT_BUFFER_PADDING_SIZE as usize);
         assert_eq!(&out[..3], &[1, 2, 3]);
         assert!(out[3..].iter().all(|&b| b == 0));
+    }
+}
+
+#[cfg(test)]
+mod scaler_tests {
+    use super::*;
+    use crate::guard_alloc::overran;
+
+    /// A flat colour picture: Y, U and V all the same across it.
+    fn flat(w: u32, h: u32, yuv: (u8, u8, u8)) -> Frame {
+        let c = (w.div_ceil(2) * h.div_ceil(2)) as usize;
+        Frame::new(w, h, PixelFormat::I420, [vec![yuv.0; (w * h) as usize], vec![yuv.1; c], vec![yuv.2; c]].concat())
+    }
+
+    #[test]
+    fn scaling_stays_inside_its_buffers_at_awkward_widths() {
+        // Y 180, U 100, V 160 is a salmon pink in BT.601 limited range: R 242, G 176, B 134 give or take
+        // The size of the picture and the size it's drawn at: unscaled, shrunk and stretched
+        for (w, h, ow, oh) in [(638u32, 48u32, 638u32, 48u32), (637, 47, 637, 47), (641, 3, 641, 3), (33, 17, 33, 17), (638, 48, 321, 25), (99, 31, 203, 61)] {
+            let size = (ow * oh * 3) as usize;
+            let mut scaler = CpuScaler::default();
+            let rgb = scaler.rgb(&flat(w, h, (180, 100, 160)), ow, oh);
+            assert_eq!(rgb.len(), size);
+            for px in rgb.chunks_exact(3) {
+                let want = [242, 175, 134];
+                assert!(px.iter().zip(want).all(|(&a, b)| (a as i32 - b).abs() <= 3), "{w}x{h} to {ow}x{oh} came out {px:?}");
+            }
+            drop(rgb);
+            drop(scaler);
+            assert!(!overran(size), "{w}x{h} to {ow}x{oh}: swscale wrote past the end of the RGB buffer");
+        }
     }
 }
 
@@ -453,6 +551,39 @@ mod picture_tests {
         let f = decode_picture(&bmp()).unwrap();
         assert_eq!((f.width, f.height, f.format), (2, 1, PixelFormat::Rgba));
         assert_eq!(&f.data[..8], &[255, 0, 0, 255, 0, 0, 255, 255]);
+    }
+
+    /// A w x 3 BMP of one colour.
+    fn wide_bmp(w: usize, bgr: [u8; 3]) -> Vec<u8> {
+        let row = (w * 3).next_multiple_of(4);
+        let mut b = b"BM".to_vec();
+        b.extend_from_slice(&((54 + row * 3) as u32).to_le_bytes());
+        b.extend_from_slice(&[0; 4]);
+        b.extend_from_slice(&54u32.to_le_bytes());
+        b.extend_from_slice(&40u32.to_le_bytes());
+        b.extend_from_slice(&(w as i32).to_le_bytes());
+        b.extend_from_slice(&3i32.to_le_bytes());
+        b.extend_from_slice(&1u16.to_le_bytes());
+        b.extend_from_slice(&24u16.to_le_bytes());
+        b.extend_from_slice(&[0; 24]);
+        for _ in 0..3 {
+            let mut line: Vec<u8> = bgr.iter().copied().cycle().take(w * 3).collect();
+            line.resize(row, 0);
+            b.extend_from_slice(&line);
+        }
+        b
+    }
+
+    #[test]
+    fn a_wide_picture_reads_without_writing_past_its_buffer() {
+        for w in [637usize, 638, 641] {
+            let f = decode_picture(&wide_bmp(w, [10, 20, 30])).unwrap();
+            assert_eq!((f.width as usize, f.height), (w, 3));
+            assert!(f.data.chunks_exact(4).all(|p| p == [30, 20, 10, 255]));
+            let size = f.data.len();
+            drop(f);
+            assert!(!crate::guard_alloc::overran(size), "{w}: swscale wrote past the end of the RGBA buffer");
+        }
     }
 
     #[test]
