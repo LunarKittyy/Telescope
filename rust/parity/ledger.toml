@@ -2640,7 +2640,7 @@
 "test_connection.py::test_config_round_trips_and_keeps_the_computer_identity" = { status = "ported", rust = "rust/crates/link/src/connection.rs::config_round_trips_and_keeps_the_computer_identity", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_dynamic_keeps_udp_on_a_phone_that_runs_it_there" = { status = "ported", rust = "rust/crates/link/src/connection.rs::dynamic_keeps_udp_on_a_phone_that_runs_it_there", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone" = { status = "ported", rust = "rust/crates/link/src/connection.rs::dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_each_phone_keeps_its_own_settings" = { status = "todo" }
+"test_connection.py::test_each_phone_keeps_its_own_settings" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::selecting_another_phone_switches_its_settings_profile" }
 "test_connection.py::test_empty_state_is_just_the_status" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::empty_state_is_just_the_status" }
 "test_connection.py::test_ensure_streaming_after_a_stop_joins_a_stream_that_doesnt_end" = { status = "ported", rust = "rust/crates/link/src/connection.rs::ensure_streaming_after_a_stop_joins_a_stream_that_doesnt_end", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_ensure_streaming_asks_the_phone_to_open_at_the_size_picked" = { status = "ported", rust = "rust/crates/link/src/connection.rs::ensure_streaming_asks_the_phone_to_open_at_the_size_picked", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -2717,25 +2717,25 @@
 "test_connection.py::test_udp_switch_reconnects_a_running_wifi_stream" = { status = "ported", rust = "rust/crates/link/src/connection.rs::udp_switch_reconnects_a_running_wifi_stream", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_usb_that_dropped_a_stream_isnt_handed_straight_back_to" = { status = "ported", rust = "rust/crates/link/src/connection.rs::usb_that_dropped_a_stream_isnt_handed_straight_back_to", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_waiting_to_start_when_ready_keeps_checking_the_phone_while_hidden" = { status = "ported", rust = "rust/crates/link/src/connection.rs::waiting_to_start_when_ready_keeps_checking_the_phone_while_hidden", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection_dialogs.py::test_a_failed_adb_download_says_why_and_offers_another_go" = { status = "todo" }
-"test_connection_dialogs.py::test_a_picked_phone_gets_the_pairing_offer_over_usb" = { status = "todo" }
-"test_connection_dialogs.py::test_a_plugged_in_phone_waits_to_be_picked" = { status = "todo" }
-"test_connection_dialogs.py::test_a_scanned_phone_pairs_while_another_is_plugged_in" = { status = "todo" }
+"test_connection_dialogs.py::test_a_failed_adb_download_says_why_and_offers_another_go" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_failed_adb_download_says_why_and_offers_another_go" }
+"test_connection_dialogs.py::test_a_picked_phone_gets_the_pairing_offer_over_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_picked_phone_gets_the_pairing_offer_over_usb" }
+"test_connection_dialogs.py::test_a_plugged_in_phone_waits_to_be_picked" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
+"test_connection_dialogs.py::test_a_scanned_phone_pairs_while_another_is_plugged_in" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_scanned_phone_pairs_while_another_is_plugged_in" }
 "test_connection_dialogs.py::test_an_adb_download_that_ends_after_closing_doesn_t_poll_usb" = { status = "todo" }
-"test_connection_dialogs.py::test_an_unauthorized_phone_asks_for_the_debugging_prompt" = { status = "todo" }
-"test_connection_dialogs.py::test_buttons_name_the_phone_as_it_names_itself" = { status = "todo" }
-"test_connection_dialogs.py::test_closing_stops_the_pairing_server" = { status = "todo" }
+"test_connection_dialogs.py::test_an_unauthorized_phone_asks_for_the_debugging_prompt" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
+"test_connection_dialogs.py::test_buttons_name_the_phone_as_it_names_itself" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
+"test_connection_dialogs.py::test_closing_stops_the_pairing_server" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::closing_stops_the_pairing_server" }
 "test_connection_dialogs.py::test_lots_of_phones_scroll_instead_of_growing_the_dialog" = { status = "todo" }
 "test_connection_dialogs.py::test_on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" = { status = "todo" }
 "test_connection_dialogs.py::test_plugging_in_after_it_opened_grows_the_dialog_to_fit" = { status = "todo" }
-"test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders" = { status = "todo" }
+"test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::qr_widget_builds_matrix_and_renders" }
 "test_connection_dialogs.py::test_reopened_mid_download_it_says_so_instead_of_offering_it_again" = { status = "todo" }
-"test_connection_dialogs.py::test_shows_a_qr_code_when_the_computer_is_on_a_network" = { status = "todo" }
-"test_connection_dialogs.py::test_success_shows_the_phone_and_hands_the_result_over" = { status = "todo" }
-"test_connection_dialogs.py::test_unplugging_the_picked_phone_forgets_the_pick" = { status = "todo" }
-"test_connection_dialogs.py::test_with_several_phones_plugged_in_only_the_picked_one_pairs" = { status = "todo" }
-"test_connection_dialogs.py::test_without_a_network_it_steers_to_usb" = { status = "todo" }
-"test_connection_dialogs.py::test_without_adb_usb_says_so" = { status = "todo" }
+"test_connection_dialogs.py::test_shows_a_qr_code_when_the_computer_is_on_a_network" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::add_phone_request_on_the_bus_opens_pairing" }
+"test_connection_dialogs.py::test_success_shows_the_phone_and_hands_the_result_over" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_phone_that_scans_the_code_is_added_and_the_dialog_says_so" }
+"test_connection_dialogs.py::test_unplugging_the_picked_phone_forgets_the_pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::unplugging_the_picked_phone_forgets_the_pick" }
+"test_connection_dialogs.py::test_with_several_phones_plugged_in_only_the_picked_one_pairs" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::with_several_phones_plugged_in_only_the_picked_one_pairs" }
+"test_connection_dialogs.py::test_without_a_network_it_steers_to_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::without_a_network_it_steers_to_usb" }
+"test_connection_dialogs.py::test_without_adb_usb_says_so" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::without_adb_usb_says_so" }
 # ── denoise
 "test_denoise.py::test_a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on" = { status = "todo" }
 "test_denoise.py::test_a_library_that_wont_load_says_why" = { status = "todo" }

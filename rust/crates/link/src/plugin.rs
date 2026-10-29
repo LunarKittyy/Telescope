@@ -1275,13 +1275,15 @@ mod tests {
         unpaired: Mutex<Vec<String>>,
         install: Mutex<Result<(), String>>,
         offer: Mutex<Option<Arc<FakeOffer>>>,
+        adb: Mutex<bool>,
+        offline: Mutex<bool>,
     }
 
     impl FakeLink {
         fn new() -> Arc<FakeLink> {
             Arc::new(FakeLink {
                 answer: Mutex::new(Resolution::new(PhoneStatus::Unreachable)), unpaired: Mutex::default(),
-                install: Mutex::new(Ok(())), offer: Mutex::default(),
+                install: Mutex::new(Ok(())), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
             })
         }
 
@@ -1293,6 +1295,8 @@ mod tests {
     #[derive(Default)]
     struct FakeOffer {
         paired: Mutex<Option<PairedPhone>>,
+        offline: bool,
+        offered: Mutex<Vec<String>>,
     }
 
     impl PairingOffer for FakeOffer {
@@ -1303,13 +1307,17 @@ mod tests {
             8765
         }
         fn addresses(&self) -> Vec<String> {
-            vec!["192.168.1.2".into()]
+            if self.offline { Vec::new() } else { vec!["192.168.1.2".into()] }
         }
         fn offer_over_usb(&self, _package: &str) -> usize {
             0
         }
         fn poll(&self) -> Option<PairedPhone> {
             self.paired.lock().unwrap().take()
+        }
+        fn offer_to(&self, serial: &str, _package: &str) -> bool {
+            self.offered.lock().unwrap().push(serial.to_string());
+            true
         }
     }
 
@@ -1321,7 +1329,7 @@ mod tests {
             Err(Unreachable::NoAnswer)
         }
         fn pair(&self, _cid: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
-            let offer = Arc::new(FakeOffer::default());
+            let offer = Arc::new(FakeOffer { offline: *self.offline.lock().unwrap(), ..Default::default() });
             *self.offer.lock().unwrap() = Some(offer.clone());
             Ok(offer)
         }
@@ -1335,7 +1343,7 @@ mod tests {
             Some("Telescope.apk".into())
         }
         fn adb_available(&self) -> bool {
-            true
+            *self.adb.lock().unwrap()
         }
         fn install_app(&self, _serial: &str, _apk: &str) -> Result<(), String> {
             self.install.lock().unwrap().clone()
@@ -1815,5 +1823,118 @@ mod tests {
         e.host.scheduled.clear();
         e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });
         assert!(e.host.is_scheduled(T_POLL));
+    }
+
+    fn usb_state(e: &mut Env, states: Value) {
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB_STATE.into(), data: states });
+    }
+
+    fn offer(e: &Env) -> Arc<FakeOffer> {
+        e.link.offer.lock().unwrap().clone().unwrap()
+    }
+
+    fn offered(e: &Env) -> Vec<String> {
+        std::thread::sleep(Duration::from_millis(50));
+        offer(e).offered.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn closing_stops_the_pairing_server() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        e.ui("card", "add-closed", vec![]);
+        // Only the test holds the offer now: dropping it is what stops the server
+        assert_eq!(Arc::strong_count(&held), 2);
+        *e.link.offer.lock().unwrap() = None;
+        assert_eq!(Arc::strong_count(&held), 1);
+        assert!(!e.host.is_scheduled(T_PAIR_POLL) && !e.host.is_scheduled(T_PAIR_USB));
+    }
+
+    #[test]
+    fn with_several_phones_plugged_in_only_the_picked_one_pairs() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let two = json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}, {"serial": "s2", "state": "device", "model": "Galaxy"}]);
+        usb_state(&mut e, two.clone());
+        assert!(offered(&e).is_empty()); // a phone left plugged in never pairs by itself
+        e.ui("card", "pick", vec![json!("s2")]);
+        assert_eq!(offered(&e), vec!["s2".to_string()]);
+        assert_eq!(e.props("card")["picks"][1]["enabled"], false);
+    }
+
+    #[test]
+    fn a_picked_phone_gets_the_pairing_offer_over_usb() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
+        e.ui("card", "pick", vec![json!("s1")]);
+        // Sent again only after a few seconds: the next poll doesn't repeat it straight away
+        usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
+        assert_eq!(offered(&e), vec!["s1".to_string()]);
+    }
+
+    #[test]
+    fn unplugging_the_picked_phone_forgets_the_pick() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
+        e.ui("card", "pick", vec![json!("s1")]);
+        usb_state(&mut e, json!([]));
+        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
+        usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
+        assert_eq!(e.props("card")["usb-text"], "Pick a phone below to pair it over USB.");
+    }
+
+    #[test]
+    fn a_scanned_phone_pairs_while_another_is_plugged_in() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Galaxy"}]));
+        *offer(&e).paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        e.settle();
+        assert_eq!(e.props("card")["result-text"], "Paired with Pixel");
+        assert!(offered(&e).is_empty());
+    }
+
+    #[test]
+    fn without_a_network_it_steers_to_usb() {
+        let mut e = env();
+        *e.link.offline.lock().unwrap() = true;
+        e.ui("card", "add-phone", vec![]);
+        assert_eq!(e.props("card")["wifi-text"], "This computer isn't on a network right now, so pair over USB.");
+        assert_eq!(e.props("card")["qr-size"], 0);
+    }
+
+    #[test]
+    fn without_adb_usb_says_so() {
+        let mut e = env();
+        *e.link.adb.lock().unwrap() = false;
+        e.ui("card", "add-phone", vec![]);
+        let text = e.props("card")["usb-text"].as_str().unwrap().to_string();
+        assert!(text.starts_with("Needs adb"), "{text}");
+        assert!(!e.host.is_scheduled(T_PAIR_USB));
+    }
+
+    #[test]
+    fn a_failed_adb_download_says_why_and_offers_another_go() {
+        let mut e = env();
+        *e.link.adb.lock().unwrap() = false;
+        e.ui("card", "add-phone", vec![]);
+        e.plugin.add.as_mut().unwrap().downloading = true;
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_ADB.into(),
+                                                         data: json!({"ok": false, "detail": "Couldn't reach Google."}) });
+        assert_eq!(e.props("card")["usb-text"], "Couldn't reach Google.");
+        assert_eq!(e.props("card")["usb-kind"], "status_err");
+        assert_eq!(e.props("card")["usb-action"], "Try again");
+    }
+
+    #[test]
+    fn qr_widget_builds_matrix_and_renders() {
+        let (cells, size) = qr("{\"v\":4,\"nonce\":\"abc\"}");
+        assert!(size >= 21 && !cells.is_empty() && cells.iter().all(|&i| i < size * size));
+        // The finder pattern's corner is dark
+        assert!(cells.contains(&0));
     }
 }
