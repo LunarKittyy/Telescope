@@ -234,7 +234,8 @@ impl ColourGradingPlugin {
             g.apply(&mut ramp);
             Arc::new(ramp)
         });
-        Some(ColourStage { size, rgb: Arc::new(rgb), table })
+        let grade = g.clone();
+        Some(ColourStage::new(size, Arc::new(rgb), table).with_eval(move |px: &mut [f32]| grade.apply(px)))
     }
 
     fn publish(&mut self, host: &mut dyn Host) {
