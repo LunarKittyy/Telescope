@@ -612,6 +612,9 @@ impl MicrophonePlugin {
             self.show_toggle(h);
             return;
         }
+        // The window moves the stream hooks over (focus lost there, gained here); until then nothing listens
+        self.stream = None;
+        self.stop_worker(h);
         self.sync_place(h);
         self.set_enabled(h, true);
         self.show_toggle(h);
@@ -1154,3 +1157,7 @@ fn strip_tags(html: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "plugin_tests.rs"]
+mod tests;
