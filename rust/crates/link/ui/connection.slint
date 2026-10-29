@@ -281,13 +281,19 @@ export component ConnectionCard inherits Card {
             }
             if wifi-shown && !paired: FormRow {
                 label: "Wi-Fi";
-                Note { text: wifi-text; horizontal-stretch: 1; }
+                // Qt's label fills the row and centres its lines
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    Note { text: wifi-text; }
+                }
             }
             if usb-shown && !paired: FormRow {
                 label: "USB";
                 VerticalLayout {
                     horizontal-stretch: 1;
                     spacing: 6px;
+                    alignment: center;
                     Note { text: usb-text; kind: usb-kind; }
                     if usb-action != "": HorizontalLayout {
                         alignment: start;
