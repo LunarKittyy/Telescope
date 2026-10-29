@@ -9,6 +9,7 @@ pub mod mf;
 pub mod stream_output;
 pub mod unitycapture;
 pub mod wait_screen;
+pub mod wait_screen_plugin;
 pub mod watch;
 pub mod webcam;
 pub mod webcam_capture;
