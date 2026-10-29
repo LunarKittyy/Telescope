@@ -101,6 +101,11 @@ pub trait Media: Send + Sync {
     fn decoding_status(&self) -> DecodingStatus {
         DecodingStatus::default()
     }
+    /// A picture file's bytes (PNG, JPEG, WebP or BMP) as an RGBA frame, for the pictures plugins put behind the person.
+    fn decode_picture(&self, bytes: &[u8]) -> Result<Frame, String> {
+        let _ = bytes;
+        Err("pictures can't be read in this build".into())
+    }
 }
 
 /// A frame read off a feed, with the wire bytes behind it and how many frames arrived for it (the ones skipped to keep up too).
