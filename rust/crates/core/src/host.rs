@@ -222,6 +222,8 @@ pub trait HostShell {
     fn open_settings(&mut self, tab: &str);
     /// Every plugin's actions, in registration order, as (plugin, action).
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;
+    /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
+    fn open_url(&mut self, _url: &str) {}
 }
 
 /// Changing what a plugin put on screen after it's built.

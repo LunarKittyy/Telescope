@@ -259,6 +259,9 @@ impl HostShell for FakeHost {
     fn shortcut_actions(&self) -> Vec<(String, ActionSpec)> {
         Vec::new()
     }
+    fn open_url(&mut self, url: &str) {
+        self.note(format!("open_url {url}"));
+    }
 }
 
 impl HostUi for FakeHost {
