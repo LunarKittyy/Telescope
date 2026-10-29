@@ -1,7 +1,9 @@
 //! The phone's microphone into a virtual microphone (audio.py, denoise.py, platform/virtual_mic.py and the Microphone
 //! plugin).
 
+pub mod denoise;
 pub mod jitter;
+pub mod shape;
 
 use telescope_core::audio::{Audio, AudioFeed, MicSettings, MicStream};
 

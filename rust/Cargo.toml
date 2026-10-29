@@ -54,6 +54,9 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2-zli
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Reading Google's SDK index for the adb download on Windows
 roxmltree = "0.21"
+# The microphone: loading RNNoise as Python did, and the Windows sound output VB-Cable is played into
+libloading = "0.8"
+cpal = "0.18"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
 slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 
