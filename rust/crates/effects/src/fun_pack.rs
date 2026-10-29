@@ -212,7 +212,7 @@ impl CpuStep for FunStep {
                         let mask = if edges || look.effect == "clones" { mask_of(ctx, frame) } else { None };
                         let mask = match mask {
                             Some(m) => Some(m),
-                            None => look.plate.as_ref().map(|p| PlateMask::default().run(&rgb, p)),
+                            None => look.plate.as_ref().and_then(|p| PlateMask::default().run(&rgb, p)),
                         };
                         Taken::Clone(mask.map(|m| Clones::add(look.clones.as_deref(), &rgb, &m.soften(look.edges))))
                     }

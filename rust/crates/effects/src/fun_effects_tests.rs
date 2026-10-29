@@ -54,7 +54,7 @@ fn near(a: [u8; 3], b: [u8; 3], by: i32) -> bool {
 #[test]
 fn the_empty_room_difference_finds_whoever_stands_in_front_of_it() {
     let room = room();
-    let m = PlateMask::default().run(&with_person(&room, 60, 100, PERSON), &Arc::new(room));
+    let m = PlateMask::default().run(&with_person(&room, 60, 100, PERSON), &Arc::new(room)).unwrap();
     assert_eq!((m.data[50 * W + 80], m.data[50 * W + 10], m.data[5 * W + 80]), (255, 0, 0));
 }
 
@@ -232,4 +232,16 @@ fn another_stream_starts_without_the_last_ones_history() {
     let dark = Rgb::filled(W, H, [10; 3]);
     let fresh = Effect::named("slit").unwrap().run(&dark, &l, Inputs { mask: None });
     assert!(fresh.data.iter().all(|&v| v < 50));
+}
+
+#[test]
+fn the_cloak_compares_with_the_room_it_has_now_not_one_that_was_there_before() {
+    let (a, b) = (room(), Rgb::filled(W, H, [200, 30, 90]));
+    let mut cloak = Effect::named("cloak").unwrap();
+    let (first, second) = (Look { plate: Some(Arc::new(a.clone())), edges: 0, ..look("cloak") }, Look { plate: Some(Arc::new(b.clone())), edges: 0, ..look("cloak") });
+    cloak.run(&a, &first, Inputs { mask: None });
+    // a new room is taken; the frame is it, a little off but nobody in it
+    let mut frame = b;
+    frame.set(5, 5, [205, 35, 95]);
+    assert!(cloak.run(&frame, &second, Inputs { mask: None }) == frame, "nobody there, so the frame is left as it is");
 }
