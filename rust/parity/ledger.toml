@@ -2939,9 +2939,9 @@
 "test_hotkeys.py::test_portal_shortcuts_the_user_turned_down" = { status = "todo" }
 "test_hotkeys.py::test_portal_tidies_plasma_without_a_session_when_nothing_is_global" = { status = "todo" }
 "test_hotkeys.py::test_portal_without_global_shortcuts_says_so" = { status = "todo" }
-"test_hotkeys.py::test_to_trigger" = { status = "todo" }
-"test_hotkeys.py::test_to_windows" = { status = "todo" }
-"test_hotkeys.py::test_to_windows_asks_the_layout_for_punctuation" = { status = "todo" }
+"test_hotkeys.py::test_to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::portal_triggers" }
+"test_hotkeys.py::test_to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
+"test_hotkeys.py::test_to_windows_asks_the_layout_for_punctuation" = { status = "ported", rust = "rust/crates/system/src/keys.rs::windows_keys" }
 "test_hotkeys.py::test_windows_backend_lets_go_while_suspended" = { status = "todo" }
 "test_hotkeys.py::test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys" = { status = "todo" }
 "test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "todo" }
@@ -3925,17 +3925,17 @@
 "test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "todo" }
 "test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "todo" }
 "test_shortcuts.py::test_control_ready_needs_enabled_and_shown_in_its_card" = { status = "todo" }
-"test_shortcuts.py::test_edits_text" = { status = "todo" }
+"test_shortcuts.py::test_edits_text" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
 "test_shortcuts.py::test_hold_flips_while_held_and_back_on_release" = { status = "todo" }
-"test_shortcuts.py::test_keys_from_event_drops_keypad_and_bare_modifiers" = { status = "todo" }
+"test_shortcuts.py::test_keys_from_event_drops_keypad_and_bare_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::slint_key_events_drop_bare_modifiers_and_name_shift_tab" }
 "test_shortcuts.py::test_log_slider_moves_in_stops" = { status = "todo" }
-"test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "todo" }
-"test_shortcuts.py::test_normalize_keys" = { status = "todo" }
+"test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "ported", rust = "rust/crates/system/src/keys.rs::native_keys_names_the_windows_key_after_the_system" }
+"test_shortcuts.py::test_normalize_keys" = { status = "ported", rust = "rust/crates/system/src/keys.rs::normalize_keys_reads_qt_portable_text" }
 "test_shortcuts.py::test_param_clean" = { status = "todo" }
 "test_shortcuts.py::test_plain_button_clicks" = { status = "todo" }
 "test_shortcuts.py::test_slider_steps_in_shown_units" = { status = "todo" }
 "test_shortcuts.py::test_slider_without_default_offers_no_reset" = { status = "todo" }
-"test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "todo" }
+"test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
 "test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "todo" }
 "test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "todo" }
 "test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "todo" }
@@ -5972,9 +5972,9 @@
 "platform:hotkeys.py:create_backend" = { status = "todo" }
 "platform:hotkeys_portal.py:PortalHotkeys" = { status = "todo" }
 "platform:hotkeys_portal.py:portal_possible" = { status = "todo" }
-"platform:hotkeys_portal.py:to_trigger" = { status = "todo" }
+"platform:hotkeys_portal.py:to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_trigger" }
 "platform:hotkeys_windows.py:WindowsHotkeys" = { status = "todo" }
-"platform:hotkeys_windows.py:to_windows" = { status = "todo" }
+"platform:hotkeys_windows.py:to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_windows" }
 "platform:linux.py:PrivResult" = { status = "todo" }
 "platform:linux.py:limit_malloc_arenas" = { status = "todo" }
 "platform:linux.py:manual_command" = { status = "todo" }
