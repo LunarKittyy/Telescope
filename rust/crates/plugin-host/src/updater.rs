@@ -9,7 +9,6 @@ use crate::Installed;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -39,11 +38,31 @@ fn zip_version(path: &Path, name: &str) -> String {
     read().unwrap_or_default()
 }
 
-fn scratch_folder() -> std::io::Result<PathBuf> {
-    static N: AtomicU64 = AtomicU64::new(0);
-    let dir = std::env::temp_dir().join(format!("telescope-plugin-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
-    std::fs::create_dir_all(&dir)?;
+/// Makes `base/name` and nothing else, for its owner only: it fails when something is already there, so a folder somebody else laid out
+/// first is never used (mkdtemp).
+fn private_dir_in(base: &Path, name: &str) -> std::io::Result<PathBuf> {
+    let dir = base.join(name);
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder.create(&dir)?;
     Ok(dir)
+}
+
+/// A new, empty, private folder under the temp folder (tempfile.mkdtemp(prefix="telescope-plugin-")).
+fn scratch_folder() -> std::io::Result<PathBuf> {
+    let random = ring::rand::SystemRandom::new();
+    let mut last = None;
+    for _ in 0..16 {
+        let mut bytes = [0u8; 8];
+        ring::rand::SecureRandom::fill(&random, &mut bytes).map_err(|_| std::io::Error::other("no random numbers"))?;
+        let suffix: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        match private_dir_in(&std::env::temp_dir(), &format!("telescope-plugin-{suffix}")) {
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => last = Some(e),
+            other => return other,
+        }
+    }
+    Err(last.unwrap_or_else(|| std::io::Error::other("no free folder name")))
 }
 
 pub struct PluginUpdater {
@@ -216,4 +235,44 @@ impl PluginUpdater {
 
 fn or_q(s: &str) -> &str {
     if s.is_empty() { "?" } else { s }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("telescope-updater-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_folder_somebody_else_made_first_is_not_used() {
+        let base = base("taken");
+        std::fs::create_dir(base.join("telescope-plugin-1")).unwrap();
+        assert!(private_dir_in(&base, "telescope-plugin-1").is_err());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_scratch_folder_is_for_its_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let base = base("mode");
+        let dir = private_dir_in(&base, "telescope-plugin-2").unwrap();
+        assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn scratch_folders_are_new_each_time_and_not_guessable_from_the_pid() {
+        let (a, b) = (scratch_folder().unwrap(), scratch_folder().unwrap());
+        assert_ne!(a, b);
+        let guess = std::env::temp_dir().join(format!("telescope-plugin-{}-0", std::process::id()));
+        assert!(a != guess && b != guess);
+        let _ = std::fs::remove_dir_all(&a);
+        let _ = std::fs::remove_dir_all(&b);
+    }
 }
