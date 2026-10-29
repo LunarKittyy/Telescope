@@ -20,6 +20,7 @@ pub mod system;
 pub mod testing;
 pub mod time;
 pub mod ui;
+pub mod view;
 
 pub use bus::{BusSender, EventBus};
 pub use event::Event;
