@@ -34,6 +34,21 @@ impl FrameStore for NoFrames {
     }
 }
 
+/// The frames FakeHost::stream_frames holds.
+struct HeldFrames(Vec<StreamFrame>);
+
+impl FrameStore for HeldFrames {
+    fn stream_frames(&self) -> Vec<StreamFrame> {
+        self.0.clone()
+    }
+    fn stream_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
+        self.0.iter().find(|f| source_id.is_none_or(|id| f.source_id == id)).cloned()
+    }
+    fn replace_frame(&self, _source_id: Option<&str>, _frame: Frame, _number: u64) -> bool {
+        false
+    }
+}
+
 impl SensorReader for NoFrames {
     fn reading(&self, _source_id: Option<&str>) -> Option<Value> {
         None
@@ -63,6 +78,14 @@ pub struct FakeHost {
     pub camera_off: bool,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
+    /// What pick_on_preview answers (a preview to pick on).
+    pub can_pick: bool,
+    /// What vision_state() answers instead of "off".
+    pub vision: Option<String>,
+    /// What packets_problem() answers instead of "".
+    pub packets_problem: String,
+    /// The newest frame of each stream, as frames() hands them out.
+    pub stream_frames: Vec<StreamFrame>,
     next_request: u64,
 }
 
@@ -329,7 +352,7 @@ impl HostView for FakeHost {
 
 impl HostVision for FakeHost {
     fn vision_state(&self) -> String {
-        "off".into()
+        self.vision.clone().unwrap_or_else(|| "off".into())
     }
     fn want_people(&mut self, owner: &str, on: bool) {
         self.note(format!("want_people {owner} {on}"));
@@ -341,7 +364,7 @@ impl HostVision for FakeHost {
 
 impl HostFrames for FakeHost {
     fn frames(&self) -> Arc<dyn FrameStore> {
-        Arc::new(NoFrames)
+        if self.stream_frames.is_empty() { Arc::new(NoFrames) } else { Arc::new(HeldFrames(self.stream_frames.clone())) }
     }
 }
 
@@ -366,7 +389,7 @@ impl HostPreview for FakeHost {
     }
     fn pick_on_preview(&mut self, owner: &str, kind: PickKind, _start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool {
         self.note(format!("pick_on_preview {owner} {kind:?}"));
-        false
+        self.can_pick
     }
     fn finish_pick(&mut self, _owner: &str) -> bool {
         false
@@ -414,7 +437,7 @@ impl HostSensors for FakeHost {
 
 impl HostPackets for FakeHost {
     fn packets_problem(&self) -> String {
-        String::new()
+        self.packets_problem.clone()
     }
     fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {
         self.note(format!("change_packets {owner} {}", factory.is_some()));
