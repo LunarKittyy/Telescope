@@ -1305,7 +1305,7 @@
 "A command line that does the same, for your desktop's own keyboard settings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
 "Add" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
-"Add keyboard shortcut…" = { status = "todo" }
+"Add keyboard shortcut…" = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/shortcut-menu.slint" }
 "Add shortcut for {action}…" = { status = "todo" }
 "Already streaming" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Also works while another app is in front" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
@@ -3943,7 +3943,7 @@
 "test_shortcuts_plugin.py::test_action_command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::action_command_runs_the_action_in_the_running_copy" }
 "test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "dropped", reason = "Slint hands the shell one key event per press; Qt's walk up the parents is gone" }
 "test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
-"test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "todo" }
+"test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "ported", rust = "rust/crates/shell/tests/shortcut_menu.rs" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::desktop_settings_button_asks_again_for_unconfirmed_ones" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "todo" }
 "test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::dialog_lists_bindings" }

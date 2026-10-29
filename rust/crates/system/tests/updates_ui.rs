@@ -55,3 +55,22 @@ export component Wrapper inherits Window {
     let errors = errors(doc, "plugin/shortcuts.slint", include_str!("../ui/shortcuts.slint"));
     assert!(errors.is_empty(), "{}", errors.join("\n"));
 }
+
+#[test]
+fn controls_take_a_shortcut_menu() {
+    let doc = r#"import { Button, IconButton, Switch, SwitchTile, Segmented, ChoiceField, Shortcuts } from "@ui-kit/ui-kit.slint";
+export { Shortcuts }
+export component Wrapper inherits Window {
+    VerticalLayout {
+        Button { text: "Add"; shortcut: "connection.add_phone"; }
+        IconButton { shortcut: "a.b"; }
+        Switch { shortcut: "a.b"; }
+        SwitchTile { shortcut: "a.b"; }
+        Segmented { items: ["One", "Two"]; shortcut: "a.b"; }
+        ChoiceField { items: ["One"]; shortcut: "a.b"; }
+        Button { text: "No menu"; }
+    }
+}"#;
+    let errors = errors(doc, "unused.slint", "");
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
+}
