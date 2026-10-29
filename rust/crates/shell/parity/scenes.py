@@ -5,6 +5,9 @@
     python scenes.py OUT connection-ready      # just these
     python scenes.py OUT --mark                # and mark the scenes that match at every scale `ported` in the ledger
 
+A scene matches when, after both pictures are averaged down by 2, no more than 0.5% of pixels differ. Up to 2% it's
+close and listed for a person to judge; that's never marked.
+
 Asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it draws, renders those
 scenes with the translation preview's own builders on a Qt window that registers only those plugins (OUT/qt), renders
 them from Rust (OUT/rust), then runs compare_scenes.py --reduced (OUT/review/index.html). A full Qt render
@@ -63,24 +66,27 @@ def render_qt(ids: list, scales: list, plugins: list, out: Path) -> list:
     return failed
 
 
-def matching(qt: Path, rust: Path, ids: list, scales: list, threshold: float, tolerance: int) -> list:
-    """The ids whose Rust render matches the Qt one at every scale, by compare_scenes.py's measure."""
+def matching(qt: Path, rust: Path, ids: list, scales: list, threshold: float, review: float, tolerance: int) -> tuple:
+    """(ids whose Rust render matches the Qt one at every scale by compare_scenes.py's measure, ids that are only close:
+    the same size and within review, for a person to judge)."""
     sys.path.insert(0, str(PARITY))
     import compare_scenes
-    found = []
+    same, close = [], []
     for id in ids:
-        good = True
+        worst = 0.0
         for scale in scales:
             a, b = qt / f"{scale:g}x" / f"{id}.png", rust / f"{scale:g}x" / f"{id}.png"
             if not (a.exists() and b.exists()):
-                good = False
+                worst = 1.0
                 break
             x, y = compare_scenes.load(a), compare_scenes.load(b)
             share, _ = compare_scenes.difference(x, y, tolerance)
-            good = good and x.shape == y.shape and share <= threshold
-        if good:
-            found.append(id)
-    return found
+            worst = max(worst, share if x.shape == y.shape else 1.0)
+        if worst <= threshold:
+            same.append(id)
+        elif worst <= review:
+            close.append(f"{id} ({worst:.2%})")
+    return same, close
 
 
 def mark(ids: list) -> list:
@@ -118,8 +124,10 @@ def main(argv=None) -> int:
         print(f"Qt couldn't render {line}")
     subprocess.run([sys.executable, PARITY / "compare_scenes.py", args.out / "qt", args.out / "rust", args.out / "review",
                     "--reduced"])
-    same = matching(args.out / "qt", args.out / "rust", ids, args.scale, 0.005, 24)
+    same, close = matching(args.out / "qt", args.out / "rust", ids, args.scale, 0.005, 0.02, 24)
     print(f"{len(same)} of {len(ids)} scenes match at every scale" + (f": {', '.join(same)}" if same else ""))
+    if close:
+        print(f"{len(close)} are close, for a person to judge on the review page (never marked): {', '.join(close)}")
     if args.mark and same:
         changed = mark(same)
         print(f"Marked {len(changed)} scenes ported" + (f": {', '.join(changed)}" if changed else ""))
