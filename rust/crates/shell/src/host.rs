@@ -109,8 +109,18 @@ impl HostStreams for Ctx<'_> {
     fn reconnect_stream(&mut self) {
         self.state.effects.push(Effect::Reconnect);
     }
-    fn hand_over_stream(&mut self, _route: &RouteSpec, _source_id: Option<&str>) -> bool {
-        false
+    /// PhoneSource.hand_over: false unless that stream is up, isn't recovering or moving already, and link has the
+    /// route ready next to the running one; the worker then tries it and the Connection card hears how it went.
+    fn hand_over_stream(&mut self, route: &RouteSpec, source_id: Option<&str>) -> bool {
+        let st = &self.state.streams;
+        let Some(id) = source_id.map(String::from).or_else(|| st.source_id.clone()) else { return false };
+        if !st.can_hand_over.contains(&id) {
+            return false;
+        }
+        let Some(url) = self.state.link.as_ref().and_then(|l| l.prepare_route(&id, route)) else { return false };
+        self.state.streams.can_hand_over.retain(|s| *s != id);
+        self.state.effects.push(Effect::HandOver { source_id: id, route: route.clone(), url });
+        true
     }
     fn focused_source_id(&self) -> Option<String> {
         self.state.streams.source_id.clone().or_else(|| self.state.selected.clone())

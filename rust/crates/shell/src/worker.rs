@@ -460,6 +460,17 @@ impl StreamWorker {
         self.shared.retry_now.store(true, Ordering::SeqCst);
     }
 
+    /// Whether hand_over() would try now: a phone's stream that isn't stopping or trying another route already.
+    pub fn can_hand_over(&self) -> bool {
+        let s = &self.shared;
+        !s.plugin_source && !s.stop.load(Ordering::SeqCst) && !s.handover_busy.load(Ordering::SeqCst)
+    }
+
+    /// What later reconnects open with, after a hand-over moved the stream (its URL moved with it).
+    pub fn set_opener(&self, opener: Opener) {
+        *self.shared.opener.lock().unwrap() = opener;
+    }
+
     pub fn failed_tries(&self) -> u32 {
         self.shared.failed_tries.load(Ordering::SeqCst)
     }
@@ -481,7 +492,10 @@ impl StreamWorker {
     /// HANDOVER_HEALTHY; only then does the old connection close. Moved or MoveFailed says how it went.
     pub fn hand_over(&self, url: &str, opener: Opener) -> bool {
         let s = &self.shared;
-        if s.plugin_source || s.stop.load(Ordering::SeqCst) || s.handover_busy.swap(true, Ordering::SeqCst) {
+        if !self.can_hand_over() {
+            return false;
+        }
+        if s.handover_busy.swap(true, Ordering::SeqCst) {
             return false;
         }
         let (shared, url) = (self.shared.clone(), url.to_string());

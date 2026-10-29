@@ -119,6 +119,7 @@ fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
 pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn Plugin>>, services: Option<Arc<Services>>,
              opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     let mut state = State::new(file);
+    state.link = services.as_ref().map(|s| s.link.clone());
     let plugins = plugins(&state.bus.sender());
     state.load_builtins(plugins);
     state.apply_saved_config();
@@ -555,6 +556,7 @@ impl Window {
             }
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
             Effect::OpenUrl(url) => open_url(&url),
+            Effect::HandOver { source_id, route, url } => self.hand_over(&source_id, route, url),
             other => log::debug!("not handled yet: {other:?}"),
         }
     }
