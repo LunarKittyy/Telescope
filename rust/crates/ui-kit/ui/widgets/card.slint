@@ -19,7 +19,7 @@ component FoldTitle inherits Rectangle {
     out property <bool> hot: touch.has-hover || hovered-elsewhere;
     property <bool> foldable: key != "";
     height: 30px;
-    width: label.preferred-width + 12px;
+    width: label.preferred-width + (foldable ? 12px : 0px);
     accessible-role: button;
     accessible-label: text;
     accessible-checkable: foldable;
@@ -45,9 +45,9 @@ component FoldTitle inherits Rectangle {
         clicked => { Folds.toggle(key); }
     }
     if foldable: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
-    // Qt indents a QSS-styled label's text by 6px
+    // Qt indents a QSS-styled label's text by 6px; a settings card's title (which doesn't fold) sits right by its chip
     label := Text {
-        x: 6px;
+        x: foldable ? 6px : 0px;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
