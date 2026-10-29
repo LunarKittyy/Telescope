@@ -289,6 +289,15 @@ impl HostView for FakeHost {
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
+        let v = &mut self.view;
+        if let Some(z) = change.zoom { v.zoom = z; }
+        if let Some(x) = change.pan_x { v.pan_x = x; }
+        if let Some(y) = change.pan_y { v.pan_y = y; }
+        if let Some(f) = change.flip_h { v.flip_h = f; }
+        if let Some(f) = change.flip_v { v.flip_v = f; }
+        if let Some(r) = change.rotation { v.rotation = r; }
+        if let Some(s) = change.stretch_x { v.stretch_x = s; }
+        if let Some(s) = change.stretch_y { v.stretch_y = s; }
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));
