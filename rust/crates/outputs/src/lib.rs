@@ -10,6 +10,7 @@ pub mod stream_output;
 pub mod unitycapture;
 pub mod wait_screen;
 pub mod watch;
+pub mod webcam;
 pub mod webcam_capture;
 pub mod webcam_controls;
 pub mod webcams;

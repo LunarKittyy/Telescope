@@ -277,6 +277,7 @@ fn a_node_is_only_opened_again_once_it_was_replaced() {
     assert_eq!(s.scan().iter().map(|d| d.name.clone()).collect::<Vec<_>>(), ["Brio"]);
 }
 
+#[cfg(unix)]
 fn usb(tmp: &Path, sysfs: &Path, name: &str, port: &str, serial: &str) {
     let usb = tmp.join("devices").join("pci0000:00").join(port);
     let iface = usb.join(format!("{port}:1.0"));
@@ -291,6 +292,7 @@ fn usb(tmp: &Path, sysfs: &Path, name: &str, port: &str, serial: &str) {
 }
 
 // test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev
+#[cfg(unix)]
 #[test]
 fn usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev() {
     let root = sysfs();
@@ -301,6 +303,7 @@ fn usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev() {
 }
 
 // test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port
+#[cfg(unix)]
 #[test]
 fn identical_webcams_without_a_serial_are_told_apart_by_their_port() {
     let root = sysfs();
@@ -359,6 +362,7 @@ fn other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones() {
 }
 
 // test_webcams.py::test_who_uses_finds_the_program_holding_the_device
+#[cfg(unix)]
 #[test]
 fn who_uses_finds_the_program_holding_the_device() {
     let dir = telescope_core::testing::scratch_dir("proc");

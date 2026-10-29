@@ -59,6 +59,10 @@ pub fn mains_hz(territory: &str) -> u32 {
 
 /// Where this computer is: the time zone's country where it's a well-known one, else the language's territory.
 pub fn local_territory() -> String {
+    #[cfg(test)]
+    if let Some(t) = tests::TERRITORY.lock().unwrap().clone() {
+        return t;
+    }
     const ZONES: [(&str, &str); 14] = [
         ("America/New_York", "US"), ("America/Chicago", "US"), ("America/Denver", "US"), ("America/Los_Angeles", "US"),
         ("America/Phoenix", "US"), ("America/Toronto", "CA"), ("America/Vancouver", "CA"), ("America/Mexico_City", "MX"),
@@ -280,6 +284,9 @@ pub(crate) mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
+
+    /// Where tests say the computer is.
+    pub static TERRITORY: Mutex<Option<String>> = Mutex::new(None);
 
     /// Answers the control ioctls the way a webcam with brightness, auto exposure and anti-flicker does.
     #[derive(Clone)]

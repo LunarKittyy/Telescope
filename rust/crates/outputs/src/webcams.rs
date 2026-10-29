@@ -381,6 +381,16 @@ pub fn usb_key(folder: &std::path::Path, devices: &std::path::Path) -> String {
     format!("usb-port-{}", rel.replace('/', "-"))
 }
 
+#[cfg(unix)]
+fn inode(meta: &std::fs::Metadata) -> u64 {
+    std::os::unix::fs::MetadataExt::ino(meta)
+}
+
+#[cfg(not(unix))]
+fn inode(_meta: &std::fs::Metadata) -> u64 {
+    0
+}
+
 /// Opens a node and asks it (caps, modes); None if it can't be opened.
 pub type OpenNode = Box<dyn Fn(&str) -> Option<(Option<(String, String, bool)>, Vec<Mode>)> + Send>;
 
@@ -411,7 +421,6 @@ impl LinuxScanner {
     }
 
     pub fn scan(&mut self) -> Vec<Device> {
-        use std::os::unix::fs::MetadataExt;
         let mut nodes: Vec<String> = std::fs::read_dir(&self.sysfs).map(|r| r.flatten().map(|e| e.file_name().to_string_lossy().to_string())
             .filter(|n| n.starts_with("video")).collect()).unwrap_or_default();
         nodes.sort_by_key(|n| n[5..].parse::<u64>().unwrap_or(0));
@@ -428,7 +437,7 @@ impl LinuxScanner {
             }
             let Ok(meta) = std::fs::metadata(&folder) else { continue };
             let real = std::fs::canonicalize(&folder).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
-            let ident = (real, meta.ino(), read(&folder.join("dev")));
+            let ident = (real, inode(&meta), read(&folder.join("dev")));
             if let Some(cached) = self.known.get(&node).filter(|c| c.0 == ident && !loopback).cloned() {
                 let mut cached = cached;
                 if let Some(dev) = cached.1.as_mut().filter(|d| d.key == node) {
