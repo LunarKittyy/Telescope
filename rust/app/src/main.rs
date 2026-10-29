@@ -86,6 +86,35 @@ impl telescope_shell::preview::TexturePainter for GpuPreview {
     }
 }
 
+/// RUST_LOG=error|warn|info|debug|trace: log records at that level and above go to stderr (none without it).
+struct StderrLog(log::LevelFilter);
+
+impl log::Log for StderrLog {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        meta.level() <= self.0 && meta.target().starts_with("telescope")
+    }
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("{} {}: {}", record.level(), record.target(), record.args());
+        }
+    }
+    fn flush(&self) {}
+}
+
+fn init_log() {
+    let level = match std::env::var("RUST_LOG").unwrap_or_default().as_str() {
+        "error" => log::LevelFilter::Error,
+        "warn" => log::LevelFilter::Warn,
+        "info" => log::LevelFilter::Info,
+        "debug" => log::LevelFilter::Debug,
+        "trace" => log::LevelFilter::Trace,
+        _ => return,
+    };
+    if log::set_boxed_logger(Box::new(StderrLog(level))).is_ok() {
+        log::set_max_level(level);
+    }
+}
+
 /// --action / --list-actions: talk to the running copy, print what it says, and exit (run_action).
 fn run_action(words: Option<Vec<String>>) -> i32 {
     use telescope_system::single_instance as si;
@@ -125,6 +154,7 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) ->
 }
 
 fn main() {
+    init_log();
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     // --action takes every word after it
     let action = words.iter().position(|w| w == "--action").map(|i| words.split_off(i).split_off(1));
