@@ -1,0 +1,241 @@
+// The Presets button in the header (plugins/presets.py): a menu of the saved presets with Save, Rename and Delete under
+// them, and the two questions those ask (a name, and whether to replace a preset). The plugin says which question is open.
+
+import { Theme, Icons, Button, TextField, DialogFrame } from "@ui-kit/ui-kit.slint";
+
+// One line of the menu: a QAction, or a QMenu that opens to the side (the arrow)
+component MenuRow inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> submenu;
+    // The row's submenu is open
+    in property <bool> open;
+    callback clicked;
+    height: 26px;
+    border-radius: 5px;
+    background: enabled && (touch.has-hover || open) ? Theme.surface-hover : transparent;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { root.clicked(); } }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        x: 10px;
+        width: parent.width - 20px - (submenu ? 14px : 0px);
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if submenu: Text {
+        x: parent.width - 20px;
+        text: "›";
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+}
+
+component MenuFrame inherits Rectangle {
+    background: Theme.surface-raise;
+    border-width: 1px;
+    border-color: Theme.border-hover;
+    border-radius: 7px;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: #00000080;
+}
+
+export component PresetsHeader inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> tip;
+    in property <[string]> names;
+    in property <string> save-text;
+    in property <string> rename-text;
+    in property <string> delete-text;
+    // "" (nothing asked), "name" (the Save and Rename question) or "replace"
+    in property <string> dialog;
+    in property <string> dialog-title;
+    in property <string> dialog-label;
+    in property <string> dialog-text;
+    in property <string> ok-text;
+    in property <string> confirm-text;
+    in property <string> replace-title;
+    in property <string> replace-text;
+    in property <string> cancel-text;
+    callback apply(string);
+    callback save-clicked;
+    callback rename-clicked(string);
+    callback delete-clicked(string);
+    callback name-accepted(string);
+    callback replace-answered(bool);
+    callback dialog-cancelled;
+
+    // Which of the menu's submenus is open: "", "rename" or "delete"
+    property <string> sub;
+    // The name being typed in the Save and Rename question
+    property <string> name-text;
+    // Where the popups open: 6px under the button, which the header bar centres
+    property <length> below: (root.height + button.height) / 2 + 6px;
+
+    changed dialog => {
+        name-popup.close();
+        replace-popup.close();
+        if (self.dialog == "name") {
+            root.name-text = root.dialog-text;
+            name-popup.show();
+        } else if (self.dialog == "replace") {
+            replace-popup.show();
+        }
+    }
+
+    button := Button {
+        text: label;
+        has-icon: true;
+        icon: Icons.bookmark;
+        height: 34px;
+        y: (parent.height - self.height) / 2;
+        tip: root.tip;
+        clicked => {
+            root.sub = "";
+            menu.show();
+        }
+    }
+
+    menu := PopupWindow {
+        x: 0;
+        y: root.below;
+        width: 190px;
+        close-policy: close-on-click-outside;
+        MenuFrame {
+            VerticalLayout {
+                padding: 4px;
+                spacing: 0px;
+                for name in names: MenuRow {
+                    text: name;
+                    clicked => {
+                        menu.close();
+                        root.apply(name);
+                    }
+                }
+                if names.length > 0: Rectangle {
+                    height: 9px;
+                    Rectangle { y: 4px; height: 1px; background: Theme.border; }
+                }
+                MenuRow {
+                    text: save-text;
+                    clicked => {
+                        menu.close();
+                        root.save-clicked();
+                    }
+                }
+                MenuRow {
+                    text: rename-text;
+                    submenu: true;
+                    enabled: names.length > 0;
+                    open: root.sub == "rename";
+                    clicked => { root.sub = "rename"; sub-popup.show(); }
+                }
+                MenuRow {
+                    text: delete-text;
+                    submenu: true;
+                    enabled: names.length > 0;
+                    open: root.sub == "delete";
+                    clicked => { root.sub = "delete"; sub-popup.show(); }
+                }
+            }
+        }
+    }
+
+    // The Rename or Delete submenu: the names again, opening beside the menu
+    sub-popup := PopupWindow {
+        x: 190px;
+        y: root.below + 4px + 26px * names.length + (names.length > 0 ? 9px : 0px) + 26px;
+        width: 190px;
+        close-policy: close-on-click-outside;
+        MenuFrame {
+            VerticalLayout {
+                padding: 4px;
+                spacing: 0px;
+                for name in names: MenuRow {
+                    text: name;
+                    clicked => {
+                        sub-popup.close();
+                        menu.close();
+                        if (root.sub == "rename") {
+                            root.rename-clicked(name);
+                        } else {
+                            root.delete-clicked(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    name-popup := PopupWindow {
+        x: 0;
+        y: root.below + 2px;
+        width: 380px;
+        close-policy: no-auto-close;
+        FocusScope {
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { root.dialog-cancelled(); return accept; }
+                reject
+            }
+            DialogFrame {
+                title: dialog-title;
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: dialog-label;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: Theme.text;
+                    }
+                    TextField {
+                        label: dialog-label;
+                        text <=> root.name-text;
+                        init => { self.focus-all(); }
+                        accepted => { root.name-accepted(root.name-text); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button { text: cancel-text; clicked => { root.dialog-cancelled(); } }
+                    Button { text: ok-text; role: "primary"; clicked => { root.name-accepted(root.name-text); } }
+                }
+            }
+        }
+    }
+
+    replace-popup := PopupWindow {
+        x: 0;
+        y: root.below + 2px;
+        width: 400px;
+        close-policy: no-auto-close;
+        FocusScope {
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { root.replace-answered(false); return accept; }
+                reject
+            }
+            DialogFrame {
+                title: replace-title;
+                subtitle: confirm-text;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button { text: cancel-text; clicked => { root.replace-answered(false); } }
+                    Button { text: replace-text; role: "primary"; clicked => { root.replace-answered(true); } }
+                }
+            }
+        }
+    }
+}
