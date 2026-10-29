@@ -23,3 +23,6 @@ telescope-ui-kit.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus.workspace = true
+
+[dev-dependencies]
+telescope-system.workspace = true

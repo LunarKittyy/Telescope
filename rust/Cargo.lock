@@ -4908,6 +4908,7 @@ dependencies = [
  "slint",
  "slint-interpreter",
  "telescope-core",
+ "telescope-system",
  "telescope-ui-kit",
  "unicode-normalization",
  "zbus",

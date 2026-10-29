@@ -532,6 +532,12 @@ impl Window {
         Some((pos.x, pos.y, size.width, size.height))
     }
 
+    /// Puts an event on the bus as if a plugin sent it, and lets the plugins hear it (scenes stand in for unported plugins).
+    pub fn emit(self: &Rc<Self>, event: telescope_core::event::Event) {
+        self.state.borrow_mut().bus.emit(event);
+        self.process();
+    }
+
     /// Runs a callback of a plugin's card or header widget as if it had been clicked (scene renders open dialogs this way).
     pub fn call_ui(self: &Rc<Self>, plugin: &str, ui: &str, callback: &str) -> bool {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
@@ -541,7 +547,13 @@ impl Window {
     }
 
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
-        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return };
+        // Not one of the window's: a settings section, when the settings window is open
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
+            if let Some(settings) = crate::settings::current() {
+                settings.set_props(plugin, ui, props);
+            }
+            return;
+        };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
             let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
