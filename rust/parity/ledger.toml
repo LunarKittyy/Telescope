@@ -200,7 +200,7 @@
 "Stabilization" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Supports: {features}" = { status = "todo" }
 "Tap a point" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Temperature" = { status = "todo" }
+"Temperature" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "This lens can't focus on a point" = { status = "todo" }
 "This lens has no flash to use as a torch" = { status = "todo" }
 "This lens has no manual exposure" = { status = "todo" }
@@ -208,7 +208,7 @@
 "This lens has no manual white balance" = { status = "todo" }
 "This lens has no optical stabilization" = { status = "todo" }
 "Tint" = { status = "todo" }
-"Tint G–M" = { status = "todo" }
+"Tint G–M" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Torch" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Unavailable" = { status = "todo" }
 "White balance" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }

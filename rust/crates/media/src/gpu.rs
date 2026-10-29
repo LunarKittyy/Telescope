@@ -121,6 +121,15 @@ impl Gpu {
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
         })).map_err(|e| e.to_string())?;
+        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
+    }
+
+    /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
+    pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
+        Gpu::on(device, queue, "the window's device".into())
+    }
+
+    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String) -> Gpu {
         // Without this a mistake in a plugin's shader that slips past the checks would end the app
         device.on_uncaptured_error(Arc::new(|e: wgpu::Error| log::error!("Graphics card error: {e}")));
 
@@ -152,7 +161,7 @@ impl Gpu {
             usage: wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         }).create_view(&Default::default());
-        Ok(Gpu {
+        Gpu {
             device,
             queue,
             convert_layout,
@@ -162,8 +171,8 @@ impl Gpu {
             linear,
             blank,
             pool: Mutex::default(),
-            adapter_name: format!("{} ({:?})", info.name, info.backend),
-        })
+            adapter_name,
+        }
     }
 
     fn convert_pipeline(&self, target: wgpu::TextureFormat) -> Arc<wgpu::RenderPipeline> {
@@ -404,6 +413,37 @@ impl Gpu {
         Ok(result)
     }
 
+    /// The frame scaled and converted into target (RGBA, out_w x out_h), left on the card for whoever draws it.
+    pub fn paint(&self, frame: &Frame, target: &wgpu::Texture) -> Result<(), String> {
+        let (out_w, out_h) = (target.width(), target.height());
+        if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
+            return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
+        }
+        let mut used = Vec::new();
+        let mut enc = self.device.create_command_encoder(&Default::default());
+        let planes = self.upload(frame, &mut used);
+        let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
+        self.convert_pass(&mut enc, &planes.views, planes.mode, target, taps, (planes.width, planes.height));
+        self.queue.submit([enc.finish()]);
+        self.give_back(used);
+        Ok(())
+    }
+
+    /// A texture paint() can draw into and Slint can show.
+    pub fn picture(&self, w: u32, h: u32) -> wgpu::Texture {
+        self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("preview"),
+            size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: WORK,
+            // COPY_SRC so a snapshot of the window can read it back
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        })
+    }
+
     /// The frame as RGBA at another size, scaled and converted on the card (the preview).
     pub fn rgba(&self, frame: &Frame, out_w: u32, out_h: u32) -> Result<Vec<u8>, String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
@@ -596,6 +636,18 @@ mod tests {
     }
 
     const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+
+    #[test]
+    fn a_handed_device_paints_the_preview_into_a_texture_it_keeps() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let window = Gpu::on_device(gpu.device.clone(), gpu.queue.clone());
+        let frame = yuv_frame(64, 36, |x, _| (16 + x * 3) as u8, 128, 128);
+        let target = window.picture(32, 18);
+        window.paint(&frame, &target).unwrap();
+        let enc = window.device.create_command_encoder(&Default::default());
+        let painted = window.download(enc, &[&target], &[4]).unwrap().pop().unwrap();
+        assert_eq!(painted, gpu.rgba(&frame, 32, 18).unwrap());
+    }
 
     #[test]
     fn a_picture_comes_back_from_the_card_as_it_went() {

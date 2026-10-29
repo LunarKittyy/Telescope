@@ -7,8 +7,9 @@ than --threshold of its pixels differ or its size does.
 
     python compare_scenes.py QT_DIR RUST_DIR REVIEW_DIR [--threshold 0.005] [--tolerance 24]
 
-A scene the ledger marks ported or verified fails the run when it differs or has no Rust render; the rest are only
-reported, since most scenes aren't ported yet. Opens REVIEW_DIR/index.html for the side-by-side view.
+A scene the ledger marks verified fails the run when it differs or has no Rust render; the rest are only reported,
+since most scenes aren't ported yet. With --reduced, QT_DIR holds renders of a Qt window with only the plugins Rust has
+ported (rust/crates/shell/parity/scenes.py makes them) and ported scenes have to match too. Opens REVIEW_DIR/index.html for the side-by-side view.
 """
 
 import argparse
@@ -22,7 +23,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 LEDGER = HERE / "ledger.toml"
-DONE = ("ported", "verified")
+DONE = ("ported", "verified")  # what has to match a --reduced render; a full one only checks verified
 
 
 def load(path: Path):
@@ -98,12 +99,14 @@ def main(argv=None) -> int:
     parser.add_argument("--threshold", type=float, default=0.005, help="share of pixels that may differ (0.005 = 0.5%%)")
     parser.add_argument("--tolerance", type=int, default=24, help="how far a channel may be off before a pixel differs")
     parser.add_argument("--ledger", type=Path, default=LEDGER)
+    parser.add_argument("--reduced", action="store_true", help="QT_DIR has only the ported plugins: ported scenes must match")
     args = parser.parse_args(argv)
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PyQt6.QtGui import QGuiApplication
     app = QGuiApplication.instance() or QGuiApplication([])  # noqa: F841
     with args.ledger.open("rb") as f:
-        ported = {k for k, v in tomllib.load(f).get("scene", {}).items() if v.get("status") in DONE}
+        must = DONE if args.reduced else ("verified",)
+        ported = {k for k, v in tomllib.load(f).get("scene", {}).items() if v.get("status") in must}
     args.review.mkdir(parents=True, exist_ok=True)
     rows, missing, compared, absent = [], [], 0, 0
     for qt_path in sorted(args.qt.glob("*x/*.png")):

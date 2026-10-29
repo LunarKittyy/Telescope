@@ -3,6 +3,7 @@
 
 pub mod camera_control;
 pub mod onboarding;
+pub mod preview;
 
 use std::sync::Arc;
 use telescope_core::plugin::Plugin;
@@ -19,6 +20,7 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
     vec![
         Box::new(camera_control::CameraControl::default()),
         Box::new(onboarding::Onboarding::new(vcam, Some(bus.clone()))),
+        Box::new(preview::Preview::default()),
     ]
 }
 

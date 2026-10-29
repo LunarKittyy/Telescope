@@ -55,6 +55,11 @@ pub struct Window {
     pub(crate) streams: crate::streams::Streams,
     /// Plugins' pending host.schedule timers, by (plugin, token).
     timers: RefCell<std::collections::BTreeMap<(String, String), slint::Timer>>,
+    /// Draws the preview's frames: on Slint's device once it says which, else on the CPU (preview.rs).
+    painter: RefCell<Option<Box<dyn crate::preview::Painter>>>,
+    preview_timer: slint::Timer,
+    /// The number of the frame the preview shows, so a frame isn't painted twice.
+    painted: Cell<u64>,
 }
 
 thread_local! {
@@ -135,6 +140,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         opts,
         streams: crate::streams::Streams::new(),
         timers: RefCell::default(),
+        painter: RefCell::default(),
+        preview_timer: slint::Timer::default(),
+        painted: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     // Events emitted from other threads get delivered on this one
@@ -334,6 +342,44 @@ impl Window {
         self.show_banners();
     }
 
+    /// The preview card's newest frame from the stream the panels show, at the size of its stage, if it should show one.
+    fn paint_preview(self: &Rc<Self>) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
+        let prop = |name: &str| self.ui.get_property(&format!("{}-{name}", r.id)).ok();
+        let on = |name: &str| prop(name) == Some(SValue::Bool(true));
+        if !(on("visible-card") && on("showing") && on("camera-on")) || !self.is_streaming() {
+            return;
+        }
+        let Some((frame, number)) = self.preview_frame() else { return };
+        if number == self.painted.get() {
+            return;
+        }
+        let scale = self.ui.window().scale_factor();
+        let px = |name: &str| match prop(name) {
+            Some(SValue::Number(v)) => (v as f32 * scale).round().max(0.0) as u32,
+            _ => 0,
+        };
+        let (w, h) = crate::preview::fit_within((frame.width, frame.height), (px("stage-width"), px("stage-height")));
+        let mut painter = self.painter.borrow_mut();
+        if painter.is_none() {
+            let Some(services) = &self.services else { return };
+            *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
+        }
+        let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
+        drop(painter);
+        self.painted.set(number);
+        let _ = self.ui.set_property(&format!("{}-frame", r.id), SValue::Image(image));
+        let _ = self.ui.set_property(&format!("{}-has-frame", r.id), SValue::Bool(true));
+    }
+
+    /// Runs a callback of a plugin's card or header widget as if it had been clicked (scene renders open dialogs this way).
+    pub fn call_ui(self: &Rc<Self>, plugin: &str, ui: &str, callback: &str) -> bool {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
+        let done = self.ui.invoke(&format!("{}-{callback}", r.id), &[]).is_ok();
+        self.process();
+        done
+    }
+
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return };
         for (k, v) in props.as_object().into_iter().flatten() {
@@ -481,20 +527,40 @@ pub fn forget() {
 
 /// The window, until it's closed.
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
+    let wgpu = crate::preview::select_wgpu_backend();
     let window = build(ConfigFile::default(), |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
         plugins.extend((services.plugins)());
         crate::plugins::in_order(plugins)
     }, Some(services.clone()), Some(opts.clone()))?;
-    if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
-        let mut done = false;
-        let _ = window.ui.window().set_rendering_notifier(move |state, _| {
-            if !done && matches!(state, slint::RenderingState::AfterRendering) {
-                done = true;
-                println!("first-paint-ms {:.1}", (telescope_core::time::monotonic_ns() - t0) as f64 / 1e6);
+    let t0 = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok());
+    let mut painted_once = false;
+    let _ = window.ui.window().set_rendering_notifier(move |state, api| {
+        match (state, api) {
+            (slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU30 { device, queue, .. }) if wgpu => {
+                if let Some(factory) = crate::preview::gpu_painter() {
+                    log::info!("The preview paints on the window's graphics card");
+                    let painter = crate::preview::GpuPainter(factory(device.clone(), queue.clone()));
+                    with_window(|w| *w.painter.borrow_mut() = Some(Box::new(painter)));
+                }
             }
-        });
-    }
+            (slint::RenderingState::RenderingTeardown, _) => with_window(|w| *w.painter.borrow_mut() = None),
+            (slint::RenderingState::AfterRendering, _) if !painted_once => {
+                painted_once = true;
+                if let Some(t0) = t0 {
+                    println!("first-paint-ms {:.1}", (telescope_core::time::monotonic_ns() - t0) as f64 / 1e6);
+                }
+            }
+            _ => {}
+        }
+    });
+    // Frames are pulled at the display's pace rather than pushed by the stream, so a slow paint never holds it up
+    let weak = Rc::downgrade(&window);
+    window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(15), move || {
+        if let Some(w) = weak.upgrade() {
+            w.paint_preview();
+        }
+    });
     if opts.autostart {
         let weak = Rc::downgrade(&window);
         slint::Timer::single_shot(Duration::from_millis(100), move || {
