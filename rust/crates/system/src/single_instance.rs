@@ -32,9 +32,18 @@ impl Address {
         }
     }
 
-    /// This copy's: a dev profile when TELESCOPE_DEV_PROFILE is set.
+    /// This copy's. A dev profile gets one per folder (Python has one for every dev profile): telescope-rs keeps its
+    /// settings in a profile of its own until it replaces the Python app, and two of those, or one next to the
+    /// Python dev desktop, mustn't take each other for the running copy.
     pub fn current() -> Address {
-        Address::for_profile(telescope_core::config::dev_profile().is_some())
+        let Some(folder) = telescope_core::config::dev_profile() else { return Address::for_profile(false) };
+        let digest = ring::digest::digest(&ring::digest::SHA256, folder.to_string_lossy().as_bytes());
+        let tag = u16::from_be_bytes([digest.as_ref()[0], digest.as_ref()[1]]);
+        match Address::for_profile(true) {
+            Address::Abstract(name) => Address::Abstract(format!("{name}-{}", &hex(digest.as_ref())[..8])),
+            // Above the real app's port and the Python dev profile's
+            Address::Port(port) => Address::Port(port + 2 + tag % 1000),
+        }
     }
 }
 
