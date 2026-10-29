@@ -243,6 +243,63 @@ def chroma() -> dict:
     return {"cases": out, "probes": probes, "tables": tabs}
 
 
+def fun() -> dict:
+    """The Fun pack's effects that don't depend on chance: what Python's fun_effects make of a few scenes and settings."""
+    from telescope import fun_effects as fx
+    from telescope.fun_effects import Clones, Look
+    plate = cv2.resize(picture(), (320, 180), interpolation=cv2.INTER_LINEAR)
+    person = plate.copy()
+    person[40:160, 120:200] = (20, 220, 240)
+    clone = plate.copy()
+    clone[40:160, 20:80] = (240, 60, 40)
+    rect = [20, 40, 80, 160]
+    mask = np.zeros((180, 320), np.uint8)
+    mask[40:160, 20:80] = 255
+    clones = Clones.add(None, clone, mask)
+    files = {"fun_plate.rgba": plate, "fun_person.rgba": person, "fun_clone.rgba": clone}
+    seq = [np.roll(plate, 9 * i, axis=1) for i in range(6)]
+    for i, f in enumerate(seq):
+        files[f"fun_seq_{i}.rgba"] = f
+    dark = np.full((180, 320, 3), 12, np.uint8)
+    lights = []
+    for i in range(4):
+        f = dark.copy()
+        f[60:70, 40 + 30 * i:50 + 30 * i] = 255
+        f[100:104, 200:230] = (250, 255, 240)
+        lights.append(f)
+        files[f"fun_light_{i}.rgba"] = f
+    for name, img in files.items():
+        (HERE / name).write_bytes(rgba(img))
+    lines = (((0.2, 0.2), (0.8, 0.8)), ((0.5, 0.5), (0.3, 0.9)))
+    heads = (((0.5, 0.3), 0.1),)
+    cases = [
+        ("the cloak", Look("cloak", plate=plate, edges=3), [person], ["fun_person.rgba"]),
+        ("the cloak with hard edges", Look("cloak", plate=plate, edges=0), [person], ["fun_person.rgba"]),
+        ("clones", Look("clones", plate=plate, clones=clones, edges=3), [person], ["fun_person.rgba"]),
+        ("slit-scan down", Look("slit", spread=12), seq, [f"fun_seq_{i}.rgba" for i in range(6)]),
+        ("slit-scan across", Look("slit", spread=12, across=True), seq, [f"fun_seq_{i}.rgba" for i in range(6)]),
+        ("light painting", Look("light", fade=5, brightness=6), lights, [f"fun_light_{i}.rgba" for i in range(4)]),
+        ("light painting, long trails", Look("light", fade=10, brightness=1), lights, [f"fun_light_{i}.rgba" for i in range(4)]),
+        ("a CRT", Look("crt"), [person], ["fun_person.rgba"]),
+        ("ascii", Look("ascii"), [person], ["fun_person.rgba"]),
+        ("a stick figure on paper", Look("stick", lines=lines, heads=heads), [person], ["fun_person.rgba"]),
+        ("a stick figure on the room", Look("stick", plate=plate, lines=lines, heads=heads), [person], ["fun_person.rgba"]),
+        ("game boy", Look("game_boy"), [person], ["fun_person.rgba"]),
+    ]
+    out = []
+    for i, (name, look, frames, names) in enumerate(cases):
+        runner = fx.Runner()
+        shown = None
+        for f in frames:
+            shown = runner(f, look) if look.effect != "game_boy" else fx.GameBoy()(f, look)
+        file = f"fun_{i:02d}.rgba"
+        (HERE / file).write_bytes(rgba(shown))
+        out.append({"name": name, "effect": look.effect, "frames": names, "file": file, "edges": look.edges, "fade": look.fade,
+                    "brightness": look.brightness, "spread": look.spread, "across": look.across, "plate": look.plate is not None,
+                    "clones": look.clones is not None, "lines": look.lines, "heads": look.heads})
+    return {"width": 320, "height": 180, "clone_rect": rect, "cases": out}
+
+
 def configs() -> list:
     """Settings as saved, and what each plugin makes of them: set_config(input), then get_config()."""
     from PyQt6.QtWidgets import QApplication
@@ -250,6 +307,7 @@ def configs() -> list:
     from telescope.plugin import EventBus
     from telescope.plugins.chroma_key import ChromaKeyPlugin
     from telescope.plugins.colour_grading import ColourGradingPlugin
+    from telescope.plugins.fun_pack import FunPackPlugin
     from telescope.plugins.transforms import TransformsPlugin
 
     class Host:
@@ -276,6 +334,25 @@ def configs() -> list:
 
         def is_streaming_from(self, _source_id):
             return False
+
+        def packets_problem(self):
+            return ""
+
+        def change_packets(self, *a):
+            pass
+
+        def want_people(self, *a):
+            pass
+
+        def vision_state(self):
+            return "off"
+
+        def view(self):
+            from telescope.view import View
+            return View()
+
+        def view_aspect(self):
+            return 16 / 9
 
     out = []
 
@@ -324,6 +401,15 @@ def configs() -> list:
         {"on": "yes", "screen": "sepia", "background": "picture", "picture": "/nowhere/pic.png"},
         {"screen": "picked", "picked": [0, 0, 255], "colour": [255, 255, 255, 255], "tolerance": [1]},
     ])
+    run(FunPackPlugin, "fun_pack", [
+        {},
+        {"effect": "slit", "spread": 30, "across": True, "fade": 99},
+        {"effect": "nonsense", "edges": "x", "smear": 7, "spread": 1.9, "across": 1},
+        {"effect": "clones", "edges": 0, "fade": 1, "brightness": 10, "spread": 45, "smear": 3},
+        {"effect": "mosh", "across": False, "edges": -5, "brightness": None, "spread": "12"},
+        {"effect": 7, "across": "yes", "fade": [1]},
+        {"effect": "game_boy", "edges": 4.7, "smear": 1.2},
+    ])
     return out
 
 
@@ -335,6 +421,7 @@ def main():
     (HERE / "colours.json").write_text(json.dumps({**manifest, "cases": grades()}, indent=1))
     (HERE / "configs.json").write_text(json.dumps(configs(), indent=1, allow_nan=True))
     (HERE / "chroma.json").write_text(json.dumps(chroma(), indent=1))
+    (HERE / "fun.json").write_text(json.dumps(fun(), indent=1))
 
 
 if __name__ == "__main__":

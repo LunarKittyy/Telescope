@@ -14,6 +14,10 @@ use telescope_core::plugin::Plugin;
 use telescope_core::view;
 use telescope_effects::chroma_key::{chroma_of, key_tables, keyable, ChromaKeyPlugin};
 use telescope_effects::colour_grading::{ColourGradingPlugin, OWNER};
+use telescope_effects::cpu::Rgb;
+use telescope_effects::fun_effects::{Clones, Effect, Inputs, Look};
+use telescope_effects::fun_pack::FunPackPlugin;
+use telescope_effects::imgops::Gray;
 use telescope_effects::transforms::TransformsPlugin;
 
 fn fixtures() -> PathBuf {
@@ -174,6 +178,7 @@ fn settings_load_and_save_as_python_does() {
             "colour_grading" => Box::new(ColourGradingPlugin::new()),
             "transforms" => Box::new(TransformsPlugin::new()),
             "chroma_key" => Box::new(ChromaKeyPlugin::new()),
+            "fun_pack" => Box::new(FunPackPlugin::new()),
             other => panic!("{other}"),
         };
         plugin.set_config(&case["input"]).unwrap();
@@ -243,5 +248,108 @@ fn the_keys_tables_are_pythons_to_the_last_entry() {
         let differ = |a: &[u8], b: &str| a.iter().zip(b.as_bytes().chunks(2)).filter(|(x, y)| format!("{x:02x}").as_bytes() != *y).count();
         let (a, cr, cb) = (differ(&got.alpha, t["alpha"].as_str().unwrap()), differ(&got.cr, t["cr"].as_str().unwrap()), differ(&got.cb, t["cb"].as_str().unwrap()));
         assert_eq!((a, cr, cb), (0, 0, 0), "entries that differ for {} {} {} {}", t["key"], t["tolerance"], t["softness"], t["spill"]);
+    }
+}
+
+fn rgb_picture(name: &str, w: usize, h: usize) -> Rgb {
+    Rgb::from_frame(&picture(name, w as u32, h as u32)).unwrap()
+}
+
+fn frame_rgb(rgb: &Rgb) -> Frame {
+    let mut f = Frame::new(rgb.w as u32, rgb.h as u32, PixelFormat::Rgba, vec![0; rgb.w * rgb.h * 4]);
+    rgb.write_to(&mut f);
+    f
+}
+
+/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): the ones made of the same
+/// operations are close; the stick figure's lines are drawn with a different anti-aliasing, and ASCII's glyphs are our own.
+fn fun_limits(effect: &str) -> (u32, f64, f64) {
+    match effect {
+        "cloak" | "clones" => (24, 0.5, 0.01),
+        "slit" => (4, 0.2, 0.0),
+        "light" => (4, 0.2, 0.0),
+        "crt" => (6, 0.3, 0.01),
+        "stick" => (255, 1.5, 0.03),
+        "ascii" => (255, 40.0, 0.6),
+        _ => (255, 255.0, 1.0),
+    }
+}
+
+#[test]
+fn the_cpu_fun_effects_make_pythons_pictures() {
+    let fun = json_of("fun.json");
+    let (w, h) = (fun["width"].as_u64().unwrap() as usize, fun["height"].as_u64().unwrap() as usize);
+    let plate = Arc::new(rgb_picture("fun_plate.rgba", w, h));
+    let r: Vec<usize> = fun["clone_rect"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as usize).collect();
+    let mut mask = Gray::new(w, h);
+    for y in r[1]..r[3] {
+        for x in r[0]..r[2] {
+            mask.data[y * w + x] = 255;
+        }
+    }
+    let clones = Arc::new(Clones::add(None, &rgb_picture("fun_clone.rgba", w, h), &mask));
+    let mut seen = 0;
+    for case in fun["cases"].as_array().unwrap() {
+        let effect = case["effect"].as_str().unwrap();
+        if effect == "game_boy" {
+            continue;
+        }
+        let point = |v: &Value| (v[0].as_f64().unwrap(), v[1].as_f64().unwrap());
+        let look = Look {
+            effect: effect.into(),
+            plate: case["plate"].as_bool().unwrap().then(|| plate.clone()).or_else(|| (effect == "cloak" || effect == "clones").then(|| plate.clone())),
+            clones: case["clones"].as_bool().unwrap().then(|| clones.clone()),
+            edges: case["edges"].as_i64().unwrap(),
+            fade: case["fade"].as_i64().unwrap(),
+            brightness: case["brightness"].as_i64().unwrap(),
+            spread: case["spread"].as_i64().unwrap(),
+            across: case["across"].as_bool().unwrap(),
+            lines: case["lines"].as_array().unwrap().iter().map(|l| (point(&l[0]), point(&l[1]))).collect(),
+            heads: case["heads"].as_array().unwrap().iter().map(|l| (point(&l[0]), l[1].as_f64().unwrap())).collect(),
+            reset: 0,
+        };
+        let mut e = Effect::named(effect).unwrap();
+        let mut shown = None;
+        for f in case["frames"].as_array().unwrap() {
+            shown = Some(e.run(&rgb_picture(f.as_str().unwrap(), w, h), &look, Inputs { mask: None }));
+        }
+        let got = frame_rgb(&shown.unwrap());
+        let want = picture(case["file"].as_str().unwrap(), w as u32, h as u32);
+        let g = gap(&got, &want, 8);
+        eprintln!("{:<35} max {:>3} mean {:.3} over {:.4}", case["name"].as_str().unwrap(), g.max, g.mean, g.over);
+        let (max, mean, over) = fun_limits(effect);
+        assert!(g.max <= max && g.mean <= mean && g.over <= over, "{}: {g:?}", case["name"]);
+        seen += 1;
+    }
+    assert!(seen >= 10);
+}
+
+#[test]
+fn the_game_boy_makes_pythons_four_shades() {
+    if !gpu_here() {
+        return;
+    }
+    let fun = json_of("fun.json");
+    let (w, h) = (fun["width"].as_u64().unwrap() as u32, fun["height"].as_u64().unwrap() as u32);
+    let case = fun["cases"].as_array().unwrap().iter().find(|c| c["effect"] == "game_boy").unwrap();
+    let mut plugin = FunPackPlugin::new();
+    plugin.set_config(&json!({"effect": "game_boy"})).unwrap();
+    let step = plugin.frame_step().expect("a step");
+    let got = run(vec![StagedStep { owner: "fun_pack".into(), stage: FrameStage::Effects, step }], picture(case["frames"][0].as_str().unwrap(), w, h));
+    let want = picture(case["file"].as_str().unwrap(), w, h);
+    let g = gap(&got, &want, 8);
+    eprintln!("game boy max {} mean {:.3} over {:.4}", g.max, g.mean, g.over);
+    let shades: std::collections::HashSet<[u8; 3]> = got.data.chunks(4).map(|p| [p[0], p[1], p[2]]).collect();
+    assert_eq!(shades.len(), 4);
+    // a pixel on the edge of a dither threshold can land on the next shade: those are the only ones that differ
+    assert!(g.over <= 0.02, "{g:?}");
+}
+
+#[test]
+fn the_effects_shaders_compile() {
+    for (name, plugin) in [("chroma_key", Box::new({ let mut p = ChromaKeyPlugin::new(); p.set_config(&json!({"on": true})).unwrap(); p }) as Box<dyn Plugin>), ("game_boy", Box::new({ let mut p = FunPackPlugin::new(); p.set_config(&json!({"effect": "game_boy"})).unwrap(); p }))] {
+        let mut plugin = plugin;
+        let Some(FrameStep::Shader(step)) = plugin.frame_step() else { panic!("{name}: a shader") };
+        telescope_plugin_host::testing::validate_shader(&step, name).unwrap();
     }
 }

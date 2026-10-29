@@ -6,6 +6,7 @@ use telescope_core::plugin::Plugin;
 use telescope_core::ui::SlintSource;
 use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
+use telescope_effects::fun_pack::FunPackPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
@@ -50,4 +51,9 @@ fn the_transforms_card_compiles() {
 #[test]
 fn the_chroma_key_card_compiles() {
     compile(&mut ChromaKeyPlugin::new());
+}
+
+#[test]
+fn the_fun_pack_card_compiles() {
+    compile(&mut FunPackPlugin::new());
 }

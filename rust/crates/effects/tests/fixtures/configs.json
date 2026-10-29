@@ -1900,5 +1900,130 @@
    ],
    "picture": ""
   }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {},
+  "output": {
+   "effect": "off",
+   "across": false,
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "smear": 0
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": "slit",
+   "spread": 30,
+   "across": true,
+   "fade": 99
+  },
+  "output": {
+   "effect": "slit",
+   "across": true,
+   "edges": 3,
+   "fade": 10,
+   "brightness": 6,
+   "spread": 30,
+   "smear": 0
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": "nonsense",
+   "edges": "x",
+   "smear": 7,
+   "spread": 1.9,
+   "across": 1
+  },
+  "output": {
+   "effect": "off",
+   "across": false,
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 5,
+   "smear": 3
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": "clones",
+   "edges": 0,
+   "fade": 1,
+   "brightness": 10,
+   "spread": 45,
+   "smear": 3
+  },
+  "output": {
+   "effect": "clones",
+   "across": false,
+   "edges": 0,
+   "fade": 1,
+   "brightness": 10,
+   "spread": 45,
+   "smear": 3
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": "mosh",
+   "across": false,
+   "edges": -5,
+   "brightness": null,
+   "spread": "12"
+  },
+  "output": {
+   "effect": "mosh",
+   "across": false,
+   "edges": 0,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 12,
+   "smear": 0
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": 7,
+   "across": "yes",
+   "fade": [
+    1
+   ]
+  },
+  "output": {
+   "effect": "off",
+   "across": false,
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "smear": 0
+  }
+ },
+ {
+  "plugin": "fun_pack",
+  "input": {
+   "effect": "game_boy",
+   "edges": 4.7,
+   "smear": 1.2
+  },
+  "output": {
+   "effect": "game_boy",
+   "across": false,
+   "edges": 4,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "smear": 1
+  }
  }
 ]
