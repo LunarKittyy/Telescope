@@ -4740,7 +4740,7 @@
 "dialog-shortcut-no-match" = { status = "todo" }
 "dialog-shortcut-plain-key" = { status = "todo" }
 "dialog-shortcut-unknown" = { status = "todo" }
-"main-microphone" = { status = "todo" }
+"main-microphone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "menu-control-mute" = { status = "todo" }
 "menu-control-pan" = { status = "todo" }
 "menu-shortcut-row" = { status = "todo" }
@@ -4979,15 +4979,15 @@
 "connection-browser-idle" = { status = "todo" }
 "connection-browser-live" = { status = "todo" }
 "connection-browser-waiting" = { status = "todo" }
-"connection-cable-app-closed" = { status = "todo" }
-"connection-cable-other-phone" = { status = "todo" }
-"connection-cable-unauthorized" = { status = "todo" }
+"connection-cable-app-closed" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-cable-other-phone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"connection-cable-unauthorized" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-desktop-outdated" = { status = "todo" }
 "connection-local-only" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-local-only-windows" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-not-paired" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-not-paired-old" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"connection-phone-outdated" = { status = "todo" }
+"connection-phone-outdated" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-phone-outdated-usb" = { status = "todo" }
 "connection-ready" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-ready-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
@@ -5101,7 +5101,7 @@
 "cool" = { status = "todo" }
 "hot" = { status = "todo" }
 "main-empty" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"main-medium" = { status = "todo" }
+"main-medium" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-narrow" = { status = "todo" }
 "main-wide" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "warm" = { status = "todo" }
