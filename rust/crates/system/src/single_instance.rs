@@ -190,6 +190,11 @@ impl Lock {
     }
 }
 
+/// Whether something holds the lock at address now (the guard's another_copy_running), letting go of it at once.
+pub fn held_elsewhere(address: &Address) -> bool {
+    Lock::bind(address).is_err()
+}
+
 /// What a start found (acquire_single_instance).
 pub enum Acquired {
     /// This copy holds the lock.

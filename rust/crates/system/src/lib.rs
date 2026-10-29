@@ -2,6 +2,7 @@
 
 pub mod shortcuts;
 pub mod single_instance;
+pub mod update_guard;
 
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
 
