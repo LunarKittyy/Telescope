@@ -347,14 +347,26 @@ impl HostPreview for Ctx<'_> {
     fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
     fn remove_preview_layer(&mut self, _owner: &str) {}
     fn refresh_preview(&mut self) {}
-    fn pick_on_preview(&mut self, _owner: &str, _kind: PickKind, _start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool {
-        false
+    /// Only on a stream the preview card shows.
+    fn pick_on_preview(&mut self, owner: &str, kind: PickKind, start: Option<[[f32; 2]; 4]>, hint: &str) -> bool {
+        if !self.is_streaming() || !self.has_plugin("preview") {
+            return false;
+        }
+        let st = &mut *self.state;
+        st.overlays.start_pick(&st.view, owner, kind, start, hint, &st.bus);
+        true
     }
-    fn finish_pick(&mut self, _owner: &str) -> bool {
-        false
+    fn finish_pick(&mut self, owner: &str) -> bool {
+        let st = &mut *self.state;
+        st.overlays.finish_pick(&st.view, Some(owner), &st.bus)
     }
-    fn cancel_pick(&mut self, _owner: &str) {}
-    fn set_preview_warp(&mut self, _owner: &str, _matrix: Option<[f32; 9]>) {}
+    fn cancel_pick(&mut self, owner: &str) {
+        let st = &mut *self.state;
+        st.overlays.cancel_pick(Some(owner), &st.bus);
+    }
+    fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
+        self.state.overlays.set_warp(owner, matrix);
+    }
 }
 
 impl HostStills for Ctx<'_> {

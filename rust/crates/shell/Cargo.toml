@@ -26,3 +26,4 @@ zbus.workspace = true
 
 [dev-dependencies]
 telescope-system.workspace = true
+telescope-effects.workspace = true

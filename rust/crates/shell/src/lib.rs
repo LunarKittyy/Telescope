@@ -8,6 +8,7 @@ pub mod file_dialog;
 pub mod flow;
 pub mod layout;
 pub mod offscreen;
+pub mod overlays;
 pub mod plugins;
 pub mod preview;
 pub mod plugins_tab;

@@ -175,6 +175,8 @@ pub struct State {
     pub colour: ColourPipeline,
     /// While Colour grading compares: each stream's newest frame from just before the colour step, for the preview.
     pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
+    /// The pick under way on the preview, and the warp a plugin moving the picture told it about.
+    pub overlays: crate::overlays::Overlays,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -221,6 +223,7 @@ impl State {
             vc: crate::view_control::ViewController::new(),
             colour: ColourPipeline::new(),
             colour_before: Arc::default(),
+            overlays: Default::default(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -642,6 +645,10 @@ impl State {
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
                 }
+                if matches!(event, Event::StreamStopped | Event::DeviceChanged { .. }) {
+                    // A warp stays: only its plugin ends it
+                    self.overlays.cancel_pick(None, &self.bus);
+                }
                 if let Event::CameraSwitched { camera } = &event {
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
@@ -672,9 +679,40 @@ impl State {
 
     /// A callback from one of plugin `name`'s pieces of UI.
     pub fn ui_event(&mut self, name: &str, event: UiEvent) {
+        if name == "preview" && event.callback.starts_with("pick-") {
+            self.pick_input(&event);
+            self.deliver_events();
+            return;
+        }
         if let Some(i) = self.index(name) {
             self.call(i, |p, host| p.on_ui(host, &event));
             self.deliver_events();
+        }
+    }
+
+    /// The mouse and keys on the preview card's stage while a pick runs: pick-pointer(kind, u, v, width, height) with
+    /// the point in the frame as shown and the frame's size on screen, and pick-key(text).
+    fn pick_input(&mut self, event: &UiEvent) {
+        let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
+        let s = |i: usize| event.args.get(i).and_then(Value::as_str).unwrap_or("");
+        let (view, o, bus) = (&self.view, &mut self.overlays, &self.bus);
+        let (u, v, size) = (n(1), n(2), (n(3), n(4)));
+        match (event.callback.as_str(), s(0)) {
+            ("pick-pointer", "down") => {
+                o.press(view, u, v, size);
+            }
+            ("pick-pointer", "move") => {
+                o.move_to(view, u, v);
+                o.cursor = Some(o.cursor_at(view, u, v, size).unwrap_or(crate::overlays::Cursor::Default));
+            }
+            ("pick-pointer", "up") => {
+                o.release(view, bus);
+            }
+            ("pick-pointer", "right") => o.cancel_pick(None, bus),
+            ("pick-key", key) => {
+                o.key(view, key, bus);
+            }
+            _ => {}
         }
     }
 
