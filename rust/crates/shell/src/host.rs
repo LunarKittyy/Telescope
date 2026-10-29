@@ -244,6 +244,20 @@ impl HostShell for Ctx<'_> {
         let i = self.state.index(plugin)?;
         self.state.call(i, |p, host| p.run_action(host, id, params)).flatten()
     }
+    fn release_action(&mut self, plugin: &str, id: &str, params: &Value) {
+        if plugin == self.me {
+            return;
+        }
+        if let Some(i) = self.state.index(plugin) {
+            self.state.call(i, |p, host| p.release_action(host, id, params));
+        }
+    }
+    fn window_active(&self) -> bool {
+        self.state.window_active
+    }
+    fn copy_text(&mut self, text: &str) {
+        self.state.effects.push(Effect::CopyText(text.into()));
+    }
 }
 
 impl HostUi for Ctx<'_> {

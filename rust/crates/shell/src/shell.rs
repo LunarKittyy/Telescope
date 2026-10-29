@@ -50,6 +50,8 @@ pub enum Effect {
     UpdateOutput { change: telescope_core::host::OutputChange, source_id: Option<String> },
     /// Host::make_main: the mic and the plugins that stay with it move to this stream.
     MakeMain(String),
+    /// Host::copy_text: this goes on the clipboard.
+    CopyText(String),
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
@@ -163,6 +165,8 @@ pub struct State {
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
+    /// One of Telescope's windows is in front (keys.rs watches it).
+    pub window_active: bool,
     next_request: u64,
 }
 
@@ -189,6 +193,7 @@ impl State {
             problems: BTreeMap::new(),
             keep_in_tray: false,
             link: None,
+            window_active: false,
             next_request: 1,
         }
     }

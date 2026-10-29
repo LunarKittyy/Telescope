@@ -285,6 +285,13 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("key", move |args| {
+            let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
+            let (released, typing) = (args.get(1) == Some(&SValue::Bool(true)), args.get(2) == Some(&SValue::Bool(true)));
+            let input = crate::keys::key_input(&args[0], released, typing, w.modal());
+            SValue::Bool(w.key(&input))
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("settings-clicked", move |_| {
             if let Some(w) = weak.upgrade() {
                 w.state.borrow_mut().effects.push(Effect::OpenSettings(String::new()));
@@ -294,6 +301,11 @@ impl Window {
         });
         let _ = ui.set_property("window-title", SValue::String(if telescope_core::config::dev_profile().is_some() { tr("Telescope (dev)") } else { "Telescope".to_string() }.into()));
         self.show_idle();
+    }
+
+    /// Host::copy_text: onto the clipboard, through the window's hidden TextInput.
+    pub(crate) fn copy_text(&self, text: &str) {
+        let _ = self.ui.invoke("copy-text", &[SValue::String(text.into())]);
     }
 
     fn number(&self, name: &str) -> f32 {
@@ -555,7 +567,11 @@ impl Window {
                 let _ = slint::quit_event_loop();
             }
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
-            Effect::OpenUrl(url) => open_url(&url),
+            Effect::OpenUrl(url) => match url.strip_prefix(crate::banners::COPY_SCHEME) {
+                Some(text) => self.copy_text(text),
+                None => open_url(&url),
+            },
+            Effect::CopyText(text) => self.copy_text(&text),
             Effect::HandOver { source_id, route, url } => self.hand_over(&source_id, route, url),
             other => log::debug!("not handled yet: {other:?}"),
         }
@@ -627,11 +643,6 @@ impl Window {
 }
 
 fn open_url(url: &str) {
-    if let Some(text) = url.strip_prefix(crate::banners::COPY_SCHEME) {
-        // No clipboard in core yet: the command shows in the banner, selectable, and in the log
-        log::info!("Copy: {text}");
-        return;
-    }
     #[cfg(target_os = "linux")]
     let _ = std::process::Command::new("xdg-open").arg(url).spawn();
     #[cfg(target_os = "windows")]
@@ -666,6 +677,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(15), move || {
         if let Some(w) = weak.upgrade() {
             w.paint_preview();
+            w.watch_focus();
         }
     });
     if opts.autostart {

@@ -109,6 +109,11 @@ thread_local! {
     static SETTINGS: RefCell<Option<Rc<Settings>>> = const { RefCell::new(None) };
 }
 
+/// The settings window, once it's been built.
+pub fn window() -> Option<ComponentInstance> {
+    SETTINGS.with(|s| s.borrow().as_ref().map(|s| s.ui.clone_strong()))
+}
+
 /// The settings window, built the first time it's asked for; on `tab` if that's one it shows.
 pub fn open(window: &Rc<Window>, tab: &str) {
     let existing = SETTINGS.with(|s| s.borrow().clone());

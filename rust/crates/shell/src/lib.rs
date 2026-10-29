@@ -24,6 +24,7 @@ pub mod switches;
 pub mod texts;
 pub mod shell;
 pub mod host;
+pub mod keys;
 pub mod view;
 pub mod window;
 pub mod worker;
