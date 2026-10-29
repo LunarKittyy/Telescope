@@ -303,6 +303,11 @@ pub trait HostShell {
         false
     }
     fn copy_text(&mut self, _text: &str) {}
+    /// What's on the clipboard now, to check that a copy_text reached it (QGuiApplication.clipboard().text(): a window in
+    /// the background can't put anything there on Wayland). None when the host can't read it.
+    fn clipboard_text(&mut self) -> Option<String> {
+        None
+    }
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
     /// "Add keyboard shortcut…" on a right-click of controls that name an action, with the saved shortcuts listed

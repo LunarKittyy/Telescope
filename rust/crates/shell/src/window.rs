@@ -204,6 +204,15 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     window.state.borrow().posts.set_waker(|| {
         let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
     });
+    // Whatever is on the clipboard now, pasted into the hidden box; an empty answer is no answer (the paste may not have worked)
+    let weak = Rc::downgrade(&window);
+    window.state.borrow_mut().clipboard = Some(Box::new(move || {
+        let window = weak.upgrade()?;
+        match window.ui.invoke("paste-text", &[]) {
+            Ok(SValue::String(text)) if !text.is_empty() => Some(text.to_string()),
+            _ => None,
+        }
+    }));
     window.wire(&files, &cards, &headers);
     window.first_props();
     window.process();
@@ -657,6 +666,7 @@ impl Window {
                 None => open_url(&url),
             },
             Effect::CopyText(text) => self.copy_text(&text),
+            Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
             Effect::PickFile { plugin, request, dialog } => {
                 std::thread::spawn(move || {
                     let (ok, message, data) = crate::file_dialog::ask(&dialog);

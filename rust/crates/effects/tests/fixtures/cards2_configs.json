@@ -1,0 +1,562 @@
+[
+ {
+  "plugin": "on_air",
+  "input": {},
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "trigger": "mic",
+   "page": false,
+   "token": "abcdefghijklmnop_-ABCDEF",
+   "address": "192.168.1.5",
+   "webhook_url": "http://hub/x",
+   "webhook_method": "GET",
+   "webhook_on": "on",
+   "webhook_off": "off"
+  },
+  "output": {
+   "trigger": "mic",
+   "page": false,
+   "token": "abcdefghijklmnop_-ABCDEF",
+   "address": "192.168.1.5",
+   "webhook_url": "http://hub/x",
+   "webhook_method": "GET",
+   "webhook_on": "on",
+   "webhook_off": "off"
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "trigger": "moon",
+   "token": "x",
+   "webhook_method": "PUT",
+   "webhook_url": 5
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "trigger": [
+    "camera"
+   ],
+   "page": 0,
+   "token": "aaaaaaaaaaaaaaaa"
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "aaaaaaaaaaaaaaaa",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "page": null
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "page": "no"
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "token": "has space......"
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "token": 5
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "address": 5,
+   "webhook_on": 1,
+   "webhook_off": null
+  },
+  "output": {
+   "trigger": "camera",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "trigger": "camera_mic",
+   "webhook_url": " http://hub/x "
+  },
+  "output": {
+   "trigger": "camera_mic",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": " http://hub/x ",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "on_air",
+  "input": {
+   "trigger": "streaming",
+   "unknown": 1
+  },
+  "output": {
+   "trigger": "streaming",
+   "page": true,
+   "token": "<token>",
+   "address": "",
+   "webhook_url": "",
+   "webhook_method": "POST",
+   "webhook_on": "",
+   "webhook_off": ""
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {},
+  "output": {
+   "on": false,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "on": true
+  },
+  "output": {
+   "on": true,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "on": false,
+   "notify": false
+  },
+  "output": {
+   "on": false,
+   "notify": false
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "on": 1,
+   "notify": 0
+  },
+  "output": {
+   "on": false,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "on": "yes",
+   "notify": null
+  },
+  "output": {
+   "on": false,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "notify": "no"
+  },
+  "output": {
+   "on": false,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "qr_reader",
+  "input": {
+   "on": true,
+   "notify": true,
+   "other": 3
+  },
+  "output": {
+   "on": true,
+   "notify": true
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {},
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "format": "heic",
+   "timer": 3,
+   "best": false,
+   "folder": "/x"
+  },
+  "output": {
+   "format": "heic",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 3,
+   "best": false,
+   "distortion": "camera",
+   "folder": "/x"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "timer": 7,
+   "best": "yes",
+   "burst": true,
+   "folder": 5
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "quality": 80.5,
+   "burst": 7.9,
+   "focus_steps": "8",
+   "exposure_s": 8
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 80.5,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 7.9,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 8,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "quality": "high",
+   "exposure_s": null
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "format": 5,
+   "mode": null,
+   "shots": [
+    "x"
+   ],
+   "bracket": 3,
+   "distortion": {}
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "folder": ""
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "timer": 10,
+   "best": 0
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 10,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "quality": 1000,
+   "burst": -3
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 1000,
+   "mode": "normal",
+   "shots": "single",
+   "burst": -3,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "quality": true,
+   "burst": false
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "<default>"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "unknown": 1,
+   "folder": "/photos"
+  },
+  "output": {
+   "format": "jpeg",
+   "quality": 95,
+   "mode": "normal",
+   "shots": "single",
+   "burst": 5,
+   "bracket": "3x1",
+   "focus_steps": 5,
+   "exposure_s": 0,
+   "timer": 0,
+   "best": true,
+   "distortion": "camera",
+   "folder": "/photos"
+  }
+ },
+ {
+  "plugin": "photos",
+  "input": {
+   "format": "raw+jpeg",
+   "mode": "night",
+   "shots": "focus",
+   "bracket": "7x1",
+   "distortion": "off",
+   "exposure_s": 0.5
+  },
+  "output": {
+   "format": "raw+jpeg",
+   "quality": 95,
+   "mode": "night",
+   "shots": "focus",
+   "burst": 5,
+   "bracket": "7x1",
+   "focus_steps": 5,
+   "exposure_s": 0.5,
+   "timer": 0,
+   "best": true,
+   "distortion": "off",
+   "folder": "<default>"
+  }
+ }
+]

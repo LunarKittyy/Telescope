@@ -107,6 +107,20 @@ pub struct FakeHost {
     pub notifications: Vec<(String, String, bool)>,
     /// What preset_plugins() lists, in order; apply_preset hands each one's config to the plugin_configs entry.
     pub preset_plugins: Vec<String>,
+    /// What's on the clipboard: copy_text puts text there unless the clipboard is deaf (Wayland ignores a copy from a window
+    /// in the background).
+    pub clipboard: Option<String>,
+    pub clipboard_deaf: bool,
+    /// The banners that are up, as (key, issue): show_issue puts one up in place of that key's, clear_issue takes it down.
+    pub issues: Vec<(String, Issue)>,
+    /// What each plugin has on the preview, by owner.
+    pub layers: HashMap<String, PreviewLayer>,
+    /// What still_caps() answers: the lens's photo options as JSON, or None for a stream that can't take photos.
+    pub still_caps: Option<Value>,
+    /// What still_busy() answers.
+    pub still_busy: bool,
+    /// The photos asked for, as (options, folder) in order.
+    pub stills_taken: Vec<(Value, String)>,
     next_request: u64,
 }
 
@@ -285,9 +299,12 @@ impl HostSources for FakeHost {
 impl HostShell for FakeHost {
     fn show_issue(&mut self, key: &str, issue: Issue) {
         self.note(format!("show_issue {key} {}", issue.title));
+        self.issues.retain(|(k, _)| k != key);
+        self.issues.push((key.to_string(), issue));
     }
     fn clear_issue(&mut self, key: Option<&str>, _issue: Option<&Issue>) {
         self.note(format!("clear_issue {key:?}"));
+        self.issues.retain(|(k, _)| key.is_some_and(|key| k != key));
     }
     fn send_notification(&mut self, title: &str, body: &str, urgent: bool) {
         self.note(format!("send_notification {title}"));
@@ -328,6 +345,12 @@ impl HostShell for FakeHost {
     }
     fn copy_text(&mut self, text: &str) {
         self.note(format!("copy_text {text}"));
+        if !self.clipboard_deaf {
+            self.clipboard = Some(text.to_string());
+        }
+    }
+    fn clipboard_text(&mut self) -> Option<String> {
+        self.clipboard.clone()
     }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<crate::ui::ShortcutEntry>>) {
         self.note(format!("set_shortcut_menu {}", serde_json::to_string(&bindings).unwrap_or_default()));
@@ -419,11 +442,13 @@ impl HostMotion for FakeHost {
 }
 
 impl HostPreview for FakeHost {
-    fn add_preview_layer(&mut self, owner: &str, _layer: PreviewLayer) {
+    fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
         self.note(format!("add_preview_layer {owner}"));
+        self.layers.insert(owner.to_string(), layer);
     }
     fn remove_preview_layer(&mut self, owner: &str) {
         self.note(format!("remove_preview_layer {owner}"));
+        self.layers.remove(owner);
     }
     fn refresh_preview(&mut self) {
         self.note("refresh_preview");
@@ -447,13 +472,17 @@ impl HostPreview for FakeHost {
 
 impl HostStills for FakeHost {
     fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        None
+        self.still_caps.clone()
     }
-    fn take_still(&mut self, _options: &Value, _folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        None
+    fn take_still(&mut self, options: &Value, folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
+        if self.still_caps.is_none() || self.still_busy {
+            return None;
+        }
+        self.stills_taken.push((options.clone(), folder.to_string()));
+        Some(self.request())
     }
     fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        false
+        self.still_busy
     }
 }
 
@@ -515,5 +544,69 @@ impl FakeHost {
     /// The posts so far, taken out.
     pub fn take_posted(&self) -> Vec<(String, Value)> {
         std::mem::take(&mut *self.posted.lock().unwrap())
+    }
+}
+
+/// One server a FakeWeb was asked to start.
+pub struct FakeServed {
+    pub serve: crate::web::Serve,
+    pub handler: Arc<dyn crate::web::PageHandler>,
+    pub stats: Arc<crate::web::ServerStats>,
+    /// How many times it was stopped.
+    pub stopped: Arc<AtomicU64>,
+}
+
+struct FakeServer {
+    stats: Arc<crate::web::ServerStats>,
+    stopped: Arc<AtomicU64>,
+}
+
+impl crate::web::WebServer for FakeServer {
+    fn port(&self) -> u16 {
+        self.stats.port
+    }
+    fn stats(&self) -> Arc<crate::web::ServerStats> {
+        self.stats.clone()
+    }
+    fn stop(&self) {
+        self.stopped.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+/// A Web that opens nothing: it hands out the addresses it's given and keeps what was served, for tests of what a plugin
+/// serves.
+#[derive(Default)]
+pub struct FakeWeb {
+    pub addresses: Mutex<Vec<String>>,
+    /// Why certificate() fails, instead of answering.
+    pub certificate_error: Mutex<Option<String>>,
+    /// Why serve() fails, instead of starting.
+    pub serve_error: Mutex<Option<String>>,
+    /// Every folder and set of hosts a certificate was asked for.
+    pub certificates: Mutex<Vec<(PathBuf, Vec<String>)>>,
+    pub served: Mutex<Vec<FakeServed>>,
+}
+
+impl crate::web::Web for FakeWeb {
+    fn addresses(&self) -> Vec<String> {
+        self.addresses.lock().unwrap().clone()
+    }
+    fn certificate(&self, folder: &std::path::Path, hosts: &[String]) -> Result<crate::web::Certificate, String> {
+        self.certificates.lock().unwrap().push((folder.to_path_buf(), hosts.to_vec()));
+        match self.certificate_error.lock().unwrap().clone() {
+            Some(why) => Err(why),
+            None => Ok(crate::web::Certificate { cert: folder.join("cert.pem"), key: folder.join("key.pem") }),
+        }
+    }
+    fn serve(&self, _certificate: &crate::web::Certificate, serve: &crate::web::Serve, handler: Arc<dyn crate::web::PageHandler>)
+        -> Result<Box<dyn crate::web::WebServer>, String> {
+        if let Some(why) = self.serve_error.lock().unwrap().clone() {
+            return Err(why);
+        }
+        let port = if serve.port == 0 { 8768 } else { serve.port };
+        let stats = Arc::new(crate::web::ServerStats::new(port, serve.port, false, &serve.label));
+        let stopped = Arc::new(AtomicU64::new(0));
+        self.served.lock().unwrap().push(FakeServed { serve: serve.clone(), handler, stats: stats.clone(), stopped: stopped.clone() });
+        Ok(Box::new(FakeServer { stats, stopped }))
     }
 }

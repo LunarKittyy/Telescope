@@ -1,0 +1,1212 @@
+{
+ "wifi": [
+  {
+   "text": "WIFI:T:WPA;S:Home;P:hunter2;;",
+   "parsed": {
+    "ssid": "Home",
+    "password": "hunter2",
+    "security": "WPA",
+    "hidden": false
+   },
+   "copy": [
+    "hunter2",
+    "Copied the password for Home",
+    "Copied the password for Home"
+   ]
+  },
+  {
+   "text": "WIFI:S:My\\;Net\\:5G;T:WPA;P:pa\\\\ss\\,word;H:true;;",
+   "parsed": {
+    "ssid": "My;Net:5G",
+    "password": "pa\\ss,word",
+    "security": "WPA",
+    "hidden": true
+   },
+   "copy": [
+    "pa\\ss,word",
+    "Copied the password for My;Net:5G",
+    "Copied the password for My;Net:5G"
+   ]
+  },
+  {
+   "text": "wifi:T:nopass;S:Cafe;;",
+   "parsed": {
+    "ssid": "Cafe",
+    "password": "",
+    "security": "nopass",
+    "hidden": false
+   },
+   "copy": [
+    "Cafe",
+    "Copied the name of Cafe, which has no password",
+    "Copied the name of Cafe, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:T:WPA;P:nameless;;",
+   "parsed": null,
+   "copy": [
+    "WIFI:T:WPA;P:nameless;;",
+    "Copied the code's text",
+    "WIFI:T:WPA;P:nameless;;"
+   ]
+  },
+  {
+   "text": "https://example.com",
+   "parsed": null,
+   "copy": [
+    "https://example.com",
+    "Copied https://example.com",
+    "https://example.com"
+   ]
+  },
+  {
+   "text": "WIFI:",
+   "parsed": null,
+   "copy": [
+    "WIFI:",
+    "Copied the code's text",
+    "WIFI:"
+   ]
+  },
+  {
+   "text": "WIFI:S:x",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:x;;",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:a;S:b;P:1;P:2;;",
+   "parsed": {
+    "ssid": "a",
+    "password": "1",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "1",
+    "Copied the password for a",
+    "Copied the password for a"
+   ]
+  },
+  {
+   "text": "WIFI:s:lower;p:pw;t:WEP;h:TRUE;;",
+   "parsed": {
+    "ssid": "lower",
+    "password": "pw",
+    "security": "WEP",
+    "hidden": true
+   },
+   "copy": [
+    "pw",
+    "Copied the password for lower",
+    "Copied the password for lower"
+   ]
+  },
+  {
+   "text": "WIFI:S:end\\",
+   "parsed": {
+    "ssid": "end",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "end",
+    "Copied the name of end, which has no password",
+    "Copied the name of end, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:\\\"quoted\\\";;",
+   "parsed": {
+    "ssid": "\"quoted\"",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "\"quoted\"",
+    "Copied the name of \"quoted\", which has no password",
+    "Copied the name of \"quoted\", which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:colon:inside;P:a:b;;",
+   "parsed": {
+    "ssid": "colon:inside",
+    "password": "a:b",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "a:b",
+    "Copied the password for colon:inside",
+    "Copied the password for colon:inside"
+   ]
+  },
+  {
+   "text": "WIFI:S:semi\\;colon;P:\\;;;",
+   "parsed": {
+    "ssid": "semi;colon",
+    "password": ";",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    ";",
+    "Copied the password for semi;colon",
+    "Copied the password for semi;colon"
+   ]
+  },
+  {
+   "text": "WIFI:T:WPA;S:;P:x;;",
+   "parsed": null,
+   "copy": [
+    "WIFI:T:WPA;S:;P:x;;",
+    "Copied the code's text",
+    "WIFI:T:WPA;S:;P:x;;"
+   ]
+  },
+  {
+   "text": "WIFI:S:n;H:false;;",
+   "parsed": {
+    "ssid": "n",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "n",
+    "Copied the name of n, which has no password",
+    "Copied the name of n, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:n;H:True;;",
+   "parsed": {
+    "ssid": "n",
+    "password": "",
+    "security": "",
+    "hidden": true
+   },
+   "copy": [
+    "n",
+    "Copied the name of n, which has no password",
+    "Copied the name of n, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:n;H:yes;;",
+   "parsed": {
+    "ssid": "n",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "n",
+    "Copied the name of n, which has no password",
+    "Copied the name of n, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:\u00e9\u00e8;P:\u4e2d\u6587;;",
+   "parsed": {
+    "ssid": "\u00e9\u00e8",
+    "password": "\u4e2d\u6587",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "\u4e2d\u6587",
+    "Copied the password for \u00e9\u00e8",
+    "Copied the password for \u00e9\u00e8"
+   ]
+  },
+  {
+   "text": "WIFI:S:x;P:;;",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:T:;S:x;;",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "wiFi:S:mixed;;",
+   "parsed": {
+    "ssid": "mixed",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "mixed",
+    "Copied the name of mixed, which has no password",
+    "Copied the name of mixed, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:SS:x;;",
+   "parsed": null,
+   "copy": [
+    "WIFI:SS:x;;",
+    "Copied the code's text",
+    "WIFI:SS:x;;"
+   ]
+  },
+  {
+   "text": "WIFI:S:x;;extra",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI:S:x;P:y",
+   "parsed": {
+    "ssid": "x",
+    "password": "y",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "y",
+    "Copied the password for x",
+    "Copied the password for x"
+   ]
+  },
+  {
+   "text": "WIFI:;S:x;;",
+   "parsed": {
+    "ssid": "x",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x",
+    "Copied the name of x, which has no password",
+    "Copied the name of x, which has no password"
+   ]
+  },
+  {
+   "text": "WIFI::S:x;;",
+   "parsed": null,
+   "copy": [
+    "WIFI::S:x;;",
+    "Copied the code's text",
+    "WIFI::S:x;;"
+   ]
+  },
+  {
+   "text": "WIFI:S:x:y:z;;",
+   "parsed": {
+    "ssid": "x:y:z",
+    "password": "",
+    "security": "",
+    "hidden": false
+   },
+   "copy": [
+    "x:y:z",
+    "Copied the name of x:y:z, which has no password",
+    "Copied the name of x:y:z, which has no password"
+   ]
+  }
+ ],
+ "links": [
+  {
+   "text": "http://a",
+   "link": true
+  },
+  {
+   "text": "HTTPS://B",
+   "link": true
+  },
+  {
+   "text": "https://",
+   "link": true
+  },
+  {
+   "text": "ftp://x",
+   "link": false
+  },
+  {
+   "text": "httpx://x",
+   "link": false
+  },
+  {
+   "text": " http://x",
+   "link": false
+  },
+  {
+   "text": "http:/x",
+   "link": false
+  },
+  {
+   "text": "",
+   "link": false
+  },
+  {
+   "text": "http",
+   "link": false
+  },
+  {
+   "text": "text",
+   "link": false
+  }
+ ],
+ "quads": [
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     200,
+     100
+    ],
+    [
+     200,
+     200
+    ],
+    [
+     100,
+     200
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     200,
+     110
+    ],
+    [
+     190,
+     190
+    ],
+    [
+     110,
+     200
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     200,
+     100
+    ],
+    [
+     120,
+     120
+    ],
+    [
+     100,
+     200
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     200,
+     200
+    ],
+    [
+     200,
+     100
+    ],
+    [
+     100,
+     200
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     400,
+     100
+    ],
+    [
+     400,
+     112
+    ],
+    [
+     100,
+     112
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     100,
+     100
+    ],
+    [
+     108,
+     100
+    ],
+    [
+     108,
+     108
+    ],
+    [
+     100,
+     108
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     16,
+     0
+    ],
+    [
+     16,
+     16
+    ],
+    [
+     0,
+     16
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     15,
+     0
+    ],
+    [
+     15,
+     15
+    ],
+    [
+     0,
+     15
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     100,
+     30
+    ],
+    [
+     0,
+     30
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     100,
+     29
+    ],
+    [
+     0,
+     29
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     50,
+     0
+    ],
+    [
+     50,
+     50
+    ],
+    [
+     0,
+     50
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     100,
+     100
+    ],
+    [
+     0,
+     100
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     50,
+     0
+    ],
+    [
+     0,
+     100
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     10,
+     10
+    ],
+    [
+     110,
+     12
+    ],
+    [
+     112,
+     111
+    ],
+    [
+     8,
+     109
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     1000000000.0,
+     0
+    ],
+    [
+     1000000000.0,
+     1000000000.0
+    ],
+    [
+     0,
+     1000000000.0
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0.0,
+     0
+    ],
+    [
+     10,
+     0
+    ],
+    [
+     10,
+     10
+    ],
+    [
+     0,
+     10
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     100,
+     100
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "plausible": true
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     30,
+     30
+    ],
+    [
+     0,
+     100
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     100,
+     20
+    ],
+    [
+     0,
+     20
+    ]
+   ],
+   "plausible": false
+  },
+  {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     100,
+     0
+    ],
+    [
+     100,
+     31
+    ],
+    [
+     0,
+     31
+    ]
+   ],
+   "plausible": true
+  }
+ ],
+ "frames": [
+  {
+   "name": "url_3x",
+   "text": "https://example.com",
+   "file": "qr_00.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com",
+    "corners": [
+     [
+      0.31718748807907104,
+      0.02222222276031971
+     ],
+     [
+      0.37496787309646606,
+      0.02222222276031971
+     ],
+     [
+      0.3773437440395355,
+      0.125
+     ],
+     [
+      0.31718748807907104,
+      0.125
+     ]
+    ]
+   }
+  },
+  {
+   "name": "url_4x",
+   "text": "https://example.com",
+   "file": "qr_01.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com",
+    "corners": [
+     [
+      0.31953126192092896,
+      0.02361111156642437
+     ],
+     [
+      0.3968749940395355,
+      0.02638888917863369
+     ],
+     [
+      0.39385610818862915,
+      0.16592934727668762
+     ],
+     [
+      0.3179687559604645,
+      0.16111111640930176
+     ]
+    ]
+   }
+  },
+  {
+   "name": "url_6x",
+   "text": "https://example.com",
+   "file": "qr_02.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com",
+    "corners": [
+     [
+      0.3226562440395355,
+      0.02916666679084301
+     ],
+     [
+      0.43828123807907104,
+      0.03055555559694767
+     ],
+     [
+      0.43828123807907104,
+      0.2410714328289032
+     ],
+     [
+      0.32109373807907104,
+      0.2361111044883728
+     ]
+    ]
+   }
+  },
+  {
+   "name": "url_8x",
+   "text": "https://example.com",
+   "file": "qr_03.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com",
+    "corners": [
+     [
+      0.3257812559604645,
+      0.0347222238779068
+     ],
+     [
+      0.48124998807907104,
+      0.03750000149011612
+     ],
+     [
+      0.47834891080856323,
+      0.3160041272640228
+     ],
+     [
+      0.32421875,
+      0.31111112236976624
+     ]
+    ]
+   }
+  },
+  {
+   "name": "url_14x",
+   "text": "https://example.com",
+   "file": "qr_04.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com",
+    "corners": [
+     [
+      0.3343749940395355,
+      0.05277777835726738
+     ],
+     [
+      0.6070312261581421,
+      0.05277777835726738
+     ],
+     [
+      0.6070312261581421,
+      0.5375000238418579
+     ],
+     [
+      0.3343749940395355,
+      0.5375000238418579
+     ]
+    ]
+   }
+  },
+  {
+   "name": "wifi",
+   "text": "WIFI:T:WPA;S:Telescope;P:hunter22;;",
+   "file": "qr_05.gray.z",
+   "width": 640,
+   "height": 360,
+   "found": {
+    "text": "WIFI:T:WPA;S:Telescope;P:hunter22;;",
+    "corners": [
+     [
+      0.518750011920929,
+      0.20000000298023224
+     ],
+     [
+      0.7890625,
+      0.20000000298023224
+     ],
+     [
+      0.7890625,
+      0.6805555820465088
+     ],
+     [
+      0.518750011920929,
+      0.6805555820465088
+     ]
+    ]
+   }
+  },
+  {
+   "name": "long",
+   "text": "https://example.com/a/rather/long/path?with=a&query=string&and=more#fragment-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "file": "qr_06.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "https://example.com/a/rather/long/path?with=a&query=string&and=more#fragment-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "corners": [
+     [
+      0.33281248807907104,
+      0.0486111119389534
+     ],
+     [
+      0.49296873807907104,
+      0.05000000074505806
+     ],
+     [
+      0.48828125,
+      0.3333333432674408
+     ],
+     [
+      0.33203125,
+      0.3333333432674408
+     ]
+    ]
+   }
+  },
+  {
+   "name": "turned_20",
+   "text": "hello",
+   "file": "qr_07.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "hello",
+    "corners": [
+     [
+      0.3187499940395355,
+      0.10555555671453476
+     ],
+     [
+      0.44218748807907104,
+      0.02638888917863369
+     ],
+     [
+      0.4847027659416199,
+      0.24473899602890015
+     ],
+     [
+      0.36328125,
+      0.3236111104488373
+     ]
+    ]
+   }
+  },
+  {
+   "name": "turned_45",
+   "text": "turned code",
+   "file": "qr_08.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "turned code",
+    "corners": [
+     [
+      0.3101562559604645,
+      0.17638888955116272
+     ],
+     [
+      0.40156251192092896,
+      0.011111111380159855
+     ],
+     [
+      0.4986019730567932,
+      0.17499999701976776
+     ],
+     [
+      0.40156251192092896,
+      0.33888888359069824
+     ]
+    ]
+   }
+  },
+  {
+   "name": "unicode",
+   "text": "caf\u00e9 \u4e2d\u6587",
+   "file": "qr_09.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "caf\u00e9 \u4e2d\u6587",
+    "corners": [
+     [
+      0.3382812440395355,
+      0.05694444477558136
+     ],
+     [
+      0.46875,
+      0.05972222238779068
+     ],
+     [
+      0.4663199782371521,
+      0.2930032014846802
+     ],
+     [
+      0.33671873807907104,
+      0.2888889014720917
+     ]
+    ]
+   }
+  },
+  {
+   "name": "digits",
+   "text": "0123456789",
+   "file": "qr_10.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "0123456789",
+    "corners": [
+     [
+      0.3382812440395355,
+      0.05694444477558136
+     ],
+     [
+      0.46875,
+      0.05972222238779068
+     ],
+     [
+      0.4663199782371521,
+      0.2930032014846802
+     ],
+     [
+      0.33671873807907104,
+      0.2888889014720917
+     ]
+    ]
+   }
+  },
+  {
+   "name": "bright",
+   "text": "bright",
+   "file": "qr_11.gray.z",
+   "width": 1280,
+   "height": 720,
+   "found": {
+    "text": "bright",
+    "corners": [
+     [
+      0.3257812559604645,
+      0.0347222238779068
+     ],
+     [
+      0.45625001192092896,
+      0.03750000149011612
+     ],
+     [
+      0.45381999015808105,
+      0.2707809805870056
+     ],
+     [
+      0.32421875,
+      0.2666666805744171
+     ]
+    ]
+   }
+  },
+  {
+   "name": "small_frame",
+   "text": "small",
+   "file": "qr_12.gray.z",
+   "width": 320,
+   "height": 180,
+   "found": {
+    "text": "small",
+    "corners": [
+     [
+      0.14374999701976776,
+      0.20000000298023224
+     ],
+     [
+      0.40312498807907104,
+      0.20000000298023224
+     ],
+     [
+      0.40312498807907104,
+      0.6611111164093018
+     ],
+     [
+      0.14374999701976776,
+      0.6611111164093018
+     ]
+    ]
+   }
+  },
+  {
+   "name": "nothing",
+   "text": null,
+   "file": "qr_13.gray.z",
+   "width": 160,
+   "height": 90,
+   "found": null
+  },
+  {
+   "name": "noise",
+   "text": null,
+   "file": "qr_14.gray.z",
+   "width": 160,
+   "height": 120,
+   "found": null
+  }
+ ]
+}

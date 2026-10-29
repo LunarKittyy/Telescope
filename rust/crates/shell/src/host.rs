@@ -265,6 +265,10 @@ impl HostShell for Ctx<'_> {
     fn copy_text(&mut self, text: &str) {
         self.state.effects.push(Effect::CopyText(text.into()));
     }
+    fn clipboard_text(&mut self) -> Option<String> {
+        // The copy is an effect the window carries out after this hook, so it's done by the time a later hook reads it back
+        self.state.clipboard.as_ref().and_then(|read| read())
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);
@@ -369,15 +373,40 @@ impl HostPreview for Ctx<'_> {
     fn set_preview_warp(&mut self, _owner: &str, _matrix: Option<[f32; 9]>) {}
 }
 
+impl Ctx<'_> {
+    /// The stream a photo is for: the one asked about, or the panels', if it's running.
+    fn still_source(&self, source_id: Option<&str>) -> Option<String> {
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => self.focused_source_id().unwrap_or_default(),
+        };
+        self.state.streams.live.contains(&id).then_some(id)
+    }
+
+    fn stills(&self) -> Option<Arc<dyn telescope_core::link::PhoneStills>> {
+        self.state.link.as_ref().and_then(|l| l.stills())
+    }
+}
+
 impl HostStills for Ctx<'_> {
-    fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        None
+    fn still_caps(&self, source_id: Option<&str>) -> Option<Value> {
+        let id = self.still_source(source_id)?;
+        self.stills()?.caps(Some(&id))
     }
-    fn take_still(&mut self, _options: &Value, _folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        None
+    fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
+        let id = self.still_source(source_id)?;
+        let stills = self.stills()?;
+        if stills.caps(Some(&id)).is_none() || stills.busy(Some(&id)) {
+            return None;
+        }
+        let request = self.state.request_id();
+        self.state.stills.push((request, self.me.clone(), id.clone()));
+        self.state.effects.push(Effect::TakeStill { plugin: self.me.clone(), request, source: id, options: options.clone(), folder: folder.into() });
+        Some(request)
     }
-    fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        false
+    fn still_busy(&self, source_id: Option<&str>) -> bool {
+        let Some(id) = self.still_source(source_id) else { return false };
+        self.stills().is_some_and(|s| s.busy(Some(&id)))
     }
 }
 

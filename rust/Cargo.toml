@@ -48,6 +48,8 @@ ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcode
 wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "gles", "dx12"] }
 pollster = "1"
 qrcode = { version = "0.14", default-features = false }
+# Reading QR codes off the picture (QR codes), without the image crate it can use for files
+rqrr = { version = "0.11", default-features = false }
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 slint-build = "1.18"
 # Plugins people add: Lua 5.4 built from source, .zip packages, update checks over HTTPS, WGSL checks without a GPU

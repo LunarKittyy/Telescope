@@ -21,6 +21,7 @@ pub mod shared;
 pub mod stills;
 pub mod udp;
 pub mod util;
+pub mod web;
 pub mod winjob;
 
 pub use service::LinkService;

@@ -1,0 +1,22 @@
+// A QR code on white with the quiet zone phone cameras need (widgets/qr.py's QRCodeWidget): the dark cells as indexes row by row.
+
+export component QrCode inherits Rectangle {
+    in property <[int]> cells;
+    // Modules along a side, without the quiet zone
+    in property <int> size;
+    // How big a module is: 6px for pairing, 4px beside a link
+    in property <length> cell: 6px;
+    in property <string> label;
+    width: (size + 8) * cell;
+    height: (size + 8) * cell;
+    background: white;
+    accessible-role: image;
+    accessible-label: label;
+    for i in cells: Rectangle {
+        x: (mod(i, size) + 4) * cell;
+        y: (floor(i / size) + 4) * cell;
+        width: cell;
+        height: cell;
+        background: black;
+    }
+}
