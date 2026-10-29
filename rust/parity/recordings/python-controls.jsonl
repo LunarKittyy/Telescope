@@ -1,0 +1,62 @@
+{"t": 0.124, "mark": "pair"}
+{"t": 0.929, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 0.947, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 0.948, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.125, "mark": "stream"}
+{"t": 3.23, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 3.234, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.235, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.238, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.24, "port": 8766, "method": "POST", "path": "/v1/session", "query": {}, "body": {"action": "start", "fps": 30}, "via": "wifi"}
+{"t": 3.341, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.345, "port": 8080, "method": "GET", "path": "/v1/video.h264", "query": {}, "body": null, "via": "wifi"}
+{"t": 3.345, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "auto"}, "via": "wifi"}
+{"t": 3.346, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_auto"}, "via": "wifi"}
+{"t": 3.347, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ois", "value": "1"}, "via": "wifi"}
+{"t": 3.348, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_mode", "value": "continuous"}, "via": "wifi"}
+{"t": 3.349, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ae_comp", "value": 0}, "via": "wifi"}
+{"t": 3.35, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "nr_mode", "value": 1}, "via": "wifi"}
+{"t": 3.351, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "edge_mode", "value": 1}, "via": "wifi"}
+{"t": 3.351, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "black_level_lock", "value": "0"}, "via": "wifi"}
+{"t": 4.77, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "jpeg_quality", "value": 85}, "via": "wifi"}
+{"t": 4.772, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "bitrate", "value": 0}, "via": "wifi"}
+{"t": 4.773, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "fps_target", "value": 30}, "via": "wifi"}
+{"t": 4.846, "port": 8080, "method": "GET", "path": "/v1/state", "query": {}, "body": null, "via": "wifi"}
+{"t": 4.849, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}, "via": "wifi"}
+{"t": 6.498, "mark": "controls"}
+{"t": 6.586, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "iso", "value": 50}, "via": "wifi"}
+{"t": 6.587, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "shutter", "value": 100000}, "via": "wifi"}
+{"t": 7.683, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "iso", "value": 100}, "via": "wifi"}
+{"t": 8.606, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 8.785, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "shutter", "value": 200000}, "via": "wifi"}
+{"t": 9.886, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "auto"}, "via": "wifi"}
+{"t": 10.993, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ae_comp", "value": -6}, "via": "wifi"}
+{"t": 12.093, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_gains", "r": 2.0, "ge": 1.0, "go": 1.0, "b": 2.0}, "via": "wifi"}
+{"t": 13.193, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_gains", "r": 2.0253648487874023, "ge": 1.0, "go": 1.0, "b": 1.9749528103022145}, "via": "wifi"}
+{"t": 13.671, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 14.29, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_gains", "r": 2.0253648487874023, "ge": 0.98, "go": 0.98, "b": 1.9749528103022145}, "via": "wifi"}
+{"t": 15.389, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "wb_auto"}, "via": "wifi"}
+{"t": 16.484, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_point", "x": 0.5, "y": 0.5}, "via": "wifi"}
+{"t": 17.581, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_mode", "value": "manual"}, "via": "wifi"}
+{"t": 17.583, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_distance", "value": 2.5}, "via": "wifi"}
+{"t": 17.659, "port": 8080, "method": "GET", "path": "/v1/state", "query": {}, "body": null, "via": "wifi"}
+{"t": 17.66, "port": 8080, "method": "GET", "path": "/v1/state", "query": {}, "body": null, "via": "wifi"}
+{"t": 18.669, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 18.677, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_distance", "value": 3.0}, "via": "wifi"}
+{"t": 19.771, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "focus_mode", "value": "continuous"}, "via": "wifi"}
+{"t": 20.864, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "ois", "value": "0"}, "via": "wifi"}
+{"t": 21.96, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "nr_mode", "value": 2}, "via": "wifi"}
+{"t": 23.056, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "edge_mode", "value": 2}, "via": "wifi"}
+{"t": 23.67, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 24.151, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "black_level_lock", "value": "1"}, "via": "wifi"}
+{"t": 25.246, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "low_light", "value": "1"}, "via": "wifi"}
+{"t": 26.341, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "torch", "value": "0"}, "via": "wifi"}
+{"t": 27.435, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "fps_target", "value": 48}, "via": "wifi"}
+{"t": 28.53, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "bitrate", "value": 1000000}, "via": "wifi"}
+{"t": 28.67, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 29.627, "port": 8080, "method": "POST", "path": "/v1/control", "query": {}, "body": {"action": "zoom", "ratio": 1.0, "crop": 1.25, "x": 0.5, "y": 0.5}, "via": "wifi"}
+{"t": 30.634, "mark": "stop"}
+{"t": 30.722, "port": 8766, "method": "POST", "path": "/v1/session", "query": {}, "body": {"action": "stop"}, "via": "wifi"}
+{"t": 30.828, "port": 5037, "method": "ADB", "path": "devices", "query": {}, "body": ["devices"], "via": "usb"}
+{"t": 30.832, "port": 8766, "method": "GET", "path": "/v1/hello", "query": {}, "body": null, "via": "wifi"}
+{"t": 30.833, "port": 8766, "method": "GET", "path": "/v1/ping", "query": {}, "body": null, "via": "wifi"}
