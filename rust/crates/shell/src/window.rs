@@ -278,7 +278,13 @@ impl Window {
                 self.state.borrow_mut().effects.push(Effect::OpenSettings(tab));
             }
             Pressed::Action(IssueDoes::OpenUrl { url }) => open_url(&url),
-            Pressed::Action(IssueDoes::StartAgain { source_id, .. }) => self.start_source(source_id),
+            Pressed::Action(IssueDoes::StartAgain { source_id, before }) => {
+                // The plugin that showed it changes something first (Connect via back to Automatic)
+                if let Some(before) = before {
+                    self.tell_issue(key, &before);
+                }
+                self.start_source(source_id);
+            }
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
             Pressed::Dismissed => {
                 if key == "plugins_off" {
@@ -473,7 +479,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let window = build(ConfigFile::default(), |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
         plugins.extend((services.plugins)());
-        plugins
+        crate::plugins::in_order(plugins)
     }, Some(services.clone()), Some(opts.clone()))?;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;

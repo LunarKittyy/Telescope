@@ -11,10 +11,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use telescope_core::config::ConfigFile;
 use telescope_core::i18n::tr;
-use telescope_core::link::{Link, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePreference, StreamRequest};
-use telescope_core::source::{ControlClient, PairedPhone, Phones, RouteSpec, StreamSource};
+use telescope_core::link::{Link, PhoneControl, PhoneSession, Resolution, StreamFormat, StreamRequest};
+use telescope_core::source::{ControlClient, PairedPhone, RouteSpec, StreamSource};
 
 /// A dropped stream: how often to look for a route back to the phone.
 pub const RECOVER_RETRY: Duration = Duration::from_secs(3);
@@ -28,7 +27,8 @@ pub const HEAT_CHECK: Duration = Duration::from_secs(15);
 /// What a phone's thread hands back to the window (the Qt signals of PhoneSource).
 pub enum Report {
     WakeProgress { source_id: String, wake_id: u64, text: String },
-    WakeDone { source_id: String, wake_id: u64, result: Result<Arc<dyn PhoneSession>, String> },
+    /// Err(None): no route to start on, and the Connection plugin says why; Err(Some(reason)): the wake failed.
+    WakeDone { source_id: String, wake_id: u64, result: Result<Arc<dyn PhoneSession>, Option<String>> },
     State { source_id: String, session_id: u64, state: Value },
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
     /// recovery moved the stream to a new route: its session there.
@@ -37,6 +37,11 @@ pub enum Report {
 
 /// Hands a report to the window's thread.
 pub type Post = Arc<dyn Fn(Report) + Send + Sync>;
+
+/// The path of a video URL ("https://host:port/v1/video.h264" -> "/v1/video.h264").
+pub fn video_path(url: &str) -> &str {
+    url.find("/v1/").map_or("/v1/video.h264", |i| &url[i..])
+}
 
 /// Why the phone's camera didn't turn back on, in the current language.
 pub fn camera_error_text(state: &Value) -> String {
@@ -111,7 +116,8 @@ struct PhoneInner {
 pub struct PhoneKind {
     pub id: Option<String>,
     link: Arc<dyn Link>,
-    file: ConfigFile,
+    /// What the Stream output card picked, read at each start.
+    format: Rc<dyn Fn() -> StreamFormat>,
     request: StreamRequest,
     post: Post,
     inner: RefCell<PhoneInner>,
@@ -126,29 +132,17 @@ pub struct PhoneKind {
 }
 
 impl PhoneKind {
-    pub fn new(id: Option<String>, link: Arc<dyn Link>, file: ConfigFile, request: StreamRequest, post: Post,
-               on_timer: Rc<dyn Fn(&str, &str)>) -> PhoneKind {
-        PhoneKind { id, link, file, request, post, inner: RefCell::default(), stopping: Arc::default(),
+    pub fn new(id: Option<String>, link: Arc<dyn Link>, format: Rc<dyn Fn() -> StreamFormat>, request: StreamRequest,
+               post: Post, on_timer: Rc<dyn Fn(&str, &str)>) -> PhoneKind {
+        PhoneKind { id, link, format, request, post, inner: RefCell::default(), stopping: Arc::default(),
                     park_timer: slint::Timer::default(), gone_timer: slint::Timer::default(),
                     recovery_timer: slint::Timer::default(), heat_timer: slint::Timer::default(), on_timer }
     }
 
-    fn phones(&self) -> Phones {
-        Phones::from_section(self.file.load().pointer("/plugin_configs/connection"), || (String::new(), String::new()))
-    }
-
+    /// The phone as the Connection plugin has it (None id: the picked one).
     fn phone(&self) -> Option<PairedPhone> {
-        let phones = self.phones();
-        match &self.id {
-            Some(id) => phones.phones.iter().find(|p| &p.id == id).cloned(),
-            None => phones.selected().cloned(),
-        }
-    }
-
-    fn preference(&self) -> RoutePreference {
-        let cfg = self.file.load();
-        cfg.pointer("/plugin_configs/connection/route").and_then(Value::as_str).and_then(RoutePreference::parse)
-            .unwrap_or_default()
+        let id = self.id.clone().or_else(|| self.link.picked_source())?;
+        self.link.phones().into_iter().find(|p| p.id == id)
     }
 
     fn sid(&self) -> String {
@@ -180,6 +174,9 @@ impl PhoneKind {
             }
             session.release();
         });
+        if let Some(id) = &self.id {
+            self.link.release_stream(id);
+        }
     }
 
     fn spawn_stop(&self, f: impl FnOnce() + Send + 'static) {
@@ -225,10 +222,9 @@ impl PhoneKind {
 
     /// Looks for the phone again on a thread; the answer comes back as RecoveryProbed.
     pub fn probe(&self, session_id: u64) {
-        let Some(phone) = self.phone() else { return };
-        let (link, post, pref, sid, generation) = (self.link.clone(), self.post.clone(), self.preference(), self.sid(), self.recovery_generation());
+        let (link, post, id, sid, generation) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.recovery_generation());
         std::thread::spawn(move || {
-            let resolution = link.check(&phone, pref);
+            let resolution = link.recovery_check(id.as_deref());
             post(Report::RecoveryProbed { source_id: sid, session_id, generation, resolution });
         });
     }
@@ -242,11 +238,19 @@ impl PhoneKind {
     pub fn move_to(&self, session_id: u64, route: RouteSpec) {
         let Some(phone) = self.phone() else { return };
         let controls = self.session().and_then(|s| s.controls());
-        let (link, post, sid) = (self.link.clone(), self.post.clone(), self.sid());
-        std::thread::spawn(move || match link.open_route(&phone, &route, "/v1/video.h264", controls) {
-            Ok(session) => post(Report::Moved { source_id: sid, session_id, route, session: session.into() }),
-            Err(e) => log::info!("Moving the stream to {route:?} failed: {e}"),
+        let (link, post, id, sid) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid());
+        std::thread::spawn(move || {
+            let Some(url) = link.adopt_route(id.as_deref(), &route) else { return };
+            match link.open_route(&phone, &route, video_path(&url), controls) {
+                Ok(session) => post(Report::Moved { source_id: sid, session_id, route, session: session.into() }),
+                Err(e) => log::info!("Moving the stream to {route:?} failed: {e}"),
+            }
         });
+    }
+
+    /// A dropped stream won't come back: the Connection plugin says why, as for a failed Start.
+    pub fn show_problem(&self, res: &Resolution) {
+        self.link.show_problem(self.id.as_deref(), res);
     }
 
     /// Asks the phone for its state on a thread, as a heat check.
@@ -284,11 +288,12 @@ impl SourceKind for PhoneKind {
     }
 
     fn prepare(&self, _interactive: bool) -> bool {
-        self.phone().is_some()
+        // The route is found on the wake's thread (start_route blocks), and the Connection plugin says why there's none
+        true
     }
 
     fn wake(&self, source: &Source) {
-        let Some(phone) = self.phone() else { return };
+        let format = (self.format)();
         let wake_id = {
             let mut inner = self.inner.borrow_mut();
             inner.wake_id += 1;
@@ -298,7 +303,7 @@ impl SourceKind for PhoneKind {
         if source.camera_off() {
             opening = None; // the phone opens its camera off with the mic alone; an older one ignores it
         }
-        let (link, post, pref, sid, stopping) = (self.link.clone(), self.post.clone(), self.preference(), self.sid(), self.stopping.clone());
+        let (link, post, id, sid, stopping) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.stopping.clone());
         std::thread::spawn(move || {
             // A stop still on its way would land after this wake joined the stream it ends, so the wake goes after it
             let pending: Vec<_> = stopping.lock().unwrap().drain(..).collect();
@@ -310,15 +315,15 @@ impl SourceKind for PhoneKind {
             let progress_sid = sid.clone();
             let progress = move |text: &str| progress_post(Report::WakeProgress { source_id: progress_sid.clone(), wake_id, text: text.into() });
             let result = (|| {
-                let resolution = link.check(&phone, pref);
-                let route = match (resolution.status, resolution.route) {
-                    (PhoneStatus::Ready, Some(route)) => route,
-                    _ => return Err(tr("Couldn't reach the phone.")),
-                };
-                let session: Arc<dyn PhoneSession> = link.open_route(&phone, &route, "/v1/video.h264", None)?.into();
-                if let Err(e) = link.ensure_streaming(&phone, &route, opening, after_stop, &progress) {
+                let target = link.start_route(id.as_deref(), format).map_err(|e| {
+                    log::info!("No route to start on: {e}");
+                    None
+                })?;
+                let path = video_path(&target.video_url);
+                let session: Arc<dyn PhoneSession> = link.open_route(&target.phone, &target.route, path, None).map_err(Some)?.into();
+                if let Err(e) = link.ensure_streaming(&target.phone, &target.route, opening, after_stop, &progress) {
                     session.release();
-                    return Err(e);
+                    return Err(Some(e));
                 }
                 Ok(session)
             })();
@@ -374,19 +379,20 @@ impl SourceKind for PhoneKind {
             inner.wake_id += 1;
             inner.session.take()
         };
-        let phone = self.phone();
+        let target = self.link.session_target(self.id.as_deref())
+            .or_else(|| Some((self.phone()?, session.as_ref()?.route())));
         let link = self.link.clone();
-        if let Some(session) = session {
-            let route = session.route();
+        if session.is_some() || (remote_stop && active) {
             self.spawn_stop(move || {
-                if remote_stop && active {
-                    if let Some(phone) = phone {
-                        link.stop_streaming(&phone, &route);
-                    }
+                if let (true, Some((phone, route))) = (remote_stop && active, target) {
+                    link.stop_streaming(&phone, &route);
                 }
-                session.release();
+                if let Some(session) = session {
+                    session.release();
+                }
             });
         }
+        self.link.release_stream(&self.sid());
     }
 
     fn lost(&self, source: &Source) {
