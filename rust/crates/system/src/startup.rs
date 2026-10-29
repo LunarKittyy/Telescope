@@ -621,6 +621,13 @@ impl Plugin for StartupPlugin {
             cfg.get(key).and_then(Value::as_str).and_then(|v| choices.iter().find(|(k, _)| *k == v).map(|(k, _)| *k))
         };
         if cfg.get("start_on").is_some() || cfg.get("stop_idle").is_some() {
+            // A list or a table can't be looked up among the choices: Python's set_config fails on it, and the host then keeps
+            // the settings that load on their own
+            for key in ["start_on", "stop_idle"] {
+                if matches!(cfg.get(key), Some(Value::Array(_) | Value::Object(_))) {
+                    return Err(ConfigRejected(format!("{key} isn't a choice")));
+                }
+            }
             self.start_on = choice(&START_CHOICES, "start_on").unwrap_or(START_OFF);
             self.stop_idle = choice(&STOP_CHOICES, "stop_idle").unwrap_or(STOP_OFF);
         } else if cfg.get("watch_stream") == Some(&Value::Bool(true)) {
