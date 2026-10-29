@@ -133,7 +133,9 @@ impl HostStreams for Ctx<'_> {
         self.state.effects.push(Effect::MakeMain(source_id.into()));
         true
     }
-    fn update_stream_output(&mut self, _change: OutputChange, _source_id: Option<&str>) {}
+    fn update_stream_output(&mut self, change: OutputChange, source_id: Option<&str>) {
+        self.state.effects.push(Effect::UpdateOutput { change, source_id: source_id.map(String::from) });
+    }
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {
         let setup = self.state.plugin_config("setup");
         let dim = |k: &str| setup.as_ref().and_then(|c| c.get(k)).and_then(Value::as_u64).map(|v| v as u32);
@@ -142,11 +144,12 @@ impl HostStreams for Ctx<'_> {
     fn restart_vcam_canvas(&mut self, _width: u32, _height: u32) -> RequestId {
         self.state.request_id()
     }
-    fn stream_output(&self, _source_id: &str) -> String {
-        String::new()
+    fn stream_output(&self, source_id: &str) -> String {
+        self.state.streams.cameras.iter().find(|c| c.source_id == source_id).map(|c| c.label.clone()).unwrap_or_default()
     }
-    fn stream_on_camera(&self, _slot: u32) -> Option<(String, Option<u32>, Option<u32>)> {
-        None
+    fn stream_on_camera(&self, slot: u32) -> Option<(String, Option<u32>, Option<u32>)> {
+        let c = self.state.streams.cameras.iter().find(|c| c.slot == slot)?;
+        Some((c.source_id.clone(), c.size.map(|s| s.0), c.size.map(|s| s.1)))
     }
     fn remove_extra_cameras(&mut self) -> RequestId {
         self.state.request_id()
