@@ -86,6 +86,7 @@ pub struct Codec {
     pub hw: Option<Hw>,
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
+    converter: yuv::Converter,
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
@@ -129,6 +130,7 @@ impl Codec {
                 sws: ptr::null_mut(),
                 hw,
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
+                converter: yuv::Converter::default(),
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
             };
@@ -250,8 +252,11 @@ impl Codec {
                 out.extend_from_slice(std::slice::from_raw_parts(data.offset(row as isize * stride as isize), pw));
             }
         };
-        // Whether the numbers use the whole 0..255: a JPEG always does, a stream says so in its headers
-        let mut full_range = self.jpeg || fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32 || (*src).color_range == ff::AVColorRange::AVCOL_RANGE_JPEG;
+        // A JPEG is always BT.601 over the whole 0..255; a stream says so in the headers on the decoder's own frame, read as plain integers
+        let int_of = |field: *const i32| field.read();
+        let matrix = if self.jpeg { 5 } else { int_of(ptr::addr_of!((*self.frame).colorspace).cast()) };
+        let mut full_range = self.jpeg || fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32
+            || int_of(ptr::addr_of!((*self.frame).color_range).cast()) == ff::AVColorRange::AVCOL_RANGE_JPEG as i32;
         let yuv420 = [ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P as i32];
         if yuv420.contains(&fmt) {
             copy_plane(&mut i420, (*src).data[0], (*src).linesize[0], w, h);
@@ -284,9 +289,7 @@ impl Codec {
             use ff::AVPixelFormat::*;
             full_range &= ![AV_PIX_FMT_YUVJ422P, AV_PIX_FMT_YUVJ444P, AV_PIX_FMT_YUVJ440P].iter().any(|&j| j as i32 == fmt);
         }
-        if full_range {
-            yuv::full_to_limited(&mut i420, w, h);
-        }
+        let i420 = self.converter.standard(i420, w, h, yuv::Encoding { matrix, full_range });
         ff::av_frame_unref(self.frame);
         Ok(Frame::new(w as u32, h as u32, PixelFormat::I420, i420))
     }
@@ -387,26 +390,25 @@ pub fn decode_picture(bytes: &[u8]) -> Result<Frame, String> {
     }
 }
 
-/// Alignment and tail swscale's SIMD loops are allowed: they work in whole vectors, so they touch bytes past a row's end
-/// and past the last row.
+/// Alignment and tail swscale's SIMD loops are given: they work in whole vectors, touching bytes past a row's end.
 const SIMD_ALIGN: usize = 64;
 const SIMD_TAIL: usize = 64;
 
 /// A row length rounded up to what swscale's SIMD loops stride by.
-fn padded_stride(bytes: usize) -> usize {
+pub(crate) fn padded_stride(bytes: usize) -> usize {
     bytes.next_multiple_of(SIMD_ALIGN)
 }
 
 /// A buffer swscale can run on: aligned, rows padded to a stride, a spare tail after the last row. Reused between calls.
 #[derive(Default)]
-struct Padded {
+pub(crate) struct Padded {
     buf: Vec<u8>,
     off: usize,
 }
 
 impl Padded {
     /// An aligned pointer to len usable bytes with SIMD_TAIL more behind them.
-    fn reserve(&mut self, len: usize) -> *mut u8 {
+    pub(crate) fn reserve(&mut self, len: usize) -> *mut u8 {
         let need = len + SIMD_TAIL + SIMD_ALIGN;
         if self.buf.len() < need {
             self.buf = vec![0; need];
@@ -416,12 +418,12 @@ impl Padded {
         unsafe { self.buf.as_mut_ptr().add(self.off) }
     }
 
-    fn bytes(&self, from: usize, len: usize) -> &[u8] {
+    pub(crate) fn bytes(&self, from: usize, len: usize) -> &[u8] {
         &self.buf[self.off + from..self.off + from + len]
     }
 
     /// Copies packed I420 planes in with padded rows; the pointers and strides swscale takes come back.
-    fn load_i420(&mut self, w: usize, h: usize, planes: (&[u8], &[u8], &[u8])) -> ([*const u8; 4], [i32; 4]) {
+    pub(crate) fn load_i420(&mut self, w: usize, h: usize, planes: (&[u8], &[u8], &[u8])) -> ([*const u8; 4], [i32; 4]) {
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let (ys, cs) = (padded_stride(w), padded_stride(cw));
         let base = self.reserve(ys * h + 2 * cs * ch);
@@ -537,8 +539,7 @@ mod scaler_tests {
     }
 }
 
-/// What the Python app ends up with for a flat picture, measured by running its steps: PyAV to BGR with the stream's
-/// matrix and range, then OpenCV's BGR-to-I420, which writes BT.601 in the limited range.
+/// Expected levels are what Python's steps give a flat picture: PyAV to BGR with the stream's matrix and range, then OpenCV's I420.
 #[cfg(test)]
 mod colour_tests {
     use super::*;
@@ -586,9 +587,24 @@ mod colour_tests {
     }
 
     #[test]
-    fn a_full_range_stream_is_converted() {
+    fn a_bt709_stream_comes_out_the_way_python_converts_it() {
+        // Y 81, U 90, V 240 is BGR [0, 23, 255] in BT.709, where BT.601 would give [0, 0, 253]
+        let Some(f) = h264((81, 90, 240), "bt709", "tv") else { return };
+        near(level(&f), (93, 84, 231));
+    }
+
+    #[test]
+    fn a_full_range_stream_is_converted_with_or_without_a_matrix() {
         let Some(f) = h264((81, 90, 240), "bt470bg", "pc") else { return };
         near(level(&f), (85, 94, 226));
+        let Some(f) = h264((81, 90, 240), "bt709", "pc") else { return };
+        near(level(&f), (100, 84, 226));
+    }
+
+    #[test]
+    fn bt2020_and_the_other_named_matrices_are_honoured_too() {
+        let Some(f) = h264((81, 90, 240), "bt2020nc", "tv") else { return };
+        near(level(&f), (86, 88, 237));
     }
 
     #[test]
