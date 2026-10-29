@@ -4748,12 +4748,14 @@ dependencies = [
  "libc",
  "log",
  "ring",
+ "serde",
  "serde_json",
  "slint-interpreter",
  "tar",
  "telescope-core",
  "telescope-ui-kit",
  "ureq",
+ "zbus",
  "zip",
 ]
 

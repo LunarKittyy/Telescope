@@ -15,6 +15,10 @@ ureq.workspace = true
 zip.workspace = true
 tar.workspace = true
 flate2.workspace = true
+serde.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
 
 [dev-dependencies]
 slint-interpreter.workspace = true

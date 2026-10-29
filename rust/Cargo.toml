@@ -55,6 +55,8 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Unpacking the Linux update's .tar.gz, on the same zlib as zip
 tar = { version = "0.4", default-features = false }
 flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+# The global shortcuts portal on Linux, already in the tree through Slint's accessibility
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
 # Reading Google's SDK index for the adb download on Windows
 roxmltree = "0.21"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }

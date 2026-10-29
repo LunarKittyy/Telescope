@@ -81,6 +81,16 @@ pub trait HotkeyBackend: Send {
 }
 
 /// This system's backend, or None where there's none (the page then points at telescope --action).
-pub fn create_backend(_app_id: &str, _signals: Signals) -> Option<Box<dyn HotkeyBackend>> {
+pub fn create_backend(app_id: &str, signals: Signals) -> Option<Box<dyn HotkeyBackend>> {
+    #[cfg(target_os = "linux")]
+    if crate::hotkeys_portal::portal_possible() {
+        let id = app_id.to_string();
+        let prepare = Box::new(move || {
+            crate::autostart::ensure_portal_entry(&id, &crate::autostart::launch_command(&crate::app_dir(), false), None);
+        });
+        let connect = Box::new(zbus::blocking::Connection::session);
+        return Some(Box::new(crate::hotkeys_portal::PortalHotkeys::new(app_id, signals, connect, Some(prepare))));
+    }
+    let _ = (app_id, signals);
     None
 }
