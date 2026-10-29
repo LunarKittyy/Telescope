@@ -53,6 +53,34 @@ fn services(device: Option<String>) -> Arc<Services> {
     })
 }
 
+/// Log lines from every crate to stderr, at the level RUST_LOG names; when unset, warnings from this app's crates and
+/// only errors from libraries (wgpu warns about every Vulkan driver it skips).
+struct Stderr {
+    quiet_libraries: bool,
+}
+
+impl log::Log for Stderr {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        let floor = if self.quiet_libraries && !meta.target().starts_with("telescope") { log::Level::Error } else { log::Level::Trace };
+        meta.level() <= log::max_level() && meta.level() <= floor
+    }
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("[{} {}] {}", record.level(), record.target(), record.args());
+        }
+    }
+    fn flush(&self) {}
+}
+
+fn start_logging() {
+    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse().ok());
+    let level = asked.unwrap_or(log::LevelFilter::Warn);
+    let logger: &'static Stderr = Box::leak(Box::new(Stderr { quiet_libraries: asked.is_none() }));
+    if log::set_logger(logger).is_ok() {
+        log::set_max_level(level);
+    }
+}
+
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
 /// Slint shows isn't drawn over.
 struct GpuPreview {
@@ -80,6 +108,7 @@ impl telescope_shell::preview::TexturePainter for GpuPreview {
 }
 
 fn main() {
+    start_logging();
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     let flag = |words: &mut Vec<String>, name: &str| -> bool {
         let found = words.iter().position(|w| w == name);
