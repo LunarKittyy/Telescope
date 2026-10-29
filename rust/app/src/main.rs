@@ -56,19 +56,20 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         tray: if tray { telescope_system::tray::SniTray::new().map(|t| std::sync::Mutex::new(Box::new(t) as Box<dyn telescope_core::system::Tray>)) } else { None },
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
+                // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
                 Box::new(connection.connection_plugin()),
-                Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
-                Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
-                Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
-                Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures.clone())),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
-                Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+                Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
+                Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
+                Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
+                Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
             ];
             plugins.extend(added());
             plugins
