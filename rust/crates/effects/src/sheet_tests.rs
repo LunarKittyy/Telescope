@@ -249,3 +249,10 @@ fn a_perspective_matrix_takes_each_corner_where_it_was_asked_to() {
         assert!((x - t[0]).abs() < 1e-6 && (y - t[1]).abs() < 1e-6, "{x} {y}");
     }
 }
+
+#[test]
+fn grey_is_opencvs_fixed_point_not_the_float_weights() {
+    // recorded from cv2.cvtColor(BGR2GRAY): the float weights round the first and last of these a level off
+    let sheet = [138, 167, 72, 48, 17, 212, 125, 233, 161];
+    assert_eq!(grey_plane(&sheet), vec![148, 48, 193]);
+}

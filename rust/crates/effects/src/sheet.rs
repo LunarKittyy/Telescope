@@ -1,7 +1,7 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
-use crate::imgops::resize_area;
+use crate::imgops::{grey_of, resize_area};
 use crate::pixels::gaussian_blur;
 use telescope_core::actions::round_half_even;
 use telescope_core::view::{view_to_shown, Geometry};
@@ -277,9 +277,14 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     out
 }
 
+/// cv2.cvtColor(BGR2GRAY) of a sheet held as R, G, B: OpenCV's whole-number weights, not the float ones.
+fn grey_plane(sheet: &[u8]) -> Vec<u8> {
+    sheet.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect()
+}
+
 /// Ink black, paper white: an adaptive threshold that follows the light across the sheet.
 pub fn black_and_white(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
-    let grey: Vec<u8> = sheet.chunks_exact(3).map(|p| (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32).round() as u8).collect();
+    let grey = grey_plane(sheet);
     let block = 15usize.max((w.min(h) / 24) | 1);
     let half = (block / 2) as i64;
     // A summed-area table, so the mean of each block costs the same wherever it is; the edge repeats the pixel it ends on

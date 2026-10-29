@@ -32,7 +32,9 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
         }
     }
     let rgb = round(sum / total * 255.0);
-    let grey = floor(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b + 0.5);
+    // cv2.cvtColor's BGR2GRAY on 8-bit values: whole-number weights, rounded by the shift
+    let c = vec3<i32>(rgb);
+    let grey = f32((c.r * 9798 + c.g * 19235 + c.b * 3735 + 16384) >> 15u);
     let threshold = BAYER[(cell.y % 4) * 4 + cell.x % 4] / 16.0 - 0.5;
     let level = i32(floor(clamp(grey / 255.0 * 3.0 + threshold + 0.5, 0.0, 3.0)));
     return vec4<f32>(shade(level) / 255.0, 1.0);

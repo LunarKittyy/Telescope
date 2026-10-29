@@ -174,6 +174,11 @@ fn nearest(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> V
     out
 }
 
+/// One pixel's cv2.cvtColor(RGB2GRAY) / BGR2GRAY: OpenCV 4.13's 15-bit weights 9798, 19235 and 3735, rounded by the shift.
+pub fn grey_of(r: u8, g: u8, b: u8) -> u8 {
+    ((r as u32 * 9798 + g as u32 * 19235 + b as u32 * 3735 + (1 << 14)) >> 15) as u8
+}
+
 impl Rgb {
     pub fn area(&self, w: usize, h: usize) -> Rgb {
         Rgb { w, h, data: resize_area(&self.data, self.w, self.h, 3, w, h) }
@@ -208,8 +213,7 @@ impl Rgb {
 
     /// cv2.cvtColor(BGR2GRAY) of this picture (as R, G, B).
     pub fn gray(&self) -> Gray {
-        let data = self.data.chunks_exact(3).map(|p| ((p[2] as u32 * 1868 + p[1] as u32 * 9617 + p[0] as u32 * 4899 + 8192) >> 14) as u8).collect();
-        Gray { w: self.w, h: self.h, data }
+        Gray { w: self.w, h: self.h, data: self.data.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect() }
     }
 
     /// cv2.GaussianBlur with a 3 x 3 kernel and the sigma OpenCV picks for it.
@@ -415,6 +419,15 @@ mod tests {
         (7, 5, 3, 7, 5, &[173, 227, 246, 57, 15, 74, 98, 49, 46, 72, 210, 50, 221, 195, 243, 232, 72, 227, 245, 92, 183, 226, 45, 27, 173, 141, 237, 45, 215, 251, 16, 101, 131, 123, 151, 88, 92, 174, 101, 79, 44, 66, 184, 242, 114, 101, 215, 221, 215, 238, 197, 146, 62, 180, 134, 252, 107, 179, 14, 87, 26, 150, 55, 35, 50, 163, 130, 69, 230, 167, 220, 22, 45, 220, 184, 243, 213, 74, 15, 56, 238, 82, 201, 113, 153, 82, 195, 51, 128, 38, 251, 250, 10, 223, 118, 40, 44, 75, 249, 131, 140, 37, 87, 243, 183], &[173, 227, 246, 57, 15, 74, 98, 49, 46, 72, 210, 50, 221, 195, 243, 232, 72, 227, 245, 92, 183, 226, 45, 27, 173, 141, 237, 45, 215, 251, 16, 101, 131, 123, 151, 88, 92, 174, 101, 79, 44, 66, 184, 242, 114, 101, 215, 221, 215, 238, 197, 146, 62, 180, 134, 252, 107, 179, 14, 87, 26, 150, 55, 35, 50, 163, 130, 69, 230, 167, 220, 22, 45, 220, 184, 243, 213, 74, 15, 56, 238, 82, 201, 113, 153, 82, 195, 51, 128, 38, 251, 250, 10, 223, 118, 40, 44, 75, 249, 131, 140, 37, 87, 243, 183]),
     ];
 
+
+    #[test]
+    fn grey_is_what_opencv_gives() {
+        // recorded from cv2.cvtColor(RGB2GRAY): the older 14-bit weights and the float ones each get some of these a level off
+        for (rgb, want) in [([126, 255, 203], 211), ([138, 167, 72], 148), ([48, 17, 212], 48), ([230, 156, 247], 188), ([125, 233, 161], 193)] {
+            assert_eq!(grey_of(rgb[0], rgb[1], rgb[2]), want, "{rgb:?}");
+        }
+        assert_eq!(Rgb { w: 1, h: 1, data: vec![138, 167, 72] }.gray().data, vec![148]);
+    }
 
     #[test]
     fn area_resizes_as_opencv_does_in_every_direction() {
