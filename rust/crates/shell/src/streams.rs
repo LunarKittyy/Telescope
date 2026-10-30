@@ -1218,10 +1218,12 @@ impl FlowHost for Host<'_> {
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));
+        // Before the thread starts, so no frame goes out without them
+        let steps = self.w.state.borrow_mut().pipeline_steps(source.id.as_deref().filter(|id| !id.is_empty()));
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
-                                  vision: self.w.state.borrow().vision_feed() };
+                                  vision: self.w.state.borrow().vision_feed(), steps };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
@@ -1232,8 +1234,6 @@ impl FlowHost for Host<'_> {
         });
         let inner = Arc::new(StreamWorker::start(setup, services.media.clone(), services.outputs.clone(), slot, events)
             .expect("a thread for the stream worker"));
-        let steps = self.w.state.borrow_mut().pipeline_steps(inner.source_id());
-        inner.set_steps(steps);
         let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), makers: self.w.streams.packet_makers.clone() });
         self.w.streams.workers.borrow_mut().push(worker.clone());
         worker

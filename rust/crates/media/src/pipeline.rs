@@ -84,6 +84,8 @@ impl FramePipeline for Pipeline {
 
     fn process(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Frame {
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
+        // A step that builds a new frame stays on this one: person masks are worked out once per number
+        let number = frame.number;
         let mut i = 0;
         while i < self.steps.len() {
             if self.steps[i].skipped() {
@@ -106,6 +108,7 @@ impl FramePipeline for Pipeline {
                         frame = before;
                     }
                 }
+                frame.number = number;
                 i += 1;
                 continue;
             }
@@ -220,6 +223,35 @@ pub(crate) mod tests {
         let out = f();
         std::panic::set_hook(hook);
         out
+    }
+
+    /// Builds a frame of its own, as a plugin's step may.
+    struct Rebuilds;
+
+    impl CpuStep for Rebuilds {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            *frame = grey(frame.width, frame.height, 1);
+        }
+    }
+
+    /// What number the frame has when it gets here.
+    struct Numbers(Arc<std::sync::Mutex<Vec<u64>>>);
+
+    impl CpuStep for Numbers {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            self.0.lock().unwrap().push(frame.number);
+        }
+    }
+
+    #[test]
+    fn a_step_that_builds_a_new_frame_keeps_its_number() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("view", FrameStage::View, Rebuilds), step("blur", FrameStage::Effects, Numbers(seen.clone()))]);
+        let mut frame = grey(4, 2, 0);
+        frame.number = 7;
+        assert_eq!(p.process(frame, &NoContext).number, 7);
+        assert_eq!(*seen.lock().unwrap(), [7]);
     }
 
     #[test]

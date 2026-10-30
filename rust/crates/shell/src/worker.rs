@@ -93,6 +93,8 @@ pub struct WorkerSetup {
     pub waiting_text: Option<WaitingText>,
     /// The vision service and how frames are turned upright for it (person masks and people), None without vision.
     pub vision: Option<VisionFeed>,
+    /// The frame steps, in before the thread starts: no frame goes out without them (a privacy blur, say).
+    pub steps: Vec<StagedStep>,
 }
 
 /// What a worker hands the vision service: its frames before the view, turned as the window's view says.
@@ -348,10 +350,11 @@ impl StreamWorker {
     /// Starts reading at once. slot is the stream's frame slot (media's stream_frames), which the plugins read.
     pub fn start(setup: WorkerSetup, media: Arc<dyn Media>, outputs: Arc<dyn Outputs>, slot: Arc<dyn FrameSlot>,
                  events: Events) -> Result<StreamWorker, String> {
-        let pipeline = media.pipeline().unwrap_or_else(|e| {
+        let mut pipeline = media.pipeline().unwrap_or_else(|e| {
             log::warn!("No frame steps for this stream: {e}");
             Box::new(NoSteps)
         });
+        pipeline.set_steps(setup.steps);
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
             url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
@@ -600,10 +603,12 @@ impl Shared {
             publish.0.set_steps(steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
-        let frame = match (rw, rh) {
+        let mut frame = match (rw, rh) {
             (None, None) => frame,
             _ => stretch(&frame, rw.unwrap_or(frame.width), rh.unwrap_or(frame.height)),
         };
+        // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
+        frame.number = seq;
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
             let mut sizes = feed.frame_sizes.lock().unwrap();
@@ -1323,7 +1328,7 @@ mod tests {
                    plugin_source: bool) -> StreamWorker {
         let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
                                   canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text, vision: None,
-                                  plugin_source };
+                                  plugin_source, steps: Vec::new() };
         let events: Events = Arc::new(move |e| {
             if !matches!(e, WorkerEvent::Preview(..)) {
                 log.lock().unwrap().push(e)
@@ -1541,10 +1546,15 @@ mod tests {
 
     // What a stream hands media: the tap for H.264 only, and which stream each frame is from.
 
+    #[derive(Default)]
     struct Seen {
         tapped: Mutex<Vec<Codec>>,
         plain: Mutex<Vec<Codec>>,
         sources: Mutex<Vec<String>>,
+        /// How many steps the pipeline had at each frame.
+        steps_at_first: Mutex<Vec<usize>>,
+        /// The first byte of each frame's person mask.
+        masks: Mutex<Vec<u8>>,
     }
 
     struct Tap;
@@ -1573,11 +1583,15 @@ mod tests {
         }
     }
 
-    struct Says(Arc<Seen>);
+    struct Says(Arc<Seen>, usize);
 
     impl FramePipeline for Says {
-        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn set_steps(&mut self, steps: Vec<StagedStep>) {
+            self.1 = steps.len();
+        }
         fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
+            self.0.steps_at_first.lock().unwrap().push(self.1);
+            self.0.masks.lock().unwrap().extend(ctx.person_mask(&frame).map(|m| m[0]));
             self.0.sources.lock().unwrap().push(ctx.source_id().to_string());
             frame
         }
@@ -1608,23 +1622,94 @@ mod tests {
             Box::new(Rgb)
         }
         fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
-            Ok(Box::new(Says(self.0.clone())))
+            Ok(Box::new(Says(self.0.clone(), 0)))
         }
     }
 
     fn watched(url: &str, codec: Codec) -> Arc<Seen> {
-        let seen = Arc::new(Seen { tapped: Mutex::default(), plain: Mutex::default(), sources: Mutex::default() });
+        let seen = Arc::new(Seen::default());
         let opener: Opener = Arc::new(move || {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None };
+                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new() };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
         wait_for(|| !cams.sent.lock().unwrap().is_empty());
         w.stop();
         seen
+    }
+
+    /// A person mask that says which frame it was worked out for, once per number as the service does.
+    struct Masks;
+
+    impl telescope_core::vision::VisionService for Masks {
+        fn attach(&self, _bus: telescope_core::BusSender) {}
+        fn state(&self) -> String {
+            "ready".into()
+        }
+        fn load(&self) {}
+        fn person_mask(&self, _source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            Some(Arc::new(vec![frame.number as u8]))
+        }
+        fn want_people(&self, _owner: &str, _on: bool) {}
+        fn wants_people(&self) -> bool {
+            false
+        }
+        fn feed_raw(&self, _source_id: &str, _frame: &Frame, _upright: telescope_core::vision::Upright) {}
+        fn tracked_people(&self, _source_id: &str) -> (Vec<serde_json::Value>, u32) {
+            (Vec::new(), 0)
+        }
+        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn drop_stream(&self, _source_id: &str) {}
+        fn set_power_saving(&self, _on: bool) {}
+        fn diagnostics(&self) -> Vec<(String, String)> {
+            Vec::new()
+        }
+        fn shutdown(&self) {}
+        fn pack(&self) -> telescope_core::vision::VisionPack {
+            unimplemented!()
+        }
+        fn download(&self, _switch_on: &str) {}
+        fn cancel_download(&self) {}
+        fn remove_pack(&self) {}
+    }
+
+    struct NoStep;
+
+    impl telescope_core::frame::CpuStep for NoStep {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+    }
+
+    fn with_steps(steps: Vec<StagedStep>, vision: Option<VisionFeed>, frames: usize) -> Arc<Seen> {
+        let seen = Arc::new(Seen::default());
+        let opener: Opener = Arc::new(|| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps };
+        let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                                    telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
+        wait_for(|| seen.sources.lock().unwrap().len() >= frames);
+        w.stop();
+        seen
+    }
+
+    #[test]
+    fn the_steps_are_in_before_the_first_frame_goes_out() {
+        let steps = vec![StagedStep { owner: "blur".into(), stage: telescope_core::frame::FrameStage::Effects,
+                                      step: telescope_core::frame::FrameStep::Cpu(Box::new(NoStep)) }];
+        let seen = with_steps(steps, None, 1);
+        assert_eq!(seen.steps_at_first.lock().unwrap()[0], 1, "a first frame on an empty pipeline would miss the blur");
+    }
+
+    #[test]
+    fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
+        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default() };
+        let seen = with_steps(Vec::new(), Some(vision), 2);
+        let masks = seen.masks.lock().unwrap();
+        assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
     }
 
     #[test]
