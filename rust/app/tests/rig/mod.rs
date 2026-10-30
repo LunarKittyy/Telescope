@@ -19,6 +19,7 @@ use telescope_core::media::{Codec, FrameSlot, PacketTap, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::services::Services;
+use telescope_core::ui::Issue;
 use telescope_core::source::{ControlClient, PairedPhone, RouteSpec};
 use telescope_shell::offscreen;
 use telescope_shell::session::SourceRef;
@@ -150,6 +151,8 @@ pub struct FakeLink {
     pub controls: Mutex<BTreeMap<String, Arc<Control>>>,
     pub released: Mutex<Vec<Arc<AtomicBool>>>,
     pub progress: Mutex<Vec<String>>,
+    /// Stops take this long to get there: a phone that's gone.
+    pub stops_hang: AtomicBool,
 }
 
 impl FakeLink {
@@ -235,6 +238,9 @@ impl Link for FakeLink {
     }
     fn stop_streaming(&self, phone: &PairedPhone, _route: &RouteSpec) {
         note(&self.log, format!("stop {}", phone.id));
+        while self.stops_hang.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
     fn session_target(&self, source_id: Option<&str>) -> Option<(PairedPhone, RouteSpec)> {
         let id = source_id.map(String::from).or_else(|| self.picked_source())?;
@@ -541,6 +547,12 @@ impl Rig {
         self.pump();
     }
 
+    /// A banner up, as a plugin would put it.
+    pub fn show_issue(&self, key: &str, title: &str) {
+        self.w.state.borrow_mut().banners.show(key, issue(title));
+        self.w.show_banners();
+    }
+
     /// `id` stops streaming.
     pub fn stop(&self, id: Option<&str>) {
         self.w.with_flow(|flow, host| flow.stop_stream(host, id));
@@ -661,6 +673,37 @@ fn rows_of(model: &ModelRc<SValue>) -> Vec<BTreeMap<String, String>> {
             _ => String::new(),
         })).collect()
     }).collect()
+}
+
+/// What shapes the stream: it follows the panels, and each phone has its own numbers.
+pub struct Output {
+    pub config: Value,
+}
+
+impl Plugin for Output {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "stream_output".into(), title: "Output".into(), follows_focus: true, device_local: true, ..Default::default() }
+    }
+    fn get_config(&self) -> Value {
+        self.config.clone()
+    }
+    fn set_config(&mut self, config: &Value) -> Result<(), ConfigRejected> {
+        self.config = config.clone();
+        Ok(())
+    }
+    fn stream_params(&self) -> Option<(Option<u32>, Option<u32>, u32)> {
+        let size = |key: &str| self.config[key].as_u64().map(|n| n as u32);
+        Some((size("width"), size("height"), size("fps").unwrap_or(30)))
+    }
+    fn opening(&self) -> Option<StreamRequest> {
+        let size = |key: &str| self.config[key].as_u64().unwrap_or(0) as u32;
+        Some(StreamRequest { width: size("width"), height: size("height"), fps: size("fps"), camera_off: false })
+    }
+}
+
+/// A plain banner, for what a test wants up.
+pub fn issue(title: &str) -> Issue {
+    Issue { title: title.into(), text: String::new(), actions: vec![], kind: "warn".into(), details: String::new(), tell_dismiss: false }
 }
 
 /// A phone state that passes the check, with these keys on top.

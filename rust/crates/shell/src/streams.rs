@@ -1440,7 +1440,7 @@ impl FlowHost for Host<'_> {
     }
     fn start_problem(&mut self, title: &str, text: &str) {
         self.w.state.borrow_mut().banners.show("start", Issue {
-            title: title.into(), text: text.into(), actions: vec![start_action(None)],
+            title: title.into(), text: text.into(), actions: vec![IssueAction { label: tr("Try again"), does: IssueDoes::StartAgain { source_id: None, before: None } }],
             kind: "warn".into(), details: String::new(), tell_dismiss: false,
         });
     }

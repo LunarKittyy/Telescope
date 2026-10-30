@@ -859,6 +859,64 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Answers in turn, then nothing; the test closes it to end the session.
+    #[derive(Default)]
+    struct Answers {
+        left: Mutex<Vec<Option<Value>>>,
+        asked: std::sync::atomic::AtomicU32,
+        closes_after: Option<u32>,
+    }
+
+    impl PhoneControl for Answers {
+        fn send(&self, _body: &Value) {}
+        fn get_state(&self) -> Option<Value> {
+            self.asked.fetch_add(1, Ordering::SeqCst);
+            self.left.lock().unwrap().pop().flatten()
+        }
+        fn retarget(&self, _stream_base: &str) {}
+        fn resend_settings(&self) {}
+        fn close(&self) {}
+        fn closed(&self) -> bool {
+            self.closes_after.is_some_and(|n| self.asked.load(Ordering::SeqCst) >= n)
+        }
+    }
+
+    fn fetched(controls: &Answers, report_failure: bool) -> Vec<Value> {
+        let got = Mutex::new(Vec::new());
+        fetch_state(controls, Duration::ZERO, Duration::ZERO, report_failure, |state| got.lock().unwrap().push(state));
+        got.into_inner().unwrap()
+    }
+
+    #[test]
+    fn fetch_state_retries_then_emits_success() {
+        let controls = Answers { left: Mutex::new(vec![Some(json!({"auto": true})), None]), ..Default::default() };
+        assert_eq!(fetched(&controls, true), [json!({"auto": true})]);
+        assert_eq!(controls.asked.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn fetch_state_emits_empty_after_three_failures() {
+        let controls = Answers::default();
+        assert_eq!(fetched(&controls, true), [json!({})]);
+        assert_eq!(controls.asked.load(Ordering::SeqCst), 3);
+        assert!(fetched(&Answers::default(), false).is_empty(), "nobody's waiting for a state");
+    }
+
+    #[test]
+    fn fetch_state_exits_if_session_is_removed() {
+        let controls = Answers { closes_after: Some(0), ..Default::default() };
+        assert!(fetched(&controls, true).is_empty());
+        assert_eq!(controls.asked.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn fetch_state_discards_result_from_a_superseded_session() {
+        // Closed while it waited to ask again
+        let controls = Answers { closes_after: Some(1), ..Default::default() };
+        assert!(fetched(&controls, true).is_empty());
+        assert_eq!(controls.asked.load(Ordering::SeqCst), 1);
+    }
+
     #[test]
     fn the_heat_note_names_the_size_and_rate() {
         assert_eq!(heat_text(&json!({"heat_width": 1280, "heat_height": 720, "heat_fps": 24})).unwrap(),
