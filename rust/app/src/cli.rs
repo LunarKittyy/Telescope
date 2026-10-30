@@ -31,7 +31,7 @@ impl Args {
     }
 
     fn request(&self) -> StreamRequest {
-        StreamRequest { width: self.width, height: self.height, fps: self.fps }
+        StreamRequest { width: self.width, height: self.height, fps: self.fps, camera_off: false }
     }
 
     pub fn window(&self, snapshot: Option<String>, minimized: bool, on_shown: Option<telescope_shell::ShownHook>) -> WindowOptions {

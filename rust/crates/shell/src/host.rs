@@ -206,10 +206,10 @@ impl HostCamera for Ctx<'_> {
         !self.state.streams.camera_off
     }
     fn is_camera_off_auto(&self) -> bool {
-        false
+        self.state.streams.camera_off_auto
     }
     fn can_turn_camera_off(&self) -> (bool, String) {
-        (false, telescope_core::i18n::tr("Only a phone can turn its camera off and keep streaming its mic."))
+        self.state.streams.can_turn_off.clone()
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
         self.state.effects.push(Effect::CameraOn { on, auto });

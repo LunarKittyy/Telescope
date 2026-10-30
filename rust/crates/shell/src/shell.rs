@@ -113,6 +113,13 @@ pub enum Effect {
     /// The packet steps the shown stream's H.264 goes through now, after one plugin's change_packets.
     Packets(PacketMakers),
     CameraOn { on: bool, auto: bool },
+    /// A resolution change went to the phone, which has to reopen its camera.
+    ResolutionPending { width: u32, height: u32 },
+    /// The phone is restarting its camera (a lens switch, a new size).
+    SettleStream,
+    /// The mic was switched, or another source was picked: what the camera can do may have changed.
+    MicChanged,
+    SourceSelected,
     ToggleWindow,
     /// Host::update_stream_output: a new size or rate for a stream's camera (the focused one's without an id).
     UpdateOutput { change: telescope_core::host::OutputChange, source_id: Option<String> },
@@ -153,6 +160,10 @@ pub struct Streams {
     pub starting: bool,
     pub restarting: bool,
     pub camera_off: bool,
+    /// A rule turned the camera off, not the person.
+    pub camera_off_auto: bool,
+    /// Whether the camera can go off now, and why not.
+    pub can_turn_off: (bool, String),
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
     /// (id, name) of the stream the mic follows, and the ids of every stream that's up.
@@ -310,6 +321,8 @@ pub struct State {
     pub window_active: bool,
     /// The Microphone card's (enabled, muted), for the tray's tooltip.
     pub mic: (bool, bool),
+    /// What the last camera_on_changed said, so picking another source only tells when it differs.
+    pub camera_on_shown: bool,
     /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
     pub shown: Option<bool>,
     pub tray_close_notified: bool,
@@ -372,6 +385,7 @@ impl State {
             link: None,
             window_active: false,
             mic: (false, false),
+            camera_on_shown: true,
             shown: None,
             tray_close_notified: false,
             shortcut_menu: None, stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
@@ -892,12 +906,24 @@ impl State {
                 budget -= 1;
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
+                    self.effects.push(Effect::MicChanged);
+                }
+                if let Event::CameraOnChanged { on } = event {
+                    self.camera_on_shown = on;
+                }
+                if matches!(event, Event::SourceSelected { .. }) {
+                    self.effects.push(Effect::SourceSelected);
+                }
+                if let Event::ResolutionChangeRequested { width, height } = event {
+                    self.effects.push(Effect::ResolutionPending { width, height });
+                    self.effects.push(Effect::SettleStream);
                 }
                 if matches!(event, Event::StreamStopped | Event::DeviceChanged { .. }) {
                     // A warp stays: only its plugin ends it
                     self.overlays.cancel_pick(None, &self.bus);
                 }
                 if let Event::CameraSwitched { camera } = &event {
+                    self.effects.push(Effect::SettleStream);
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
                     // Another lens isn't motion

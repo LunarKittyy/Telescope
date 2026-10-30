@@ -6,6 +6,7 @@
 //! the threads, the order frames come out in, settling and what it reports.
 
 use crate::texts::fill;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -343,6 +344,84 @@ struct Shared {
     /// A hand_over()'s reader, healthy and waiting to take over: (cap, url, taken).
     handover_ready: Mutex<Option<(Cap, String, Arc<Flag>)>>,
     handover_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
+}
+
+/// A running stream's worker as the window uses it: StreamWorker, or a test's stand-in.
+pub trait VideoWorker: Send + Sync {
+    fn source_id(&self) -> Option<&str>;
+    fn tap(&self) -> Option<Arc<dyn PacketTap>>;
+    fn slot(&self) -> Arc<dyn FrameSlot>;
+    fn set_steps(&self, steps: Vec<StagedStep>);
+    fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
+    fn settle(&self);
+    fn hold_for_photo(&self, seconds: f32);
+    fn stop(&self);
+    fn parked(&self) -> bool;
+    fn set_parked(&self, parked: bool);
+    fn retarget(&self, url: &str, opener: Opener);
+    fn can_hand_over(&self) -> bool;
+    fn set_opener(&self, opener: Opener);
+    fn failed_tries(&self) -> u32;
+    fn last_arrival_fps(&self) -> f32;
+    fn camera_size(&self) -> Option<(u32, u32)>;
+    fn hand_over(&self, url: &str, opener: Opener) -> bool;
+}
+
+/// Starts a stream's worker in place of StreamWorker::start.
+pub type WorkerMaker = Rc<dyn Fn(WorkerSetup, Arc<dyn FrameSlot>, Events) -> Arc<dyn VideoWorker>>;
+
+impl VideoWorker for StreamWorker {
+    fn source_id(&self) -> Option<&str> {
+        StreamWorker::source_id(self)
+    }
+    fn tap(&self) -> Option<Arc<dyn PacketTap>> {
+        StreamWorker::tap(self)
+    }
+    fn slot(&self) -> Arc<dyn FrameSlot> {
+        StreamWorker::slot(self)
+    }
+    fn set_steps(&self, steps: Vec<StagedStep>) {
+        StreamWorker::set_steps(self, steps);
+    }
+    fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
+        StreamWorker::update_output(self, width, height, fps);
+    }
+    fn settle(&self) {
+        StreamWorker::settle(self);
+    }
+    fn hold_for_photo(&self, seconds: f32) {
+        StreamWorker::hold_for_photo(self, seconds);
+    }
+    fn stop(&self) {
+        StreamWorker::stop(self);
+    }
+    fn parked(&self) -> bool {
+        StreamWorker::parked(self)
+    }
+    fn set_parked(&self, parked: bool) {
+        StreamWorker::set_parked(self, parked);
+    }
+    fn retarget(&self, url: &str, opener: Opener) {
+        StreamWorker::retarget(self, url, opener);
+    }
+    fn can_hand_over(&self) -> bool {
+        StreamWorker::can_hand_over(self)
+    }
+    fn set_opener(&self, opener: Opener) {
+        StreamWorker::set_opener(self, opener);
+    }
+    fn failed_tries(&self) -> u32 {
+        StreamWorker::failed_tries(self)
+    }
+    fn last_arrival_fps(&self) -> f32 {
+        StreamWorker::last_arrival_fps(self)
+    }
+    fn camera_size(&self) -> Option<(u32, u32)> {
+        StreamWorker::camera_size(self)
+    }
+    fn hand_over(&self, url: &str, opener: Opener) -> bool {
+        StreamWorker::hand_over(self, url, opener)
+    }
 }
 
 /// One stream's video worker; dropping it doesn't stop it, stop() does.

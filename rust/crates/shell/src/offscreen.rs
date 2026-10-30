@@ -5,12 +5,18 @@ use slint::platform::software_renderer::{MinimalSoftwareWindow, PremultipliedRgb
 use slint::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use slint::{EventLoopError, PlatformError};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 type Job = Box<dyn FnOnce() + Send>;
 
 /// What other threads handed slint::invoke_from_event_loop, run by pump().
 static JOBS: Mutex<Vec<Job>> = Mutex::new(Vec::new());
+/// Slint keeps one proxy per process, and a second one would keep the next thread from getting a platform at all.
+static PROXY_TAKEN: AtomicBool = AtomicBool::new(false);
+/// How far skip() has moved the clock on, in milliseconds.
+static SKIPPED_MS: AtomicU64 = AtomicU64::new(0);
 
 thread_local! {
     static WINDOWS: std::cell::RefCell<Vec<Rc<MinimalSoftwareWindow>>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -26,7 +32,13 @@ impl Platform for Offscreen {
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
-        Some(Box::new(Proxy))
+        (!PROXY_TAKEN.swap(true, Ordering::SeqCst)).then(|| Box::new(Proxy) as Box<dyn EventLoopProxy>)
+    }
+
+    fn duration_since_start(&self) -> Duration {
+        static START: Mutex<Option<Instant>> = Mutex::new(None);
+        let elapsed = START.lock().unwrap().get_or_insert_with(Instant::now).elapsed();
+        elapsed + Duration::from_millis(SKIPPED_MS.load(Ordering::SeqCst))
     }
 }
 
@@ -54,7 +66,18 @@ pub fn pump() -> bool {
     ran
 }
 
-/// Makes every window this process creates from now on an offscreen one. Call before the first window; false when a
+/// Moves the clock timers go by on, and runs the ones that came due.
+pub fn skip(time: Duration) {
+    SKIPPED_MS.fetch_add(time.as_millis() as u64, Ordering::SeqCst);
+    pump();
+}
+
+/// Forgets what other threads sent that no pump ran, so a test doesn't get the last one's.
+pub fn drop_jobs() {
+    JOBS.lock().unwrap().clear();
+}
+
+/// Makes every window this thread creates from now on an offscreen one. Call before the first window; false when a
 /// platform was already set.
 pub fn install() -> bool {
     slint::platform::set_platform(Box::new(Offscreen)).is_ok()

@@ -9,8 +9,9 @@ use crate::worker::{Opened, Opener};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use telescope_core::i18n::tr;
 use telescope_core::link::{Link, PhoneControl, PhoneSession, Resolution, StreamFormat, StreamRequest};
 use telescope_core::source::{ControlClient, PairedPhone, RouteSpec, StreamSource};
@@ -23,6 +24,20 @@ pub const PARK_AFTER: Duration = Duration::from_secs(10);
 pub const UNREACHABLE_AFTER: Duration = Duration::from_secs(30);
 /// How often a streaming phone is asked whether its heat dropped the size.
 pub const HEAT_CHECK: Duration = Duration::from_secs(15);
+/// With the camera off: how often to check the phone is still there, with no video to tell.
+pub const ALIVE_POLL: Duration = Duration::from_secs(5);
+/// Checks in a row the phone didn't answer before looking for it like a dropped stream.
+pub const ALIVE_MISSES: u32 = 2;
+/// After turning the camera on: when to ask the phone whether it came on.
+pub const CAMERA_ON_CHECK: Duration = Duration::from_secs(6);
+/// The phone's camera rate holds this long, so it isn't asked every report.
+pub const CAMERA_FPS_KEEP: Duration = Duration::from_secs(10);
+/// Frames arriving at this share of what the phone's camera makes are the camera's doing, not the link's.
+pub const CAMERA_LIMITED_SHARE: f32 = 0.9;
+/// A wake waits this long at most for the phone's earlier stop to get there.
+const STOP_WAIT: Duration = Duration::from_secs(10);
+/// A stop that got there this recently may still be winding the phone's stream down.
+const STOP_SETTLE: Duration = Duration::from_secs(3);
 
 /// What a phone's thread hands back to the window (the Qt signals of PhoneSource).
 pub enum Report {
@@ -35,7 +50,81 @@ pub enum Report {
     Moved { source_id: String, session_id: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
     /// A hand-over with the camera off opened its session on url (None: it couldn't).
     HandedOver { source_id: String, session_id: u64, url: String, session: Option<Arc<dyn PhoneSession>> },
+    /// The regular heat check's answer.
+    Heat { source_id: String, session_id: u64, state: Option<Value> },
+    /// With the camera off: whether the phone answered.
+    Alive { source_id: String, session_id: u64, ok: bool },
+    /// The phone's state a moment after the camera was turned on.
+    CameraCheck { source_id: String, session_id: u64, state: Option<Value> },
+    /// How fast the phone's camera goes, for frames arriving slowly (0: it doesn't say).
+    CameraRate { source_id: String, session_id: u64, arrival: f32, rates: CameraRates },
 }
+
+/// The rates the phone says it runs at: the camera's, what Dynamic stepped down to, and its cap for the heat (0: none).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CameraRates {
+    pub camera: f32,
+    pub dynamic: u32,
+    pub heat: u32,
+}
+
+/// What the Stream output card wants of a stream, read at each start.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct StreamPlan {
+    pub format: StreamFormat,
+    /// None without a Stream output plugin.
+    pub params: Option<(Option<u32>, Option<u32>, u32)>,
+    pub opening: Option<StreamRequest>,
+}
+
+pub(crate) fn truthy(state: &Value, key: &str) -> bool {
+    state.get(key).is_some_and(|v| match v {
+        Value::Null => false,
+        Value::Bool(b) => *b,
+        Value::String(s) => !s.is_empty(),
+        Value::Number(n) => n.as_f64() != Some(0.0),
+        Value::Array(a) => !a.is_empty(),
+        Value::Object(o) => !o.is_empty(),
+    })
+}
+
+/// A positive whole number the phone sent (a bool isn't one).
+fn rate(state: &Value, key: &str) -> u32 {
+    state.get(key).filter(|v| !v.is_boolean()).and_then(Value::as_u64).unwrap_or(0) as u32
+}
+
+/// What the camera rate question gets out of the phone's state; None state: no answer.
+pub fn camera_rates(state: Option<&Value>) -> CameraRates {
+    let Some(state) = state else { return CameraRates::default() };
+    CameraRates { camera: state.get("camera_fps").and_then(Value::as_f64).unwrap_or(0.0) as f32, dynamic: rate(state, "dynamic_fps"), heat: rate(state, "heat_fps") }
+}
+
+/// The phone's state to the window, a moment after the stream began: a phone that's not ready yet is asked again, and one
+/// that never answers gets an empty state when `report_failure` says the plugins are waiting for one.
+pub(crate) fn fetch_state(controls: &dyn PhoneControl, first: Duration, retry: Duration, report_failure: bool, report: impl Fn(Value)) {
+    std::thread::sleep(first);
+    for _ in 0..3 {
+        if controls.closed() {
+            return;
+        }
+        if let Some(state) = controls.get_state() {
+            return report(state);
+        }
+        std::thread::sleep(retry);
+    }
+    if report_failure && !controls.closed() {
+        report(Value::Object(Default::default()));
+    }
+}
+
+/// 0: a phone too old to say, or no answer: the link, as before.
+pub fn limited_by_camera(rates: CameraRates, arrival: f32) -> bool {
+    rates.camera > 0.0 && arrival >= rates.camera * CAMERA_LIMITED_SHARE
+}
+
+/// How long after a stream began its state is asked for, and how long between tries when the phone isn't ready.
+const STATE_WAIT: Duration = Duration::from_millis(1500);
+const STATE_RETRY: Duration = Duration::from_secs(2);
 
 /// Hands a report to the window's thread.
 pub type Post = Arc<dyn Fn(Report) + Send + Sync>;
@@ -113,6 +202,13 @@ struct PhoneInner {
     unreachable_shown: bool,
     heat_shown: bool,
     handover: Option<Handover>,
+    /// A wake landing after a stop tells the phone to stop again; not after a restart, which means it to keep going.
+    stop_late_wake: bool,
+    alive_misses: u32,
+    /// What the phone said about its rates, while it holds, and whether it's being asked.
+    rates: Option<CameraRates>,
+    rate_check_busy: bool,
+    camera_on_session: u64,
 }
 
 /// A hand-over under way: the session it's for, the route and URL it tries, and the session it opened there.
@@ -125,8 +221,8 @@ struct Handover {
 
 /// The window's hooks the timers call, with what fired and the source id.
 pub type TimerHook = Rc<dyn Fn(&str, &str)>;
-/// The stream format as the settings have it now.
-pub type FormatNow = Rc<dyn Fn() -> StreamFormat>;
+/// What the settings want of a stream now.
+pub type PlanNow = Rc<dyn Fn() -> StreamPlan>;
 /// A plugin's source, swapped in place when it's offered again.
 pub type SharedSource = Arc<Mutex<Arc<dyn StreamSource>>>;
 
@@ -135,7 +231,8 @@ pub struct PhoneKind {
     pub id: Option<String>,
     link: Arc<dyn Link>,
     /// What the Stream output card picked, read at each start.
-    format: Rc<dyn Fn() -> StreamFormat>,
+    plan: PlanNow,
+    /// What the command line asked for, without a Stream output plugin.
     request: StreamRequest,
     post: Post,
     inner: RefCell<PhoneInner>,
@@ -145,16 +242,29 @@ pub struct PhoneKind {
     gone_timer: slint::Timer,
     recovery_timer: slint::Timer,
     heat_timer: slint::Timer,
+    alive_timer: slint::Timer,
+    camera_on_timer: slint::Timer,
+    /// Runs while the phone's rates hold.
+    rates_timer: slint::Timer,
+    /// When the last stop reached the phone.
+    stopped_at: Arc<Mutex<Option<Instant>>>,
+    /// One at a time: an unreachable phone takes seconds to time out.
+    state_poll_busy: Arc<AtomicBool>,
+    heat_check_busy: Arc<AtomicBool>,
+    alive_busy: Arc<AtomicBool>,
     /// The window's hooks the timers call: park(source id), unreachable(source id), probe(source id), heat(source id).
     pub on_timer: TimerHook,
 }
 
 impl PhoneKind {
-    pub fn new(id: Option<String>, link: Arc<dyn Link>, format: FormatNow, request: StreamRequest,
+    pub fn new(id: Option<String>, link: Arc<dyn Link>, plan: PlanNow, request: StreamRequest,
                post: Post, on_timer: TimerHook) -> PhoneKind {
-        PhoneKind { id, link, format, request, post, inner: RefCell::default(), stopping: Arc::default(),
+        PhoneKind { id, link, plan, request, post, inner: RefCell::default(), stopping: Arc::default(),
                     park_timer: slint::Timer::default(), gone_timer: slint::Timer::default(),
-                    recovery_timer: slint::Timer::default(), heat_timer: slint::Timer::default(), on_timer }
+                    recovery_timer: slint::Timer::default(), heat_timer: slint::Timer::default(),
+                    alive_timer: slint::Timer::default(), camera_on_timer: slint::Timer::default(),
+                    rates_timer: slint::Timer::default(), stopped_at: Arc::default(), state_poll_busy: Arc::default(),
+                    heat_check_busy: Arc::default(), alive_busy: Arc::default(), on_timer }
     }
 
     /// The phone as the Connection plugin has it (None id: the picked one).
@@ -183,10 +293,15 @@ impl PhoneKind {
         inner.session = Some(session);
     }
 
+    /// Whether a wake that finishes now should tell the phone to stop.
+    pub fn stops_late_wake(&self) -> bool {
+        self.inner.borrow().stop_late_wake
+    }
+
     /// A wake that finished after a stop: the phone may have started anyway, so it's told to stop.
     pub fn stop_late(&self, session: Arc<dyn PhoneSession>) {
         let (link, phone, route) = (self.link.clone(), self.phone(), session.route());
-        self.spawn_stop(move || {
+        self.spawn_stop(true, move || {
             if let Some(phone) = phone {
                 link.stop_streaming(&phone, &route);
             }
@@ -197,10 +312,17 @@ impl PhoneKind {
         }
     }
 
-    fn spawn_stop(&self, f: impl FnOnce() + Send + 'static) {
+    /// remote: it tells the phone, so a wake right after it goes more carefully.
+    fn spawn_stop(&self, remote: bool, f: impl FnOnce() + Send + 'static) {
         let mut stops = self.stopping.lock().unwrap();
         stops.retain(|t| !t.is_finished());
-        stops.push(std::thread::spawn(f));
+        let at = self.stopped_at.clone();
+        stops.push(std::thread::spawn(move || {
+            f();
+            if remote {
+                *at.lock().unwrap() = Some(Instant::now());
+            }
+        }));
     }
 
     /// Quitting: give stops still on their way until deadline.
@@ -301,6 +423,7 @@ impl PhoneKind {
         let mut inner = self.inner.borrow_mut();
         inner.recovery_route = Some(route.clone());
         inner.route_tries = failed_tries;
+        inner.alive_misses = 0;
         inner.route = Some(route);
         inner.url = session.video_url();
         if let Some(old) = inner.session.replace(session) {
@@ -317,17 +440,38 @@ impl PhoneKind {
     }
 
     /// The stream couldn't connect over the USB forward recovery made: the same cable back needs a fresh one.
-    pub fn forward_failed(&self, failed_tries: u32) -> bool {
+    pub fn forward_failed(&self, failed_tries: Option<u32>) -> bool {
         let inner = self.inner.borrow();
-        matches!(inner.recovery_route, Some(RouteSpec::Usb { .. })) && failed_tries > inner.route_tries
+        matches!(inner.recovery_route, Some(RouteSpec::Usb { .. })) && match failed_tries {
+            Some(tries) => tries > inner.route_tries,
+            None => inner.alive_misses > 0, // camera off: the mic has no tries of its own to count
+        }
     }
 
     /// Looks for the phone again on a thread; the answer comes back as RecoveryProbed.
     pub fn probe(&self, session_id: u64) {
+        self.poll_state(session_id);
         let (link, post, id, sid, generation) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.recovery_generation());
         std::thread::spawn(move || {
             let resolution = link.recovery_check(id.as_deref());
             post(Report::RecoveryProbed { source_id: sid, session_id, generation, resolution });
+        });
+    }
+
+    /// The phone may have dropped the stream on purpose (H.264 it can't do at this size), and the camera can take seconds
+    /// to give up after that, so every probe asks; the rest of its state can wait for the stream to be back.
+    fn poll_state(&self, session_id: u64) {
+        let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
+        if self.state_poll_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let (post, sid, busy) = (self.post.clone(), self.sid(), self.state_poll_busy.clone());
+        std::thread::spawn(move || {
+            let state = controls.get_state().filter(|s| truthy(s, "codec_error") || truthy(s, "camera_taken"));
+            busy.store(false, Ordering::SeqCst);
+            if let Some(state) = state {
+                post(Report::State { source_id: sid, session_id, state });
+            }
         });
     }
 
@@ -355,8 +499,8 @@ impl PhoneKind {
         self.link.show_problem(self.id.as_deref(), res);
     }
 
-    /// Asks the phone for its state on a thread (a heat check, or a plugin asking).
-    pub fn check_heat(&self, session_id: u64) {
+    /// Asks the phone for its state on a thread, for a plugin that wants it.
+    pub fn ask_state(&self, session_id: u64) {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
         std::thread::spawn(move || {
@@ -364,6 +508,86 @@ impl PhoneKind {
                 post(Report::State { source_id: sid, session_id, state });
             }
         });
+    }
+
+    /// The phone can get hot mid-stream, and the state is otherwise only asked for at the start.
+    pub fn check_heat(&self, session_id: u64) {
+        let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
+        if self.heat_check_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let (post, sid, busy) = (self.post.clone(), self.sid(), self.heat_check_busy.clone());
+        std::thread::spawn(move || {
+            let state = controls.get_state();
+            busy.store(false, Ordering::SeqCst);
+            post(Report::Heat { source_id: sid, session_id, state });
+        });
+    }
+
+    /// With no video coming in, asks the phone whether it's still there.
+    pub fn check_alive(&self, session_id: u64) {
+        let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
+        if self.alive_busy.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let (post, sid, busy) = (self.post.clone(), self.sid(), self.alive_busy.clone());
+        std::thread::spawn(move || {
+            let ok = controls.get_state().is_some();
+            busy.store(false, Ordering::SeqCst);
+            post(Report::Alive { source_id: sid, session_id, ok });
+        });
+    }
+
+    /// Whether the phone answered; true once it missed enough checks in a row to go looking for it.
+    pub fn note_alive(&self, ok: bool) -> bool {
+        let mut inner = self.inner.borrow_mut();
+        inner.alive_misses = if ok { 0 } else { inner.alive_misses + 1 };
+        inner.alive_misses >= ALIVE_MISSES
+    }
+
+    /// Asks the phone whether the camera came on, once it's had a moment.
+    pub fn check_camera_on(&self, session_id: u64) {
+        let asked = self.inner.borrow().camera_on_session == session_id;
+        let Some(controls) = self.session().and_then(|s| s.controls()).filter(|_| asked) else { return };
+        let (post, sid) = (self.post.clone(), self.sid());
+        std::thread::spawn(move || {
+            let state = controls.get_state();
+            post(Report::CameraCheck { source_id: sid, session_id, state });
+        });
+    }
+
+    /// Whether the camera, not the link, limits frames arriving at this rate, while what the phone said still holds.
+    pub fn camera_limits(&self, arrival: f32) -> Option<bool> {
+        let rates = self.inner.borrow().rates.filter(|_| self.rates_timer.running())?;
+        Some(limited_by_camera(rates, arrival))
+    }
+
+    /// Asks the phone how fast its camera goes; the readout and any note wait for the answer, a moment on a working link.
+    pub fn ask_camera_rate(&self, session_id: u64, arrival: f32) {
+        if std::mem::replace(&mut self.inner.borrow_mut().rate_check_busy, true) {
+            return;
+        }
+        let controls = self.session().and_then(|s| s.controls());
+        let (post, sid) = (self.post.clone(), self.sid());
+        std::thread::spawn(move || {
+            let state = controls.and_then(|c| c.get_state());
+            post(Report::CameraRate { source_id: sid, session_id, arrival, rates: camera_rates(state.as_ref()) });
+        });
+    }
+
+    /// The phone's answer holds for a while; None: it was for a stream that's gone.
+    pub fn rates_came(&self, rates: Option<CameraRates>) {
+        let mut inner = self.inner.borrow_mut();
+        inner.rate_check_busy = false;
+        if rates.is_some() {
+            inner.rates = rates;
+            self.rates_timer.start(slint::TimerMode::SingleShot, CAMERA_FPS_KEEP, || {});
+        }
+    }
+
+    /// The rates the phone last said it stepped down to for a slow link and for its heat (0: none).
+    pub fn rates(&self) -> CameraRates {
+        self.inner.borrow().rates.unwrap_or_default()
     }
 
     /// Says so while the phone streams a smaller picture than asked because it's critically hot; true if it shows.
@@ -395,24 +619,20 @@ impl SourceKind for PhoneKind {
     }
 
     fn wake(&self, source: &Source) {
-        let format = (self.format)();
+        // Read here, on the UI thread: what the phone should open at, not the size it last used (which may have failed)
+        let plan = (self.plan)();
         let wake_id = {
             let mut inner = self.inner.borrow_mut();
             inner.wake_id += 1;
+            inner.stop_late_wake = true;
             inner.wake_id
         };
-        let mut opening = Some(self.request);
-        if source.camera_off() {
-            opening = None; // the phone opens its camera off with the mic alone; an older one ignores it
-        }
-        let (link, post, id, sid, stopping) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.stopping.clone());
+        let format = plan.format;
+        let mut opening = plan.opening.unwrap_or(self.request);
+        opening.camera_off = source.camera_off();
+        let (link, post, id, sid, stopping, stopped_at) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.stopping.clone(), self.stopped_at.clone());
         std::thread::spawn(move || {
-            // A stop still on its way would land after this wake joined the stream it ends, so the wake goes after it
-            let pending: Vec<_> = stopping.lock().unwrap().drain(..).collect();
-            let after_stop = !pending.is_empty();
-            for t in pending {
-                let _ = t.join();
-            }
+            let after_stop = finish_stops(&stopping, &stopped_at);
             let progress_post = post.clone();
             let progress_sid = sid.clone();
             let progress = move |text: &str| progress_post(Report::WakeProgress { source_id: progress_sid.clone(), wake_id, text: text.into() });
@@ -423,7 +643,7 @@ impl SourceKind for PhoneKind {
                 })?;
                 let path = video_path(&target.video_url);
                 let session: Arc<dyn PhoneSession> = link.open_route(&target.phone, &target.route, path, None).map_err(Some)?.into();
-                if let Err(e) = link.ensure_streaming(&target.phone, &target.route, opening, after_stop, &progress) {
+                if let Err(e) = link.ensure_streaming(&target.phone, &target.route, Some(opening), after_stop, &progress) {
                     session.release();
                     return Err(Some(e));
                 }
@@ -438,32 +658,21 @@ impl SourceKind for PhoneKind {
     }
 
     fn stream_params(&self) -> (Option<u32>, Option<u32>, u32) {
-        (None, None, self.request.fps)
+        (self.plan)().params.unwrap_or((None, None, self.request.fps))
     }
 
     fn started(&self, _source: &Source, session_id: u64) {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(1500));
-            for _ in 0..3 {
-                if controls.closed() {
-                    return;
-                }
-                if let Some(state) = controls.get_state() {
-                    post(Report::State { source_id: sid, session_id, state });
-                    return;
-                }
-                std::thread::sleep(Duration::from_secs(2));
-            }
-            post(Report::State { source_id: sid, session_id, state: Value::Object(Default::default()) });
+            fetch_state(&*controls, STATE_WAIT, STATE_RETRY, true, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
         });
         let (cb, sid) = (self.on_timer.clone(), self.sid());
         self.heat_timer.start(slint::TimerMode::Repeated, HEAT_CHECK, move || cb("heat", &sid));
     }
 
     fn fetch_state(&self, _source: &Source, session_id: u64) {
-        self.check_heat(session_id);
+        self.ask_state(session_id);
     }
 
     fn refresh_state(&self, _source: &Source, session_id: u64) {
@@ -471,18 +680,22 @@ impl SourceKind for PhoneKind {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(1500));
-            if let Some(state) = controls.get_state() {
-                post(Report::State { source_id: sid, session_id, state });
-            }
+            fetch_state(&*controls, STATE_WAIT, STATE_RETRY, false, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
         });
     }
 
     fn stopped(&self, _source: &Source, remote_stop: bool, active: bool) {
         self.heat_timer.stop();
+        self.alive_timer.stop();
+        self.camera_on_timer.stop();
+        self.rates_timer.stop();
         let (session, handover) = {
             let mut inner = self.inner.borrow_mut();
             inner.wake_id += 1;
+            inner.rates = None;
+            if !remote_stop {
+                inner.stop_late_wake = false; // the phone is meant to keep going, so a wake landing late isn't stopped either
+            }
             (inner.session.take(), inner.handover.take())
         };
         if let Some(session) = handover.and_then(|h| h.opened.lock().unwrap().take()) {
@@ -492,7 +705,7 @@ impl SourceKind for PhoneKind {
             .or_else(|| Some((self.phone()?, session.as_ref()?.route())));
         let link = self.link.clone();
         if session.is_some() || (remote_stop && active) {
-            self.spawn_stop(move || {
+            self.spawn_stop(remote_stop && active, move || {
                 if let (true, Some((phone, route))) = (remote_stop && active, target) {
                     link.stop_streaming(&phone, &route);
                 }
@@ -542,9 +755,44 @@ impl SourceKind for PhoneKind {
         Some(Arc::new(move || session.open_video().map(Opened::from)))
     }
 
+    fn mic_alone(&self) -> bool {
+        true
+    }
+
+    fn watch_alive(&self) {
+        self.inner.borrow_mut().alive_misses = 0;
+        let (cb, sid) = (self.on_timer.clone(), self.sid());
+        self.alive_timer.start(slint::TimerMode::Repeated, ALIVE_POLL, move || cb("alive", &sid));
+    }
+
+    fn stop_watching_alive(&self) {
+        self.alive_timer.stop();
+    }
+
+    fn camera_turned_on(&self, session_id: u64) {
+        self.inner.borrow_mut().camera_on_session = session_id;
+        let (cb, sid) = (self.on_timer.clone(), self.sid());
+        self.camera_on_timer.start(slint::TimerMode::SingleShot, CAMERA_ON_CHECK, move || cb("camera_check", &sid));
+    }
+
     fn as_phone(&self) -> Option<&PhoneKind> {
         Some(self)
     }
+}
+
+/// The phone's stops still on their way to it: waited for, so a wake doesn't join the stream they end. Whether one got
+/// there just now, so the phone may still be stopping.
+fn finish_stops(stopping: &Mutex<Vec<std::thread::JoinHandle<()>>>, stopped_at: &Mutex<Option<Instant>>) -> bool {
+    let pending: Vec<_> = stopping.lock().unwrap().drain(..).collect();
+    let waited = !pending.is_empty();
+    let deadline = Instant::now() + STOP_WAIT;
+    for t in pending {
+        while !t.is_finished() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+    let recent = stopped_at.lock().unwrap().is_some_and(|at| at.elapsed() < STOP_SETTLE);
+    waited || recent
 }
 
 /// A plugin's StreamSource: ready once it is, with nothing to wake.
@@ -817,8 +1065,8 @@ mod tests {
         let link = Arc::new(FakeLink::default());
         let posted: Arc<Mutex<Vec<Report>>> = Arc::default();
         let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };
-        let request = StreamRequest { width: 0, height: 0, fps: 30 };
-        let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamFormat::default), request, post, Rc::new(|_, _| {}));
+        let request = StreamRequest { width: 0, height: 0, fps: 30, camera_off: false };
+        let phone = PhoneKind::new(Some("p1".into()), link.clone(), Rc::new(StreamPlan::default), request, post, Rc::new(|_, _| {}));
         let wifi = Arc::new(FakeSession { url: "https://192.168.1.20:8080/v1/video".into(), released: AtomicBool::new(false),
                                           controls: link.controls.clone() });
         phone.woke(Arc::new(Shared(wifi.clone())));

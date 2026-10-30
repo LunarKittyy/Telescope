@@ -37,6 +37,9 @@ pub struct StreamRequest {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    /// The phone opens with its camera off and the mic alone; an older phone ignores this and opens the camera.
+    #[serde(default)]
+    pub camera_off: bool,
 }
 
 /// One phone reached over one route: starting its camera, its video and its controls.

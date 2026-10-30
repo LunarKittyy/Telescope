@@ -114,13 +114,15 @@ pub struct Source {
     pub id: Option<String>,
     pub state: RefCell<SourceState>,
     pub kind: Box<dyn SourceKind>,
+    /// How long a resolution change may take before the footer says it didn't land.
+    pub resolution_timer: slint::Timer,
 }
 
 pub type SourceRef = Rc<Source>;
 
 impl Source {
     pub fn new(id: Option<String>, kind: Box<dyn SourceKind>) -> SourceRef {
-        Rc::new(Source { id, state: RefCell::new(SourceState::default()), kind })
+        Rc::new(Source { id, state: RefCell::new(SourceState::default()), kind, resolution_timer: slint::Timer::default() })
     }
 
     pub fn id_str(&self) -> &str {
@@ -210,6 +212,15 @@ pub trait SourceKind {
     fn waiting_text(&self) -> Option<crate::worker::WaitingText> {
         None
     }
+    /// It can turn its camera off and keep streaming its mic.
+    fn mic_alone(&self) -> bool {
+        false
+    }
+    /// With no video coming in, keep asking whether it's still there.
+    fn watch_alive(&self) {}
+    fn stop_watching_alive(&self) {}
+    /// The camera was turned on: a moment later, ask whether it came on.
+    fn camera_turned_on(&self, _session_id: u64) {}
     fn as_phone(&self) -> Option<&crate::sources::PhoneKind> {
         None
     }

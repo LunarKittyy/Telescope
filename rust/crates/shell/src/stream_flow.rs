@@ -76,7 +76,8 @@ pub trait FlowHost {
     fn slot_ready(&self, slot: u32) -> bool;
     /// Sets up the extra virtual cameras (asking first), then add_stream(source_id) goes again.
     fn set_up_slots(&mut self, source_id: &str);
-    fn set_camera_on(&mut self, on: bool);
+    /// The Microphone plugin is switched on.
+    fn mic_enabled(&self) -> bool;
     fn apply_state(&mut self, session_id: u64, state: &Value, source: &SourceRef);
     fn new_worker(&mut self, source: &SourceRef, url: &str, params: (Option<u32>, Option<u32>, u32), live: bool,
                   canvas: (Option<u32>, Option<u32>)) -> Rc<dyn Worker>;
@@ -267,7 +268,7 @@ impl StreamFlow {
         source.kind.started(source, session_id);
         host.set_start_button(true);
         if source.camera_off() {
-            host.show_camera_off();
+            self.show_camera_off(host);
         } else {
             host.source_status(source, &tr("Connecting..."), "dim");
         }
@@ -439,7 +440,7 @@ impl StreamFlow {
             return;
         }
         if self.sessions.focus.as_ref().is_some_and(|f| f.camera_off()) {
-            host.set_camera_on(true); // one camera off is for the mic alone; with two it would just be confusing
+            self.set_camera_on(host, true, false); // one camera off is for the mic alone; with two it would just be confusing
         }
         self.move_focus(host, &source); // its own settings first, so it starts with them
         self.start(host, true, Some(source));
@@ -495,6 +496,107 @@ impl StreamFlow {
             }
         }
         host.refresh_tiles();
+    }
+
+    // ── Camera off: the mic alone ──
+
+    /// Whether the camera can go off now, and why not: it takes the microphone to have anything to stream.
+    pub fn can_turn_camera_off(&self, host: &mut dyn FlowHost) -> (bool, String) {
+        let source = self.active_source(host);
+        let streams = self.sessions.streams.len();
+        let why = if !source.kind.mic_alone() {
+            tr("Only a phone can turn its camera off and keep streaming its mic.")
+        } else if streams > 1 || (streams > 0 && !source.has_session()) {
+            tr("Only while one camera streams.")
+        } else if !host.mic_enabled() {
+            tr("Turn on the phone mic first. With the camera off, the mic is all that streams.")
+        } else if self.sessions.shown().is_some() && source.state.borrow().camera_toggle == Some(false) {
+            tr("Update Telescope on the phone to turn its camera off while streaming.")
+        } else {
+            return (true, String::new());
+        };
+        (false, why)
+    }
+
+    /// Turns the camera off (the stream carries on with just the mic) or back on; before a start, picks what it starts
+    /// with. auto: Automatic streaming did it, not the person.
+    pub fn set_camera_on(&mut self, host: &mut dyn FlowHost, on: bool, auto: bool) {
+        let source = self.active_source(host);
+        if on != source.camera_off() {
+            if on || !auto {
+                source.state.borrow_mut().camera_off_auto = false; // a choice by hand isn't the rule's to undo
+            }
+            return;
+        }
+        if !on && !self.can_turn_camera_off(host).0 {
+            return;
+        }
+        {
+            let mut st = source.state.borrow_mut();
+            st.camera_off = !on;
+            st.camera_off_auto = auto && !on;
+        }
+        log::info!("Camera {}{}", if on { "on" } else { "off" }, if auto { " (automatic)" } else { "" });
+        match self.sessions.shown() {
+            Some(session) => {
+                session.client.send(&serde_json::json!({"action": "camera_on", "value": if on { 1 } else { 0 }}));
+                if on {
+                    self.camera_on_now(host, &source);
+                } else {
+                    self.camera_off_now(host, &source);
+                }
+            }
+            None => host.set_start_button(self.sessions.waking),
+        }
+        host.emit(Event::CameraOnChanged { on });
+    }
+
+    fn camera_off_now(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        source.kind.end_recovery(source);
+        if let Some(mut session) = source.session() {
+            if let Some(worker) = session.worker.take() {
+                host.end_worker(worker);
+                self.sessions.add(source, session);
+                self.announce_idle_outputs(host, None); // its virtual camera gets the wait screen
+            }
+        }
+        host.clear_pending_resolution(source);
+        host.set_behind(false, source);
+        self.tell(host, source, Hook::CameraOff);
+        if same(&self.sessions.focus, source) {
+            self.show_camera_off(host);
+        }
+    }
+
+    fn camera_on_now(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        source.kind.stop_watching_alive();
+        source.kind.end_recovery(source);
+        let Some(mut session) = source.session() else { return };
+        session.worker = Some(self.start_worker(host, &session.url, source));
+        let id = session.id;
+        self.sessions.add(source, session);
+        self.tell(host, source, Hook::CameraOn);
+        host.source_status(source, &tr("Turning the phone's camera on…"), "dim");
+        source.kind.camera_turned_on(id);
+    }
+
+    /// The camera didn't come back on: the stream stays the mic alone.
+    pub fn camera_stayed_off(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        self.camera_off_now(host, source);
+        host.emit(Event::CameraOnChanged { on: false });
+    }
+
+    /// With the camera off, the phone is back or the mic moved to another route.
+    pub fn mic_reconnected(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        self.stream_reconnected(host, source);
+        self.show_camera_off(host);
+    }
+
+    fn show_camera_off(&self, host: &mut dyn FlowHost) {
+        let source = self.active_source(host);
+        host.show_camera_off();
+        host.source_status(&source, &tr("Streaming the mic, camera off"), "ok");
+        source.kind.watch_alive();
     }
 
     // ── The main stream: where the plugins that stay put (the mic) are ──
@@ -951,7 +1053,9 @@ mod tests {
         fn set_up_slots(&mut self, source_id: &str) {
             self.slots_asked.push(source_id.into());
         }
-        fn set_camera_on(&mut self, _on: bool) {}
+        fn mic_enabled(&self) -> bool {
+            true
+        }
         fn apply_state(&mut self, _session_id: u64, _state: &Value, _source: &SourceRef) {}
         fn new_worker(&mut self, _source: &SourceRef, _url: &str, _params: (Option<u32>, Option<u32>, u32), live: bool,
                       _canvas: (Option<u32>, Option<u32>)) -> Rc<dyn Worker> {

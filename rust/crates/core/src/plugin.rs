@@ -163,6 +163,14 @@ pub trait Plugin: Send {
     fn ensure_virtual_camera(&mut self, _host: &mut dyn Host, _interactive: bool, _source_id: Option<&str>) -> bool {
         true
     }
+    /// (width, height, fps) a stream's worker asks for, from the plugin that shapes the stream (Stream output).
+    fn stream_params(&self) -> Option<(Option<u32>, Option<u32>, u32)> {
+        None
+    }
+    /// What the phone should open at when a stream starts, from the plugin that shapes the stream.
+    fn opening(&self) -> Option<crate::link::StreamRequest> {
+        None
+    }
     /// A stream is about to open the virtual camera; anything holding it while idle lets go now.
     fn on_stream_starting(&mut self, _host: &mut dyn Host) {}
     /// The stream this plugin hears about started, or came back after a drop.

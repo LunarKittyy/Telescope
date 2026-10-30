@@ -221,7 +221,9 @@ impl Plugin for Asks {
     }
 }
 
-fn camera_window(name: &str) -> (Rc<window::Window>, Arc<Cameras>, Arc<Mutex<Vec<(bool, String)>>>) {
+type Heard = Arc<Mutex<Vec<(bool, String)>>>;
+
+fn camera_window(name: &str) -> (Rc<window::Window>, Arc<Cameras>, Heard) {
     i_slint_backend_testing::init_no_event_loop();
     let dir = telescope_core::testing::scratch_dir(name);
     let cameras = Arc::new(Cameras::default());

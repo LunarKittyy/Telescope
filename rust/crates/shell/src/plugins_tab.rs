@@ -324,7 +324,7 @@ impl Panel {
     pub fn download_sign(&self) -> String {
         let dl = &self.download;
         let (done, size) = dl.progress();
-        format!("{} {} {} {} {}", dl.ready(), dl.running(), if size > 0 { done * 100 / size } else { 0 }, dl.error(), dl.failed_for())
+        format!("{} {} {} {} {}", dl.ready(), dl.running(), (done * 100).checked_div(size).unwrap_or(0), dl.error(), dl.failed_for())
     }
 
     /// How many switches, installs and removals wait for Telescope to start again.
@@ -422,7 +422,7 @@ impl Panel {
         let (mut note, mut kind) = (String::new(), "dim");
         if downloading {
             let (done, size) = dl.progress();
-            note = if size > 0 { fill(&tr("Downloading… {percent}%"), &[("percent", &(done * 100 / size).min(99).to_string())]) } else { tr("Downloading…") };
+            note = (done * 100).checked_div(size).map_or_else(|| tr("Downloading…"), |percent| fill(&tr("Downloading… {percent}%"), &[("percent", &percent.min(99).to_string())]));
             kind = "status_warn";
         } else if dl.failed_for() == p.name && !dl.error().is_empty() {
             note = fill(&tr("The download didn't work. {error}"), &[("error", &dl.error())]);

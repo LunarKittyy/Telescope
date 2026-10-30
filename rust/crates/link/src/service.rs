@@ -157,7 +157,13 @@ impl Link for LinkService {
 
     fn ensure_streaming(&self, phone: &PairedPhone, route: &RouteSpec, opening: Option<StreamRequest>, after_stop: bool,
                         progress: &dyn Fn(&str)) -> Result<(), String> {
-        let opening = opening.map(|r| opening_of(r.width, r.height, r.fps));
+        let opening = opening.map(|r| {
+            let mut body = opening_of(r.width, r.height, r.fps);
+            if r.camera_off {
+                body.insert("camera".into(), "off".into());
+            }
+            body
+        });
         let auth = auth_of(phone);
         with_session(Some(&auth), Some(route), &*self.tunnels, |client| {
             connection::ensure_streaming(client.map(|c| c as &dyn SessionCtl), opening.as_ref(), after_stop, progress, &RealPace)

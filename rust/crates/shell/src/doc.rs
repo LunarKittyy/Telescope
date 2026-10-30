@@ -237,10 +237,12 @@ export component TelescopeWindow inherits Window {
     in property <string> status;
     in property <string> status-kind: "status_dim";
     in property <string> fps: "—";
-    in property <color> fps-color: Theme.text;
+    in property <string> fps-tone;
+    property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.text;
     in property <string> fps-tip;
     in property <string> net: "—";
-    in property <color> net-color: Theme.text;
+    in property <string> net-tone;
+    property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.text;
     callback start-clicked;
     callback settings-clicked;
     callback add-clicked;

@@ -67,7 +67,7 @@ pub struct Window {
     save_timer: slint::Timer,
     pub(crate) services: Option<Arc<Services>>,
     pub(crate) opts: Option<WindowOptions>,
-    pub(crate) streams: crate::streams::Streams,
+    pub streams: crate::streams::Streams,
     /// Plugins' pending host.schedule timers, by (plugin, token).
     timers: RefCell<std::collections::BTreeMap<(String, String), slint::Timer>>,
     /// Draws the preview's frames: on Slint's device once it says which, else on the CPU (preview.rs).
@@ -527,7 +527,10 @@ impl Window {
                 }
                 self.start_source(source_id);
             }
-            Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
+            Pressed::Action(IssueDoes::Plugin { id }) => match id.strip_prefix(crate::streams::CAMERA_AGAIN) {
+                Some(source_id) => self.camera_on_again(source_id),
+                None => self.tell_issue(key, &id),
+            },
             Pressed::Dismissed => {
                 if key == "plugins_off" {
                     let s = self.state.borrow_mut();
@@ -573,6 +576,7 @@ impl Window {
                 self.apply(e);
             }
         }
+        self.sync_camera();
         self.show_banners();
         self.paint_pick();
         self.paint_layers();
@@ -1007,6 +1011,11 @@ impl Window {
                 }
             }
             Effect::FrameStep(_) => self.refresh_frame_steps(),
+            Effect::CameraOn { on, auto } => self.set_camera_on(on, auto),
+            Effect::MicChanged => self.mic_changed(),
+            Effect::SourceSelected => self.source_selected(),
+            Effect::ResolutionPending { width, height } => self.resolution_pending(width, height),
+            Effect::SettleStream => self.settle_stream(),
             Effect::Schedule { plugin, token, ms } => {
                 let timer = slint::Timer::default();
                 let (weak, key) = (Rc::downgrade(self), (plugin.clone(), token.clone()));
@@ -1056,7 +1065,6 @@ impl Window {
                 let _ = self.ui.set_global_property("Shortcuts", "available", SValue::Bool(on));
                 let _ = self.ui.set_global_property("Shortcuts", "version", SValue::Number(version + 1.0));
             }
-            other => log::debug!("not handled yet: {other:?}"),
         }
     }
 
