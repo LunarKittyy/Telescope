@@ -88,6 +88,13 @@ pub trait StreamSource: Send + Sync {
     fn decoder(&self) -> Option<Box<dyn Decoder>> {
         None
     }
+    /// prepare() said no, but something is on its way to it (a browser to connect): next to other streams, it keeps a
+    /// tile until then.
+    fn waiting(&self) -> bool {
+        false
+    }
+    /// Its waiting tile was closed.
+    fn cancel_wait(&self) {}
     /// Why it isn't streaming yet while the stream waits to try again (WebcamReader.waiting_text), "" for the usual.
     fn waiting_text(&self) -> String {
         String::new()

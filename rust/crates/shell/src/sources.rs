@@ -559,6 +559,12 @@ impl SourceKind for PluginKind {
     fn redirect(&self) -> Option<String> {
         self.source.redirect()
     }
+    fn waiting(&self) -> bool {
+        self.source.waiting()
+    }
+    fn cancel_wait(&self) {
+        self.source.cancel_wait();
+    }
     fn prepare(&self, interactive: bool) -> bool {
         self.source.prepare(interactive)
     }
