@@ -528,6 +528,13 @@ impl Window {
                 self.start_source(source_id);
             }
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
+            Pressed::Action(IssueDoes::CameraOnAgain { source_id }) => {
+                // The switch is the panels' stream's
+                if let Some(id) = source_id.as_deref() {
+                    self.with_flow(|flow, host| flow.focus_stream(host, id));
+                }
+                self.state.borrow_mut().effects.push(Effect::CameraOn { on: true, auto: false });
+            }
             Pressed::Dismissed => {
                 if key == "plugins_off" {
                     let s = self.state.borrow_mut();

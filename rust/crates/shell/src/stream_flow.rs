@@ -268,6 +268,7 @@ impl StreamFlow {
         host.set_start_button(true);
         if source.camera_off() {
             host.show_camera_off();
+            source.kind.watch_alive();
         } else {
             host.source_status(source, &tr("Connecting..."), "dim");
         }
@@ -734,6 +735,25 @@ impl StreamFlow {
         source.kind.lost(&source);
     }
 
+    /// source's stream carries on with the mic alone (_camera_off_now): its video goes, and its virtual camera gets the wait
+    /// screen.
+    pub fn camera_off_now(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
+        let Some(session) = source.session() else { return };
+        source.kind.end_recovery(source);
+        if let Some(worker) = session.worker.clone() {
+            host.end_worker(worker);
+            self.sessions.add(source, StreamSession { worker: None, ..session });
+            self.announce_idle_outputs(host, None);
+        }
+        host.clear_pending_resolution(source);
+        host.set_behind(false, source);
+        self.tell(host, source, Hook::CameraOff);
+        if same(&self.sessions.focus, source) {
+            host.show_camera_off();
+            source.kind.watch_alive();
+        }
+    }
+
     pub fn stream_reconnected(&mut self, host: &mut dyn FlowHost, source: &SourceRef) {
         source.kind.end_recovery(source);
         host.refresh_tiles();
@@ -1023,7 +1043,7 @@ mod tests {
     fn offer(host: &mut Host, ready: bool) -> std::sync::Arc<Offered> {
         let offered = std::sync::Arc::new(Offered { ready, prepared: AtomicU32::new(0) });
         let source: std::sync::Arc<dyn telescope_core::source::StreamSource> = offered.clone();
-        let kind = crate::sources::PluginKind { source: std::sync::Arc::new(std::sync::Mutex::new(source)) };
+        let kind = crate::sources::PluginKind::new(std::sync::Arc::new(std::sync::Mutex::new(source)), None);
         host.sources.insert("browser:".into(), Source::new(Some("browser:".into()), Box::new(kind)));
         host.select_device(Some("browser:"));
         offered

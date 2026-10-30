@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+use telescope_core::i18n::tr;
 
 /// What the stream flow asks of a stream's video worker (StreamWorker).
 pub trait Worker {
@@ -84,7 +85,7 @@ impl Default for SourceState {
 impl SourceState {
     /// What the footer shows for this stream while the panels show another, back to before it started.
     pub fn forget_stream_status(&mut self) {
-        self.status = (telescope_core::i18n::tr("Not streaming"), "dim".into());
+        self.status = (tr("Not streaming"), "dim".into());
         self.fps_text = "—".into();
         self.net_text = "—".into();
         self.connected = false;
@@ -199,6 +200,17 @@ pub trait SourceKind {
     fn end_recovery(&self, source: &Source) {
         source.state.borrow_mut().recovering = false;
     }
+    /// The banner about it being gone a while is up, so the end of recovery takes it down.
+    fn note_unreachable(&self) {}
+    /// What to do when it can't be reached for a while.
+    fn lost_hint(&self) -> String {
+        tr("Check that it's still on.")
+    }
+    /// The camera went off: with no video coming in, keep checking the source is still there.
+    fn watch_alive(&self) {}
+    fn stop_watching_alive(&self) {}
+    /// The camera was asked to come back on mid-stream.
+    fn camera_turned_on(&self, _session_id: u64) {}
     fn forget_stream_status(&self, source: &Source) {
         source.state.borrow_mut().forget_stream_status();
     }
