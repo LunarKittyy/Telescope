@@ -384,7 +384,7 @@ mod tests {
     fn stream_start_and_stop_swap_the_placeholder() {
         let (mut p, mut host) = ready();
         host.streaming = true;
-        let stream = telescope_core::plugin::StreamInfo { url: "http://phone/".into(), source_id: "phone-1".into() };
+        let stream = telescope_core::plugin::StreamInfo { url: "http://phone/".into(), source_id: "phone-1".into(), session: 0 };
         p.on_stream_start(&mut host, &stream);
         assert_eq!(card(&host)["stage-text"], WAITING_TEXT);
         host.streaming = false;

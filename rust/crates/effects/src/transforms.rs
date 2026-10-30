@@ -107,6 +107,8 @@ pub struct TransformsPlugin {
     snaps: Vec<i32>,
     /// A stream's url while one is open (what ctrl was).
     stream: Option<String>,
+    /// StreamInfo::session of that stream.
+    session: Option<u64>,
     behind: StreamsBehind<(String, String, String)>,
     /// A preview drag's pan before the centre snap (see view_dragged).
     raw_pan: Option<(f64, f64)>,
@@ -147,6 +149,7 @@ impl TransformsPlugin {
             tele_lens: String::new(),
             snaps: Vec::new(),
             stream: None,
+            session: None,
             behind: StreamsBehind::default(),
             raw_pan: None,
             wheel_zoom: 1.0,
@@ -489,6 +492,7 @@ impl TransformsPlugin {
 
     fn leave_stream(&mut self, host: &mut dyn Host) {
         self.stream = None;
+        self.session = None;
         self.live_lens.clear();
         self.show_zoom_where(host);
     }
@@ -701,11 +705,13 @@ impl Plugin for TransformsPlugin {
 
     fn on_stream_start(&mut self, _host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
+        self.session = Some(stream.session);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
-        if let Some((live, default, tele)) = self.behind.take(host, Some(&stream.url)) {
+        self.session = Some(stream.session);
+        if let Some((live, default, tele)) = self.behind.take(host, stream.session) {
             self.live_lens = live;
             self.default_lens = default;
             self.tele_lens = tele;
@@ -719,8 +725,7 @@ impl Plugin for TransformsPlugin {
 
     fn on_focus_lost(&mut self, host: &mut dyn Host) {
         let kept = (self.live_lens.clone(), self.default_lens.clone(), self.tele_lens.clone());
-        let url = self.stream.clone();
-        self.behind.keep(host, url.as_deref(), kept);
+        self.behind.keep(host, self.session, kept);
         self.leave_stream(host);
     }
 

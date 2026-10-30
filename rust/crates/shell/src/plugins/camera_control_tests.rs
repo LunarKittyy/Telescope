@@ -44,11 +44,11 @@ impl Rig {
     }
 
     fn start(&mut self) {
-        self.cam.on_stream_start(&mut self.host, &StreamInfo { source_id: String::new(), url: "url".into() });
+        self.cam.on_stream_start(&mut self.host, &StreamInfo { source_id: String::new(), url: "url".into(), session: 0 });
     }
 
     fn gained(&mut self) {
-        self.cam.on_focus_gained(&mut self.host, &StreamInfo { source_id: String::new(), url: "url".into() });
+        self.cam.on_focus_gained(&mut self.host, &StreamInfo { source_id: String::new(), url: "url".into(), session: 0 });
     }
 
     fn state(&mut self, state: Value) {
@@ -577,6 +577,20 @@ fn back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is() {
 }
 
 #[test]
+fn a_hand_over_behind_the_panels_sends_nothing_and_a_new_start_sends_everything() {
+    let mut r = Rig::new();
+    r.start();
+    r.state(json!({"cameras": [{"id": "0", "label": "Back", "current": true}], "auto": true}));
+    r.cam.on_focus_lost(&mut r.host);
+    r.clear();
+    r.cam.on_focus_gained(&mut r.host, &StreamInfo { source_id: String::new(), url: "moved".into(), session: 0 });
+    assert!(r.sent().is_empty(), "the url moved with the route: the phone still has its settings");
+    r.cam.on_focus_lost(&mut r.host);
+    r.cam.on_focus_gained(&mut r.host, &StreamInfo { source_id: String::new(), url: "moved".into(), session: 1 });
+    assert!(!r.sent().is_empty(), "the same url, but it started again");
+}
+
+#[test]
 fn the_focus_mode_is_published_however_it_changes() {
     let mut r = Rig::new();
     r.cam.on_plugins_ready(&mut r.host);
@@ -737,7 +751,7 @@ fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
     let mut state = crate::shell::State::new(telescope_core::config::ConfigFile::at(&path));
     state.register(Box::new(CameraControl::new())).unwrap();
     let names = vec!["camera_control".to_string()];
-    let info = |sid: &str| StreamInfo { source_id: sid.into(), url: format!("http://{sid}/") };
+    let info = |sid: &str| StreamInfo { source_id: sid.into(), url: format!("http://{sid}/"), session: 0 };
     let lens = |max: i64| json!({"cameras": [{"id": "0", "label": "Back", "current": true, "isoMin": 50, "isoMax": max}],
                                  "auto": false, "iso": max});
     let i = state.index("camera_control").unwrap();

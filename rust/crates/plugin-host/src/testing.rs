@@ -93,7 +93,7 @@ impl PluginTest {
         self.host.streaming = true;
         self.host.focused = Some(source_id.to_string());
         self.plugin.on_stream_starting(&mut self.host);
-        self.plugin.on_stream_start(&mut self.host, &StreamInfo { source_id: source_id.into(), url: format!("udp://{source_id}") });
+        self.plugin.on_stream_start(&mut self.host, &StreamInfo { source_id: source_id.into(), url: format!("udp://{source_id}"), session: 0 });
         self.plugin.on_event(&mut self.host, &Event::StreamStarted { url: format!("udp://{source_id}") });
         self.plugin.on_event(&mut self.host, &Event::StreamConnected { source_id: source_id.into() });
     }

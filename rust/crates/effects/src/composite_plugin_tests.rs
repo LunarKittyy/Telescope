@@ -93,7 +93,7 @@ fn rig() -> Rig {
     host.canvas = (Some(320), Some(180));
     let mut plugin = CompositePlugin::new();
     plugin.setup(&mut host);
-    plugin.on_stream_start(&mut host, &StreamInfo { source_id: "u".into(), url: "u".into() });
+    plugin.on_stream_start(&mut host, &StreamInfo { source_id: "u".into(), url: "u".into(), session: 0 });
     Rig { plugin, host, store }
 }
 

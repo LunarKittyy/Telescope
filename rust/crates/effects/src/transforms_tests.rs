@@ -312,7 +312,7 @@ fn status(sent_ratio: f64, at: f64) -> ViewStatus {
 }
 
 fn stream() -> StreamInfo {
-    StreamInfo { source_id: "a".into(), url: "http://phone/v1/video".into() }
+    StreamInfo { source_id: "a".into(), url: "http://phone/v1/video".into(), session: 0 }
 }
 
 #[test]
@@ -417,6 +417,25 @@ fn back_on_a_tile_the_lenses_come_back_but_after_a_real_stop_they_dont() {
     r.plugin.on_stream_stop(&mut r.host);
     r.plugin.on_focus_gained(&mut r.host, &stream());
     assert_eq!(r.plugin.default_lens, "~24mm OIS", "kept by the stream the panels left only until it stops");
+}
+
+#[test]
+fn a_hand_over_behind_the_panels_keeps_the_lenses_and_a_new_start_doesnt() {
+    let mut r = Rig::new();
+    r.host.streaming = true;
+    r.host.focused = Some("a".into());
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.view_status(&status(1.0, now_s() - 3.0));
+    r.plugin.on_phone_state(&mut r.host, &lens_state("2"));
+    r.plugin.on_focus_lost(&mut r.host);
+    r.plugin.default_lens = String::new();
+    let moved = StreamInfo { url: "http://127.0.0.1:41000/v1/video".into(), ..stream() };
+    r.plugin.on_focus_gained(&mut r.host, &moved);
+    assert_eq!(r.plugin.default_lens, "~24mm OIS");
+    r.plugin.on_focus_lost(&mut r.host);
+    r.plugin.default_lens = String::new();
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { session: 1, ..stream() });
+    assert_eq!(r.plugin.default_lens, "");
 }
 
 // ── Dragging and scrolling the preview ───────────────────────────────

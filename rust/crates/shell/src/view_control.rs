@@ -39,13 +39,15 @@ pub struct ViewController {
     desktop: (f64, f64, f64),
     /// The shown stream, while there's one to tell.
     source: Option<String>,
+    /// StreamInfo::session of that stream.
+    session: u64,
     caps: Option<PhoneZoomCaps>,
     sent: Option<PhoneZoom>,
     sent_ratio_at: f64,
     /// While steered: since when the phone's share has been clearly off.
     drift_since: Option<f64>,
     /// The phone side of each stream the panels moved away from (StreamsBehind).
-    behind: HashMap<String, (Option<PhoneZoomCaps>, Option<PhoneZoom>, f64)>,
+    behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64)>,
 }
 
 fn moves(c: &ViewChange) -> bool {
@@ -150,18 +152,22 @@ impl ViewController {
 
     // ── The stream it tells ──
 
-    pub fn stream_start(&mut self, view: &View, source_id: &str, now: f64) -> Vec<Said> {
+    pub fn stream_start(&mut self, view: &View, source_id: &str, session: u64, now: f64) -> Vec<Said> {
         self.source = Some(source_id.into());
+        self.session = session;
         self.sent = None; // a new connection (or a reconnect): tell the phone again
         let mut out = Vec::new();
         self.sync(view, now, &mut out);
         out
     }
 
-    pub fn focus_gained(&mut self, view: &View, source_id: &str, now: f64) -> Vec<Said> {
-        let Some((caps, sent, at)) = self.behind.remove(source_id) else { return self.stream_start(view, source_id, now) };
+    pub fn focus_gained(&mut self, view: &View, source_id: &str, session: u64, now: f64) -> Vec<Said> {
+        // A stream that started again since has told the phone nothing yet
+        let kept = self.behind.remove(source_id).filter(|k| k.0 == session);
+        let Some((_, caps, sent, at)) = kept else { return self.stream_start(view, source_id, session, now) };
         // Back on a stream: the phone already crops what it was sent, so the desktop only does the rest
         self.source = Some(source_id.into());
+        self.session = session;
         (self.caps, self.sent, self.sent_ratio_at) = (caps, sent, at);
         let mut out = Vec::new();
         self.sync(view, now, &mut out);
@@ -177,7 +183,7 @@ impl ViewController {
 
     pub fn focus_lost(&mut self, view: &View, now: f64) -> Vec<Said> {
         if let Some(id) = self.source.clone() {
-            self.behind.insert(id, (self.caps.clone(), self.sent, self.sent_ratio_at));
+            self.behind.insert(id, (self.session, self.caps.clone(), self.sent, self.sent_ratio_at));
         }
         self.leave(view, now)
     }
@@ -300,7 +306,7 @@ mod tests {
     #[test]
     fn without_anything_setting_a_view_the_phone_is_left_alone_and_frames_go_through() {
         let (mut vc, view) = (ViewController::new(), View::default());
-        let mut said = vc.stream_start(&view, "p1", 0.0);
+        let mut said = vc.stream_start(&view, "p1", 1, 0.0);
         said.extend(vc.phone_state(&view, &zooms(), 0.0));
         assert!(sent(&said).is_empty());
         assert_eq!(vc.shown(&view), view);
@@ -329,7 +335,7 @@ mod tests {
     /// A stream whose lens zooms itself, steered to 2x.
     fn steered() -> (ViewController, View, Vec<PhoneZoom>) {
         let (mut vc, mut view) = (ViewController::new(), View::default());
-        let mut said = vc.stream_start(&view, "p1", 100.0);
+        let mut said = vc.stream_start(&view, "p1", 1, 100.0);
         said.extend(vc.phone_state(&view, &zooms(), 100.0));
         said.extend(vc.take("Auto framing").1);
         said.extend(vc.steer(&mut view, "Auto framing", 2.0, 0.0, 0.0, 100.0));
@@ -381,7 +387,7 @@ mod tests {
     #[test]
     fn the_phone_gets_its_share_of_a_manual_zoom_and_the_transforms_card_hears_it() {
         let (mut vc, mut view) = (ViewController::new(), View::default());
-        vc.stream_start(&view, "p1", 0.0);
+        vc.stream_start(&view, "p1", 1, 0.0);
         vc.phone_state(&view, &zooms(), 0.0);
         let said = vc.set_view(&mut view, &change(Some(3.0), None, None), 5.0);
         // The first set_view engages the phone at the old zoom, then moves, as Python's does
@@ -398,11 +404,22 @@ mod tests {
     #[test]
     fn coming_back_to_a_stream_keeps_what_its_phone_was_sent() {
         let (mut vc, mut view) = (ViewController::new(), View::default());
-        vc.stream_start(&view, "p1", 0.0);
+        vc.stream_start(&view, "p1", 1, 0.0);
         vc.phone_state(&view, &zooms(), 0.0);
         vc.set_view(&mut view, &change(Some(3.0), None, None), 0.0);
         vc.focus_lost(&view, 1.0);
-        assert!(sent(&vc.focus_gained(&view, "p1", 2.0)).is_empty(), "the phone still crops what it was sent");
+        assert!(sent(&vc.focus_gained(&view, "p1", 1, 2.0)).is_empty(), "the phone still crops what it was sent");
         assert_eq!(vc.shown(&view).zoom, 1.0);
+    }
+
+    #[test]
+    fn a_stream_that_started_again_behind_the_panels_is_told_again() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        vc.set_view(&mut view, &change(Some(3.0), None, None), 0.0);
+        vc.focus_lost(&view, 1.0);
+        vc.focus_gained(&view, "p1", 2, 2.0);
+        assert_eq!(vc.shown(&view).zoom, 3.0, "this stream's phone hasn't been sent anything");
     }
 }

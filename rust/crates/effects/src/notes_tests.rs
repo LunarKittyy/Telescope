@@ -27,7 +27,7 @@ fn default_state() -> Value {
 }
 
 fn stream(id: &str) -> StreamInfo {
-    StreamInfo { source_id: id.into(), url: format!("https://{id}/v1/video") }
+    StreamInfo { source_id: id.into(), url: format!("https://{id}/v1/video"), session: 0 }
 }
 
 impl Rig {

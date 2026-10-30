@@ -19,7 +19,7 @@ impl Rig {
     }
 
     fn start(&mut self, url: &str) {
-        let stream = StreamInfo { source_id: "phone-a".into(), url: url.into() };
+        let stream = StreamInfo { source_id: "phone-a".into(), url: url.into(), session: 0 };
         self.plugin.on_stream_start(&mut self.host, &stream);
     }
 
@@ -126,9 +126,22 @@ fn monitoring_keeps_what_it_warned_about_a_stream_that_handed_over_behind_the_pa
     r.start("https://192.168.1.5:8080/v1/video.h264");
     r.check(15, false, 30.0);
     r.plugin.on_focus_lost(&mut r.host);
-    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "https://127.0.0.1:41000/v1/video.h264".into() });
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "https://127.0.0.1:41000/v1/video.h264".into(), session: 0 });
     r.check(10, false, 30.0);
     assert_eq!(r.host.notifications.len(), 1);
+}
+
+#[test]
+fn monitoring_warns_afresh_about_a_stream_that_started_again_behind_the_panels() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.start("url");
+    r.check(10, false, 30.0);
+    r.plugin.on_focus_lost(&mut r.host);
+    // Stopped and started within one poll, so nothing behind the panels said it ended
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "url".into(), session: 1 });
+    r.check(10, false, 30.0);
+    assert_eq!(r.host.notifications.len(), 2);
 }
 
 #[test]
@@ -168,7 +181,7 @@ fn monitoring_doesnt_warn_again_after_a_tile_switch() {
     r.check(10, false, 30.0);
     r.plugin.on_focus_lost(&mut r.host); // the panels moved to another stream
     assert!(r.plugin.polling); // still watching this one from behind
-    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "url".into() }); // and back
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "url".into(), session: 0 }); // and back
     r.check(10, false, 30.0);
     assert_eq!(r.host.notifications.len(), 1);
 }
@@ -181,7 +194,7 @@ fn monitoring_warns_afresh_about_a_stream_that_ended() {
     r.check(10, false, 30.0);
     r.plugin.on_stream_stop(&mut r.host); // really stopped, with another stream carrying on
     assert!(r.plugin.polling);
-    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "url".into() });
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "url".into(), session: 0 });
     r.check(10, false, 30.0);
     assert_eq!(r.host.notifications.len(), 2);
 }

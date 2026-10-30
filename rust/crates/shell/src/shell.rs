@@ -603,8 +603,8 @@ impl State {
         if names.iter().any(|n| n == "view") {
             let (vc, view, now) = (&mut self.vc, &self.view, now_s());
             let said = match hook {
-                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, now),
-                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, now),
+                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, info.session, now),
+                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, info.session, now),
                 Hook::StreamStop => vc.stream_stop(view, now),
                 Hook::FocusLost => vc.focus_lost(view, now),
                 _ => Vec::new(),
