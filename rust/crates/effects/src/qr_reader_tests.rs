@@ -130,10 +130,16 @@ fn a_picture_goes_grey_the_way_the_viewer_sees_it() {
     y.extend([128; 2]);
     let video = Frame::new(2, 2, PixelFormat::I420, y);
     assert_eq!(grey_of(&video), vec![0, 128, 255, 0]);
+    // cv2.cvtColor(.., COLOR_BGR2GRAY) of the colour: (255, 0, 0) and (0, 255, 0) as RGB
     let rgba = Frame::new(1, 2, PixelFormat::Rgba, vec![255, 0, 0, 255, 0, 255, 0, 255]);
     assert_eq!(grey_of(&rgba), vec![76, 150]);
     let bgra = Frame::new(1, 1, PixelFormat::Bgra, vec![0, 0, 255, 255]);
     assert_eq!(grey_of(&bgra), vec![76]);
+    // Python: Y 81, U 16, V 16 is BGR (0, 211, 0) once the red and blue are clipped, and grey 124, where luma alone says 76
+    let green = Frame::new(2, 2, PixelFormat::I420, vec![81, 81, 81, 81, 16, 16]);
+    assert_eq!(grey_of(&green), vec![124; 4]);
+    let nv12 = Frame::new(2, 2, PixelFormat::Nv12, vec![81, 81, 81, 81, 16, 16]);
+    assert_eq!(grey_of(&nv12), vec![124; 4]);
 }
 
 // ── Quads that look like codes, and ones that stay ───────────────────────────

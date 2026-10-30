@@ -2,6 +2,8 @@
 //! one. The picture is looked at on a thread of its own a few times a second; a code only counts once it's been read several
 //! looks in a row at about the same place, and is outlined on the preview while it does.
 
+use crate::cpu::Rgb;
+use crate::imgops;
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -162,17 +164,12 @@ pub fn area_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<
     out
 }
 
-/// The frame as a grey picture the way a viewer sees it (cvtColor BGR2GRAY of what the decoder made): the video's luma stretched to
-/// the full range, or the channels weighted as OpenCV weighs them.
+/// The frame as a grey picture the way Python makes it: the picture the viewer sees (BGR, each channel clipped) and then cvtColor
+/// BGR2GRAY's 15-bit weights, so a dark, saturated video colour comes out as it does there and not as its luma alone.
 pub fn grey_of(frame: &Frame) -> Vec<u8> {
-    let (w, h) = (frame.width as usize, frame.height as usize);
-    match frame.format {
-        PixelFormat::I420 | PixelFormat::Nv12 => frame.data[..w * h].iter().map(|y| ((*y as f32 - 16.0) * 1.164_383).round().clamp(0.0, 255.0) as u8).collect(),
-        PixelFormat::Rgba => frame.data.chunks_exact(4).map(|p| ((4899 * p[0] as u32 + 9617 * p[1] as u32 + 1868 * p[2] as u32 + 8192) >> 14) as u8).collect(),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).map(|p| ((4899 * p[2] as u32 + 9617 * p[1] as u32 + 1868 * p[0] as u32 + 8192) >> 14) as u8).collect(),
-        // A format added later that this can't read: nothing to look at
-        _ => Vec::new(),
-    }
+    // A format added later that this can't read: nothing to look at
+    let Some(rgb) = Rgb::from_frame(frame) else { return Vec::new() };
+    rgb.data.chunks_exact(3).map(|p| imgops::grey_of(p[0], p[1], p[2])).collect()
 }
 
 /// What a code's bytes came to once OpenCV had done with them: whatever bytes the decoder wrote, and whether a Kanji segment came first.
