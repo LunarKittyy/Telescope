@@ -91,6 +91,15 @@ pub struct WorkerSetup {
     pub plugin_source: bool,
     /// Why a plugin source isn't streaming yet, shown while the stream waits to try again (WebcamReader.waiting_text).
     pub waiting_text: Option<WaitingText>,
+    /// The vision service and how frames are turned upright for it (person masks and people), None without vision.
+    pub vision: Option<VisionFeed>,
+}
+
+/// What a worker hands the vision service: its frames before the view, turned as the window's view says.
+#[derive(Clone)]
+pub struct VisionFeed {
+    pub service: Arc<dyn telescope_core::vision::VisionService>,
+    pub upright: Arc<Mutex<telescope_core::vision::Upright>>,
 }
 
 /// StreamSource::waiting_text, asked each time opening the stream fails.
@@ -240,14 +249,15 @@ pub fn to_nv12(frame: &Frame) -> Frame {
 /// What the frame steps may ask about the frame they work on.
 struct Ctx {
     source_id: String,
+    vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
 }
 
 impl FrameContext for Ctx {
     fn source_id(&self) -> &str {
         &self.source_id
     }
-    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
-        None
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask(&self.source_id, frame)
     }
     fn colour_preview(&self, frame: &Frame) -> Frame {
         frame.clone()
@@ -293,6 +303,7 @@ struct Shared {
     events: Events,
     slot_number: u32,
     source_id: String,
+    vision: Option<VisionFeed>,
     hardware: bool,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
@@ -342,7 +353,7 @@ impl StreamWorker {
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
             url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
-            slot_number: setup.slot, source_id: setup.source_id, hardware: setup.hardware_decode,
+            slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
@@ -591,7 +602,12 @@ impl Shared {
             (None, None) => frame,
             _ => stretch(&frame, rw.unwrap_or(frame.width), rh.unwrap_or(frame.height)),
         };
-        let ctx = Ctx { source_id: self.source_id.clone() };
+        // vision looks for people in the frame before the view (view_controller.process_frame)
+        if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
+            let upright = *feed.upright.lock().unwrap();
+            feed.service.feed_raw(&self.source_id, &frame, upright);
+        }
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
         let out = publish.0.process(frame, &ctx);
         self.slot.publish(out);
         publish.1 = seq;
@@ -1297,7 +1313,7 @@ mod tests {
     fn worker_with(opener: Opener, waiting_text: Option<WaitingText>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>,
                    plugin_source: bool) -> StreamWorker {
         let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
-                                  canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text,
+                                  canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text, vision: None,
                                   plugin_source };
         let events: Events = Arc::new(move |e| {
             if !matches!(e, WorkerEvent::Preview(..)) {
@@ -1593,7 +1609,7 @@ mod tests {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false };
+                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(), Arc::new(|_| {})).unwrap();

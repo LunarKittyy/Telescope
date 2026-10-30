@@ -4839,6 +4839,7 @@ dependencies = [
  "telescope-plugin-host",
  "telescope-shell",
  "telescope-system",
+ "telescope-vision",
 ]
 
 [[package]]
