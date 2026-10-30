@@ -4813,6 +4813,7 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "chrono",
+ "fontique",
  "harfrust",
  "libc",
  "log",
@@ -4822,6 +4823,7 @@ dependencies = [
  "unicode-joining-type",
  "unicode-script",
  "unicode-segmentation",
+ "yeslogic-fontconfig-sys",
 ]
 
 [[package]]

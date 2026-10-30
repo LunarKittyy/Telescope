@@ -135,9 +135,8 @@ fn arabic_letters_join() {
     let line = f.layout(word, 0.0);
     let own: Vec<u16> = word.chars().map(|c| nominal(&f, c)).collect();
     let joined = line.glyph_ids().iter().filter(|id| !own.contains(id)).count();
-    // the seen takes its initial form and the lam and alef join into one glyph
+    // the seen takes its initial form and the letters join (some fonts also make one glyph of lam and alef, some do not)
     assert!(joined >= 2, "shaped {:?}, the letters alone are {own:?}", line.glyph_ids());
-    assert_ne!(line.glyph_ids().len(), own.len());
     // read from the right, so the last letter is drawn first and the first one last
     assert_eq!((line.clusters()[0], *line.clusters().last().unwrap()), (6, 0));
     // three letters that all join, none in its own form
@@ -148,6 +147,65 @@ fn arabic_letters_join() {
     assert!(line.glyph_ids().iter().all(|id| !own.contains(id)), "shaped {:?}, the letters alone are {own:?}", line.glyph_ids());
     let apart: f32 = word.chars().map(|c| f.advance(&c.to_string())).sum();
     assert!((line.width - apart).abs() > 0.5, "joined letters are not the same width as separate ones");
+}
+
+/// Whether fontconfig knows an installed font with this character, so a test can tell that some font ought to be found.
+fn installed_for(ch: char) -> bool {
+    let out = std::process::Command::new("fc-list").arg(format!(":charset={:x}", ch as u32)).arg("file").output();
+    out.is_ok_and(|o| o.status.success() && !o.stdout.is_empty())
+}
+
+#[test]
+fn any_installed_font_covers_a_script_the_app_fonts_lack() {
+    // Qt falls back on whatever fontconfig has for the script: on the machine this was written on, Noto Sans Khmer and Noto Sans
+    // Ethiopic, which no hard-coded list of names had
+    let Some(f) = face(40.0) else { return };
+    let mut asked = 0;
+    for (name, ch) in [("Khmer", '\u{1780}'), ("Ethiopic", '\u{1200}'), ("Georgian", '\u{10e5}'), ("Sinhala", '\u{dc3}'), ("Myanmar", '\u{1019}'), ("Tibetan", '\u{f56}'), ("Armenian", '\u{540}')] {
+        if !installed_for(ch) {
+            eprintln!("fontconfig has no {name} font: skipped");
+            continue;
+        }
+        asked += 1;
+        assert!(f.has_glyph(ch), "{name} ({ch:?}) has an installed font but the face found none");
+        let line = f.layout(&ch.to_string(), 0.0);
+        assert!(line.glyph_ids().iter().all(|&id| id != 0) && line.width > 1.0, "{name} is drawn as a missing-glyph box: {:?}", line.glyph_ids());
+    }
+    if asked == 0 {
+        eprintln!("no fontconfig or none of these scripts installed: nothing was checked");
+    }
+}
+
+#[cfg(all(unix, not(target_vendor = "apple")))]
+#[test]
+fn the_fallback_for_a_script_is_the_font_qt_picks() {
+    // QTextLayout.glyphRuns() for the app's font stack (Inter first) on the machine this was written on
+    const GOOGLE_NOTO_VF: &str = "/usr/share/fonts/google-noto-vf";
+    const CJK: &str = "/usr/share/fonts/google-noto-sans-cjk-vf-fonts/NotoSansCJK-VF.ttc";
+    let qt: [(&str, char, String, u32); 13] = [
+        ("Hebrew", '\u{5e9}', "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf".into(), 0),
+        ("Arabic", '\u{633}', format!("{GOOGLE_NOTO_VF}/NotoSansArabic[wght].ttf"), 0),
+        ("Khmer", '\u{1780}', format!("{GOOGLE_NOTO_VF}/NotoSansKhmer[wght].ttf"), 0),
+        ("Ethiopic", '\u{1200}', format!("{GOOGLE_NOTO_VF}/NotoSansEthiopic[wght].ttf"), 0),
+        ("Thai", '\u{e2a}', format!("{GOOGLE_NOTO_VF}/NotoSansThai[wght].ttf"), 0),
+        ("Tamil", '\u{ba4}', format!("{GOOGLE_NOTO_VF}/NotoSansTamil[wght].ttf"), 0),
+        ("Georgian", '\u{10e5}', format!("{GOOGLE_NOTO_VF}/NotoSansGeorgian[wght].ttf"), 0),
+        ("Lao", '\u{ea5}', "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf".into(), 0),
+        ("Han", '\u{5c71}', "/usr/share/fonts/google-droid-sans-fonts/DroidSansFallbackFull.ttf".into(), 0),
+        // Qt chooses the Japanese, Korean and Traditional Chinese fonts of the collection by language
+        ("Kana", '\u{3084}', CJK.into(), 0),
+        ("Hangul", '\u{d55c}', CJK.into(), 1),
+        ("Bopomofo", '\u{3105}', CJK.into(), 3),
+        ("Malayalam", '\u{d05}', "/usr/share/fonts/rit-meera-new-fonts/RIT-MeeraNew.otf".into(), 0),
+    ];
+    if let Some((_, _, missing, _)) = qt.iter().find(|(_, _, file, _)| !std::path::Path::new(file).exists()) {
+        eprintln!("{missing} is not installed, so this is not the machine the numbers come from: skipped");
+        return;
+    }
+    for (name, ch, file, index) in qt {
+        let got = system::file_for(ch, 400.0);
+        assert_eq!(got, Some((file.clone().into(), index)), "{name} ({ch:?}), Qt takes {file} #{index}");
+    }
 }
 
 #[test]
@@ -207,7 +265,9 @@ fn a_right_to_left_line_is_cut_at_its_left_end() {
     let text = "\u{633}\u{644}\u{627}\u{645} \u{639}\u{644}\u{64a}\u{643}\u{645} \u{648}\u{631}\u{62d}\u{645}\u{629} \u{627}\u{644}\u{644}\u{647}";
     let Some(f) = face_with(30.0, text, "Arabic phrase") else { return };
     let cut = f.elide(text, f.advance(text) * 0.6);
-    assert!(cut.ends_with('\u{2026}') && text.starts_with(&cut[..cut.len() - 3]), "{cut}");
+    // Qt puts a joiner before the ellipsis when the letter cut off would have joined
+    let kept = cut.trim_end_matches('\u{2026}').trim_end_matches('\u{200d}');
+    assert!(cut.ends_with('\u{2026}') && text.starts_with(kept), "{cut}");
     // the end of the text is the left side, so the ellipsis is drawn first
     assert_eq!(f.layout(&cut, 0.0).clusters()[0], cut.len() - 3);
 }

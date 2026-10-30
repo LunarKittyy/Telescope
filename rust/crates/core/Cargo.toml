@@ -19,3 +19,10 @@ unicode-script = "0.5"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+
+# What the system offers for a script when the app's fonts lack a character: Qt asks fontconfig on Linux and DirectWrite on Windows
+[target.'cfg(all(unix, not(target_vendor = "apple")))'.dependencies]
+yeslogic-fontconfig-sys = "6"
+
+[target.'cfg(not(all(unix, not(target_vendor = "apple"))))'.dependencies]
+fontique = "0.11"

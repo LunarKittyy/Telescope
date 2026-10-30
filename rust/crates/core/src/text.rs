@@ -2,10 +2,11 @@
 //! the name tag both draw this way; where the pixels go (a pixmap, a tile) is left to the caller through `Face::draw`.
 //!
 //! A line is split into runs by direction (unicode-bidi) and by which font covers its characters (the primary font first, then the
-//! fallbacks below for a character it lacks), each run is shaped with its font (harfrust, so Arabic joins, Indic marks land where
+//! system's font for the character's script, then the list of names below for a character it lacks), each run is shaped with its font (harfrust, so Arabic joins, Indic marks land where
 //! they belong and kerning applies) and the glyphs are placed from the shaped advances and offsets, runs in visual order.
 
 mod shape;
+mod system;
 
 pub use shape::FontArc;
 use ab_glyph::{Font, GlyphId, PxScale, ScaleFont};
@@ -24,7 +25,8 @@ pub enum Weight {
     SemiBold,
 }
 
-/// Fonts to fall back on for a character the main one lacks, by the start of the file name (lower case), most likely first.
+/// Fonts to fall back on for a character neither the main font nor the system's fonts for its script have, by the start of the file
+/// name (lower case), most likely first.
 const FALLBACKS: &[&str] = &[
     "notosans[", "notosans-regular", "dejavusans.", "notosanscjk", "notosansjp", "notosanskr", "notosanssc", "notosansarabic",
     "notosansdevanagari", "notosanshebrew", "notosansthai", "notosansbengali", "notosanstamil", "notosansgreek", "segoeui.",
@@ -102,8 +104,13 @@ pub fn app_font(weight: Weight) -> Option<FontArc> {
     CACHE[slot].get_or_init(|| load(find_font_file(names)?, wght)).clone()
 }
 
-/// The font that covers a character the main one doesn't, if the system has one.
+/// The font that covers a character the main one doesn't, if the system has one: what it offers for the character's script (fontconfig
+/// on Linux, DirectWrite on Windows), else the first of the list above that has it.
 fn fallback_for(ch: char, heavy: bool) -> Option<FontArc> {
+    system::font_for(ch, if heavy { 600.0 } else { 400.0 }).or_else(|| listed_fallback(ch, heavy))
+}
+
+fn listed_fallback(ch: char, heavy: bool) -> Option<FontArc> {
     static LOADED: [OnceLock<Vec<OnceLock<Option<FontArc>>>>; 2] = [OnceLock::new(), OnceLock::new()];
     let loaded = LOADED[usize::from(heavy)].get_or_init(|| FALLBACKS.iter().map(|_| OnceLock::new()).collect());
     for (i, prefix) in FALLBACKS.iter().enumerate() {
