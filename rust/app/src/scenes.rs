@@ -147,6 +147,7 @@ fn services(link: SceneLink) -> Arc<Services> {
         autostart: None,
         updater: None,
         plugin_problems: Default::default(),
+        vision: None,
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
             let pictures = telescope_effects::shared::picture_reader(Arc::new(telescope_media::FfmpegMedia));

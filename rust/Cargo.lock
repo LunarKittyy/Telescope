@@ -5686,6 +5686,7 @@ dependencies = [
  "telescope-plugin-host",
  "telescope-shell",
  "telescope-system",
+ "telescope-vision",
 ]
 
 [[package]]
@@ -5852,6 +5853,21 @@ dependencies = [
 [[package]]
 name = "telescope-ui-kit"
 version = "0.1.0"
+
+[[package]]
+name = "telescope-vision"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "libc",
+ "libloading",
+ "log",
+ "ring",
+ "serde_json",
+ "telescope-core",
+ "ureq",
+ "zip",
+]
 
 [[package]]
 name = "tempfile"
