@@ -110,10 +110,10 @@ Son bienvenidos los reportes sobre dispositivos, los reportes de errores con dia
 
 Telescope se distribuye bajo la licencia [GNU Affero General Public License v3.0](LICENSE). En [Licencias](docs/licenses.md) se explica qué significa para ti y qué componentes de terceros usa.
 
-<a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
+<a href="https://www.star-history.com/?repos=LunarKittyy%2FTelescope&type=date&releases=&legend=top-left">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
-    <img alt="Gráfico del historial de estrellas" src="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&theme=dark&releases=&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
+    <img alt="Gráfico del historial de estrellas" src="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
   </picture>
 </a>

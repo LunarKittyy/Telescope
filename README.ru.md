@@ -110,10 +110,10 @@
 
 Telescope распространяется по лицензии [GNU Affero General Public License v3.0](LICENSE). Раздел [«Лицензии»](docs/licenses.md) объясняет, что это значит для тебя, и перечисляет используемые сторонние компоненты.
 
-<a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
+<a href="https://www.star-history.com/?repos=LunarKittyy%2FTelescope&type=date&releases=&legend=top-left">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
-    <img alt="График количества звёзд на GitHub" src="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&theme=dark&releases=&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
+    <img alt="График количества звёзд на GitHub" src="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
   </picture>
 </a>

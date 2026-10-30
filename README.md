@@ -110,10 +110,10 @@ Device reports, bug reports with a diagnostics report and pull requests are all 
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](LICENSE). [Licenses](docs/licenses.md) explains what that means for you and lists the third-party parts it uses.
 
-<a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
+<a href="https://www.star-history.com/?repos=LunarKittyy%2FTelescope&type=date&releases=&legend=top-left">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
-    <img alt="Star history chart" src="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&theme=dark&releases=&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
+    <img alt="Star history chart" src="https://api.star-history.com/chart?repos=LunarKittyy/Telescope&type=date&releases=&legend=top-left" />
   </picture>
 </a>
