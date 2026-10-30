@@ -62,6 +62,8 @@ event view_pannable
 event view_scrolled
 event view_status
 event view_taken
+event vision_download_finished
+event vision_download_progress
 event vision_state_changed
 event window_shown
 global N_
