@@ -127,6 +127,17 @@ mod tests {
     }
 
     #[test]
+    fn side_columns_put_the_pinned_cards_first_then_sort_by_group() {
+        let cards = [("fun", "look", false), ("photos", "camera", false), ("tag", "on_screen", false), ("camera", "camera", true), ("grade", "look", false), ("odd", "nowhere", false)];
+        let mut p = Panels::default();
+        for (i, (_, category, pinned)) in cards.iter().enumerate() {
+            p.place(Region::Right, i, *pinned, category);
+        }
+        let keys: Vec<(u8, usize)> = p.right.iter().map(|&i| order_key(cards[i].2, cards[i].1)).collect();
+        assert_eq!(keys, [(0, 0), (1, 0), (1, 1), (1, 1), (1, 4), (1, 8)]);
+    }
+
+    #[test]
     fn modes_merge_columns() {
         let mut p = Panels::default();
         p.place(Region::Left, 0, false, "camera");

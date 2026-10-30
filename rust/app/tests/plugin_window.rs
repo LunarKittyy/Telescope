@@ -193,7 +193,7 @@ fn the_sensors_follow_the_shown_stream_at_once_and_let_go_when_it_stops() {
     let sensors = Arc::new(Sensors::default());
     let services = Arc::new(Services {
         link: Arc::new(SensorLink(sensors.clone())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
-        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(), plugin_admin: None,
     });
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| Vec::new(), Some(services), None).unwrap();
     w.add_plugin_source(Arc::new(Browser("browser:a")));
@@ -227,7 +227,7 @@ fn camera_window(name: &str) -> (Rc<window::Window>, Arc<Cameras>, Arc<Mutex<Vec
     let cameras = Arc::new(Cameras::default());
     let services = Arc::new(Services {
         link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: cameras.clone(), audio: None,
-        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(), plugin_admin: None,
     });
     let heard = Arc::new(Mutex::new(Vec::new()));
     let h = heard.clone();
@@ -311,7 +311,7 @@ fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in()
     let dir = telescope_core::testing::scratch_dir("window-try-again");
     let services = Arc::new(Services {
         link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
-        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+        plugin_admin: None, notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
     });
     let heard = Arc::new(Mutex::new(Vec::new()));
     let h = heard.clone();

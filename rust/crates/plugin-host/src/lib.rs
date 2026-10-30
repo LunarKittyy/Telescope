@@ -3,6 +3,7 @@
 //! The boundary is runtime-neutral (guest.rs): a runtime implements Guest, sees plain JSON both ways and reaches the host only through
 //! PluginContext::call. Lua (lua.rs) is the one runtime today; rust/docs/plugin-wasm.md shows a WASM one fitting the same boundary.
 
+pub mod admin;
 pub mod guest;
 pub mod i18n;
 pub mod load;

@@ -37,4 +37,6 @@ pub struct Services {
     pub vision: Option<Arc<dyn crate::vision::VisionService>>,
     /// What the factory couldn't start (plugin_loader.load_enabled's failed list); empty when it wasn't asked.
     pub plugin_problems: PluginProblems,
+    /// Adding, removing and switching plugins for the Plugins tab (None: only the built-in plugins' switches, kept in the settings).
+    pub plugin_admin: Option<Arc<dyn crate::plugin_admin::PluginAdmin>>,
 }

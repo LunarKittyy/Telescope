@@ -28,6 +28,7 @@ qrcode.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
+zip.workspace = true
 # The settings window's tests drive it through Slint's testing backend (pinned like the shell's)
 i-slint-backend-testing = "=1.18.1"
 slint-interpreter.workspace = true

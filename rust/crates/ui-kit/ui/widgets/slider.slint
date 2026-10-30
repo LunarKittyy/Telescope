@@ -8,7 +8,13 @@ import { FocusRing } from "basics.slint";
 export component Slider inherits HorizontalLayout {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
+    // Where the parent says it is. A drag never writes here, so a parent's `value: zoom` keeps following zoom.
     in-out property <float> value: 0;
+    // Where the person last put it, shown until the parent says something new
+    property <float> local;
+    property <bool> touched;
+    out property <float> shown: touched ? local : value;
+    changed value => { touched = false; }
     in property <float> step: 1;
     in property <string> readout;
     in property <string> label;
@@ -36,7 +42,7 @@ export component Slider inherits HorizontalLayout {
         min-width: 84px;
         height: row-height;
         property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
-        property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
+        property <float> fraction: (shown - minimum) / max(0.0001, maximum - minimum);
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
         function snapped(v: float) -> float {
             if (marks.length > 0 && abs((marks[0] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[0]; }
@@ -47,7 +53,7 @@ export component Slider inherits HorizontalLayout {
         }
         accessible-role: slider;
         accessible-label: label;
-        accessible-value: value;
+        accessible-value: shown;
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
@@ -56,8 +62,8 @@ export component Slider inherits HorizontalLayout {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
             enabled: root.enabled;
             key-pressed(e) => {
-                if (e.text == Key.LeftArrow) { value = max(minimum, value - step); moved(value); released(value); return accept; }
-                if (e.text == Key.RightArrow) { value = min(maximum, value + step); moved(value); released(value); return accept; }
+                if (e.text == Key.LeftArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
+                if (e.text == Key.RightArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
                 reject
             }
         }
@@ -89,28 +95,32 @@ export component Slider inherits HorizontalLayout {
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
             pointer-event(e) => {
                 if (e.kind == PointerEventKind.down) {
-                    value = round((minimum + picked * (maximum - minimum)) / step) * step;
-                    root.moved(value);
+                    local = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    touched = true;
+                    root.moved(local);
                 }
                 if (e.kind == PointerEventKind.move && self.pressed) {
-                    value = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    root.moved(value);
+                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
+                    touched = true;
+                    root.moved(local);
                 }
                 if (e.kind == PointerEventKind.up) {
-                    released(value);
+                    released(shown);
                 }
             }
             moved => {
                 if (self.pressed) {
-                    value = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    root.moved(value);
+                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
+                    touched = true;
+                    root.moved(local);
                 }
             }
             double-clicked => {
                 if (has-default) {
-                    value = default-value;
-                    root.moved(value);
-                    root.released(value);
+                    local = default-value;
+                    touched = true;
+                    root.moved(local);
+                    root.released(local);
                 }
             }
         }
