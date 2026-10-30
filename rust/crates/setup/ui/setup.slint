@@ -1,0 +1,504 @@
+// Setup's cards in Settings (desktop/telescope/plugins/setup.py, AdvancedSettings). Joined after parts.slint, which has the
+// imports. Texts with blanks, and the ones that change with what the system says, come filled from Rust.
+
+// Virtual camera, on Virtual camera & phone: the kernel module on Linux, the driver and adb on Windows, and extra cameras
+export component VirtualCameraSettings inherits Card {
+    in property <bool> linux: true;
+    in property <string> v4l-text;
+    in property <string> v4l-kind: "status_dim";
+    in property <string> v4l-command;
+    in property <string> load-tip;
+    in-out property <bool> persist-checked;
+    in property <bool> persist-enabled: true;
+    in property <string> persist-text;
+    in property <string> persist-kind: "status_dim";
+    in property <string> persist-command;
+    in property <string> persist-tip;
+    in property <bool> extras-shown;
+    in property <string> extras-text;
+    in property <string> extras-kind: "status_dim";
+    in property <bool> extras-button;
+    in property <bool> extras-enabled;
+    in property <string> extras-tip;
+    in property <string> uc-text;
+    in property <string> uc-kind: "status_dim";
+    in property <string> uc-button;
+    in property <string> uc-tip;
+    in property <bool> uc-primary: true;
+    in property <bool> uc-enabled: true;
+    in property <string> adb-text;
+    in property <string> adb-kind: "status_dim";
+    in property <bool> adb-row;
+    in property <string> adb-button;
+    in property <bool> adb-enabled: true;
+    callback check-clicked;
+    callback load-clicked;
+    callback unload-clicked;
+    callback persist-toggled(bool);
+    callback extras-clicked;
+    callback uc-clicked;
+    callback adb-clicked;
+    callback own-adb-clicked;
+    callback copy(string);
+
+    title: @tr("Virtual camera");
+    icon: Icons.video;
+    hue: Theme.plugin-hue("streaming");
+
+    if linux: Strip {
+        title: @tr("Kernel module");
+        sub: v4l-text;
+        tip: @tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.");
+        StripTop {
+            title: @tr("Kernel module");
+            sub: v4l-text;
+            sub-kind: v4l-kind;
+            StripButton { text: @tr("Check"); clicked => { root.check-clicked(); } }
+            StripButton { text: @tr("Load"); tip: load-tip; clicked => { root.load-clicked(); } }
+            StripButton { text: @tr("Unload"); tip: load-tip; clicked => { root.unload-clicked(); } }
+        }
+        if v4l-command != "": CommandBox { command: v4l-command; copy(c) => { root.copy(c); } }
+    }
+    if linux: Strip {
+        title: @tr("Load when the computer starts");
+        sub: persist-text;
+        StripTop {
+            title: @tr("Load when the computer starts");
+            sub: persist-text;
+            sub-kind: persist-kind;
+            Switch {
+                checked <=> root.persist-checked;
+                enabled: root.persist-enabled;
+                label: @tr("Load when the computer starts");
+                tip: root.persist-tip;
+                toggled(on) => { root.persist-toggled(on); }
+            }
+        }
+        if persist-command != "": CommandBox { command: persist-command; copy(c) => { root.copy(c); } }
+    }
+    if !linux: Strip {
+        title: @tr("Driver");
+        sub: uc-text;
+        StripTop {
+            title: @tr("Driver");
+            sub: uc-text;
+            sub-kind: uc-kind;
+            StripButton { text: uc-button; tip: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
+        }
+    }
+    if !linux: Strip {
+        title: "ADB";
+        sub: adb-text;
+        StripTop {
+            title: "ADB";
+            sub: adb-text;
+            sub-kind: adb-kind;
+            // Not bundled (Google's licence doesn't allow passing it on), so it's fetched from Google when asked, or one got
+            // another way is picked
+            if adb-row: StripButton {
+                text: adb-button;
+                role: "primary";
+                enabled: adb-enabled;
+                tip: @tr("Downloads adb from Google, for pairing and installing over USB");
+                clicked => { root.adb-clicked(); }
+            }
+            if adb-row: StripButton {
+                text: @tr("Use my own adb…");
+                enabled: adb-enabled;
+                tip: @tr("Pick an adb.exe or platform-tools zip you already have");
+                clicked => { root.own-adb-clicked(); }
+            }
+        }
+    }
+    // The ones Add camera set up, for streaming several cameras at once
+    if extras-shown: Strip {
+        title: @tr("Extra cameras");
+        sub: extras-text;
+        StripTop {
+            title: @tr("Extra cameras");
+            sub: extras-text;
+            sub-kind: extras-kind;
+            if extras-button: StripButton { text: @tr("Remove"); tip: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
+        }
+    }
+}
+
+// Video: hardware decoding, power-saving effects, the Zoom slider's reach and the canvas size
+export component VideoSettings inherits Card {
+    in property <bool> hw-enabled;
+    in-out property <bool> hw-checked;
+    in property <string> hw-line;
+    in-out property <bool> saving-checked;
+    in-out property <string> zoom-text: "10×";
+    in property <[string]> canvas-items;
+    in-out property <int> canvas-current;
+    in property <bool> custom-shown;
+    in-out property <string> custom-w-text: "1920 px";
+    in-out property <string> custom-h-text: "1080 px";
+    in property <string> canvas-status;
+    in property <string> canvas-status-kind: "status_dim";
+    in property <bool> canvas-status-shown;
+    in property <bool> apply-enabled: true;
+    in property <string> apply-text;
+    in property <string> apply-tip;
+    in property <string> canvas-command;
+    callback hw-toggled(bool);
+    callback saving-toggled(bool);
+    callback zoom-committed(string);
+    callback zoom-step(int);
+    callback canvas-picked(int);
+    callback custom-committed(string, string);
+    callback custom-step(string, int);
+    callback apply-clicked;
+    callback copy(string);
+
+    title: @tr("Video");
+    icon: Icons.chip;
+    hue: Theme.plugin-hue("streaming");
+
+    Strip {
+        title: @tr("Hardware acceleration");
+        sub: hw-line;
+        StripTop {
+            title: @tr("Hardware acceleration");
+            sub: hw-line;
+            Switch {
+                checked <=> root.hw-checked;
+                enabled: root.hw-enabled;
+                label: @tr("Hardware acceleration");
+                tip: @tr("Decodes the Light format on the graphics card from the next stream on.");
+                toggled(on) => { root.hw-toggled(on); }
+            }
+        }
+    }
+    Strip {
+        title: @tr("Power-saving effects");
+        sub: @tr("Background and Auto framing update less often");
+        StripTop {
+            title: @tr("Power-saving effects");
+            sub: @tr("Background and Auto framing update less often");
+            Switch {
+                checked <=> root.saving-checked;
+                label: @tr("Power-saving effects");
+                tip: @tr("Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later.");
+                toggled(on) => { root.saving-toggled(on); }
+            }
+        }
+    }
+    Strip {
+        title: @tr("Max zoom");
+        StripTop {
+            title: @tr("Max zoom");
+            SpinChip {
+                text <=> root.zoom-text;
+                label: @tr("Max zoom");
+                tip: @tr("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on this computer.");
+                committed(t) => { root.zoom-committed(t); }
+                step(d) => { root.zoom-step(d); }
+            }
+        }
+    }
+    Strip {
+        title: @tr("Canvas size");
+        StripTop {
+            title: @tr("Canvas size");
+            // The row fits the dialog; the list opens as wide as it needs
+            ChoiceField {
+                width: 244px;
+                compact: true;
+                caption: @tr("Canvas size");
+                items: root.canvas-items;
+                current <=> root.canvas-current;
+                picked(i) => { root.canvas-picked(i); }
+            }
+        }
+        if custom-shown: HorizontalLayout {
+            spacing: 8px;
+            TextField {
+                horizontal-stretch: 1;
+                align-right: true;
+                label: @tr("Canvas size");
+                text <=> root.custom-w-text;
+                accepted => { root.custom-committed("w", self.text); }
+                step(d) => { root.custom-step("w", -d); }
+                changed has-focus => { if (!self.has-focus) { root.custom-committed("w", self.text); } }
+            }
+            Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+            TextField {
+                horizontal-stretch: 1;
+                align-right: true;
+                label: @tr("Canvas size");
+                text <=> root.custom-h-text;
+                accepted => { root.custom-committed("h", self.text); }
+                step(d) => { root.custom-step("h", -d); }
+                changed has-focus => { if (!self.has-focus) { root.custom-committed("h", self.text); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Note {
+                horizontal-stretch: 1;
+                visible: canvas-status-shown;
+                text: canvas-status;
+                kind: canvas-status-kind;
+            }
+            VerticalLayout {
+                alignment: start;
+                StripButton { text: apply-text; tip: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
+            }
+        }
+        if canvas-command != "": CommandBox { command: canvas-command; copy(c) => { root.copy(c); } }
+    }
+}
+
+// Microphone, on Audio: the Gain slider's reach and the limiter
+export component MicrophoneLimits inherits Card {
+    in property <string> card-group: "sound";
+    in property <[string]> gain-items;
+    in-out property <int> gain-current;
+    in-out property <bool> limiter-checked: true;
+    callback gain-picked(int);
+    callback limiter-toggled(bool);
+
+    title: @tr("Microphone");
+    icon: Icons.mic;
+    hue: Theme.plugin-hue("sound");
+
+    Strip {
+        title: @tr("Max gain");
+        tip: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.");
+        StripTop { title: @tr("Max gain"); bare: true; }
+        Segmented {
+            margin: 0px;
+            label: @tr("Max gain");
+            items: root.gain-items;
+            current <=> root.gain-current;
+            picked(i) => { root.gain-picked(i); }
+        }
+    }
+    Strip {
+        title: @tr("Limiter");
+        sub: @tr("Keeps loud sounds from clipping");
+        StripTop {
+            title: @tr("Limiter");
+            sub: @tr("Keeps loud sounds from clipping");
+            Switch {
+                checked <=> root.limiter-checked;
+                label: @tr("Limiter");
+                toggled(on) => { root.limiter-toggled(on); }
+            }
+        }
+    }
+}
+
+// Phone app, on Virtual camera & phone: installing Telescope.apk over USB
+export component PhoneAppSettings inherits Card {
+    in property <string> apk-button;
+    in property <string> apk-text;
+    in property <string> apk-kind: "status_dim";
+    in property <bool> apk-enabled: true;
+    in property <bool> pick-shown;
+    in property <[string]> pick-items;
+    in-out property <int> pick-current;
+    callback apk-clicked;
+    callback pick-done(int);
+    callback pick-cancelled;
+
+    title: @tr("Phone app");
+    icon: Icons.phone;
+    hue: Theme.plugin-hue("streaming");
+
+    Strip {
+        title: "Telescope.apk";
+        sub: apk-text;
+        StripTop {
+            title: "Telescope.apk";
+            sub: apk-text;
+            sub-kind: apk-kind;
+            StripButton {
+                text: apk-button;
+                has-icon: true;
+                icon: Icons.download;
+                icon-tint: Theme.text-dim;
+                enabled: apk-enabled;
+                tip: @tr("Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged in over USB.");
+                clicked => { root.apk-clicked(); }
+            }
+        }
+        // QInputDialog.getItem's question, asked in the card
+        if pick-shown: VerticalLayout {
+            spacing: 8px;
+            Text {
+                text: @tr("Select device");
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: 600;
+                color: Theme.text;
+            }
+            Note { text: @tr("More than one phone is plugged in. Which one should get the app?"); }
+            HorizontalLayout {
+                spacing: 8px;
+                ChoiceField {
+                    compact: true;
+                    caption: @tr("Select device");
+                    items: root.pick-items;
+                    current <=> root.pick-current;
+                }
+                Button { text: "OK"; role: "primary"; clicked => { root.pick-done(root.pick-current); } }
+                Button { text: "Cancel"; clicked => { root.pick-cancelled(); } }
+            }
+        }
+    }
+}
+
+// Look, on General: card colours and the language
+export component LookSettings inherits Card {
+    in-out property <int> hues-current;
+    in property <[string]> lang-items;
+    in-out property <int> lang-current;
+    in property <bool> lang-restart;
+    in property <string> help-text;
+    callback hues-picked(int);
+    callback lang-picked(int);
+    callback restart-clicked;
+    callback translate-clicked;
+
+    title: @tr("Look");
+    icon: Icons.sliders;
+    hue: Theme.plugin-hue("streaming");
+
+    Strip {
+        title: @tr("Card colours");
+        tip: @tr("Every card in the main window gets its own colour.");
+        StripTop { title: @tr("Card colours"); bare: true; }
+        Segmented {
+            margin: 0px;
+            label: @tr("Card colours");
+            // Qt has this on the Colourful segment alone; the kit's segments have no tooltips of their own
+            items: [@tr("Colourful"), @tr("Monochrome")];
+            current <=> root.hues-current;
+            picked(i) => { root.hues-picked(i); }
+        }
+    }
+    Strip {
+        title: @tr("Language");
+        StripTop {
+            title: @tr("Language");
+            ChoiceField {
+                width: 221px;
+                compact: true;
+                caption: @tr("Language");
+                items: root.lang-items;
+                current <=> root.lang-current;
+                picked(i) => { root.lang-picked(i); }
+            }
+        }
+        // A first draft says so; any other language asks for help, both beside the same button
+        HorizontalLayout {
+            spacing: 8px;
+            Note { horizontal-stretch: 1; text: help-text; vertical-alignment: center; }
+            StripButton {
+                y: (parent.height - self.height) / 2;
+                height: 30px;
+                role: "quiet";
+                padding-x: 11px;
+                gap: 6px;
+                text: @tr("Help translate");
+                has-icon: true;
+                icon: Icons.pencil;
+                icon-tint: Theme.text-dim;
+                tip: @tr("Fix a text or add a language, no coding needed");
+                clicked => { root.translate-clicked(); }
+            }
+        }
+        if lang-restart: HorizontalLayout {
+            spacing: 8px;
+            Note { horizontal-stretch: 1; kind: "status_warn"; text: @tr("Restart Telescope to switch to it."); vertical-alignment: center; }
+            StripButton {
+                y: (parent.height - self.height) / 2;
+                height: 30px;
+                role: "quiet";
+                padding-x: 11px;
+                gap: 6px;
+                text: @tr("Restart now");
+                has-icon: true;
+                icon: Icons.reset;
+                icon-tint: Theme.text-dim;
+                tip: @tr("Start Telescope again in the language you picked");
+                clicked => { root.restart-clicked(); }
+            }
+        }
+    }
+}
+
+// About, on Updates & About: the version, bug reports and where to find help
+export component AboutSettings inherits Card {
+    in property <string> version-text;
+    in property <string> made-before;
+    in property <string> made-link;
+    in property <string> made-after;
+    in property <string> diag-text;
+    in property <bool> log-shown;
+    callback author-clicked;
+    callback diag-clicked;
+    callback bug-clicked;
+    callback log-clicked;
+    callback help-clicked;
+
+    title: @tr("About");
+    icon: Icons.help;
+    hue: Theme.plugin-hue("streaming");
+
+    Strip {
+        title: "Telescope";
+        sub: version-text;
+        StripTop {
+            title: "Telescope";
+            sub: version-text;
+            // A credit, not a Tab stop
+            HorizontalLayout {
+                alignment: end;
+                Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
+                Text {
+                    text: made-link;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.accent;
+                    vertical-alignment: center;
+                    TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.author-clicked(); } }
+                    // Qt underlines a link
+                    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent; }
+                }
+                Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
+            }
+        }
+    }
+    Strip {
+        title: @tr("Bug reports");
+        sub: @tr("Paste the diagnostics into the report.");
+        StripTop {
+            title: @tr("Bug reports");
+            sub: @tr("Paste the diagnostics into the report.");
+            // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
+            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("The full log, in the temp folder (the system clears it)."); clicked => { root.log-clicked(); } }
+            StripButton {
+                text: diag-text;
+                has-icon: true;
+                icon: Icons.copy;
+                icon-tint: Theme.text-dim;
+                tip: @tr("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.");
+                clicked => { root.diag-clicked(); }
+            }
+            StripButton { text: @tr("Report a bug"); tip: @tr("Copies the diagnostics and opens the bug form on GitHub."); clicked => { root.bug-clicked(); } }
+        }
+    }
+    Strip {
+        title: @tr("Need help?");
+        sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
+        StripTop {
+            title: @tr("Need help?");
+            sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
+            StripButton { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
+        }
+    }
+}

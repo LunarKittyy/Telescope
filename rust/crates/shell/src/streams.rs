@@ -278,6 +278,86 @@ impl Window {
         });
     }
 
+    /// restart_vcam_canvas: stop the stream, reload the driver on Linux, and start it again at the new canvas.
+    pub fn restart_canvas(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId) {
+        let posts = self.state.borrow().posts.clone();
+        if self.streams.flow.borrow().sessions.streams.len() > 1 {
+            // The reload needs every virtual camera free, and would drop the extra ones
+            let event = Event::RequestDone { request, ok: false, message: tr("Stop all but one camera first, then apply again"), data: serde_json::json!({}) };
+            return posts.push_event(plugin, event);
+        }
+        let was_streaming = {
+            let mut flow = self.streams.flow.borrow_mut();
+            let was = flow.sessions.shown().is_some() || flow.sessions.waking; // a start still waking restarts after it too
+            flow.sessions.canvas_restart = flow.sessions.canvas_restart || was;
+            was
+        };
+        let old: Vec<_> = self.streams.workers.borrow().iter().map(|w| w.inner.clone()).collect();
+        if was_streaming {
+            self.with_flow(|flow, host| flow.stop_for_restart(host, None));
+        }
+        let linux = cfg!(target_os = "linux");
+        self.set_status(&if linux { tr("Reloading v4l2loopback…") } else { tr("Restarting stream…") }, "dim");
+        let outputs = self.services.as_ref().map(|s| s.outputs.clone());
+        let plugin = plugin.to_string();
+        std::thread::spawn(move || {
+            // A second stop waits for the one the flow started, so the camera is free after this
+            old.iter().for_each(|worker| worker.stop());
+            let result = match outputs.filter(|_| linux) {
+                Some(outputs) => outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {}),
+                None => telescope_core::output::SetupResult { ok: true, message: String::new(), command: None },
+            };
+            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, result, was_streaming)));
+        });
+    }
+
+    /// _on_canvas_reload_done.
+    fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, result: telescope_core::output::SetupResult, restart_stream: bool) {
+        let restart = {
+            let mut flow = self.streams.flow.borrow_mut();
+            let restart = restart_stream && flow.sessions.canvas_restart; // not after a Stop since
+            if restart_stream {
+                flow.sessions.canvas_restart = false;
+            }
+            restart
+        };
+        let command = result.command.clone().unwrap_or_default();
+        if result.ok {
+            let linux = cfg!(target_os = "linux");
+            self.set_status(&if linux { tr("Loopback reloaded: {message}").replace("{message}", &result.message) } else { tr("Canvas updated") }, "ok");
+            if restart {
+                self.with_flow(|flow, host| flow.start(host, true, None)); // not over a stream started while the reload ran
+            }
+        } else if command.is_empty() {
+            self.set_status(&tr("Reload failed: {message}").replace("{message}", &result.message), "err");
+        } else {
+            self.set_status(&tr("Not streaming"), "dim");
+        }
+        let data = serde_json::json!({"command": command});
+        self.state.borrow_mut().deliver_to(plugin, &Event::RequestDone { request, ok: result.ok, message: result.message, data });
+        self.process();
+    }
+
+    /// remove_extra_cameras: the extra virtual cameras go, once nothing streams to them.
+    pub fn remove_extras(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId) {
+        let posts = self.state.borrow().posts.clone();
+        let Some(outputs) = self.services.as_ref().map(|s| s.outputs.clone()) else { return };
+        let extras = (1..outputs.max_slots()).any(|n| outputs.slot_ready(n));
+        if !extras || self.streams.flow.borrow().sessions.streams.iter().any(|s| s.slot() != 0) {
+            let message = if extras { tr("Stop the streams going to them first") } else { tr("There are none to remove") };
+            return posts.push_event(plugin, Event::RequestDone { request, ok: false, message, data: serde_json::json!({}) });
+        }
+        let plugin = plugin.to_string();
+        std::thread::spawn(move || {
+            let result = outputs.set_up(telescope_core::output::SetupAction::RemoveSlots, &|_| {});
+            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| {
+                w.with_flow(|flow, host| flow.announce_idle_outputs(host, None));
+                w.state.borrow_mut().deliver_to(&plugin, &Event::RequestDone { request, ok: result.ok, message: result.message, data: serde_json::json!({}) });
+                w.process();
+            }));
+        });
+    }
+
     /// A control body to source_id's stream, the shown one by default.
     pub fn phone_control(&self, source_id: Option<&str>, body: &Value) {
         let flow = self.streams.flow.borrow();
@@ -731,6 +811,7 @@ impl Window {
             return; // a session stopped or switched since the fetch began: its state isn't this stream's
         }
         let focused = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
+        self.state.borrow().bus.emit(Event::StreamState { source_id: source.id_str().into(), state: state.clone() });
         // What each lens can take, from every stream's state and not only the shown one's
         if let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) {
             stills.note_state(Some(source.id_str()), &state);
@@ -1042,9 +1123,9 @@ impl FlowHost for Host<'_> {
         self.w.state.borrow_mut().effects.push(crate::shell::Effect::SaveSoon);
     }
     fn canvas_size(&self) -> Option<(u32, u32)> {
-        let setup = self.w.state.borrow().plugin_config("setup");
-        let dim = |k: &str| setup.as_ref().and_then(|c| c.get(k)).and_then(Value::as_u64).map(|v| v as u32);
-        dim("canvas_width").zip(dim("canvas_height"))
+        let setup = self.w.state.borrow().plugin_config("setup")?;
+        let (width, height) = telescope_core::canvas::canvas_dims(&setup);
+        width.zip(height)
     }
     fn slot_ready(&self, slot: u32) -> bool {
         slot == 0 || self.w.services.as_ref().is_some_and(|s| s.outputs.slots().iter().any(|x| x.slot == slot))
@@ -1062,7 +1143,10 @@ impl FlowHost for Host<'_> {
     fn new_worker(&mut self, source: &SourceRef, url: &str, params: (Option<u32>, Option<u32>, u32), live: bool,
                   canvas: (Option<u32>, Option<u32>)) -> Rc<dyn Worker> {
         let services = self.w.services.clone().expect("streams need services");
-        let hardware = self.w.opts.as_ref().is_some_and(|o| o.hardware_decode);
+        // Setup's switch counts from the next stream on, as h264_reader.set_hardware does; --vaapi turns it on for a run
+        let setup = self.w.state.borrow().plugin_config("setup");
+        let chosen = setup.is_some_and(|c| c.get("hw_decode") == Some(&Value::Bool(true)));
+        let hardware = chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode);
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));

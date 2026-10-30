@@ -201,6 +201,9 @@ impl Link for LinkService {
         }).collect()
     }
 
+    fn get_adb(&self, own: Option<&str>, progress: &dyn Fn(&str)) -> Result<String, String> {
+        crate::adb_download::get_adb(own, progress)
+    }
     fn bundled_apk(&self) -> Option<String> {
         adb::bundled_apk_path().map(|p| p.to_string_lossy().into_owned())
     }

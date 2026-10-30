@@ -174,6 +174,9 @@ events! {
     "request_done" => RequestDone { request: RequestId, ok: bool, message: String, data: Value },
     /// Not in plugin.py: progress on a host request that's still going (take_still's on_progress).
     "request_progress" => RequestProgress { request: RequestId, data: Value },
+    /// Not in plugin.py: a stream's /v1/state as it arrives, the streams behind the panels too (Monitoring reads their
+    /// batteries the way Python's ctrl.get_state() did).
+    "stream_state" => StreamState { source_id: String, state: Value },
     /// Not in plugin.py: a timer from Host::schedule went off; only the plugin that scheduled it (owner) hears it.
     "timer_fired" => TimerFired { owner: String, token: String },
     /// Not in plugin.py: a Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.

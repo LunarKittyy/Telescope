@@ -42,6 +42,8 @@ export component Button inherits Rectangle {
     in property <bool> enabled: true;
     // A tooltip, when there's something to say beyond the label
     in property <string> tip;
+    // QPushButton[strip]: a setting row's button, on no fill until hovered
+    in property <bool> strip;
     // card_action greys to faint text rather than the darker disabled grey, on no fill
     in property <bool> quiet-when-disabled;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
@@ -56,6 +58,7 @@ export component Button inherits Rectangle {
         : role == "danger" ? (touch.pressed ? #5a2d2f : touch.has-hover ? #824244 : #6b3638)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
+        : strip ? (touch.has-hover ? Theme.surface-hover : transparent)
         : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
     border-color: !enabled ? Theme.border
         : role == "danger" ? #874648

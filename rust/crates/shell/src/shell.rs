@@ -101,6 +101,12 @@ pub enum Effect {
     CopyText(String),
     /// Host::take_still: the photo for `plugin`'s request on stream `source`, answered by RequestProgress and RequestDone.
     TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
+    /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
+    PluginHues(bool),
+    /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
+    RestartCanvas { plugin: String, request: RequestId },
+    /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
+    RemoveExtras { plugin: String, request: RequestId },
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
@@ -983,6 +989,19 @@ mod tests {
 
     fn state() -> State {
         State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")))
+    }
+
+    #[test]
+    fn the_canvas_comes_from_setups_own_settings() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "720p 16:9 - 1280 x 720", "custom_canvas_w": 900, "custom_canvas_h": 600}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((Some(1280), Some(720))));
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "Auto (from first frame)"}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((None, None)));
     }
 
     #[test]

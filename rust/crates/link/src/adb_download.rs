@@ -415,6 +415,14 @@ fn sha1_of(path: &Path) -> Option<String> {
     }
 }
 
+/// Link::get_adb: Google's platform-tools, or with own the adb.exe or zip picked by hand.
+pub fn get_adb(own: Option<&str>, progress: &dyn Fn(&str)) -> Result<String, String> {
+    match own {
+        Some(path) => use_own_adb(Path::new(path), None),
+        None => download_adb(&Web, None, progress),
+    }
+}
+
 /// What a download (or keeping an adb picked by hand) runs: progress texts in, Ok(version) or Err(why) out.
 pub type DownloadJob = Arc<dyn Fn(&dyn Fn(&str)) -> Result<String, String> + Send + Sync>;
 
