@@ -4982,13 +4982,13 @@
 "connection-cable-app-closed" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-cable-other-phone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-cable-unauthorized" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"connection-desktop-outdated" = { status = "todo" }
+"connection-desktop-outdated" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-local-only" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-local-only-windows" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-not-paired" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-not-paired-old" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-phone-outdated" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"connection-phone-outdated-usb" = { status = "todo" }
+"connection-phone-outdated-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-ready" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-ready-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "connection-route-auto" = { status = "todo" }
