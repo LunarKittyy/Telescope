@@ -60,6 +60,55 @@ fn codes_are_read_from_arms_length_to_right_up_close() {
     }
 }
 
+// Codes recorded from Python: the modules of qrcode's version, and what cv2's detectAndDecode gave for them.
+type Recorded = (usize, &'static [u64]);
+// Python: 'WIFI:S:café;P:sécret;;' from Latin-1 bytes with no ECI
+const LATIN1_WIFI: Recorded = (25, &[0x1fd987f, 0x104f941, 0x1755d5d, 0x1744c5d, 0x1749c5d, 0x105b541, 0x1fd557f, 0xa400, 0x1469125, 0x1524768, 0x1d42859, 0x13924a, 0x1c5262e, 0xda8f64, 0x195e785, 0x6a4683, 0x1f5f5f1, 0x11f16, 0x1fd1559, 0x1043519, 0x174cff5, 0x174c812, 0x175a313, 0x1048a50, 0x1fdb921]);
+// Python: 'WIFI:S:café;P:sécret;;' from UTF-8 bytes
+const UTF8_WIFI: Recorded = (25, &[0x1fd157f, 0x105df41, 0x1754d5d, 0x174895d, 0x175f75d, 0x1042a41, 0x1fd557f, 0x8a00, 0x13f9697, 0xa2023d, 0x1fdce7d, 0xb8838d, 0x12e202e, 0x182de55, 0x1f44f57, 0x151d196, 0x1643bf5, 0x12711, 0x1fd5b59, 0x105af19, 0x17533f4, 0x1759a07, 0x174efb7, 0x1041697, 0x1fd0761]);
+// Python: 'abcÃ' from the bytes 61 62 63 C3
+const TRUNCATED_UTF8: Recorded = (21, &[0x1fc57f, 0x104b41, 0x17595d, 0x175d5d, 0x17575d, 0x105d41, 0x1fd57f, 0x1300, 0x17c17c, 0x59125, 0x1f6292, 0x1db43e, 0xe7a90, 0x17c5, 0x1fc96a, 0x105bc8, 0x175526, 0x175124, 0x175a98, 0x104434, 0x1fd296]);
+// Python: UnicodeDecodeError, for a Kanji segment of 日本語 (OpenCV leaves it as Shift-JIS)
+const KANJI: Recorded = (21, &[0x1fc07f, 0x104441, 0x17555d, 0x17565d, 0x17515d, 0x105641, 0x1fd57f, 0x1c00, 0x17c27c, 0xdb3c6, 0x1ed56b, 0xd03ca, 0x16e528, 0x112b, 0x1fc692, 0x10543b, 0x175a9c, 0x175be4, 0x17556c, 0x104fe8, 0x1fd90d]);
+// Python: UnicodeDecodeError, for the bytes C0 80 (OpenCV takes them for UTF-8, Python doesn't)
+const OVERLONG: Recorded = (21, &[0x1fcb7f, 0x104541, 0x17535d, 0x17565d, 0x175b5d, 0x105941, 0x1fd57f, 0x1f00, 0x17c57c, 0x199524, 0x17f695, 0x33434, 0x1efa94, 0x13c8, 0x1fc163, 0x1057c9, 0x175924, 0x175524, 0x175e9c, 0x104834, 0x1fd29e]);
+
+fn recorded_picture((size, rows): Recorded) -> Vec<u8> {
+    let (scale, side) = (6, size + 8);
+    let (w, h) = (side * scale, side * scale);
+    let mut grey = vec![255u8; w * h];
+    for (r, row) in rows.iter().enumerate() {
+        for c in 0..size {
+            if row >> (size - 1 - c) & 1 == 1 {
+                for (y, x) in (0..scale).flat_map(|y| (0..scale).map(move |x| (y, x))) {
+                    grey[((r + 4) * scale + y) * w + (c + 4) * scale + x] = 0;
+                }
+            }
+        }
+    }
+    grey
+}
+
+fn read_recorded(code: Recorded) -> Result<Option<String>, Unreadable> {
+    let side = (code.0 + 8) * 6;
+    try_read_code(&recorded_picture(code), side, side).map(|found| found.map(|(text, _)| text))
+}
+
+#[test]
+fn a_latin_1_code_reads_as_latin_1_where_utf_8_fails() {
+    assert_eq!(read_recorded(LATIN1_WIFI), Ok(Some("WIFI:S:café;P:sécret;;".into())));
+    assert_eq!(read_recorded(UTF8_WIFI), Ok(Some("WIFI:S:café;P:sécret;;".into())));
+    // Bytes that stop short of what their lead byte says are Latin-1 too
+    assert_eq!(read_recorded(TRUNCATED_UTF8), Ok(Some("abcÃ".into())));
+    assert_eq!(read_code(&recorded_picture(LATIN1_WIFI), 198, 198).unwrap().0, "WIFI:S:café;P:sécret;;");
+}
+
+#[test]
+fn a_code_python_cant_turn_into_text_reports_nothing() {
+    assert_eq!(read_recorded(KANJI), Err(Unreadable));
+    assert_eq!(read_recorded(OVERLONG), Err(Unreadable));
+}
+
 #[test]
 fn no_code_is_none() {
     assert!(read_code(&vec![90; 160 * 90], 160, 90).is_none());
