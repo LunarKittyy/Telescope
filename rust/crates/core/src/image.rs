@@ -139,22 +139,24 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
 }
 
 /// The two taps of OpenCV's INTER_LINEAR along an axis for 8-bit pictures: (first source, second source, their weights out of 2048).
-fn linear_taps(n: usize, m: usize) -> Vec<(usize, usize, i64, i64)> {
+/// Across, a tap past either edge takes the edge pixel whole; down, the weights stay and only the rows are clamped, as OpenCV does.
+fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<(usize, usize, i64, i64)> {
     let scale = n as f64 / m as f64;
+    let last = n as i64 - 1;
     (0..m).map(|d| {
         let mut f = ((d as f64 + 0.5) * scale - 0.5) as f32;
         let mut s = f.floor() as i64;
         f -= s as f32;
-        if s < 0 {
+        if !vertical && s < 0 {
             f = 0.0;
             s = 0;
         }
-        if s >= n as i64 - 1 {
+        if !vertical && s >= last {
             f = 0.0;
-            s = n as i64 - 1;
+            s = last;
         }
         let (p, q) = ((1.0f32 - f) * 2048.0f32, f * 2048.0f32);
-        (s as usize, (s as usize + 1).min(n - 1), p.round_ties_even() as i64, q.round_ties_even() as i64)
+        (s.clamp(0, last) as usize, (s + 1).clamp(0, last) as usize, p.round_ties_even() as i64, q.round_ties_even() as i64)
     }).collect()
 }
 
@@ -164,7 +166,7 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
     if (w2, h2) == (w, h) {
         return src.to_vec();
     }
-    let (xs, ys) = (linear_taps(w, w2), linear_taps(h, h2));
+    let (xs, ys) = (linear_taps(w, w2, false), linear_taps(h, h2, true));
     let mut across = vec![0i64; h * w2 * ch];
     for y in 0..h {
         for (dx, &(x0, x1, p, q)) in xs.iter().enumerate() {
