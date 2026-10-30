@@ -66,13 +66,14 @@ pub struct WsConnection<'a> {
     buf: Vec<u8>,
     on_tick: Box<dyn FnMut(&mut dyn FnMut(&[u8]) -> Result<(), Closed>) -> Result<(), Closed> + 'a>,
     last_heard: Instant,
+    idle: Duration,
 }
 
 impl<'a> WsConnection<'a> {
     /// on_tick runs each time a read times out with nothing in, and may send through what it's handed.
     pub fn new(sock: Box<dyn Socket>, on_tick: impl FnMut(&mut dyn FnMut(&[u8]) -> Result<(), Closed>) -> Result<(), Closed> + 'a)
                -> WsConnection<'a> {
-        WsConnection { sock, buf: Vec::new(), on_tick: Box::new(on_tick), last_heard: Instant::now() }
+        WsConnection { sock, buf: Vec::new(), on_tick: Box::new(on_tick), last_heard: Instant::now(), idle: IDLE_TIMEOUT }
     }
 
     pub fn send(&mut self, data: &[u8]) -> Result<(), Closed> {
@@ -95,7 +96,7 @@ impl<'a> WsConnection<'a> {
                     self.buf.extend_from_slice(&chunk[..got]);
                 }
                 Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
-                    if self.last_heard.elapsed() > IDLE_TIMEOUT {
+                    if self.last_heard.elapsed() > self.idle {
                         return Err(Closed("idle".into()));
                     }
                     self.tick()?;
@@ -174,6 +175,11 @@ impl<'a> WsConnection<'a> {
     /// Sends and forgets: the connection is ending anyway.
     pub fn send_quietly(&mut self, data: &[u8]) {
         let _ = self.send(data);
+    }
+
+    /// Nothing at all for this long ends the connection (IDLE_TIMEOUT).
+    pub fn set_idle(&mut self, idle: Duration) {
+        self.idle = idle;
     }
 
     pub fn set_read_timeout(&mut self, timeout: Option<Duration>) {

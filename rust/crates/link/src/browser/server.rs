@@ -46,6 +46,8 @@ struct Shared {
     /// Connections open now, by an id of their own: the close code each is to end with, once it's asked to.
     open: Mutex<HashMap<u64, Option<u16>>>,
     next_id: AtomicU64,
+    /// (how often to ping, how long a quiet connection lasts): PING_EVERY and ws::IDLE_TIMEOUT, shorter in tests.
+    timings: Mutex<(Duration, Duration)>,
 }
 
 impl Shared {
@@ -78,6 +80,7 @@ impl Shared {
         self.open.lock().unwrap_or_else(|e| e.into_inner()).insert(id, None);
         let rtc: RefCell<Option<Box<dyn RtcSession>>> = RefCell::new(None);
         let (mut sent_seq, mut pinged) = (None, Instant::now());
+        let (ping_every, idle) = *self.timings.lock().unwrap_or_else(|e| e.into_inner());
         let tick = |send: &mut dyn FnMut(&[u8]) -> Result<(), Closed>| -> Result<(), Closed> {
             if !feed.current(gen) {
                 return Err(Closed("replaced".into()));
@@ -91,7 +94,7 @@ impl Shared {
                 cfg["type"] = json!("config");
                 send(&ws::frame(ws::TEXT, cfg.to_string().as_bytes()))?;
             }
-            if pinged.elapsed() >= PING_EVERY {
+            if pinged.elapsed() >= ping_every {
                 pinged = Instant::now();
                 send(&ws::frame(ws::PING, b""))?;
             }
@@ -103,7 +106,8 @@ impl Shared {
             Ok(())
         };
         let mut ws = WsConnection::new(sock, tick);
-        ws.set_read_timeout(Some(TICK));
+        ws.set_read_timeout(Some(TICK.min(ping_every)));
+        ws.set_idle(idle);
         (self.on_change)();
         let ended = (|| -> Result<(), Closed> {
             ws.tick()?;
@@ -266,7 +270,7 @@ impl BrowserServer {
                port: u16, host: &str, rtc: RtcMaker) -> BrowserServer {
         let shared = Arc::new(Shared {
             hub, token: Mutex::new(crate::util::token_urlsafe(18)), on_change: Box::new(on_change), rtc, open: Mutex::default(),
-            next_id: AtomicU64::new(1),
+            next_id: AtomicU64::new(1), timings: Mutex::new((PING_EVERY, ws::IDLE_TIMEOUT)),
         });
         BrowserServer { shared, web, certificate, want_port: port, host: host.into(), server: Mutex::new(None) }
     }
@@ -304,6 +308,11 @@ impl BrowserServer {
     pub fn new_token(&self) {
         *self.shared.token.lock().unwrap_or_else(|e| e.into_inner()) = crate::util::token_urlsafe(18);
         self.shared.close_all(CLOSE_NEW_LINK);
+    }
+
+    /// How often a page is pinged and how long one that's quiet lasts, for connections from now on.
+    pub fn set_timings(&self, ping_every: Duration, idle: Duration) {
+        *self.shared.timings.lock().unwrap_or_else(|e| e.into_inner()) = (ping_every, idle);
     }
 
     pub fn start(&self) -> Result<(), String> {
