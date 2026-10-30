@@ -131,6 +131,74 @@ pub fn slider_target(params: &Value, current: i64, scale: f64, minimum: i64, max
     Some(new.clamp(minimum, maximum))
 }
 
+/// log_pos_to_val: a log slider's position (0..steps) as its value; a range of one value (or none) stays at its bottom.
+pub fn log_pos_to_val(pos: f64, steps: f64, v_min: f64, v_max: f64) -> f64 {
+    let v_min = if v_min <= 0.0 { 1.0 } else { v_min };
+    if v_max <= v_min {
+        return v_min;
+    }
+    let t = pos / steps.max(1.0);
+    (v_min.ln() + t * (v_max.ln() - v_min.ln())).exp().clamp(v_min, v_max)
+}
+
+/// val_to_log_pos: where a value sits on a log slider of `steps` positions.
+pub fn val_to_log_pos(val: f64, steps: f64, v_min: f64, v_max: f64) -> f64 {
+    if val <= 0.0 || v_min <= 0.0 || v_max <= v_min {
+        return 0.0;
+    }
+    let val = val.clamp(v_min, v_max);
+    round_half_even((val.ln() - v_min.ln()) / (v_max.ln() - v_min.ln()) * steps)
+}
+
+/// What a log slider's shortcut needs (log_slider_action): its range and value in shown units (the row's value times
+/// the box's display scale, like nanoseconds shown as milliseconds).
+#[derive(Clone, Debug)]
+pub struct LogSliderSpec<'a> {
+    pub id: &'a str,
+    pub label: &'a str,
+    pub group: &'a str,
+    pub keywords: &'a str,
+    pub minimum: f64,
+    pub maximum: f64,
+    pub decimals: usize,
+    pub suffix: &'a str,
+}
+
+/// The action for a log slider (ISO, shutter): up or down in stops, each one doubling or halving it, or to a value.
+pub fn log_slider_action(s: &LogSliderSpec, current: f64) -> ActionSpec {
+    ActionSpec {
+        id: s.id.into(),
+        label: s.label.into(),
+        group: s.group.into(),
+        params: vec![
+            json!({"name": "op", "label": tr("Does"), "kind": "choice", "default": "up",
+                   "choices": [["up", tr("Raise by")], ["down", tr("Lower by")], ["set", tr("Set to")]]}),
+            // Translators: the unit after a number of stops, with its space: "1.5 stops"
+            json!({"name": "stops", "label": tr("Stops"), "kind": "number", "default": 1.0, "minimum": 0.1, "maximum": 10.0,
+                   "decimals": 1, "suffix": tr(" stops"), "shown_if": ["op", ["up", "down"]]}),
+            json!({"name": "value", "label": tr("Value"), "kind": "number", "default": null, "minimum": s.minimum,
+                   "maximum": s.maximum, "decimals": s.decimals, "suffix": s.suffix, "shown_if": ["op", ["set"]]}),
+        ],
+        repeats: true,
+        on_release: false,
+        current: Some(round_to(current, s.decimals)),
+        keywords: s.keywords.into(),
+    }
+}
+
+/// A log slider's value after a key with these params, clamped to v_min..v_max, or None for a "Set to" with no value.
+/// `display_scale` turns the value into what its box shows.
+pub fn log_slider_target(params: &Value, current: f64, v_min: f64, v_max: f64, display_scale: f64) -> Option<f64> {
+    let new = match params.get("op").and_then(Value::as_str).unwrap_or("up") {
+        "set" => params.get("value").and_then(Value::as_f64)? / display_scale,
+        op => {
+            let stops = params.get("stops").and_then(Value::as_f64).unwrap_or(0.0);
+            current * 2f64.powf(if op == "up" { stops } else { -stops })
+        }
+    };
+    Some(new.max(v_min).min(v_max))
+}
+
 /// The action for a row of choices only one of which is on: the next one, the previous one, or a named one
 /// (choice_action). `options` are (stable value, shown text), already translated.
 pub fn choice_action(id: &str, label: &str, group: &str, keywords: &str, options: &[(&str, String)]) -> ActionSpec {
@@ -269,5 +337,24 @@ mod tests {
         assert_eq!(a.params[1]["maximum"], json!(9.0));
         assert_eq!(shown(1.5, 2, "\u{d7}", false), "1.50\u{d7}");
         assert_eq!(shown(80.0, 0, "%", false), "80%");
+    }
+
+    #[test]
+    fn a_log_slider_steps_in_stops_and_sets_in_shown_units() {
+        let spec = LogSliderSpec { id: "camera.shutter", label: "Shutter", group: "Camera", keywords: "", minimum: 0.1,
+                                   maximum: 1000.0, decimals: 2, suffix: " ms" };
+        let a = log_slider_action(&spec, 16.666_667);
+        assert_eq!((a.current, a.params[1]["name"].clone(), a.params[2]["maximum"].clone()), (Some(16.67), json!("stops"), json!(1000.0)));
+        assert_eq!(log_slider_target(&json!({"op": "up", "stops": 1.0}), 400.0, 50.0, 6400.0, 1.0), Some(800.0));
+        assert_eq!(log_slider_target(&json!({"op": "down", "stops": 10.0}), 400.0, 50.0, 6400.0, 1.0), Some(50.0));
+        assert_eq!(log_slider_target(&json!({"op": "set", "value": 2.0}), 1.0, 100_000.0, 1e9, 1e-6), Some(2_000_000.0));
+        assert_eq!(log_slider_target(&json!({"op": "set"}), 1.0, 1.0, 2.0, 1.0), None);
+    }
+
+    #[test]
+    fn log_positions_go_both_ways_and_a_flat_range_stays_put() {
+        assert_eq!(val_to_log_pos(400.0, 2000.0, 50.0, 6400.0), 857.0);
+        assert!((log_pos_to_val(857.0, 2000.0, 50.0, 6400.0) - 400.0).abs() < 1.0);
+        assert_eq!((log_pos_to_val(5.0, 2000.0, 80.0, 80.0), val_to_log_pos(80.0, 2000.0, 80.0, 80.0)), (80.0, 0.0));
     }
 }
