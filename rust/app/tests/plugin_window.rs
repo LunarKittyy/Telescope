@@ -1,12 +1,13 @@
 // A plugin's window of its own (HostUi::open_window) through the real window, on Slint's testing backend.
 use serde_json::{json, Value};
-use slint_interpreter::Value as SValue;
+use slint_interpreter::{ComponentHandle, Value as SValue};
+use slint::Model;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::{Event, SourceName};
-use telescope_core::host::{Host, RequestId};
+use telescope_core::host::{Host, PreviewLayer, RequestId, Shape};
 use telescope_core::frame::PixelFormat;
 use telescope_core::link::{Link, PairingOffer, PhoneSensors, PhoneSession, RoutePrefs, Unreachable};
 use telescope_core::media::{Codec, VideoFeed};
@@ -286,4 +287,113 @@ fn extra_cameras_go_only_once_nothing_streams_to_them() {
     w.remove_extras("asks", RequestId(3));
     w.process();
     assert_eq!(heard.lock().unwrap().last().unwrap(), &(false, "There are none to remove".to_string()));
+}
+
+/// Hears what happens around a start, in order.
+struct Order(Arc<Mutex<Vec<String>>>);
+
+impl Plugin for Order {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "order".into(), title: "Order".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        match event {
+            Event::SelectSource { source_id } => self.0.lock().unwrap().push(format!("select {source_id}")),
+            Event::StreamStarted { url } => self.0.lock().unwrap().push(format!("started {url}")),
+            _ => {}
+        }
+    }
+}
+
+#[test]
+fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in() {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-try-again");
+    let services = Arc::new(Services {
+        link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+    });
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Order(h)) as Box<dyn Plugin>], Some(services), None).unwrap();
+    w.add_plugin_source(Arc::new(Browser("browser:a")));
+    w.start_source(Some("browser:a".into()));
+    w.process();
+    assert_eq!(*heard.lock().unwrap(), ["select browser:a", "started browser:"]);
+}
+
+/// Hears the points the preview picks.
+struct Focus(Arc<Mutex<Vec<(f32, f32)>>>);
+
+impl Plugin for Focus {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "focus".into(), title: "Focus".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        if let Event::FocusPointPicked { x, y } = event {
+            self.0.lock().unwrap().push((*x, *y));
+        }
+    }
+}
+
+#[test]
+fn a_real_click_on_the_stage_comes_out_as_a_focus_point() {
+    use slint::platform::{PointerEventButton, WindowEvent};
+    use slint::{LogicalPosition, LogicalSize};
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-focus");
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| {
+        vec![Box::new(Focus(h)) as Box<dyn Plugin>, Box::new(telescope_shell::plugins::preview::Preview::default())]
+    }, None, None).unwrap();
+    w.ui.window().set_size(LogicalSize::new(1200.0, 800.0));
+    w.ui.set_property("p1-has-frame", SValue::Bool(true)).unwrap();
+    w.state.borrow_mut().bus.emit(Event::FocusPointAvailable { available: true });
+    w.process();
+    let at = LogicalPosition::new(600.0, 300.0);
+    let window = w.ui.window();
+    window.dispatch_event(WindowEvent::PointerMoved { position: at });
+    window.dispatch_event(WindowEvent::PointerPressed { position: at, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position: at, button: PointerEventButton::Left });
+    w.process();
+    let heard = heard.lock().unwrap();
+    assert_eq!(heard.len(), 1, "{heard:?}");
+    assert!((0.0..=1.0).contains(&heard[0].0) && (0.0..=1.0).contains(&heard[0].1), "{heard:?}");
+    assert_eq!(w.ui.get_property("p1-marker-shown").unwrap(), SValue::Bool(true));
+}
+
+/// Keeps an outline on the preview, as QR codes does.
+struct Outlines;
+
+impl Plugin for Outlines {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "outlines".into(), title: "Outlines".into(), ..Default::default() }
+    }
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        let points = vec![[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
+        host.add_preview_layer("outlines", PreviewLayer { shapes: vec![Shape::Polygon { points, stroke: "#5fc98c".into(), width: 3.0, fill: None }] });
+    }
+}
+
+#[test]
+fn a_layer_on_the_preview_moves_to_the_pop_out() {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-layers");
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| {
+        vec![Box::new(Outlines) as Box<dyn Plugin>, Box::new(telescope_shell::plugins::preview::Preview::default())]
+    }, None, None).unwrap();
+    w.ui.window().set_size(slint::LogicalSize::new(1200.0, 800.0));
+    w.process();
+    w.paint_layers();
+    let paths = |ui: &slint_interpreter::ComponentInstance, name: &str| match ui.get_property(name) {
+        Ok(SValue::Model(m)) => m.row_count(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(paths(&w.ui, "p1-layer-paths"), 1);
+    assert!(w.call_ui("preview", "card", "pop-out"));
+    w.paint_preview();
+    w.paint_layers();
+    let popout = w.popout_window().expect("it opened");
+    assert_eq!(paths(&popout, "layer-paths"), 1);
 }

@@ -98,6 +98,10 @@ impl Default for PluginInfo {
 pub struct StreamInfo {
     pub source_id: String,
     pub url: String,
+    /// The same for as long as this stream runs, through a hand-over that changes its url, and new when it starts again
+    /// (what Python's ctrl object tells apart).
+    #[serde(default)]
+    pub session: u64,
 }
 
 /// A set_config that couldn't take what it was given; the host then loads what fields it can (load_config_tolerantly).
@@ -200,11 +204,11 @@ pub trait Plugin: Send {
 }
 
 /// What a plugin following the panels keeps about a stream they moved away from while it streams on, so coming back to it
-/// picks up where it was instead of starting over (StreamsBehind in plugin.py). A stream is told apart by its url, as the
-/// phone's ctrl object was.
+/// picks up where it was instead of starting over (StreamsBehind in plugin.py). A stream is told apart by its
+/// StreamInfo::session, as the phone's ctrl object was.
 #[derive(Clone, Debug)]
 pub struct StreamsBehind<T> {
-    kept: std::collections::HashMap<Option<String>, (String, T)>,
+    kept: std::collections::HashMap<Option<String>, (u64, T)>,
 }
 
 impl<T> Default for StreamsBehind<T> {
@@ -214,12 +218,12 @@ impl<T> Default for StreamsBehind<T> {
 }
 
 impl<T> StreamsBehind<T> {
-    /// From on_focus_lost: `value` is kept for the stream the panels are leaving (`stream` its url, None when it has none).
-    pub fn keep(&mut self, host: &dyn crate::host::HostStreams, stream: Option<&str>, value: T) {
+    /// From on_focus_lost: `value` is kept for the stream the panels are leaving (`stream` its session, None when it has none).
+    pub fn keep(&mut self, host: &dyn crate::host::HostStreams, stream: Option<u64>, value: T) {
         let sid = host.focused_source_id();
         match stream {
-            Some(url) => {
-                self.kept.insert(sid, (url.to_string(), value));
+            Some(session) => {
+                self.kept.insert(sid, (session, value));
             }
             None => {
                 self.kept.remove(&sid);
@@ -228,9 +232,9 @@ impl<T> StreamsBehind<T> {
     }
 
     /// From on_focus_gained: what keep() held for this stream, or None if it has started again since.
-    pub fn take(&mut self, host: &dyn crate::host::HostStreams, stream: Option<&str>) -> Option<T> {
+    pub fn take(&mut self, host: &dyn crate::host::HostStreams, stream: u64) -> Option<T> {
         let kept = self.kept.remove(&host.focused_source_id())?;
-        (stream == Some(kept.0.as_str())).then_some(kept.1)
+        (stream == kept.0).then_some(kept.1)
     }
 
     /// From on_stream_stop: the shown stream ended, so nothing about it is kept (and nothing at all once idle).
@@ -303,22 +307,22 @@ mod tests {
         host.streaming = true;
         host.focused = Some("a".into());
         let mut behind: StreamsBehind<i32> = StreamsBehind::default();
-        behind.keep(&host, Some("http://a/v1/video"), 7);
-        assert_eq!(behind.take(&host, Some("http://a/v1/video")), Some(7));
-        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None, "taken once");
+        behind.keep(&host, Some(1), 7);
+        assert_eq!(behind.take(&host, 1), Some(7));
+        assert_eq!(behind.take(&host, 1), None, "taken once");
         // It started again in between: a new url, so what was kept doesn't apply
-        behind.keep(&host, Some("http://a/v1/video"), 8);
-        assert_eq!(behind.take(&host, Some("http://a/other")), None);
+        behind.keep(&host, Some(1), 8);
+        assert_eq!(behind.take(&host, 2), None);
         // Nothing to keep without a stream, and nothing kept once idle
-        behind.keep(&host, Some("http://a/v1/video"), 9);
+        behind.keep(&host, Some(1), 9);
         behind.keep(&host, None, 10);
-        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None);
-        behind.keep(&host, Some("http://a/v1/video"), 11);
+        assert_eq!(behind.take(&host, 1), None);
+        behind.keep(&host, Some(1), 11);
         host.focused = Some("b".into());
         host.streaming = false;
         behind.drop_shown(&host);
         host.focused = Some("a".into());
-        assert_eq!(behind.take(&host, Some("http://a/v1/video")), None);
+        assert_eq!(behind.take(&host, 1), None);
     }
 
     #[test]

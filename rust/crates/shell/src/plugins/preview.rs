@@ -17,6 +17,22 @@ const CAMERA_OFF_TEXT: &str = "Camera off\n\nThe phone's mic is still streaming.
 // Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines
 const CAMERA_OFF_AUTO_TEXT: &str = "Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it.";
 
+/// px the mouse has to move before a press is a drag, not a click.
+const DRAG_START: f64 = 4.0;
+/// Zoom factor per wheel notch.
+const WHEEL_STEP: f64 = 1.1;
+/// How long the square stays where you clicked.
+const MARKER_MS: u64 = 1000;
+const MARKER_TIMER: &str = "focus-marker";
+
+/// The left button while it's down on the frame: where it went down, as (u, v) and in px of the frame on screen.
+struct Press {
+    point: (f64, f64),
+    start: (f64, f64),
+    last: (f64, f64),
+    dragging: bool,
+}
+
 #[derive(Default)]
 pub struct Preview {
     /// The Hide/Show choice (on by default).
@@ -33,6 +49,10 @@ pub struct Preview {
     /// The Lens outlines button, kept as saved though it stays disabled until lenses send boxes.
     lens_boxes: bool,
     skeleton: bool,
+    /// A click focuses there, and a drag pans (FrameLabel).
+    pickable: bool,
+    pannable: bool,
+    press: Option<Press>,
 }
 
 impl Preview {
@@ -88,6 +108,74 @@ impl Preview {
     fn toggle(&mut self, host: &mut dyn Host) {
         self.hidden = !self.hidden;
         self.render(host, true);
+    }
+
+    fn stage_cursor(&self) -> &'static str {
+        match (self.press.as_ref().is_some_and(|p| p.dragging), self.pannable, self.pickable) {
+            (true, ..) => "grabbing",
+            (_, true, _) => "grab",
+            (_, _, true) => "cross",
+            _ => "",
+        }
+    }
+
+    fn show_cursor(&self, host: &mut dyn Host) {
+        host.set_ui_props("card", &json!({"stage-cursor": self.stage_cursor()}));
+    }
+
+    /// A point on the picture to the frame as shown, past a plugin's warp (Desk mode).
+    fn unwarped(host: &dyn Host, u: f64, v: f64) -> (f32, f32) {
+        let (x, y) = host.unwarp(u, v);
+        (x.clamp(0.0, 1.0) as f32, y.clamp(0.0, 1.0) as f32)
+    }
+
+    /// FrameLabel's mouse events: (u, v) on the frame, which is width x height px on screen.
+    fn view_pointer(&mut self, host: &mut dyn Host, kind: &str, (u, v): (f64, f64), (width, height): (f64, f64)) {
+        let at = (u * width, v * height);
+        match kind {
+            "down" => {
+                if (self.pickable || self.pannable) && (0.0..=1.0).contains(&u) && (0.0..=1.0).contains(&v) {
+                    self.press = Some(Press { point: (u, v), start: at, last: at, dragging: false });
+                }
+            }
+            "move" => {
+                if !self.pannable {
+                    return;
+                }
+                let Some(press) = self.press.as_mut() else { return };
+                if !press.dragging {
+                    if (at.0 - press.start.0).abs() + (at.1 - press.start.1).abs() < DRAG_START {
+                        return;
+                    }
+                    press.dragging = true;
+                    self.show_cursor(host);
+                }
+                let Some(press) = self.press.as_mut() else { return };
+                let (du, dv) = ((at.0 - press.last.0) / width.max(1.0), (at.1 - press.last.1) / height.max(1.0));
+                press.last = at;
+                // A drag on a warped picture moves what's under the mouse
+                let (x0, y0) = host.unwarp(0.5, 0.5);
+                let (x1, y1) = host.unwarp(0.5 + du, 0.5 + dv);
+                host.emit(Event::ViewDragged { du: (x1 - x0) as f32, dv: (y1 - y0) as f32 });
+            }
+            "up" => {
+                let Some(press) = self.press.take() else { return };
+                self.show_cursor(host);
+                if press.dragging || !self.pickable {
+                    return;
+                }
+                host.set_ui_props("card", &json!({"marker-shown": true, "marker-u": press.point.0, "marker-v": press.point.1}));
+                host.cancel_schedule(MARKER_TIMER);
+                host.schedule(MARKER_MS, MARKER_TIMER);
+                let (x, y) = Self::unwarped(host, press.point.0, press.point.1);
+                host.emit(Event::FocusPointPicked { x, y });
+            }
+            "cancel" => {
+                self.press = None;
+                self.show_cursor(host);
+            }
+            _ => {}
+        }
     }
 
     /// _open_popout: the card hides while the window shows the picture, and Hide waits until it closes.
@@ -165,6 +253,17 @@ impl Plugin for Preview {
             Event::SetupNeeded { showing } => self.setup_needed = *showing,
             Event::SourceSelected { source_id } => self.picked = source_id.clone(),
             Event::CameraOnChanged { .. } | Event::MicChanged { .. } => {}
+            Event::FocusPointAvailable { available } => {
+                self.pickable = *available;
+                return self.show_cursor(host);
+            }
+            Event::ViewPannable { pannable } => {
+                self.pannable = *pannable;
+                return self.show_cursor(host);
+            }
+            Event::TimerFired { owner, token } if owner == "preview" && token == MARKER_TIMER => {
+                return host.set_ui_props("card", &json!({"marker-shown": false}));
+            }
             _ => return,
         }
         self.render(host, false);
@@ -175,7 +274,9 @@ impl Plugin for Preview {
     }
 
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
+        self.press = None;
         self.render(host, true);
+        self.show_cursor(host);
     }
 
     fn on_camera_off(&mut self, host: &mut dyn Host) {
@@ -191,6 +292,16 @@ impl Plugin for Preview {
             "toggle" if !self.popout => self.toggle(host),
             "pop-out" => self.open_popout(host),
             "popout-closed" => self.popout_closed(host),
+            "view-pointer" => {
+                let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
+                let kind = event.args.first().and_then(Value::as_str).unwrap_or("");
+                self.view_pointer(host, kind, (n(1), n(2)), (n(3), n(4)));
+            }
+            "view-wheel" => {
+                let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
+                let (u, v) = Self::unwarped(host, n(0), n(1));
+                host.emit(Event::ViewScrolled { factor: WHEEL_STEP.powf(n(2)) as f32, u, v });
+            }
             "camera-clicked" => {
                 let on = host.is_camera_on();
                 host.set_camera_on(!on, false);
@@ -273,7 +384,7 @@ mod tests {
     fn stream_start_and_stop_swap_the_placeholder() {
         let (mut p, mut host) = ready();
         host.streaming = true;
-        let stream = telescope_core::plugin::StreamInfo { url: "http://phone/".into(), source_id: "phone-1".into() };
+        let stream = telescope_core::plugin::StreamInfo { url: "http://phone/".into(), source_id: "phone-1".into(), session: 0 };
         p.on_stream_start(&mut host, &stream);
         assert_eq!(card(&host)["stage-text"], WAITING_TEXT);
         host.streaming = false;
@@ -344,6 +455,73 @@ mod tests {
         click(&mut p, &mut host, "pop-out");
         let c = card(&host);
         assert_eq!((c["popout"].as_bool(), c["popout-asks"].as_i64()), (Some(true), before.map(|n| n + 1)));
+    }
+
+    fn mouse(p: &mut Preview, host: &mut FakeHost, kind: &str, at: (f64, f64)) {
+        p.on_ui(host, &UiEvent { ui: "card".into(), callback: "view-pointer".into(), args: vec![json!(kind), json!(at.0), json!(at.1), json!(400.0), json!(200.0)] });
+    }
+
+    fn picked(host: &FakeHost) -> Vec<(f32, f32)> {
+        host.events.iter().filter_map(|e| match e { Event::FocusPointPicked { x, y } => Some((*x, *y)), _ => None }).collect()
+    }
+
+    fn dragged(host: &FakeHost) -> Vec<(f32, f32)> {
+        host.events.iter().filter_map(|e| match e { Event::ViewDragged { du, dv } => Some((*du, *dv)), _ => None }).collect()
+    }
+
+    #[test]
+    fn a_click_focuses_where_it_went_down_and_leaves_a_square_there_for_a_second() {
+        let (mut p, mut host) = ready();
+        mouse(&mut p, &mut host, "down", (0.25, 0.5));
+        mouse(&mut p, &mut host, "up", (0.25, 0.5));
+        assert!(picked(&host).is_empty(), "this lens can't focus on a point");
+        p.on_event(&mut host, &Event::FocusPointAvailable { available: true });
+        assert_eq!(card(&host)["stage-cursor"], "cross");
+        mouse(&mut p, &mut host, "down", (0.25, 0.5));
+        mouse(&mut p, &mut host, "move", (0.3, 0.6));
+        mouse(&mut p, &mut host, "up", (0.3, 0.6));
+        assert_eq!(picked(&host), [(0.25, 0.5)]);
+        let c = card(&host);
+        assert_eq!((c["marker-shown"].as_bool(), c["marker-u"].as_f64(), c["marker-v"].as_f64()), (Some(true), Some(0.25), Some(0.5)));
+        assert_eq!(host.scheduled.iter().filter(|(_, token)| token == MARKER_TIMER).count(), 1);
+        p.on_event(&mut host, &Event::TimerFired { owner: "preview".into(), token: MARKER_TIMER.into() });
+        assert_eq!(card(&host)["marker-shown"], false);
+    }
+
+    #[test]
+    fn the_letterbox_bars_arent_the_picture() {
+        let (mut p, mut host) = ready();
+        p.on_event(&mut host, &Event::FocusPointAvailable { available: true });
+        mouse(&mut p, &mut host, "down", (-0.1, 0.5));
+        mouse(&mut p, &mut host, "up", (0.5, 0.5));
+        assert!(picked(&host).is_empty());
+    }
+
+    #[test]
+    fn a_drag_past_the_first_px_pans_and_isnt_a_click() {
+        let (mut p, mut host) = ready();
+        p.on_event(&mut host, &Event::FocusPointAvailable { available: true });
+        p.on_event(&mut host, &Event::ViewPannable { pannable: true });
+        assert_eq!(card(&host)["stage-cursor"], "grab");
+        mouse(&mut p, &mut host, "down", (0.5, 0.5));
+        mouse(&mut p, &mut host, "move", (0.505, 0.5)); // 2 px
+        assert!(dragged(&host).is_empty());
+        mouse(&mut p, &mut host, "move", (0.55, 0.5));
+        assert_eq!(card(&host)["stage-cursor"], "grabbing");
+        mouse(&mut p, &mut host, "move", (0.6, 0.55));
+        mouse(&mut p, &mut host, "up", (0.6, 0.55));
+        let moved = dragged(&host);
+        assert_eq!(moved.len(), 2);
+        assert!((moved[0].0 - 0.05).abs() < 1e-5 && (moved[1].0 - 0.05).abs() < 1e-5 && (moved[1].1 - 0.05).abs() < 1e-5, "{moved:?}");
+        assert!(picked(&host).is_empty());
+        assert_eq!(card(&host)["stage-cursor"], "grab");
+    }
+
+    #[test]
+    fn a_wheel_notch_zooms_by_a_tenth_around_the_mouse() {
+        let (mut p, mut host) = ready();
+        p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-wheel".into(), args: vec![json!(0.25), json!(0.75), json!(1.0)] });
+        assert!(host.events.iter().any(|e| matches!(e, Event::ViewScrolled { factor, u, v } if (*factor - 1.1).abs() < 1e-6 && *u == 0.25 && *v == 0.75)));
     }
 
     #[test]

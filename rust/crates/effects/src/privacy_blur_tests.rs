@@ -340,7 +340,7 @@ fn the_person_mask_blurs_all_of_the_other_person_not_just_their_box() {
 fn coming_back_to_a_blurred_stream_keeps_it_blurred() {
     let mut rig = Rig::new();
     let (you, other) = (rig.you.clone(), rig.other.clone());
-    let stream = StreamInfo { source_id: "x".into(), url: "url".into() };
+    let stream = StreamInfo { source_id: "x".into(), url: "url".into(), session: 0 };
     rig.switch_on();
     rig.see(&[you, other], 0.5);
     rig.plugin.on_focus_lost(&mut rig.host);
@@ -363,7 +363,7 @@ fn a_stream_seen_for_the_first_time_starts_from_what_tracking_knows() {
     rig.host.tracked.insert("laptop".into(), (vec![you.to_value(), other.to_value()], 2));
     rig.plugin.on_focus_lost(&mut rig.host);
     rig.host.focused = Some("laptop".into());
-    rig.plugin.on_focus_gained(&mut rig.host, &StreamInfo { source_id: "laptop".into(), url: "url".into() });
+    rig.plugin.on_focus_gained(&mut rig.host, &StreamInfo { source_id: "laptop".into(), url: "url".into(), session: 0 });
     assert!(!sharp(&rig.process(), 450, 560));
 }
 

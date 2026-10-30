@@ -151,6 +151,8 @@ events! {
     "stream_sources_changed" => StreamSourcesChanged { sources: Vec<SourceName> },
     /// The picked StreamSource's id, or "" for a phone (or nothing).
     "source_selected" => SourceSelected { source_id: String },
+    // The window wants this source picked, as if by hand: Connection picks it and loads its settings
+    "select_source" => SelectSource { source_id: String },
     /// The extra virtual cameras (slot numbers) that are set up but nothing streams to; comes before a stream opens one.
     "idle_outputs" => IdleOutputs { slots: Vec<u32> },
     /// How many streams run at once now.

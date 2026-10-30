@@ -374,6 +374,8 @@ pub struct CameraControl {
     source: String,
     /// The stream the panels follow, by its url (Python's ctrl): None while idle.
     stream: Option<String>,
+    /// StreamInfo::session of that stream.
+    session: Option<u64>,
     lenses: Lenses,
     info_text: String,
     info_tip: String,
@@ -444,6 +446,7 @@ impl CameraControl {
             phones: 0,
             source: String::new(),
             stream: None,
+            session: None,
             lenses: Lenses::new(),
             info_text: String::new(),
             info_tip: String::new(),
@@ -637,6 +640,7 @@ impl CameraControl {
     fn leave_stream(&mut self) {
         self.last_state = None;
         self.stream = None;
+        self.session = None;
         self.set_point_available(false, Some(false));
         if self.point_focus {
             // the point was for that session; the next one starts continuous
@@ -1411,11 +1415,12 @@ impl Plugin for CameraControl {
 
     fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.start(&stream.url);
+        self.session = Some(stream.session);
         self.refresh(host);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
-        let Some((state, point)) = self.behind.take(&*host, Some(&stream.url)) else {
+        let Some((state, point)) = self.behind.take(&*host, stream.session) else {
             self.on_stream_start(host, stream);
             return;
         };
@@ -1428,6 +1433,7 @@ impl Plugin for CameraControl {
             self.show_point_focus();
         }
         self.stream = Some(stream.url.clone());
+        self.session = Some(stream.session);
         let point_ok = self.focus.enabled[1];
         self.set_point_available(point_ok, None);
         self.refresh(host);
@@ -1441,8 +1447,7 @@ impl Plugin for CameraControl {
 
     fn on_focus_lost(&mut self, host: &mut dyn Host) {
         if let Some(state) = self.last_state.clone() {
-            let stream = self.stream.clone();
-            self.behind.keep(&*host, stream.as_deref(), (state, self.point_focus));
+            self.behind.keep(&*host, self.session, (state, self.point_focus));
         }
         self.leave_stream();
         self.refresh(host);

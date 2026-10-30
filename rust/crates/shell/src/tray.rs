@@ -182,6 +182,7 @@ impl Window {
     /// _tray_quit: the event loop ends and run() shuts everything down.
     pub(crate) fn quit(&self, reason: &str) {
         log::info!("Quitting: {reason}");
+        telescope_core::diagnostics::events().add("QUIT", reason);
         self.state.borrow_mut().tray_close_notified = true;
         let _ = slint::quit_event_loop();
     }

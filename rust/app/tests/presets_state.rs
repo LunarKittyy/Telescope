@@ -176,7 +176,7 @@ fn a_section_that_fails_to_apply_leaves_the_rest_applied() {
 fn a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone() {
     let (mut s, _) = fresh(vec![]);
     let i = s.index("stream_output").unwrap();
-    s.call(i, |p, host| p.on_stream_start(host, &StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into() }));
+    s.call(i, |p, host| p.on_stream_start(host, &StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into(), session: 0 }));
     let sizes = json!([{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]);
     let cams = json!([{"id": "0", "current": true, "maxFps": 60, "supportedSizes": sizes, "h264Sizes": sizes}]);
     s.call(i, |p, host| p.on_phone_state(host, &json!({"codecs": ["h264", "mjpeg"], "codec": "h264", "cameras": cams,
@@ -199,7 +199,7 @@ fn a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone() {
 #[test]
 fn full_round_trip_follows_the_lens_switch() {
     let (mut s, _) = fresh(vec![Box::new(CameraControl::new())]);
-    let stream = StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into() };
+    let stream = StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into(), session: 0 };
     let sizes = json!([{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]);
     let cams = json!([{"id": "0", "label": "Back camera", "current": true, "maxFps": 60, "supportedSizes": sizes, "h264Sizes": sizes},
                       {"id": "2", "label": "Back camera (wide)", "current": false, "supportedSizes": sizes, "h264Sizes": sizes}]);

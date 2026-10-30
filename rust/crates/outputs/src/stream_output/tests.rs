@@ -17,7 +17,7 @@ fn state(sizes: &[(u32, u32)], live: Option<(u32, u32)>) -> Value {
 }
 
 fn started(p: &mut StreamOutputPlugin, host: &mut FakeHost) {
-    p.on_stream_start(host, &StreamInfo { source_id: "phone1".into(), url: "https://192.168.1.5:8443/v1/video.h264".into() });
+    p.on_stream_start(host, &StreamInfo { source_id: "phone1".into(), url: "https://192.168.1.5:8443/v1/video.h264".into(), session: 0 });
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn settings_go_to_the_phone_once_the_stream_has_started() {
 #[test]
 fn over_usb_the_wifi_hint_says_nothing() {
     let (mut p, mut host) = (plugin(), FakeHost::new());
-    p.on_stream_start(&mut host, &StreamInfo { source_id: "p".into(), url: "https://127.0.0.1:40001/v1/video.h264".into() });
+    p.on_stream_start(&mut host, &StreamInfo { source_id: "p".into(), url: "https://127.0.0.1:40001/v1/video.h264".into(), session: 0 });
     p.wifi = (Some("2.4".into()), Some(-80), None);
     assert_eq!(p.wifi_hint(), "");
 }

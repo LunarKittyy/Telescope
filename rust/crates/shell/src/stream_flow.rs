@@ -101,7 +101,7 @@ pub struct StreamFlow {
 }
 
 fn info(source: &Source, session: &StreamSession) -> StreamInfo {
-    StreamInfo { source_id: source.id_str().into(), url: session.url.clone() }
+    StreamInfo { source_id: source.id_str().into(), url: session.url.clone(), session: session.id }
 }
 
 impl StreamFlow {

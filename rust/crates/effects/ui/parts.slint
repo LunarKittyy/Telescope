@@ -20,7 +20,25 @@ component Note inherits Text {
 }
 
 // control_row with a slider and its readout, and the tooltip the slider has in Qt
-component SliderRow inherits FormRow {
+// FormRow with the label column a window sets for itself
+component LabelRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <length> label-width: 96px;
+    spacing: 10px;
+    min-height: 36px;
+    Text {
+        text: label;
+        width: label-width;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    @children
+}
+
+component SliderRow inherits LabelRow {
     in property <string> tip;
     in property <float> minimum: 0;
     in property <float> maximum: 100;

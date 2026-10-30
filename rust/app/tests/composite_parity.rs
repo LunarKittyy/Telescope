@@ -196,7 +196,7 @@ fn workers_rig(cover: Option<Frame>) -> (CompositePlugin, FakeHost, Arc<StreamSt
     host.live = vec!["a".into(), "b".into()];
     let mut plugin = CompositePlugin::new();
     plugin.setup(&mut host);
-    plugin.on_stream_start(&mut host, &StreamInfo { source_id: "a".into(), url: "u".into() });
+    plugin.on_stream_start(&mut host, &StreamInfo { source_id: "a".into(), url: "u".into(), session: 0 });
     let a = Worker::new("a", &mut plugin, cover);
     let b = Worker::new("b", &mut plugin, None);
     store.set_streams(vec![("a".into(), "Phone A".into(), a.slot.clone() as Arc<dyn FrameSlot>), ("b".into(), "Phone B".into(), b.slot.clone() as Arc<dyn FrameSlot>)]);

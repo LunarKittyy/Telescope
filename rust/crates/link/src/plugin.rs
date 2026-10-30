@@ -1244,6 +1244,7 @@ impl Plugin for ConnectionPlugin {
             }
             Event::StreamTransportChanged => self.refresh_transport(host),
             Event::AddPhoneRequested => self.open_add_phone(host),
+            Event::SelectSource { source_id } => self.select(host, Some(source_id), false, false),
             Event::StreamSourcesChanged { sources } => {
                 self.sources = sources.clone();
                 self.refresh_picker(host);
@@ -2001,7 +2002,7 @@ mod tests {
     fn forgetting_the_phone_being_streamed_stops_it_while_it_can_still_be_reached() {
         let mut e = env();
         e.add("id-a", "Pixel");
-        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into() });
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into(), session: 0 });
         e.plugin.forget_phone(&mut e.host, "id-a");
         let stop = e.host.calls.iter().position(|c| c == "stop_stream None").unwrap();
         let forget = e.host.calls.iter().position(|c| c == "forget_device_settings id-a").unwrap();
@@ -2014,7 +2015,7 @@ mod tests {
         e.add("id-a", "Pixel");
         e.shared.conn().set_stream_route(Some(wifi()));
         e.host.focused = Some("id-a".into());
-        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into() });
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into(), session: 0 });
         assert_eq!(e.status(), "Connecting…");
         e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: "id-a".into() });
         assert_eq!(e.status(), "Streaming over Wi-Fi");
@@ -2216,7 +2217,7 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.add("id-b", "Galaxy");
-        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-b".into(), url: "u".into() });
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-b".into(), url: "u".into(), session: 0 });
         e.ui("header", "picked", vec![json!(0)]);
         assert!(e.called("stop_stream None") && e.called("start_stream true"));
     }
@@ -2226,7 +2227,7 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.add("id-b", "Galaxy");
-        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-b".into(), url: "u".into() });
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-b".into(), url: "u".into(), session: 0 });
         e.plugin.select(&mut e.host, Some("id-a"), false, false);
         assert!(e.called("stop_stream None") && !e.called("start_stream"));
     }
@@ -2305,7 +2306,7 @@ mod tests {
     fn a_new_connect_via_is_offered_back_when_the_phone_cant_be_reached_that_way() {
         let mut e = env();
         e.add("id-a", "Pixel");
-        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into() });
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
         e.host.streaming = true;
         e.host.focused = Some("id-a".into());
         e.link.answer(Resolution::new(PhoneStatus::Unreachable));
@@ -2343,7 +2344,7 @@ mod tests {
         e.add("id-a", "Pixel");
         e.add("id-b", "Galaxy");
         let switches = e.host.calls.iter().filter(|c| c.starts_with("switch_device")).count();
-        e.plugin.on_focus_gained(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into() });
+        e.plugin.on_focus_gained(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         // The window swapped the settings itself
         assert_eq!(e.host.calls.iter().filter(|c| c.starts_with("switch_device")).count(), switches);

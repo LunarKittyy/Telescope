@@ -683,7 +683,7 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
                     r.event(Event::ViewChanged { view: r.host.view.clone() });
                 }
                 "max_zoom" => r.event(Event::MaxZoomChanged { max_zoom: op["most"].as_i64().unwrap() as i32 }),
-                "focus" => r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone".into(), url: "url".into() }),
+                "focus" => r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone".into(), url: "url".into(), session: 0 }),
                 "config" => r.configure(&op["config"]),
                 other => panic!("{other}"),
             }

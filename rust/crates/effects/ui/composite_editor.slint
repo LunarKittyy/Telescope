@@ -34,12 +34,26 @@ component Chip inherits Rectangle {
     border-radius: self.height / 2;
     background: Theme.surface-sunk.with-alpha(0.82);
     border-width: accent ? 1px : 0px;
-    border-color: Theme.accent;
+    border-color: Theme.plugin-hue("streaming");
     label := Text {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
         color: accent ? Theme.accent-soft : Theme.text;
+    }
+}
+
+// A 1 px line in Qt's DashLine: 4 px on, 2 off
+component Dashes {
+    in property <color> colour;
+    in property <bool> across;
+    property <length> long: across ? root.width : root.height;
+    for i in ceil(long / 6px): Rectangle {
+        x: across ? i * 6px : 0;
+        y: across ? 0 : i * 6px;
+        width: across ? min(4px, long - i * 6px) : 1px;
+        height: across ? 1px : min(4px, long - i * 6px);
+        background: colour;
     }
 }
 
@@ -86,8 +100,12 @@ component PictureView inherits Rectangle {
             width: t.w * parent.width;
             height: t.h * parent.height;
             background: t.missing ? Theme.surface-raise.with-alpha(0.75) : transparent;
-            border-width: t.missing ? 1px : t.hover ? 1.5px : 0px;
-            border-color: t.missing ? Theme.text-faint : Theme.accent.with-alpha(0.55);
+            border-width: !t.missing && t.hover ? 1.5px : 0px;
+            border-color: Theme.plugin-hue("streaming").with-alpha(0.55);
+            if t.missing: Dashes { x: 0; y: 0; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
+            if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
+            if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
+            if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
             if t.missing: Text {
                 width: parent.width - 12px;
                 text: t.gone;
@@ -99,8 +117,8 @@ component PictureView inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-        for x in guide-xs: Rectangle { x: x * parent.width; width: 1px; height: parent.height; background: Theme.accent-soft; }
-        for y in guide-ys: Rectangle { y: y * parent.height; height: 1px; width: parent.width; background: Theme.accent-soft; }
+        for x in guide-xs: Dashes { x: x * parent.width; y: 0; width: 1px; height: parent.height; colour: Theme.accent-soft; }
+        for y in guide-ys: Dashes { x: 0; y: y * parent.height; height: 1px; width: parent.width; across: true; colour: Theme.accent-soft; }
     }
     Rectangle {
         x: area-x - 1px;
@@ -116,7 +134,7 @@ component PictureView inherits Rectangle {
         width: selected-tile.w * area-w;
         height: selected-tile.h * area-h;
         Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 3.5px; border-color: Theme.surface-sunk.with-alpha(0.7); }
-        Rectangle { border-width: 1.5px; border-color: Theme.accent; }
+        Rectangle { border-width: 1.5px; border-color: Theme.plugin-hue("streaming"); }
         if selected-tile.name != "" && parent.height > 40px: Chip {
             x: 6px;
             y: 6px;
@@ -127,14 +145,15 @@ component PictureView inherits Rectangle {
         property <length> grow: g.hot ? 2px : 0px;
         property <length> long: g.corner ? 10px + grow : 16px + grow;
         property <length> short: g.corner ? 10px + grow : 6px + grow / 2;
-        width: g.corner || g.wide ? long : short;
-        height: g.corner || g.wide ? (g.corner ? long : short) : long;
+        // Qt's 1.5 px pen sits half outside the box
+        width: (g.corner || g.wide ? long : short) + 1.5px;
+        height: (g.corner || g.wide ? (g.corner ? long : short) : long) + 1.5px;
         x: area-x + g.x * area-w - self.width / 2;
         y: area-y + g.y * area-h - self.height / 2;
         border-radius: min(self.width, self.height) / 2;
         border-width: 1.5px;
         border-color: Theme.surface-sunk;
-        background: g.hot ? white : Theme.accent;
+        background: g.hot ? white : Theme.plugin-hue("streaming");
     }
     if mode != "": Chip {
         x: area-x + 8px;
@@ -166,7 +185,7 @@ component PictureView inherits Rectangle {
             if (!self.has-hover) { root.pointer("leave", 0, 0, area-w, area-h, false, false, false, false); }
         }
         scroll-event(e) => {
-            root.wheel(self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.delta-y / 1px);
+            root.wheel(self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.delta-y / 0.5px); // 60 px a notch here, Qt's 120 there
             accept
         }
     }
@@ -175,6 +194,38 @@ component PictureView inherits Rectangle {
 // A card as the editor's _card has it: not folding, hued like the group
 component SideCard inherits Card {
     hue: Theme.plugin-hue("streaming");
+}
+
+// ColumnScrollbar's look (the window's columns), on a Flickable's viewport-y
+component SideScrollbar inherits Rectangle {
+    in property <length> content;
+    in property <length> viewport;
+    in-out property <length> position;
+    property <length> offset: -position;
+    property <length> range: max(0px, content - viewport);
+    property <length> handle-h: max(32px, viewport * viewport / max(1px, content));
+    width: 10px;
+    TouchArea {
+        clicked => {
+            if (self.mouse-y < handle.y) { position = -max(0px, offset - viewport); }
+            else if (self.mouse-y > handle.y + handle.height) { position = -min(range, offset + viewport); }
+        }
+    }
+    handle := Rectangle {
+        y: range > 0 ? (root.height - self.height) * clamp(offset, 0px, range) / range : 0;
+        height: handle-h;
+        border-radius: 5px;
+        background: drag.has-hover || drag.pressed ? Theme.border-hover : Theme.border-strong;
+        drag := TouchArea {
+            property <length> start-offset;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { start-offset = offset; } }
+            moved => {
+                if (self.pressed) {
+                    position = -clamp(start-offset + (self.mouse-y - self.pressed-y) * range / max(1px, root.height - handle.height), 0px, range);
+                }
+            }
+        }
+    }
 }
 
 // _swatch_row: a swatch showing a colour, which opens the sliders under it, and its code
@@ -298,14 +349,36 @@ export component CompositeEditor inherits Window {
         HorizontalLayout {
             spacing: 12px;
             vertical-stretch: 1;
-            Card {
-                title: @tr("Picture");
-                icon: Icons.layout;
-                hue: Theme.plugin-hue("streaming");
+            Rectangle {
                 horizontal-stretch: 1;
-                HorizontalLayout {
+                Card {
+                    title: @tr("Picture");
+                    icon: Icons.layout;
+                    hue: Theme.plugin-hue("streaming");
+                    PictureView {
+                        vertical-stretch: 1;
+                        picture: root.picture;
+                        aspect: canvas-width / max(1, canvas-height);
+                        tiles: root.tiles;
+                        selected: root.selected;
+                        selected-tile: root.selected-tile;
+                        grips: root.handles;
+                        guide-xs: root.guide-xs;
+                        guide-ys: root.guide-ys;
+                        mode: root.mode;
+                        cursor: root.cursor;
+                        pointer(k, x, y, w, h, r, c, s, a) => { root.pointer(k, x, y, w, h, r, c, s, a); }
+                        wheel(x, y, w, h, d) => { root.wheel(x, y, w, h, d); }
+                        key(k, s) => { root.key(k, s); }
+                    }
+                }
+                // The card's header widget in Qt, right of the title
+                starts := HorizontalLayout {
+                    x: parent.width - self.width - 17px;
+                    y: 15px;
+                    width: self.preferred-width;
+                    height: 32px;
                     spacing: 6px;
-                    alignment: start;
                     Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
                     for label[i] in [@tr("Side by side"), @tr("Big and small"), @tr("Grid")]: Button {
                         text: label;
@@ -315,28 +388,17 @@ export component CompositeEditor inherits Window {
                         clicked => { root.start-from(i); }
                     }
                 }
-                PictureView {
-                    vertical-stretch: 1;
-                    picture: root.picture;
-                    aspect: canvas-width / max(1, canvas-height);
-                    tiles: root.tiles;
-                    selected: root.selected;
-                    selected-tile: root.selected-tile;
-                    grips: root.handles;
-                    guide-xs: root.guide-xs;
-                    guide-ys: root.guide-ys;
-                    mode: root.mode;
-                    cursor: root.cursor;
-                    pointer(k, x, y, w, h, r, c, s, a) => { root.pointer(k, x, y, w, h, r, c, s, a); }
-                    wheel(x, y, w, h, d) => { root.wheel(x, y, w, h, d); }
-                    key(k, s) => { root.key(k, s); }
-                }
             }
-            side := Flickable {
+            Rectangle {
                 width: 384px;
-                viewport-height: column.preferred-height;
+                property <length> side-y;
+                property <bool> overflows: column.preferred-height > self.height;
+                side := Flickable {
+                    viewport-height: column.preferred-height;
+                    viewport-y <=> side-y;
                 column := VerticalLayout {
-                    width: 374px;
+                    x: 0;
+                    width: 374px; // Qt narrows it for the bar: here the width would hang on the height it gives
                     spacing: 12px;
                     alignment: start;
                     SideCard {
@@ -366,25 +428,28 @@ export component CompositeEditor inherits Window {
                     SideCard {
                         title: @tr("Streams");
                         icon: Icons.video;
-                        for row[i] in streams: HorizontalLayout {
-                            spacing: 12px;
-                            Text {
-                                text: row.text;
-                                font-family: Theme.font;
-                                font-size: Theme.body;
-                                color: row.dim ? Theme.text-faint : Theme.text;
-                                vertical-alignment: center;
-                                horizontal-stretch: 1;
-                                overflow: elide;
-                            }
-                            Rectangle {
-                                width: 36px;
-                                height: 32px;
-                                Switch {
-                                    y: 6px;
-                                    checked: row.on;
-                                    label: row.text;
-                                    toggled(on) => { root.stream-toggled(i, on); }
+                        VerticalLayout {
+                            for row[i] in streams: HorizontalLayout {
+                                spacing: 12px;
+                                Text {
+                                    text: row.text;
+                                    font-family: Theme.font;
+                                    font-size: Theme.body;
+                                    color: row.dim ? Theme.text-dim : Theme.text;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                    overflow: elide;
+                                }
+                                Rectangle {
+                                    width: 36px;
+                                    // 32 px only beside the note, which leaves its spare height to the rows in Qt
+                                    height: few-streams ? 32px : 28px;
+                                    Switch {
+                                        y: (parent.height - self.height) / 2;
+                                        checked: row.on;
+                                        label: row.text;
+                                        toggled(on) => { root.stream-toggled(i, on); }
+                                    }
                                 }
                             }
                         }
@@ -401,11 +466,14 @@ export component CompositeEditor inherits Window {
                         action => { root.fit-clicked(); }
                         if tile-shown: VerticalLayout {
                             spacing: 2px;
-                            FormRow {
+                            LabelRow {
+                            label-width: 72px;
                                 label: @tr("Stream");
                                 Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                             }
                             SliderRow {
+                                    label-width: 72px;
+                                    hue: Theme.plugin-hue("streaming");
                                 label: @tr("Zoom");
                                 tip: @tr("Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown");
                                 minimum: 100;
@@ -417,6 +485,8 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.zoom-moved(v); }
                             }
                             SliderRow {
+                                    label-width: 72px;
+                                    hue: Theme.plugin-hue("streaming");
                                 label: @tr("Border");
                                 maximum: border-max;
                                 value: border;
@@ -425,7 +495,8 @@ export component CompositeEditor inherits Window {
                                 default-value: 0;
                                 moved(v) => { root.border-moved(v); }
                             }
-                            FormRow {
+                            LabelRow {
+                            label-width: 72px;
                                 label: @tr("Colour");
                                 SwatchRow {
                                     label: @tr("Border colour");
@@ -436,6 +507,8 @@ export component CompositeEditor inherits Window {
                             }
                             if colour-target == "border": VerticalLayout {
                                 for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+                                    label-width: 72px;
+                                    hue: Theme.plugin-hue("streaming");
                                     label: name;
                                     minimum: 0;
                                     maximum: 255;
@@ -445,6 +518,8 @@ export component CompositeEditor inherits Window {
                                 }
                             }
                             SliderRow {
+                                    label-width: 72px;
+                                    hue: Theme.plugin-hue("streaming");
                                 label: @tr("Corners");
                                 maximum: radius-max;
                                 value: radius;
@@ -453,7 +528,8 @@ export component CompositeEditor inherits Window {
                                 default-value: 0;
                                 moved(v) => { root.radius-moved(v); }
                             }
-                            FormRow {
+                            LabelRow {
+                            label-width: 72px;
                                 label: @tr("Order");
                                 HorizontalLayout {
                                     spacing: 8px;
@@ -467,7 +543,8 @@ export component CompositeEditor inherits Window {
                     SideCard {
                         title: @tr("Background");
                         icon: Icons.image;
-                        FormRow {
+                        LabelRow {
+                            label-width: 72px;
                             label: @tr("Colour");
                             SwatchRow {
                                 label: @tr("Background colour");
@@ -478,6 +555,8 @@ export component CompositeEditor inherits Window {
                         }
                         if colour-target == "background": VerticalLayout {
                             for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+                                    label-width: 72px;
+                                    hue: Theme.plugin-hue("streaming");
                                 label: name;
                                 minimum: 0;
                                 maximum: 255;
@@ -486,7 +565,8 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.channel-moved(i, v); }
                             }
                         }
-                        FormRow {
+                        LabelRow {
+                            label-width: 72px;
                             label: @tr("Picture");
                             Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                             Button { y: 2px; text: @tr("Picture…"); tip: @tr("Put a picture behind the streams instead of the colour"); clicked => { root.picture-clicked(); } }
@@ -494,9 +574,19 @@ export component CompositeEditor inherits Window {
                         }
                     }
                 }
+                }
+                if overflows: SideScrollbar {
+                    x: parent.width - self.width;
+                    y: 0;
+                    height: parent.height;
+                    content: column.preferred-height;
+                    viewport: parent.height;
+                    position <=> side-y;
+                }
             }
         }
         HorizontalLayout {
+            padding-top: 4px;
             alignment: end;
             Button { width: 96px; text: @tr("Close"); clicked => { root.close-clicked(); } }
         }

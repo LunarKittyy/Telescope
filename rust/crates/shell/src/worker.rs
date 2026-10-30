@@ -382,6 +382,7 @@ impl StreamWorker {
                 s.status("error", &fill(&tr("Stream error: {error}"), &[("error", &what.unwrap_or_default())]));
             }
             s.join_handover();
+            (crate::window::app_hooks().release_memory)();
             s.status("idle", &tr("Not streaming"));
         }).map_err(|e| e.to_string())?;
         Ok(StreamWorker { shared, thread: Mutex::new(Some(thread)) })

@@ -10,7 +10,8 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
@@ -89,6 +90,9 @@ pub struct Window {
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
+export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
+export struct LayerText { x: length, y: length, text: string, color: color, size: length }
+
 export component PreviewPopout inherits Window {
     title: @tr("Telescope - Video Preview");
     min-width: 320px;
@@ -98,6 +102,21 @@ export component PreviewPopout inherits Window {
     in property <bool> has-frame;
     in property <image> overlay;
     in property <bool> has-overlay;
+    in property <string> stage-cursor;
+    in property <bool> marker-shown;
+    in property <float> marker-u;
+    in property <float> marker-v;
+    in property <color> marker-colour;
+    in property <[LayerPath]> layer-paths;
+    in property <[LayerText]> layer-texts;
+    in property <string> layer-font;
+    property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : root.width / max(1px, root.height);
+    out property <length> pic-width: min(root.width, root.height * aspect);
+    out property <length> pic-height: pic-width / max(aspect, 0.01);
+    property <length> pic-x: (root.width - pic-width) / 2;
+    property <length> pic-y: (root.height - pic-height) / 2;
+    callback view-pointer(string, float, float, float, float);
+    callback view-wheel(float, float, float);
     if has-frame: Image {
         width: parent.width;
         height: parent.height;
@@ -111,6 +130,62 @@ export component PreviewPopout inherits Window {
         source: overlay;
         image-fit: contain;
         image-rendering: smooth;
+    }
+    if has-frame && (layer-paths.length > 0 || layer-texts.length > 0): Rectangle {
+        x: pic-x;
+        y: pic-y;
+        width: pic-width;
+        height: pic-height;
+        for shape in layer-paths: Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: shape.commands;
+            stroke: shape.stroke;
+            stroke-width: shape.width;
+            fill: shape.fill;
+            fill-rule: shape.evenodd ? FillRule.evenodd : FillRule.nonzero;
+        }
+        for t in layer-texts: Text {
+            x: t.x;
+            y: t.y;
+            text: t.text;
+            color: t.color;
+            font-family: layer-font;
+            font-size: t.size;
+        }
+    }
+    // The card's stage, as it's the same FrameLabel in Qt
+    if has-frame: TouchArea {
+        mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
+        pointer-event(e) => {
+            let kind = e.kind == PointerEventKind.cancel ? "cancel"
+                : e.kind == PointerEventKind.move ? (self.pressed ? "move" : "")
+                : e.button != PointerEventButton.left ? ""
+                : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
+            if kind != "" {
+                root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+            }
+        }
+        scroll-event(e) => {
+            let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+            let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+            if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
+                return reject;
+            }
+            root.view-wheel(u, v, e.delta-y / 60px);
+            accept
+        }
+    }
+    if has-frame && marker-shown: Rectangle {
+        x: pic-x + marker-u * pic-width - 22px;
+        y: pic-y + marker-v * pic-height - 22px;
+        width: 44px;
+        height: 44px;
+        border-width: 2px;
+        border-color: marker-colour;
+        border-radius: 6px;
     }
 }
 "#;
@@ -403,6 +478,14 @@ impl Window {
     }
 
     /// Host::copy_text: onto the clipboard, through the window's hidden TextInput.
+    /// Opens url, or copies what a copy_url holds (a banner's Copy command).
+    pub fn follow_url(&self, url: &str) {
+        match url.strip_prefix(crate::banners::COPY_SCHEME) {
+            Some(text) => self.copy_text(text),
+            None => open_url(url),
+        }
+    }
+
     pub(crate) fn copy_text(&self, text: &str) {
         let _ = self.ui.invoke("copy-text", &[SValue::String(text.into())]);
     }
@@ -433,7 +516,7 @@ impl Window {
                 }
                 self.state.borrow_mut().effects.push(Effect::OpenSettings(tab));
             }
-            Pressed::Action(IssueDoes::OpenUrl { url }) => open_url(&url),
+            Pressed::Action(IssueDoes::OpenUrl { url }) => self.follow_url(&url),
             Pressed::Action(IssueDoes::StartAgain { source_id, before }) => {
                 // The plugin that showed it changes something first (Connect via back to Automatic)
                 if let Some(before) = before {
@@ -494,12 +577,19 @@ impl Window {
 
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
     /// open, else of the card's stage when the card shows one.
-    fn paint_preview(self: &Rc<Self>) {
+    pub fn paint_preview(self: &Rc<Self>) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
         let prop = |name: &str| self.ui.get_property(&format!("{}-{name}", r.id)).ok();
         let on = |name: &str| prop(name) == Some(SValue::Bool(true));
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        if let Some(p) = &popout {
+            for name in ["stage-cursor", "marker-shown", "marker-u", "marker-v"] {
+                if let Some(value) = prop(name) {
+                    let _ = p.set_property(name, value);
+                }
+            }
+        }
         let card = on("visible-card") && on("showing");
         let window = self.ui.window();
         let seen = window.is_visible() && !window.is_minimized();
@@ -587,10 +677,13 @@ impl Window {
     }
 
     /// The shapes plugins draw on the preview card's picture (add_preview_layer), at the picture's size now.
-    fn paint_layers(&self) {
+    pub fn paint_layers(&self) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
-        let name = |n: &str| format!("{}-{n}", r.id);
-        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        // On the pop-out while it's open: the card is hidden then
+        let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        let target = popout.as_ref().unwrap_or(&self.ui);
+        let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
+        let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
         let drawing = crate::overlays::layer_drawing(&self.state.borrow().layers, number("pic-width"), number("pic-height"));
         if *self.layers_drawn.borrow() == drawing {
             return;
@@ -617,8 +710,8 @@ impl Window {
                 ("size".to_string(), SValue::Number(t.size as f64)),
             ]))
         }).collect();
-        let _ = self.ui.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
-        let _ = self.ui.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
+        let _ = target.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
+        let _ = target.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
         *self.layers_drawn.borrow_mut() = drawing;
     }
 
@@ -660,8 +753,26 @@ impl Window {
                         });
                         slint::CloseRequestResponse::HideWindow
                     });
+                    for callback in ["view-pointer", "view-wheel"] {
+                        let weak = Rc::downgrade(self);
+                        let _ = p.set_callback(callback, move |args| {
+                            if let Some(w) = weak.upgrade() {
+                                let event = UiEvent { ui: "card".into(), callback: callback.into(), args: args.iter().map(to_json).collect() };
+                                w.state.borrow_mut().ui_event("preview", event);
+                                w.process();
+                            }
+                            SValue::Void
+                        });
+                    }
+                    if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
+                        let _ = p.set_property("marker-colour", accent);
+                    }
+                    if let Ok(font) = self.ui.get_global_property("Theme", "font") {
+                        let _ = p.set_property("layer-font", font);
+                    }
                     let _ = p.show();
                     *self.popout.borrow_mut() = Some(p);
+                    self.layers_drawn.take();
                     self.painted.set(0);
                 }
                 Err(e) => log::error!("The preview couldn't pop out: {e}"),
@@ -671,6 +782,7 @@ impl Window {
             if let Some(p) = self.popout.borrow_mut().take() {
                 let _ = p.hide();
             }
+            self.layers_drawn.take();
             self.painted.set(0);
         } else if open && asks != self.popout_asks.get() {
             self.popout_asks.set(asks);
@@ -713,6 +825,11 @@ impl Window {
         let done = self.ui.invoke(&format!("{}-{callback}", r.id), &[]).is_ok();
         self.process();
         done
+    }
+
+    /// The preview's pop-out window, while it's open.
+    pub fn popout_window(&self) -> Option<ComponentInstance> {
+        self.popout.borrow().as_ref().map(|p| p.clone_strong())
     }
 
     /// HostUi::open_window: builds the plugin's window and shows it, or shows it again when it's open.
@@ -905,14 +1022,12 @@ impl Window {
             Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
             Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),
+            Effect::Restart => self.restart_app(),
             Effect::Tray(_) => self.refresh_tray_menu(),
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
-            Effect::OpenUrl(url) => match url.strip_prefix(crate::banners::COPY_SCHEME) {
-                Some(text) => self.copy_text(text),
-                None => open_url(&url),
-            },
+            Effect::OpenUrl(url) => self.follow_url(&url),
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
@@ -996,6 +1111,20 @@ impl Window {
         let _ = self.ui.set_property("streaming", SValue::Bool(true));
     }
 
+    /// restart_app: the launcher starts a supervised copy again from its exit code; any other starts a new copy of itself,
+    /// which waits for this one to let go.
+    fn restart_app(&self) {
+        if telescope_core::dev_profile::supervised() {
+            EXIT_CODE.store(restart_exit_code(self.is_streaming()), Ordering::SeqCst);
+            return self.quit("Restarting");
+        }
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned());
+        match exe.and_then(|exe| (app_hooks().relaunch)(&[exe, "--restarted".to_string()])) {
+            Ok(()) => self.quit("Restarting"),
+            Err(e) => log::error!("Couldn't start Telescope again: {e}"),
+        }
+    }
+
     pub fn shut_down(self: &Rc<Self>) {
         self.stop_streams_for_quit();
         if self.save_timer.running() {
@@ -1025,6 +1154,56 @@ pub fn forget() {
 }
 
 /// The window, until it's closed.
+/// What only the program around the window knows; the binary hands them over before the window opens (the plain defaults
+/// are for tests and tools).
+pub struct AppHooks {
+    /// Which Telescope this is, as the UI says it, and its commit.
+    pub build: fn() -> String,
+    pub commit: fn() -> &'static str,
+    /// Hands memory the allocator kept after frames were freed back to the system.
+    pub release_memory: fn(),
+    /// Starts argv on its own, outliving this process.
+    pub relaunch: fn(&[String]) -> std::io::Result<()>,
+}
+
+static APP_HOOKS: OnceLock<AppHooks> = OnceLock::new();
+
+pub fn use_app_hooks(hooks: AppHooks) {
+    let _ = APP_HOOKS.set(hooks);
+}
+
+pub(crate) fn app_hooks() -> &'static AppHooks {
+    APP_HOOKS.get_or_init(|| AppHooks {
+        build: || telescope_core::version::version().to_string(),
+        commit: || "",
+        release_memory: || {},
+        relaunch: |_| Err(std::io::ErrorKind::Unsupported.into()),
+    })
+}
+
+/// What the process should exit with once run() is back, for the dev launcher.
+static EXIT_CODE: AtomicI32 = AtomicI32::new(0);
+
+pub fn exit_code() -> i32 {
+    EXIT_CODE.load(Ordering::SeqCst)
+}
+
+fn restart_exit_code(streaming: bool) -> i32 {
+    use telescope_core::dev_profile::{RESTART_EXIT, RESTART_STREAMING};
+    if streaming { RESTART_STREAMING } else { RESTART_EXIT }
+}
+
+/// QApplication.platformName, for the diagnostics report.
+pub(crate) fn windowing() -> &'static str {
+    if cfg!(windows) {
+        "windows"
+    } else if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        "wayland"
+    } else {
+        "x11"
+    }
+}
+
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
     let window = build(ConfigFile::default(), |bus| {
@@ -1102,4 +1281,18 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.shut_down();
     WINDOW.with(|w| *w.borrow_mut() = None);
     Ok(())
+}
+
+#[cfg(test)]
+mod popout_tests {
+    #[test]
+    fn a_restart_tells_the_dev_launcher_whether_to_stream_again() {
+        assert_eq!((super::restart_exit_code(false), super::restart_exit_code(true)), (75, 76));
+    }
+
+    #[test]
+    fn the_pop_out_compiles() {
+        i_slint_backend_testing::init_no_event_loop();
+        crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap();
+    }
 }

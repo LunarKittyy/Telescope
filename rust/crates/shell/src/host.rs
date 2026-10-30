@@ -254,7 +254,9 @@ impl HostShell for Ctx<'_> {
         true
     }
     fn diagnostics_report(&self) -> String {
-        self.state.diagnostics().iter().map(|(k, v)| format!("{k}: {v}\n")).collect()
+        use telescope_core::diagnostics::{events, report_for};
+        let hooks = crate::window::app_hooks();
+        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics(), crate::window::windowing())
     }
     fn open_url(&mut self, url: &str) {
         self.state.effects.push(Effect::OpenUrl(url.into()));
@@ -298,9 +300,6 @@ impl HostShell for Ctx<'_> {
         self.state.effects.push(Effect::ShortcutMenu);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
-        if !cfg!(target_os = "linux") {
-            return None;
-        }
         let request = self.state.request_id();
         self.state.effects.push(Effect::PickFile { plugin: self.me.clone(), request, dialog: dialog.clone() });
         Some(request)
@@ -446,6 +445,9 @@ impl HostPreview for Ctx<'_> {
     }
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
         self.state.overlays.set_warp(owner, matrix);
+    }
+    fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
+        self.state.overlays.unwarp(u, v)
     }
 }
 

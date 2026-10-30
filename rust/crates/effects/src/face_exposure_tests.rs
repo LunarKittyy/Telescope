@@ -409,7 +409,7 @@ fn whole_runs_send_what_python_sends() {
                 "follow" => r.ui("follow-clicked", Value::Null),
                 "camera" => r.event(Event::CameraSwitched { camera: json!({}) }),
                 "stop" => r.plugin.on_stream_stop(&mut r.host),
-                "focus" => r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone".into(), url: "url".into() }),
+                "focus" => r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone".into(), url: "url".into(), session: 0 }),
                 "view" => {
                     let v = &op["view"];
                     r.host.view = View {

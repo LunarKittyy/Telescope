@@ -37,6 +37,7 @@ event remembered_sources
 event request_done
 event request_progress
 event resolution_change_requested
+event select_source
 event sensors_changed
 event setup_guide_requested
 event setup_needed

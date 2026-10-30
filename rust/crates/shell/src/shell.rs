@@ -610,8 +610,8 @@ impl State {
         if names.iter().any(|n| n == "view") {
             let (vc, view, now) = (&mut self.vc, &self.view, now_s());
             let said = match hook {
-                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, now),
-                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, now),
+                Hook::StreamStart(info) => vc.stream_start(view, &info.source_id, info.session, now),
+                Hook::FocusGained(info) => vc.focus_gained(view, &info.source_id, info.session, now),
                 Hook::StreamStop => vc.stream_stop(view, now),
                 Hook::FocusLost => vc.focus_lost(view, now),
                 _ => Vec::new(),
@@ -1187,6 +1187,58 @@ mod tests {
     }
 
     #[test]
+    fn a_click_on_a_warped_preview_focuses_on_what_shows_under_the_mouse() {
+        struct Hears(Arc<Mutex<Vec<Event>>>);
+        impl Plugin for Hears {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "hears".into(), title: "Hears".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Hears(heard.clone()))).unwrap();
+        s.register(Box::new(crate::plugins::preview::Preview::default())).unwrap();
+        s.bus.emit(Event::FocusPointAvailable { available: true });
+        s.deliver_events();
+        s.overlays.set_warp("Desk", Some([1.0, 0.0, 0.25, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]));
+        for kind in ["down", "up"] {
+            s.ui_event("preview", UiEvent { ui: "card".into(), callback: "view-pointer".into(), args: vec![json!(kind), json!(0.75), json!(0.5), json!(400.0), json!(200.0)] });
+        }
+        assert!(heard.lock().unwrap().contains(&Event::FocusPointPicked { x: 0.5, y: 0.5 }));
+    }
+
+    #[test]
+    fn copy_diagnostics_has_the_build_the_state_and_what_happened() {
+        use telescope_core::diagnostics::events;
+        use telescope_core::host::HostShell;
+        struct Reports;
+        impl Plugin for Reports {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "reports".into(), title: "Reports".into(), ..Default::default() }
+            }
+            fn diagnostics(&self) -> Vec<(String, String)> {
+                vec![("Reports".into(), "fine".into())]
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Reports)).unwrap();
+        s.register(stub("asks", json!({}), false).0).unwrap();
+        events().note("Status: a line from before");
+        s.banners.show("k", telescope_core::ui::Issue {
+            title: "Phone hot".into(), text: "Let it cool".into(), actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false,
+        });
+        let i = s.index("asks").unwrap();
+        let mut report = String::new();
+        s.call(i, |_, host| report = host.diagnostics_report());
+        assert!(report.starts_with("Telescope "), "{report}");
+        assert!(report.contains("Reports: fine") && report.contains("Status: a line from before"), "{report}");
+        assert!(report.contains("Banner: Phone hot. Let it cool"), "{report}");
+    }
+
+    #[test]
     fn a_saved_config_that_wont_load_keeps_the_fields_that_do() {
         let mut s = state();
         s.register(stub("setup", json!({"zoom": 1, "canvas": "auto"}), false).0).unwrap();
@@ -1534,7 +1586,7 @@ mod tests {
         let heard = camera_hears(&mut s);
         let caps = json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
         s.vc.set_view(&mut s.view, &telescope_core::host::ViewChange { zoom: Some(1.0), ..Default::default() }, 0.0);
-        s.vc.stream_start(&s.view, "phone", 0.0);
+        s.vc.stream_start(&s.view, "phone", 1, 0.0);
         s.vc.phone_state(&s.view, &caps, 0.0);
         s.vc.set_view(&mut s.view, &telescope_core::host::ViewChange { zoom: Some(2.0), ..Default::default() }, 0.0);
         s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.5 });
