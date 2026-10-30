@@ -548,7 +548,7 @@ fn max_gain_loads_with_a_safe_fallback_and_is_announced() {
         r.plugin.on_plugins_ready(&mut r.host);
         assert_eq!(r.plugin.get_config()["max_gain"], json!(want));
         let seen: Vec<_> = r.events().into_iter().filter(|e| matches!(e, Event::MaxGainChanged { .. })).collect();
-        assert_eq!(seen, vec![Event::MaxGainChanged { max_gain: want as i32 }]);
+        assert_eq!(seen, vec![Event::MaxGainChanged { max_gain: want }]);
     }
 }
 

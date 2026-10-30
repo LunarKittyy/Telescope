@@ -351,9 +351,9 @@ static TIDYING: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::syn
 
 /// What only the copy holding the lock may do, after taking it (main.py): a command or a duplicate launch never gets here.
 fn own_the_lock(take: impl FnOnce() -> Option<()>, clean_up: impl FnOnce()) -> Option<()> {
-    let owned = take()?;
+    take()?;
     clean_up();
-    Some(owned)
+    Some(())
 }
 
 /// dev_desktop.py --plugin: calls changed when one of the plugin's files is saved, so the change shows right away (_watch_dev_plugins).

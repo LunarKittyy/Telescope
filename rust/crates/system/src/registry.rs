@@ -156,7 +156,7 @@ mod tests {
         let line = "\"C:\\Users\\Åsa\\日本語\\TelescopeDesktop.exe\" --minimized";
         let bytes = registry_data(line);
         assert_eq!(bytes.len(), (line.encode_utf16().count() + 1) * 2, "with the closing NUL, counted in bytes");
-        let units: Vec<u16> = bytes.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let units: Vec<u16> = bytes.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes(*c)).collect();
         assert_eq!(units.last(), Some(&0));
         assert_eq!(registry_text(1, &units).as_deref(), Some(line));
         assert_eq!(registry_text(4, &units), None);

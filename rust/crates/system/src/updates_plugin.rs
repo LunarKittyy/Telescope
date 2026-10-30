@@ -71,6 +71,9 @@ pub trait Backend: Send + Sync {
     fn started_elsewhere(&self, _build: i64) {}
 }
 
+/// Runs the installer and waits for it.
+pub type RunSetup = Arc<dyn Fn(&[String]) -> SetupRun + Send + Sync>;
+
 /// This copy, in the folder it runs from.
 pub struct RealBackend {
     pub directory: PathBuf,
@@ -80,7 +83,7 @@ pub struct RealBackend {
     pub stop_adb: Option<Arc<dyn Fn() + Send + Sync>>,
     pub opener: Arc<dyn Opener>,
     /// Runs the installer and waits for it.
-    pub run_setup: Arc<dyn Fn(&[String]) -> SetupRun + Send + Sync>,
+    pub run_setup: RunSetup,
     /// Where the installer put Telescope.
     pub locate: Arc<dyn Fn() -> Option<PathBuf> + Send + Sync>,
     unzipped: std::sync::OnceLock<bool>,
@@ -106,6 +109,7 @@ fn download_folder() -> io::Result<PathBuf> {
     let mut made = io::Error::from(io::ErrorKind::AlreadyExists);
     for n in 0..100 {
         let folder = std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id()));
+        #[cfg_attr(not(unix), allow(unused_mut))]
         let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
