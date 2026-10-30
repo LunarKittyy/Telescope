@@ -604,9 +604,7 @@ impl SetupPlugin {
         self.spawn(host, "win-checks", move |_| {
             let s = outputs.setup_status();
             let mf = if s.windows_camera { if s.outdated { "update" } else { "ready" } } else if s.installable { "offer" } else { "" };
-            // A camera that's registered without a name said is UnityCapture under Telescope's
-            let name = if s.registered_name.is_empty() && s.loaded && !s.windows_camera { UC_NAME.to_string() } else { s.registered_name };
-            json!({"uc_name": name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf})
+            json!({"uc_name": s.registered_name, "adb": link.adb_available(), "in_app_folder": s.in_app_folder, "mf": mf})
         });
     }
 

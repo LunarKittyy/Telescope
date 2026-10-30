@@ -295,6 +295,17 @@ fn windows_background_check_emits_current_status() {
 }
 
 #[test]
+fn a_camera_that_isnt_telescopes_is_not_shown_as_ready() {
+    // Something is registered and loaded, but not as Telescope's own UnityCapture: no name to show
+    let mut r = Rig::with(false, FakeOutputs { status: Mutex::new(SetupStatus { ready: true, loaded: true, ..SetupStatus::default() }),
+                                               ..FakeOutputs::default() });
+    r.plugin.check_win_setup(&mut r.host);
+    r.deliver();
+    assert!(r.plugin.panel.uc.text.starts_with("Not installed"), "{}", r.plugin.panel.uc.text);
+    assert_eq!(r.plugin.panel.uc_button, "Install driver");
+}
+
+#[test]
 fn without_adb_advanced_offers_to_get_it() {
     let mut r = Rig::windows();
     r.plugin.on_win_checks("Telescope", true, false, "", true);

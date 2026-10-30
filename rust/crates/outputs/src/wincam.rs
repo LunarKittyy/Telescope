@@ -165,6 +165,20 @@ pub fn camera_installed(reg: &dyn Registry, uc_dir: &Path) -> bool {
     use_mf(reg, 0) || uc_is_registered(reg, uc_dir)
 }
 
+/// What Setup shows of the cameras. Another app's UnityCapture, under the same ids, isn't a Telescope camera: only a
+/// registration of Telescope's own DLL counts, as camera_installed does.
+pub fn setup_status(reg: &dyn Registry, uc_dir: &Path, mf_dir: &Path) -> telescope_core::output::SetupStatus {
+    let ready = camera_installed(reg, uc_dir);
+    telescope_core::output::SetupStatus {
+        installed: ready, loaded: ready, ready, windows_camera: use_mf(reg, 0),
+        outdated: mf_outdated(reg, mf_dir.join(MF_DLL).is_file()),
+        registered_name: uc_registered_name(reg, uc_dir).unwrap_or_default(),
+        in_app_folder: uc_in_app_folder(reg, uc_dir),
+        installable: mf_installable(reg, mf_dir),
+        ..Default::default()
+    }
+}
+
 /// Whether installing the camera here sets up the Windows 11 one: allowed, and its DLL in mf_dir.
 pub fn mf_installable(reg: &dyn Registry, mf_dir: &Path) -> bool {
     mf_allowed(reg) && mf_dir.join(MF_DLL).is_file()
@@ -458,6 +472,21 @@ pub(crate) mod tests {
         assert!(camera_installed(&FakeRegistry::default().with_mf(&[0]), uc));
         assert!(camera_installed(&filter_registry(&uc.join(UC_DLL_64), Some("Telescope")), uc));
         assert!(!camera_installed(&FakeRegistry::default(), uc));
+    }
+
+    #[test]
+    fn another_apps_unitycapture_is_not_a_telescope_camera() {
+        let (uc, mf) = (Path::new("/app/unitycapture"), Path::new("/app/virtualcamera"));
+        // UnityCapture's own ids, registered from somewhere else (OBS's, say)
+        let foreign = FakeRegistry::uc(&[(0, "Unity Video Capture")]);
+        let status = setup_status(&foreign, uc, mf);
+        assert!(!status.ready && !status.loaded && !status.installed && !status.windows_camera);
+        assert_eq!(status.registered_name, "");
+        // Telescope's own, under the name it was registered with
+        let ours = setup_status(&filter_registry(&uc.join(UC_DLL_64), Some("Telescope")), uc, mf);
+        assert!(ours.ready && ours.loaded && ours.installed && !ours.windows_camera);
+        assert_eq!(ours.registered_name, "Telescope");
+        assert!(setup_status(&FakeRegistry::default().with_mf(&[0]), uc, mf).ready);
     }
 
     #[test]
