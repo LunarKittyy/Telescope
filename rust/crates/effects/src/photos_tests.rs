@@ -434,3 +434,45 @@ fn the_pictures_folder_is_read_the_way_qt_reads_it() {
     assert_eq!(folder(Some("XDG_PICTURES_DIR = \"$HOME/Sp\"\n")), "/home/me/Pictures");
     assert_eq!(folder(Some("XDG_MUSIC_DIR=\"$HOME/Tunes\"\n")), "/home/me/Pictures");
 }
+
+// Typed into a QSpinBox in Python a key at a time: (keys, box 0 or 1, largest burst, value before, text after each key, text after
+// leaving, value after). The first key replaces the selected text.
+type Typing = (&'static str, usize, i64, i64, &'static [&'static str], &'static str, i64);
+const TYPED: [Typing; 14] = [
+    ("100", 0, 60, 5, &["1", "10", "10"], "10", 10),
+    ("1", 0, 60, 5, &["1"], "5", 5),
+    ("61", 0, 60, 5, &["6", "6"], "6", 6),
+    ("0", 0, 60, 5, &["0"], "5", 5),
+    ("a", 0, 60, 5, &["5"], "5", 5),
+    ("1x", 0, 60, 5, &["1", "1"], "5", 5),
+    ("007", 0, 60, 5, &["0", "00", "007"], "7", 7),
+    ("04", 0, 60, 5, &["0", "04"], "4", 4),
+    ("12", 1, 60, 5, &["1", "12"], "12", 12),
+    ("31", 1, 60, 5, &["3", "3"], "3", 3),
+    ("5", 0, 4, 3, &["3"], "3", 3),
+    ("1", 0, 4, 3, &["1"], "3", 3),
+    ("10", 0, 4, 3, &["1", "1"], "3", 3),
+    ("3", 0, 2, 2, &["2"], "2", 2),
+];
+
+#[test]
+fn the_number_boxes_take_keys_the_way_a_spin_box_does() {
+    for (keys, which, burst_max, before, shown, after, value) in TYPED {
+        let mut rig = Rig::new(Some(json!({"size": [1920, 1080], "burst_max": burst_max})), true);
+        rig.plugin.set_config(&json!({"folder": "/tmp/photos", "burst": before, "focus_steps": before})).unwrap();
+        rig.event(Event::PhoneStateUpdated { state: json!({}) });
+        let name = ["burst", "focus"][which];
+        let mut field = String::new();
+        for (n, key) in keys.chars().enumerate() {
+            let at = rig.plugin.sync[which];
+            let typed = if n == 0 { key.to_string() } else { format!("{field}{key}") };
+            rig.ui("number-edited", vec![json!(which), json!(typed)]);
+            field = if rig.plugin.sync[which] > at { rig.props()[format!("{name}-restore")].as_str().unwrap().to_string() } else { typed };
+            assert_eq!(field, shown[n], "{keys:?} after key {n}");
+        }
+        rig.ui("number-left", vec![json!(which)]);
+        assert_eq!(rig.props()[format!("{name}-restore")].as_str().unwrap(), after, "{keys:?} after leaving");
+        let key = ["burst", "focus_steps"][which];
+        assert_eq!(rig.plugin.get_config()[key], value, "{keys:?}");
+    }
+}

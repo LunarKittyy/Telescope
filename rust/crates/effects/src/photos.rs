@@ -305,6 +305,30 @@ fn index_of(list: &[&str], value: &str) -> usize {
     list.iter().position(|v| *v == value).unwrap_or(0)
 }
 
+/// What a QSpinBox makes of the text typed into it: whether it's a value in range, could still become one, or the box won't take it.
+#[derive(Debug, PartialEq, Eq)]
+enum Typed {
+    Acceptable(i64),
+    Intermediate,
+    Invalid,
+}
+
+fn typed_number(text: &str, min: i64, max: i64) -> Typed {
+    if text.is_empty() {
+        return Typed::Intermediate;
+    }
+    if !text.bytes().all(|b| b.is_ascii_digit()) {
+        return Typed::Invalid;
+    }
+    // More digits than any i64 holds are far past the largest allowed
+    let value = text.parse::<i64>().unwrap_or(i64::MAX);
+    match value {
+        v if (min..=max).contains(&v) => Typed::Acceptable(v),
+        v if v > max || min == max => Typed::Invalid,
+        _ => Typed::Intermediate,
+    }
+}
+
 /// The kinds of choice the card sends back: which list a pick came from.
 const PICKS: [&str; 6] = ["mode", "format", "shots", "exposure_s", "bracket", "distortion"];
 
@@ -323,6 +347,9 @@ pub struct PhotosPlugin {
     paired: Paired,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
+    /// What the How many and Steps boxes show while they're being typed in (None: the value), and how often each was put back.
+    typing: [Option<String>; 2],
+    sync: [i64; 2],
 }
 
 impl Default for PhotosPlugin {
@@ -345,6 +372,8 @@ impl PhotosPlugin {
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
             pending: false,
+            typing: [None, None],
+            sync: [0, 0],
         }
     }
 
@@ -378,6 +407,58 @@ impl PhotosPlugin {
         list.iter().map(|k| labels.iter().find(|(key, _)| key == k).map_or_else(|| k.to_string(), |(_, t)| tr(t))).collect()
     }
 
+    /// The range of the How many (0) and Steps (1) boxes.
+    fn number_range(&self, which: usize) -> (i64, i64) {
+        let burst_max = self.effective_caps().burst_max;
+        if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.min(30).max(2)) }
+    }
+
+    /// What the box shows for the value it holds.
+    fn number_text(&self, which: usize) -> String {
+        let (min, max) = self.number_range(which);
+        let (key, default) = if which == 0 { ("burst", 5) } else { ("focus_steps", 5) };
+        int(&self.choices, key, default).clamp(min, max).to_string()
+    }
+
+    /// Puts a box back to `text`, as a QSpinBox does with a key it refuses or text it can't keep.
+    fn restore_number(&mut self, host: &mut dyn Host, which: usize, text: String) {
+        self.sync[which] += 1;
+        let name = if which == 0 { "burst" } else { "focus" };
+        host.set_ui_props("card", &json!({format!("{name}-restore"): text, format!("{name}-sync"): self.sync[which]}));
+    }
+
+    /// Both boxes show their values again (the lens or the settings changed under them).
+    fn sync_numbers(&mut self, host: &mut dyn Host) {
+        for which in 0..2 {
+            self.typing[which] = None;
+            let text = self.number_text(which);
+            self.restore_number(host, which, text);
+        }
+    }
+
+    fn number_edited(&mut self, host: &mut dyn Host, which: usize, text: &str) {
+        let which = which.min(1);
+        let (min, max) = self.number_range(which);
+        match typed_number(text, min, max) {
+            Typed::Acceptable(value) => {
+                self.typing[which] = Some(text.to_string());
+                self.pick_value(host, if which == 0 { "burst" } else { "focus_steps" }, json!(value));
+            }
+            Typed::Intermediate => self.typing[which] = Some(text.to_string()),
+            Typed::Invalid => {
+                let back = self.typing[which].clone().unwrap_or_else(|| self.number_text(which));
+                self.restore_number(host, which, back);
+            }
+        }
+    }
+
+    fn number_left(&mut self, host: &mut dyn Host, which: usize) {
+        let which = which.min(1);
+        self.typing[which] = None;
+        let text = self.number_text(which);
+        self.restore_number(host, which, text);
+    }
+
     /// The controls for what this lens offers, keeping the picks it can't do for another lens (_show_choices).
     fn choice_props(&self) -> Value {
         let caps = self.effective_caps();
@@ -389,16 +470,16 @@ impl PhotosPlugin {
         let extension = EXTENSIONS.contains(&mode);
         let exposure = pick_number(number(c, "exposure_s", 0.0), &can.exposures);
         let quality = int(c, "quality", 95).clamp(50, 100);
-        let burst_max = caps.burst_max.max(2);
-        let focus_max = caps.burst_max.min(30).max(2);
+        let (burst_text, focus_text) = (self.number_text(0), self.number_text(1));
         json!({
+            "burst-restore": burst_text, "burst-sync": self.sync[0], "focus-restore": focus_text, "focus-sync": self.sync[1],
             "mode-items": Self::labelled(&can.modes, &MODES), "mode-current": index_of(&can.modes, mode), "mode-shown": can.modes.len() > 1,
             "format-items": Self::labelled(&can.formats, &FORMATS), "format-current": index_of(&can.formats, format), "format-shown": can.formats.len() > 1,
             "quality": quality, "quality-text": quality.to_string(), "quality-shown": format != "raw",
             "shots-items": Self::labelled(&can.shots, &SHOTS), "shots-current": index_of(&can.shots, shots), "shots-shown": can.shots.len() > 1,
-            "burst-text": int(c, "burst", 5).clamp(2, burst_max).to_string(), "burst-shown": shots == "burst",
+            "burst-text": burst_text, "burst-shown": shots == "burst",
             "bracket-current": BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0), "bracket-shown": shots == "bracket",
-            "focus-text": int(c, "focus_steps", 5).clamp(2, focus_max).to_string(), "focus-shown": shots == "focus",
+            "focus-text": focus_text, "focus-shown": shots == "focus",
             "exposure-items": can.exposures.iter().map(|s| exposure_text(*s)).collect::<Vec<_>>(),
             "exposure-current": can.exposures.iter().position(|s| *s == exposure).unwrap_or(0), "exposure-shown": can.exposures.len() > 1,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
@@ -457,6 +538,7 @@ impl PhotosPlugin {
             self.caps = raw.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok());
             self.caps_raw = raw;
             self.show_choices(host);
+            self.sync_numbers(host);
         }
         self.busy = host.still_busy(None);
         host.set_ui_props("card", &self.state_props(host));
@@ -466,6 +548,7 @@ impl PhotosPlugin {
         if self.pending {
             self.pending = false;
             self.refresh(host);
+            self.sync_numbers(host);
             host.set_ui_props("card", &self.all_props(host));
         }
     }
@@ -658,18 +741,8 @@ impl Plugin for PhotosPlugin {
                 host.set_ui_props("card", &json!({"quality-text": value.to_string()}));
                 self.pick_value(host, "quality", json!(value));
             }
-            "number-edited" => {
-                // A spin box takes what's typed once it's a number in range
-                let typed = event.args.get(1).and_then(Value::as_str).unwrap_or("").trim().parse::<i64>();
-                let caps = self.effective_caps();
-                if let Ok(value) = typed {
-                    match index(0) {
-                        0 if (2..=caps.burst_max.max(2)).contains(&value) => self.pick_value(host, "burst", json!(value)),
-                        1 if (2..=caps.burst_max.min(30).max(2)).contains(&value) => self.pick_value(host, "focus_steps", json!(value)),
-                        _ => {}
-                    }
-                }
-            }
+            "number-edited" => self.number_edited(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
+            "number-left" => self.number_left(host, index(0)),
             "timer-picked" => {
                 if let Some(seconds) = TIMERS.get(index(0)) {
                     self.pick_value(host, "timer", json!(seconds));
