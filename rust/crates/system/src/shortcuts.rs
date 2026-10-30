@@ -156,6 +156,9 @@ enum Source {
     Global,
 }
 
+/// Starts a program with an argument; false when it isn't there.
+type Launcher = Box<dyn Fn(&[&str]) -> bool + Send>;
+
 type BackendFactory = Box<dyn FnOnce(Signals) -> Option<Box<dyn HotkeyBackend>> + Send>;
 
 pub struct ShortcutsPlugin {
@@ -186,8 +189,7 @@ pub struct ShortcutsPlugin {
     menu: Option<Vec<ShortcutEntry>>,
     /// A shortcut a right-click asked for, to edit once Settings is up.
     from_menu: Option<Binding>,
-    /// Starts a program with an argument; false when it isn't there.
-    launch: Box<dyn Fn(&[&str]) -> bool + Send>,
+    launch: Launcher,
 }
 
 impl ShortcutsPlugin {
