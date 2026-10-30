@@ -372,9 +372,12 @@ impl HostMotion for Ctx<'_> {
 }
 
 impl HostPreview for Ctx<'_> {
-    fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
+    fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
+        self.state.layers.insert(owner.to_string(), layer);
+    }
     fn remove_preview_layer(&mut self, owner: &str) {
         self.state.passes.retain(|(o, _)| o != owner);
+        self.state.layers.remove(owner);
         self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
     }
     fn refresh_preview(&mut self) {

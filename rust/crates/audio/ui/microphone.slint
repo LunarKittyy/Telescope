@@ -292,12 +292,9 @@ export component MicrophoneCard inherits Card {
             }
         }
     }
-    // A wrapped text inside an `if` is measured as one line, so this row hides with visible and height instead
-    FormRow {
+    // Left out with `if`: a row hidden at 0px still takes the card's spacing
+    if status-text != "": FormRow {
         label: "";
-        visible: status-text != "";
-        max-height: status-text != "" ? 1000px : 0px;
-        min-height: status-text != "" ? 36px : 0px;
         Note {
             text: status-text;
             kind: status-kind;

@@ -4,7 +4,8 @@
 
 use telescope_core::bus::EventBus;
 use telescope_core::event::Event;
-use telescope_core::host::{Pick, PickKind, View};
+use std::collections::BTreeMap;
+use telescope_core::host::{Pick, PickKind, PreviewLayer, Shape, View};
 use telescope_core::i18n::tr;
 use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
 
@@ -393,6 +394,75 @@ impl PickDrawing {
     }
 }
 
+/// A shape of a plugin's PreviewLayer as the preview card draws it: SVG path commands in px of the picture's rect, colours as
+/// RGBA (None: not stroked or not filled).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayerPath {
+    pub commands: String,
+    pub stroke: Option<[u8; 4]>,
+    pub width: f32,
+    pub fill: Option<[u8; 4]>,
+    pub evenodd: bool,
+}
+
+/// A Text shape, its top left in px of the picture's rect.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayerText {
+    pub x: f32,
+    pub y: f32,
+    pub text: String,
+    pub color: [u8; 4],
+    pub size: f32,
+}
+
+/// "#rrggbb" or "#rrggbbaa"; None for anything else.
+pub fn rgba(colour: &str) -> Option<[u8; 4]> {
+    let hex = colour.strip_prefix('#')?;
+    let byte = |i: usize| hex.get(i..i + 2).and_then(|h| u8::from_str_radix(h, 16).ok());
+    match hex.len() {
+        6 => Some([byte(0)?, byte(2)?, byte(4)?, 255]),
+        8 => Some([byte(0)?, byte(2)?, byte(4)?, byte(6)?]),
+        _ => None,
+    }
+}
+
+/// Every layer's shapes for a picture w x h px, by owner and then in the order each layer lists them.
+pub fn layer_drawing(layers: &BTreeMap<String, PreviewLayer>, w: f32, h: f32) -> (Vec<LayerPath>, Vec<LayerText>) {
+    let (mut paths, mut texts) = (Vec::new(), Vec::new());
+    let line = |points: &[[f32; 2]], close: bool| -> String {
+        let mut out: Vec<String> = points.iter().enumerate().map(|(i, p)| format!("{} {} {}", if i == 0 { "M" } else { "L" }, p[0] * w, p[1] * h)).collect();
+        if close && !out.is_empty() {
+            out.push("Z".into());
+        }
+        out.join(" ")
+    };
+    for shape in layers.values().flat_map(|l| &l.shapes) {
+        match shape {
+            Shape::Rect { x0, y0, x1, y1, stroke, width, fill } => {
+                let corners = [[*x0, *y0], [*x1, *y0], [*x1, *y1], [*x0, *y1]];
+                paths.push(LayerPath { commands: line(&corners, true), stroke: rgba(stroke), width: *width, fill: fill.as_deref().and_then(rgba), evenodd: false });
+            }
+            Shape::Polygon { points, stroke, width, fill } if points.len() > 1 => {
+                paths.push(LayerPath { commands: line(points, true), stroke: rgba(stroke), width: *width, fill: fill.as_deref().and_then(rgba), evenodd: false });
+            }
+            Shape::Line { points, stroke, width } if points.len() > 1 => {
+                paths.push(LayerPath { commands: line(points, false), stroke: rgba(stroke), width: *width, fill: None, evenodd: false });
+            }
+            Shape::Text { x, y, text, color, size } => {
+                if let Some(color) = rgba(color) {
+                    texts.push(LayerText { x: x * w, y: y * h, text: text.clone(), color, size: *size });
+                }
+            }
+            Shape::Dim { points, color } if points.len() > 2 => {
+                let commands = format!("M 0 0 L {w} 0 L {w} {h} L 0 {h} Z {}", line(points, true));
+                paths.push(LayerPath { commands, stroke: None, width: 0.0, fill: rgba(color), evenodd: true });
+            }
+            _ => {}
+        }
+    }
+    (paths, texts)
+}
+
 impl Cursor {
     /// The preview card's pick-cursor.
     pub fn name(self) -> &'static str {
@@ -678,5 +748,27 @@ mod tests {
         assert!(drawn.handles);
         assert!(close(&drawn.corners, &[[0.3, 0.2], [0.9, 0.2], [0.9, 0.8], [0.3, 0.8]]));
         assert_eq!(drawn.hint, "Drag the corners into place, then press Enter. Esc cancels.");
+    }
+
+    #[test]
+    fn a_layers_shapes_are_drawn_in_px_of_the_picture() {
+        let shapes = vec![
+            Shape::Polygon { points: vec![[0.0, 0.0], [0.5, 0.0], [0.5, 0.5]], stroke: "#5fc98c".into(), width: 3.0, fill: None },
+            Shape::Line { points: vec![[0.0, 1.0], [1.0, 1.0]], stroke: "#0000008c".into(), width: 1.0 },
+            Shape::Dim { points: vec![[0.25, 0.25], [0.75, 0.25], [0.75, 0.75]], color: "#00000080".into() },
+            Shape::Text { x: 0.5, y: 0.5, text: "hi".into(), color: "#ffffff".into(), size: 12.0 },
+            Shape::Polygon { points: vec![[0.1, 0.1]], stroke: "#ffffff".into(), width: 1.0, fill: None },
+        ];
+        let layers = BTreeMap::from([("QR code reader".to_string(), PreviewLayer { shapes })]);
+        let (paths, texts) = layer_drawing(&layers, 200.0, 100.0);
+        assert_eq!(paths.len(), 3, "a polygon of one point draws nothing");
+        assert_eq!(paths[0].commands, "M 0 0 L 100 0 L 100 50 Z");
+        assert_eq!(paths[0].stroke, Some([0x5f, 0xc9, 0x8c, 255]));
+        assert_eq!(paths[1].commands, "M 0 100 L 200 100");
+        assert_eq!(paths[1].stroke, Some([0, 0, 0, 0x8c]));
+        assert!(paths[2].evenodd && paths[2].stroke.is_none());
+        assert!(paths[2].commands.starts_with("M 0 0 L 200 0 L 200 100 L 0 100 Z M 50 25"));
+        assert_eq!(texts, vec![LayerText { x: 100.0, y: 50.0, text: "hi".into(), color: [255; 4], size: 12.0 }]);
+        assert_eq!(rgba("#12345"), None);
     }
 }

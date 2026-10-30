@@ -76,6 +76,8 @@ pub struct Window {
     painted: Cell<u64>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
+    /// The layers' shapes last handed to the preview card, so they're only set again when they change.
+    layers_drawn: RefCell<(Vec<crate::overlays::LayerPath>, Vec<crate::overlays::LayerText>)>,
     /// The first frame shown has been written to the log.
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
@@ -223,6 +225,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
         passes: RefCell::default(),
+        layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
         popout_asks: Cell::new(0),
@@ -479,6 +482,7 @@ impl Window {
         }
         self.show_banners();
         self.paint_pick();
+        self.paint_layers();
     }
 
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
@@ -570,6 +574,42 @@ impl Window {
                 let _ = target.set_property(&name("overlay"), SValue::Image(overlay));
             }
         }
+    }
+
+    /// The shapes plugins draw on the preview card's picture (add_preview_layer), at the picture's size now.
+    fn paint_layers(&self) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
+        let name = |n: &str| format!("{}-{n}", r.id);
+        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let drawing = crate::overlays::layer_drawing(&self.state.borrow().layers, number("pic-width"), number("pic-height"));
+        if *self.layers_drawn.borrow() == drawing {
+            return;
+        }
+        let colour = |c: Option<[u8; 4]>| {
+            let [r, g, b, a] = c.unwrap_or([0; 4]);
+            SValue::Brush(slint::Brush::SolidColor(slint::Color::from_argb_u8(a, r, g, b)))
+        };
+        let paths: Vec<SValue> = drawing.0.iter().map(|p| {
+            SValue::Struct(Struct::from_iter([
+                ("commands".to_string(), SValue::String(p.commands.as_str().into())),
+                ("stroke".to_string(), colour(p.stroke)),
+                ("width".to_string(), SValue::Number(if p.stroke.is_some() { p.width as f64 } else { 0.0 })),
+                ("fill".to_string(), colour(p.fill)),
+                ("evenodd".to_string(), SValue::Bool(p.evenodd)),
+            ]))
+        }).collect();
+        let texts: Vec<SValue> = drawing.1.iter().map(|t| {
+            SValue::Struct(Struct::from_iter([
+                ("x".to_string(), SValue::Number(t.x as f64)),
+                ("y".to_string(), SValue::Number(t.y as f64)),
+                ("text".to_string(), SValue::String(t.text.as_str().into())),
+                ("color".to_string(), colour(Some(t.color))),
+                ("size".to_string(), SValue::Number(t.size as f64)),
+            ]))
+        }).collect();
+        let _ = self.ui.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
+        let _ = self.ui.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
+        *self.layers_drawn.borrow_mut() = drawing;
     }
 
     /// The pick under way on the preview card's picture (overlays.rs), drawn from the overlays as they are now.
@@ -895,6 +935,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         if let Some(w) = weak.upgrade() {
             w.paint_preview();
             w.paint_pick();
+            w.paint_layers();
             w.watch_focus();
         }
     });

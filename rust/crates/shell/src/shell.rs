@@ -239,6 +239,8 @@ pub struct State {
     pub overlays: crate::overlays::Overlays,
     /// What plugins put on the preview besides shapes (tint, analyse, paint), by owner.
     pub passes: Vec<(String, Arc<dyn telescope_core::preview::PreviewPass>)>,
+    /// The shapes plugins draw on the preview (add_preview_layer), by owner.
+    pub layers: BTreeMap<String, telescope_core::host::PreviewLayer>,
     /// A pass asked for the preview to be drawn again (refresh_preview, or an analysis that finished).
     pub preview_dirty: Arc<std::sync::atomic::AtomicBool>,
     pub output_slots: Map<String, Value>,
@@ -298,6 +300,7 @@ impl State {
             colour_before: Arc::default(),
             overlays: Default::default(),
             passes: Vec::new(),
+            layers: BTreeMap::new(),
             preview_dirty: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             output_slots: Map::new(),
             changes_only: Vec::new(),
