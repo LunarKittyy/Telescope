@@ -37,16 +37,19 @@ pub struct Shared {
     format: Mutex<StreamFormat>,
     poster: Mutex<Option<Arc<dyn Poster>>>,
     started: Instant,
+    /// The model's tunnels, reached without its lock so adb runs with it unlocked.
+    tunnels: Arc<dyn Tunnels>,
 }
 
 impl Shared {
     /// A model with a fresh identity until the plugin's set_config brings the saved one.
     pub fn new(tunnels: Arc<dyn Tunnels>) -> Arc<Shared> {
         Arc::new(Shared {
-            conn: Mutex::new(Connection::new(random_hex(16), default_computer_name(), tunnels)),
+            conn: Mutex::new(Connection::new(random_hex(16), default_computer_name(), tunnels.clone())),
             format: Mutex::default(),
             poster: Mutex::new(None),
             started: Instant::now(),
+            tunnels,
         })
     }
 
@@ -79,6 +82,18 @@ impl Shared {
         }
     }
 
+    /// Opens route's USB forward before the model is locked, so holding it there only counts it; unpin after.
+    fn pin(&self, route: &RouteSpec) -> Option<String> {
+        let RouteSpec::Usb { serial } = route else { return None };
+        self.tunnels.acquire(serial, STREAM_PORT).map(|_| serial.clone())
+    }
+
+    fn unpin(&self, pinned: Option<String>) {
+        if let Some(serial) = pinned {
+            self.tunnels.release(&serial, STREAM_PORT);
+        }
+    }
+
     fn changed(&self, save: bool) {
         self.post(POST_CHANGED, json!({"save": save}));
     }
@@ -101,6 +116,10 @@ impl Shared {
         };
         // Off the lock: a check takes seconds, and the card keeps drawing meanwhile
         let res = check(&phone, preference);
+        let pinned = match (&res.status, &res.route) {
+            (PhoneStatus::Ready, Some(route)) => self.pin(route),
+            _ => None,
+        };
         let mut c = self.conn();
         let save = c.took_start_check(Some(&phone.id), res.clone());
         let route = match (&res.status, &res.route) {
@@ -115,6 +134,7 @@ impl Shared {
         };
         let url = c.hold_stream_route(&route, Some(&phone.id), format);
         drop(c);
+        self.unpin(pinned);
         self.changed(save);
         let Some(video_url) = url else {
             self.problem(StartProblem::Forward { source_id: phone.id.clone() });
@@ -137,19 +157,20 @@ impl Shared {
 
     pub fn prepare_route(&self, pid: &str, route: &RouteSpec) -> Option<String> {
         let format = self.format();
-        self.conn().prepare_stream_route(route, pid, format)
+        let pinned = self.pin(route);
+        let url = self.conn().prepare_stream_route(route, pid, format);
+        self.unpin(pinned);
+        url
     }
 
     /// Opens the stream forward to serial ahead of a hand-over, off the UI thread, so prepare_route only counts it.
     pub fn hold_stream_forward(&self, serial: &str) -> bool {
-        let tunnels = self.conn().tunnels();
-        tunnels.acquire(serial, STREAM_PORT).is_some()
+        self.tunnels.acquire(serial, STREAM_PORT).is_some()
     }
 
     /// Lets go of hold_stream_forward's hold; the forward goes unless a prepared route still uses it.
     pub fn release_stream_forward(&self, serial: &str) {
-        let tunnels = self.conn().tunnels();
-        tunnels.release(serial, STREAM_PORT);
+        self.tunnels.release(serial, STREAM_PORT);
     }
 
     pub fn commit_route(&self, pid: &str) {
@@ -178,7 +199,11 @@ impl Shared {
 
     pub fn adopt_route(&self, pid: Option<&str>, route: &RouteSpec) -> Option<String> {
         let format = self.format();
+        // The old forward goes first, so the same cable back gets a fresh one rather than the one adb dropped
+        self.conn().let_go_of_forward(pid);
+        let pinned = self.pin(route);
         let url = self.conn().adopt_stream_route(route, pid, format);
+        self.unpin(pinned);
         self.changed(false);
         url
     }
@@ -238,12 +263,71 @@ mod tests {
         }
     }
 
+    /// Tunnels that note whether adb ran while the connection model was locked (the UI thread waits on that lock).
+    #[derive(Default)]
+    struct LockWatch {
+        shared: std::sync::OnceLock<std::sync::Weak<Shared>>,
+        held: Mutex<HashMap<String, (u16, u32)>>,
+        forwards: Mutex<Vec<(String, bool)>>,
+    }
+
+    impl LockWatch {
+        fn locked(&self) -> bool {
+            let shared = self.shared.get().and_then(|w| w.upgrade()).unwrap();
+            let locked = shared.conn.try_lock().is_err();
+            locked
+        }
+    }
+
+    impl Tunnels for LockWatch {
+        fn acquire(&self, serial: &str, _remote_port: u16) -> Option<u16> {
+            let mut held = self.held.lock().unwrap();
+            if let Some((local, refs)) = held.get_mut(serial) {
+                *refs += 1;
+                return Some(*local);
+            }
+            let mut forwards = self.forwards.lock().unwrap();
+            forwards.push((serial.into(), self.locked()));
+            let local = 41000 + forwards.len() as u16;
+            held.insert(serial.into(), (local, 1));
+            Some(local)
+        }
+
+        fn release(&self, serial: &str, _remote_port: u16) {
+            let mut held = self.held.lock().unwrap();
+            let (_, refs) = held.get_mut(serial).unwrap();
+            *refs -= 1;
+            if *refs == 0 {
+                held.remove(serial);
+            }
+        }
+    }
+
+    #[test]
+    fn adb_opens_forwards_with_the_model_unlocked() {
+        let tunnels = Arc::new(LockWatch::default());
+        let (shared, _host) = with_phone(tunnels.clone());
+        tunnels.shared.set(Arc::downgrade(&shared)).unwrap();
+        let other = RouteSpec::Usb { serial: "serial-2".into() };
+        shared.start_route(None, H264, &|_, _| ready(usb())).unwrap();
+        assert!(shared.prepare_route("id-a", &other).is_some());
+        shared.drop_route("id-a", false);
+        // Recovery over the same cable: a fresh forward, as adb dropped the old one with the cable
+        assert_eq!(shared.adopt_route(None, &usb()).unwrap(), format!("https://127.0.0.1:41003{VIDEO_H264}"));
+        let forwards = tunnels.forwards.lock().unwrap().clone();
+        let names: Vec<&str> = forwards.iter().map(|(s, _)| s.as_str()).collect();
+        assert_eq!(names, ["serial-1", "serial-2", "serial-1"]);
+        assert!(forwards.iter().all(|(_, locked)| !locked), "{forwards:?}");
+        shared.release_stream("id-a");
+        assert!(tunnels.held.lock().unwrap().is_empty());
+    }
+
     fn phone(pid: &str) -> PairedPhone {
         PairedPhone { id: pid.into(), name: "Pixel".into(), token: "tok".into(), ips: vec!["10.0.0.5".into()], active_ip: None,
                       cert_sha256: "ab".repeat(32) }
     }
 
-    fn with_phone(tunnels: Arc<FakeTunnels>) -> (Arc<Shared>, FakeHost) {
+    fn with_phone(tunnels: Arc<dyn Tunnels>) -> (Arc<Shared>, FakeHost) {
         let shared = Shared::new(tunnels);
         shared.conn().on_phone_paired(phone("id-a"), |_| false);
         shared.conn().mark_selected(Some("id-a"));

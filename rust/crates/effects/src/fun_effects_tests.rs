@@ -54,7 +54,7 @@ fn near(a: [u8; 3], b: [u8; 3], by: i32) -> bool {
 #[test]
 fn the_empty_room_difference_finds_whoever_stands_in_front_of_it() {
     let room = room();
-    let m = PlateMask::default().run(&with_person(&room, 60, 100, PERSON), &Arc::new(room));
+    let m = PlateMask::default().run(&with_person(&room, 60, 100, PERSON), &Arc::new(room)).unwrap();
     assert_eq!((m.data[50 * W + 80], m.data[50 * W + 10], m.data[5 * W + 80]), (255, 0, 0));
 }
 
@@ -232,4 +232,28 @@ fn another_stream_starts_without_the_last_ones_history() {
     let dark = Rgb::filled(W, H, [10; 3]);
     let fresh = Effect::named("slit").unwrap().run(&dark, &l, Inputs { mask: None });
     assert!(fresh.data.iter().all(|&v| v < 50));
+}
+
+#[test]
+fn the_cloak_compares_with_the_room_it_has_now_not_one_that_was_there_before() {
+    let (a, b) = (room(), Rgb::filled(W, H, [200, 30, 90]));
+    let mut cloak = Effect::named("cloak").unwrap();
+    let (first, second) = (Look { plate: Some(Arc::new(a.clone())), edges: 0, ..look("cloak") }, Look { plate: Some(Arc::new(b.clone())), edges: 0, ..look("cloak") });
+    cloak.run(&a, &first, Inputs { mask: None });
+    // a new room is taken; the frame is it, a little off but nobody in it
+    let mut frame = b;
+    frame.set(5, 5, [205, 35, 95]);
+    assert!(cloak.run(&frame, &second, Inputs { mask: None }) == frame, "nobody there, so the frame is left as it is");
+}
+
+#[test]
+fn the_webcams_height_rounds_halves_to_even_as_pythons_round_does() {
+    // 481 * 320 / 640 = 240.5: Python's round() gives 240, and 483 gives 241.5 and so 242
+    let mut cam = Webcam::new();
+    cam.run(&Rgb::filled(640, 481, [90; 3]));
+    let (small, _) = cam.held.as_ref().unwrap();
+    assert_eq!((small.w, small.h), (320, 240));
+    let mut cam = Webcam::new();
+    cam.run(&Rgb::filled(640, 483, [90; 3]));
+    assert_eq!(cam.held.as_ref().unwrap().0.h, 242);
 }

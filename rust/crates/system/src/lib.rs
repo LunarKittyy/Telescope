@@ -8,6 +8,7 @@ pub mod hotkeys_windows;
 pub mod keys;
 pub mod shortcuts;
 pub mod single_instance;
+pub mod startup;
 #[cfg(target_os = "linux")]
 pub mod tray;
 pub mod tray_windows;

@@ -16,6 +16,13 @@ tiny-skia = "0.12"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
 
+# Webcams through Media Foundation (windows is already in the tree through Slint's winit backend); downloading and
+# checking UnityCapture for the camera install
+[target.'cfg(windows)'.dependencies]
+ring.workspace = true
+ureq.workspace = true
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_MediaFoundation", "Win32_System_Com"] }
+
 [dev-dependencies]
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true

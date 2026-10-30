@@ -311,6 +311,46 @@ impl Window {
         }
     }
 
+    /// Host::take_still: the photo starts on its stream's phone; its progress and end come back to `plugin` as events, from the
+    /// photo's own thread through the posts.
+    pub fn take_still(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, source: &str, options: &Value, folder: &str) {
+        let posts = self.state.borrow().posts.clone();
+        let fail = |why: &str| {
+            let data = serde_json::json!({"ok": false, "files": [], "code": "failed", "error": why});
+            posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
+        };
+        let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) else { return fail(&tr("The phone couldn't take the photo.")) };
+        let found = self.streams.flow.borrow().sessions.find(Some(source));
+        let target = found.as_ref().and_then(|src| Some((src.kind.as_phone()?.still_target()?, self.worker_of(src).map(|w| w.inner.clone()))));
+        let Some(((base, phone), worker)) = target else { return fail(&tr("The phone couldn't take the photo.")) };
+        let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
+        let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
+        let started = stills.take(
+            Some(source), &base, &phone, options, folder,
+            Box::new(move |data| {
+                // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
+                if data.get("state").and_then(Value::as_str) == Some("capturing") {
+                    if let Some(worker) = &worker {
+                        worker.hold_for_photo(3.0);
+                    }
+                }
+                progress_posts.push_event(&owner, Event::RequestProgress { request, data });
+            }),
+            Box::new(move |data| {
+                let ok = data.get("ok").and_then(Value::as_bool) == Some(true);
+                let message = data.get("error").and_then(Value::as_str).unwrap_or("").to_string();
+                done_posts.push_event(&done_owner, Event::RequestDone { request, ok, message, data });
+            }),
+            Box::new(move || alive.load(std::sync::atomic::Ordering::SeqCst)),
+        );
+        if started {
+            self.state.borrow().bus.emit(Event::StillBusyChanged { source_id: source.to_string(), busy: true });
+        } else {
+            fail(&tr("The phone is already taking a photo."));
+        }
+    }
+
     pub fn stop_all_streams(self: &Rc<Self>) {
         if self.is_streaming() {
             self.with_flow(|flow, host| flow.stop_all(host, true));
@@ -676,6 +716,10 @@ impl Window {
             return; // a session stopped or switched since the fetch began: its state isn't this stream's
         }
         let focused = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
+        // What each lens can take, from every stream's state and not only the shown one's
+        if let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) {
+            stills.note_state(Some(source.id_str()), &state);
+        }
         if focused {
             let mut st = self.state.borrow_mut();
             st.streams.phone_state = Some(state.clone());

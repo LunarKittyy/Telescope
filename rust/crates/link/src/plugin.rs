@@ -715,7 +715,7 @@ impl ConnectionPlugin {
             host.clear_issue(Some("start"), Some(&issue)); // a Start pressed before there was a phone left it up
         }
         if paired.reconnect {
-            host.reconnect_stream(); // the running stream still holds the old token
+            host.reconnect_source(&pid); // its running stream still holds the old token
         }
         host.save_now();
     }
@@ -1039,106 +1039,8 @@ fn usable(states: &[UsbDevice]) -> Vec<(String, String)> {
         .map(|d| (d.serial.clone(), if d.model.is_empty() { d.serial.clone() } else { d.model.clone() })).collect()
 }
 
-/// The QR code's dark cells, as indexes row by row, and its size in modules (widgets/qr.py, error correction L). The mask
-/// is the one python-qrcode picks, so the code looks the same as the Qt app's.
-pub fn qr(data: &str) -> (Vec<usize>, usize) {
-    use qrcode::canvas::{Canvas, MaskPattern};
-    use qrcode::{bits::Bits, EcLevel};
-    let Ok(code) = qrcode::QrCode::with_error_correction_level(data.as_bytes(), EcLevel::L) else { return (Vec::new(), 0) };
-    let version = code.version();
-    let mut bits = Bits::new(version);
-    let built = bits.push_byte_data(data.as_bytes()).and_then(|_| bits.push_terminator(EcLevel::L))
-        .and_then(|_| qrcode::ec::construct_codewords(&bits.into_bytes(), version, EcLevel::L));
-    let Ok((codewords, ec)) = built else { return (Vec::new(), 0) };
-    let mut canvas = Canvas::new(version, EcLevel::L);
-    canvas.draw_all_functional_patterns();
-    canvas.draw_data(&codewords, &ec);
-    let n = code.width();
-    let masks = [MaskPattern::Checkerboard, MaskPattern::HorizontalLines, MaskPattern::VerticalLines, MaskPattern::DiagonalLines,
-                 MaskPattern::LargeCheckerboard, MaskPattern::Fields, MaskPattern::Diamonds, MaskPattern::Meadow];
-    let matrix = |mask: MaskPattern| -> Vec<Vec<bool>> {
-        let mut c = canvas.clone();
-        c.apply_mask(mask);
-        (0..n).map(|row| (0..n).map(|col| c.get(col as i16, row as i16).is_dark()).collect()).collect()
-    };
-    // best_mask_pattern: each mask scored with the format bits and the fixed dark module left light (makeImpl(True, i))
-    let mut best = (usize::MAX, 0);
-    for (i, &mask) in masks.iter().enumerate() {
-        let mut m = matrix(mask);
-        for k in 0..15 {
-            let row = if k < 6 { k } else if k < 8 { k + 1 } else { n - 15 + k };
-            m[row][8] = false;
-            let col = if k < 8 { n - k - 1 } else if k < 9 { 15 - k } else { 14 - k };
-            m[8][col] = false;
-        }
-        m[n - 8][8] = false;
-        let lost = lost_point(&m);
-        if lost < best.0 {
-            best = (lost, i);
-        }
-    }
-    let m = matrix(masks[best.1]);
-    ((0..n * n).filter(|&i| m[i / n][i % n]).collect(), n)
-}
-
-/// python-qrcode's util.lost_point: the penalty a mask is chosen by.
-fn lost_point(m: &[Vec<bool>]) -> usize {
-    let n = m.len();
-    let at = |row: usize, col: usize, transposed: bool| if transposed { m[col][row] } else { m[row][col] };
-    let mut lost = 0;
-    // Runs of five or more of one colour, in rows and columns
-    for transposed in [false, true] {
-        for row in 0..n {
-            let (mut prev, mut len) = (at(row, 0, transposed), 0);
-            for col in 0..n {
-                if at(row, col, transposed) == prev {
-                    len += 1;
-                } else {
-                    if len >= 5 {
-                        lost += len - 2;
-                    }
-                    len = 1;
-                    prev = at(row, col, transposed);
-                }
-            }
-            if len >= 5 {
-                lost += len - 2;
-            }
-        }
-    }
-    // 2x2 blocks of one colour, skipping as python-qrcode does
-    for row in 0..n - 1 {
-        let mut col = 0;
-        while col < n - 1 {
-            let top_right = m[row][col + 1];
-            if top_right != m[row + 1][col + 1] {
-                col += 1;
-            } else if top_right == m[row][col] && top_right == m[row + 1][col] {
-                lost += 3;
-            }
-            col += 1;
-        }
-    }
-    // Finder-like 1:1:3:1:1 runs next to four light modules
-    for transposed in [false, true] {
-        for row in 0..n {
-            let mut col = 0;
-            while col + 10 < n {
-                let v = |k: usize| at(row, col + k, transposed);
-                if !v(1) && v(4) && !v(5) && v(6) && !v(9)
-                    && (v(0) && v(2) && v(3) && !v(7) && !v(8) && !v(10) || !v(0) && !v(2) && !v(3) && v(7) && v(8) && v(10)) {
-                    lost += 40;
-                }
-                if v(10) {
-                    col += 1;
-                }
-                col += 1;
-            }
-        }
-    }
-    let dark = m.iter().flatten().filter(|d| **d).count();
-    lost + ((dark as f64 / (n * n) as f64 * 100.0 - 50.0).abs() / 5.0) as usize * 10
-}
+/// The QR code's dark cells and size, shared with the other cards that show one.
+pub use telescope_core::qr::encode as qr;
 
 impl Plugin for ConnectionPlugin {
     fn info(&self) -> PluginInfo {
@@ -2206,41 +2108,6 @@ mod tests {
         assert!(size >= 21 && !cells.is_empty() && cells.iter().all(|&i| i < size * size));
         // The finder pattern's corner is dark
         assert!(cells.contains(&0));
-    }
-
-    #[test]
-    fn the_qr_code_is_the_one_python_qrcode_draws() {
-        // python-qrcode's modules for the scenes' payload, mask chosen by its best_mask_pattern
-        let want = [
-            "#######.####.##...#######",
-            "#.....#....###..#.#.....#",
-            "#.###.#..#.#.##...#.###.#",
-            "#.###.#...##.#.##.#.###.#",
-            "#.###.#...####....#.###.#",
-            "#.....#..#.#....#.#.....#",
-            "#######.#.#.#.#.#.#######",
-            "........##..####.........",
-            "##.##.#..#..#.##..#.....#",
-            "###..#.##.#...##.#..##...",
-            "#.###.##.#..#.####.###..#",
-            "#.#.#..#......#.##.#.##.#",
-            "...########.....####.#..#",
-            "##..##.#.##.#.###...##...",
-            "##.#..##.#...###.#.#..###",
-            "#.####..##..#...##..###.#",
-            "#..#.##.#.####.######.#.#",
-            "........#.##..#.#...#.#..",
-            "#######.....###.#.#.#...#",
-            "#.....#...##.####...##..#",
-            "#.###.#.#.###.########...",
-            "#.###.#.#.#.###.#.##..###",
-            "#.###.#....#...#.#.##.###",
-            "#.....#.#.##...#...######",
-            "#######.#..##...#....#..#",
-        ];
-        let (cells, size) = qr("telescope://pair/example");
-        let got: Vec<String> = (0..size).map(|r| (0..size).map(|c| if cells.contains(&(r * size + c)) { '#' } else { '.' }).collect()).collect();
-        assert_eq!(got, want);
     }
 
     /// Counts forwards and says which thread opened them.

@@ -2,7 +2,7 @@
 //! into State::effects. Services that live in crates still being ported (vision, sensors, stills, colour, motion,
 //! packets, the preview's layers) answer as "not available" until those land.
 
-use crate::shell::{Effect, State};
+use crate::shell::{Effect, Picture, State};
 use crate::{banners::COPY_SCHEME, profiles};
 use serde_json::Value;
 use std::sync::Arc;
@@ -54,9 +54,10 @@ impl HostSettings for Ctx<'_> {
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {
             let cfg = cfg.clone();
-            self.state.call(i, |p, host| {
-                let _ = p.apply_preset(host, &cfg);
-            });
+            let rejected = self.state.call(i, |p, host| p.apply_preset(host, &cfg));
+            if let Some(Err(why)) = rejected {
+                log::warn!("{name} couldn't take its part of a preset: {}", why.0);
+            }
         }
     }
     fn preset_plugins(&self) -> Vec<String> {
@@ -90,7 +91,9 @@ impl HostStreams for Ctx<'_> {
         self.state.streams.restarting
     }
     fn is_streaming_from(&self, source_id: Option<&str>) -> bool {
-        self.state.streams.streaming && self.state.streams.source_id.as_deref() == source_id
+        // Shown or not, up or still waking, as Python's Sessions.is_streaming_from
+        let st = &self.state.streams;
+        (st.streaming && st.source_id.as_deref() == source_id) || source_id.is_some_and(|id| st.ids.iter().any(|s| s == id))
     }
     fn stream_count(&self) -> u32 {
         self.state.streams.live.len().max(self.state.streams.streaming as usize) as u32
@@ -108,7 +111,10 @@ impl HostStreams for Ctx<'_> {
         self.state.effects.push(Effect::StopAll);
     }
     fn reconnect_stream(&mut self) {
-        self.state.effects.push(Effect::Reconnect);
+        self.state.effects.push(Effect::Reconnect(None));
+    }
+    fn reconnect_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::Reconnect(Some(source_id.into())));
     }
     /// PhoneSource.hand_over: false unless that stream is up, isn't recovering or moving already, and link has the
     /// route ready next to the running one; the worker then tries it and the Connection card hears how it went.
@@ -262,6 +268,10 @@ impl HostShell for Ctx<'_> {
     fn copy_text(&mut self, text: &str) {
         self.state.effects.push(Effect::CopyText(text.into()));
     }
+    fn clipboard_text(&mut self) -> Option<String> {
+        // The copy is an effect the window carries out after this hook, so it's done by the time a later hook reads it back
+        self.state.clipboard.as_ref().and_then(|read| read())
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);
@@ -291,6 +301,12 @@ impl HostUi for Ctx<'_> {
     }
     fn refresh_frame_step(&mut self) {
         self.state.effects.push(Effect::FrameStep(self.me.clone()));
+    }
+    fn set_ui_image(&mut self, ui: &str, prop: &str, frame: &Frame) {
+        self.state.effects.push(Effect::Image { plugin: self.me.clone(), ui: ui.into(), prop: prop.into(), picture: Picture(frame.clone()) });
+    }
+    fn refresh_actions(&mut self) {
+        self.state.effects.push(Effect::RefreshActions(self.me.clone()));
     }
 }
 
@@ -372,15 +388,40 @@ impl HostPreview for Ctx<'_> {
     }
 }
 
+impl Ctx<'_> {
+    /// The stream a photo is for: the one asked about, or the panels', if it's running.
+    fn still_source(&self, source_id: Option<&str>) -> Option<String> {
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => self.focused_source_id().unwrap_or_default(),
+        };
+        self.state.streams.live.contains(&id).then_some(id)
+    }
+
+    fn stills(&self) -> Option<Arc<dyn telescope_core::link::PhoneStills>> {
+        self.state.link.as_ref().and_then(|l| l.stills())
+    }
+}
+
 impl HostStills for Ctx<'_> {
-    fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        None
+    fn still_caps(&self, source_id: Option<&str>) -> Option<Value> {
+        let id = self.still_source(source_id)?;
+        self.stills()?.caps(Some(&id))
     }
-    fn take_still(&mut self, _options: &Value, _folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        None
+    fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
+        let id = self.still_source(source_id)?;
+        let stills = self.stills()?;
+        if stills.caps(Some(&id)).is_none() || stills.busy(Some(&id)) {
+            return None;
+        }
+        let request = self.state.request_id();
+        self.state.stills.push((request, self.me.clone(), id.clone()));
+        self.state.effects.push(Effect::TakeStill { plugin: self.me.clone(), request, source: id, options: options.clone(), folder: folder.into() });
+        Some(request)
     }
-    fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        false
+    fn still_busy(&self, source_id: Option<&str>) -> bool {
+        let Some(id) = self.still_source(source_id) else { return false };
+        self.stills().is_some_and(|s| s.busy(Some(&id)))
     }
 }
 

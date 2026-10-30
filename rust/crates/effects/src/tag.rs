@@ -7,7 +7,7 @@
 use telescope_core::actions::round_half_even;
 use telescope_core::frame::{Frame, PixelFormat};
 use crate::pixels::gaussian_blur;
-use telescope_core::text::{app_font, visual_order, Face, FontArc, Weight};
+use telescope_core::text::{app_font, Face, FontArc, Weight};
 
 pub const STYLES: [&str; 4] = ["bar", "pill", "light", "shadow"];
 pub const POSITIONS: [&str; 5] = ["bottom_left", "bottom_centre", "bottom_right", "top_left", "top_right"];
@@ -287,7 +287,7 @@ impl Canvas {
     }
 
     fn text(&mut self, face: &Face, piece: &Piece, rgb: u32) {
-        let line = face.layout(&visual_order(&piece.text), 0.0);
+        let line = face.layout(&piece.text, 0.0);
         face.draw(&line, piece.x as f32, piece.baseline as f32, |x, y, cov| self.over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)));
     }
 }

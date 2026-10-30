@@ -22,3 +22,6 @@ telescope-plugin-host.workspace = true
 serde_json.workspace = true
 log.workspace = true
 qrcode.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true

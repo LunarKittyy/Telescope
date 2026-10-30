@@ -20,7 +20,7 @@ use telescope_core::plugin::Plugin;
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
-use telescope_core::BusSender;
+use telescope_core::{BusSender, Frame, PixelFormat};
 
 /// How the window streams, from the command line.
 #[derive(Clone, Debug)]
@@ -109,6 +109,19 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
     }
 }
 
+/// A picture as a Slint image, for the formats that are plain pixels.
+fn image_of(frame: &Frame) -> Option<slint::Image> {
+    let pixels: Vec<u8> = match frame.format {
+        PixelFormat::Rgba => frame.data.to_vec(),
+        PixelFormat::Bgra => frame.data.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
+        _ => return None,
+    };
+    if pixels.len() != frame.width as usize * frame.height as usize * 4 {
+        return None;
+    }
+    Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(&pixels, frame.width, frame.height)))
+}
+
 /// Where a UiSpec's text comes from and the file the document imports it as.
 fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
     match &spec.source {
@@ -191,6 +204,15 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     window.state.borrow().posts.set_waker(|| {
         let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
     });
+    // Whatever is on the clipboard now, pasted into the hidden box; an empty answer is no answer (the paste may not have worked)
+    let weak = Rc::downgrade(&window);
+    window.state.borrow_mut().clipboard = Some(Box::new(move || {
+        let window = weak.upgrade()?;
+        match window.ui.invoke("paste-text", &[]) {
+            Ok(SValue::String(text)) if !text.is_empty() => Some(text.to_string()),
+            _ => None,
+        }
+    }));
     window.wire(&files, &cards, &headers);
     window.first_props();
     window.process();
@@ -573,8 +595,8 @@ impl Window {
     }
 
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
-        // Not one of the window's: a settings section, when the settings window is open
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
+            // Not a card or a header: one of its settings sections, if the settings window has been built
             if let Some(settings) = crate::settings::current() {
                 settings.set_props(plugin, ui, props);
             }
@@ -589,9 +611,38 @@ impl Window {
         }
     }
 
+    /// Host::set_ui_image: the picture goes onto the card's or section's image property.
+    fn set_image(&self, plugin: &str, ui: &str, prop: &str, picture: &Frame) {
+        let Some(image) = image_of(picture) else {
+            log::warn!("{plugin} gave its {ui} a {:?} picture, which can't be shown", picture.format);
+            return;
+        };
+        match self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) {
+            Some(r) => {
+                if let Err(e) = self.ui.set_property(&format!("{}-{prop}", r.id), SValue::Image(image)) {
+                    log::warn!("{plugin} set {prop} on its {ui}: {e:?}");
+                }
+            }
+            None => {
+                if let Some(settings) = crate::settings::current() {
+                    settings.set_image(plugin, ui, prop, image);
+                }
+            }
+        }
+    }
+
     fn apply(self: &Rc<Self>, effect: Effect) {
         match effect {
             Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
+            Effect::Image { plugin, ui, prop, picture } => self.set_image(&plugin, &ui, &prop, &picture.0),
+            Effect::RefreshActions(plugin) => {
+                let mut state = self.state.borrow_mut();
+                if let Some(i) = state.index(&plugin) {
+                    if let Some(actions) = state.call(i, |p, _| p.actions()) {
+                        state.slots[i].actions = actions;
+                    }
+                }
+            }
             Effect::SaveSoon => self.schedule_save(),
             Effect::Notify { title, body, urgent } => {
                 if let Some(n) = self.services.as_ref().and_then(|s| s.notifier.clone()) {
@@ -606,7 +657,7 @@ impl Window {
             Effect::StartAgain(id) => self.start_source(id),
             Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
             Effect::StopAll => self.stop_all_streams(),
-            Effect::Reconnect => self.with_flow(|flow, host| flow.reconnect_stream(host, None)),
+            Effect::Reconnect(id) => self.with_flow(move |flow, host| flow.reconnect_stream(host, id.as_deref())),
             Effect::UpdateOutput { change, source_id } => self.update_output(&change, source_id.as_deref()),
             Effect::MakeMain(id) => self.with_flow(|flow, host| {
                 flow.make_main(host, &id);
@@ -649,6 +700,7 @@ impl Window {
                 None => open_url(&url),
             },
             Effect::CopyText(text) => self.copy_text(&text),
+            Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
             Effect::PickFile { plugin, request, dialog } => {
                 std::thread::spawn(move || {
                     let (ok, message, data) = crate::file_dialog::ask(&dialog);

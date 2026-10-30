@@ -105,6 +105,28 @@ pub enum Shape {
     Dim { points: Vec<[f32; 2]>, color: String },
 }
 
+/// How to work a colour stage out exactly at any colours: RGB triples 0..1 in, the changed ones out in place (colour.ColourStage.fn).
+/// A stage that has one is evaluated at the previous stage's output when stages are put one after the other; one that doesn't
+/// (a plugin in another process) is read off its baked lattice.
+#[derive(Clone, Default)]
+pub struct StageFn(pub Option<Arc<dyn Fn(&mut [f32]) + Send + Sync>>);
+
+impl std::fmt::Debug for StageFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.0.is_some() { "StageFn(..)" } else { "StageFn(none)" })
+    }
+}
+
+impl PartialEq for StageFn {
+    fn eq(&self, other: &StageFn) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
 /// One plugin's colour change for the colour pipeline (telescope.colour.ColourStage), baked into a 3D LUT.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ColourStage {
@@ -117,6 +139,22 @@ pub struct ColourStage {
     /// tables instead of a 3D LUT, as per_channel does in Python.
     #[serde(default)]
     pub table: Option<Arc<Vec<f32>>>,
+    /// The change itself, when the plugin can hand it over (it can't cross into another process).
+    #[serde(skip)]
+    pub eval: StageFn,
+}
+
+impl ColourStage {
+    /// A stage known only by its baked lattice (and table).
+    pub fn new(size: u32, rgb: Arc<Vec<f32>>, table: Option<Arc<Vec<f32>>>) -> ColourStage {
+        ColourStage { size, rgb, table, eval: StageFn::default() }
+    }
+
+    /// The same stage with the change itself, so stages after another one are worked out at its output.
+    pub fn with_eval(mut self, eval: impl Fn(&mut [f32]) + Send + Sync + 'static) -> ColourStage {
+        self.eval = StageFn(Some(Arc::new(eval)));
+        self
+    }
 }
 
 /// The newest frames of every stream, from any thread and without copying (HostFrames).
@@ -194,6 +232,11 @@ pub trait HostStreams {
     fn stop_stream(&mut self, source_id: Option<&str>);
     fn stop_all_streams(&mut self);
     fn reconnect_stream(&mut self);
+    /// Restart source_id's stream, shown or not, to pick up changed connection settings (a new token).
+    fn reconnect_source(&mut self, source_id: &str) {
+        let _ = source_id;
+        self.reconnect_stream();
+    }
     /// Move a running phone stream onto another route without a gap; false if it can't try now.
     fn hand_over_stream(&mut self, route: &RouteSpec, source_id: Option<&str>) -> bool;
     fn focused_source_id(&self) -> Option<String>;
@@ -263,6 +306,11 @@ pub trait HostShell {
         false
     }
     fn copy_text(&mut self, _text: &str) {}
+    /// What's on the clipboard now, to check that a copy_text reached it (QGuiApplication.clipboard().text(): a window in
+    /// the background can't put anything there on Wayland). None when the host can't read it.
+    fn clipboard_text(&mut self) -> Option<String> {
+        None
+    }
     /// Opens a link in the person's browser (QDesktopServices.openUrl). A host without one does nothing.
     fn open_url(&mut self, _url: &str) {}
     /// "Add keyboard shortcut…" on a right-click of controls that name an action, with the saved shortcuts listed
@@ -283,6 +331,11 @@ pub trait HostUi {
     fn update_tray_action(&mut self, action: &TrayAction);
     /// This plugin's frame step changed; the host asks for a fresh one with Plugin::frame_step.
     fn refresh_frame_step(&mut self);
+    /// Sets an image property (`in property <image>`) on one of this plugin's pieces of UI to this picture, which a JSON
+    /// property can't carry. Only the RGBA and BGRA formats show; a host with no window ignores it.
+    fn set_ui_image(&mut self, _ui: &str, _prop: &str, _frame: &Frame) {}
+    /// This plugin's actions changed (a list a param offers, say): the host asks Plugin::actions again.
+    fn refresh_actions(&mut self) {}
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.

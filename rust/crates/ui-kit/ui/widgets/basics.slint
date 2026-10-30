@@ -24,7 +24,7 @@ export component FocusRing inherits Rectangle {
     border-color: Theme.accent;
 }
 
-// QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one.
+// QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one and "danger" the dark red one.
 export component Button inherits Rectangle {
     in property <string> text;
     in property <image> icon;
@@ -50,10 +50,12 @@ export component Button inherits Rectangle {
     border-radius: 7px;
     border-width: 1px;
     background: !enabled ? (quiet-when-disabled ? transparent : Theme.bg)
+        : role == "danger" ? (touch.pressed ? #5a2d2f : touch.has-hover ? #824244 : #6b3638)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
         : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
     border-color: !enabled ? Theme.border
+        : role == "danger" ? #874648
         : role == "primary" ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" ? (touch.has-hover ? Theme.border-hover : Theme.border)
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
@@ -92,7 +94,7 @@ export component Button inherits Rectangle {
             font-family: Theme.font;
             font-size: root.font-size;
             font-weight: root.font-weight;
-            color: !enabled ? (quiet-when-disabled ? Theme.text-faint : Theme.text-disabled) : role == "primary" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
+            color: !enabled ? (quiet-when-disabled ? Theme.text-faint : Theme.text-disabled) : role == "primary" || role == "danger" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
             vertical-alignment: center;
         }
     }

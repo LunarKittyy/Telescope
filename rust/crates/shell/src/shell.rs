@@ -55,10 +55,25 @@ impl PartialEq for PacketMakers {
     }
 }
 
+/// A picture a plugin set on its UI, which Effect compares by what it shows.
+#[derive(Clone, Debug)]
+pub struct Picture(pub telescope_core::Frame);
+
+impl PartialEq for Picture {
+    fn eq(&self, other: &Picture) -> bool {
+        let (a, b) = (&self.0, &other.0);
+        (a.width, a.height, a.format) == (b.width, b.height, b.format) && (Arc::ptr_eq(&a.data, &b.data) || a.data == b.data)
+    }
+}
+
 /// Something a plugin asked for that the window (or the stream flow) carries out once the hook returns.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     Props { plugin: String, ui: String, props: Value },
+    /// Host::set_ui_image: a picture for an image property of plugin's piece of UI.
+    Image { plugin: String, ui: String, prop: String, picture: Picture },
+    /// Host::refresh_actions: plugin's actions are asked for again.
+    RefreshActions(String),
     Tray(TrayAction),
     FrameStep(String),
     OpenSettings(String),
@@ -67,7 +82,8 @@ pub enum Effect {
     StartAgain(Option<String>),
     Stop(Option<String>),
     StopAll,
-    Reconnect,
+    /// Restart a stream for new connection settings: source_id's, or the panels' without one.
+    Reconnect(Option<String>),
     PhoneControl { source_id: Option<String>, body: Value },
     RequestPhoneState { source_id: Option<String> },
     /// The packet steps the shown stream's H.264 goes through now, after one plugin's change_packets.
@@ -82,6 +98,8 @@ pub enum Effect {
     PickFile { plugin: String, request: RequestId, dialog: telescope_core::host::FileDialog },
     /// Host::copy_text: this goes on the clipboard.
     CopyText(String),
+    /// Host::take_still: the photo for `plugin`'s request on stream `source`, answered by RequestProgress and RequestDone.
+    TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
@@ -139,6 +157,8 @@ pub struct CameraUse {
 #[derive(Default)]
 pub struct Posts {
     queue: std::sync::Mutex<Vec<(String, String, Value)>>,
+    /// Events for one plugin from a thread of the host's own (a photo's progress), delivered after the posts.
+    events: std::sync::Mutex<Vec<(String, Event)>>,
     waker: std::sync::Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
@@ -155,8 +175,17 @@ impl Posts {
         }
     }
 
-    fn take(&self) -> Vec<(String, String, Value)> {
-        std::mem::take(&mut *self.queue.lock().unwrap_or_else(|e| e.into_inner()))
+    /// An event for plugin `owner` alone, from any thread.
+    pub fn push_event(&self, owner: &str, event: Event) {
+        self.events.lock().unwrap_or_else(|e| e.into_inner()).push((owner.into(), event));
+        let waker = self.waker.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(w) = waker {
+            w();
+        }
+    }
+
+    fn take(&self) -> (Vec<(String, String, Value)>, Vec<(String, Event)>) {
+        (std::mem::take(&mut *self.queue.lock().unwrap_or_else(|e| e.into_inner())), std::mem::take(&mut *self.events.lock().unwrap_or_else(|e| e.into_inner())))
     }
 }
 
@@ -231,6 +260,12 @@ pub struct State {
     pub tray_close_notified: bool,
     /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
+    /// The photos being taken, by request: (plugin, the stream's id) for each, to say what became of them when they end.
+    pub stills: Vec<(RequestId, String, String)>,
+    /// Photos' "still running" flags, by the stream they're taken on: cleared when that stream ends, which ends the photo.
+    pub still_alive: Vec<(String, Arc<std::sync::atomic::AtomicBool>)>,
+    /// Reads what's on the clipboard (the window pastes it into a hidden box); None before there is a window.
+    pub clipboard: Option<Box<dyn Fn() -> Option<String>>>,
     next_request: u64,
     // Plugin hooks running right now, and whether one asked for save_now
     calls: u32,
@@ -268,7 +303,7 @@ impl State {
             mic: (false, false),
             shown: None,
             tray_close_notified: false,
-            shortcut_menu: None, next_request: 1, calls: 0, save_after_call: false,
+            shortcut_menu: None, stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
         }
     }
 
@@ -687,6 +722,11 @@ impl State {
                 if let Event::CameraSwitched { camera } = &event {
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
+                    // Before the plugins hear it, so what the lens can take is fresh for them
+                    self.note_lens(camera);
+                }
+                if matches!(event, Event::StreamStopped) {
+                    self.let_go_of_photos(None);
                 }
                 self.each(|p, host| p.on_event(host, &event));
             }
@@ -695,14 +735,49 @@ impl State {
                 self.bus.wake();
                 return;
             }
-            let posts = self.posts.take();
-            if posts.is_empty() {
+            let (posts, events) = self.posts.take();
+            if posts.is_empty() && events.is_empty() {
                 break;
             }
             for (owner, token, data) in posts {
                 self.deliver_to(&owner, &Event::Posted { owner: owner.clone(), token, data });
             }
+            for (owner, event) in events {
+                self.still_ended(&event);
+                self.deliver_to(&owner, &event);
+            }
         }
+    }
+
+    /// The lens a stream moved to, for the stills service (the one the panels show).
+    fn note_lens(&mut self, camera: &Value) {
+        let Some(stills) = self.link.as_ref().and_then(|l| l.stills()) else { return };
+        let id = self.streams.source_id.clone().or_else(|| self.selected.clone());
+        stills.note_lens(id.as_deref(), camera);
+    }
+
+    /// A photo's end: its stream is free for another, and every plugin hears that and what was saved.
+    fn still_ended(&mut self, event: &Event) {
+        let Event::RequestDone { request, data, .. } = event else { return };
+        let Some(i) = self.stills.iter().position(|(r, ..)| r == request) else { return };
+        let (_, _, source) = self.stills.remove(i);
+        let busy = self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source)));
+        self.bus.emit(Event::StillBusyChanged { source_id: source.clone(), busy });
+        let files: Vec<String> = data.get("files").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default();
+        if !files.is_empty() {
+            self.bus.emit(Event::StillSaved { source_id: source, paths: files });
+        }
+    }
+
+    /// Photos on `source` (all of them for None) end as interrupted: the stream they were taken from is gone.
+    pub fn let_go_of_photos(&mut self, source: Option<&str>) {
+        self.still_alive.retain(|(id, alive)| {
+            let gone = source.is_none_or(|s| s == id);
+            if gone {
+                alive.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+            !gone
+        });
     }
 
     /// An event only plugin `owner` hears (a timer it scheduled, a post from its threads); dropped once it's gone.
@@ -1136,7 +1211,7 @@ mod tests {
     fn comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview() {
         use telescope_core::frame::{FrameStage, FrameStep};
         let mut s = state();
-        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
         s.colour.set_stage("grade", Some(warm), 0, None);
         let colour = |s: &mut State| s.pipeline_steps(None).into_iter().filter(|st| st.stage == FrameStage::Colour)
             .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();
@@ -1166,7 +1241,7 @@ mod tests {
     fn a_stream_gets_the_colour_stages_set_for_it_alone() {
         use telescope_core::frame::FrameStage;
         let mut s = state();
-        let warm = telescope_core::host::ColourStage { size: 2, rgb: Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), table: None };
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
         s.colour.set_stage("grade", Some(warm), 0, Some("tablet"));
         let colour = |s: &mut State, id| s.pipeline_steps(id).into_iter().filter(|st| st.stage == FrameStage::Colour).count();
         assert_eq!(colour(&mut s, Some("tablet")), 1);

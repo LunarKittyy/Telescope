@@ -11,7 +11,7 @@ use crate::sensors::SensorHub;
 use crate::shared::Shared;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, Resolution, RoutePreference,
                            RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable, UsbDevice};
@@ -40,8 +40,10 @@ impl LinkService {
     }
 
     fn with_discovery(lan: LanDiscovery) -> LinkService {
-        let tunnels = UsbTunnels::new(|serial, remote| Adb::system().forward_auto(remote, Some(serial)),
-                                      |serial, local| Adb::system().unforward(local, Some(serial)));
+        LinkService::with_tunnels(lan, adb_tunnels(Arc::new(Adb::system)))
+    }
+
+    fn with_tunnels(lan: LanDiscovery, tunnels: UsbTunnels) -> LinkService {
         let tunnels = Arc::new(tunnels);
         let shared = Shared::new(tunnels.clone());
         LinkService { lan: Arc::new(lan), tunnels, sensors: Arc::new(SensorHub::new(|_| {})), models: Mutex::default(), shared, stills: Arc::default() }
@@ -73,26 +75,37 @@ impl LinkService {
     pub fn session(&self, phone: &PairedPhone, route: &RouteSpec, video_path: &str, controls: Option<Arc<dyn PhoneControl>>)
                    -> Result<Session, String> {
         let (host, forward) = match route {
-            RouteSpec::Usb { serial } => {
-                // Always a fresh forward: adb drops them when the cable goes, even if it comes back
-                let local = self.tunnels.acquire(serial, STREAM_PORT)
-                    .ok_or_else(|| telescope_core::i18n::tr("adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."))?;
-                (format!("127.0.0.1:{local}"), Some(serial.clone()))
-            }
+            // The Connection model's hold is the stream's only one, so recovery can let it go and open a fresh forward
+            RouteSpec::Usb { serial } => match self.tunnels.held_port(serial, STREAM_PORT) {
+                Some(local) => (format!("127.0.0.1:{local}"), None),
+                None => {
+                    let local = self.tunnels.acquire(serial, STREAM_PORT)
+                        .ok_or_else(|| telescope_core::i18n::tr("adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."))?;
+                    (format!("127.0.0.1:{local}"), Some(serial.clone()))
+                }
+            },
             RouteSpec::Network { address } => (format!("{address}:{STREAM_PORT}"), None),
         };
         let video_url = format!("https://{host}{video_path}");
         let base = format!("https://{host}/v1");
         let auth = auth_of(phone);
-        let controls = match controls {
-            Some(c) => {
-                c.retarget(&base);
-                c
-            }
-            None => Arc::new(ControlClient::new(&video_url, auth.clone())) as Arc<dyn PhoneControl>,
-        };
-        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls, tunnels: self.tunnels.clone() })
+        // Carried controls keep going to the running route; the stream flow retargets them once this one proved itself
+        let carried = OnceLock::new();
+        if let Some(c) = controls {
+            let _ = carried.set(c);
+        }
+        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls: carried, tunnels: self.tunnels.clone() })
     }
+}
+
+/// Forwards through adb. A forward goes on a thread: the last release often comes with the connection model locked,
+/// or on the UI thread, and the bookkeeping is done by then so a new acquire opens a fresh one.
+fn adb_tunnels(adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> UsbTunnels {
+    let unforward = adb.clone();
+    UsbTunnels::new(move |serial, remote| adb().forward_auto(remote, Some(serial)), move |serial, local| {
+        let (adb, serial) = (unforward.clone(), serial.to_string());
+        std::thread::spawn(move || adb().unforward(local, Some(&serial)));
+    })
 }
 
 impl Default for LinkService {
@@ -264,18 +277,31 @@ pub struct Session {
     pub base: String,
     auth: PhoneAuth,
     forward: Option<String>,
-    controls: Arc<dyn PhoneControl>,
+    /// Made when first asked for, so a start whose wake fails leaves no control thread behind (Python makes the
+    /// client after the wake).
+    controls: OnceLock<Arc<dyn PhoneControl>>,
     tunnels: Arc<UsbTunnels>,
+}
+
+impl Session {
+    /// Whether its controls exist yet (and with them their worker thread).
+    fn has_controls(&self) -> bool {
+        self.controls.get().is_some()
+    }
+
+    fn the_controls(&self) -> &Arc<dyn PhoneControl> {
+        self.controls.get_or_init(|| Arc::new(ControlClient::new(&self.video_url, self.auth.clone())))
+    }
 }
 
 impl Control for Session {
     fn send(&self, body: &Value) -> Result<(), String> {
-        self.controls.send(body);
+        self.the_controls().send(body);
         Ok(())
     }
 
     fn state(&self) -> Result<Value, String> {
-        self.controls.get_state().ok_or_else(|| "the phone didn't answer with its state".into())
+        self.the_controls().get_state().ok_or_else(|| "the phone didn't answer with its state".into())
     }
 
     fn has_audio(&self) -> bool {
@@ -333,7 +359,7 @@ impl PhoneSession for Session {
     }
 
     fn controls(&self) -> Option<Arc<dyn PhoneControl>> {
-        Some(self.controls.clone())
+        Some(self.the_controls().clone())
     }
 }
 
@@ -455,10 +481,74 @@ mod tests {
         let link = LinkService::with_discovery(LanDiscovery::default());
         let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
         let first = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
-        let controls = first.controls();
-        let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, controls.clone()).unwrap();
-        assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls.unwrap()));
+        let client = Arc::new(ControlClient::new(&first.video_url, first.auth.clone()));
+        let controls: Arc<dyn PhoneControl> = client.clone();
+        let second = link.session(&phone, &RouteSpec::Network { address: "10.0.0.6".into() }, VIDEO_H264, Some(controls.clone())).unwrap();
+        assert!(Arc::ptr_eq(&second.controls().unwrap(), &controls));
+        // They keep going to the running stream until the new route proved itself (the stream flow retargets them)
+        assert_eq!(client.base(), first.base);
+        first.controls().unwrap().close();
         second.controls().unwrap().close();
+    }
+
+    #[test]
+    fn recovery_over_the_same_cable_opens_a_fresh_forward() {
+        use std::sync::atomic::{AtomicU16, Ordering};
+        let forwards = Arc::new(AtomicU16::new(0));
+        let counted = forwards.clone();
+        let tunnels = UsbTunnels::new(move |_, _| Some(41000 + counted.fetch_add(1, Ordering::SeqCst)), |_, _| {});
+        let link = LinkService::with_tunnels(LanDiscovery::default(), tunnels);
+        let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
+        link.shared.conn().on_phone_paired(phone.clone(), |_| false);
+        let usb = RouteSpec::Usb { serial: "serial-1".into() };
+        let ready = Resolution { route: Some(usb.clone()), ..Resolution::new(PhoneStatus::Ready) };
+        let format = crate::connection::StreamFormat { h264: true, dynamic: false };
+        let target = link.shared.start_route(Some("p"), format, &|_, _| ready.clone()).unwrap();
+        let session = link.session(&phone, &usb, VIDEO_H264, None).unwrap();
+        assert_eq!(session.video_url, target.video_url);
+        // The cable went and came back: adb dropped the forward, so recovery needs a new one
+        let url = link.shared.adopt_route(Some("p"), &usb).unwrap();
+        assert_eq!((forwards.load(Ordering::SeqCst), url), (2, format!("https://127.0.0.1:41001{VIDEO_H264}")));
+        session.release();
+        link.shared.release_stream("p");
+        assert_eq!(link.tunnels.held_port("serial-1", STREAM_PORT), None);
+        session.controls().unwrap().close();
+    }
+
+    #[test]
+    fn a_forward_goes_without_waiting_for_adb() {
+        let (tx, rx) = mpsc::channel::<Vec<String>>();
+        let tx = Mutex::new(tx);
+        let tunnels = adb_tunnels(Arc::new(move || {
+            let tx = Mutex::new(tx.lock().unwrap().clone());
+            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+                if cmd.iter().any(|a| a == "--remove") {
+                    std::thread::sleep(Duration::from_millis(800)); // a stalled adb
+                }
+                let _ = tx.lock().unwrap().send(cmd.to_vec());
+                (0, "41000\n".into(), String::new())
+            }) }
+        }));
+        assert_eq!(tunnels.acquire("serial-1", STREAM_PORT), Some(41000));
+        let started = std::time::Instant::now();
+        tunnels.release("serial-1", STREAM_PORT);
+        assert!(started.elapsed() < Duration::from_millis(300), "release waited {:?} for adb", started.elapsed());
+        let removed = rx.iter().find(|cmd| cmd.iter().any(|a| a == "--remove"));
+        assert!(removed.is_some_and(|cmd| cmd.contains(&"tcp:41000".to_string())));
+    }
+
+    #[test]
+    fn a_session_starts_its_controls_only_once_asked_for_them() {
+        let link = LinkService::with_discovery(LanDiscovery::default());
+        let phone = PairedPhone { id: "p".into(), name: "P".into(), token: "t".into(), ips: vec![], active_ip: None, cert_sha256: "ab".repeat(32) };
+        // A start whose wake failed: the session goes without a control thread left behind
+        let failed = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
+        assert!(!failed.has_controls());
+        failed.release();
+        let woke = link.session(&phone, &RouteSpec::Network { address: "10.0.0.5".into() }, VIDEO_H264, None).unwrap();
+        let controls = woke.controls().unwrap();
+        assert!(woke.has_controls() && Arc::ptr_eq(&controls, &woke.controls().unwrap()));
+        controls.close();
     }
 
     struct ToServer(u16);

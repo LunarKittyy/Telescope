@@ -1,6 +1,7 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
+use crate::imgops::{grey_of, resize_area};
 use crate::pixels::gaussian_blur;
 use telescope_core::actions::round_half_even;
 use telescope_core::view::{view_to_shown, Geometry};
@@ -219,29 +220,6 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
     out
 }
 
-/// cv2.resize(INTER_AREA) of one channel to a smaller size: each new pixel is the average of the area it covers.
-fn area_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<f32> {
-    let (sx, sy) = (w as f64 / dw as f64, h as f64 / dh as f64);
-    let mut out = vec![0f32; dw * dh];
-    for dy in 0..dh {
-        let (y0, y1) = (dy as f64 * sy, (dy as f64 + 1.0) * sy);
-        for dx in 0..dw {
-            let (x0, x1) = (dx as f64 * sx, (dx as f64 + 1.0) * sx);
-            let (mut sum, mut weight) = (0.0f64, 0.0f64);
-            for yy in (y0.floor() as usize)..(y1.ceil() as usize).min(h) {
-                let wy = ((yy as f64 + 1.0).min(y1) - (yy as f64).max(y0)).max(0.0);
-                for xx in (x0.floor() as usize)..(x1.ceil() as usize).min(w) {
-                    let wx = ((xx as f64 + 1.0).min(x1) - (xx as f64).max(x0)).max(0.0);
-                    sum += src[yy * w + xx] as f64 * wx * wy;
-                    weight += wx * wy;
-                }
-            }
-            out[dy * dw + dx] = (sum / weight.max(1e-9)) as f32;
-        }
-    }
-    out
-}
-
 /// cv2.resize(INTER_LINEAR) of one channel to a bigger size, pixel centres lined up.
 fn linear_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<u8> {
     let (sx, sy) = (w as f64 / dw as f64, h as f64 / dh as f64);
@@ -262,10 +240,10 @@ fn linear_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<u8
     out
 }
 
-/// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: a plus with filled shoulders.
-const ELLIPSE: [(i32, i32); 21] = [
-    (-2, -1), (-1, -2), (0, -2), (1, -2), (2, -1), (-2, 0), (-1, -1), (0, -1), (1, -1), (2, 0), (-2, 1), (-1, 0), (0, 0), (1, 0), (2, 1),
-    (-1, 1), (0, 1), (1, 1), (-1, 2), (0, 2), (1, 2),
+/// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: three full middle rows and one pixel above and below.
+const ELLIPSE: [(i32, i32); 17] = [
+    (0, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
+    (0, 2),
 ];
 
 /// The paper's uneven light divided out, so it goes white and the ink stays dark.
@@ -274,7 +252,7 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let mut paper_map: Vec<Vec<u8>> = Vec::new();
     for c in 0..3 {
         let plane: Vec<u8> = sheet.chunks_exact(3).map(|p| p[c]).collect();
-        let small: Vec<u8> = area_resize(&plane, w, h, sw, sh).iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
+        let small = resize_area(&plane, w, h, 1, sw, sh);
         // Ink is thin: the max is paper
         let mut dilated = vec![0u8; sw * sh];
         for y in 0..sh as i32 {
@@ -299,9 +277,14 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     out
 }
 
+/// cv2.cvtColor(BGR2GRAY) of a sheet held as R, G, B: OpenCV's whole-number weights, not the float ones.
+fn grey_plane(sheet: &[u8]) -> Vec<u8> {
+    sheet.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect()
+}
+
 /// Ink black, paper white: an adaptive threshold that follows the light across the sheet.
 pub fn black_and_white(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
-    let grey: Vec<u8> = sheet.chunks_exact(3).map(|p| (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32).round() as u8).collect();
+    let grey = grey_plane(sheet);
     let block = 15usize.max((w.min(h) / 24) | 1);
     let half = (block / 2) as i64;
     // A summed-area table, so the mean of each block costs the same wherever it is; the edge repeats the pixel it ends on

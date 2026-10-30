@@ -161,7 +161,7 @@ fn find_font(display: bool) -> Option<telescope_core::text::FontArc> {
 
 /// text centred across the pixmap with its top at top, px high, letters spaced apart by spacing px.
 fn draw_text(pm: &mut tiny_skia::Pixmap, font: &telescope_core::text::FontArc, text: &str, top: f32, px: f32, spacing: f32, rgb: [u8; 3]) {
-    let face = telescope_core::text::Face::tall(font.clone(), px);
+    let face = telescope_core::text::Face::tall(font.clone(), px).with_fallbacks();
     let line = face.layout(text, spacing);
     let (w, h) = (pm.width() as i32, pm.height() as i32);
     let data = pm.data_mut();
@@ -368,7 +368,8 @@ impl ScreenJob {
     }
 }
 
-fn rgba(rgb: &Rgb, mirror: bool) -> Vec<u8> {
+/// An RGB picture as RGBA bytes, flipped left to right if mirror.
+pub(crate) fn rgba(rgb: &Rgb, mirror: bool) -> Vec<u8> {
     let (w, h) = (rgb.width as usize, rgb.height as usize);
     let mut out = Vec::with_capacity(w * h * 4);
     for y in 0..h {

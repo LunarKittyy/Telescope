@@ -3,6 +3,7 @@
 
 pub mod camera_control;
 pub mod onboarding;
+pub mod presets;
 pub mod preview;
 
 use std::sync::Arc;
@@ -21,6 +22,7 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
         Box::new(camera_control::CameraControl::default()),
         Box::new(onboarding::Onboarding::new(vcam, Some(bus.clone()))),
         Box::new(preview::Preview::default()),
+        Box::new(presets::PresetsPlugin::new()),
     ]
 }
 

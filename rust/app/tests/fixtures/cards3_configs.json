@@ -1,0 +1,721 @@
+[
+ {
+  "plugin": "presets",
+  "input": {},
+  "output": {
+   "presets": []
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": []
+  },
+  "output": {
+   "presets": []
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": "not a list"
+  },
+  "output": {
+   "presets": []
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": null
+  },
+  "output": {
+   "presets": []
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "Desk",
+     "camera": {
+      "iso": 100,
+      "lens": "0"
+     },
+     "stream": {
+      "fps": 30
+     },
+     "transforms": {
+      "zoom": 2.0
+     }
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "Desk",
+     "camera": {
+      "iso": 100,
+      "lens": "0"
+     },
+     "stream": {
+      "fps": 30
+     },
+     "transforms": {
+      "zoom": 2.0
+     }
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "A",
+     "camera": {
+      "iso": 1
+     },
+     "stream": "bad"
+    },
+    {
+     "name": ""
+    },
+    "junk",
+    {
+     "name": "A"
+    },
+    {
+     "name": "B",
+     "extra": 1
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "A",
+     "camera": {
+      "iso": 1
+     }
+    },
+    {
+     "name": "B"
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "  Desk  & <b>window</b> "
+    },
+    {
+     "name": "Des\u0000k\n<b>"
+    },
+    {
+     "name": "\u0000\u0001"
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "Desk & bwindow/b"
+    },
+    {
+     "name": "Desk b"
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "name": 5
+    },
+    {
+     "name": null
+    },
+    {
+     "name": 1.5
+    },
+    {
+     "name": true
+    },
+    {
+     "x": 1
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "name": "5"
+    },
+    {
+     "name": "None"
+    },
+    {
+     "name": "1.5"
+    },
+    {
+     "name": "True"
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "Night",
+     "background": {
+      "mode": "picture",
+      "picture": "desk.png"
+     },
+     "gone": {
+      "x": 1
+     },
+     "junk": 3
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "Night",
+     "background": {
+      "mode": "picture",
+      "picture": "desk.png"
+     },
+     "gone": {
+      "x": 1
+     }
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "A",
+     "camera": {
+      "b": 1,
+      "a": [
+       1,
+       2.5,
+       null
+      ]
+     },
+     "stream": {}
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "A",
+     "camera": {
+      "b": 1,
+      "a": [
+       1,
+       2.5,
+       null
+      ]
+     },
+     "stream": {}
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "presets",
+  "input": {
+   "presets": [
+    {
+     "name": "Tab\there"
+    },
+    {
+     "name": "Ni\u0007ght\txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+   ]
+  },
+  "output": {
+   "presets": [
+    {
+     "name": "Tab here"
+    },
+    {
+     "name": "Night xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+   ]
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {},
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "ready",
+   "stop_idle": "own",
+   "stop_delay_s": 60,
+   "notify_stop": false
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "own",
+   "stop_delay_s": 60,
+   "notify_stop": false
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "watched",
+   "stop_idle": "any",
+   "stop_delay_s": 300,
+   "notify_stop": true
+  },
+  "output": {
+   "start_on": "watched",
+   "stop_idle": "any",
+   "stop_delay_s": 300,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "sometimes",
+   "stop_idle": null,
+   "stop_delay_s": "5",
+   "notify_stop": "no"
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "stop_idle": "own",
+   "stop_delay_s": 2,
+   "auto_stream": true
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "own",
+   "stop_delay_s": 10,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "ready",
+   "stop_delay_s": 99999
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "off",
+   "stop_delay_s": 3600,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "ready",
+   "stop_delay_s": true
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "ready",
+   "stop_delay_s": 30.0
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "ready",
+   "stop_delay_s": -4
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "off",
+   "stop_delay_s": 10,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": 3,
+   "stop_idle": [
+    "own"
+   ]
+  },
+  "output": null
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "auto_stream": true
+  },
+  "output": {
+   "start_on": "ready",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "watch_stream": true
+  },
+  "output": {
+   "start_on": "watched",
+   "stop_idle": "own",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "auto_stream": true,
+   "watch_stream": true
+  },
+  "output": {
+   "start_on": "watched",
+   "stop_idle": "own",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "auto_stream": "yes",
+   "watch_stream": 1
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "start_on": "off"
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "stop_idle": "any"
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "any",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "notify_stop": 0
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "startup",
+  "input": {
+   "notify_stop": null
+  },
+  "output": {
+   "start_on": "off",
+   "stop_idle": "off",
+   "stop_delay_s": 15,
+   "notify_stop": true
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {},
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "image": "/x/wait_screen-abc.png",
+   "mirror": true,
+   "last_size": [
+    640,
+    480
+   ]
+  },
+  "output": {
+   "image": "/x/wait_screen-abc.png",
+   "mirror": true,
+   "last_size": [
+    640,
+    480
+   ]
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "image": 5
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "image": ""
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "image": null,
+   "mirror": 1
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "mirror": "yes"
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "mirror": false
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    8,
+    8
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    640
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    true,
+    480
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": "640x480"
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    640.0,
+    480
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    640,
+    480,
+    1
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    16,
+    8192
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": [
+    16,
+    8192
+   ]
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    15,
+    8192
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": [
+    16,
+    8193
+   ]
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ },
+ {
+  "plugin": "wait_screen",
+  "input": {
+   "last_size": null
+  },
+  "output": {
+   "image": null,
+   "mirror": false,
+   "last_size": null
+  }
+ }
+]

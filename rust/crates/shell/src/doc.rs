@@ -238,6 +238,12 @@ export component TelescopeWindow inherits Window {
         clipboard.select-all();
         clipboard.copy();
     }
+    // Host::clipboard_text: what the hidden box pastes from the clipboard
+    public function paste-text() -> string {
+        clipboard.text = "";
+        clipboard.paste();
+        return clipboard.text;
+    }
     out property <int> mode: root.width >= 1300px ? 0 : root.width >= 900px ? 1 : 2;
     in-out property <length> scroll0;
     in-out property <length> scroll1;

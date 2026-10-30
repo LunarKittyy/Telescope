@@ -76,6 +76,14 @@ fn sound(stage: &ColourStage) -> bool {
 /// One stage on a list of RGB triples, clipped to 0..1 afterwards (NaN becomes 0).
 fn run(stage: &ColourStage, rgb: &mut [f32]) {
     let n = stage.size as usize;
+    if let Some(change) = &stage.eval.0 {
+        // the change itself at the colours the stages before it left
+        change(rgb);
+        for v in rgb.iter_mut() {
+            *v = if v.is_nan() { 0.0 } else { v.clamp(0.0, 1.0) };
+        }
+        return;
+    }
     for px in rgb.chunks_exact_mut(3) {
         let at = [px[0], px[1], px[2]];
         let out = match &stage.table {
@@ -242,9 +250,27 @@ struct Entry {
     stage: ColourStage,
 }
 
-/// What a stage is told apart by when baking again would give the same LUT: the data it holds.
-fn identity(stages: &[&ColourStage]) -> Vec<(usize, usize)> {
-    stages.iter().map(|s| (Arc::as_ptr(&s.rgb) as *const f32 as usize, s.table.as_ref().map_or(0, |t| Arc::as_ptr(t) as *const f32 as usize))).collect()
+/// What a stage is told apart by when baking again would give the same LUT: the data it holds. The Arcs are kept, so a freed
+/// stage's address can't be taken by another one and pass for it (colour.py keys on the stage objects themselves).
+#[derive(Clone)]
+struct Identity(Vec<(Arc<Vec<f32>>, Option<Arc<Vec<f32>>>)>);
+
+impl Identity {
+    fn of(stages: &[&ColourStage]) -> Identity {
+        Identity(stages.iter().map(|s| (s.rgb.clone(), s.table.clone())).collect())
+    }
+
+    fn same(&self, other: &Identity) -> bool {
+        self.0.len() == other.0.len()
+            && self.0.iter().zip(&other.0).all(|((a, ta), (b, tb))| {
+                Arc::ptr_eq(a, b)
+                    && match (ta, tb) {
+                        (Some(x), Some(y)) => Arc::ptr_eq(x, y),
+                        (None, None) => true,
+                        _ => false,
+                    }
+            })
+    }
 }
 
 const KEEP_BAKED: usize = 8;
@@ -256,7 +282,7 @@ pub struct ColourPipeline {
     shown: Vec<Entry>,
     by_source: HashMap<String, Vec<Entry>>,
     splits: Vec<(String, f32)>,
-    baked: Vec<(Vec<(usize, usize)>, Option<Arc<Baked>>)>,
+    baked: Vec<(Identity, Option<Arc<Baked>>)>,
 }
 
 fn sorted(mut entries: Vec<Entry>) -> Vec<Entry> {
@@ -319,8 +345,8 @@ impl ColourPipeline {
         if stages.is_empty() {
             return None;
         }
-        let key = identity(&stages);
-        if let Some(i) = self.baked.iter().position(|(k, _)| *k == key) {
+        let key = Identity::of(&stages);
+        if let Some(i) = self.baked.iter().position(|(k, _)| k.same(&key)) {
             let hit = self.baked.remove(i);
             self.baked.push(hit);
             return self.baked.last().and_then(|(_, b)| b.clone());
@@ -394,7 +420,7 @@ mod tests {
         let mut rgb = lattice(n);
         rgb.iter_mut().for_each(|v| *v = f(*v));
         let table = per_channel.then(|| Arc::new((0..LEVELS).flat_map(|i| [f(i as f32 / 255.0); 3]).collect::<Vec<f32>>()));
-        ColourStage { size, rgb: Arc::new(rgb), table }
+        ColourStage::new(size, Arc::new(rgb), table)
     }
 
     fn pixels() -> Vec<[u8; 3]> {
@@ -481,10 +507,10 @@ mod tests {
 
     #[test]
     fn a_stage_that_doesnt_fit_its_size_is_left_out() {
-        let broken = ColourStage { size: 33, rgb: Arc::new(vec![0.0; 10]), table: None };
+        let broken = ColourStage::new(33, Arc::new(vec![0.0; 10]), None);
         let lut = bake(&[&broken, &stage(|v| 1.0 - v, false, 33)], None).unwrap();
         assert_eq!(lut.apply([0, 0, 0]), [255, 255, 255]);
-        let short = ColourStage { size: 33, rgb: Arc::new(lattice(33)), table: Some(Arc::new(vec![0.0; 4])) };
+        let short = ColourStage::new(33, Arc::new(lattice(33)), Some(Arc::new(vec![0.0; 4])));
         assert_eq!(bake(&[&short], None).unwrap().apply([10, 20, 30]), [10, 20, 30]);
     }
 
@@ -540,6 +566,35 @@ mod tests {
         assert!(Arc::ptr_eq(&a, &b));
         p.set_stage("grade", Some(stage(|v| v, false, 33)), 0, None);
         assert!(!Arc::ptr_eq(&a, &p.lut(None).unwrap()));
+    }
+
+    #[test]
+    fn a_stage_is_worked_out_at_the_one_before_its_output_not_read_off_its_table() {
+        // a steep curve: 0 until 0.5, then up to 1 by 0.51 (the tone curve [(0, 0), (0.5, 0), (0.51, 1), (1, 1)])
+        let steep = |v: f32| ((v - 0.5) / 0.01).clamp(0.0, 1.0);
+        let half = stage(|v| v * 0.5, true, 33);
+        let curve = stage(steep, true, 33).with_eval(move |px: &mut [f32]| px.iter_mut().for_each(|v| *v = steep(*v)));
+        // the first stage leaves white at exactly 0.5, which the curve takes to 0
+        assert_eq!(bake(&[&half, &curve], None).unwrap().apply([255, 255, 255]), [0, 0, 0]);
+        // read off its 256 levels instead, the curve would pick up the step between the two levels around 0.5
+        let sampled = stage(steep, true, 33);
+        assert_ne!(bake(&[&half, &sampled], None).unwrap().apply([255, 255, 255]), [0, 0, 0]);
+        // a 3D bake works the same way
+        let half3 = stage(|v| v * 0.5, false, 33);
+        let curve3 = stage(steep, false, 33).with_eval(move |px: &mut [f32]| px.iter_mut().for_each(|v| *v = steep(*v)));
+        assert_eq!(bake(&[&half3, &curve3], None).unwrap().apply([255, 255, 255]), [0, 0, 0]);
+    }
+
+    #[test]
+    fn a_stage_that_took_a_freed_ones_place_is_baked_afresh() {
+        let mut p = ColourPipeline::new();
+        p.set_stage("grade", Some(stage(|v| v * 0.5, false, 33)), 0, None);
+        assert!((p.lut(None).unwrap().apply([200, 200, 200])[0] as i32 - 100).abs() <= 1);
+        p.set_stage("grade", None, 0, None);
+        assert!(p.lut(None).is_none());
+        // the first stage is gone and its memory free for the next one
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, false, 33)), 0, None);
+        assert!((p.lut(None).unwrap().apply([200, 200, 200])[0] as i32 - 55).abs() <= 1);
     }
 
     #[test]

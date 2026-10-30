@@ -78,6 +78,8 @@ export component Card inherits Rectangle {
     // The action icon's colour (the Microphone card's Mute turns red while muted)
     in property <color> action-tint: Theme.text-dim;
     callback action;
+    // The action greys out (New link on a sign that's switched off)
+    in property <bool> action-enabled: true;
     // An on/off switch at the far right of the header (the Microphone card's)
     in property <bool> has-switch;
     in-out property <bool> switch-checked;
@@ -157,6 +159,8 @@ export component Card inherits Rectangle {
                 has-icon: true;
                 icon: action-icon;
                 icon-tint: action-tint;
+                enabled: action-enabled;
+                quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-text;
                 clicked => { root.action(); }
@@ -170,6 +174,8 @@ export component Card inherits Rectangle {
                 has-icon: true;
                 icon: action-icon;
                 icon-tint: Theme.text-dim;
+                enabled: action-enabled;
+                quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-label;
                 clicked => { root.action(); }

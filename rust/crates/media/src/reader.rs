@@ -31,6 +31,7 @@ impl FrameReader for Reader {
             let decoded = self.decoder.decode(&packet);
             self.pending_frames += decoded.count;
             if let Some(frame) = decoded.newest {
+                self.feed.decoded();
                 let bytes = std::mem::take(&mut self.pending_bytes);
                 // Frames that arrived for it, the ones skipped to keep up included
                 let count = std::mem::take(&mut self.pending_frames);
