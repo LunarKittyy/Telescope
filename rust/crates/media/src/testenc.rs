@@ -8,6 +8,12 @@ const AUD: &[u8] = b"\x00\x00\x00\x01\x09\xf0";
 
 /// Encodes flat frames (Y as each value is, every U and V the same) with the given pixel format and options.
 fn encode(name: &str, values: &[u8], chroma: (u8, u8), w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)]) -> Option<Vec<Vec<u8>>> {
+    encode_with(name, values.len(), w, h, fmt, opts, &|i, plane, pw, ph| vec![[values[i], chroma.0, chroma.1][plane]; pw * ph])
+}
+
+/// Encodes `count` frames whose planes fill(frame, plane, plane width, plane height) hands out.
+fn encode_with(name: &str, count: usize, w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)],
+               fill: &dyn Fn(usize, usize, usize, usize) -> Vec<u8>) -> Option<Vec<Vec<u8>>> {
     // SAFETY: plain libavcodec encoding; everything allocated here is freed before returning
     unsafe {
         let cname = CString::new(name).unwrap();
@@ -41,13 +47,13 @@ fn encode(name: &str, values: &[u8], chroma: (u8, u8), w: u32, h: u32, fmt: ff::
         let mut pkt = ff::av_packet_alloc();
         let mut out = Vec::new();
         let (cw, ch) = (w.div_ceil(2) as usize, h.div_ceil(2) as usize);
-        for (i, &v) in values.iter().enumerate() {
+        for i in 0..count {
             ff::av_frame_make_writable(frame);
-            let y = v;
-            for (plane, value, pw, ph) in [(0, y, w as usize, h as usize), (1, chroma.0, cw, ch), (2, chroma.1, cw, ch)] {
+            for (plane, pw, ph) in [(0, w as usize, h as usize), (1, cw, ch), (2, cw, ch)] {
                 let (data, stride) = ((*frame).data[plane], (*frame).linesize[plane] as usize);
+                let pixels = fill(i, plane, pw, ph);
                 for row in 0..ph {
-                    ptr::write_bytes(data.add(row * stride), value, pw);
+                    ptr::copy_nonoverlapping(pixels.as_ptr().add(row * pw), data.add(row * stride), pw);
                 }
             }
             (*frame).pts = i as i64;
@@ -96,4 +102,28 @@ pub fn h264_yuv(y: u8, u: u8, v: u8, w: u32, h: u32, matrix: &str, range: &str) 
 /// A JPEG of a flat colour with these full-range Y, U and V values.
 pub fn jpeg_yuv(y: u8, u: u8, v: u8, w: u32, h: u32) -> Vec<u8> {
     encode("mjpeg", &[y], (u, v), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
+}
+
+/// H.264 packets (no delimiters) of a grey square moving right over a picture that changes completely every 6 frames, the
+/// way test_h264_mosh.py makes its streams: no B-frames, no scene cuts, a keyframe every `gop` frames. profile: "high" or "baseline".
+pub fn h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {
+    let g = gop.to_string();
+    // Greys as BGR turn into YUV: the limited range
+    let limited = |v: f64| (16.0 + v * 219.0 / 255.0).round() as u8;
+    let plane = move |i: usize, plane: usize, pw: usize, ph: usize| -> Vec<u8> {
+        if plane > 0 {
+            return vec![128; pw * ph];
+        }
+        let background = limited(40.0 + 60.0 * (i / 6 % 3) as f64);
+        let x0 = 4 + 3 * (i % 20);
+        let mut out = vec![background; pw * ph];
+        for y in 20..44.min(ph) {
+            for x in x0..(x0 + 24).min(pw) {
+                out[y * pw + x] = limited(230.0);
+            }
+        }
+        out
+    };
+    encode_with("libx264", count, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+                &[("tune", "zerolatency"), ("g", &g), ("bf", "0"), ("profile", profile), ("x264-params", "scenecut=0")], &plane)
 }

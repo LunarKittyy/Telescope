@@ -168,7 +168,7 @@ fn pick(ch: char, weight: f32) -> Option<&'static Style> {
     let lang = language(ch.script());
     let sorted: &'static Sorted = {
         let mut cache = SORTED.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
-        *cache.entry(lang).or_insert_with(|| Box::leak(Box::new(sort(lang))))
+        cache.entry(lang).or_insert_with(|| Box::leak(Box::new(sort(lang))))
     };
     sorted.0.iter().filter(|styles| !styles.is_empty()).map(|styles| nearest(styles, weight)).find(|style| style.covers.has(ch))
 }

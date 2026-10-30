@@ -337,7 +337,7 @@ fn stick_figure_lines_come_from_the_pose_through_the_view() {
     let person = Person::from_value(&json!({"points": {
         "left_shoulder": [0.4, 0.4, 1.0], "right_shoulder": [0.6, 0.4, 1.0], "left_hip": [0.42, 0.7, 1.0], "nose": [0.5, 0.25, 1.0],
         "left_eye": [0.48, 0.24, 1.0], "right_eye": [0.52, 0.24, 1.0], "right_hip": [0.58, 0.7, 0.1]}})).unwrap();
-    let (lines, heads) = stick_figure(&[person.clone()], &|x, y| (x, y), 16.0 / 9.0);
+    let (lines, heads) = stick_figure(std::slice::from_ref(&person), &|x, y| (x, y), 16.0 / 9.0);
     assert!(lines.contains(&((0.4, 0.4), (0.6, 0.4))) && lines.contains(&((0.4, 0.4), (0.42, 0.7))));
     // not sure enough about that hip
     assert!(!lines.iter().any(|l| l.0 == (0.58, 0.7) || l.1 == (0.58, 0.7)));
@@ -402,4 +402,33 @@ fn a_clone_is_not_cut_out_against_an_empty_room_of_another_shape() {
     // the picture turned portrait since the room was taken: stretching it would only bend it
     r.stream("phone", &with_person(&room(), 20, 50).nearest(H, W));
     assert!(r.look().clones.is_none());
+}
+
+
+#[test]
+fn the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded() {
+    use telescope_core::vision::{VisionPack, MISSING, READY};
+    for download_from in ["this card", "another card"] {
+        let mut r = Rig::new();
+        r.host.vision = Some(MISSING.into());
+        r.host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
+        let status = |r: &Rig| (r.shown("vision-text").as_str().unwrap().to_string(), r.shown("vision-download"));
+        // Wanting people looks for the pack and finds none
+        r.pick("stick");
+        assert_eq!(status(&r), ("Needs a one-time download (about 47 MB).".to_string(), json!(true)), "{download_from}");
+        r.pick("cloak");
+        assert_eq!(status(&r), ("Cleaner edges with a one-time download (about 47 MB).".to_string(), json!(true)), "the cloak works without it");
+        if download_from == "this card" {
+            r.pick("stick");
+            r.ui("download-clicked", vec![]);
+            assert!(r.host.calls.iter().any(|c| c == "download_vision"), "{:?}", r.host.calls);
+        }
+        // What the window does when the download finishes, whichever card started it
+        r.host.vision = Some(READY.into());
+        r.event(Event::VisionDownloadFinished { error: String::new(), switch_on: String::new() });
+        r.event(Event::VisionStateChanged { state: READY.into() });
+        assert_eq!(status(&r).0, "", "nothing to say once it's there");
+        r.pick("cloak");
+        assert_eq!(status(&r).0, "");
+    }
 }

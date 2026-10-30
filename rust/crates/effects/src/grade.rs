@@ -321,7 +321,7 @@ impl Grade {
     /// RGB triples 0..1, graded in place.
     pub fn apply(&self, rgb: &mut [f32]) {
         let p = self.prepare();
-        for px in rgb.chunks_exact_mut(3) {
+        for px in rgb.as_chunks_mut::<3>().0 {
             let out = p.pixel([px[0], px[1], px[2]]);
             px.copy_from_slice(&out);
         }
@@ -343,6 +343,7 @@ impl Prepared<'_> {
             }
         }
         if self.primaries {
+            #[allow(clippy::needless_range_loop)] // c walks five parallel arrays
             for c in 0..3 {
                 let v = x[c] + self.offset[c];
                 let v = self.gain[c] * v + self.lift[c] * (1.0 - v);
@@ -405,7 +406,7 @@ mod tests {
             state ^= state << 17;
             (state >> 40) as f32 / (1u64 << 24) as f32
         };
-        let mut out: Vec<[f32; 3]> = lattice(5).chunks_exact(3).map(|p| [p[0], p[1], p[2]]).collect();
+        let mut out: Vec<[f32; 3]> = lattice(5).as_chunks::<3>().0.iter().map(|p| [p[0], p[1], p[2]]).collect();
         out.extend((0..200).map(|_| [next(), next(), next()]));
         out
     }

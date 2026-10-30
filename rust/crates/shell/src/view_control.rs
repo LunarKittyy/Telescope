@@ -405,4 +405,72 @@ mod tests {
         assert!(sent(&vc.focus_gained(&view, "p1", 2.0)).is_empty(), "the phone still crops what it was sent");
         assert_eq!(vc.shown(&view).zoom, 1.0);
     }
+
+    /// A stream whose current lens zooms itself and has a longer one at 3.7x.
+    fn lens() -> Value {
+        json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true, "lensZooms": [3.7]}]})
+    }
+
+    /// A controller that something has set a view on, as the Transforms card does when its settings load.
+    fn engaged() -> (ViewController, View) {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.set_view(&mut view, &change(Some(1.0), None, None), 0.0);
+        (vc, view)
+    }
+
+    #[test]
+    fn the_phone_is_told_only_when_its_share_changes() {
+        let (mut vc, mut view) = engaged();
+        let mut said = vc.stream_start(&view, "p1", 0.0);
+        assert!(sent(&said).is_empty(), "no caps yet: nothing to tell it");
+        said.extend(vc.phone_state(&view, &zooms(), 0.0));
+        said.extend(vc.phone_state(&view, &zooms(), 0.0));
+        said.extend(vc.set_view(&mut view, &change(Some(3.0), None, None), 0.0));
+        assert_eq!(sent(&said), [PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 3.0, x: 0.5, y: 0.5 }]);
+        assert_eq!(vc.desktop, (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn this_computer_crops_everything_without_a_phone_that_zooms() {
+        let (mut vc, mut view) = engaged();
+        let mut said = vc.stream_start(&view, "p1", 0.0);
+        said.extend(vc.phone_state(&view, &json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 4.0}]}), 0.0));
+        said.extend(vc.set_view(&mut view, &change(Some(2.0), None, None), 0.0));
+        said.extend(vc.stream_stop(&view, 0.0));
+        assert_eq!(vc.desktop, (2.0, 0.0, 0.0));
+        said.extend(vc.stream_start(&view, "p1", 0.0));
+        said.extend(vc.camera_caps(&view, Some(&json!({"id": "2"})), 0.0)); // a lens that can't zoom itself
+        assert_eq!(vc.desktop, (2.0, 0.0, 0.0));
+        assert_eq!(sent(&said), [PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }], "a ratio alone picks no lens");
+    }
+
+    #[test]
+    fn back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is() {
+        let (mut vc, view) = engaged();
+        vc.stream_start(&view, "p1", 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        vc.focus_lost(&view, 1.0);
+        let mut said = vc.focus_gained(&view, "p1", 2.0);
+        said.extend(vc.phone_state(&view, &zooms(), 2.0));
+        assert!(sent(&said).is_empty());
+        vc.stream_stop(&view, 3.0);
+        let mut said = vc.focus_gained(&view, "p1", 4.0);
+        said.extend(vc.phone_state(&view, &zooms(), 4.0));
+        assert_eq!(sent(&said), [PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }]);
+    }
+
+    #[test]
+    fn the_preview_hears_about_the_lens_boxes_and_the_pan() {
+        let boxes_of = |said: &[Said]| said.iter().rev().find_map(|s| if let Said::Emit(Event::LensBoxes { boxes, moved }) = s { Some((boxes.clone(), *moved)) } else { None });
+        let pannable = |said: &[Said]| said.iter().rev().find_map(|s| if let Said::Emit(Event::ViewPannable { pannable }) = s { Some(*pannable) } else { None });
+        let (mut vc, mut view) = engaged();
+        let mut said = vc.stream_start(&view, "p1", 0.0);
+        said.extend(vc.phone_state(&view, &lens(), 0.0));
+        let (boxes, moved) = boxes_of(&said).unwrap();
+        assert_eq!((boxes[0].label.as_str(), moved), ("3.7\u{d7}", false), "new lens data: no flash");
+        let said = vc.set_view(&mut view, &change(Some(2.0), None, None), 0.0);
+        assert_eq!((boxes_of(&said).unwrap().1, pannable(&said)), (true, Some(true)));
+        let said = vc.stream_stop(&view, 0.0);
+        assert_eq!(boxes_of(&said), Some((Vec::new(), false)));
+    }
 }

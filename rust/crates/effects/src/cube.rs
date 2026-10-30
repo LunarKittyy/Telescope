@@ -211,11 +211,14 @@ fn split_lines(text: &str) -> Vec<&str> {
     lines
 }
 
+/// A LUT_1D_INPUT_RANGE or LUT_3D_INPUT_RANGE: (min, max).
+type Bounds = (f64, f64);
+
 /// A .cube file's text (Adobe's format, plus Resolve's LUT_1D_INPUT_RANGE and shaper-then-cube files).
 pub fn parse_cube(text: &str) -> Result<CubeLut, CubeError> {
     let (mut title, mut size1, mut size3) = (String::new(), 0i64, 0i64);
     let (mut dmin, mut dmax) = ([0.0f64; 3], [1.0f64; 3]);
-    let (mut range1, mut range3): (Option<(f64, f64)>, Option<(f64, f64)>) = (None, None);
+    let (mut range1, mut range3): (Option<Bounds>, Option<Bounds>) = (None, None);
     let mut rows: Vec<[f64; 3]> = Vec::new();
     for (i, raw) in split_lines(text).into_iter().enumerate() {
         let number = i + 1;
@@ -312,7 +315,7 @@ pub fn cube_text(cube: &[f32], size: usize, title: &str) -> String {
         lines.push(format!("TITLE \"{}\"", title.replace('"', "'")));
     }
     lines.extend(["# Made with Telescope".to_string(), format!("LUT_3D_SIZE {size}"), "DOMAIN_MIN 0.0 0.0 0.0".into(), "DOMAIN_MAX 1.0 1.0 1.0".into()]);
-    for px in cube.chunks_exact(3) {
+    for px in cube.as_chunks::<3>().0 {
         let v = |i: usize| px[i].clamp(0.0, 1.0);
         lines.push(format!("{:.6} {:.6} {:.6}", v(0), v(1), v(2)));
     }
@@ -358,6 +361,7 @@ mod tests {
         let lut = parse_cube(&format!("TITLE \"Plain\"\n# a comment\nLUT_3D_SIZE 2\n{body}\n")).unwrap();
         assert!(lut.title == "Plain" && lut.size() == 2 && !lut.per_channel());
         // [b][g][r]
+        #[allow(clippy::identity_op)] // b is 1, spelled out to show the layout
         let at = (1 * 2 * 2) * 3;
         assert_eq!(&lut.cube.as_ref().unwrap()[at..at + 3], &[0.0, 0.0, 1.0]);
         assert!(close(lut.eval([0.25, 0.5, 0.75]), [0.25, 0.5, 0.75], 1e-6));
@@ -415,7 +419,7 @@ mod tests {
     fn a_cube_written_reads_back_the_same() {
         let dir = scratch_dir("cube-round");
         let mut cube = lattice(17);
-        for px in cube.chunks_exact_mut(3) {
+        for px in cube.as_chunks_mut::<3>().0 {
             let (r, g, b) = (px[0], px[1], px[2]);
             px.copy_from_slice(&[r.powf(0.8), g * 0.9 + b * 0.1, b.sqrt()]);
         }
@@ -453,9 +457,9 @@ mod tests {
         let out_dir = scratch_dir("cube-real");
         for path in files {
             let lut = read_cube(&path).unwrap_or_else(|_| panic!("{path:?}"));
-            let looked: Vec<f32> = lattice(9).chunks_exact(3).flat_map(|p| lut.eval([p[0], p[1], p[2]])).collect();
+            let looked: Vec<f32> = lattice(9).as_chunks::<3>().0.iter().flat_map(|p| lut.eval([p[0], p[1], p[2]])).collect();
             assert!(looked.len() == 9 * 9 * 9 * 3 && looked.iter().all(|v| v.is_finite()), "{path:?}");
-            let cube: Vec<f32> = lattice(33).chunks_exact(3).flat_map(|p| lut.eval([p[0], p[1], p[2]]).map(|v| v.clamp(0.0, 1.0))).collect();
+            let cube: Vec<f32> = lattice(33).as_chunks::<3>().0.iter().flat_map(|p| lut.eval([p[0], p[1], p[2]]).map(|v| v.clamp(0.0, 1.0))).collect();
             let out = out_dir.join(path.file_name().unwrap());
             write_cube(&out, &cube, 33, &lut.title).unwrap();
             let back = read_cube(&out).unwrap();

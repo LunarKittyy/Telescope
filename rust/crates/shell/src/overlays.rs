@@ -771,4 +771,13 @@ mod tests {
         assert_eq!(texts, vec![LayerText { x: 100.0, y: 50.0, text: "hi".into(), color: [255; 4], size: 12.0 }]);
         assert_eq!(rgba("#12345"), None);
     }
+
+    #[test]
+    fn without_zoom_the_whole_picture_is_the_phone_frame_focus_uses() {
+        for view in views().into_iter().filter(|v| v.zoom == 1.0) {
+            let (x, y) = to_full(&view, 0.2, 0.9);
+            let (fx, fy) = telescope_core::view::inverse_map(0.2, 0.9, 1920.0, 1080.0, &telescope_core::view::Geometry::from(&view));
+            assert!((x - fx).abs() < 1e-9 && (y - fy).abs() < 1e-9, "{view:?}");
+        }
+    }
 }

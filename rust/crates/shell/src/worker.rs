@@ -104,6 +104,8 @@ pub struct VisionFeed {
     pub upright: Arc<Mutex<telescope_core::vision::Upright>>,
     /// Where each stream says how big its frames are before the view.
     pub frame_sizes: Arc<Mutex<std::collections::HashMap<String, (u32, u32)>>>,
+    /// Motion in zones of the picture, looked for in the same frames while a plugin watches.
+    pub motion: Option<Arc<telescope_core::motion::Motion>>,
 }
 
 /// StreamSource::waiting_text, asked each time opening the stream fails.
@@ -620,6 +622,10 @@ impl Shared {
         if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
             let upright = *feed.upright.lock().unwrap();
             feed.service.feed_raw(&self.source_id, &frame, upright);
+        }
+        if let Some(motion) = self.vision.as_ref().and_then(|f| f.motion.as_ref()).filter(|m| m.watching()) {
+            let upright = *self.vision.as_ref().map(|f| f.upright.lock().unwrap()).expect("a feed");
+            motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
         let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
         let out = publish.0.process(frame, &ctx);
@@ -1706,7 +1712,7 @@ mod tests {
 
     #[test]
     fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
-        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default() };
+        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
         let seen = with_steps(Vec::new(), Some(vision), 2);
         let masks = seen.masks.lock().unwrap();
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");

@@ -391,4 +391,206 @@ mod tests {
         assert_eq!(boxes[0].0, "2×");
         assert!((boxes[0].1 - 0.25).abs() < 1e-9 && (boxes[0].4 - 0.75).abs() < 1e-9);
     }
+
+    fn tele() -> PhoneZoomCaps {
+        PhoneZoomCaps { ratio_max: 10.0, crop_max: 4.0, freeform: true, lens_zooms: vec![3.7] }
+    }
+
+    fn centre_only() -> PhoneZoomCaps {
+        PhoneZoomCaps { freeform: false, ..tele() }
+    }
+
+    fn crop_only() -> PhoneZoomCaps {
+        PhoneZoomCaps { ratio_max: 1.0, crop_max: 2.0, freeform: true, lens_zooms: Vec::new() }
+    }
+
+    fn one_lens() -> PhoneZoomCaps {
+        PhoneZoomCaps { lens_zooms: Vec::new(), ..tele() }
+    }
+
+    /// (size, centre x, centre y) the phone's crop and the desktop's remainder end up showing, 0..1.
+    fn framing(split: &ZoomSplit) -> (f64, f64, f64) {
+        let phone = split.phone.unwrap_or(PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 });
+        let view = 1.0 / (phone.ratio * phone.crop);
+        let (vx, vy) = (0.5 + (phone.x - 0.5) / phone.ratio, 0.5 + (phone.y - 0.5) / phone.ratio);
+        let (zoom, pan_x, pan_y) = split.desktop;
+        let step = view * (1.0 - 1.0 / zoom) / 2.0;
+        (view / zoom, vx + pan_x * step, vy + pan_y * step)
+    }
+
+    #[test]
+    fn split_zoom_always_frames_what_was_asked() {
+        let small = PhoneZoomCaps { ratio_max: 1.5, crop_max: 1.0, freeform: false, lens_zooms: Vec::new() };
+        let all: [Option<PhoneZoomCaps>; 6] = [None, Some(tele()), Some(centre_only()), Some(crop_only()), Some(one_lens()), Some(small)];
+        for caps in &all {
+            for (zoom, (pan_x, pan_y)) in [(1.0, (0.0, 0.0)), (2.0, (0.0, 0.0)), (3.0, (1.0, 0.0)), (5.0, (-0.4, 0.8)), (2.5, (1.0, -1.0)), (4.5, (0.0, 0.0)), (5.0, (0.3, -0.2))] {
+                for current in [1.0, 3.7] {
+                    let (size, cx, cy) = framing(&split_zoom(zoom, pan_x, pan_y, caps.as_ref(), current));
+                    let what = format!("{caps:?} {zoom} {pan_x} {pan_y} {current}");
+                    assert!((size - 1.0 / zoom).abs() < 1e-3, "{what}: {size}");
+                    assert!((cx - (0.5 + pan_x * (1.0 - 1.0 / zoom) / 2.0)).abs() < 1e-3, "{what}: {cx}");
+                    assert!((cy - (0.5 + pan_y * (1.0 - 1.0 / zoom) / 2.0)).abs() < 1e-3, "{what}: {cy}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_lens_that_cant_zoom_leaves_it_all_to_the_desktop() {
+        let split = split_zoom(2.5, 0.3, -0.2, None, 1.0);
+        assert!(split.phone.is_none());
+        assert_eq!(split.desktop, (2.5, 0.3, -0.2));
+    }
+
+    #[test]
+    fn below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens() {
+        let split = split_zoom(3.0, 0.0, 0.0, Some(&tele()), 1.0);
+        assert_eq!(split.phone, Some(PhoneZoom { ratio: 1.0, crop: 3.0, x: 0.5, y: 0.5 }));
+        assert_eq!(split.desktop, (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest() {
+        let split = split_zoom(5.0, 0.0, 0.0, Some(&tele()), 1.0);
+        let phone = split.phone.unwrap();
+        assert_eq!(phone.ratio, 3.7);
+        assert!((phone.crop - 5.0 / 3.7).abs() < 1e-3);
+        assert_eq!(split.desktop, (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn panning_out_of_the_telephotos_view_goes_back_to_the_main_lens() {
+        let phone = split_zoom(5.0, 1.0, 0.0, Some(&tele()), 3.7).phone.unwrap();
+        assert_eq!(phone.ratio, 1.0);
+        assert!((phone.crop - 4.0).abs() < 1e-9, "as far as the crop goes; this computer does the rest");
+        assert!(phone.x > 0.5);
+    }
+
+    #[test]
+    fn a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges() {
+        // The wobble: a ratio that follows the pan makes the phone animate zoom on every step
+        for caps in [tele(), centre_only(), one_lens()] {
+            for zoom in [2.0, 3.0, 4.5] {
+                let (mut ratios, mut current) = (Vec::new(), 1.0);
+                for step in -20..=20 {
+                    let split = split_zoom(zoom, step as f64 / 20.0, step as f64 / 40.0, Some(&caps), current);
+                    current = split.phone.unwrap().ratio;
+                    ratios.push(current);
+                }
+                let changes = ratios.windows(2).filter(|w| w[0] != w[1]).count();
+                assert!(ratios.iter().all(|r| *r == 1.0 || caps.lens_zooms.contains(r)), "{caps:?} {zoom}: {ratios:?}");
+                assert!(changes <= 2, "into the telephoto's view and back out, nothing in between: {caps:?} {zoom}: {ratios:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_lens_doesnt_flip_back_and_forth_at_its_edge() {
+        let pan = 0.0526; // at 4.5x the window then fits a 3.8x view: inside the telephoto's, short of the margin
+        assert_eq!(split_zoom(4.5, pan, 0.0, Some(&tele()), 1.0).phone.unwrap().ratio, 1.0);
+        assert_eq!(split_zoom(4.5, pan, 0.0, Some(&tele()), 3.7).phone.unwrap().ratio, 3.7);
+    }
+
+    #[test]
+    fn a_centred_window_just_past_a_lens_gets_back_onto_it() {
+        // 3.8x is inside the margin, so panning out and back used to leave it stuck on the main camera
+        let out = split_zoom(3.8, 1.0, 0.0, Some(&tele()), 3.7).phone.unwrap().ratio;
+        let back = split_zoom(3.8, 0.0, 0.0, Some(&tele()), out).phone.unwrap().ratio;
+        assert_eq!((out, back), (1.0, 3.7));
+    }
+
+    #[test]
+    fn a_centre_only_phones_share_doesnt_change_with_the_pan() {
+        let shares: Vec<PhoneZoom> = (-10..=10).map(|step| split_zoom(3.0, step as f64 / 10.0, 0.0, Some(&centre_only()), 1.0).phone.unwrap()).collect();
+        assert!(shares.iter().all(|s| *s == PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }));
+        assert_eq!(split_zoom(4.5, 0.0, 0.0, Some(&centre_only()), 1.0).phone, Some(PhoneZoom { ratio: 3.7, crop: 1.0, x: 0.5, y: 0.5 }));
+    }
+
+    #[test]
+    fn zoom_past_what_the_phone_allows_is_finished_on_the_desktop() {
+        let split = split_zoom(5.0, 0.0, 0.0, Some(&crop_only()), 1.0);
+        assert_eq!(split.phone, Some(PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }));
+        assert!((split.desktop.0 - 2.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn caps_come_from_the_current_camera_entry() {
+        assert!(PhoneZoomCaps::from_camera(None).is_none());
+        assert!(PhoneZoomCaps::from_camera(Some(&json!({"id": "0"}))).is_none(), "an older phone app");
+        assert!(PhoneZoomCaps::from_camera(Some(&json!({"zoomRatioMax": null, "cropZoomMax": null}))).is_none());
+        assert_eq!(PhoneZoomCaps::from_camera(Some(&json!({"zoomRatioMax": 8.0, "cropZoomMax": 1.0, "freeformCrop": true}))),
+                   Some(PhoneZoomCaps { ratio_max: 8.0, crop_max: 1.0, freeform: true, lens_zooms: Vec::new() }));
+        assert_eq!(PhoneZoomCaps::from_camera(Some(&json!({"zoomRatioMax": 5.0, "lensZooms": [9.0, 3.7, 0.6]}))).unwrap().lens_zooms, [3.7]);
+    }
+
+    #[test]
+    fn a_zoom_right_on_a_lens_mark_gets_that_lens() {
+        for lens in [1.51, 2.0, 3.7, 3.9, 5.0, 6.3] {
+            let caps = PhoneZoomCaps { ratio_max: 10.0, crop_max: 4.0, freeform: true, lens_zooms: vec![lens] };
+            // Where the slider's mark (and its snap) puts it
+            let zoom = lens_step(lens) as f64 / 100.0;
+            assert_eq!(split_zoom(zoom, 0.0, 0.0, Some(&caps), 1.0).phone.unwrap().ratio, lens);
+        }
+    }
+
+    #[test]
+    fn points_map_both_ways_and_agree_with_focus() {
+        for rotation in [None, Some(90), Some(180), Some(270)] {
+            for (flip_h, flip_v) in [(false, false), (true, false), (false, true), (true, true)] {
+                let g = Geometry { zoom: 2.5, pan_x: 0.4, pan_y: -0.7, flip_h, flip_v, rotation, ..Default::default() };
+                for (u, v) in [(0.1, 0.2), (0.5, 0.5), (0.9, 0.35), (-0.2, 1.3)] {
+                    let (x, y) = shown_to_view(u, v, &g);
+                    assert!(close(view_to_shown(x, y, &g), (u, v)), "{g:?}");
+                }
+                let g = Geometry { zoom: 2.0, pan_x: 0.5, pan_y: -0.5, ..g };
+                let (x, y) = shown_to_view(0.3, 0.6, &g);
+                let (fx, fy) = inverse_map(0.3, 0.6, 4000.0, 3000.0, &g);
+                assert!((x - fx).abs() < 1e-3 && (y - fy).abs() < 1e-3, "{g:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn points_round_trip_through_a_stretch_and_the_centre_stays_put() {
+        for (sx, sy) in [(1.5, 1.0), (0.5, 2.0)] {
+            let g = Geometry { zoom: 2.0, pan_x: 0.3, pan_y: -0.5, flip_h: true, rotation: Some(270), stretch_x: sx, stretch_y: sy, ..Default::default() };
+            for (u, v) in [(0.1, 0.2), (0.5, 0.5), (0.9, 0.7)] {
+                let (x, y) = shown_to_view(u, v, &g);
+                assert!(close(view_to_shown(x, y, &g), (u, v)));
+            }
+            assert!(close(shown_to_view(0.5, 0.5, &g), shown_to_view(0.5, 0.5, &Geometry { stretch_x: 1.0, stretch_y: 1.0, ..g })));
+        }
+    }
+
+    #[test]
+    fn inverse_map_clamps_and_survives_an_unknown_frame_size() {
+        let g = Geometry { zoom: 2.0, ..Default::default() };
+        assert_eq!(inverse_map(1.2, -0.1, 0.0, 0.0, &g), (1.0, 0.0));
+    }
+
+    #[test]
+    fn a_lens_box_is_the_centred_part_of_the_view_that_lens_sees() {
+        assert!(lens_boxes(None, &Geometry::default()).is_empty());
+        let boxes = lens_boxes(Some(&tele()), &Geometry::default());
+        assert_eq!(boxes.len(), 1);
+        let (label, x0, y0, x1, y1) = boxes[0].clone();
+        assert_eq!(label, "3.7×");
+        let (lo, hi) = (0.5 - 0.5 / 3.7, 0.5 + 0.5 / 3.7);
+        assert!((x0 - lo).abs() < 1e-9 && (y0 - lo).abs() < 1e-9 && (x1 - hi).abs() < 1e-9 && (y1 - hi).abs() < 1e-9);
+        // Zoomed 2x and panned fully right: the window is the right half, so the box shifts left and doubles
+        let (_, x0, _, x1, _) = lens_boxes(Some(&tele()), &Geometry { zoom: 2.0, pan_x: 1.0, ..Default::default() })[0].clone();
+        assert!((x0 - (lo - 0.5) * 2.0).abs() < 1e-9 && (x1 - (hi - 0.5) * 2.0).abs() < 1e-9);
+        // Rotated a quarter turn, the box's sides swap axes
+        let (_, _, y0, _, y1) = lens_boxes(Some(&tele()), &Geometry { zoom: 2.0, pan_x: 1.0, rotation: Some(90), ..Default::default() })[0].clone();
+        assert!((y0 - (lo - 0.5) * 2.0).abs() < 1e-9 && (y1 - (hi - 0.5) * 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_scroll_step_stops_on_the_first_lens_it_crosses() {
+        assert_eq!(zoom_detent(290, 320, &[300, 700]), 300);
+        assert_eq!(zoom_detent(300, 330, &[300, 700]), 330, "from the mark, it goes on");
+        assert_eq!(zoom_detent(800, 650, &[300, 700]), 700);
+        assert_eq!(zoom_detent(700, 640, &[300, 700]), 640);
+        assert_eq!(zoom_detent(150, 170, &[300]), 170);
+    }
 }

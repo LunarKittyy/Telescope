@@ -534,3 +534,17 @@ fn a_saved_half_step_rounds_to_even_like_pythons_round() {
     assert_eq!(TransformsPlugin::pan_label(0.125), TransformsPlugin::pan_label(0.12));
     assert_eq!(TransformsPlugin::pan_label(0.135), TransformsPlugin::pan_label(0.14));
 }
+
+#[test]
+fn a_double_click_resets_zoom_and_pan() {
+    // The pan pad puts itself back to the middle and the zoom slider back to 1 (the slider's default), each leaving the other alone
+    let mut r = Rig::new();
+    r.zoom(420);
+    r.ui("pad-pointer", vec![json!(0.7), json!(0.5)]);
+    assert!(r.plugin.pan().0 != 0.0);
+    r.ui("pad-reset", vec![]);
+    assert_eq!((r.plugin.pan().0, r.plugin.zoom()), (0.0, 4.2));
+    r.ui("pad-pointer", vec![json!(0.7), json!(0.5)]);
+    r.zoom(100);
+    assert_eq!((r.plugin.zoom(), r.plugin.pan().0), (1.0, 0.0));
+}

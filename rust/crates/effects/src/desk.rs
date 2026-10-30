@@ -321,13 +321,11 @@ impl Plugin for DeskPlugin {
             Event::PreviewPicked { owner, pick } if owner == NAME => {
                 self.picked(host, pick.as_ref().map(|p| p.full.as_slice()));
             }
-            Event::Posted { owner, token, data } if owner == NAME && token == T_WARP => {
-                // A warp from a step that has been replaced since is of no use
-                if self.active() {
-                    let m: Vec<f32> = data["matrix"].as_array().map(|a| a.iter().filter_map(|v| v.as_f64()).map(|v| v as f32).collect()).unwrap_or_default();
-                    if let Ok(matrix) = <[f32; 9]>::try_from(m) {
-                        host.set_preview_warp(NAME, Some(matrix));
-                    }
+            // A warp from a step that has been replaced since is of no use
+            Event::Posted { owner, token, data } if owner == NAME && token == T_WARP && self.active() => {
+                let m: Vec<f32> = data["matrix"].as_array().map(|a| a.iter().filter_map(|v| v.as_f64()).map(|v| v as f32).collect()).unwrap_or_default();
+                if let Ok(matrix) = <[f32; 9]>::try_from(m) {
+                    host.set_preview_warp(NAME, Some(matrix));
                 }
             }
             _ => {}

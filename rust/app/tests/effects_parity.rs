@@ -381,3 +381,114 @@ fn a_picture_far_bigger_than_the_frame_is_averaged_over_everything_each_pixel_co
     eprintln!("a picture 15 times the frame: max {} mean {:.3} over {:.4}", g.max, g.mean, g.over);
     assert!(g.max <= 2 && g.mean <= 0.1 && g.over <= 0.005, "{g:?}");
 }
+
+/// The picture through the window's view steps, as the stream sees it.
+fn through_the_view(view: &View, frame: Frame) -> Frame {
+    let steps: Vec<StagedStep> = telescope_core::view_step::steps(view).into_iter()
+        .map(|step| StagedStep { owner: "view".into(), stage: FrameStage::View, step }).collect();
+    run(steps, frame)
+}
+
+/// Where the lit pixels of a picture are on average, as (u, v) of its size: pixels with red above 20, like the Python test's.
+fn lit_centre(out: &Frame) -> (f64, f64) {
+    let (mut xs, mut ys, mut n) = (0.0, 0.0, 0.0);
+    for (i, p) in out.data.chunks(4).enumerate() {
+        if p[0] > 20 {
+            xs += (i % out.width as usize) as f64;
+            ys += (i / out.width as usize) as f64;
+            n += 1.0;
+        }
+    }
+    assert!(n > 0.0, "something is lit");
+    ((xs / n + 0.5) / out.width as f64, (ys / n + 0.5) / out.height as f64)
+}
+
+fn marked(w: u32, h: u32, spots: &[(u32, u32)]) -> Frame {
+    let mut data = vec![0u8; (w * h * 4) as usize];
+    for p in data.chunks_mut(4) {
+        p[3] = 255;
+    }
+    for &(x, y) in spots {
+        let i = ((y * w + x) * 4) as usize;
+        data[i..i + 3].fill(255);
+    }
+    Frame::new(w, h, PixelFormat::Rgba, data)
+}
+
+#[test]
+fn inverse_map_undoes_what_the_preview_shows() {
+    if !gpu_here() {
+        return;
+    }
+    // Mark one pixel, run the real view, then map the marked pixel's spot back
+    let (w, h, src) = (160u32, 90u32, (97u32, 41u32));
+    for rotation in [None, Some(90), Some(180), Some(270)] {
+        for (flip_h, flip_v) in [(false, false), (true, false), (false, true), (true, true)] {
+            for (zoom, pan) in [(1.0f32, (0.0f32, 0.0f32)), (2.0, (0.0, 0.0)), (2.5, (0.6, -0.4))] {
+                let view = View { zoom, pan_x: pan.0, pan_y: pan.1, flip_h, flip_v, rotation, ..View::default() };
+                let out = through_the_view(&view, marked(w, h, &[src]));
+                let (u, v) = lit_centre(&out);
+                let (x, y) = view::inverse_map(u, v, w as f64, h as f64, &view::Geometry::from(&view));
+                let what = format!("{view:?}");
+                assert!((x * w as f64 - (src.0 as f64 + 0.5)).abs() < 1.5, "{what}: x {}", x * w as f64);
+                assert!((y * h as f64 - (src.1 as f64 + 0.5)).abs() < 1.5, "{what}: y {}", y * h as f64);
+            }
+        }
+    }
+}
+
+#[test]
+fn inverse_map_undoes_a_stretch() {
+    if !gpu_here() {
+        return;
+    }
+    // A marked spot through the real crop, rotation and stretch, then the shown spot mapped back
+    let (w, h, src) = (160u32, 90u32, (84u32, 47u32));
+    let spots: Vec<(u32, u32)> = (0..3).flat_map(|dy| (0..3).map(move |dx| (src.0 - 1 + dx, src.1 - 1 + dy))).collect();
+    for (stretch_x, stretch_y) in [(1.0f32, 1.0f32), (1.5, 1.0), (1.0, 0.6), (0.5, 2.0), (2.0, 0.5)] {
+        for rotation in [None, Some(90)] {
+            for (zoom, pan) in [(1.0f32, (0.0f32, 0.0f32)), (2.0, (0.2, -0.1))] {
+                let view = View { zoom, pan_x: pan.0, pan_y: pan.1, flip_h: true, rotation, stretch_x, stretch_y, ..View::default() };
+                let out = through_the_view(&view, marked(w, h, &spots));
+                let (u, v) = lit_centre(&out);
+                let (x, y) = view::inverse_map(u, v, w as f64, h as f64, &view::Geometry::from(&view));
+                let what = format!("{view:?}");
+                assert!((x * w as f64 - (src.0 as f64 + 0.5)).abs() < 1.5, "{what}: x {}", x * w as f64);
+                assert!((y * h as f64 - (src.1 as f64 + 0.5)).abs() < 1.5, "{what}: y {}", y * h as f64);
+            }
+        }
+    }
+}
+
+#[test]
+fn a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels() {
+    if !gpu_here() {
+        return;
+    }
+    // A soft blob, so its centre says how far the picture moved to a fraction of a pixel. Each frame the window moves about a
+    // quarter of an output pixel: whole-pixel crops made that 0, 0, 1.4, 0...
+    let (w, h) = (640u32, 360u32);
+    let mut data = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let d2 = (x as f64 - 320.0).powi(2) + (y as f64 - 180.0).powi(2);
+            let v = (230.0 * (-d2 / (2.0 * 30.0 * 30.0)).exp()).round() as u8;
+            data.extend_from_slice(&[v, v, v, 255]);
+        }
+    }
+    let frame = Frame::new(w, h, PixelFormat::Rgba, data);
+    let centres: Vec<f64> = (0..12).map(|i| {
+        let view = View { zoom: 1.4, pan_x: -0.5 + i as f32 * 0.002, ..View::default() };
+        let out = through_the_view(&view, frame.clone());
+        let (mut sum, mut total) = (0.0, 0.0);
+        for (j, p) in out.data.chunks(4).enumerate() {
+            sum += (j % w as usize) as f64 * p[0] as f64;
+            total += p[0] as f64;
+        }
+        sum / total
+    }).collect();
+    let steps: Vec<f64> = centres.windows(2).map(|c| c[1] - c[0]).collect();
+    let (lo, hi) = steps.iter().fold((f64::MAX, f64::MIN), |(lo, hi), s| (lo.min(*s), hi.max(*s)));
+    // The blob's centre is read off 8-bit pixels, so it wobbles a few hundredths; whole-pixel crops would be a pixel and more
+    assert!(steps.iter().all(|s| *s < -0.05) && hi - lo < 0.1, "{steps:?}");
+}
