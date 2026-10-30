@@ -124,6 +124,12 @@ pub enum Effect {
     CopyText(String),
     /// Host::take_still: the photo for `plugin`'s request on stream `source`, answered by RequestProgress and RequestDone.
     TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
+    /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
+    PluginHues(bool),
+    /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
+    RestartCanvas { plugin: String, request: RequestId },
+    /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
+    RemoveExtras { plugin: String, request: RequestId },
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
@@ -290,6 +296,8 @@ pub struct State {
     pub vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How the workers turn frames upright for vision, kept up with the view.
     pub upright: Arc<std::sync::Mutex<telescope_core::vision::Upright>>,
+    /// Each stream's frames before the view, as (width, height), from its worker (view_controller._frame_size).
+    pub frame_sizes: Arc<std::sync::Mutex<std::collections::HashMap<String, (u32, u32)>>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
     pub window_active: bool,
     /// The Microphone card's (enabled, muted), for the tray's tooltip.
@@ -342,6 +350,7 @@ impl State {
             frames: None,
             vision: None,
             upright: Arc::default(),
+            frame_sizes: Arc::default(),
             keep_in_tray: false,
             link: None,
             window_active: false,
@@ -621,7 +630,33 @@ impl State {
     /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
     /// What a new worker hands the vision service.
     pub fn vision_feed(&self) -> Option<crate::worker::VisionFeed> {
-        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone() })
+        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone() })
+    }
+
+    /// The shown stream's frames before the view, (0, 0) before its first one.
+    fn frame_size(&self) -> (u32, u32) {
+        let id = self.streams.source_id.clone().or_else(|| self.selected.clone()).unwrap_or_default();
+        self.frame_sizes.lock().unwrap().get(&id).copied().unwrap_or((0, 0))
+    }
+
+    /// Width over height of the shown stream's picture as shown, 0 before its first frame (view_controller.aspect).
+    pub fn view_aspect(&self) -> f32 {
+        let (w, h) = self.frame_size();
+        if h == 0 {
+            0.0
+        } else if matches!(self.view.rotation, Some(90 | 270)) {
+            h as f32 / w as f32
+        } else {
+            w as f32 / h as f32
+        }
+    }
+
+    /// A point in the frame as shown to the phone's own frame (view_controller._in_phone_frame).
+    fn in_phone_frame(&self, u: f32, v: f32) -> (f32, f32) {
+        let (w, h) = self.frame_size();
+        let geometry = telescope_core::view::Geometry::from(&self.vc.shown(&self.view));
+        let (x, y) = telescope_core::view::inverse_map(f64::from(u), f64::from(v), f64::from(w), f64::from(h), &geometry);
+        (x as f32, y as f32)
     }
 
     /// The view turned or the phone's share changed: frames for vision are turned to match, and tracked people move with it.
@@ -826,6 +861,15 @@ impl State {
                 if matches!(event, Event::StreamStopped) {
                     self.let_go_of_photos(None);
                 }
+                // A point picked in the frame as shown goes to the phone in its own frame (view_controller._on_point_picked)
+                if let Event::FocusPointPicked { x, y } = event {
+                    let (x, y) = self.in_phone_frame(x, y);
+                    self.bus.emit(Event::FocusPoint { x, y });
+                }
+                if let Event::MeterPointPicked { x, y } = event {
+                    let (x, y) = self.in_phone_frame(x, y);
+                    self.bus.emit(Event::MeterPoint { x, y });
+                }
                 if let Event::VisionDownloadFinished { error, switch_on } = &event {
                     // the optional plugin that waited for the download goes on, with no dialog open (VisionDownload._done)
                     if error.is_empty() && !switch_on.is_empty() {
@@ -1015,6 +1059,19 @@ mod tests {
     }
 
     #[test]
+    fn the_canvas_comes_from_setups_own_settings() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "720p 16:9 - 1280 x 720", "custom_canvas_w": 900, "custom_canvas_h": 600}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((Some(1280), Some(720))));
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "Auto (from first frame)"}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((None, None)));
+    }
+
+    #[test]
     fn save_config_separates_global_and_device_local_plugins() {
         let mut s = state();
         s.register(stub("setup", json!({"canvas": "auto"}), false).0).unwrap();
@@ -1072,6 +1129,45 @@ mod tests {
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
         assert_eq!(s.effects, vec![Effect::StopAll, Effect::Start { interactive: true }]);
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
+    }
+
+    #[test]
+    fn the_aspect_is_the_picture_as_shown_once_a_frame_has_come() {
+        let mut s = state();
+        s.streams.source_id = Some("phone".into());
+        assert_eq!(s.view_aspect(), 0.0);
+        s.frame_sizes.lock().unwrap().insert("other".into(), (640, 480));
+        s.frame_sizes.lock().unwrap().insert("phone".into(), (1920, 1080));
+        assert_eq!(s.view_aspect(), 1920.0 / 1080.0);
+        s.view.rotation = Some(90);
+        assert_eq!(s.view_aspect(), 1080.0 / 1920.0);
+        s.view.rotation = Some(180);
+        assert_eq!(s.view_aspect(), 1920.0 / 1080.0);
+    }
+
+    #[test]
+    fn a_picked_point_reaches_the_phone_in_its_own_frame() {
+        struct Hears(Arc<Mutex<Vec<Event>>>);
+        impl Plugin for Hears {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "camera_control".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Hears(heard.clone()))).unwrap();
+        s.streams.source_id = Some("phone".into());
+        s.frame_sizes.lock().unwrap().insert("phone".into(), (1920, 1080));
+        s.view.flip_h = true;
+        s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.5 });
+        s.bus.emit(Event::MeterPointPicked { x: 0.75, y: 0.25 });
+        s.deliver_events();
+        let heard = heard.lock().unwrap();
+        assert!(heard.contains(&Event::FocusPoint { x: 0.75, y: 0.5 }), "{heard:?}");
+        assert!(heard.contains(&Event::MeterPoint { x: 0.25, y: 0.25 }), "{heard:?}");
     }
 
     #[test]

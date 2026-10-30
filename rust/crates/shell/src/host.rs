@@ -170,12 +170,13 @@ impl HostStreams for Ctx<'_> {
         self.state.effects.push(Effect::UpdateOutput { change, source_id: source_id.map(String::from) });
     }
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {
-        let setup = self.state.plugin_config("setup");
-        let dim = |k: &str| setup.as_ref().and_then(|c| c.get(k)).and_then(Value::as_u64).map(|v| v as u32);
-        (dim("canvas_width"), dim("canvas_height"))
+        self.state.plugin_config("setup").map_or((None, None), |setup| telescope_core::canvas::canvas_dims(&setup))
     }
     fn restart_vcam_canvas(&mut self, _width: u32, _height: u32) -> RequestId {
-        self.state.request_id()
+        // The sizes aren't needed: the restart reads the canvas from Setup's settings, as app.py's does
+        let request = self.state.request_id();
+        self.state.effects.push(Effect::RestartCanvas { plugin: self.me.clone(), request });
+        request
     }
     fn stream_output(&self, source_id: &str) -> String {
         self.state.streams.cameras.iter().find(|c| c.source_id == source_id).map(|c| c.label.clone()).unwrap_or_default()
@@ -185,7 +186,9 @@ impl HostStreams for Ctx<'_> {
         Some((c.source_id.clone(), c.size.map(|s| s.0), c.size.map(|s| s.1)))
     }
     fn remove_extra_cameras(&mut self) -> RequestId {
-        self.state.request_id()
+        let request = self.state.request_id();
+        self.state.effects.push(Effect::RemoveExtras { plugin: self.me.clone(), request });
+        request
     }
     fn phone_control(&mut self, source_id: Option<&str>, body: &Value) {
         self.state.effects.push(Effect::PhoneControl { source_id: source_id.map(String::from), body: body.clone() });
@@ -287,6 +290,9 @@ impl HostShell for Ctx<'_> {
         // The copy is an effect the window carries out after this hook, so it's done by the time a later hook reads it back
         self.state.clipboard.as_ref().and_then(|read| read())
     }
+    fn set_plugin_hues(&mut self, on: bool) {
+        self.state.effects.push(Effect::PluginHues(on));
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);
@@ -336,7 +342,7 @@ impl HostView for Ctx<'_> {
         self.state.view.clone()
     }
     fn view_aspect(&self) -> f32 {
-        0.0
+        self.state.view_aspect()
     }
     fn set_view(&mut self, change: ViewChange) {
         let st = &mut *self.state;
@@ -361,6 +367,11 @@ impl HostView for Ctx<'_> {
 }
 
 impl HostVision for Ctx<'_> {
+    fn set_power_saving(&mut self, on: bool) {
+        if let Some(vision) = &self.state.vision {
+            vision.set_power_saving(on);
+        }
+    }
     fn vision_state(&self) -> String {
         self.state.vision.as_ref().map_or_else(|| telescope_core::vision::OFF.into(), |v| v.state())
     }

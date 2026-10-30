@@ -117,6 +117,14 @@ pub fn window() -> Option<ComponentInstance> {
 }
 
 /// The settings window, built the first time it's asked for; on `tab` if that's one it shows.
+/// Host::set_plugin_hues reaches the settings window too, which has its own Theme.
+pub fn set_hues(on: bool) {
+    if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
+        let _ = settings.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
+        settings.show_panel();
+    }
+}
+
 pub fn open(window: &Rc<Window>, tab: &str) {
     let existing = SETTINGS.with(|s| s.borrow().clone());
     let settings = match existing {
@@ -124,6 +132,9 @@ pub fn open(window: &Rc<Window>, tab: &str) {
         None => match build(window) {
             Ok(s) => {
                 SETTINGS.with(|slot| *slot.borrow_mut() = Some(s.clone()));
+                if let Ok(own) = window.ui.get_global_property("Theme", "own-hues") {
+                    let _ = s.ui.set_global_property("Theme", "own-hues", own);
+                }
                 s
             }
             Err(e) => {
@@ -192,7 +203,9 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
                 Piece { id: fid, file: ffile, component: f.component.clone(), iface: scan(&ftext, &f.component) }
             });
             let card = text.contains(&format!("component {} inherits Card", section.ui.component));
-            let hue = card.then(|| categories.get(plugin).cloned().unwrap_or_default());
+            // A card takes its plugin's colour unless it says another group's (add_card_header's hue=)
+            let own_group = section.ui.props.get("card-group").and_then(|g| g.as_str()).map(String::from);
+            let hue = card.then(|| own_group.unwrap_or_else(|| categories.get(plugin).cloned().unwrap_or_default()));
             places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer, hue });
         }
     }

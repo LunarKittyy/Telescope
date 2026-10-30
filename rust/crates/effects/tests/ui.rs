@@ -4,16 +4,20 @@
 use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::{SlintSource, UiSpec};
+use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::cinema::CinemaPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::composite_plugin::CompositePlugin;
 use telescope_effects::desk::DeskPlugin;
+use telescope_effects::face_exposure::FaceExposurePlugin;
+use telescope_effects::framing::FramingPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::fun_pack::FunPackPlugin;
 use telescope_effects::on_air_plugin::OnAirPlugin;
 use telescope_effects::photos::PhotosPlugin;
+use telescope_effects::privacy_blur::PrivacyBlurPlugin;
 use telescope_effects::qr_reader::QrReaderPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 
@@ -113,6 +117,20 @@ fn the_cards_have_what_their_plugins_use() {
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);
+    let mut background = BackgroundPlugin::new();
+    compile(&mut background);
+    has_what_the_plugin_uses(&mut background, &["mode-picked", "blur-moved", "edges-moved", "picture-clicked", "download-clicked"]);
+    let mut privacy = PrivacyBlurPlugin::new();
+    compile(&mut privacy);
+    has_what_the_plugin_uses(&mut privacy, &["switch-toggled-by-hand", "mode-picked", "now-clicked", "download-clicked"]);
+    let mut framing = FramingPlugin::new();
+    compile(&mut framing);
+    has_what_the_plugin_uses(&mut framing, &[
+        "switch-toggled-by-hand", "framing-moved", "speed-moved", "room-moved", "hand-toggled", "download-clicked",
+    ]);
+    let mut face = FaceExposurePlugin::new();
+    compile(&mut face);
+    has_what_the_plugin_uses(&mut face, &["switch-toggled-by-hand", "follow-clicked", "download-clicked"]);
     // Cinema tools has a card, and its colours and sliders in the Video tab
     let mut cinema = CinemaPlugin::new();
     compile(&mut cinema);

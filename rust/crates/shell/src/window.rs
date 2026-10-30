@@ -914,6 +914,12 @@ impl Window {
                 None => open_url(&url),
             },
             Effect::CopyText(text) => self.copy_text(&text),
+            Effect::PluginHues(on) => {
+                let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
+                crate::settings::set_hues(on);
+            }
+            Effect::RestartCanvas { plugin, request } => self.restart_canvas(&plugin, request),
+            Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
             Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
             Effect::PickFile { plugin, request, dialog } => {
                 std::thread::spawn(move || {

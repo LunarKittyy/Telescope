@@ -130,6 +130,11 @@ pub trait Link: Send + Sync {
     fn install_app(&self, _serial: &str, _apk: &str) -> Result<(), String> {
         Err("not in this build".into())
     }
+    /// Windows: fetches adb from Google, or with own (an adb.exe or platform-tools zip) keeps that one instead; the version
+    /// it got, or what to tell the user. Blocking, with progress texts.
+    fn get_adb(&self, _own: Option<&str>, _progress: &dyn Fn(&str)) -> Result<String, String> {
+        Err("Not in this build yet".into())
+    }
     fn sensors(&self) -> Option<std::sync::Arc<dyn PhoneSensors>> {
         None
     }

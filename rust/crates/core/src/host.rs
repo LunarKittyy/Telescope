@@ -317,6 +317,9 @@ pub trait HostShell {
     /// under it; None takes it off. Its items come back to this plugin as on_ui with ui "shortcut-menu" and callback
     /// "add" (the action id) or "edit" (the binding id).
     fn set_shortcut_menu(&mut self, _bindings: Option<Vec<crate::ui::ShortcutEntry>>) {}
+    /// Whether every card gets its group's colour (true) or the accent colour (theme.set_plugin_hues). A host without a
+    /// window ignores it.
+    fn set_plugin_hues(&mut self, _on: bool) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
@@ -363,6 +366,8 @@ pub trait HostVision {
     fn want_people(&mut self, owner: &str, on: bool);
     /// (Track records, how many people) on source_id's stream, as the last people_tracked said.
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32);
+    /// Power-saving effects (Settings > Video): the models run less often. A host without vision ignores it.
+    fn set_power_saving(&mut self, _on: bool) {}
     /// Where the vision pack's download is, for the card's status row (crate::vision::status_text).
     fn vision_pack(&self) -> crate::vision::VisionPack {
         crate::vision::VisionPack::default()

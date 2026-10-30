@@ -76,6 +76,12 @@ pub struct FakeHost {
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
+    /// What view_aspect() answers.
+    pub aspect: f32,
+    /// What took the view ("" for nobody): take_view fails for anyone else, as the real host's does.
+    pub view_owner: String,
+    /// Every steer_view, as (zoom, pan_x, pan_y).
+    pub steered: Vec<(f32, f32, f32)>,
     /// Timers pending from Host::schedule, as (after_ms, token), oldest first.
     pub scheduled: Vec<(u64, String)>,
     /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
@@ -97,6 +103,10 @@ pub struct FakeHost {
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
     pub vision: Option<String>,
+    /// What vision_pack() answers.
+    pub pack: crate::vision::VisionPack,
+    /// What tracked_people() answers for each source id.
+    pub tracked: HashMap<String, (Vec<Value>, u32)>,
     /// What packets_problem() answers instead of "".
     pub packets_problem: String,
     /// The newest frame of each stream, as frames() hands them out.
@@ -142,6 +152,14 @@ pub struct FakeHost {
     pub live: Vec<String>,
     /// What frames() hands out in place of stream_frames, for a test that changes the frames as it goes.
     pub frame_store: Option<Arc<dyn FrameStore>>,
+    /// What device_config() answers for a source id, as (source id, plugin) to settings; {} for the rest.
+    pub device_configs: HashMap<(String, String), Value>,
+    /// What diagnostics_report() answers.
+    pub report: String,
+    /// What set_plugin_hues last said (None until it's called).
+    pub plugin_hues: Option<bool>,
+    /// What set_power_saving last said (None until it's called).
+    pub power_saving: Option<bool>,
     next_request: u64,
 }
 
@@ -187,8 +205,8 @@ impl HostSettings for FakeHost {
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
     }
-    fn device_config(&self, _source_id: Option<&str>, _plugin_name: &str) -> Value {
-        json!({})
+    fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
+        source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))
     }
     fn has_device_settings(&self, _name: &str) -> bool {
         false
@@ -349,7 +367,7 @@ impl HostShell for FakeHost {
         false
     }
     fn diagnostics_report(&self) -> String {
-        String::new()
+        self.report.clone()
     }
     fn open_settings(&mut self, tab: &str) {
         self.note(format!("open_settings {tab}"));
@@ -381,6 +399,10 @@ impl HostShell for FakeHost {
     }
     fn open_url(&mut self, url: &str) {
         self.note(format!("open_url {url}"));
+    }
+    fn set_plugin_hues(&mut self, on: bool) {
+        self.note(format!("set_plugin_hues {on}"));
+        self.plugin_hues = Some(on);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
@@ -418,7 +440,7 @@ impl HostView for FakeHost {
         self.view.clone()
     }
     fn view_aspect(&self) -> f32 {
-        0.0
+        self.aspect
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
@@ -434,25 +456,43 @@ impl HostView for FakeHost {
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));
+        if !self.view_owner.is_empty() && self.view_owner != owner {
+            return false;
+        }
+        self.view_owner = owner.to_string();
         true
     }
     fn steer_view(&mut self, owner: &str, zoom: f32, pan_x: f32, pan_y: f32) {
         self.note(format!("steer_view {owner} {zoom} {pan_x} {pan_y}"));
+        self.steered.push((zoom, pan_x, pan_y));
     }
     fn release_view(&mut self, owner: &str) {
         self.note(format!("release_view {owner}"));
+        if self.view_owner == owner {
+            self.view_owner.clear();
+        }
     }
 }
 
 impl HostVision for FakeHost {
+    fn set_power_saving(&mut self, on: bool) {
+        self.note(format!("set_power_saving {on}"));
+        self.power_saving = Some(on);
+    }
     fn vision_state(&self) -> String {
         self.vision.clone().unwrap_or_else(|| "off".into())
     }
     fn want_people(&mut self, owner: &str, on: bool) {
         self.note(format!("want_people {owner} {on}"));
     }
-    fn tracked_people(&self, _source_id: Option<&str>) -> (Vec<Value>, u32) {
-        (Vec::new(), 0)
+    fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
+        self.tracked.get(source_id.unwrap_or("")).cloned().unwrap_or_default()
+    }
+    fn vision_pack(&self) -> crate::vision::VisionPack {
+        self.pack.clone()
+    }
+    fn download_vision(&mut self) {
+        self.note("download_vision");
     }
 }
 

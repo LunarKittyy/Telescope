@@ -56,7 +56,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into()], "en".into(), problems.clone());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into()], "en".into(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let browser_media = media.clone();
@@ -64,6 +64,10 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
     let sign_outputs = outputs.clone();
+    let setup_media = media.clone();
+    // Until the app ships its own translations, a dev build lists the Python app's
+    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale"));
+    let languages = telescope_setup::setup::Language::found(&[locale]);
     Arc::new(Services {
         link,
         media,
@@ -78,15 +82,20 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
+                Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone())),
                 Box::new(connection.connection_plugin()),
                 Box::new(browser_camera(browser_media.clone())),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
+                Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
+                Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures.clone())),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
+                Box::new(telescope_effects::privacy_blur::PrivacyBlurPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
                 Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
+                Box::new(telescope_effects::framing::FramingPlugin::new()),
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
@@ -99,6 +108,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
                 Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(sign_outputs.clone()))),
+                Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
             ];
             plugins.extend(added());
             plugins

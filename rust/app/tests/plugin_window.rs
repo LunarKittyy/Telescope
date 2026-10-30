@@ -1,14 +1,16 @@
 // A plugin's window of its own (HostUi::open_window) through the real window, on Slint's testing backend.
 use serde_json::{json, Value};
 use slint_interpreter::Value as SValue;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::{Event, SourceName};
-use telescope_core::host::Host;
+use telescope_core::host::{Host, RequestId};
 use telescope_core::frame::PixelFormat;
 use telescope_core::link::{Link, PairingOffer, PhoneSensors, PhoneSession, RoutePrefs, Unreachable};
 use telescope_core::media::{Codec, VideoFeed};
-use telescope_core::output::{Outputs, Slot, VideoOutput};
+use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::services::Services;
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::source::{ControlClient, PairedPhone, StreamSource};
@@ -158,11 +160,22 @@ impl Link for SensorLink {
     }
 }
 
-struct Cameras;
+#[derive(Default)]
+struct Cameras {
+    /// What it was asked to set up.
+    asked: Mutex<Vec<SetupAction>>,
+    /// Only the main camera is there.
+    just_one: AtomicBool,
+}
 
 impl Outputs for Cameras {
     fn slots(&self) -> Vec<Slot> {
-        (0..4).map(|slot| Slot { slot, name: format!("Telescope {slot}"), device: String::new() }).collect()
+        let count = if self.just_one.load(Ordering::SeqCst) { 1 } else { 4 };
+        (0..count).map(|slot| Slot { slot, name: format!("Telescope {slot}"), device: String::new() }).collect()
+    }
+    fn set_up(&self, action: SetupAction, _progress: &dyn Fn(&str)) -> SetupResult {
+        self.asked.lock().unwrap().push(action);
+        SetupResult { ok: true, message: String::new(), command: None }
     }
     fn formats(&self) -> Vec<PixelFormat> {
         vec![PixelFormat::Rgba]
@@ -178,7 +191,7 @@ fn the_sensors_follow_the_shown_stream_at_once_and_let_go_when_it_stops() {
     let dir = telescope_core::testing::scratch_dir("window-sensors");
     let sensors = Arc::new(Sensors::default());
     let services = Arc::new(Services {
-        link: Arc::new(SensorLink(sensors.clone())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras), audio: None,
+        link: Arc::new(SensorLink(sensors.clone())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
         notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
     });
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| Vec::new(), Some(services), None).unwrap();
@@ -191,4 +204,80 @@ fn the_sensors_follow_the_shown_stream_at_once_and_let_go_when_it_stops() {
     w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:b")));
     w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:a")));
     assert_eq!(*sensors.0.lock().unwrap().last().unwrap(), None);
+}
+
+/// What the plugin that asked hears.
+struct Asks(Arc<Mutex<Vec<(bool, String)>>>);
+
+impl Plugin for Asks {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "asks".into(), title: "Asks".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        if let Event::RequestDone { ok, message, .. } = event {
+            self.0.lock().unwrap().push((*ok, message.clone()));
+        }
+    }
+}
+
+fn camera_window(name: &str) -> (Rc<window::Window>, Arc<Cameras>, Arc<Mutex<Vec<(bool, String)>>>) {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir(name);
+    let cameras = Arc::new(Cameras::default());
+    let services = Arc::new(Services {
+        link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: cameras.clone(), audio: None,
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+    });
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Asks(h)) as Box<dyn Plugin>], Some(services), None).unwrap();
+    w.add_plugin_source(Arc::new(Browser("browser:a")));
+    w.add_plugin_source(Arc::new(Browser("browser:b")));
+    (w, cameras, heard)
+}
+
+fn set_up_asked(cameras: &Cameras, action: SetupAction) -> bool {
+    for _ in 0..200 {
+        if cameras.asked.lock().unwrap().contains(&action) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    false
+}
+
+#[test]
+fn the_canvas_waits_until_only_one_camera_streams_and_then_the_cameras_reload() {
+    let (w, cameras, heard) = camera_window("window-canvas");
+    w.stream_plugin_source("browser:a");
+    w.stream_plugin_source("browser:b");
+    w.restart_canvas("asks", RequestId(1));
+    w.process();
+    assert_eq!(*heard.lock().unwrap(), [(false, "Stop all but one camera first, then apply again".to_string())]);
+    assert!(cameras.asked.lock().unwrap().is_empty());
+    assert_eq!(w.streams.flow.borrow().sessions.streams.len(), 2, "both carry on");
+    w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:b")));
+    w.restart_canvas("asks", RequestId(2));
+    assert!(w.streams.flow.borrow().sessions.streams.is_empty(), "it stops for the restart");
+    assert!(w.streams.flow.borrow().sessions.canvas_restart, "and it'll start again after");
+    if cfg!(target_os = "linux") {
+        assert!(set_up_asked(&cameras, SetupAction::Reload));
+    }
+}
+
+#[test]
+fn extra_cameras_go_only_once_nothing_streams_to_them() {
+    let (w, cameras, heard) = camera_window("window-extras");
+    w.stream_plugin_source("browser:a");
+    w.stream_plugin_source("browser:b");
+    w.remove_extras("asks", RequestId(1));
+    w.process();
+    assert_eq!(heard.lock().unwrap().last().unwrap(), &(false, "Stop the streams going to them first".to_string()));
+    w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:b")));
+    w.remove_extras("asks", RequestId(2));
+    assert!(set_up_asked(&cameras, SetupAction::RemoveSlots));
+    cameras.just_one.store(true, Ordering::SeqCst);
+    w.remove_extras("asks", RequestId(3));
+    w.process();
+    assert_eq!(heard.lock().unwrap().last().unwrap(), &(false, "There are none to remove".to_string()));
 }

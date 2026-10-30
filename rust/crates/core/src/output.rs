@@ -120,6 +120,15 @@ pub struct SetupStatus {
     pub outdated: bool,
     /// Windows: the camera apps see is the Windows 11 one.
     pub windows_camera: bool,
+    /// Windows: the name UnityCapture is registered under ("" when it isn't).
+    #[serde(default)]
+    pub registered_name: String,
+    /// Windows: UnityCapture is registered from the app's own folder, which an older Telescope did.
+    #[serde(default)]
+    pub in_app_folder: bool,
+    /// Windows: the Windows 11 camera could be installed here.
+    #[serde(default)]
+    pub installable: bool,
 }
 
 pub trait Outputs: Send + Sync {

@@ -12,6 +12,7 @@ members = [
     "crates/system",
     "crates/plugin-host",
     "crates/effects",
+    "crates/setup",
     "crates/vision",
 ]
 
@@ -32,6 +33,7 @@ telescope-shell = { path = "crates/shell" }
 telescope-system = { path = "crates/system" }
 telescope-plugin-host = { path = "crates/plugin-host" }
 telescope-effects = { path = "crates/effects" }
+telescope-setup = { path = "crates/setup" }
 telescope-vision = { path = "crates/vision" }
 
 # preserve_order: settings keep the key order Python saved them in
