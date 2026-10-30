@@ -348,6 +348,7 @@ impl Window {
             }
             SValue::Void
         });
+        crate::keys::watch_scan_codes(ui.window());
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
             let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
