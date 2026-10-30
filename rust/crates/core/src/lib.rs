@@ -6,6 +6,8 @@ pub mod bus;
 pub mod canvas;
 pub mod colour;
 pub mod config;
+pub mod dev_profile;
+pub mod diagnostics;
 pub mod event;
 pub mod frame;
 pub mod host;
