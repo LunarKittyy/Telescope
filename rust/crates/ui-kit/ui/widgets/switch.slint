@@ -17,9 +17,11 @@ export component Switch inherits Rectangle {
     changed checked => { touched = false; }
     // What a click does, and what a key does; SwitchTile calls it for a click on the tile
     public function flip() {
-        local = !shown;
-        touched = true;
-        toggled(local);
+        if (enabled) {
+            local = !shown;
+            touched = true;
+            toggled(local);
+        }
     }
     in property <string> label;
     in property <bool> enabled: true;

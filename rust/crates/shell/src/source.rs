@@ -147,9 +147,8 @@ pub fn heading(source: &str, component: &str) -> Option<String> {
                 }
             }
             ';' if depth == 1 => {
-                if let Some(value) = text[from..i].trim().strip_prefix("title").map(str::trim_start).and_then(|t| t.strip_prefix(':')) {
-                    let value = value.trim_start();
-                    return (value.starts_with("@tr(") || value.starts_with('"')).then(|| source[from..i].rsplit('"').nth(1).map(String::from)).flatten();
+                if let Some(value) = text[from..i].trim_start().strip_prefix("title").map(str::trim_start).and_then(|t| t.strip_prefix(':')) {
+                    return title_text(source[i - value.len()..i].trim());
                 }
                 from = i + 1;
             }
@@ -157,6 +156,16 @@ pub fn heading(source: &str, component: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// The decoded English of a title's value: `"Text"`, `@tr("Text")` or `@tr("context" => "Text")`.
+fn title_text(value: &str) -> Option<String> {
+    let value = value.strip_prefix("@tr(").map_or(value, str::trim_start);
+    let (first, len) = string_literal(value)?;
+    match value[len..].trim_start().strip_prefix("=>") {
+        Some(text) => string_literal(text.trim_start()).map(|(english, _)| english),
+        None => Some(first),
+    }
 }
 
 /// The properties and callbacks `component` declares itself (not what it inherits). Empty if it isn't in source.
@@ -407,12 +416,14 @@ export component CameraCard inherits Card {
                 title: @tr("camera section" => "Light");
                 Button { title: "a child's"; }
             }
+            export component Quoted inherits Card { title: @tr("Say \"hello\""); }
             export component Bound inherits Card { title: root.who; }
             export component Plain inherits Card { title: "Telescope"; }
             export component Untitled inherits Card { Text { title: "a child's"; } }
         "#;
         assert_eq!(heading(text, "Phone").as_deref(), Some("Light"));
         assert_eq!(heading(text, "Plain").as_deref(), Some("Telescope"));
+        assert_eq!(heading(text, "Quoted").as_deref(), Some("Say \"hello\""));
         assert_eq!(heading(text, "Bound"), None);
         assert_eq!(heading(text, "Untitled"), None);
         assert_eq!(heading(text, "Absent"), None);

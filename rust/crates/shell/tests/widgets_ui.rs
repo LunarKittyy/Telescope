@@ -47,6 +47,8 @@ export component Test inherits Window {
             spacing: 6px;
             Button { text: "Light"; clicked => { pressed = "Light"; } }
             Button { text: "Heavy"; clicked => { pressed = "Heavy"; } }
+            Button { text: "Off button"; enabled: false; clicked => { pressed = "Off button"; } }
+            Switch { label: "Off switch"; enabled: false; toggled => { pressed = "Off switch"; } }
         }
         Button { text: "Frame rate"; clicked => { pressed = "Frame rate"; } }
         Button { text: "Bitrate"; clicked => { pressed = "Bitrate"; } }
@@ -280,4 +282,15 @@ fn a_segment_picked_by_hand_still_follows_the_value_bound_to_it() {
     ui.set_property("mode", Value::Number(2.0)).unwrap();
     settle(&ui);
     assert_eq!((checked("Bound mode: b"), checked("Bound mode: c")), (Some(false), Some(true)));
+}
+
+#[test]
+fn a_screen_reader_cant_press_a_disabled_button_or_switch() {
+    let ui = rig();
+    for name in ["Off button", "Off switch"] {
+        labelled(&ui, name)[0].invoke_accessible_default_action();
+        assert_eq!(ui.get_property("pressed").unwrap(), Value::String("".into()), "{name}");
+    }
+    labelled(&ui, "Light")[0].invoke_accessible_default_action();
+    assert_eq!(ui.get_property("pressed").unwrap(), Value::String("Light".into()));
 }

@@ -1010,6 +1010,10 @@ impl Window {
                     self.refresh_frame_steps(); // set_config has no host, so its frame step is asked for again
                 }
             }
+            Effect::FinishSwitch { new, start } => {
+                self.state.borrow_mut().finish_switch(new.as_deref(), start);
+                self.refresh_frame_steps();
+            }
             Effect::FrameStep(_) => self.refresh_frame_steps(),
             Effect::CameraOn { on, auto } => self.set_camera_on(on, auto),
             Effect::MicChanged => self.mic_changed(),

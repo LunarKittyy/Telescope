@@ -378,7 +378,7 @@ impl Listener {
 
 impl Plugin for Listener {
     fn info(&self) -> PluginInfo {
-        PluginInfo { name: self.name.into(), title: self.name.into(), follows_focus: self.follows, ..Default::default() }
+        PluginInfo { name: self.name.into(), title: self.name.into(), follows_focus: self.follows, device_local: true, ..Default::default() }
     }
     fn get_config(&self) -> Value {
         self.config.clone()

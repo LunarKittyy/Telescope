@@ -67,7 +67,7 @@ export component Button inherits Rectangle {
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
     accessible-role: button;
     accessible-label: text;
-    accessible-action-default => { clicked(); }
+    accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }

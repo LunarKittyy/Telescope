@@ -148,6 +148,8 @@ pub enum Effect {
     KeepInTray(bool),
     SaveSoon,
     PickSource(Option<String>),
+    /// switch_device's second half, once StopAll before it has run.
+    FinishSwitch { new: Option<String>, start: bool },
     /// host.schedule: Event::TimerFired for plugin after ms (moves a pending one with the same token).
     Schedule { plugin: String, token: String, ms: u64 },
     CancelSchedule { plugin: String, token: String },
@@ -854,26 +856,35 @@ impl State {
     }
 
     /// switch_device: the old device's settings saved, the new one's applied, and a running stream started again
-    /// on the new one (by the stream flow, from the effects).
+    /// on the new one (by the stream flow, from the effects). Streams stop first: stopping saves what the panels show
+    /// under the stream that had it, and the new phone's settings would be filed there.
     pub fn switch_device(&mut self, prev: Option<&str>, new: Option<&str>) {
-        let loaded = self.file.load_strict().ok();
-        if let Some(mut cfg) = loaded.clone() {
+        if let Ok(mut cfg) = self.file.load_strict() {
             let sections = self.profile_sections(&cfg, prev);
             let window = WindowState::from_config(&cfg);
             merge_for_save(&mut cfg, &window, &sections);
             profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
-            cfg["selected_device"] = new.map_or(Value::Null, |n| json!(n));
             self.file.save(&mut cfg);
         }
-        let was_streaming = self.streams.streaming || self.streams.starting;
-        if was_streaming {
+        if self.streams.streaming || self.streams.starting {
             self.effects.push(Effect::StopAll);
+            self.effects.push(Effect::FinishSwitch { new: new.map(String::from), start: true });
+        } else {
+            self.finish_switch(new, false);
+        }
+    }
+
+    /// The rest of switch_device, with nothing streaming any more.
+    pub fn finish_switch(&mut self, new: Option<&str>, start: bool) {
+        if let Ok(mut cfg) = self.file.load_strict() {
+            cfg["selected_device"] = new.map_or(Value::Null, |n| json!(n));
+            self.file.save(&mut cfg);
         }
         self.selected = new.map(String::from);
         let cfg = self.file.load();
         self.apply_device_profile(new, &cfg);
         self.bus.emit(Event::DeviceChanged { source_id: new.unwrap_or("").to_string() });
-        if was_streaming {
+        if start {
             self.effects.push(Effect::Start { interactive: true });
         }
     }
@@ -1209,9 +1220,13 @@ mod tests {
         s.switch_device(Some("A"), Some("B"));
         let cfg = s.file.load();
         assert_eq!(cfg["devices"]["A"]["plugin_configs"]["transforms"], json!({"zoom": 2}));
-        assert_eq!(cfg["selected_device"], "B");
+        assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 2, "the streams stop with the old phone's settings up");
+        assert_eq!(s.effects, vec![Effect::StopAll, Effect::FinishSwitch { new: Some("B".into()), start: true }]);
+        s.effects.clear();
+        s.finish_switch(Some("B"), true);
+        assert_eq!(s.file.load()["selected_device"], "B");
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
-        assert_eq!(s.effects, vec![Effect::StopAll, Effect::Start { interactive: true }]);
+        assert_eq!(s.effects, vec![Effect::Start { interactive: true }]);
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
     }
 
