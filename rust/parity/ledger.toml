@@ -3202,7 +3202,7 @@
 # ── overlays
 "test_overlays.py::test_a_click_is_not_an_area" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_click_is_not_an_area" }
 "test_overlays.py::test_a_failing_on_done_does_not_break_the_next_pick" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_failing_on_its_pick_doesnt_break_the_next_pick" }
-"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "dropped", reason = "The Rust Pick has no picture field: Chroma key reads the colour from the frame store's newest frame at in_picture (chroma_key.rs), the same picture before the preview's tint. Not checked on a live stream" }
+"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_pick_carries_the_picture_shown_before_any_tint" }
 "test_overlays.py::test_a_pick_result_is_frozen" = { status = "dropped", reason = "A Rust Pick reaches a plugin as an event holding its own copy, so there's nothing to change it through (Python's frozen dataclass guards a shared object)" }
 "test_overlays.py::test_a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" }
 "test_overlays.py::test_a_quad_past_one_edge_still_moves_away_from_it" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_quad_past_one_edge_still_moves_away_from_it" }

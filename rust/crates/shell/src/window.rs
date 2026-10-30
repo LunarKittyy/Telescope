@@ -598,6 +598,7 @@ impl Window {
         }
         let Some((frame, number)) = self.preview_frame() else { return };
         let frame = self.with_colour_split(frame);
+        self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height);
         }

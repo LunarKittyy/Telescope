@@ -30,7 +30,7 @@ impl PixelFormat {
 }
 
 /// One picture. Cloning shares the pixels; a step that changes them gets its own copy (data_mut), so readers never see a half-changed frame.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,

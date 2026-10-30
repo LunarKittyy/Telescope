@@ -79,7 +79,7 @@ impl Rig {
     }
 
     fn pick(&mut self, points: &[P]) {
-        let pick = Pick { kind: PickKind::Quad, shown: vec![], full: points.iter().map(|[x, y]| [(x / W as f64) as f32, (y / H as f64) as f32]).collect(), in_picture: vec![] };
+        let pick = Pick { kind: PickKind::Quad, shown: vec![], full: points.iter().map(|[x, y]| [(x / W as f64) as f32, (y / H as f64) as f32]).collect(), in_picture: vec![], picture: None };
         self.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(pick) });
     }
 
