@@ -7,6 +7,7 @@
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
+//!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (scripts/write_camera_wait_screen.py)
 //!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
@@ -488,6 +489,14 @@ fn main() {
     let command = words.first().map(String::as_str);
     if command == Some("scenes") {
         if let Err(e) = scenes::run(&words[1..]) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if command == Some("camera-wait-screen") {
+        let out = words.get(1).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("wait_screen.bin"));
+        if let Err(e) = telescope_outputs::wait_screen::camera_wait_screen().and_then(|data| std::fs::write(&out, data).map_err(|e| e.to_string())) {
             eprintln!("{e}");
             std::process::exit(1);
         }
