@@ -5839,10 +5839,12 @@ dependencies = [
  "slint",
  "slint-interpreter",
  "telescope-core",
+ "telescope-plugin-host",
  "telescope-ui-kit",
  "unicode-normalization",
  "windows",
  "zbus",
+ "zip",
 ]
 
 [[package]]

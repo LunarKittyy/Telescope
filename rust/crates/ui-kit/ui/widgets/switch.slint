@@ -15,11 +15,14 @@ export component Switch inherits Rectangle {
     in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // A switch that's risky to leave on stays red while it is
+    in property <bool> danger;
     callback toggled(bool);
     width: 36px;
     height: 20px;
     border-radius: 10px;
     background: !enabled ? (checked ? Theme.border-strong : Theme.surface-raise)
+        : checked && danger ? Theme.err
         : checked ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
     accessible-role: switch;

@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, Switch, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, Switch, SettingRow, TextField, TipBody } from "@ui-kit/ui-kit.slint";
 import { ColumnScrollbar } from "frame.slint";
 
 export struct NavTab {
@@ -28,10 +28,31 @@ export struct TileView {
     hue: color,
     on: bool,
     locked: bool,
+    // The switch can be used (not a locked one, nor one whose download isn't there)
+    enabled: bool,
     tooltip: string,
     note: string,
     note-kind: string,
+    // The link that goes with the note (a newer release) and the one next to the author
+    note-link: string,
+    note-url: string,
+    byline: string,
+    byline-link: string,
+    byline-url: string,
+    // An added plugin has a remove button, named for it
+    removable: bool,
+    remove-label: string,
     badges: [BadgeData],
+}
+
+export struct UpdateRowView {
+    id: string,
+    title: string,
+    about: string,
+    note: string,
+    danger: bool,
+    on: bool,
+    enabled: bool,
 }
 
 export struct GroupView {
@@ -43,6 +64,9 @@ export struct GroupView {
     tiles: [TileView],
     // Every tile in a group is as tall as its tallest
     tile-height: length,
+    // The vision download's own button and what it says, on the group that uses it
+    remove-pack: bool,
+    status: string,
 }
 
 // One tab in the column down the left (settings_nav).
@@ -222,10 +246,33 @@ component Chip inherits Rectangle {
     Icon { source: icon; tint: lit ? hue : Theme.text-faint; width: 16px; height: 16px; accessible-role: none; }
 }
 
+// A link the person can click: the text in the accent colour, which opens its address.
+component LinkText inherits Rectangle {
+    in property <string> text;
+    in property <string> url;
+    callback opened(string);
+    height: 18px;
+    width: label.preferred-width;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-description: url;
+    accessible-action-default => { root.opened(url); }
+    TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
+    label := Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: 12px;
+        color: Theme.accent-soft;
+        vertical-alignment: center;
+    }
+}
+
 // A plugin as a tile: icon, name and switch on top, what it does under them, then any note and its badges.
 component PluginTile inherits Rectangle {
     in property <TileView> tile;
     callback switched(bool);
+    callback removed;
+    callback open-url(string);
     border-radius: 12px;
     border-width: 1px;
     background: Theme.surface;
@@ -257,13 +304,20 @@ component PluginTile inherits Rectangle {
                 color: tile.on ? Theme.text : Theme.text-dim;
                 vertical-alignment: center;
             }
+            if tile.removable: IconButton {
+                y: 1px;
+                icon: Icons.trash;
+                label: tile.remove-label;
+                tip: @tr("Remove");
+                clicked => { root.removed(); }
+            }
             Rectangle {
                 width: 36px;
                 Switch {
                     y: 6px;
                     checked: tile.on;
                     label: tile.title;
-                    enabled: !tile.locked;
+                    enabled: tile.enabled && !tile.locked;
                     toggled(on) => { root.switched(on); }
                 }
                 if !tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
@@ -279,6 +333,13 @@ component PluginTile inherits Rectangle {
             color: Theme.text-faint;
             vertical-alignment: top;
         }
+        if tile.byline != "" || tile.byline-link != "": HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            height: 18px;
+            if tile.byline != "": Text { text: tile.byline; font-family: Theme.font; font-size: 12px; color: Theme.text-faint; vertical-alignment: center; }
+            if tile.byline-link != "": LinkText { text: tile.byline-link; url: tile.byline-url; opened(u) => { root.open-url(u); } }
+        }
         if tile.note != "": Text {
             text: tile.note;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
@@ -286,6 +347,7 @@ component PluginTile inherits Rectangle {
             font-size: 12px;
             color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.text-faint;
         }
+        if tile.note-link != "": LinkText { text: tile.note-link; url: tile.note-url; opened(u) => { root.open-url(u); } }
         if tile.badges.length > 0: HorizontalLayout {
             spacing: 4px;
             alignment: start;
@@ -313,7 +375,14 @@ export component PluginsPanel inherits VerticalLayout {
     in-out property <string> query;
     in-out property <int> filter;
     in property <int> columns: 2;
+    // Something has been added, so there are no instructions to show, and the update switches that go with it
+    in property <bool> has-added;
+    in property <[UpdateRowView]> update-rows;
     callback switched(string, bool);
+    callback removed(string);
+    callback remove-pack;
+    callback update-switched(string, bool);
+    callback open-url(string);
     callback all-on;
     callback show-all;
     callback filter-changed;
@@ -401,6 +470,21 @@ export component PluginsPanel inherits VerticalLayout {
                 Chip { width: 26px; height: 26px; icon: g.icon; hue: g.hue; }
                 Text { text: g.title; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
                 Text { text: g.count; font-family: Theme.font; font-size: Theme.small; color: Theme.text-faint; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                if g.remove-pack: CardAction {
+                    y: -2px;
+                    text: @tr("Remove download");
+                    icon: Icons.trash;
+                    clicked => { root.remove-pack(); }
+                    tip: @tr("Delete the download the plugins here use. Switching one on gets it again.");
+                }
+            }
+            if g.status != "": Text {
+                text: g.status;
+                wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
             }
             Rectangle {
                 property <length> w: (self.width - (columns - 1) * 10px) / columns;
@@ -412,6 +496,8 @@ export component PluginsPanel inherits VerticalLayout {
                     height: g.tile-height;
                     tile: t;
                     switched(on) => { root.switched(t.name, on); }
+                    removed => { root.removed(t.name); }
+                    open-url(u) => { root.open-url(u); }
                 }
             }
         }
@@ -442,11 +528,24 @@ export component PluginsPanel inherits VerticalLayout {
             }
         }
         Text {
-            text: @tr("No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off.");
+            text: has-added ? @tr("Plugins you add are listed with the others, marked Added.") : @tr("No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off.");
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text-dim;
+        }
+        for r in update-rows: SettingRow {
+            title: r.title;
+            sub: r.about;
+            note: r.note;
+            note-color: r.danger ? Theme.err : Theme.text-dim;
+            Switch {
+                checked: r.on;
+                label: r.title;
+                enabled: r.enabled;
+                danger: r.danger;
+                toggled(on) => { root.update-switched(r.id, on); }
+            }
         }
         HorizontalLayout {
             spacing: 8px;
@@ -483,12 +582,14 @@ export component PluginsFooter inherits Rectangle {
     }
 }
 
-// QMessageBox for the few questions the Plugins tab asks, drawn over the settings window.
+// QMessageBox for the few questions the Plugins tab asks, drawn over the settings window. With info it only tells,
+// as QMessageBox.information and warning do: one button.
 export component Ask inherits Rectangle {
     in property <string> title;
     in property <string> text;
     in property <string> yes;
     in property <bool> danger;
+    in property <bool> info;
     callback answered(bool);
     background: #00000080;
     TouchArea { }
@@ -516,8 +617,8 @@ export component Ask inherits Rectangle {
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
-                    Button { text: @tr("Cancel"); clicked => { root.answered(false); } }
-                    Button { text: yes; role: danger ? "" : "primary"; clicked => { root.answered(true); } }
+                    if !info: Button { text: @tr("Cancel"); clicked => { root.answered(false); } }
+                    Button { text: info ? @tr("OK") : yes; role: danger && !info ? "" : "primary"; clicked => { root.answered(true); } }
                 }
             }
         }

@@ -463,7 +463,7 @@ pub struct SectionPlace {
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
     let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView } from \"shell/settings.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -536,7 +536,13 @@ export component TelescopeSettings inherits Window {
     in-out property <int> plugin-filter;
     in property <bool> footer-shown;
     in property <string> footer-note;
+    in property <bool> has-added;
+    in property <[UpdateRowView]> update-rows;
     callback plugin-switched(string, bool);
+    callback plugin-removed(string);
+    callback remove-pack;
+    callback update-switched(string, bool);
+    callback open-url(string);
     callback all-on;
     callback show-all;
     callback plugins-filter-changed;
@@ -549,6 +555,7 @@ export component TelescopeSettings inherits Window {
     in property <string> ask-text;
     in property <string> ask-yes;
     in property <bool> ask-danger;
+    in property <bool> ask-info;
     callback answered(bool);
     in property <bool> flashing;
     in property <length> flash-x;
@@ -620,7 +627,13 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
             query <=> root.plugin-query;
             filter <=> root.plugin-filter;
             columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
+            has-added: root.has-added;
+            update-rows: root.update-rows;
             switched(name, on) => { root.plugin-switched(name, on); }
+            removed(name) => { root.plugin-removed(name); }
+            remove-pack => { root.remove-pack(); }
+            update-switched(id, on) => { root.update-switched(id, on); }
+            open-url(u) => { root.open-url(u); }
             all-on => { root.all-on(); }
             show-all => { root.show-all(); }
             filter-changed => { root.plugins-filter-changed(); }
@@ -658,6 +671,7 @@ const SETTINGS_BOTTOM: &str = r#"    ResultsList {
         text: root.ask-text;
         yes: root.ask-yes;
         danger: root.ask-danger;
+        info: root.ask-info;
         answered(yes) => { root.answered(yes); }
     }
 }

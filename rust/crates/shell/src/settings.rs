@@ -3,19 +3,25 @@
 //! opens, then kept.
 
 use crate::doc::{self, Piece, SectionPlace};
-use crate::plugins_tab::{group_icon, Filter, Panel};
+use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, UpdateCheck, VisionDownload};
 use crate::search::{search_ex, Entry};
 use crate::source::{scan, to_json, to_slint};
 use crate::window::Window;
-use crate::{switches, texts::fill};
+use crate::texts::fill;
 use i_slint_backend_testing::ElementHandle;
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
 use telescope_core::i18n::tr;
 use telescope_core::plugin::SETTINGS_TABS;
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent};
+use telescope_plugin_host::package::{dev_plugin_folders, PluginFolder};
+use telescope_plugin_host::switches::Switches;
+use telescope_plugin_host::updater::PluginUpdater;
+use telescope_plugin_host::updates::Release;
+use telescope_plugin_host::Installed;
 
 const FLASH_MS: u64 = 1800;
 
@@ -102,9 +108,42 @@ pub struct Settings {
     tab_sections: Vec<Vec<(String, String)>>,
     panel: RefCell<Panel>,
     hits: RefCell<Vec<Entry>>,
-    asking: RefCell<Option<(String, bool)>>,
+    /// What waits for an answer to the question on screen, and the messages that wait their turn after it.
+    asking: RefCell<Option<Commit>>,
+    notices: RefCell<VecDeque<Notice>>,
+    /// A message is on screen (it has no commit to wait for).
+    telling: Cell<bool>,
     window: Weak<Window>,
     flash: slint::Timer,
+    /// Looks at the download and the update check while the window is up, and shows what they found.
+    watch: slint::Timer,
+    seen: RefCell<String>,
+}
+
+thread_local! {
+    /// The window's one update check (the Plugins tab and the timer that runs it share it).
+    static UPDATER: Rc<RefCell<PluginUpdater>> = Rc::new(RefCell::new(PluginUpdater::app()));
+}
+
+/// The window's PluginUpdater, as the tab asks about it.
+struct SharedUpdater(Rc<RefCell<PluginUpdater>>);
+
+impl UpdateCheck for SharedUpdater {
+    fn checking(&self, folder: &PluginFolder) -> bool {
+        self.0.borrow().checking(folder)
+    }
+    fn auto(&self, folder: &PluginFolder) -> bool {
+        self.0.borrow().auto(folder)
+    }
+    fn newer(&self, folder: &PluginFolder, item: &Installed) -> Option<Release> {
+        self.0.borrow().newer(folder, item)
+    }
+    fn maybe_check(&mut self, folder: &PluginFolder) {
+        self.0.borrow_mut().maybe_check(folder);
+    }
+    fn updated(&self, name: &str) -> Option<String> {
+        self.0.borrow().updated.get(name).cloned()
+    }
 }
 
 thread_local! {
@@ -183,7 +222,15 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         let state = window.state.borrow();
         let categories: std::collections::HashMap<String, String> = state.slots.iter().map(|s| (s.info.name.clone(), s.info.category.clone())).collect();
         let running = state.slots.iter().map(|s| s.info.name.clone()).collect();
-        (Panel::new(state.builtins.clone(), running, &state.file.load()), state.off.len(), categories)
+        let reserved = state.builtins.iter().map(|p| p.name.clone());
+        let folder = state.file.path().parent().map(|p| p.join("plugins")).unwrap_or_else(|| "plugins".into());
+        let folder = PluginFolder::new(folder, Switches::new(telescope_core::config::ConfigFile::at(state.file.path())), reserved).with_dev_folders(dev_plugin_folders());
+        let download: Box<dyn Download> = match &state.vision {
+            Some(service) => Box::new(VisionDownload::new(service.clone())),
+            None => Box::new(plugins_tab::NoVision),
+        };
+        let updater = Box::new(SharedUpdater(UPDATER.with(|u| u.clone())));
+        (Panel::new(state.builtins.clone(), running, state.problems.clone(), folder, download, updater), state.off.len(), categories)
     };
     let tabs = ordered_tabs(&sections, &Panel::tab_title(off));
     let plugins_tab = tabs.iter().position(|(id, _, _)| id == "plugins");
@@ -227,11 +274,16 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         panel: RefCell::new(panel),
         hits: RefCell::new(Vec::new()),
         asking: RefCell::new(None),
+        notices: RefCell::new(VecDeque::new()),
+        telling: Cell::new(false),
         window: Rc::downgrade(window),
         flash: slint::Timer::default(),
+        watch: slint::Timer::default(),
+        seen: RefCell::new(String::new()),
     });
     settings.wire(&places, &sections);
     settings.show_panel();
+    settings.start_watching();
     settings.show_row(0);
     Ok(settings)
 }
@@ -316,20 +368,30 @@ impl Settings {
         });
         cb(self, "plugin-switched", |s, a| {
             if let (Some(SValue::String(name)), Some(SValue::Bool(on))) = (a.first(), a.get(1)) {
-                s.switch(name, *on);
+                s.request(Request::Switch { name: name.to_string(), on: *on });
+            }
+        });
+        cb(self, "plugin-removed", |s, a| {
+            if let Some(SValue::String(name)) = a.first() {
+                s.request(Request::Remove { name: name.to_string() });
+            }
+        });
+        cb(self, "remove-pack", |s, _| s.request(Request::RemovePack));
+        cb(self, "update-switched", |s, a| {
+            if let (Some(SValue::String(id)), Some(SValue::Bool(on))) = (a.first(), a.get(1)) {
+                s.request(if id.as_str() == "auto" { Request::AutoUpdate(*on) } else { Request::CheckUpdates(*on) });
             }
         });
         cb(self, "answered", |s, a| s.answered(matches!(a.first(), Some(SValue::Bool(true)))));
-        cb(self, "all-on", |s, _| s.save(switches::all_builtin_on));
+        cb(self, "all-on", |s, _| s.request(Request::AllOn));
         cb(self, "restart", |s, _| {
-            if let Some(w) = s.window.upgrade() {
-                w.state.borrow_mut().effects.push(crate::shell::Effect::Restart);
-                w.process();
-            }
+            let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
+            s.request(Request::Restart { streaming });
         });
-        cb(self, "open-docs", |_, _| open_url("https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md"));
-        cb(self, "open-folder", |_, _| {});
-        cb(self, "install", |_, _| {});
+        cb(self, "open-docs", |_, _| open_url(plugins_tab::DOCS_URL));
+        cb(self, "open-url", |_, a| if let Some(SValue::String(url)) = a.first() { open_url(url) });
+        cb(self, "open-folder", |s, _| s.open_plugins_folder());
+        cb(self, "install", |s, _| s.pick_zip());
     }
 
     pub fn set_props(&self, plugin: &str, ui: &str, props: &serde_json::Value) {
@@ -527,15 +589,22 @@ impl Settings {
         let filter = match self.ui.get_property("plugin-filter") { Ok(SValue::Number(n)) if n == 1.0 => Filter::On, Ok(SValue::Number(n)) if n == 2.0 => Filter::Off, _ => Filter::All };
         let panel = self.panel.borrow();
         let own = self.window.upgrade().is_none_or(|w| w.ui.get_global_property("Theme", "own-hues").map_or(true, |v| v == SValue::Bool(true)));
+        let link = |l: &Option<plugins_tab::Link>| l.as_ref().map(|l| (l.text.clone(), l.url.clone())).unwrap_or_default();
         let groups: Vec<SValue> = panel.shown(&query, filter).into_iter().map(|(g, count)| {
-            let tall = g.tiles.iter().any(|t| !t.badges.is_empty()) as i32 * 24 + g.tiles.iter().any(|t| !t.note.is_empty()) as i32 * 22;
+            let tall = g.tiles.iter().map(tile_extra).max().unwrap_or(0);
             let tiles: Vec<SValue> = g.tiles.iter().map(|t| {
                 let badges: Vec<SValue> = t.badges.iter().map(|b| SValue::Struct(Struct::from_iter([("text".to_string(), s(&b.text)), ("kind".to_string(), s(&b.kind))]))).collect();
+                let (note_link, note_url) = link(&t.note_link);
+                let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
                     ("name".to_string(), s(&t.name)), ("title".to_string(), s(&t.title)), ("about".to_string(), s(&t.about)),
                     ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&t.group, own)))),
-                    ("on".to_string(), SValue::Bool(t.on)), ("locked".to_string(), SValue::Bool(t.locked)),
+                    ("on".to_string(), SValue::Bool(t.on)), ("locked".to_string(), SValue::Bool(t.locked)), ("enabled".to_string(), SValue::Bool(t.enabled)),
                     ("tooltip".to_string(), s(&t.tooltip)), ("note".to_string(), s(&t.note)), ("note-kind".to_string(), s(&t.note_kind)),
+                    ("note-link".to_string(), s(&note_link)), ("note-url".to_string(), s(&note_url)),
+                    ("byline".to_string(), s(&t.byline)), ("byline-link".to_string(), s(&byline_link)), ("byline-url".to_string(), s(&byline_url)),
+                    ("removable".to_string(), SValue::Bool(t.added)),
+                    ("remove-label".to_string(), s(&if t.added { fill(&tr("Remove {plugin}"), &[("plugin", &t.title)]) } else { String::new() })),
                     ("badges".to_string(), model(badges)),
                 ]))
             }).collect();
@@ -543,6 +612,7 @@ impl Settings {
                 ("id".to_string(), s(&g.id)), ("title".to_string(), s(&g.title)), ("count".to_string(), s(&count)),
                 ("icon".to_string(), SValue::Image(icon(group_icon(&g.id)))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&g.id, own)))),
                 ("tiles".to_string(), model(tiles)), ("tile-height".to_string(), SValue::Number((94 + tall) as f64)),
+                ("remove-pack".to_string(), SValue::Bool(g.remove_pack)), ("status".to_string(), s(&g.status)),
             ]))
         }).collect();
         let _ = self.ui.set_property("groups", model(groups));
@@ -551,47 +621,158 @@ impl Settings {
         let _ = self.ui.set_property("all-on-enabled", SValue::Bool(panel.all_on_enabled));
         let _ = self.ui.set_property("footer-note", s(&panel.footer_note()));
         let _ = self.ui.set_property("footer-shown", SValue::Bool(!panel.pending.is_empty()));
+        let _ = self.ui.set_property("has-added", SValue::Bool(!panel.installed.is_empty()));
+        let rows: Vec<SValue> = panel.update_rows.iter().flat_map(|u| [
+            update_row("check", tr("Check for updates"),
+                       tr("Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."), "", false, u.check_on, true),
+            update_row("auto", tr("Install updates without asking"), tr("Installs new versions of the plugins you switched on and switches them on again."),
+                       &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
+        ]).collect();
+        let _ = self.ui.set_property("update-rows", model(rows));
         let _ = self.plugins_tab;
     }
 
-    fn switch(&self, name: &str, on: bool) {
-        let tile = self.panel.borrow().groups.iter().flat_map(|g| g.tiles.iter()).find(|t| t.name == name).cloned();
-        let Some(tile) = tile else { return };
-        if !on && !tile.optional {
-            let (title, text, yes) = Panel::ask_off(&tile);
-            let _ = self.ui.set_property("ask-title", s(&title));
-            let _ = self.ui.set_property("ask-text", s(&text));
-            let _ = self.ui.set_property("ask-yes", s(&yes));
-            let _ = self.ui.set_property("ask-danger", SValue::Bool(false));
-            let _ = self.ui.set_property("asking", SValue::Bool(true));
-            *self.asking.borrow_mut() = Some((name.to_string(), on));
+    /// Asks for a change: a question goes on screen first when the change needs one.
+    fn request(&self, request: Request) {
+        let step = self.panel.borrow_mut().request(request);
+        self.handle(step);
+    }
+
+    fn handle(&self, step: Step) {
+        match step {
+            Step::Done(outcome) => self.finish(outcome),
+            Step::Ask(q, commit) => {
+                self.show_panel();
+                self.ask(&q, commit);
+            }
+        }
+    }
+
+    fn ask(&self, q: &Question, commit: Commit) {
+        let _ = self.ui.set_property("ask-title", s(&q.title));
+        let _ = self.ui.set_property("ask-text", s(&q.text));
+        let _ = self.ui.set_property("ask-yes", s(&q.yes));
+        let _ = self.ui.set_property("ask-danger", SValue::Bool(q.danger));
+        let _ = self.ui.set_property("ask-info", SValue::Bool(false));
+        let _ = self.ui.set_property("asking", SValue::Bool(true));
+        *self.asking.borrow_mut() = Some(commit);
+    }
+
+    /// Shows the tiles as they are now, then what the person is told, then restarts if that's what they asked for.
+    fn finish(&self, outcome: Outcome) {
+        self.show_panel();
+        self.notices.borrow_mut().extend(outcome.notices);
+        self.next_notice();
+        if outcome.restart {
+            if let Some(w) = self.window.upgrade() {
+                w.state.borrow_mut().effects.push(crate::shell::Effect::Restart);
+                w.process();
+            }
+        }
+    }
+
+    /// The next message waits for the question or message before it to be dismissed.
+    fn next_notice(&self) {
+        if self.telling.get() || self.asking.borrow().is_some() {
             return;
         }
-        let (name, optional) = (name.to_string(), tile.optional);
-        self.save(move |cfg| if optional { switches::set_optional_on(cfg, &name, on) } else { switches::set_builtin_off(cfg, &name, !on) });
+        let Some(n) = self.notices.borrow_mut().pop_front() else { return };
+        let _ = self.ui.set_property("ask-title", s(&n.title));
+        let _ = self.ui.set_property("ask-text", s(&n.text));
+        let _ = self.ui.set_property("ask-yes", s(&tr("OK")));
+        let _ = self.ui.set_property("ask-danger", SValue::Bool(n.kind == NoticeKind::Warning));
+        let _ = self.ui.set_property("ask-info", SValue::Bool(true));
+        let _ = self.ui.set_property("asking", SValue::Bool(true));
+        self.telling.set(true);
     }
 
     fn answered(&self, yes: bool) {
         let _ = self.ui.set_property("asking", SValue::Bool(false));
-        let Some((name, on)) = self.asking.borrow_mut().take() else { return };
-        if yes {
-            self.save(move |cfg| switches::set_builtin_off(cfg, &name, !on));
-        } else {
-            self.show_panel();
+        let commit = self.asking.borrow_mut().take();
+        match commit {
+            Some(commit) if yes => {
+                let outcome = self.panel.borrow_mut().commit(commit);
+                self.finish(outcome);
+            }
+            Some(_) => {
+                // Cancelled: the switch goes back as it was
+                self.panel.borrow_mut().refresh();
+                self.show_panel();
+                self.next_notice();
+            }
+            None => {
+                self.telling.set(false);
+                self.next_notice();
+            }
         }
     }
 
-    /// Saves a switch change and shows the tiles as they are now; an error goes to the log like a QMessageBox would.
-    fn save(&self, change: impl FnOnce(&mut serde_json::Value)) {
-        let Some(w) = self.window.upgrade() else { return };
-        let file = telescope_core::config::ConfigFile::at(w.state.borrow().file.path());
-        let saved = file.update(change);
-        if !saved {
-            log::error!("{}", tr("Couldn't save the settings."));
-        }
-        self.panel.borrow_mut().refresh(&file.load());
-        self.show_panel();
+    /// The Install button: pick a .zip (the file chooser runs on its own thread, so the window keeps going).
+    fn pick_zip(&self) {
+        use telescope_core::host::{FileDialog, FileDialogKind};
+        let dialog = FileDialog {
+            kind: FileDialogKind::Open,
+            title: tr("Install a plugin"),
+            start: Panel::start_folder().to_string_lossy().into_owned(),
+            filters: vec![tr("Plugins (*.zip)")],
+        };
+        std::thread::spawn(move || {
+            let (ok, _, data) = crate::file_dialog::ask(&dialog);
+            let path = data.get("path").and_then(|p| p.as_str()).map(String::from).filter(|_| ok);
+            if let Some(path) = path {
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(settings) = current() {
+                        settings.install(path.into());
+                    }
+                });
+            }
+        });
     }
+
+    /// Installs a .zip the person picked or dropped.
+    pub fn install(&self, path: std::path::PathBuf) {
+        self.request(Request::Install { path });
+    }
+
+    fn open_plugins_folder(&self) {
+        let made = self.panel.borrow().make_plugins_dir();
+        match made {
+            Ok(folder) => open_url(&folder.to_string_lossy()),
+            Err(notice) => {
+                self.notices.borrow_mut().push_back(notice);
+                self.next_notice();
+            }
+        }
+    }
+
+    /// Polls the vision download and the update check while the window lives, and shows what they've come to.
+    fn start_watching(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.watch.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(600), move || {
+            let Some(s) = weak.upgrade() else { return };
+            let found = UPDATER.with(|u| u.clone()).borrow_mut().poll(&s.panel.borrow().folder);
+            let sign = s.panel.borrow().download_sign();
+            if found || *s.seen.borrow() != sign {
+                *s.seen.borrow_mut() = sign;
+                s.panel.borrow_mut().refresh();
+                s.show_panel();
+            }
+        });
+    }
+}
+
+/// How much taller than the plain tile this one has to be: its byline, its note, its link and its badges.
+fn tile_extra(t: &plugins_tab::Tile) -> i32 {
+    let note = if t.note.is_empty() { 0 } else { 6 + 16 * (t.note.chars().count() as i32 / 44 + 1) };
+    (if t.badges.is_empty() { 0 } else { 24 }) + (if t.byline.is_empty() && t.byline_link.is_none() { 0 } else { 22 }) + note
+        + (if t.note_link.is_some() { 22 } else { 0 })
+}
+
+fn update_row(id: &str, title: String, about: String, note: &str, danger: bool, on: bool, enabled: bool) -> SValue {
+    SValue::Struct(Struct::from_iter([
+        ("id".to_string(), s(id)), ("title".to_string(), s(&title)), ("about".to_string(), s(&about)), ("note".to_string(), s(note)),
+        ("danger".to_string(), SValue::Bool(danger)), ("on".to_string(), SValue::Bool(on)), ("enabled".to_string(), SValue::Bool(enabled)),
+    ]))
 }
 
 fn s_empty() -> SValue {
