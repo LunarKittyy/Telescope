@@ -16,6 +16,7 @@ pub mod link;
 pub mod media;
 pub mod names;
 pub mod output;
+pub mod people;
 pub mod plugin;
 pub mod pose;
 pub mod preview;
@@ -32,6 +33,7 @@ pub mod ui;
 pub mod version;
 pub mod view;
 pub mod view_step;
+pub mod vision;
 pub mod web;
 
 pub use bus::{BusSender, EventBus};

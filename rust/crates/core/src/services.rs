@@ -33,6 +33,8 @@ pub struct Services {
     /// The tray icon and its menu, where the desktop shows one (the window's run only: a command line run has none).
     pub tray: Option<std::sync::Mutex<Box<dyn Tray>>>,
     pub plugins: PluginFactory,
+    /// Person masks and people for the plugins that look at them (None: no vision at all, as before the vision crate).
+    pub vision: Option<Arc<dyn crate::vision::VisionService>>,
     /// What the factory couldn't start (plugin_loader.load_enabled's failed list); empty when it wasn't asked.
     pub plugin_problems: PluginProblems,
 }
