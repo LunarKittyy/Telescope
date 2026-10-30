@@ -262,6 +262,39 @@ fn started_fine() {
 /// --moved-from: the unzipped folder this installed copy replaced.
 static MOVED_FROM: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
 
+/// A word from the command line taken out, true if it was there.
+fn take_flag(words: &mut Vec<String>, name: &str) -> bool {
+    let found = words.iter().position(|w| w == name);
+    found.map(|i| words.remove(i)).is_some()
+}
+
+/// An option and its value taken out, None if it wasn't there or had no value.
+fn take_value(words: &mut Vec<String>, name: &str) -> Option<String> {
+    let i = words.iter().position(|w| w == name)?;
+    words.remove(i);
+    (i < words.len()).then(|| words.remove(i))
+}
+
+/// main.py's own options (parse_args), taken out of the words; what's left is for the commands.
+#[derive(Debug, Default, PartialEq)]
+struct Launch {
+    minimized: bool,
+    /// Started by an update: the old copy may still hold the lock.
+    after_update: bool,
+    restarted: bool,
+    /// The unzipped folder the installed copy replaced, which it removes once it has started fine.
+    moved_from: Option<PathBuf>,
+}
+
+fn take_launch(words: &mut Vec<String>) -> Launch {
+    Launch {
+        minimized: take_flag(words, "--minimized"),
+        after_update: take_flag(words, "--after-update"),
+        restarted: take_flag(words, "--restarted"),
+        moved_from: take_value(words, "--moved-from").map(PathBuf::from),
+    }
+}
+
 fn main() {
     // Before the decoder and the stream start their threads, which would each get a pool of their own
     telescope_system::memory::limit_malloc_arenas(4);
@@ -289,15 +322,7 @@ fn main() {
         use_own_profile();
         std::process::exit(run_action(action));
     }
-    let flag = |words: &mut Vec<String>, name: &str| -> bool {
-        let found = words.iter().position(|w| w == name);
-        found.map(|i| words.remove(i)).is_some()
-    };
-    let value = |words: &mut Vec<String>, name: &str| -> Option<String> {
-        let i = words.iter().position(|w| w == name)?;
-        words.remove(i);
-        (i < words.len()).then(|| words.remove(i))
-    };
+    let (flag, value) = (take_flag, take_value);
     let args = cli::Args {
         usb: flag(&mut words, "--usb"),
         vaapi: flag(&mut words, "--vaapi"),
@@ -311,11 +336,10 @@ fn main() {
         autostart: flag(&mut words, "--autostart"),
         quit_after: value(&mut words, "--quit-after").and_then(|s| s.parse().ok()),
     };
-    let minimized = flag(&mut words, "--minimized");
-    let wait_for_lock = flag(&mut words, "--after-update") | flag(&mut words, "--restarted");
-    let _ = MOVED_FROM.set(value(&mut words, "--moved-from").map(PathBuf::from));
+    let launch = take_launch(&mut words);
+    let (minimized, wait_for_lock, after_update) = (launch.minimized, launch.after_update || launch.restarted, launch.after_update);
+    let _ = MOVED_FROM.set(launch.moved_from);
     let remote = telescope_system::shortcuts::RemoteActions::default();
-    let after_update = std::env::args().any(|a| a == "--after-update");
     // Before the window: an update cut short is finished, or one that never started is rolled back
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
@@ -363,5 +387,20 @@ fn main() {
     if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // test_move_to_installed.py::test_main_takes_the_moved_from_folder
+    #[test]
+    fn main_takes_the_moved_from_folder() {
+        let mut words: Vec<String> = ["--after-update", "--moved-from", r"C:\Users\l\Downloads\Telescope", "-style", "x"].map(String::from).to_vec();
+        let launch = take_launch(&mut words);
+        assert!(launch.after_update && !launch.restarted && !launch.minimized);
+        assert_eq!(launch.moved_from, Some(PathBuf::from(r"C:\Users\l\Downloads\Telescope")));
+        assert_eq!(words, ["-style", "x"]);
     }
 }

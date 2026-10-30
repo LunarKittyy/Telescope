@@ -59,10 +59,12 @@ pub fn default_install_dir(local_app_data: Option<&str>) -> Option<PathBuf> {
 }
 
 fn normal(path: &Path) -> String {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()).to_string_lossy().to_lowercase()
+    let full = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()).to_string_lossy().into_owned();
+    // os.path.normcase: case only stops mattering on Windows
+    if cfg!(windows) { full.to_lowercase() } else { full }
 }
 
-/// Whether two folders are the same place (case does not matter, as on Windows).
+/// Whether two folders are the same place (case does not matter on Windows).
 pub fn same_place(a: &Path, b: Option<&Path>) -> bool {
     b.is_some_and(|b| normal(a) == normal(b))
 }
@@ -76,6 +78,11 @@ pub(crate) fn has_uninstaller(directory: &Path) -> bool {
     })
 }
 
+/// On a removable drive (2) or a network one (4), going by GetDriveTypeW of the root ("C:\\"); a \\server\share is one too.
+pub fn carried_by(root: &str, drive_type: &dyn Fn(&str) -> u32) -> bool {
+    root.starts_with(r"\\") || matches!(drive_type(&format!("{root}\\")), 2 | 4)
+}
+
 #[cfg(windows)]
 fn carried_around(directory: &Path) -> bool {
     #[link(name = "kernel32")]
@@ -84,12 +91,12 @@ fn carried_around(directory: &Path) -> bool {
     }
     let full = std::fs::canonicalize(directory).unwrap_or_else(|_| directory.to_path_buf()).to_string_lossy().into_owned();
     let full = full.strip_prefix(r"\\?\UNC\").map(|rest| format!(r"\\{rest}")).unwrap_or_else(|| full.trim_start_matches(r"\\?\").to_string());
-    if full.starts_with(r"\\") {
-        return true; // \\server\share
-    }
-    let root: Vec<u16> = full.chars().take(2).chain(std::iter::once('\\')).map(|c| c as u16).chain(std::iter::once(0)).collect();
-    // 2: removable, 4: network
-    matches!(unsafe { GetDriveTypeW(root.as_ptr()) }, 2 | 4)
+    let root: String = if full.starts_with(r"\\") { full.clone() } else { full.chars().take(2).collect() };
+    carried_by(&root, &|root| {
+        let wide: Vec<u16> = root.encode_utf16().chain(std::iter::once(0)).collect();
+        // SAFETY: a NUL-terminated string that outlives the call
+        unsafe { GetDriveTypeW(wide.as_ptr()) }
+    })
 }
 
 #[cfg(not(windows))]
@@ -100,13 +107,18 @@ fn carried_around(_directory: &Path) -> bool {
 impl Place {
     /// directory: the folder this copy runs from.
     pub fn of(directory: &Path) -> Place {
-        let windows = cfg!(windows);
         let local = std::env::var("LOCALAPPDATA").ok();
+        Place::of_with(directory, cfg!(windows), local.as_deref(), &carried_around)
+    }
+
+    /// The same with what depends on this computer given: whether it's Windows, %LOCALAPPDATA%, and whether a folder is on a
+    /// removable or network drive.
+    pub fn of_with(directory: &Path, windows: bool, local_app_data: Option<&str>, carried: &dyn Fn(&Path) -> bool) -> Place {
         Place {
             windows,
             packaged: directory.join(EXE_NAME).is_file(),
-            is_install_dir: same_place(directory, default_install_dir(local.as_deref()).as_deref()),
-            carried_around: windows && carried_around(directory),
+            is_install_dir: same_place(directory, default_install_dir(local_app_data).as_deref()),
+            carried_around: windows && carried(directory),
             has_uninstaller: has_uninstaller(directory),
         }
     }
@@ -114,28 +126,55 @@ impl Place {
 
 // ── Where the installer put it ───────────────────────────────────────────────
 
+/// The installer's uninstall entry, under HKEY_CURRENT_USER.
 pub fn uninstall_key() -> String {
-    format!(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1")
+    format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1")
 }
 
-/// The value out of `reg query KEY /v InstallLocation`'s answer ("    InstallLocation    REG_SZ    <folder>").
-pub fn parse_install_location(output: &str) -> Option<PathBuf> {
+/// The value called name out of `reg query KEY /v NAME`'s answer ("    NAME    REG_SZ    <text>").
+pub fn parse_reg_value(output: &str, name: &str) -> Option<String> {
     output.lines().find_map(|line| {
-        let rest = line.trim_start().strip_prefix("InstallLocation")?;
+        let rest = line.trim_start().strip_prefix(name)?;
         let value = rest.trim_start().strip_prefix("REG_SZ")?.trim().to_string();
-        (!value.is_empty()).then(|| PathBuf::from(value))
+        (!value.is_empty()).then_some(value)
     })
+}
+
+pub fn parse_install_location(output: &str) -> Option<PathBuf> {
+    parse_reg_value(output, "InstallLocation").map(PathBuf::from)
+}
+
+/// What reading the uninstall entry needs of the registry.
+pub trait Uninstall {
+    /// A string value under hive ("HKCU") at key.
+    fn read(&self, hive: &str, key: &str, name: &str) -> Option<String>;
+}
+
+/// Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed.
+pub fn installed_location_in(registry: &dyn Uninstall) -> Option<PathBuf> {
+    registry.read("HKCU", &uninstall_key(), "InstallLocation").filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+/// This computer's registry, asked through reg.exe.
+#[cfg(windows)]
+struct Machine;
+
+#[cfg(windows)]
+impl Uninstall for Machine {
+    fn read(&self, hive: &str, key: &str, name: &str) -> Option<String> {
+        use std::os::windows::process::CommandExt;
+        let out = std::process::Command::new("reg").args(["query", &format!(r"{hive}\{key}"), "/v", name]).creation_flags(0x0800_0000).output().ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        parse_reg_value(&String::from_utf8_lossy(&out.stdout), name)
+    }
 }
 
 /// Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed.
 #[cfg(windows)]
 pub fn installed_location() -> Option<PathBuf> {
-    use std::os::windows::process::CommandExt;
-    let out = std::process::Command::new("reg").args(["query", &uninstall_key(), "/v", "InstallLocation"]).creation_flags(0x0800_0000).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    parse_install_location(&String::from_utf8_lossy(&out.stdout))
+    installed_location_in(&Machine)
 }
 
 #[cfg(not(windows))]
@@ -183,6 +222,31 @@ fn utf16_text(bytes: &[u8]) -> String {
     String::from_utf16_lossy(&units).to_lowercase()
 }
 
+/// The bytes as the system's ANSI text (the "mbcs" Python reads a .lnk's link info with on Windows), latin-1 elsewhere.
+#[cfg(windows)]
+fn ansi_text(bytes: &[u8]) -> String {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn MultiByteToWideChar(page: u32, flags: u32, from: *const u8, from_len: i32, to: *mut u16, to_len: i32) -> i32;
+    }
+    let Ok(len) = i32::try_from(bytes.len()) else { return String::new() };
+    // SAFETY: the first call only asks how much room is needed, the second fills a buffer of that size
+    unsafe {
+        let n = MultiByteToWideChar(0, 0, bytes.as_ptr(), len, std::ptr::null_mut(), 0);
+        if n <= 0 {
+            return String::new();
+        }
+        let mut wide = vec![0u16; n as usize];
+        MultiByteToWideChar(0, 0, bytes.as_ptr(), len, wide.as_mut_ptr(), n);
+        String::from_utf16_lossy(&wide).to_lowercase()
+    }
+}
+
+#[cfg(not(windows))]
+fn ansi_text(bytes: &[u8]) -> String {
+    bytes.iter().map(|&b| b as char).collect::<String>().to_lowercase()
+}
+
 /// Desktop shortcuts (.lnk) that start exe. A .lnk keeps its target's path as text (ANSI in its link info, UTF-16 in its strings), so a
 /// plain search for it is enough to tell, without reading the format.
 pub fn shortcuts_to(exe: &Path, folders: &[PathBuf]) -> Vec<PathBuf> {
@@ -190,11 +254,11 @@ pub fn shortcuts_to(exe: &Path, folders: &[PathBuf]) -> Vec<PathBuf> {
     let mut found = Vec::new();
     for folder in folders {
         let Ok(list) = std::fs::read_dir(folder) else { continue };
-        for link in list.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))) {
+        for link in list.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| if cfg!(windows) { e.eq_ignore_ascii_case("lnk") } else { e == "lnk" })) {
             let Ok(mut data) = std::fs::read(&link) else { continue };
             data.truncate(64 * 1024);
             let odd = data.get(1..).unwrap_or_default();
-            let texts = [utf16_text(&data), utf16_text(odd), String::from_utf8_lossy(&data).to_lowercase()];
+            let texts = [utf16_text(&data), utf16_text(odd), ansi_text(&data)];
             if texts.iter().any(|t| t.contains(&target)) {
                 found.push(link);
             }
@@ -240,6 +304,15 @@ pub fn run_setup(argv: &[String], timeout: Duration) -> SetupRun {
     }
 }
 
+/// What an OSError's strerror says: the system's words for it, without Rust's "(os error N)" after.
+fn strerror(e: &io::Error) -> String {
+    let text = e.to_string();
+    match (e.raw_os_error(), text.rfind(" (os error ")) {
+        (Some(_), Some(at)) => text[..at].to_string(),
+        _ => text,
+    }
+}
+
 /// What install_with_setup needs from the computer, so a test can stand in for it.
 pub struct SetupEnv<'a> {
     pub run: &'a dyn Fn(&[String]) -> SetupRun,
@@ -259,7 +332,7 @@ pub fn install_with_setup(setup: &Path, old_dir: &Path, env: &SetupEnv) -> Resul
     match (env.run)(&argv) {
         SetupRun::TimedOut => return Err(UpdateError(tr("The installer took too long, so this copy stays as it is."))),
         SetupRun::CouldNotStart(e) => {
-            return Err(UpdateError(tr("Couldn't start the installer: {error}").replace("{error}", &e.to_string())));
+            return Err(UpdateError(tr("Couldn't start the installer: {error}").replace("{error}", &strerror(&e))));
         }
         SetupRun::Exited(0) => {}
         SetupRun::Exited(code) => {
@@ -300,11 +373,12 @@ pub fn mark_started_elsewhere(build: i64, old_dir: &Path) {
 /// The unzipped folder this installed copy replaced and hasn't removed yet, or None.
 pub fn pending_move(directory: &Path) -> Option<PathBuf> {
     let marker = directory.join(PENDING_MOVE);
-    let text = std::fs::read(&marker).ok().map(|b| String::from_utf8_lossy(&b).trim().to_string()).unwrap_or_default();
-    if marker.exists() && !text.is_empty() && !text.contains('\0') && Path::new(&text).is_absolute() {
+    let Ok(bytes) = std::fs::read(&marker) else { return None };
+    // Not text: nothing to finish, and it would fail the same way at every start
+    let text = String::from_utf8(bytes).map(|t| t.trim().to_string()).unwrap_or_default();
+    if !text.is_empty() && !text.contains('\0') && Path::new(&text).is_absolute() {
         return Some(PathBuf::from(text));
     }
-    // Nothing to finish, and it would fail the same way at every start
     let _ = std::fs::remove_file(&marker);
     None
 }
@@ -312,7 +386,7 @@ pub fn pending_move(directory: &Path) -> Option<PathBuf> {
 /// What an unzipped copy holds that's unmistakably Telescope's. A zip unpacked straight into Downloads shares that folder with the
 /// user's own things, which may include a platform-tools from Google's SDK or a lib-something folder, so a folder only counts as
 /// Telescope's when its name and its contents both match.
-fn ours(entry: &Path) -> bool {
+fn ours(entry: &Path) -> io::Result<bool> {
     const FILES: [&str; 8] = [OLD_EXE_NAME, FAILED_EXE_NAME, update_guard::JOURNAL, ".update.json.tmp", update_guard::FAILED,
                               "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log"];
     let folders: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::from([
@@ -321,42 +395,104 @@ fn ours(entry: &Path) -> bool {
         ("virtualcamera", BTreeSet::from(["TelescopeCamera.dll"])),
     ]);
     let name = entry.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let Ok(meta) = std::fs::symlink_metadata(entry) else { return false };
+    let Ok(meta) = std::fs::symlink_metadata(entry) else { return Ok(false) };
     if meta.file_type().is_symlink() {
-        return name == "telescope.log"; // the log shortcut; never follow anything else
+        return Ok(name == "telescope.log"); // the log shortcut; never follow anything else
     }
     if meta.is_file() {
-        return FILES.contains(&name.as_str());
+        return Ok(FILES.contains(&name.as_str()));
     }
     if !meta.is_dir() {
-        return false;
+        return Ok(false);
     }
     if name == STAGING_DIR || name == PREVIOUS_DIR {
-        return true; // only Telescope's updater makes these dot-folders
+        return Ok(true); // only Telescope's updater makes these dot-folders
     }
     if let Some(allowed) = folders.get(name.as_str()) {
-        let inside: BTreeSet<String> = std::fs::read_dir(entry).map(|l| l.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect()).unwrap_or_default();
-        return inside.iter().all(|n| allowed.contains(n.as_str()));
+        // A folder that can't be looked into is an error, not an empty one
+        let inside = std::fs::read_dir(entry)?.map(|e| e.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<io::Result<BTreeSet<String>>>()?;
+        return Ok(inside.iter().all(|n| allowed.contains(n.as_str())));
     }
     // The Python app's libraries: lib-<build>, with the Qt it can't run without
-    name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir()
+    Ok(name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir())
+}
+
+/// Where the adb Telescope downloads goes for this user (adb_download.downloaded_dir): outside the app's folder, so moves leave it alone.
+pub fn downloaded_adb_dir(local_app_data: Option<&str>, home: &Path) -> PathBuf {
+    let base = local_app_data.filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| home.join("AppData").join("Local"));
+    base.join("Telescope").join("platform-tools")
+}
+
+fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
+    std::fs::create_dir(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
+/// What removing the old copy does to the computer, so a test can stand in for the parts that fail (a file the exiting copy still holds).
+pub struct Ops<'a> {
+    pub remove: &'a dyn Fn(&Path) -> io::Result<()>,
+    pub ours: &'a dyn Fn(&Path) -> io::Result<bool>,
+    /// Where an adb that came with the old copy is kept for the installed one.
+    pub adb_dest: PathBuf,
+}
+
+impl Ops<'static> {
+    pub fn system() -> Ops<'static> {
+        let local = std::env::var("LOCALAPPDATA").ok();
+        Ops { remove: &update_guard::remove, ours: &ours, adb_dest: downloaded_adb_dir(local.as_deref(), &std::env::home_dir().unwrap_or_default()) }
+    }
+}
+
+/// Older zips came with adb; the installed copy doesn't, so the one going with the old folder is kept where Get adb would put it
+/// (adb_download.downloaded_dir) instead of the installed copy having to download it.
+fn keep_adb(bundled: &Path, ops: &Ops) {
+    let kept = || -> io::Result<()> {
+        let dest = &ops.adb_dest;
+        if !(ops.ours)(bundled)? || !bundled.join("adb.exe").is_file() || dest.join("adb.exe").exists() {
+            return Ok(());
+        }
+        let parent = dest.parent().ok_or_else(|| io::Error::other("no folder to keep it in"))?;
+        std::fs::create_dir_all(parent)?;
+        let part = parent.join(".adb-moving");
+        let _ = std::fs::remove_dir_all(&part);
+        copy_tree(bundled, &part)?;
+        std::fs::rename(&part, dest)
+    };
+    if let Err(e) = kept() {
+        log::warn!("Couldn't keep the old copy's adb: {e}");
+    }
 }
 
 /// Deletes the unzipped copy this one replaced: only entries that are unmistakably Telescope's, the exe last so a copy cut short still
 /// runs, then the folder if that left it empty. Refuses anything that isn't an unzipped copy of Telescope. True once Telescope's part
 /// of it is gone.
 pub fn remove_unzipped_copy(old_dir: &Path, current_dir: &Path, tries: u32, pause: Duration, folders: &[PathBuf]) -> bool {
+    remove_unzipped_copy_with(old_dir, current_dir, tries, pause, folders, &Ops::system())
+}
+
+/// remove_unzipped_copy with what it does to the computer given.
+pub fn remove_unzipped_copy_with(old_dir: &Path, current_dir: &Path, tries: u32, pause: Duration, folders: &[PathBuf], ops: &Ops) -> bool {
     let exe = old_dir.join(EXE_NAME);
     let same = std::fs::canonicalize(old_dir).ok() == std::fs::canonicalize(current_dir).ok();
     if same || !exe.is_file() || std::fs::symlink_metadata(&exe).is_ok_and(|m| m.file_type().is_symlink()) || has_uninstaller(old_dir) {
         return false; // an installed copy removes itself with its own uninstaller
     }
+    keep_adb(&old_dir.join("platform-tools"), ops);
     let dead_links = shortcuts_to(&exe, folders); // read before the exe goes; the setup put a working one beside them
     let mut left: Vec<String> = Vec::new();
     for attempt in 0..tries {
         left.clear();
-        let entries: Vec<PathBuf> = match std::fs::read_dir(old_dir) {
-            Ok(list) => list.flatten().map(|e| e.path()).filter(|p| p != &exe && ours(p)).collect(),
+        let entries: Vec<PathBuf> = match ours_in(old_dir, &exe, ops) {
+            Ok(entries) => entries,
             Err(_) => {
                 left.push(old_dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
                 Vec::new() // couldn't look inside, so the exe stays too
@@ -366,7 +502,7 @@ pub fn remove_unzipped_copy(old_dir: &Path, current_dir: &Path, tries: u32, paus
             if entry == &exe && !left.is_empty() {
                 break; // keep the exe until the rest has gone, so what's left can still start
             }
-            if update_guard::remove(entry).is_err() {
+            if (ops.remove)(entry).is_err() {
                 left.push(entry.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
             }
         }
@@ -385,10 +521,27 @@ pub fn remove_unzipped_copy(old_dir: &Path, current_dir: &Path, tries: u32, paus
     false
 }
 
+/// What's in old_dir, other than the exe, that's unmistakably Telescope's.
+fn ours_in(old_dir: &Path, exe: &Path, ops: &Ops) -> io::Result<Vec<PathBuf>> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(old_dir)? {
+        let path = entry?.path();
+        if path != exe && (ops.ours)(&path)? {
+            found.push(path);
+        }
+    }
+    Ok(found)
+}
+
 /// Remove the replaced unzipped copy; forget it once its exe is gone (or it was never one), else try again at the next start, when
 /// whatever held its files has let go.
 pub fn finish_move(old_dir: &Path, current_dir: &Path, folders: &[PathBuf]) -> bool {
-    let done = remove_unzipped_copy(old_dir, current_dir, 20, Duration::from_millis(500), folders);
+    finish_move_with(old_dir, current_dir, folders, 20, Duration::from_millis(500), &Ops::system())
+}
+
+/// finish_move with how often and how patiently it tries, and what it does to the computer, given.
+pub fn finish_move_with(old_dir: &Path, current_dir: &Path, folders: &[PathBuf], tries: u32, pause: Duration, ops: &Ops) -> bool {
+    let done = remove_unzipped_copy_with(old_dir, current_dir, tries, pause, folders, ops);
     if done || !old_dir.join(EXE_NAME).is_file() {
         let _ = std::fs::remove_file(current_dir.join(PENDING_MOVE));
     }
@@ -465,6 +618,7 @@ mod tests {
         assert_eq!(parse_install_location("    InstallLocation    REG_SZ    \r\n"), None);
         assert_eq!(parse_install_location(""), None);
         assert!(uninstall_key().ends_with("{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"));
+        assert_eq!(parse_reg_value("    DisplayVersion    REG_SZ    1.2.3\r\n", "DisplayVersion").as_deref(), Some("1.2.3"));
     }
 
     /// An unzipped copy at root/old and an installed one at root/new.
@@ -609,3 +763,7 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "setup_move_tests.rs"]
+mod python_tests;
