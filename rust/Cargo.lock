@@ -4837,6 +4837,7 @@ dependencies = [
  "telescope-media",
  "telescope-outputs",
  "telescope-plugin-host",
+ "telescope-setup",
  "telescope-shell",
  "telescope-system",
 ]
@@ -4962,6 +4963,17 @@ dependencies = [
  "telescope-core",
  "ureq",
  "zip",
+]
+
+[[package]]
+name = "telescope-setup"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "slint-interpreter",
+ "telescope-core",
+ "telescope-ui-kit",
 ]
 
 [[package]]

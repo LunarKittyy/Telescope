@@ -16,6 +16,7 @@ telescope-media.workspace = true
 telescope-outputs.workspace = true
 telescope-audio.workspace = true
 telescope-effects.workspace = true
+telescope-setup.workspace = true
 telescope-shell.workspace = true
 telescope-system.workspace = true
 telescope-plugin-host.workspace = true
