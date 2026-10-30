@@ -1,6 +1,7 @@
 //! The Expose for my face plugin (plugins/face_exposure.py): moves the phone's metering point (Tap a point's, or a meter-only one) to your face, calmly.
 
 use crate::shared::Paired;
+use crate::vision_row;
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 use telescope_core::actions;
@@ -12,7 +13,6 @@ use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{upright_to_shown, Geometry};
-use telescope_core::vision::status_text;
 
 pub const NAME: &str = "face_exposure";
 const TITLE: &str = n_("Expose for my face");
@@ -212,8 +212,11 @@ impl FaceExposurePlugin {
         let held = self.on && self.is_held();
         let note = tr(if self.manual { PICKED_NOTE } else { MANUAL_NOTE });
         let problem = if self.on && self.how().is_empty() && host.is_streaming() { tr(CANT_METER) } else { String::new() };
-        let (text, download) = status_text(self.on, &problem, false, &host.vision_state(), &host.vision_pack());
-        host.set_ui_props("card", &json!({"held": held, "held-note": note, "status": text, "status-download": download}));
+        let mut props = json!({"held": held, "held-note": note});
+        if let (Value::Object(p), Value::Object(row)) = (&mut props, vision_row::props(&*host, self.on, &problem)) {
+            p.extend(row);
+        }
+        host.set_ui_props("card", &props);
     }
 
     /// How the point goes to the phone: "focus" (it also focuses there), "meter" (only exposure) or "" (it can't).
@@ -337,7 +340,7 @@ impl Plugin for FaceExposurePlugin {
             Event::MeterPointAvailable { available } => self.set_available(host, self.focus_ok, *available),
             // The phone forgets the point on another lens
             Event::CameraSwitched { .. } => self.meter.reset(),
-            Event::VisionStateChanged { .. } | Event::VisionDownloadProgress { .. } | Event::VisionDownloadFinished { .. } => self.show(host),
+            e if vision_row::changes_it(e) => self.show(host),
             _ => {}
         }
     }

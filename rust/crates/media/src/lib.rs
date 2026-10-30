@@ -22,7 +22,8 @@ pub mod reader;
 mod yuv;
 #[cfg(test)]
 mod guard_alloc;
-#[cfg(all(test, ffmpeg))]
+#[cfg(ffmpeg)]
+#[allow(dead_code)] // the tests use the rest of what it makes
 mod testenc;
 
 #[cfg(test)]
@@ -34,6 +35,19 @@ use telescope_core::frame::Frame;
 #[cfg(ffmpeg)]
 use telescope_core::frame::PixelFormat;
 use telescope_core::media::*;
+
+/// H.264 made with this build's encoder for tests in other crates (None where it has none): a grey square moving over a picture
+/// that changes every 6 frames, as raw packets with no delimiters.
+#[doc(hidden)]
+pub fn test_h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {
+    #[cfg(ffmpeg)]
+    return testenc::h264_moving(count, w, h, gop, profile);
+    #[cfg(not(ffmpeg))]
+    {
+        let _ = (count, w, h, gop, profile);
+        None
+    }
+}
 
 /// The decoders and frame steps this build has.
 #[derive(Default)]

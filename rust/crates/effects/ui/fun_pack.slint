@@ -1,4 +1,4 @@
-// The Fun pack card (desktop/telescope/plugins/fun_pack.py). Joined after parts.slint, which has the imports.
+// The Fun pack card (desktop/telescope/plugins/fun_pack.py). Joined after parts.slint, which has the imports, and vision_status.slint.
 
 export component FunPackCard inherits Card {
     // Greyed out until a phone is paired
@@ -32,7 +32,10 @@ export component FunPackCard inherits Card {
     in property <bool> show-direction;
     in property <int> direction: 0;
     in property <string> problem;
+    in property <string> vision-text;
+    in property <bool> vision-download;
     callback effect-picked(int);
+    callback download-clicked;
     callback plate-clicked;
     callback clone-clicked;
     callback clean-clicked;
@@ -176,6 +179,11 @@ export component FunPackCard inherits Card {
     if problem != "": Note {
         text: problem;
         kind: "status_warn";
+    }
+    if vision-text != "": VisionStatus {
+        text: vision-text;
+        download: vision-download;
+        download-clicked => { root.download-clicked(); }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

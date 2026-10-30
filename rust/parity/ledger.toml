@@ -822,7 +822,7 @@
 "On air" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs" }
 "On air when" = { status = "ported", rust = "rust/crates/effects/ui/on_air.slint" }
 "Open the On Air settings" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin.rs" }
-"Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts." = { status = "todo" }
+"Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts." = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin.rs" }
 "POST sends it as the body, GET adds it to the address" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin.rs" }
 "Sending…" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs" }
 "Sends a request each time you go on or off air, for a smart home hub or anything else that takes one." = { status = "ported", rust = "rust/crates/effects/ui/on_air.slint" }
@@ -2486,7 +2486,7 @@
 "test_colour_grading.py::test_a_right_click_removes_a_point" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
 "test_colour_grading.py::test_arrow_keys_keep_a_hue_point_in_range" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
 "test_colour_grading.py::test_arrow_keys_move_the_puck_and_home_puts_it_back" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_compare_draws_the_split_on_the_preview" = { status = "todo" }
+"test_colour_grading.py::test_compare_draws_the_split_on_the_preview" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::compare_draws_the_split_on_the_preview" }
 "test_colour_grading.py::test_diagnostics_say_whether_a_grade_is_on" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
 "test_colour_grading.py::test_dragging_moves_the_puck_without_jumping_and_stays_in_the_circle" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
 "test_colour_grading.py::test_export_asks_before_replacing_a_file_the_dialog_didnt_name" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
@@ -2876,7 +2876,7 @@
 "test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
 "test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
 "test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "todo" }
+"test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" }
 "test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
 "test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
 "test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
@@ -2905,14 +2905,14 @@
 "test_grade.py::test_the_master_curve_comes_before_each_channels_own" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
 "test_grade.py::test_wheels_follow_the_same_formula_per_channel" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
 # ── h264_mosh
-"test_h264_mosh.py::test_a_baseline_stream_moshes_too" = { status = "todo" }
-"test_h264_mosh.py::test_a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect" = { status = "todo" }
-"test_h264_mosh.py::test_clean_up_lets_the_next_keyframe_through_and_the_picture_comes_back" = { status = "todo" }
-"test_h264_mosh.py::test_dropped_keyframes_smear_the_old_picture_instead_of_freezing" = { status = "todo" }
-"test_h264_mosh.py::test_escaping_round_trips" = { status = "todo" }
-"test_h264_mosh.py::test_put_on_mid_stream_it_moshes_from_the_next_keyframe" = { status = "todo" }
-"test_h264_mosh.py::test_repeats_hand_back_more_frames_and_all_of_them_decode" = { status = "todo" }
-"test_h264_mosh.py::test_the_first_keyframe_always_goes_through" = { status = "todo" }
+"test_h264_mosh.py::test_a_baseline_stream_moshes_too" = { status = "ported", rust = "rust/app/tests/mosh.rs::a_baseline_stream_moshes_too" }
+"test_h264_mosh.py::test_a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect" = { status = "ported", rust = "rust/app/tests/mosh.rs::a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect" }
+"test_h264_mosh.py::test_clean_up_lets_the_next_keyframe_through_and_the_picture_comes_back" = { status = "ported", rust = "rust/app/tests/mosh.rs::clean_up_lets_the_next_keyframe_through_and_the_picture_comes_back" }
+"test_h264_mosh.py::test_dropped_keyframes_smear_the_old_picture_instead_of_freezing" = { status = "ported", rust = "rust/app/tests/mosh.rs::dropped_keyframes_smear_the_old_picture_instead_of_freezing" }
+"test_h264_mosh.py::test_escaping_round_trips" = { status = "ported", rust = "rust/crates/effects/src/mosh.rs::escaping_round_trips" }
+"test_h264_mosh.py::test_put_on_mid_stream_it_moshes_from_the_next_keyframe" = { status = "ported", rust = "rust/app/tests/mosh.rs::put_on_mid_stream_it_moshes_from_the_next_keyframe" }
+"test_h264_mosh.py::test_repeats_hand_back_more_frames_and_all_of_them_decode" = { status = "ported", rust = "rust/app/tests/mosh.rs::repeats_hand_back_more_frames_and_all_of_them_decode" }
+"test_h264_mosh.py::test_the_first_keyframe_always_goes_through" = { status = "ported", rust = "rust/app/tests/mosh.rs::the_first_keyframe_always_goes_through" }
 # ── h264_reader
 "test_h264_reader.py::test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
 "test_h264_reader.py::test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" = { status = "ported", rust = "rust/crates/media/src/reader.rs" }
@@ -3161,7 +3161,7 @@
 "test_on_air.py::test_clearing_the_address_ends_the_retries_and_the_banner" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::clearing_the_address_ends_the_retries_and_the_banner" }
 "test_on_air.py::test_each_change_goes_to_the_webhook" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::each_change_goes_to_the_webhook" }
 "test_on_air.py::test_each_trigger_reads_what_it_says" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::each_trigger_reads_what_it_says" }
-"test_on_air.py::test_errors_never_carry_the_address" = { status = "todo" }
+"test_on_air.py::test_errors_never_carry_the_address" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::what_goes_wrong_is_said_without_quoting_the_address" }
 "test_on_air.py::test_get_adds_the_payload_to_the_query" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::get_adds_the_payload_to_the_query" }
 "test_on_air.py::test_going_off_waits_longer_so_an_app_reopening_the_camera_doesnt_flap" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::going_off_waits_longer_so_an_app_reopening_the_camera_doesnt_flap" }
 "test_on_air.py::test_going_on_waits_a_moment_and_a_blip_never_counts" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::going_on_waits_a_moment_and_a_blip_never_counts" }
@@ -3170,16 +3170,16 @@
 "test_on_air.py::test_post_sends_json_by_default_and_plain_text_otherwise" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::post_sends_json_by_default_and_plain_text_otherwise" }
 "test_on_air.py::test_quitting_off_air_sends_nothing" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::quitting_off_air_sends_nothing" }
 "test_on_air.py::test_quitting_while_on_air_turns_the_light_off" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::quitting_while_on_air_turns_the_light_off" }
-"test_on_air.py::test_send_reports_what_went_wrong_without_the_address" = { status = "todo" }
+"test_on_air.py::test_send_reports_what_went_wrong_without_the_address" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_webhook_arrives_as_built_and_a_failure_says_what_went_wrong_without_the_address" }
 "test_on_air.py::test_serves_the_sign_and_its_script_and_nothing_else" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::serves_the_sign_and_its_script_and_nothing_else" }
-"test_on_air.py::test_settings_section_and_header_follow_the_state" = { status = "todo" }
+"test_on_air.py::test_settings_section_and_header_follow_the_state" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_settings_section_and_the_header_follow_the_state" }
 "test_on_air.py::test_switching_the_page_off_stops_the_server" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::switching_the_page_off_stops_the_server" }
 "test_on_air.py::test_the_link_follows_a_network_change" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_follows_a_network_change" }
 "test_on_air.py::test_the_link_survives_a_restart_and_a_new_link_replaces_it" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_survives_a_restart_and_a_new_link_replaces_it" }
 "test_on_air.py::test_the_mic_trigger_follows_the_mic_while_streaming" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_mic_trigger_follows_the_mic_while_streaming" }
 "test_on_air.py::test_the_sender_only_sends_whats_true_at_the_end" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::the_sender_only_sends_whats_true_at_the_end" }
 "test_on_air.py::test_the_state_needs_the_token" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::the_state_needs_the_token" }
-"test_on_air.py::test_url_carries_the_token_after_the_hash" = { status = "todo" }
+"test_on_air.py::test_url_carries_the_token_after_the_hash" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_survives_a_restart_and_a_new_link_replaces_it" }
 "test_on_air.py::test_waiting_for_the_sender_gives_up_at_the_deadline" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::waiting_for_the_sender_gives_up_at_the_deadline" }
 "test_on_air.py::test_webhook_failures_make_one_quiet_banner_until_one_works" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::webhook_failures_make_one_quiet_banner_until_one_works" }
 "test_on_air.py::test_with_wait_screen_there_is_no_second_watch" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::with_wait_screen_there_is_no_second_watch" }
@@ -3359,12 +3359,12 @@
 "test_photos.py::test_the_button_waits_while_any_plugin_takes_a_photo" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::the_button_waits_while_any_plugin_takes_a_photo" }
 "test_photos.py::test_the_card_shows_only_what_the_lens_has" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::the_card_shows_only_what_the_lens_has" }
 "test_photos.py::test_the_makers_modes_take_jpeg_singles_or_bursts_at_their_own_exposure" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::the_makers_modes_take_jpeg_singles_or_bursts_at_their_own_exposure" }
-"test_photos.py::test_the_shortcut_takes_a_photo" = { status = "todo" }
+"test_photos.py::test_the_shortcut_takes_a_photo" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::the_shortcuts_take_a_photo_pick_a_mode_and_set_the_timer" }
 "test_photos.py::test_without_photos_the_button_is_off_and_the_card_says_why" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::without_photos_the_button_is_off_and_the_card_says_why" }
 # ── pictures
-"test_pictures.py::test_shrink_by_powers_of_two_matches_one_area_step_to_a_level" = { status = "todo" }
-"test_pictures.py::test_shrink_gives_the_size_asked_for_and_looks_like_one_area_step" = { status = "todo" }
-"test_pictures.py::test_shrink_takes_one_channel_and_odd_sizes" = { status = "todo" }
+"test_pictures.py::test_shrink_by_powers_of_two_matches_one_area_step_to_a_level" = { status = "ported", rust = "rust/crates/effects/src/imgops.rs::shrink_by_powers_of_two_matches_one_area_step_to_a_level" }
+"test_pictures.py::test_shrink_gives_the_size_asked_for_and_looks_like_one_area_step" = { status = "ported", rust = "rust/crates/effects/src/imgops.rs::shrink_gives_the_size_asked_for_and_looks_like_one_area_step" }
+"test_pictures.py::test_shrink_takes_one_channel_and_odd_sizes" = { status = "ported", rust = "rust/crates/effects/src/imgops.rs::shrink_takes_one_channel_and_odd_sizes" }
 # ── pinned_https
 "test_pinned_https.py::test_a_fake_phone_repeating_the_right_id_is_ignored_and_never_sent_the_token" = { status = "ported", rust = "rust/crates/link/src/phones.rs::a_fake_phone_repeating_the_right_id_is_ignored_and_never_sent_the_token" }
 "test_pinned_https.py::test_a_pinned_phone_is_never_sent_plain_http" = { status = "ported", rust = "rust/crates/link/src/https.rs::a_pinned_phone_is_never_sent_plain_http" }
@@ -3780,7 +3780,7 @@
 "test_qr_reader.py::test_a_quad_has_to_look_like_a_code" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::a_quad_has_to_look_like_a_code" }
 "test_qr_reader.py::test_a_steady_code_counts_after_a_few_looks_and_rides_out_a_miss" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::a_steady_code_counts_after_a_few_looks_and_rides_out_a_miss" }
 "test_qr_reader.py::test_a_stray_quad_is_never_outlined" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::a_stray_quad_is_never_outlined" }
-"test_qr_reader.py::test_codes_are_read_from_arm_s_length_to_right_up_close" = { status = "todo" }
+"test_qr_reader.py::test_codes_are_read_from_arm_s_length_to_right_up_close" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::codes_are_read_from_arms_length_to_right_up_close" }
 "test_qr_reader.py::test_loading_settings_switches_on_once" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::loading_settings_switches_on_once" }
 "test_qr_reader.py::test_no_code_is_none" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::no_code_is_none" }
 "test_qr_reader.py::test_notifications_can_be_switched_off" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::notifications_can_be_switched_off" }
@@ -5865,8 +5865,8 @@
 # ── chroma_key
 "folder:telescope/plugins/chroma_key.py:_choose_picture:Path.home" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── colour_grading
-"folder:telescope/plugins/colour_grading.py:_export:Path.home" = { status = "todo" }
-"folder:telescope/plugins/colour_grading.py:_start_folder:Path.home" = { status = "todo" }
+"folder:telescope/plugins/colour_grading.py:_export:Path.home" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
+"folder:telescope/plugins/colour_grading.py:_start_folder:Path.home" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::start_folder" }
 # ── config
 "env:APPDATA" = { status = "todo" }
 "env:XDG_CONFIG_HOME" = { status = "todo" }
