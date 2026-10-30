@@ -10,6 +10,10 @@ pub mod h264;
 pub mod jpeg_guard;
 #[cfg(ffmpeg)]
 pub mod mjpeg;
+#[cfg(ffmpeg)]
+pub mod opus;
+#[cfg(ffmpeg)]
+pub mod vp8;
 pub mod packets;
 pub mod pipeline;
 mod pool;
@@ -81,11 +85,19 @@ impl Media for FfmpegMedia {
             match codec {
                 Codec::H264 => return Ok(Box::new(h264::H264::new(options.hardware, tap)?)),
                 Codec::Mjpeg => return Ok(Box::new(mjpeg::Mjpeg::new()?)),
+                Codec::Vp8 => return Ok(Box::new(vp8::Vp8::new()?)),
                 _ => {}
             }
         }
         let _ = (options, tap);
         Err(format!("{codec:?} decoding isn't in this build"))
+    }
+
+    fn opus_decoder(&self) -> Result<Box<dyn AudioDecoder>, String> {
+        #[cfg(ffmpeg)]
+        return Ok(Box::new(opus::Opus::new()?));
+        #[cfg(not(ffmpeg))]
+        Err("Opus decoding isn't in this build".into())
     }
 
     fn scaler(&self) -> Box<dyn Scaler> {
