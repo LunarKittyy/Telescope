@@ -24,6 +24,7 @@ pub mod on_air_plugin;
 pub mod notes;
 pub mod photos;
 pub mod pixels;
+pub mod privacy_blur;
 pub mod qr_reader;
 pub mod colour_grading;
 pub mod shared;
