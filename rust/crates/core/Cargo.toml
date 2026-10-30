@@ -17,6 +17,7 @@ qrcode.workspace = true
 unicode-segmentation = "1"
 unicode-joining-type = "1"
 unicode-script = "0.5"
+unicode-normalization = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

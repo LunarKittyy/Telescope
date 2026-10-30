@@ -5725,6 +5725,7 @@ dependencies = [
  "serde_json",
  "unicode-bidi",
  "unicode-joining-type",
+ "unicode-normalization",
  "unicode-script",
  "unicode-segmentation",
  "yeslogic-fontconfig-sys",
