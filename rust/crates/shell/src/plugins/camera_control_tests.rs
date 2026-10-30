@@ -715,3 +715,78 @@ fn a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts() {
     let switches: Vec<Value> = r.sent().into_iter().filter(|m| m["action"] == "camera").collect();
     assert_eq!(switches, [json!({"action": "camera", "id": "2"})]);
 }
+
+// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Camera card's part (the mic's is the
+// Microphone card's)
+#[test]
+fn phone_only_cards_hide_while_a_source_is_picked() {
+    let mut r = Rig { cam: CameraControl::new(), host: FakeHost::new() };
+    assert_eq!(r.props()["active"], false); // nothing paired yet
+    r.event(Event::SourceSelected { source_id: "browser".into() });
+    assert_eq!(r.props()["phone-only-hidden"], true);
+    r.event(Event::SourceSelected { source_id: String::new() });
+    assert_eq!((r.props()["phone-only-hidden"].clone(), r.props()["active"].clone()), (json!(false), json!(false)));
+}
+
+// Sol's review, finding 1: the panels go A, B, A through the real window state, which tells the plugins about a focus
+// change before it updates its own picture of what's shown (streams.rs syncs it once the flow is through)
+#[test]
+fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
+    use crate::stream_flow::Hook;
+    let path = telescope_core::testing::scratch_dir("camera-focus").join("telescope_config.json");
+    let mut state = crate::shell::State::new(telescope_core::config::ConfigFile::at(&path));
+    state.register(Box::new(CameraControl::new())).unwrap();
+    let names = vec!["camera_control".to_string()];
+    let info = |sid: &str| StreamInfo { source_id: sid.into(), url: format!("http://{sid}/") };
+    let lens = |max: i64| json!({"cameras": [{"id": "0", "label": "Back", "current": true, "isoMin": 50, "isoMax": max}],
+                                 "auto": false, "iso": max});
+    let i = state.index("camera_control").unwrap();
+    (state.streams.streaming, state.streams.source_id) = (true, Some("A".into()));
+    state.call_hook(&names, &Hook::StreamStart(info("A")));
+    state.call(i, |p, host| p.on_phone_state(host, &lens(10000)));
+    // A to B: the window's snapshot still says A while both hooks run
+    state.call_hook(&names, &Hook::FocusLost);
+    state.call_hook(&names, &Hook::FocusGained(info("B")));
+    state.streams.source_id = Some("B".into());
+    state.call(i, |p, host| p.on_phone_state(host, &lens(6400)));
+    // B to A, the same way round
+    state.call_hook(&names, &Hook::FocusLost);
+    state.effects.clear();
+    state.call_hook(&names, &Hook::FocusGained(info("A")));
+    state.streams.source_id = Some("A".into());
+    let sent: Vec<String> = state.effects.iter().filter_map(|e| match e {
+        crate::shell::Effect::PhoneControl { body, .. } => Some(body.to_string()),
+        _ => None,
+    }).collect();
+    assert!(sent.is_empty(), "A still has its settings, yet these went: {sent:?}");
+    let iso = state.plugin_config("camera_control").unwrap()["iso"].as_f64().unwrap();
+    assert!(iso > 9000.0, "A's ISO came back clamped to B's range: {iso}");
+}
+
+// Sol's review, finding 6: ISO and shutter run over LogSliderRow's 2000 positions and manual focus over 1000, one at a
+// time as in Qt (the step also quantises a drag in ui-kit's Slider)
+#[test]
+fn iso_shutter_and_focus_move_a_position_at_a_time() {
+    let card = include_str!("../../ui/cards/camera.slint");
+    for label in ["label: \"ISO\";\n            Slider", "label: @tr(\"Shutter\");\n            Slider", "label: @tr(\"Distance\");\n            Slider"] {
+        let at = card.find(label).unwrap_or_else(|| panic!("no {label}"));
+        let slider = &card[at..at + card[at..].find("moved(v)").unwrap()];
+        assert!(slider.contains("step: 1;"), "{label}: {slider}");
+    }
+}
+
+// Sol's review, finding 7: the readout says the value it was given (LogSliderRow.set_value), not the one the nearest
+// of its 2000 positions comes to
+#[test]
+fn the_log_readouts_say_the_value_they_were_given() {
+    let mut r = Rig::new();
+    r.cam.iso.set_value(1234.0);
+    assert_eq!(r.cam.iso.text(), "ISO 1234");
+    r.cam.shutter.set_value(33_333_333.0);
+    assert_eq!(r.cam.shutter.text(), "1/30");
+    // Moved by hand, it says where the slider is
+    r.cam.iso.enabled = true;
+    r.cam.manual_exp = true;
+    r.ui("iso-moved", vec![json!(2000)]);
+    assert_eq!(r.cam.iso.text(), "ISO 6400");
+}

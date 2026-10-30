@@ -359,6 +359,12 @@ pub trait HostVision {
     fn want_people(&mut self, owner: &str, on: bool);
     /// (Track records, how many people) on source_id's stream, as the last people_tracked said.
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32);
+    /// Where the vision pack's download is, for the card's status row (crate::vision::status_text).
+    fn vision_pack(&self) -> crate::vision::VisionPack {
+        crate::vision::VisionPack::default()
+    }
+    /// The status row's Download button: fetch the vision pack in the background (vision_download_finished says how it went).
+    fn download_vision(&mut self) {}
 }
 
 /// Frames from other streams.

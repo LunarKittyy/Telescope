@@ -181,6 +181,11 @@ events! {
     "timer_fired" => TimerFired { owner: String, token: String },
     /// Not in plugin.py: a Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.
     "posted" => Posted { owner: String, token: String, data: Value },
+    /// Not in plugin.py: the vision pack's download moved on (VisionDownload.progress): bytes so far, bytes in all (0: not known).
+    "vision_download_progress" => VisionDownloadProgress { done: u64, size: u64 },
+    /// Not in plugin.py: the vision pack's download ended (VisionDownload.finished): "" when it's ready, else what went wrong,
+    /// and the optional plugin that waited for it (to switch on when it worked).
+    "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }

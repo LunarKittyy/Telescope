@@ -14,6 +14,7 @@ const ALLOWED: &[(&str, &[&str])] = &[
     ("plugin-host", &["telescope-core", "telescope-ui-kit"]),
     ("effects", &["telescope-core", "telescope-ui-kit"]),
     ("setup", &["telescope-core", "telescope-ui-kit"]),
+    ("vision", &["telescope-core"]),
     ("shell", &["telescope-core", "telescope-ui-kit"]),
 ];
 

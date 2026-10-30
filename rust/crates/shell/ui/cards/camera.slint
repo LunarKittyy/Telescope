@@ -177,7 +177,7 @@ export component CameraCard inherits Card {
                 enabled: active && iso-enabled;
                 minimum: 0;
                 maximum: 2000;
-                step: 20;
+                step: 1;
                 value: iso-pos;
                 readout: iso-text;
                 moved(v) => { iso-moved(v); }
@@ -191,7 +191,7 @@ export component CameraCard inherits Card {
                 enabled: active && shutter-enabled;
                 minimum: 0;
                 maximum: 2000;
-                step: 20;
+                step: 1;
                 value: shutter-pos;
                 readout: shutter-text;
                 moved(v) => { shutter-moved(v); }
@@ -281,7 +281,7 @@ export component CameraCard inherits Card {
                 enabled: active && focus-enabled;
                 minimum: 0;
                 maximum: 1000;
-                step: 10;
+                step: 1;
                 value: focus-pos;
                 readout: focus-text;
                 moved(v) => { focus-moved(v); }

@@ -226,6 +226,8 @@ struct LogRow {
     pos: f64,
     /// What the box holds, in its own units.
     spin: f64,
+    /// What the readout says: the value last given (set_value), or where a hand put the slider.
+    shown: f64,
     enabled: bool,
     spin_scale: f64,
     /// The box takes decimals (QDoubleSpinBox) rather than whole numbers.
@@ -235,7 +237,7 @@ struct LogRow {
 
 impl LogRow {
     fn new(v_min: f64, v_max: f64, spin_scale: f64, double: bool, shutter: bool) -> LogRow {
-        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, enabled: false, spin_scale, double, shutter }
+        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, shown: v_min, enabled: false, spin_scale, double, shutter }
     }
 
     fn to_spin(&self, val: f64) -> f64 {
@@ -252,6 +254,7 @@ impl LogRow {
     fn set_value(&mut self, val: f64) {
         self.pos = actions::val_to_log_pos(val, LOG_STEPS, self.v_min, self.v_max);
         self.spin = self.to_spin(val);
+        self.shown = val;
     }
 
     /// Keeps the value, not the slider position, clamped to the new range.
@@ -263,7 +266,7 @@ impl LogRow {
     }
 
     fn text(&self) -> String {
-        let v = self.get_value();
+        let v = self.shown;
         if self.shutter { ns_to_display(actions::round_half_even(v) as i64) } else { format!("ISO {}", actions::round_half_even(v) as i64) }
     }
 }
@@ -1472,6 +1475,7 @@ impl Plugin for CameraControl {
                 row.pos = n(0).round().clamp(0.0, LOG_STEPS);
                 let val = row.get_value();
                 row.spin = row.to_spin(val);
+                row.shown = val;
                 if event.callback == "iso-moved" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),

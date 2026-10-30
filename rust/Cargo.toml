@@ -13,6 +13,7 @@ members = [
     "crates/plugin-host",
     "crates/effects",
     "crates/setup",
+    "crates/vision",
 ]
 
 [workspace.package]
@@ -33,6 +34,7 @@ telescope-system = { path = "crates/system" }
 telescope-plugin-host = { path = "crates/plugin-host" }
 telescope-effects = { path = "crates/effects" }
 telescope-setup = { path = "crates/setup" }
+telescope-vision = { path = "crates/vision" }
 
 # preserve_order: settings keep the key order Python saved them in
 serde = { version = "1", features = ["derive", "rc"] }
@@ -43,6 +45,8 @@ libc = "0.2"
 base64 = "0.22"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ring = "0.17"
+# The Browser camera's WebRTC, sans-IO on our own UDP sockets, with pure-Rust DTLS and SRTP
+str0m = { version = "0.24.1", default-features = false, features = ["rust-crypto"] }
 mdns-sd = { version = "0.21", default-features = false }
 if-addrs = "0.15"
 ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }

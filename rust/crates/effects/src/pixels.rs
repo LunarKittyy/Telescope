@@ -40,30 +40,7 @@ pub fn gaussian_blur(src: &[u8], w: usize, h: usize, sigma: f64) -> Vec<u8> {
     out
 }
 
-/// The frame as 3 bytes a pixel (R, G, B). I420 is BT.601 video range with each chroma sample shared by its 2 x 2 pixels, as
-/// OpenCV's YUV conversions read it. None for a format that isn't one of the picture formats.
-pub fn to_rgb(frame: &Frame) -> Option<Vec<u8>> {
-    let (w, h) = (frame.width as usize, frame.height as usize);
-    let mut out = Vec::with_capacity(w * h * 3);
-    match frame.format {
-        PixelFormat::Rgba => frame.data.chunks_exact(4).for_each(|p| out.extend_from_slice(&p[..3])),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).for_each(|p| out.extend([p[2], p[1], p[0]])),
-        PixelFormat::I420 => {
-            let (y, u, v) = frame.i420_planes()?;
-            let cw = w.div_ceil(2);
-            for row in 0..h {
-                for col in 0..w {
-                    let c = (y[row * w + col] as f32 - 16.0).max(0.0) * 1.164_383;
-                    let (du, dv) = (u[(row / 2) * cw + col / 2] as f32 - 128.0, v[(row / 2) * cw + col / 2] as f32 - 128.0);
-                    let q = |x: f32| x.round().clamp(0.0, 255.0) as u8;
-                    out.extend([q(c + 1.596_027 * dv), q(c - 0.391_762 * du - 0.812_968 * dv), q(c + 2.017_232 * du)]);
-                }
-            }
-        }
-        _ => return None,
-    }
-    Some(out)
-}
+pub use telescope_core::image::frame_rgb as to_rgb;
 
 /// Puts RGB pixels (3 bytes each, the frame's size) back into the frame in its own format.
 pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// One request, as far as a page cares: what was asked for and the headers it came with.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +63,24 @@ impl Reply {
 /// something changes) without holding up anything else. `stats` is the server's, for counting a page loaded or a link refused.
 pub trait PageHandler: Send + Sync {
     fn handle(&self, request: &Request, stats: &ServerStats) -> Reply;
+    /// Asked before handle(): Some takes the connection over (a WebSocket). The server answers 101 with its headers,
+    /// then hands the connection to its run on this same thread and closes it once run returns.
+    fn upgrade(&self, _request: &Request, _stats: &ServerStats) -> Option<Upgrade> {
+        None
+    }
+}
+
+/// A connection a page took over after its 101 answer: reads and writes go over its TLS.
+pub trait Socket: std::io::Read + std::io::Write + Send {
+    /// How long a read waits before it fails with WouldBlock or TimedOut; None for as long as it takes.
+    fn set_read_timeout(&mut self, timeout: Option<Duration>) -> std::io::Result<()>;
+}
+
+/// What a page that takes a connection over answers with, and what it does with it after.
+pub struct Upgrade {
+    /// Headers for the 101 answer, besides the status line ("Upgrade", "Sec-WebSocket-Accept"...).
+    pub headers: Vec<(String, String)>,
+    pub run: Box<dyn FnOnce(Box<dyn Socket>) + Send>,
 }
 
 /// How far devices got, for telling a firewall from a certificate warning from an old link.

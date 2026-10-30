@@ -285,6 +285,7 @@ pub struct Session {
 
 impl Session {
     /// Whether its controls exist yet (and with them their worker thread).
+    #[cfg(test)]
     fn has_controls(&self) -> bool {
         self.controls.get().is_some()
     }
