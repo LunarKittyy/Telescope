@@ -655,8 +655,11 @@ fn power_saving_effects_are_off_unless_turned_on() {
     let mut r = Rig::linux();
     r.plugin.set_config(&json!({"power_saving": "yes"})).unwrap();
     assert_eq!(r.plugin.get_config()["power_saving"], json!(false));
+    r.plugin.on_plugins_ready(&mut r.host);
+    assert_eq!(r.host.power_saving, Some(false));
     r.ui("video", "saving-toggled", vec![json!(true)]);
     assert_eq!(r.plugin.get_config()["power_saving"], json!(true));
+    assert_eq!(r.host.power_saving, Some(true));
 }
 
 #[test]

@@ -1,17 +1,12 @@
 //! The Phone card and Setup's sections compile against ui-kit the way the shell builds plugin UI, and every property the plugins
 //! set and callback they listen for is really there.
 
+mod common;
+
 use std::path::Path;
-use std::sync::Arc;
-use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::link::{Link, PairingOffer, PhoneSession, RoutePrefs, Unreachable};
-use telescope_core::media::{Codec, DecodeOptions, Decoder, Media, Scaler};
-use telescope_core::output::{Outputs, Slot, VideoOutput};
 use telescope_core::plugin::Plugin;
-use telescope_core::source::PairedPhone;
 use telescope_core::ui::{SlintSource, UiSpec};
 use telescope_setup::monitoring::MonitoringPlugin;
-use telescope_setup::setup::SetupPlugin;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
@@ -45,53 +40,6 @@ fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     }
 }
 
-struct NoOutputs;
-
-impl Outputs for NoOutputs {
-    fn slots(&self) -> Vec<Slot> {
-        Vec::new()
-    }
-    fn formats(&self) -> Vec<PixelFormat> {
-        Vec::new()
-    }
-    fn open(&self, _slot: u32, _w: u32, _h: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
-        Err("no".into())
-    }
-}
-
-struct NoLink;
-
-impl Link for NoLink {
-    fn new_identity(&self) -> (String, String) {
-        (String::new(), String::new())
-    }
-    fn resolve(&self, _phone: &PairedPhone, _prefs: RoutePrefs) -> Result<Box<dyn PhoneSession>, Unreachable> {
-        Err(Unreachable::NoAnswer)
-    }
-    fn pair(&self, _id: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
-        Err("no".into())
-    }
-}
-
-struct NoScaler;
-
-impl Scaler for NoScaler {
-    fn rgb(&mut self, _frame: &Frame, _w: u32, _h: u32) -> Vec<u8> {
-        Vec::new()
-    }
-}
-
-struct NoMedia;
-
-impl Media for NoMedia {
-    fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
-        Err("no".into())
-    }
-    fn scaler(&self) -> Box<dyn Scaler> {
-        Box::new(NoScaler)
-    }
-}
-
 /// One test, because Slint's platform lives on the thread that first builds an instance.
 #[test]
 fn the_cards_have_what_their_plugins_use() {
@@ -109,7 +57,7 @@ fn the_cards_have_what_their_plugins_use() {
         ("about", &["author-clicked", "diag-clicked", "bug-clicked", "log-clicked", "help-clicked"]),
     ];
     for linux in [true, false] {
-        let mut setup = SetupPlugin::new(Arc::new(NoOutputs), Arc::new(NoLink), Arc::new(NoMedia), "3.0.0", Vec::new()).for_platform(linux);
+        let mut setup = common::setup_plugin().for_platform(linux);
         let sections = setup.settings_sections();
         assert_eq!(sections.len(), callbacks.len());
         for (section, (id, callbacks)) in sections.iter().zip(callbacks) {

@@ -313,6 +313,7 @@ impl SetupPlugin {
             host.emit(Event::MaxGainChanged { max_gain: self.max_gain_i32() });
             host.emit(Event::LimiterChanged { on: self.limiter });
             host.set_plugin_hues(self.plugin_hues);
+            host.set_power_saving(self.power_saving);
         }
     }
 
@@ -868,9 +869,9 @@ impl SetupPlugin {
         host.schedule_save();
     }
 
-    /// Background and Auto framing read it from these settings.
     pub fn on_power_saving(&mut self, host: &mut dyn Host, on: bool) {
         self.power_saving = on;
+        host.set_power_saving(on);
         host.schedule_save();
     }
 
