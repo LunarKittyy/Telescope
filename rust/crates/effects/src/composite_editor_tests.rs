@@ -160,6 +160,21 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
 }
 
 #[test]
+fn big_and_small_makes_the_stream_that_started_first_the_big_one() {
+    let mut r = rig();
+    let now = monotonic_ns();
+    *r.store.frames.lock().unwrap() = vec![
+        stream("z-camera", "Z", numbered(solid([0, 0, 0], (90, 160)), 1, now)),
+        stream("a-camera", "A", numbered(solid([0, 255, 0], (90, 160)), 2, now)),
+    ];
+    r.plugin.open_editor(&mut r.host);
+    assert_eq!(r.plugin.streams().iter().map(|s| s.0.as_str()).collect::<Vec<_>>(), ["z-camera", "a-camera"]);
+    r.ui("start-from", json!([1]));
+    assert_eq!(r.sources()[0], "z-camera");
+    assert_eq!(r.tile(0).w, 1.0);
+}
+
+#[test]
 fn starting_from_a_layout_and_saving_it() {
     let mut r = open();
     r.ui("start-from", json!([0])); // side by side

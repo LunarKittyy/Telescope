@@ -71,7 +71,7 @@ impl Rig {
     }
 
     fn click(&mut self, at: [f32; 2]) {
-        let pick = Pick { kind: PickKind::Point, shown: vec![at], full: vec![at], in_picture: vec![at] };
+        let pick = Pick { kind: PickKind::Point, shown: vec![at], full: vec![at], in_picture: vec![at], picture: None };
         self.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(pick) });
     }
 }
@@ -199,7 +199,7 @@ fn a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview() {
     r.picking();
     r.look(Frame::new(64, 36, PixelFormat::Rgba, data));
     // on the preview Desk's Black and white turned it all white
-    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]] };
+    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]], picture: None };
     r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(pick) });
     assert_eq!(r.config()["picked"], json!([160, 40, 150]));
 }
@@ -214,9 +214,11 @@ fn without_a_frame_yet_a_pick_reads_the_preview() {
             data[i..i + 4].copy_from_slice(&[150, 40, 160, 255]);
         }
     }
-    r.host.stream_frames = vec![telescope_core::frame::StreamFrame { source_id: String::new(), name: String::new(), frame: Frame::new(40, 20, PixelFormat::Rgba, data) }];
+    // A newer frame is in the store by now: the one clicked on is what counts
+    r.host.stream_frames = vec![telescope_core::frame::StreamFrame { source_id: String::new(), name: String::new(), frame: flat(40, 20, [128, 128, 128]) }];
     r.picking();
-    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]] };
+    let shown = Some(Frame::new(40, 20, PixelFormat::Rgba, data));
+    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]], picture: shown };
     r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(pick) });
     assert_eq!(r.config()["picked"], json!([160, 40, 150]));
 }

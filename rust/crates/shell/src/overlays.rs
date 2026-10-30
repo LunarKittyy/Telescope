@@ -63,6 +63,8 @@ pub struct Overlays {
     warp: Option<(String, [f64; 9], [f64; 9])>,
     /// The cursor over the stage while a pick runs, as the last move there left it.
     pub cursor: Option<Cursor>,
+    /// The last frame the preview showed, while a pick runs.
+    picture: Option<telescope_core::frame::Frame>,
 }
 
 fn to_full(view: &View, u: f64, v: f64) -> P {
@@ -193,8 +195,16 @@ impl Overlays {
         }
     }
 
+    /// The preview drew this frame, before any tint: what a pick under way hands over (tint()'s copy).
+    pub fn shown_frame(&mut self, frame: &telescope_core::frame::Frame) {
+        if self.pick.is_some() {
+            self.picture = Some(frame.clone());
+        }
+    }
+
     fn end(&mut self, result: Option<Pick>, bus: &EventBus) {
         let Some(pick) = self.pick.take() else { return };
+        self.picture = None; // nothing kept once it's over
         self.cursor = None;
         bus.emit(Event::PreviewPickChanged { owner: String::new() });
         bus.emit(Event::PreviewPicked { owner: pick.owner, pick: result });
@@ -212,6 +222,7 @@ impl Overlays {
             full.iter().map(|p| to_shown(view, p.0, p.1)).collect()
         };
         Pick {
+            picture: self.picture.clone(),
             kind: pick.kind,
             in_picture: shown.iter().map(|p| clamp(self.warp_point(p.0, p.1))).collect(),
             shown: shown.into_iter().map(clamp).collect(),
@@ -709,6 +720,23 @@ mod tests {
             }
         }
         assert_eq!(heard, ["Test", ""]);
+    }
+
+    #[test]
+    fn a_pick_carries_the_picture_shown_before_any_tint() {
+        use telescope_core::frame::{Frame, PixelFormat};
+        let frame = |g: u8| Frame::new(4, 4, PixelFormat::Rgba, [g, g, g, 255].repeat(16));
+        let mut t = T::new();
+        t.o.shown_frame(&frame(1));
+        assert_eq!(t.o.picture, None, "nothing is kept without a pick");
+        t.start(PickKind::Point, None);
+        t.o.shown_frame(&frame(3));
+        let last = frame(7);
+        t.o.shown_frame(&last);
+        t.press(0.5, 0.5);
+        t.release();
+        assert_eq!(t.only().picture, Some(last));
+        assert_eq!(t.o.picture, None, "nothing kept once it's over");
     }
 
     #[test]

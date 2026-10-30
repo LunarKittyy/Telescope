@@ -369,8 +369,8 @@ impl ChromaKeyPlugin {
         let kept = self.last.lock().unwrap().clone();
         let (frame, at) = if let (Some(frame), Some(at)) = (kept, pick.shown.first()) {
             (frame, *at)
-        } else if let (Some(shown), Some(at)) = (host.frames().stream_frame(None), pick.in_picture.first()) {
-            (shown.frame, *at)
+        } else if let (Some(shown), Some(at)) = (&pick.picture, pick.in_picture.first()) {
+            (shown.clone(), *at)
         } else {
             return;
         };

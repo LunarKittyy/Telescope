@@ -1,12 +1,11 @@
 //! The window's view of the shown stream (view_controller.py): what's asked of it, split between the phone's own zoom
 //! and the crop this computer does, the phone told only about changes, and what the Transforms card and the preview
 //! follow (ViewStatus, LensBoxes). It hears the stream hooks as a follower named "view", like Python's.
-//!
-//! Not ported: matching frames while a steered crop moves on the same lens (_Handover), so the desktop's crop switches
-//! as the phone is told rather than once its frames show the new crop; and mapping picked points back onto the phone.
 
+use crate::handover::ViewGate;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Arc;
 use telescope_core::event::{Event, LensBox};
 use telescope_core::host::{View, ViewChange};
 use telescope_core::view::{lens_boxes, pan_for, rest_within, split_zoom, window_centre, Geometry, PhoneZoom, PhoneZoomCaps, ViewStatus, ZoomSplit};
@@ -46,8 +45,19 @@ pub struct ViewController {
     sent_ratio_at: f64,
     /// While steered: since when the phone's share has been clearly off.
     drift_since: Option<f64>,
+    /// A share sent while steering, until its frames show up (the worker sees those).
+    gate: Arc<ViewGate>,
     /// The phone side of each stream the panels moved away from (StreamsBehind).
     behind: HashMap<String, (u64, Option<PhoneZoomCaps>, Option<PhoneZoom>, f64)>,
+}
+
+fn with_crop(view: &View, (zoom, pan_x, pan_y): (f64, f64, f64)) -> View {
+    View { zoom: zoom as f32, pan_x: pan_x as f32, pan_y: pan_y as f32, ..view.clone() }
+}
+
+/// What this computer crops from what `phone` sends, as near the view as that reaches (_rest).
+fn rest(view: &View, phone: &PhoneZoom, otherwise: (f64, f64, f64)) -> (f64, f64, f64) {
+    rest_within(view.zoom as f64, view.pan_x as f64, view.pan_y as f64, phone, true).unwrap_or(otherwise)
 }
 
 fn moves(c: &ViewChange) -> bool {
@@ -79,9 +89,18 @@ impl ViewController {
         self.sent
     }
 
-    /// The view the frame step draws: this computer's share of the zoom, the rest as asked.
+    pub fn gate(&self) -> Arc<ViewGate> {
+        self.gate.clone()
+    }
+
+    /// The view as this computer's share of the zoom leaves it, the rest as asked.
     pub fn shown(&self, view: &View) -> View {
-        View { zoom: self.desktop.0 as f32, pan_x: self.desktop.1 as f32, pan_y: self.desktop.2 as f32, ..view.clone() }
+        with_crop(view, self.desktop)
+    }
+
+    /// The view a new frame step draws: shown(), but for the old share's crop while the frames still come in that way.
+    pub fn frame_view(&self, view: &View) -> View {
+        self.gate.waiting_view().unwrap_or_else(|| self.shown(view))
     }
 
     pub fn set_view(&mut self, view: &mut View, change: &ViewChange, now: f64) -> Vec<Said> {
@@ -229,12 +248,25 @@ impl ViewController {
             self.desktop = desktop;
             out.push(Said::Restep);
         }
+        self.gate.follow(self.source.as_deref(), !self.owner.is_empty());
         if let Some(p) = phone.filter(|p| Some(*p) != self.sent) {
             if self.sent.is_none_or(|s| s.ratio != p.ratio) {
                 self.sent_ratio_at = now;
             }
+            // A new lens animates on the phone, so only a crop on the same lens gets a handover
+            match self.sent.filter(|s| !self.owner.is_empty() && s.ratio == p.ratio) {
+                Some(old) => self.gate.begin(old, p, (with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), now),
+                None => self.gate.end(),
+            }
+            out.push(Said::Restep);
             self.sent = Some(p);
             out.push(Said::Zoom(p));
+        } else if self.gate.underway() {
+            match self.gate.still_for(self.sent, !self.owner.is_empty(), now) {
+                Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop))),
+                None => self.gate.end(),
+            }
+            out.push(Said::Restep);
         }
         let streaming = self.source.is_some();
         let status = ViewStatus { streaming, caps: self.caps.clone().filter(|_| streaming), sent: self.sent, sent_ratio_at: self.sent_ratio_at, desktop_zoom: desktop.0 };
@@ -246,6 +278,9 @@ impl ViewController {
     fn held(&mut self, view: &View, caps: Option<&PhoneZoomCaps>, current: f64, split: ZoomSplit, now: f64) -> (Option<PhoneZoom>, (f64, f64, f64)) {
         let (zoom, px, py) = (view.zoom as f64, view.pan_x as f64, view.pan_y as f64);
         let held = self.sent;
+        if let Some(h) = held.filter(|_| self.gate.waiting()) {
+            return (held, rest(view, &h, split.desktop)); // no new share until the last one has shown up
+        }
         let rest = held.and_then(|h| rest_within(zoom, px, py, &h, false));
         let wide = (zoom / HOLD_SLACK).max(1.0); // room around the framing, so small moves stay on this computer
         let centre = (window_centre(zoom, px), window_centre(zoom, py));
@@ -410,6 +445,131 @@ mod tests {
         vc.focus_lost(&view, 1.0);
         assert!(sent(&vc.focus_gained(&view, "p1", 1, 2.0)).is_empty(), "the phone still crops what it was sent");
         assert_eq!(vc.shown(&view).zoom, 1.0);
+    }
+
+    /// Something that shows a shift: blobs, the same every run.
+    fn scene(u: f64, v: f64) -> u8 {
+        let cell = |x: i64, y: i64| ((x.wrapping_mul(7_919) ^ y.wrapping_mul(104_729)).wrapping_mul(2_654_435_761) >> 13 & 255) as f64;
+        let (x, y) = (u * 32.0, v * 18.0);
+        let (x0, y0) = (x.floor(), y.floor());
+        let (fx, fy) = (x - x0, y - y0);
+        let (x0, y0) = (x0 as i64, y0 as i64);
+        let top = cell(x0, y0) * (1.0 - fx) + cell(x0 + 1, y0) * fx;
+        let bottom = cell(x0, y0 + 1) * (1.0 - fx) + cell(x0 + 1, y0 + 1) * fx;
+        (top * (1.0 - fy) + bottom * fy) as u8
+    }
+
+    /// What the phone sends for a share: that part of the full view, at the stream's size.
+    fn from_phone(share: &PhoneZoom) -> telescope_core::frame::Frame {
+        use telescope_core::frame::{Frame, PixelFormat};
+        use telescope_core::view::{phone_window, window};
+        let (zoom, px, py) = phone_window(Some(share));
+        let ((x0, w), (y0, h)) = (window(zoom, px), window(zoom, py));
+        let (fw, fh) = (320u32, 180u32);
+        let data = (0..fw * fh).flat_map(|i| {
+            let (u, v) = ((i % fw) as f64 / fw as f64, (i / fw) as f64 / fh as f64);
+            let g = scene(x0 + u * w, y0 + v * h);
+            [g, g, g, 255]
+        }).collect();
+        Frame::new(fw, fh, PixelFormat::Rgba, data)
+    }
+
+    fn on_a_share() -> (ViewController, View, PhoneZoom) {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        vc.take("Auto framing");
+        vc.steer(&mut view, "Auto framing", 3.0, 0.0, 0.0, 0.0);
+        let old = vc.sent.unwrap();
+        (vc, view, old)
+    }
+
+    #[test]
+    fn a_new_phone_share_is_cropped_for_only_once_its_frames_arrive() {
+        let (mut vc, mut view, old) = on_a_share();
+        let gate = vc.gate();
+        gate.for_frame("p1", &from_phone(&old), 0.0, false);
+        vc.steer(&mut view, "Auto framing", 3.0, 0.22, 0.0, 0.01); // just past the side of what the phone sends: a new share at once
+        let new = vc.sent.unwrap();
+        assert!(new != old && gate.waiting());
+        let late = rest_within(3.0, 0.22, 0.0, &old, true).unwrap();
+        let fresh = vc.shown(&view);
+        assert!((fresh.pan_x - late.1 as f32).abs() > 0.5, "the new share's crop is far from the old one's: {fresh:?} {late:?}");
+        for i in 0..3 {
+            gate.for_frame("p1", &from_phone(&old), 0.02 + i as f64 * 0.01, false); // the phone hasn't caught up yet
+            assert!(gate.waiting());
+            assert_eq!(vc.frame_view(&view).pan_x, late.1 as f32, "the old crop stays on the old frames");
+        }
+        let swapped = gate.for_frame("p1", &from_phone(&new), 0.06, false).expect("the crop changes on this very frame");
+        assert!(!gate.waiting());
+        assert_eq!((swapped.zoom, swapped.pan_x), (fresh.zoom, fresh.pan_x));
+        assert_eq!(vc.frame_view(&view).pan_x, fresh.pan_x);
+    }
+
+    #[test]
+    fn a_handover_gives_up_waiting_after_a_while() {
+        let (mut vc, mut view, old) = on_a_share();
+        let gate = vc.gate();
+        vc.steer(&mut view, "Auto framing", 3.0, 0.6, 0.0, 100.0);
+        assert!(gate.waiting());
+        gate.for_frame("p1", &from_phone(&old), 100.1, false);
+        assert!(gate.waiting());
+        gate.for_frame("p1", &from_phone(&old), 101.6, false);
+        assert!(!gate.waiting());
+    }
+
+    #[test]
+    fn frames_of_another_stream_say_nothing_about_this_ones_share() {
+        let (mut vc, mut view, old) = on_a_share();
+        let gate = vc.gate();
+        vc.steer(&mut view, "Auto framing", 3.0, 0.6, 0.0, 1.0);
+        assert_eq!(gate.for_frame("p2", &from_phone(&old), 9.0, false), None);
+        assert!(gate.waiting());
+    }
+
+    #[test]
+    fn steps_put_in_while_it_waits_get_the_crop_of_the_moment_back() {
+        let (mut vc, mut view, old) = on_a_share();
+        let gate = vc.gate();
+        vc.steer(&mut view, "Auto framing", 3.0, 0.22, 0.0, 1.0);
+        assert!(gate.for_frame("p1", &from_phone(&old), 1.0, false).is_some());
+        assert_eq!(gate.for_frame("p1", &from_phone(&old), 1.01, false), None, "already in place");
+        assert_eq!(gate.for_frame("p1", &from_phone(&old), 1.02, true), Some(vc.frame_view(&view)));
+    }
+
+    #[test]
+    fn a_frozen_step_keeps_the_view_it_was_taken_with() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.set_view(&mut view, &ViewChange { flip_h: Some(true), ..Default::default() }, 0.0);
+        let step = vc.frame_view(&view);
+        vc.set_view(&mut view, &ViewChange { flip_h: Some(false), rotation: Some(Some(90)), ..Default::default() }, 0.0);
+        assert!(step.flip_h && step.rotation.is_none());
+    }
+
+    #[test]
+    fn rest_within_says_what_this_computer_crops_from_a_phone_share() {
+        let centre = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
+        assert_eq!(rest_within(2.0, 0.0, 0.0, &centre, false), Some((1.0, 0.0, 0.0)));
+        let rest = rest_within(4.0, 0.3, 0.0, &centre, false).unwrap();
+        assert!((rest.0 - 2.0).abs() < 1e-9 && rest.1 > 0.0 && rest.2.abs() < 1e-9);
+        assert_eq!(rest_within(1.5, 0.0, 0.0, &centre, false), None, "wider than what the phone sends");
+        assert_eq!(rest_within(4.0, 1.0, 0.0, &centre, false), None, "off its edge");
+    }
+
+    #[test]
+    fn people_are_found_through_the_phone_share() {
+        let (mut vc, mut view) = (ViewController::new(), View::default());
+        vc.stream_start(&view, "p1", 1, 0.0);
+        vc.phone_state(&view, &zooms(), 0.0);
+        vc.take("Auto framing");
+        vc.steer(&mut view, "Auto framing", 2.0, 0.0, 0.0, 0.0); // the phone sends the middle 1/1.4286
+        let turn = telescope_core::vision::Turn { rotation: Some(90), ..Default::default() };
+        let upright = telescope_core::vision::Upright { turn, sent: telescope_core::view::phone_window(vc.sent.as_ref()) };
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
+        let (x, y) = upright.to_shown(0.5, 0.5);
+        assert!(near(x, 0.5) && near(y, 0.5));
+        let (x, y) = upright.to_shown(1.0, 0.0); // the top right of the upright frame, inside the share
+        assert!(near(x, 0.85) && near(y, 0.15), "{x} {y}");
     }
 
     #[test]

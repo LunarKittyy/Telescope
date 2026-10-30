@@ -128,7 +128,7 @@ pub type TimerHook = Rc<dyn Fn(&str, &str)>;
 /// The stream format as the settings have it now.
 pub type FormatNow = Rc<dyn Fn() -> StreamFormat>;
 /// A plugin's source, swapped in place when it's offered again.
-pub type SharedSource = Rc<RefCell<Arc<dyn StreamSource>>>;
+pub type SharedSource = Arc<Mutex<Arc<dyn StreamSource>>>;
 
 /// A paired phone, by id.
 pub struct PhoneKind {
@@ -555,7 +555,7 @@ pub struct PluginKind {
 
 impl PluginKind {
     fn source(&self) -> Arc<dyn StreamSource> {
-        self.source.borrow().clone()
+        self.source.lock().unwrap().clone()
     }
 }
 
@@ -589,15 +589,20 @@ impl SourceKind for PluginKind {
         (None, None, self.source().fps())
     }
     fn opener(&self) -> Option<Opener> {
-        let source = self.source();
+        // The source as it is at each open: one offered again under the same id takes over a stream that reconnects
+        let shared = self.source.clone();
         Some(Arc::new(move || {
+            let source = shared.lock().unwrap().clone();
             let (codec, feed) = source.open_feed()?;
             Ok(Opened { codec, feed, own_decoder: source.decoder() })
         }))
     }
     fn waiting_text(&self) -> Option<crate::worker::WaitingText> {
-        let source = self.source();
-        Some(Arc::new(move || source.waiting_text()))
+        let shared = self.source.clone();
+        Some(Arc::new(move || {
+            let source = shared.lock().unwrap().clone();
+            source.waiting_text()
+        }))
     }
 }
 
@@ -620,6 +625,41 @@ mod tests {
         assert_eq!(camera_error_text(&json!({"camera_error_code": "camera_in_use", "camera_error": "busy"})),
                    "The camera didn't turn back on. Another app may be using it.");
         assert_eq!(camera_error_text(&json!({"camera_error": "Camera 2 failed"})), "Camera 2 failed");
+    }
+
+    struct Offered(&'static str);
+
+    impl StreamSource for Offered {
+        fn id(&self) -> String {
+            "browser:".into()
+        }
+        fn name(&self) -> String {
+            self.0.into()
+        }
+        fn url(&self) -> String {
+            String::new()
+        }
+        fn prepare(&self, _interactive: bool) -> bool {
+            true
+        }
+        fn open_feed(&self) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+            Err(self.0.into())
+        }
+        fn control_client(&self) -> Option<Box<dyn ControlClient>> {
+            None
+        }
+        fn fps(&self) -> u32 {
+            24
+        }
+    }
+
+    #[test]
+    fn a_reconnect_opens_the_source_as_it_was_offered_last() {
+        let first: Arc<dyn StreamSource> = Arc::new(Offered("first"));
+        let shared: SharedSource = Arc::new(Mutex::new(first));
+        let opener = PluginKind { source: shared.clone() }.opener().unwrap();
+        *shared.lock().unwrap() = Arc::new(Offered("second"));
+        assert_eq!(opener().err().as_deref(), Some("second"));
     }
 
     use std::sync::atomic::{AtomicBool, Ordering};

@@ -153,6 +153,8 @@ events! {
     "source_selected" => SourceSelected { source_id: String },
     // The window wants this source picked, as if by hand: Connection picks it and loads its settings
     "select_source" => SelectSource { source_id: String },
+    // The window moved the panels to this source and swapped the settings itself: Connection shows it as picked
+    "source_shown" => SourceShown { source_id: String },
     /// The extra virtual cameras (slot numbers) that are set up but nothing streams to; comes before a stream opens one.
     "idle_outputs" => IdleOutputs { slots: Vec<u32> },
     /// How many streams run at once now.

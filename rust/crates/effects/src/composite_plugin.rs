@@ -11,7 +11,7 @@ use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, sam
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;

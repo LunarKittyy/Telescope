@@ -82,6 +82,22 @@ impl FramePipeline for Pipeline {
         self.steps = entries;
     }
 
+    fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
+        self.steps.retain(|e| e.owner != owner);
+        let fresh = steps.into_iter().map(|step| Entry {
+            owner: owner.to_string(),
+            stage,
+            kind: match step {
+                FrameStep::Cpu(c) => Kind::Cpu(c),
+                FrameStep::Shader(sh) => Kind::Shader(gpu::ShaderSlot::new(sh)),
+            },
+            fails: 0,
+        });
+        // First within the stage, where the window's own steps go
+        let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
+        self.steps.splice(at..at, fresh);
+    }
+
     fn process(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Frame {
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         // A step that builds a new frame stays on this one: person masks are worked out once per number
@@ -232,6 +248,16 @@ pub(crate) mod tests {
         fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
             *frame = grey(frame.width, frame.height, 1);
         }
+    }
+
+    #[test]
+    fn steps_of_one_owner_can_change_and_the_others_stay() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("view", FrameStage::View, Rebuilds), step("blur", FrameStage::Effects, Rebuilds)]);
+        p.replace_steps("view", FrameStage::View, Vec::new());
+        assert_eq!(p.stages(), [("blur".to_string(), FrameStage::Effects)]);
+        p.replace_steps("view", FrameStage::View, vec![FrameStep::Cpu(Box::new(Rebuilds))]);
+        assert_eq!(p.stages(), [("view".to_string(), FrameStage::View), ("blur".to_string(), FrameStage::Effects)]);
     }
 
     /// What number the frame has when it gets here.

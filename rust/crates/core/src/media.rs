@@ -160,6 +160,8 @@ pub struct StagedStep {
 pub trait FramePipeline: Send {
     /// The steps from the next frame on (set_pipeline); give them in registration order.
     fn set_steps(&mut self, steps: Vec<StagedStep>);
+    /// `owner`'s steps swapped for these, the others left as they are with what they hold.
+    fn replace_steps(&mut self, _owner: &str, _stage: crate::frame::FrameStage, _steps: Vec<crate::frame::FrameStep>) {}
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame;
     fn is_empty(&self) -> bool;
 }

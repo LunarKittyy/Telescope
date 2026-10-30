@@ -741,7 +741,7 @@ impl State {
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
+        for step in telescope_core::view_step::steps(&self.vc.frame_view(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step });
         }
         let colour = self.colour.step(source_id);
@@ -790,6 +790,26 @@ impl State {
             }).collect()
     }
 
+    /// _profile_key: whose settings a plugin has now, the picked source's, or for one that doesn't follow the panels, the main
+    /// stream's.
+    fn profile_key(&self, i: usize) -> Option<String> {
+        match &self.streams.main {
+            Some((main, _)) if !self.slots[i].info.follows_focus => Some(main.clone()),
+            _ => self.selected.clone(),
+        }
+    }
+
+    /// Every device-local plugin's settings as those of whoever they belong to now.
+    fn profile_sections(&self, cfg: &Value) -> Vec<PluginSection> {
+        (0..self.slots.len()).filter(|&i| self.slots[i].info.device_local && !self.slots[i].info.name.is_empty())
+            .filter_map(|i| {
+                let id = self.profile_key(i)?;
+                let saved = profiles::device_plugin_configs(cfg, Some(&id));
+                let name = &self.slots[i].info.name;
+                self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id), config })
+            }).collect()
+    }
+
     /// save_now. False when the file couldn't be read (saving over it would lose every other phone's settings) or
     /// written; the window tries again shortly.
     pub fn save_now(&mut self) -> bool {
@@ -804,9 +824,7 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
-        if let Some(id) = self.selected.clone() {
-            sections.extend(self.device_sections(&cfg, &id));
-        }
+        sections.extend(self.profile_sections(&cfg));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.output_slots.clone() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
@@ -1269,6 +1287,31 @@ mod tests {
         assert!(report.starts_with("Telescope "), "{report}");
         assert!(report.contains("Reports: fine") && report.contains("Status: a line from before"), "{report}");
         assert!(report.contains("Banner: Phone hot. Let it cool"), "{report}");
+    }
+
+    #[test]
+    fn a_save_files_each_plugin_under_whose_settings_it_has_now() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        struct Stays;
+        impl Plugin for Stays {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "mic".into(), device_local: true, follows_focus: false, ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                json!({"gain": 3})
+            }
+        }
+        s.register(stub("transforms", json!({"zoom": 2.0}), true).0).unwrap();
+        s.register(Box::new(Stays)).unwrap();
+        s.selected = Some("B".into());
+        s.streams.main = Some(("A".into(), "Phone A".into()));
+        assert!(s.save_now());
+        let cfg = s.file.load_strict().unwrap();
+        assert_eq!(cfg["devices"]["B"]["plugin_configs"]["transforms"]["zoom"], json!(2.0));
+        assert_eq!(cfg["devices"]["A"]["plugin_configs"]["mic"]["gain"], json!(3));
+        assert!(cfg["devices"]["A"]["plugin_configs"].get("transforms").is_none(), "B's zoom isn't A's");
+        assert!(cfg["devices"]["B"]["plugin_configs"].get("mic").is_none());
     }
 
     #[test]

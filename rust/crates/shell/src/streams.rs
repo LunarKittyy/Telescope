@@ -13,7 +13,7 @@ use slint_interpreter::{Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
@@ -133,7 +133,7 @@ impl Window {
 
     fn phone_kind(self: &Rc<Self>, id: Option<&str>) -> Box<dyn crate::session::SourceKind> {
         let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else {
-            return Box::new(crate::sources::PluginKind { source: Rc::new(RefCell::new(Arc::new(NoSource))) });
+            return Box::new(crate::sources::PluginKind { source: Arc::new(Mutex::new(Arc::new(NoSource))) });
         };
         let weak = self.ui.as_weak();
         let post: crate::sources::Post = Arc::new(move |report| {
@@ -816,9 +816,9 @@ impl Window {
         let id = source.id();
         let known = self.streams.plugin_sources.borrow().get(&id).cloned();
         match known {
-            Some(cell) => *cell.borrow_mut() = source,
+            Some(cell) => *cell.lock().unwrap() = source,
             None => {
-                self.streams.plugin_sources.borrow_mut().insert(id.clone(), Rc::new(RefCell::new(source)));
+                self.streams.plugin_sources.borrow_mut().insert(id.clone(), Arc::new(Mutex::new(source)));
                 // Asked for before it was offered, it was taken for a phone
                 self.streams.sources.borrow_mut().remove(&id);
             }
@@ -839,7 +839,10 @@ impl Window {
         }
         let idle = self.streams.flow.borrow().sessions.streams.is_empty();
         let next = self.streams.plugin_sources.borrow().keys().find(|s| s.as_str() != id).cloned();
-        if idle && self.state.borrow().selected.as_deref() == Some(id) {
+        if idle && self.selected_now().as_deref() == Some(id) {
+            // Connection first, while it still knows the source it's leaving
+            self.state.borrow_mut().bus.emit(Event::SelectSource { source_id: next.clone().unwrap_or_default() });
+            self.process();
             self.with_flow(|_, host| host.select_device(next.as_deref()));
         }
         self.streams.plugin_sources.borrow_mut().remove(id);
@@ -849,7 +852,7 @@ impl Window {
 
     fn announce_sources(&self) {
         let sources = self.streams.plugin_sources.borrow().iter()
-            .map(|(id, s)| telescope_core::event::SourceName { id: id.clone(), name: s.borrow().name() }).collect();
+            .map(|(id, s)| telescope_core::event::SourceName { id: id.clone(), name: s.lock().unwrap().name() }).collect();
         self.state.borrow_mut().bus.emit(Event::StreamSourcesChanged { sources });
     }
 
@@ -1121,6 +1124,11 @@ impl FlowHost for Host<'_> {
     fn plugins(&self) -> Vec<(String, bool)> {
         self.w.plugin_list()
     }
+    fn show_selected(&mut self, source_id: Option<&str>) {
+        let mut st = self.w.state.borrow_mut();
+        st.selected = source_id.map(str::to_string);
+        st.bus.emit(Event::SourceShown { source_id: source_id.unwrap_or("").to_string() });
+    }
     fn call(&mut self, plugins: &[String], hook: &Hook) {
         self.w.state.borrow_mut().call_hook(plugins, hook);
     }
@@ -1251,7 +1259,7 @@ impl FlowHost for Host<'_> {
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
-                                  vision: self.w.state.borrow().vision_feed(), steps };
+                                  vision: self.w.state.borrow().vision_feed(), steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {

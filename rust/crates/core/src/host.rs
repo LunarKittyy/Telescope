@@ -85,6 +85,10 @@ pub struct Pick {
     pub full: Vec<[f32; 2]>,
     /// Where they are in the picture the preview showed (the same as shown unless something moved the picture after).
     pub in_picture: Vec<[f32; 2]>,
+    /// The picture the preview showed when it ended, before any tint: colours are read from this very frame. None without
+    /// one; it stays in the process, a plugin elsewhere gets the points alone.
+    #[serde(skip)]
+    pub picture: Option<crate::frame::Frame>,
 }
 
 /// Something drawn on the preview only (telescope.overlays.PreviewLayer), in 0..1 of the frame as shown.
