@@ -1,0 +1,63 @@
+// The One picture card (desktop/telescope/plugins/composite.py). Joined after parts.slint, which has the imports.
+
+export component CompositeCard inherits Card {
+    in property <bool> on;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <[string]> layout-items;
+    // -1 while the picture isn't one of the saved layouts
+    in property <int> layout-current: -1;
+    in property <bool> layout-enabled;
+    in property <string> layout-tip;
+    // The editor is a window of its own, which this card can't open yet
+    in property <bool> edit-shown;
+    in property <string> note;
+    callback switch-toggled-by-hand(bool);
+    callback layout-picked(int);
+    callback edit-clicked;
+
+    title: @tr("One picture");
+    icon: Icons.layout;
+    has-switch: true;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    FormRow {
+        label: @tr("Layout");
+        Rectangle {
+            horizontal-stretch: 1;
+            ChoiceField {
+                width: parent.width;
+                compact: true;
+                caption: @tr("Layout");
+                items: layout-items;
+                current: layout-current;
+                enabled: layout-enabled;
+                picked(i) => { root.layout-picked(i); }
+            }
+            // The combo box's placeholder while no saved layout is picked
+            if layout-current < 0: Text {
+                x: 11px;
+                width: parent.width - 40px;
+                text: @tr("Not saved");
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Tooltip { TipBody { says: root.layout-tip; } }
+        }
+    }
+    if edit-shown: Button {
+        text: @tr("Edit picture…");
+        role: "quiet";
+        has-icon: true;
+        icon: Icons.pencil;
+        icon-tint: Theme.text-dim;
+        clicked => { root.edit-clicked(); }
+    }
+    if note != "": Note { text: note; }
+}

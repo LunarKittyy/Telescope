@@ -498,6 +498,7 @@ impl Compositor {
     }
 
     /// The scaled picture kept for the tile at index, for the tests.
+    #[cfg(test)]
     pub(crate) fn scaled_of(&self, index: usize) -> Option<Arc<Vec<Vec<u8>>>> {
         self.scaled.get(&index).map(|(_, s)| s.clone())
     }

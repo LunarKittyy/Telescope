@@ -3,6 +3,7 @@
 
 pub mod chroma_key;
 pub mod composite;
+pub mod composite_plugin;
 pub mod compositor;
 pub mod cpu;
 pub mod cube;
