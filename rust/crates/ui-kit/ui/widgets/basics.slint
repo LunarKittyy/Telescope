@@ -32,6 +32,9 @@ export component Button inherits Rectangle {
     in property <color> icon-tint: Theme.accent-soft;
     in property <string> role: "";
     in property <length> icon-size: 14px;
+    // A square of colour before the text, as a QPushButton draws a swatch icon (chroma_key.swatch: 12px)
+    in property <bool> has-swatch;
+    in property <color> swatch;
     in property <length> font-size: Theme.body;
     in property <int> font-weight: 600;
     in property <length> padding-x: 13px;
@@ -88,6 +91,13 @@ export component Button inherits Rectangle {
             width: icon-size;
             height: icon-size;
             y: (parent.height - self.height) / 2;
+        }
+        if has-swatch: Rectangle {
+            width: 12px;
+            height: 12px;
+            y: (parent.height - self.height) / 2;
+            background: swatch;
+            opacity: enabled ? 1 : 0.5;
         }
         if text != "": Text {
             text: root.text;

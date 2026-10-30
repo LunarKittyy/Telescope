@@ -41,6 +41,8 @@ export component TransformsCard inherits Card {
     enabled: active;
     has-action: true;
     action-icon: Icons.reset;
+    // card_action(tr("Reset"), "reset", …)
+    action-text: @tr("Reset");
     action-label: reset-tip;
     action => { root.reset-clicked(); }
 

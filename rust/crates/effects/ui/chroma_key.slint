@@ -106,20 +106,16 @@ export component ChromaKeyCard inherits Card {
     }
     if behind == 0: FormRow {
         label: @tr("Colour");
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
-                enabled: active;
-                text: @tr("Choose…");
-                tip: colour-tip;
-                has-icon: false;
-                clicked => { root.colour-clicked(); }
-            }
-            Rectangle {
-                width: 14px;
-                Swatch { colour: backdrop-colour; }
-            }
-            Rectangle { horizontal-stretch: 1; }
+        // control_row(stretch=True): the button fills the row, with the colour as its icon
+        Button {
+            enabled: active;
+            horizontal-stretch: 1;
+            text: @tr("Choose…");
+            tip: colour-tip;
+            has-swatch: true;
+            swatch: backdrop-colour;
+            gap: 4px;
+            clicked => { root.colour-clicked(); }
         }
     }
     if behind == 0 && editing-colour: VerticalLayout {
