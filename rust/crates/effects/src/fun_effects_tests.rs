@@ -63,11 +63,11 @@ fn the_cloak_shows_the_empty_room_where_you_are() {
     let room = room();
     let frame = with_person(&room, 60, 100, PERSON);
     let l = Look { plate: Some(Arc::new(room.clone())), edges: 0, ..look("cloak") };
-    let out = &run(&l, &[frame.clone()])[0];
+    let out = &run(&l, std::slice::from_ref(&frame))[0];
     assert!(near(out.at(80, 50), room.at(80, 50), 10));
     assert_eq!(out.at(10, 50), frame.at(10, 50));
     // no empty room yet: left alone
-    assert_eq!(run(&look("cloak"), &[frame.clone()])[0], frame);
+    assert_eq!(run(&look("cloak"), std::slice::from_ref(&frame))[0], frame);
 }
 
 #[test]
@@ -212,7 +212,7 @@ fn a_plate_of_another_shape_is_never_stretched_over_the_picture() {
     let room = room();
     let turned = Rgb { w: H, h: W, data: with_person(&room, 60, 100, PERSON).data[..H * W * 3].to_vec() };
     let l = Look { plate: Some(Arc::new(room)), edges: 0, ..look("cloak") };
-    assert_eq!(run(&l, &[turned.clone()])[0], turned);
+    assert_eq!(run(&l, std::slice::from_ref(&turned))[0], turned);
 }
 
 #[test]

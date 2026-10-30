@@ -7,7 +7,12 @@ use telescope_core::vision::status_text;
 
 /// The row's properties. active: the card is switched to something that needs vision; problem: the card's own reason, shown first.
 pub fn props(host: &dyn Host, active: bool, problem: &str) -> Value {
-    let (text, download) = status_text(active, problem, false, &host.vision_state(), &host.vision_pack());
+    props_for(host, active, problem, false)
+}
+
+/// The same for a card that works without vision too, only better with it (optional).
+pub fn props_for(host: &dyn Host, active: bool, problem: &str, optional: bool) -> Value {
+    let (text, download) = status_text(active, problem, optional, &host.vision_state(), &host.vision_pack());
     json!({"vision-text": text, "vision-download": download})
 }
 

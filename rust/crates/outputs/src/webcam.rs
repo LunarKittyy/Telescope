@@ -35,7 +35,8 @@ const P_REPORTED: &str = "reported";
 const P_UNPLUGGED: &str = "unplugged";
 
 /// The card's picture settings, by section, in the order they're shown: (section, icon, [(name, label)]).
-const SECTIONS: [(&str, &str, &[(&str, &str)]); 4] = [
+type Section = (&'static str, &'static str, &'static [(&'static str, &'static str)]);
+const SECTIONS: [Section; 4] = [
     ("light", "sun", &[("exposure_auto", n_("Exposure")), ("exposure_time", n_("Exposure time")), ("gain", n_("Gain")),
                        ("brightness", n_("Brightness")), ("backlight", n_("Backlight compensation")),
                        ("anti_flicker", n_("Anti-flicker")), ("frame_rate_drop", n_("Slow down in the dark"))]),

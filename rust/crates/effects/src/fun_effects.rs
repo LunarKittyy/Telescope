@@ -362,7 +362,7 @@ impl Webcam {
         }
         let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round_ties_even().max(1.0) as usize);
         let mut small = frame.area(sw, sh);
-        for p in small.data.chunks_exact_mut(3) {
+        for p in small.data.as_chunks_mut::<3>().0 {
             // washed out, with a cold cast
             let cast = [0u32, 6, 18];
             for c in 0..3 {
@@ -403,7 +403,7 @@ fn jpeg(img: &Rgb, quality: u32) -> Rgb {
     let table = |base: &[u32; 64]| -> Vec<f32> { base.iter().map(|b| ((b * scale + 50) / 100).clamp(1, 255) as f32).collect() };
     let (lq, cq) = (table(&LUMA_Q), table(&CHROMA_Q));
     let (mut y, mut cb, mut cr) = (vec![0f32; w * h], vec![0f32; w * h], vec![0f32; w * h]);
-    for (i, p) in img.data.chunks_exact(3).enumerate() {
+    for (i, p) in img.data.as_chunks::<3>().0.iter().enumerate() {
         let (r, g, b) = (p[0] as f32, p[1] as f32, p[2] as f32);
         y[i] = 0.299 * r + 0.587 * g + 0.114 * b;
         cb[i] = 128.0 - 0.168_736 * r - 0.331_264 * g + 0.5 * b;
@@ -501,7 +501,7 @@ impl Vhs {
         let (sw, sh) = ((w / 3).max(1), (h / 2).max(1));
         let small = frame.area(sw, sh);
         let (mut y, mut cr, mut cb) = (Gray::new(sw, sh), Gray::new(sw, sh), Gray::new(sw, sh));
-        for (i, p) in small.data.chunks_exact(3).enumerate() {
+        for (i, p) in small.data.as_chunks::<3>().0.iter().enumerate() {
             let (r, g, b) = (p[0] as i32, p[1] as i32, p[2] as i32);
             let l = (b * 1868 + g * 9617 + r * 4899 + 8192) >> 14;
             y.data[i] = l as u8;
@@ -577,9 +577,9 @@ impl Crt {
         let pitch = 2.max(h / 270);
         let triad = [[1.0f32, 0.82, 0.82], [0.82, 1.0, 0.82], [0.82, 0.82, 1.0]];
         let (mut maps, mut shade) = (Vec::with_capacity(w * h), Vec::with_capacity(w * h));
-        for y in 0..h {
+        for (y, &py) in ys.iter().enumerate() {
             for x in 0..w {
-                let (px, py) = (xs[x], ys[y]);
+                let px = xs[x];
                 let r2 = px * px + py * py;
                 let bulge = 1.0 + 0.06 * r2;
                 maps.push(((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0));
@@ -660,7 +660,7 @@ fn ascii(frame: &Rgb) -> Rgb {
                 // a line of margin above and below, as a font has
                 let gy = y * 9 / ch;
                 for x in 0..cw {
-                    let (gx, on) = (x * 6 / cw, gy >= 1 && gy <= 7 && glyph[gy - 1].as_bytes().get(x * 6 / cw).is_some_and(|c| *c == b'#'));
+                    let (gx, on) = (x * 6 / cw, (1..=7).contains(&gy) && glyph[gy - 1].as_bytes().get(x * 6 / cw).is_some_and(|c| *c == b'#'));
                     let _ = gx;
                     if on {
                         out.set(col * cw + x, row * ch + y, [0, 255, 85]);

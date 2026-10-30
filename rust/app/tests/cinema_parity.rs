@@ -50,7 +50,7 @@ fn picture(w: usize, h: usize) -> Rgb {
 
 /// The bytes a numpy BGR picture has.
 fn bgr(frame: &Rgb) -> Vec<u8> {
-    frame.data.chunks_exact(3).flat_map(|p| [p[2], p[1], p[0]]).collect()
+    frame.data.as_chunks::<3>().0.iter().flat_map(|p| [p[2], p[1], p[0]]).collect()
 }
 
 fn i64_bytes(counts: &[u32]) -> Vec<u8> {
@@ -152,7 +152,7 @@ fn the_pixel_tools_mark_what_python_marks() {
                     // OpenCV's own bilinear resize is a level off in a few pixels and a mask's edge a pixel, so only the average colour has to agree
                     let pixels = (out.w * out.h) as f64;
                     for c in 0..3 {
-                        let mean = out.data.chunks_exact(3).map(|p| p[2 - c] as f64).sum::<f64>() / pixels;
+                        let mean = out.data.as_chunks::<3>().0.iter().map(|p| p[2 - c] as f64).sum::<f64>() / pixels;
                         let want = case["means"][call][c].as_f64().unwrap();
                         assert!((mean - want).abs() < 0.5, "{name}: the tools with {} (call {call}): mean {mean} vs {want}", case["look"]);
                     }

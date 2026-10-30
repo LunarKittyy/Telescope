@@ -145,7 +145,7 @@ impl Canvas {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data.chunks_exact(4).all(|p| p[3] == 0)
+        self.data.as_chunks::<4>().0.iter().all(|p| p[3] == 0)
     }
 }
 
@@ -220,6 +220,7 @@ pub fn paint_level(canvas: &mut Canvas, rect: Rect, level: &Level, scale: f64) {
         }
     }
     let Some(face) = face(9.0, scale) else { return };
+    #[allow(clippy::type_complexity)] // a throwaway row: text, colour, alpha, position
     let mut labels: Vec<(String, [u8; 3], u8, (f64, f64))> = Vec::new();
     if let Some(roll) = level.roll {
         labels.push((format!("{:.1}°", roll.abs()), colour, colour_alpha, (c.0 + half + 8.0 * scale, c.1 - 8.0 * scale)));

@@ -165,7 +165,7 @@ fn the_false_colour_legend_names_the_colours_it_uses() {
     if let Some(canvas) = layer.paint_canvas(640, 360, 1.0) {
         assert_eq!(canvas.data[3], 0);
         let swatch = FALSE_COLOURS[0].1.unwrap();
-        let found = canvas.data.chunks_exact(4).any(|p| p[..3] == swatch && p[3] == 255);
+        let found = canvas.data.as_chunks::<4>().0.iter().any(|p| p[..3] == swatch && p[3] == 255);
         assert!(found || app_font(Weight::Regular).is_none());
     } else {
         assert!(app_font(Weight::Regular).is_none());

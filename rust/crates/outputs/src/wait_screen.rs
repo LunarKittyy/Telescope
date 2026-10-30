@@ -194,7 +194,7 @@ pub fn default_screen(width: u32, height: u32) -> Rgb {
             draw_text(&mut pm, &font, &tr("Waiting for camera"), top + 74.0 * k, (22.0 * k).round().max(9.0), 0.0, TEXT_DIM);
         }
     }
-    let data = pm.data().chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let data = pm.data().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
     Rgb { width, height, data }
 }
 
@@ -359,7 +359,7 @@ impl ScreenJob {
             (s.1.clone(), s.2)
         };
         let pictures = (self.deps.loader)(path.as_deref(), width, height)?;
-        let i420 = self.deps.i420 && width % 2 == 0 && height % 2 == 0;
+        let i420 = self.deps.i420 && width.is_multiple_of(2) && height.is_multiple_of(2);
         let frames = pictures.into_iter().map(|(rgb, secs)| {
             let frame = if i420 {
                 rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror)
@@ -806,7 +806,7 @@ mod tests {
         assert_eq!(frames[0].1, STILL_PERIOD);
         // The lens is lavender in the middle and the corners are the window's background
         let (k, (cx, cy), _) = screen_layout(320, 180);
-        let mid = ((cy as usize * 320 + (cx + 130.0 * k) as usize) * 3) as usize;
+        let mid = (cy as usize * 320 + (cx + 130.0 * k) as usize) * 3;
         assert!(frames[0].0.data[mid + 2] > 150, "{:?}", &frames[0].0.data[mid..mid + 3]);
         assert_eq!(&frames[0].0.data[..3], &BG);
     }

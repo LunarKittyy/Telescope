@@ -73,7 +73,7 @@ pub fn bgr_to_i420(bgr: &[u8], stride: usize, width: usize, height: usize) -> Ve
     let (u, v) = chroma.split_at_mut(cw * ch);
     for y in 0..height {
         let row = &bgr[y * stride..y * stride + width * 3];
-        for (x, px) in row.chunks_exact(3).enumerate() {
+        for (x, px) in row.as_chunks::<3>().0.iter().enumerate() {
             let (b, g, r) = (px[0] as i32, px[1] as i32, px[2] as i32);
             luma[y * width + x] = ((269_484 * r + 528_482 * g + 102_760 * b + (16 << SHIFT) + ROUND) >> SHIFT) as u8;
             if x % 2 == 0 && y % 2 == 0 {

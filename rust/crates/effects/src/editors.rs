@@ -158,7 +158,7 @@ impl Curve {
         (l + x * w, t + h - y * h)
     }
 
-    fn from_px(&self, size: (f64, f64), pos: (f64, f64)) -> (f64, f64) {
+    fn unit_at(&self, size: (f64, f64), pos: (f64, f64)) -> (f64, f64) {
         let (l, t, w, h) = area(self.kind, size.0, size.1);
         let x = (pos.0 - l) / w.max(1.0);
         let y = (t + h - pos.1) / h.max(1.0);
@@ -245,7 +245,7 @@ impl Curve {
         let added = self.added.take();
         let mut change = Change::Look;
         if i < 0 {
-            let (x, _) = self.from_px(size, pos);
+            let (x, _) = self.unit_at(size, pos);
             let y = self.value_at(x);
             i = self.add(x, y);
             if i >= 0 {
@@ -265,7 +265,7 @@ impl Curve {
 
     pub fn move_to(&mut self, size: (f64, f64), pos: (f64, f64)) -> Change {
         if self.dragging && self.picked >= 0 {
-            let (x, y) = self.from_px(size, pos);
+            let (x, y) = self.unit_at(size, pos);
             self.move_point(self.picked as usize, x, y);
             self.added = None;
             return Change::Points;

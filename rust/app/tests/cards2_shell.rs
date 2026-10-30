@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
+use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::link::{Link, PairingOffer, PhoneSession, PhoneStills, RoutePrefs, Unreachable};
 use telescope_core::source::PairedPhone;
 use telescope_core::testing::{scratch_dir, FakeWeb};

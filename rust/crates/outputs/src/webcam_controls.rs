@@ -288,10 +288,13 @@ pub(crate) mod tests {
     /// Where tests say the computer is.
     pub static TERRITORY: Mutex<Option<String>> = Mutex::new(None);
 
+    /// (kind, min, max, step, default, flags, menu values)
+    type FakeCtrl = (u32, i64, i64, i64, i64, u32, Vec<i64>);
+
     /// Answers the control ioctls the way a webcam with brightness, auto exposure and anti-flicker does.
     #[derive(Clone)]
     pub struct FakeV4l2 {
-        ctrls: HashMap<u32, (u32, i64, i64, i64, i64, u32, Vec<i64>)>,
+        ctrls: HashMap<u32, FakeCtrl>,
         pub values: Arc<Mutex<HashMap<u32, i64>>>,
     }
 

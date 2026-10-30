@@ -26,14 +26,18 @@ impl Autostart for SignIn {
     }
 }
 
+/// A screen shown: (slot, size, picture, mirrored).
+type Shown = (u32, (u32, u32), Option<String>, bool);
+type OnChange = Box<dyn Fn(bool) + Send + Sync>;
+
 /// A virtual camera that isn't there: its wait screens remember what they were told, and the watch what to call.
 #[derive(Default)]
 struct Cameras {
-    shown: Arc<Mutex<Vec<(u32, (u32, u32), Option<String>, bool)>>>,
-    on_change: Mutex<Option<Box<dyn Fn(bool) + Send + Sync>>>,
+    shown: Arc<Mutex<Vec<Shown>>>,
+    on_change: Mutex<Option<OnChange>>,
 }
 
-struct Screen(u32, Arc<Mutex<Vec<(u32, (u32, u32), Option<String>, bool)>>>);
+struct Screen(u32, Arc<Mutex<Vec<Shown>>>);
 
 impl Held for Screen {
     fn start(&self) {}

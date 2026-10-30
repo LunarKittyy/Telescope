@@ -3,9 +3,10 @@
 //! from before any tint on a thread of their own at the rate they ask, and lays the pictures they paint over the frame.
 
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::media::Scaler;
 use telescope_core::preview::PreviewPass;
@@ -13,6 +14,22 @@ use telescope_core::{Frame, PixelFormat};
 
 /// A pass that paints is asked again at least this often, since some draw only what's recent (the level guide notes it was seen).
 const REPAINT: Duration = Duration::from_millis(500);
+
+/// The owners whose pass has failed, so it's logged once.
+static FAILING: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+
+/// Runs one pass's work; a pass that panics leaves the picture as it was and the others carry on (overlays._failed).
+fn guarded<T>(owner: &str, what: &str, f: impl FnOnce() -> T) -> Option<T> {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(v) => Some(v),
+        Err(_) => {
+            if FAILING.lock().unwrap_or_else(|e| e.into_inner()).insert(owner.to_string()) {
+                log::error!("Preview layer {owner} failed in {what}");
+            }
+            None
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct PassWork {
@@ -78,9 +95,9 @@ impl PassWork {
             }
             let busy = Arc::new(AtomicBool::new(true));
             self.analysed.insert(owner.clone(), (Instant::now(), busy.clone()));
-            let (pass, picture, dirty) = (pass.clone(), copy.clone(), dirty.clone());
+            let (owner, pass, picture, dirty) = (owner.clone(), pass.clone(), copy.clone(), dirty.clone());
             std::thread::spawn(move || {
-                if pass.analyse(&picture) {
+                if guarded(&owner, "analyse", || pass.analyse(&picture)).unwrap_or(false) {
                     dirty.store(true, Ordering::SeqCst);
                 }
                 busy.store(false, Ordering::SeqCst);
@@ -90,9 +107,9 @@ impl PassWork {
 
     /// Runs every pass's tint on the copy.
     pub fn tint(passes: &[(String, Arc<dyn PreviewPass>)], frame: &mut Frame) {
-        for (_, pass) in passes {
-            if pass.tints() {
-                pass.tint(frame);
+        for (owner, pass) in passes {
+            if guarded(owner, "tint", || pass.tints()).unwrap_or(false) {
+                guarded(owner, "tint", || pass.tint(frame));
             }
         }
     }
@@ -107,8 +124,8 @@ impl PassWork {
         self.painted_at = Some(Instant::now());
         self.size = (w, h);
         let mut out: Option<Vec<u8>> = None;
-        for (_, pass) in passes {
-            let Some(layer) = pass.paint(w, h, scale).filter(|l| (l.width, l.height) == (w, h) && l.format == PixelFormat::Rgba) else { continue };
+        for (owner, pass) in passes {
+            let Some(layer) = guarded(owner, "paint", || pass.paint(w, h, scale)).flatten().filter(|l| (l.width, l.height) == (w, h) && l.format == PixelFormat::Rgba) else { continue };
             match out.as_mut() {
                 None => out = Some(layer.data.as_ref().clone()),
                 Some(below) => over(below, &layer.data),
@@ -181,5 +198,115 @@ mod tests {
         assert!(!work.overlay_due(false, (10, 10)));
         assert!(work.overlay_due(true, (10, 10)));
         assert!(work.overlay_due(false, (11, 10)));
+    }
+
+    /// Sets the first pixel's red to `value`, in the order it was given.
+    struct Colours {
+        value: u8,
+        order: i32,
+        fps: f32,
+        analysed: Arc<Mutex<Vec<u8>>>,
+        painted: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    fn colours(value: u8, order: i32) -> Colours {
+        Colours { value, order, fps: 0.0, analysed: Default::default(), painted: Default::default() }
+    }
+
+    impl PreviewPass for Colours {
+        fn order(&self) -> i32 {
+            self.order
+        }
+        fn tints(&self) -> bool {
+            true
+        }
+        fn tint(&self, frame: &mut Frame) {
+            frame.data_mut()[0] = self.value;
+        }
+        fn analyse_fps(&self) -> f32 {
+            self.fps
+        }
+        fn analyse(&self, frame: &Frame) -> bool {
+            self.analysed.lock().unwrap().push(frame.data[0]);
+            true
+        }
+        fn paint(&self, width: u32, height: u32, _scale: f32) -> Option<Frame> {
+            self.painted.fetch_add(1, Ordering::SeqCst);
+            Some(Frame::new(width, height, PixelFormat::Rgba, vec![255; (width * height * 4) as usize]))
+        }
+    }
+
+    struct Broken;
+
+    impl PreviewPass for Broken {
+        fn tints(&self) -> bool {
+            true
+        }
+        fn tint(&self, _frame: &mut Frame) {
+            panic!("plugin bug");
+        }
+        fn paint(&self, _width: u32, _height: u32, _scale: f32) -> Option<Frame> {
+            panic!("plugin bug");
+        }
+    }
+
+    fn grid(value: u8) -> Frame {
+        Frame::new(4, 4, PixelFormat::Rgba, vec![value; 4 * 4 * 4])
+    }
+
+    type Passes = Vec<(String, Arc<dyn PreviewPass>)>;
+
+    fn passes(list: Vec<(&str, Arc<dyn PreviewPass>)>) -> Passes {
+        PassWork::sorted(&list.into_iter().map(|(o, p)| (o.to_string(), p)).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn layers_tint_in_order_and_a_broken_one_leaves_the_frame_alone() {
+        let late: Arc<dyn PreviewPass> = Arc::new(colours(200, 5));
+        let early: Arc<dyn PreviewPass> = Arc::new(colours(100, -5));
+        let broken: Arc<dyn PreviewPass> = Arc::new(Broken);
+        let all = passes(vec![("late", late), ("early", early.clone()), ("broken", broken.clone())]);
+        let mut frame = grid(0);
+        PassWork::tint(&all, &mut frame);
+        assert_eq!(frame.data[0], 200, "the later layer tints over the earlier one");
+        let mut frame = grid(0);
+        PassWork::tint(&passes(vec![("early", early), ("broken", broken)]), &mut frame);
+        assert_eq!(frame.data[0], 100);
+        assert_eq!(&frame.data[1..4], &[0, 0, 0], "and the broken one touched nothing");
+    }
+
+    #[test]
+    fn paint_reaches_every_layer_even_past_a_broken_one() {
+        let good = Arc::new(colours(1, 0));
+        let all = passes(vec![("broken", Arc::new(Broken) as Arc<dyn PreviewPass>), ("good", good.clone())]);
+        assert!(PassWork::default().overlay(&all, 64, 36, 1.0).is_some());
+        assert_eq!(good.painted.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn analyse_gets_the_frame_before_tint_on_its_own_thread() {
+        let watcher = Arc::new(Colours { fps: 1000.0, ..colours(77, 0) });
+        let all = passes(vec![("scope", watcher.clone() as Arc<dyn PreviewPass>)]);
+        let dirty = Arc::new(AtomicBool::new(false));
+        let mut work = PassWork::default();
+        let copy = grid(5);
+        work.analyse(&all, &copy, &dirty);
+        let mut tinted = copy.clone();
+        PassWork::tint(&all, &mut tinted);
+        assert_eq!(tinted.data[0], 77);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while (watcher.analysed.lock().unwrap().is_empty() || !dirty.load(Ordering::SeqCst)) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(*watcher.analysed.lock().unwrap(), [5]);
+        assert!(dirty.load(Ordering::SeqCst), "it asked for a repaint");
+    }
+
+    #[test]
+    fn no_analysis_while_no_layer_wants_it() {
+        let all = passes(vec![("plain", Arc::new(colours(1, 0)) as Arc<dyn PreviewPass>)]);
+        let mut work = PassWork::default();
+        work.analyse(&all, &grid(0), &Arc::new(AtomicBool::new(false)));
+        assert!(work.analysed.is_empty());
     }
 }

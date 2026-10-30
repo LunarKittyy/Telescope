@@ -61,7 +61,7 @@ impl Rgb {
         match frame.format {
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if frame.format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
-                for (o, p) in out.data.chunks_exact_mut(3).zip(d.chunks_exact(4)) {
+                for (o, p) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(d.as_chunks::<4>().0) {
                     o.copy_from_slice(&[p[r], p[1], p[b]]);
                 }
             }
@@ -90,7 +90,7 @@ impl Rgb {
         match format {
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
-                for (p, o) in d.chunks_exact_mut(4).zip(self.data.chunks_exact(3)) {
+                for (p, o) in d.as_chunks_mut::<4>().0.iter_mut().zip(self.data.as_chunks::<3>().0) {
                     p[r] = o[0];
                     p[1] = o[1];
                     p[b] = o[2];
@@ -100,7 +100,7 @@ impl Rgb {
             PixelFormat::I420 | PixelFormat::Nv12 => {
                 let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
                 let (y_plane, rest) = d.split_at_mut(w * h);
-                for (i, p) in self.data.chunks_exact(3).enumerate() {
+                for (i, p) in self.data.as_chunks::<3>().0.iter().enumerate() {
                     y_plane[i] = clamp8(to_y(p[0] as f32, p[1] as f32, p[2] as f32));
                 }
                 for cy in 0..ch {
@@ -182,9 +182,9 @@ mod tests {
     #[test]
     fn a_flat_colour_survives_yuv_to_within_a_level() {
         for format in [PixelFormat::I420, PixelFormat::Nv12] {
-            let fr = frame(format, 6, 4, |img| img.data.chunks_exact_mut(3).for_each(|p| p.copy_from_slice(&[200, 60, 90])));
+            let fr = frame(format, 6, 4, |img| img.data.as_chunks_mut::<3>().0.iter_mut().for_each(|p| p.copy_from_slice(&[200, 60, 90])));
             let back = Rgb::from_frame(&fr).unwrap().at(3, 2);
-            assert!((0..3).all(|c| (back[c] as i32 - [200, 60, 90][c] as i32).abs() <= 2), "{back:?}");
+            assert!((0..3).all(|c| (back[c] as i32 - [200, 60, 90][c]).abs() <= 2), "{back:?}");
             assert_eq!(rgb_at(&fr, 3, 2), Some(back));
         }
     }

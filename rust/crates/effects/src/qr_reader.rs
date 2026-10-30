@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use telescope_core::actions;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
 use telescope_core::host::{Host, Poster, PreviewLayer, Shape};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -169,7 +169,7 @@ pub fn area_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<
 pub fn grey_of(frame: &Frame) -> Vec<u8> {
     // A format added later that this can't read: nothing to look at
     let Some(rgb) = Rgb::from_frame(frame) else { return Vec::new() };
-    rgb.data.chunks_exact(3).map(|p| imgops::grey_of(p[0], p[1], p[2])).collect()
+    rgb.data.as_chunks::<3>().0.iter().map(|p| imgops::grey_of(p[0], p[1], p[2])).collect()
 }
 
 /// What a code's bytes came to once OpenCV had done with them: whatever bytes the decoder wrote, and whether a Kanji segment came first.

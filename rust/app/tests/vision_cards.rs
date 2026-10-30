@@ -38,7 +38,7 @@ fn astronaut() -> Vec<u8> {
 }
 
 fn frame() -> Frame {
-    let data = astronaut().chunks_exact(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+    let data = astronaut().as_chunks::<3>().0.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect();
     Frame::new(SIZE.0 as u32, SIZE.1 as u32, PixelFormat::Rgba, data)
 }
 

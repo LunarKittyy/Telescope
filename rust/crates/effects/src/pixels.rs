@@ -48,8 +48,8 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
     let format = frame.format;
     let data = frame.data_mut();
     match format {
-        PixelFormat::Rgba => data.chunks_exact_mut(4).zip(rgb.chunks_exact(3)).for_each(|(d, p)| d[..3].copy_from_slice(p)),
-        PixelFormat::Bgra => data.chunks_exact_mut(4).zip(rgb.chunks_exact(3)).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
+        PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(p)),
+        PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
         PixelFormat::I420 => {
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (luma, chroma) = data.split_at_mut(w * h);
