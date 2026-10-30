@@ -263,6 +263,8 @@ pub struct State {
     problem_titles: BTreeMap<String, String>,
     /// The added plugins that are running: they're not built in, so the Plugins tab lists them from their folder.
     pub added: Vec<PluginInfo>,
+    /// The plugins folder and the switches, from the plugin host (the settings file's switches alone without one).
+    pub admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin>,
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
@@ -297,6 +299,7 @@ pub struct State {
 
 impl State {
     pub fn new(file: ConfigFile) -> State {
+        let admin = Arc::new(crate::admin::ShellAdmin::new(file.path()));
         State {
             slots: Vec::new(),
             panels: Panels::default(),
@@ -324,6 +327,7 @@ impl State {
             problems: BTreeMap::new(),
             problem_titles: BTreeMap::new(),
             added: Vec::new(),
+            admin,
             frames: None,
             vision: None,
             upright: Arc::default(),
@@ -412,7 +416,7 @@ impl State {
     /// load_plugins for the built-in ones: all but those turned off in Plugins, never the required ones.
     pub fn load_builtins(&mut self, plugins: Vec<Box<dyn Plugin>>) {
         let cfg = self.file.load();
-        let added = crate::plugins_tab::added_names(self.file.path());
+        let added: std::collections::BTreeSet<String> = self.admin.find_installed().into_iter().map(|p| p.name).collect();
         let mut broke = Vec::new();
         for plugin in plugins {
             let info = plugin.info();
@@ -439,7 +443,7 @@ impl State {
             all.extend(broke);
             self.set_plugin_problems(&all);
         }
-        crate::settings::start_plugin_updates(self.file.path(), self.builtins.iter().map(|p| p.name.clone()).collect());
+        crate::settings::start_plugin_updates(self.admin.clone());
         self.remind_plugins_off(&cfg);
     }
 
@@ -1213,12 +1217,25 @@ mod tests {
         assert!(s.banners.issue("plugins_off").is_some());
     }
 
-    /// Writes an added plugin's folder next to the settings file, which is what makes a plugin "added".
-    fn added_folder(s: &State, name: &str) {
-        let dir = s.file.path().parent().unwrap().join("plugins").join(name);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("plugin.json"), format!("{{\"name\": \"{name}\", \"title\": \"{name}\", \"api\": 2}}")).unwrap();
-        std::fs::write(dir.join("main.lua"), "return {}\n").unwrap();
+    /// The plugin host's answer to "which plugins are added": these, all switched on.
+    struct Added(Vec<&'static str>);
+
+    impl telescope_core::plugin_admin::PluginAdmin for Added {
+        fn builtin_off(&self) -> std::collections::BTreeSet<String> { Default::default() }
+        fn set_builtin_off(&self, _: &str, _: bool) -> std::io::Result<()> { Ok(()) }
+        fn all_builtin_on(&self) -> std::io::Result<()> { Ok(()) }
+        fn optional_on(&self) -> std::collections::BTreeSet<String> { Default::default() }
+        fn set_optional_on(&self, _: &str, _: bool) -> std::io::Result<()> { Ok(()) }
+        fn switch(&self, _: &str, default: bool) -> bool { default }
+        fn set_switch(&self, _: &str, _: bool) -> std::io::Result<()> { Ok(()) }
+        fn find_installed(&self) -> Vec<telescope_core::plugin_admin::AddedPlugin> {
+            self.0.iter().map(|n| telescope_core::plugin_admin::AddedPlugin { name: n.to_string(), title: n.to_string(), enabled: true, ..Default::default() }).collect()
+        }
+    }
+
+    /// An added plugin is one the plugin host lists in the plugins folder.
+    fn added_folder(s: &mut State, name: &'static str) {
+        s.admin = Arc::new(Added(vec![name]));
     }
 
     struct Quitter;
@@ -1235,7 +1252,7 @@ mod tests {
     #[test]
     fn added_plugins_are_listed_in_the_diagnostics_as_running_or_not() {
         let mut s = state();
-        added_folder(&s, "extra");
+        added_folder(&mut s, "extra");
         s.load_builtins(vec![stub("setup", json!({}), false).0, stub("extra", json!({}), false).0]);
         assert!(s.banners.issue("plugins").is_none());
         assert_eq!(s.builtins.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["setup"]);
@@ -1248,7 +1265,7 @@ mod tests {
     #[test]
     fn an_added_plugin_that_breaks_while_starting_is_taken_back_out() {
         let mut s = state();
-        added_folder(&s, "quitter");
+        added_folder(&mut s, "quitter");
         s.load_builtins(vec![stub("setup", json!({}), false).0, Box::new(Quitter)]);
         assert!(s.index("quitter").is_none() && s.index("setup").is_some());
         assert_eq!(s.banners.issue("plugins").unwrap().title, "Quitter didn't start");

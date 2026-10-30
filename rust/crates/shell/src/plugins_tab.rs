@@ -11,13 +11,7 @@ use std::sync::{Arc, Mutex};
 use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
 use telescope_core::vision::VisionService;
-use telescope_core::config::ConfigFile;
-use telescope_plugin_host::package::{dev_plugin_folders, InstallError, PluginFolder};
-use telescope_plugin_host::switches::Switches;
-use telescope_plugin_host::switches::{AUTO_UPDATE, CHECK_UPDATES};
-use telescope_plugin_host::updater::PluginUpdater;
-use telescope_plugin_host::updates::Release;
-use telescope_plugin_host::Installed;
+use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 
 pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md";
 
@@ -33,13 +27,6 @@ pub fn group_icon(group: &str) -> &'static str {
         "streaming" => "v_stream",
         _ => "plug",
     }
-}
-
-/// The names of the plugins in the plugins folder next to the settings file, and any being written: what isn't built in.
-pub fn added_names(config_file: &Path) -> BTreeSet<String> {
-    let folder = config_file.parent().map(|p| p.join("plugins")).unwrap_or_else(|| PathBuf::from("plugins"));
-    PluginFolder::new(folder, Switches::new(ConfigFile::at(config_file)), []).with_dev_folders(dev_plugin_folders())
-        .find_installed().into_iter().map(|i| i.name).collect()
 }
 
 /// The words the settings search finds the Plugins tab and its groups by.
@@ -282,35 +269,6 @@ impl Download for NoVision {
     fn remove(&self) {}
 }
 
-/// The update check for added plugins as the tab uses it (PluginUpdater).
-pub trait UpdateCheck {
-    fn checking(&self, folder: &PluginFolder) -> bool;
-    fn auto(&self, folder: &PluginFolder) -> bool;
-    /// The release newer than the installed item that the last check found.
-    fn newer(&self, folder: &PluginFolder, item: &Installed) -> Option<Release>;
-    fn maybe_check(&mut self, folder: &PluginFolder);
-    /// The version auto-update installed this run.
-    fn updated(&self, name: &str) -> Option<String>;
-}
-
-impl UpdateCheck for PluginUpdater {
-    fn checking(&self, folder: &PluginFolder) -> bool {
-        PluginUpdater::checking(self, folder)
-    }
-    fn auto(&self, folder: &PluginFolder) -> bool {
-        PluginUpdater::auto(self, folder)
-    }
-    fn newer(&self, folder: &PluginFolder, item: &Installed) -> Option<Release> {
-        PluginUpdater::newer(self, folder, item)
-    }
-    fn maybe_check(&mut self, folder: &PluginFolder) {
-        PluginUpdater::maybe_check(self, folder);
-    }
-    fn updated(&self, name: &str) -> Option<String> {
-        self.updated.get(name).cloned()
-    }
-}
-
 /// The Check for updates and Install updates without asking switches under the Added plugins.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UpdateRows {
@@ -327,10 +285,9 @@ pub struct Panel {
     running: BTreeSet<String>,
     /// Why each added plugin that's on didn't start this time.
     problems: BTreeMap<String, String>,
-    pub folder: PluginFolder,
+    pub admin: Arc<dyn PluginAdmin>,
     download: Box<dyn Download>,
-    updater: Box<dyn UpdateCheck>,
-    pub installed: Vec<Installed>,
+    pub installed: Vec<AddedPlugin>,
     pub groups: Vec<Group>,
     pub pending: BTreeSet<String>,
     pub all_on_enabled: bool,
@@ -352,11 +309,11 @@ pub fn split_link(text: &str) -> (String, Option<Link>) {
 }
 
 impl Panel {
-    pub fn new(builtins: Vec<PluginInfo>, running: BTreeSet<String>, problems: BTreeMap<String, String>, folder: PluginFolder,
-               download: Box<dyn Download>, updater: Box<dyn UpdateCheck>) -> Panel {
+    pub fn new(builtins: Vec<PluginInfo>, running: BTreeSet<String>, problems: BTreeMap<String, String>, admin: Arc<dyn PluginAdmin>,
+               download: Box<dyn Download>) -> Panel {
         let reserved = builtins.iter().map(|p| p.name.clone()).collect();
         let mut panel = Panel {
-            builtins, reserved, running, problems, folder, download, updater, installed: vec![], groups: vec![], pending: BTreeSet::new(),
+            builtins, reserved, running, problems, admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
             all_on_enabled: false, update_rows: None, vision_group: String::new(),
         };
         panel.refresh();
@@ -377,10 +334,9 @@ impl Panel {
 
     /// Rebuilds the tiles from the switches as saved now.
     pub fn refresh(&mut self) {
-        let switches = self.folder.switches.clone();
-        let (off, on) = (switches.builtin_off(), switches.optional_on());
+        let (off, on) = (self.admin.builtin_off(), self.admin.optional_on());
         self.pending.clear();
-        self.installed = self.folder.find_installed();
+        self.installed = self.admin.find_installed();
         self.all_on_enabled = self.builtins.iter().any(|p| off.contains(&p.name) && !p.required && !p.optional);
         let mut tiles: Vec<(String, Vec<Tile>)> = PLUGIN_CATEGORIES.iter().map(|(id, _)| (id.to_string(), vec![])).collect();
         let add = |tiles: &mut Vec<(String, Vec<Tile>)>, tile: Tile| {
@@ -407,8 +363,8 @@ impl Panel {
             (!list.is_empty()).then(|| Group { id: id.to_string(), title: tr(name), tiles: list, remove_pack: mine && remove_pack, status: if mine { status.clone() } else { String::new() } })
         }).collect();
         self.update_rows = self.installed.iter().any(|i| !i.dev).then(|| {
-            let check_on = self.updater.checking(&self.folder);
-            let auto_on = check_on && self.updater.auto(&self.folder);
+            let check_on = self.admin.switch(CHECK_UPDATES, true);
+            let auto_on = check_on && self.admin.switch(AUTO_UPDATE, false);
             UpdateRows { check_on, auto_on, auto_enabled: check_on || auto_on }
         });
         let there: BTreeSet<&str> = self.installed.iter().map(|i| i.name.as_str()).collect();
@@ -506,7 +462,7 @@ impl Panel {
         }
     }
 
-    fn added_tile(&mut self, item: &Installed) -> Tile {
+    fn added_tile(&mut self, item: &AddedPlugin) -> Tile {
         let title = format!("{} {}", item.title, item.version).trim().to_string();
         let mut tile = self.base(title, item.description.clone(), "plug", category_of(&item.category), item.enabled);
         tile.name = item.name.clone();
@@ -520,9 +476,9 @@ impl Panel {
             let shown = item.repo.split_once("://").map(|(_, rest)| rest).unwrap_or(&item.repo).trim_end_matches('/').to_string();
             tile.byline_link = Some(Link { text: shown, url: item.repo.clone() });
         }
-        let release = self.updater.newer(&self.folder, item);
+        let release = if self.admin.switch(CHECK_UPDATES, true) { self.admin.newer_release(&item.name) } else { None };
         let (mut pending, mut note, mut kind) = (false, String::new(), "dim");
-        if let (Some(version), true, false) = (self.updater.updated(&item.name), item.enabled, item.changed) {
+        if let (Some(version), true, false) = (self.admin.auto_updated(&item.name), item.enabled, item.changed) {
             note = fill(&tr("Updated to {version} automatically. The new version runs after Telescope restarts."), &[("version", &version)]);
             pending = true;
         } else if !item.problem.is_empty() {
@@ -561,7 +517,7 @@ impl Panel {
     }
 
     /// A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove.
-    fn dev_tile(&self, item: &Installed) -> Tile {
+    fn dev_tile(&self, item: &AddedPlugin) -> Tile {
         let title = format!("{} {}", item.title, item.version).trim().to_string();
         let mut tile = self.base(title, item.description.clone(), "plug", category_of(&item.category), true);
         tile.name = item.name.clone();
@@ -623,7 +579,7 @@ impl Panel {
         self.groups.iter().flat_map(|g| g.tiles.iter()).find(|t| t.name == name).cloned()
     }
 
-    fn item(&self, name: &str) -> Option<Installed> {
+    fn item(&self, name: &str) -> Option<AddedPlugin> {
         self.installed.iter().find(|i| i.name == name).cloned()
     }
 
@@ -703,10 +659,10 @@ impl Panel {
     }
 
     fn install(&mut self, path: PathBuf, replace: bool) -> Step {
-        let result = self.folder.install_zip(&path, replace);
+        let result = self.admin.install_zip(&path, replace);
         let mut outcome = Outcome::default();
         let item = match result {
-            Err(InstallError::Exists(name)) => {
+            Err(InstallFailure::Exists(name)) => {
                 let old = self.installed.iter().find(|i| i.name == name && !i.dev);
                 let title = old.map(|o| format!("{} {}", o.title, o.version).trim().to_string()).unwrap_or(name);
                 self.refresh();
@@ -715,9 +671,9 @@ impl Panel {
                     tr("The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."),
                     tr("Replace"), false), Commit::Install { path, replace: true });
             }
-            Err(e) => {
+            Err(InstallFailure::Failed(why)) => {
                 self.refresh();
-                outcome.notices.push(warning("Couldn't install it", e.to_string()));
+                outcome.notices.push(warning("Couldn't install it", why));
                 return Step::Done(outcome);
             }
             Ok(item) => item,
@@ -734,9 +690,9 @@ impl Panel {
     }
 
     /// Saves a change and shows the tiles as they are now; a failure says so (_save).
-    fn save(&mut self, change: impl FnOnce(&PluginFolder) -> std::io::Result<()>) -> Outcome {
+    fn save(&mut self, change: impl FnOnce(&dyn PluginAdmin) -> std::io::Result<()>) -> Outcome {
         let mut outcome = Outcome::default();
-        if let Err(e) = change(&self.folder) {
+        if let Err(e) = change(self.admin.as_ref()) {
             log::error!("Couldn't save a plugin switch: {e}");
             outcome.notices.push(warning("Couldn't save that", fill(&tr("Telescope couldn't save the change: {error}"), &[("error", &e.to_string())])));
         }
@@ -747,25 +703,22 @@ impl Panel {
     /// Does what was asked, after any question was agreed to.
     pub fn commit(&mut self, commit: Commit) -> Outcome {
         match commit {
-            Commit::Builtin { name, on } => self.save(|f| f.switches.set_builtin_off(&name, !on)),
-            Commit::Optional { name, on } => self.save(|f| f.switches.set_optional_on(&name, on)),
+            Commit::Builtin { name, on } => self.save(|a| a.set_builtin_off(&name, !on)),
+            Commit::Optional { name, on } => self.save(|a| a.set_optional_on(&name, on)),
             Commit::DownloadThenOn { name } => {
                 self.download.start(&name);
                 self.refresh();
                 Outcome::default()
             }
             Commit::Added { name, on } => {
-                let Some(item) = self.item(&name) else { return Outcome::default() };
-                self.save(|f| f.set_enabled(&item, on))
+                self.save(|a| a.set_enabled(&name, on))
             }
-            Commit::AllOn => self.save(|f| f.switches.all_builtin_on()),
+            Commit::AllOn => self.save(|a| a.all_builtin_on()),
             Commit::Remove { name } => {
                 let mut outcome = Outcome::default();
-                if let Some(item) = self.item(&name) {
-                    if let Err(e) = self.folder.remove(&item) {
-                        log::error!("Couldn't remove plugin {name}: {e}");
-                        outcome.notices.push(warning("Couldn't remove it", fill(&tr("Telescope couldn't delete its folder: {error}"), &[("error", &e.to_string())])));
-                    }
+                if let Err(e) = self.admin.remove(&name) {
+                    log::error!("Couldn't remove plugin {name}: {e}");
+                    outcome.notices.push(warning("Couldn't remove it", fill(&tr("Telescope couldn't delete its folder: {error}"), &[("error", &e)])));
                 }
                 self.refresh();
                 outcome
@@ -780,9 +733,9 @@ impl Panel {
                 Step::Ask(..) => Outcome::default(),
             },
             Commit::Updates { key, on } => {
-                let outcome = self.save(|f| f.switches.set_switch(key, on));
+                let outcome = self.save(|a| a.set_switch(key, on));
                 if on {
-                    self.updater.maybe_check(&self.folder);
+                    self.admin.maybe_check_updates();
                 }
                 outcome
             }
@@ -804,9 +757,9 @@ impl Panel {
         }
     }
 
-    /// A newer message of the folder for the "Open plugins folder" button: made when it isn't there yet.
+    /// The folder for the "Open plugins folder" button: made when it isn't there yet.
     pub fn make_plugins_dir(&self) -> Result<PathBuf, Notice> {
-        let folder = self.folder.folder.clone();
+        let folder = self.admin.plugins_dir();
         std::fs::create_dir_all(&folder).map(|_| folder).map_err(|e| warning("Couldn't open it", fill(&tr("Telescope couldn't make its plugins folder: {error}"), &[("error", &e.to_string())])))
     }
 
@@ -826,5 +779,3 @@ impl Panel {
     }
 }
 
-#[cfg(test)]
-mod tests;

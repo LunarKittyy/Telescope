@@ -1,5 +1,6 @@
 //! The window and the stream flow. Everything it uses from other crates comes in through core's traits (Services).
 
+pub mod admin;
 pub mod banners;
 pub mod collapse;
 pub mod compile;

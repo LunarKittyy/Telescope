@@ -108,13 +108,6 @@ fn rig() -> Rig {
 }
 
 impl Rig {
-    fn num(&self, name: &str) -> f64 {
-        match self.ui.get_property(name).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{name} is {other:?}"),
-        }
-    }
-
     /// Loads folded keys the way the window does after reading its settings.
     fn load(&self, keys: &[&str]) {
         self.state.borrow_mut().load(Some(&serde_json::json!(keys)));

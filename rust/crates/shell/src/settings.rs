@@ -3,7 +3,7 @@
 //! opens, then kept.
 
 use crate::doc::{self, Piece, SectionPlace};
-use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, UpdateCheck, VisionDownload};
+use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, VisionDownload};
 use crate::search::{search_ex, Entry};
 use crate::source::{scan, to_json, to_slint};
 use crate::window::Window;
@@ -14,14 +14,11 @@ use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 use telescope_core::i18n::tr;
 use telescope_core::plugin::SETTINGS_TABS;
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent};
-use telescope_plugin_host::package::{dev_plugin_folders, PluginFolder};
-use telescope_plugin_host::switches::Switches;
-use telescope_plugin_host::updater::PluginUpdater;
-use telescope_plugin_host::updates::Release;
-use telescope_plugin_host::Installed;
+use telescope_core::plugin_admin::PluginAdmin;
 
 const FLASH_MS: u64 = 1800;
 
@@ -121,62 +118,37 @@ pub struct Settings {
 }
 
 thread_local! {
-    /// The window's one update check (the Plugins tab and the timer that runs it share it).
-    static UPDATER: Rc<RefCell<PluginUpdater>> = Rc::new(RefCell::new(PluginUpdater::app()));
-}
-
-thread_local! {
     /// The timers that run the update check (load_plugins starts them), and how many checks have finished.
     static UPDATE_TIMERS: RefCell<Vec<slint::Timer>> = const { RefCell::new(Vec::new()) };
     static CHECKED: Cell<u64> = const { Cell::new(0) };
 }
 
+/// After the app's own update check, and well clear of starting up (plugin_updater._FIRST_CHECK_MS).
+const FIRST_CHECK: std::time::Duration = std::time::Duration::from_secs(30);
+/// How often the window asks after that.
+const TICK: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+
 /// Starts the update check for added plugins: a while after start, then hourly, with the finished ones taken in as they
-/// come (PluginUpdater.start). reserved are the built-in plugins' names.
-pub fn start_plugin_updates(file: &std::path::Path, reserved: Vec<String>) {
-    use telescope_plugin_host::updater::{FIRST_CHECK, TICK};
-    let (file, folder) = (file.to_path_buf(), file.parent().map(|p| p.join("plugins")).unwrap_or_else(|| "plugins".into()));
-    let make = move || PluginFolder::new(folder.clone(), Switches::new(telescope_core::config::ConfigFile::at(&file)), reserved.clone()).with_dev_folders(dev_plugin_folders());
-    let make = Rc::new(make);
-    let check = |make: Rc<dyn Fn() -> PluginFolder>| move || UPDATER.with(|u| u.clone()).borrow_mut().maybe_check(&make());
+/// come (PluginUpdater.start).
+pub fn start_plugin_updates(admin: Arc<dyn PluginAdmin>) {
     let timers = [(slint::TimerMode::SingleShot, FIRST_CHECK), (slint::TimerMode::Repeated, TICK)].into_iter().map(|(mode, every)| {
         let timer = slint::Timer::default();
-        timer.start(mode, every, check(make.clone()));
+        let admin = admin.clone();
+        timer.start(mode, every, move || admin.maybe_check_updates());
         timer
     }).collect::<Vec<_>>();
     let poll = slint::Timer::default();
-    poll.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(5), move || { poll_updates(&make()); });
+    poll.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(5), move || { poll_updates(admin.as_ref()); });
     UPDATE_TIMERS.with(|t| *t.borrow_mut() = timers.into_iter().chain([poll]).collect());
 }
 
 /// Takes in a finished check; true when one had (the Plugins tab then shows what's newer).
-fn poll_updates(folder: &PluginFolder) -> bool {
-    let found = UPDATER.with(|u| u.clone()).borrow_mut().poll(folder);
+fn poll_updates(admin: &dyn PluginAdmin) -> bool {
+    let found = admin.poll_updates();
     if found {
         CHECKED.with(|c| c.set(c.get() + 1));
     }
     found
-}
-
-/// The window's PluginUpdater, as the tab asks about it.
-struct SharedUpdater(Rc<RefCell<PluginUpdater>>);
-
-impl UpdateCheck for SharedUpdater {
-    fn checking(&self, folder: &PluginFolder) -> bool {
-        self.0.borrow().checking(folder)
-    }
-    fn auto(&self, folder: &PluginFolder) -> bool {
-        self.0.borrow().auto(folder)
-    }
-    fn newer(&self, folder: &PluginFolder, item: &Installed) -> Option<Release> {
-        self.0.borrow().newer(folder, item)
-    }
-    fn maybe_check(&mut self, folder: &PluginFolder) {
-        self.0.borrow_mut().maybe_check(folder);
-    }
-    fn updated(&self, name: &str) -> Option<String> {
-        self.0.borrow().updated.get(name).cloned()
-    }
 }
 
 thread_local! {
@@ -255,15 +227,11 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         let state = window.state.borrow();
         let categories: std::collections::HashMap<String, String> = state.slots.iter().map(|s| (s.info.name.clone(), s.info.category.clone())).collect();
         let running = state.slots.iter().map(|s| s.info.name.clone()).collect();
-        let reserved = state.builtins.iter().map(|p| p.name.clone());
-        let folder = state.file.path().parent().map(|p| p.join("plugins")).unwrap_or_else(|| "plugins".into());
-        let folder = PluginFolder::new(folder, Switches::new(telescope_core::config::ConfigFile::at(state.file.path())), reserved).with_dev_folders(dev_plugin_folders());
         let download: Box<dyn Download> = match &state.vision {
             Some(service) => Box::new(VisionDownload::new(service.clone())),
             None => Box::new(plugins_tab::NoVision),
         };
-        let updater = Box::new(SharedUpdater(UPDATER.with(|u| u.clone())));
-        (Panel::new(state.builtins.clone(), running, state.problems.clone(), folder, download, updater), state.off.len(), categories)
+        (Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download), state.off.len(), categories)
     };
     let tabs = ordered_tabs(&sections, &Panel::tab_title(off));
     let plugins_tab = tabs.iter().position(|(id, _, _)| id == "plugins");
@@ -789,7 +757,7 @@ impl Settings {
         let weak = Rc::downgrade(self);
         self.watch.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(600), move || {
             let Some(s) = weak.upgrade() else { return };
-            poll_updates(&s.panel.borrow().folder);
+            poll_updates(s.panel.borrow().admin.as_ref());
             let sign = format!("{} {}", s.panel.borrow().download_sign(), CHECKED.with(|c| c.get()));
             if *s.seen.borrow() != sign {
                 *s.seen.borrow_mut() = sign;

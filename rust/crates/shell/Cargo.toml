@@ -18,8 +18,6 @@ i-slint-backend-testing = "=1.18.1"
 i-slint-core = "=1.18.1"
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
-# The Plugins tab lists, installs and switches added plugins
-telescope-plugin-host.workspace = true
 
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -28,6 +26,3 @@ zbus.workspace = true
 [target.'cfg(windows)'.dependencies]
 # Host::pick_file through the system's own file dialog, as Qt shows on Windows
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_Shell_Common"] }
-
-[dev-dependencies]
-zip.workspace = true

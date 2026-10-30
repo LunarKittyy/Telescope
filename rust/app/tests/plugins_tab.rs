@@ -1,13 +1,27 @@
-//! The Python tests of widgets/plugins_panel.py's model (tests/test_plugins_panel.py), named after them.
+//! The Python tests of widgets/plugins_panel.py's model (tests/test_plugins_panel.py), named after them. They run here, in the binary's
+//! crate, because the real plugins folder comes from the plugin host, which the shell never names.
 
-use super::*;
 use serde_json::{json, Value};
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeSet;
 use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use telescope_core::config::ConfigFile;
+use telescope_core::plugin::PluginInfo;
+use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, NewerRelease, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 use telescope_core::testing::scratch_dir;
+use telescope_plugin_host::admin::Admin;
+use telescope_plugin_host::package::PluginFolder;
 use telescope_plugin_host::switches::Switches;
+use telescope_plugin_host::updater::PluginUpdater;
+use telescope_plugin_host::updates::Https;
+use telescope_shell::plugins_tab::{
+    columns, split_link, Download, Filter, Link, NoticeKind, Outcome, Panel, Question, Request, Tile,
+};
 
 fn info(name: &str, title: &str) -> PluginInfo {
     PluginInfo { name: name.into(), title: title.into(), about: format!("What {title} does."), when_off: format!("The {title} card goes away."), ..Default::default() }
@@ -27,6 +41,30 @@ fn names(list: &[PluginInfo]) -> BTreeSet<String> {
     list.iter().map(|p| p.name.clone()).collect()
 }
 
+/// The plugin host's admin, except that the last update check found `release` for every plugin and checking asks nobody.
+struct Tested {
+    inner: Admin,
+    release: Option<NewerRelease>,
+    checks: Arc<AtomicU32>,
+}
+
+impl PluginAdmin for Tested {
+    fn builtin_off(&self) -> BTreeSet<String> { self.inner.builtin_off() }
+    fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()> { self.inner.set_builtin_off(name, off) }
+    fn all_builtin_on(&self) -> io::Result<()> { self.inner.all_builtin_on() }
+    fn optional_on(&self) -> BTreeSet<String> { self.inner.optional_on() }
+    fn set_optional_on(&self, name: &str, on: bool) -> io::Result<()> { self.inner.set_optional_on(name, on) }
+    fn switch(&self, key: &str, default: bool) -> bool { self.inner.switch(key, default) }
+    fn set_switch(&self, key: &str, on: bool) -> io::Result<()> { self.inner.set_switch(key, on) }
+    fn plugins_dir(&self) -> PathBuf { self.inner.plugins_dir() }
+    fn find_installed(&self) -> Vec<AddedPlugin> { self.inner.find_installed() }
+    fn set_enabled(&self, name: &str, on: bool) -> io::Result<()> { self.inner.set_enabled(name, on) }
+    fn install_zip(&self, archive: &Path, replace: bool) -> Result<AddedPlugin, InstallFailure> { self.inner.install_zip(archive, replace) }
+    fn remove(&self, name: &str) -> Result<(), String> { self.inner.remove(name) }
+    fn newer_release(&self, _name: &str) -> Option<NewerRelease> { self.release.clone().filter(|_| self.inner.switch(CHECK_UPDATES, true)) }
+    fn maybe_check_updates(&self) { self.checks.fetch_add(1, Ordering::SeqCst); }
+}
+
 /// The download double of the Python tests: start() finishes at once.
 #[derive(Clone)]
 struct FakeDownload {
@@ -35,7 +73,7 @@ struct FakeDownload {
     error: String,
     started: Rc<RefCell<Vec<String>>>,
     removed: Rc<Cell<u32>>,
-    switches: Switches,
+    admin: Arc<dyn PluginAdmin>,
 }
 
 impl Download for FakeDownload {
@@ -51,7 +89,7 @@ impl Download for FakeDownload {
         self.started.borrow_mut().push(switch_on.into());
         if self.error.is_empty() {
             self.ready.set(true);
-            self.switches.set_optional_on(switch_on, true).unwrap();
+            self.admin.set_optional_on(switch_on, true).unwrap();
         }
     }
     fn remove(&self) {
@@ -60,45 +98,51 @@ impl Download for FakeDownload {
     }
 }
 
-/// An updater whose last check found a release for every plugin, without asking anyone.
-struct FakeUpdater {
-    release: Option<Release>,
-    checks: Rc<Cell<u32>>,
-}
+/// A download that's there already, for the tests that aren't about it.
+struct NoDownload;
 
-impl UpdateCheck for FakeUpdater {
-    fn checking(&self, folder: &PluginFolder) -> bool { folder.switches.switch(CHECK_UPDATES, true) }
-    fn auto(&self, folder: &PluginFolder) -> bool { self.checking(folder) && folder.switches.switch(AUTO_UPDATE, false) }
-    fn newer(&self, folder: &PluginFolder, _item: &Installed) -> Option<Release> { self.release.clone().filter(|_| self.checking(folder)) }
-    fn maybe_check(&mut self, _folder: &PluginFolder) { self.checks.set(self.checks.get() + 1); }
-    fn updated(&self, _name: &str) -> Option<String> { None }
+impl Download for NoDownload {
+    fn ready(&self) -> bool { true }
+    fn available(&self) -> bool { true }
+    fn running(&self) -> bool { false }
+    fn size_mb(&self) -> u64 { 1 }
+    fn waiting(&self) -> String { String::new() }
+    fn error(&self) -> String { String::new() }
+    fn failed_for(&self) -> String { String::new() }
+    fn progress(&self) -> (u64, u64) { (0, 0) }
+    fn start(&self, _: &str) {}
+    fn remove(&self) {}
 }
 
 struct Rig {
     panel: Panel,
-    folder: PluginFolder,
+    admin: Arc<Tested>,
     download: FakeDownload,
-    checks: Rc<Cell<u32>>,
+    checks: Arc<AtomicU32>,
+    plugins: PathBuf,
     root: PathBuf,
 }
 
-fn plugins_folder() -> (PathBuf, PluginFolder) {
-    let root = scratch_dir("plugins-panel");
-    let folder = root.join("plugins");
-    fs::create_dir(&folder).unwrap();
+const RESERVED: [&str; 9] = ["connection", "camera_control", "presets", "framing", "background", "zoom_tool", "alpha", "echo", "lost"];
+
+/// A plugins folder next to a settings file, as the app has them, and its admin.
+fn admin_in(root: &Path, dev: Vec<PathBuf>, release: Option<NewerRelease>, checks: Arc<AtomicU32>) -> (PathBuf, Arc<Tested>) {
+    let plugins = root.join("plugins");
+    fs::create_dir_all(&plugins).unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).unwrap();
-        fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(root, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(&plugins, fs::Permissions::from_mode(0o755)).unwrap();
     }
-    let found = PluginFolder::new(folder, Switches::new(ConfigFile::at(root.join("telescope_config.json"))), ["connection".to_string(), "camera_control".into(), "presets".into(), "framing".into(), "background".into(), "zoom_tool".into(), "alpha".into(), "echo".into(), "lost".into()]);
-    (root, found)
+    let folder = PluginFolder::new(plugins.clone(), Switches::new(ConfigFile::at(root.join("telescope_config.json"))), RESERVED.map(String::from)).with_dev_folders(dev);
+    let updater = PluginUpdater::new(root.join("plugin-updates.json"), Arc::new(Https));
+    (plugins, Arc::new(Tested { inner: Admin::new(folder, updater), release, checks }))
 }
 
 /// Writes an added plugin: a plugin.json with extra keys, and a main.lua.
-fn added(folder: &PluginFolder, name: &str, extra: Value) -> PathBuf {
-    let target = folder.folder.join(name);
+fn added(plugins: &Path, name: &str, extra: Value) -> PathBuf {
+    let target = plugins.join(name);
     fs::create_dir(&target).unwrap();
     let mut manifest = json!({"name": name, "title": name[..1].to_uppercase() + &name[1..], "api": 2});
     for (k, v) in extra.as_object().into_iter().flatten() {
@@ -109,28 +153,22 @@ fn added(folder: &PluginFolder, name: &str, extra: Value) -> PathBuf {
     target
 }
 
-/// Another handle on the same plugins folder and settings, for the test to look at while the panel has its own.
-fn again(folder: &PluginFolder) -> PluginFolder {
-    PluginFolder::new(folder.folder.clone(), folder.switches.clone(), folder.reserved.clone()).with_dev_folders(folder.dev_folders.clone())
-}
-
 fn rig_with(list: Vec<PluginInfo>, running: &[&str], problems: &[(&str, &str)], download: impl FnOnce(&mut FakeDownload),
-            release: Option<Release>, setup: impl FnOnce(&PluginFolder)) -> Rig {
-    let (root, folder) = plugins_folder();
-    setup(&folder);
-    let mut dl = FakeDownload {
-        ready: Rc::new(Cell::new(false)), available: true, error: String::new(), started: Rc::default(), removed: Rc::default(), switches: folder.switches.clone(),
-    };
+            release: Option<NewerRelease>, setup: impl FnOnce(&Path, &dyn PluginAdmin)) -> Rig {
+    let root = scratch_dir("plugins-panel");
+    let checks = Arc::new(AtomicU32::new(0));
+    let (plugins, admin) = admin_in(&root, Vec::new(), release, checks.clone());
+    setup(&plugins, admin.as_ref());
+    let mut dl = FakeDownload { ready: Rc::new(Cell::new(false)), available: true, error: String::new(), started: Rc::default(), removed: Rc::default(), admin: admin.clone() };
     download(&mut dl);
-    let checks = Rc::new(Cell::new(0));
     let running = running.iter().map(|s| s.to_string()).collect();
     let problems = problems.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-    let panel = Panel::new(list, running, problems, again(&folder), Box::new(dl.clone()), Box::new(FakeUpdater { release, checks: checks.clone() }));
-    Rig { panel, folder, download: dl, checks, root }
+    let panel = Panel::new(list, running, problems, admin.clone(), Box::new(dl.clone()));
+    Rig { panel, admin, download: dl, checks, plugins, root }
 }
 
 fn rig(list: Vec<PluginInfo>, running: &[&str]) -> Rig {
-    rig_with(list, running, &[], |_| {}, None, |_| {})
+    rig_with(list, running, &[], |_| {}, None, |_, _| {})
 }
 
 fn all_running() -> Vec<&'static str> {
@@ -167,6 +205,10 @@ fn zip_of(folder: &Path, name: &str, path: &Path) {
     zip.finish().unwrap();
 }
 
+fn off(r: &Rig) -> Vec<String> {
+    r.admin.builtin_off().into_iter().collect()
+}
+
 #[test]
 fn switching_off_asks_first_names_what_goes_and_waits_for_a_restart() {
     let mut r = rig(builtins(), &all_running());
@@ -175,38 +217,38 @@ fn switching_off_asks_first_names_what_goes_and_waits_for_a_restart() {
     assert!(r.panel.pending_changes() == 0);
     let mut asked = vec![];
     flip(&mut r, "presets", false, &mut |q| { asked.push(q.clone()); false });
-    assert!(r.folder.switches.builtin_off().is_empty() && tile(&r.panel, "Presets").on);
+    assert!(r.admin.builtin_off().is_empty() && tile(&r.panel, "Presets").on);
     flip(&mut r, "presets", false, &mut |q| { asked.push(q.clone()); true });
-    assert_eq!(r.folder.switches.builtin_off().into_iter().collect::<Vec<_>>(), ["presets"]);
+    assert_eq!(off(&r), ["presets"]);
     let last = asked.last().unwrap();
     assert!(last.title == "Switch off Presets?" && last.text.contains("The Presets card goes away.") && last.text.contains("settings stay saved"));
     assert_eq!(r.panel.pending_changes(), 1);
     assert_eq!(r.panel.footer_note(), "Restart to apply 1 change");
     assert!(labels(&r.panel).contains(&"Waits for a restart".to_string()));
     flip(&mut r, "presets", true, &mut yes);
-    assert!(r.folder.switches.builtin_off().is_empty() && r.panel.pending_changes() == 0);
+    assert!(r.admin.builtin_off().is_empty() && r.panel.pending_changes() == 0);
 }
 
 #[test]
 fn switching_on_an_added_plugin_warns_about_trust() {
     let mut r = rig(builtins(), &all_running());
-    added(&r.folder, "extra", json!({}));
+    added(&r.plugins, "extra", json!({}));
     r.panel.refresh();
     let mut asked = vec![];
     flip(&mut r, "extra", true, &mut |q| { asked.push(q.clone()); true });
     let q = asked.last().unwrap();
     assert!(q.title == "Switch on Extra?" && q.text.contains("trust") && q.danger);
-    assert!(r.folder.find_installed()[0].enabled && r.panel.pending_changes() == 1);
+    assert!(r.admin.find_installed()[0].enabled && r.panel.pending_changes() == 1);
 }
 
 #[test]
 fn turn_all_back_on() {
     let mut r = rig(builtins(), &["connection", "camera_control"]);
-    r.folder.switches.set_builtin_off("presets", true).unwrap();
+    r.admin.set_builtin_off("presets", true).unwrap();
     r.panel.refresh();
     assert!(r.panel.all_on_enabled);
     r.panel.run(Request::AllOn, &mut yes);
-    assert!(r.folder.switches.builtin_off().is_empty() && !r.panel.all_on_enabled);
+    assert!(r.admin.builtin_off().is_empty() && !r.panel.all_on_enabled);
 }
 
 #[test]
@@ -226,74 +268,54 @@ fn restart_now_restarts() {
 
 #[test]
 fn a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies() {
-    let (_root, folder) = plugins_folder();
-    added(&folder, "extra", json!({}));
-    folder.set_enabled(&folder.find_installed()[0], true).unwrap();
     let list = builtins();
-    let running = names(&list);
-    let problems = [("extra".to_string(), "RuntimeError: no card today".to_string())].into_iter().collect();
-    let panel = Panel::new(list, running, problems, folder, Box::new(NoDownload), Box::new(FakeUpdater { release: None, checks: Rc::default() }));
-    assert_eq!(panel.pending_changes(), 1);
+    let running: Vec<&str> = vec!["connection", "camera_control", "presets"];
+    let r = rig_with(list, &running, &[("extra", "RuntimeError: no card today")], |_| {}, None, |plugins, admin| {
+        added(plugins, "extra", json!({}));
+        admin.set_enabled("extra", true).unwrap();
+    });
+    assert_eq!(r.panel.pending_changes(), 1);
     // And it says why on its tile
-    assert!(labels(&panel).iter().any(|t| t.contains("It didn't start (RuntimeError: no card today).")));
-}
-
-/// A download that's there already, for the tests that aren't about it.
-struct NoDownload;
-
-impl Download for NoDownload {
-    fn ready(&self) -> bool { true }
-    fn available(&self) -> bool { true }
-    fn running(&self) -> bool { false }
-    fn size_mb(&self) -> u64 { 1 }
-    fn waiting(&self) -> String { String::new() }
-    fn error(&self) -> String { String::new() }
-    fn failed_for(&self) -> String { String::new() }
-    fn progress(&self) -> (u64, u64) { (0, 0) }
-    fn start(&self, _: &str) {}
-    fn remove(&self) {}
+    assert!(labels(&r.panel).iter().any(|t| t.contains("It didn't start (RuntimeError: no card today).")));
 }
 
 #[test]
 fn a_plugin_that_didnt_start_says_why_in_the_list() {
-    let r = rig_with(builtins(), &[], &[("extra", "RuntimeError: no card today")], |_| {}, None, |f| {
-        added(f, "extra", json!({}));
-        f.set_enabled(&f.find_installed()[0], true).unwrap();
+    let r = rig_with(builtins(), &[], &[("extra", "RuntimeError: no card today")], |_| {}, None, |plugins, admin| {
+        added(plugins, "extra", json!({}));
+        admin.set_enabled("extra", true).unwrap();
     });
     assert!(labels(&r.panel).iter().any(|t| t.contains("It didn't start (RuntimeError: no card today).")));
-    let extra = tile(&r.panel, "Extra");
-    assert_eq!(extra.note_kind, "status_err");
+    assert_eq!(tile(&r.panel, "Extra").note_kind, "status_err");
 }
 
 #[test]
 fn one_thats_on_can_be_switched_off_even_with_a_problem() {
-    let (_root, folder) = plugins_folder();
-    let path = added(&folder, "extra", json!({}));
-    folder.set_enabled(&folder.find_installed()[0], true).unwrap();
-    let manifest = fs::read_to_string(path.join("plugin.json")).unwrap().replace("\"api\":2", "\"api\":99");
-    fs::write(path.join("plugin.json"), manifest).unwrap();
-    folder.set_enabled(&folder.find_installed()[0], true).unwrap(); // on, as this version
     let list = builtins();
-    let running = names(&list).into_iter().chain(["extra".to_string()]).collect();
-    let mut panel = Panel::new(list, running, Default::default(), again(&folder), Box::new(NoDownload), Box::new(FakeUpdater { release: None, checks: Rc::default() }));
-    let extra = tile(&panel, "Extra");
+    let running: Vec<&str> = vec!["connection", "camera_control", "presets", "extra"];
+    let mut r = rig_with(list, &running, &[], |_| {}, None, |plugins, admin| {
+        let path = added(plugins, "extra", json!({}));
+        admin.set_enabled("extra", true).unwrap();
+        let manifest = fs::read_to_string(path.join("plugin.json")).unwrap().replace("\"api\":2", "\"api\":99");
+        fs::write(path.join("plugin.json"), manifest).unwrap();
+        admin.set_enabled("extra", true).unwrap(); // on, as this version
+    });
+    let extra = tile(&r.panel, "Extra");
     assert!(extra.enabled && extra.on);
-    panel.run(Request::Switch { name: "extra".into(), on: false }, &mut yes);
-    assert!(!folder.find_installed()[0].enabled);
+    r.panel.run(Request::Switch { name: "extra".into(), on: false }, &mut yes);
+    assert!(!r.admin.find_installed()[0].enabled);
 }
 
 #[test]
 fn a_plugin_being_written_shows_where_its_from_with_nothing_to_switch() {
-    let (root, folder) = plugins_folder();
+    let root = scratch_dir("plugins-panel-dev");
     let work = root.join("work");
     fs::create_dir(&work).unwrap();
-    let writing = PluginFolder::new(work.clone(), folder.switches.clone(), ["connection".to_string()]);
-    let mine = added(&writing, "mine", json!({}));
-    let folder = folder.with_dev_folders(vec![mine.clone()]);
-    let mut list = builtins();
-    list.truncate(3);
+    let mine = added(&work, "mine", json!({}));
+    let (_, admin) = admin_in(&root, vec![mine.clone()], None, Arc::default());
+    let list = builtins();
     let running = names(&list).into_iter().chain(["mine".to_string()]).collect();
-    let panel = Panel::new(list, running, Default::default(), folder, Box::new(NoDownload), Box::new(FakeUpdater { release: None, checks: Rc::default() }));
+    let panel = Panel::new(list, running, Default::default(), admin, Box::new(NoDownload));
     let mine_tile = tile(&panel, "Mine");
     assert!(!mine_tile.enabled && mine_tile.locked && !mine_tile.added);
     assert!(mine_tile.note.starts_with(&format!("Loaded from {} by dev_desktop.py.", mine.display())));
@@ -311,13 +333,13 @@ fn switching_one_on_asks_to_download_first_then_switches_it_on() {
     assert_eq!(group.tiles[0].badges[0].text, "Needs the vision download");
     let mut asked = vec![];
     flip(&mut r, "framing", true, &mut |q| { asked.push(q.clone()); false });
-    assert!(r.download.started.borrow().is_empty() && r.folder.switches.optional_on().is_empty());
+    assert!(r.download.started.borrow().is_empty() && r.admin.optional_on().is_empty());
     assert!(!tile(&r.panel, "Auto framing").on);
     flip(&mut r, "framing", true, &mut |q| { asked.push(q.clone()); true });
     let q = asked.last().unwrap();
     assert!(q.title == "Download about 47 MB?" && q.text.contains("MediaPipe") && q.yes == "Download and switch on");
     assert_eq!(*r.download.started.borrow(), ["framing"]);
-    assert_eq!(r.folder.switches.optional_on().into_iter().collect::<Vec<_>>(), ["framing"]);
+    assert_eq!(r.admin.optional_on().into_iter().collect::<Vec<_>>(), ["framing"]);
     assert!(tile(&r.panel, "Auto framing").on && r.panel.pending_changes() == 1);
     assert!(!r.panel.groups.iter().find(|g| g.id == "vision").unwrap().remove_pack); // something uses it
 }
@@ -326,13 +348,13 @@ fn switching_one_on_asks_to_download_first_then_switches_it_on() {
 fn with_the_download_there_switching_on_is_just_a_switch() {
     let mut list = builtins();
     list.extend([optional("framing", "Auto framing"), optional("background", "Background")]);
-    let mut r = rig_with(list, &["connection"], &[], |d| d.ready.set(true), None, |_| {});
+    let mut r = rig_with(list, &["connection"], &[], |d| d.ready.set(true), None, |_, _| {});
     let mut asked = 0;
     flip(&mut r, "background", true, &mut |_| { asked += 1; true });
     assert!(asked == 0 && r.download.started.borrow().is_empty());
-    assert_eq!(r.folder.switches.optional_on().into_iter().collect::<Vec<_>>(), ["background"]);
+    assert_eq!(r.admin.optional_on().into_iter().collect::<Vec<_>>(), ["background"]);
     flip(&mut r, "background", false, &mut yes);
-    assert!(r.folder.switches.optional_on().is_empty());
+    assert!(r.admin.optional_on().is_empty());
     assert!(r.panel.groups.iter().find(|g| g.id == "vision").unwrap().remove_pack);
     r.panel.run(Request::RemovePack, &mut yes);
     assert_eq!(r.download.removed.get(), 1);
@@ -342,9 +364,9 @@ fn with_the_download_there_switching_on_is_just_a_switch() {
 fn a_failed_download_leaves_it_off_and_says_why() {
     let mut list = builtins();
     list.push(optional("framing", "Auto framing"));
-    let mut r = rig_with(list, &["connection"], &[], |d| d.error = "The download failed. Check the internet connection and try again.".into(), None, |_| {});
+    let mut r = rig_with(list, &["connection"], &[], |d| d.error = "The download failed. Check the internet connection and try again.".into(), None, |_, _| {});
     flip(&mut r, "framing", true, &mut yes);
-    assert!(r.folder.switches.optional_on().is_empty() && !tile(&r.panel, "Auto framing").on);
+    assert!(r.admin.optional_on().is_empty() && !tile(&r.panel, "Auto framing").on);
     assert!(labels(&r.panel).iter().any(|t| t.starts_with("The download didn't work. The download failed.")));
 }
 
@@ -352,7 +374,7 @@ fn a_failed_download_leaves_it_off_and_says_why() {
 fn without_a_pack_for_this_computer_it_cant_be_switched_on() {
     let mut list = builtins();
     list.push(optional("framing", "Auto framing"));
-    let r = rig_with(list, &["connection"], &[], |d| d.available = false, None, |_| {});
+    let r = rig_with(list, &["connection"], &[], |d| d.available = false, None, |_, _| {});
     assert!(!tile(&r.panel, "Auto framing").enabled);
     assert_eq!(r.panel.groups.iter().find(|g| g.id == "vision").unwrap().status, "There's no vision download for this computer yet.");
 }
@@ -360,11 +382,10 @@ fn without_a_pack_for_this_computer_it_cant_be_switched_on() {
 #[test]
 fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     let mut r = rig(builtins(), &["connection", "camera_control", "presets", "extra"]);
-    added(&r.folder, "extra", json!({"version": "1.0"}));
-    r.folder.set_enabled(&r.folder.find_installed()[0], true).unwrap();
+    added(&r.plugins, "extra", json!({"version": "1.0"}));
+    r.admin.set_enabled("extra", true).unwrap();
     let newer = scratch_dir("newer");
-    let other = PluginFolder::new(newer.clone(), Switches::default(), []);
-    added(&other, "extra", json!({"version": "1.1"}));
+    added(&newer, "extra", json!({"version": "1.1"}));
     let archive = r.root.join("extra.zip");
     zip_of(&newer, "extra", &archive);
     r.panel.refresh();
@@ -372,10 +393,10 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     let mut asked = vec![];
     r.panel.run(Request::Install { path: archive.clone() }, &mut |q| { asked.push(q.clone()); false });
     assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("same settings"));
-    assert_eq!(r.folder.find_installed()[0].version, "1.0"); // cancelled: untouched
+    assert_eq!(r.admin.find_installed()[0].version, "1.0"); // cancelled: untouched
 
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);
-    let item = &r.folder.find_installed()[0];
+    let item = &r.admin.find_installed()[0];
     assert!(item.version == "1.1" && !item.enabled);
     let note = &outcome.notices[0];
     assert!(note.kind == NoticeKind::Info && note.title == "Replaced" && note.text.contains("Extra 1.1"));
@@ -391,7 +412,7 @@ fn a_zip_that_isnt_one_says_so_and_a_new_one_says_where_it_goes() {
     let outcome = r.panel.run(Request::Install { path: bad }, &mut yes);
     assert!(outcome.notices[0].title == "Couldn't install it" && outcome.notices[0].kind == NoticeKind::Warning);
     let source = scratch_dir("fresh");
-    added(&PluginFolder::new(source.clone(), Switches::default(), []), "fresh", json!({}));
+    added(&source, "fresh", json!({}));
     let archive = r.root.join("fresh.zip");
     zip_of(&source, "fresh", &archive);
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);
@@ -402,8 +423,8 @@ fn a_zip_that_isnt_one_says_so_and_a_new_one_says_where_it_goes() {
 
 #[test]
 fn the_repo_shows_as_a_link_next_to_the_author() {
-    let r = rig_with(builtins(), &[], &[], |_| {}, None, |f| {
-        added(f, "extra", json!({"author": "Someone <b>", "description": "Does things.", "repo": "https://github.com/someone/extra"}));
+    let r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| {
+        added(plugins, "extra", json!({"author": "Someone <b>", "description": "Does things.", "repo": "https://github.com/someone/extra"}));
     });
     assert!(labels(&r.panel).contains(&"Does things.".to_string()));
     let extra = tile(&r.panel, "Extra");
@@ -413,40 +434,40 @@ fn the_repo_shows_as_a_link_next_to_the_author() {
 
 #[test]
 fn a_newer_release_is_mentioned_with_a_link_to_it() {
-    let release = Release { tag: "v1.1".into(), page: "https://github.com/someone/extra/releases/tag/v1.1".into(), assets: vec![] };
-    let mut r = rig_with(builtins(), &[], &[], |_| {}, Some(release.clone()), |f| {
-        added(f, "extra", json!({"version": "1.0", "repo": "https://github.com/someone/extra"}));
+    let release = NewerRelease { tag: "v1.1".into(), page: "https://github.com/someone/extra/releases/tag/v1.1".into() };
+    let mut r = rig_with(builtins(), &[], &[], |_| {}, Some(release.clone()), |plugins, _| {
+        added(plugins, "extra", json!({"version": "1.0", "repo": "https://github.com/someone/extra"}));
     });
     let extra = tile(&r.panel, "Extra 1.0").clone();
     assert!(extra.note.contains("Version v1.1 is out.") && extra.note_kind == "status_warn");
     assert_eq!(extra.note_link, Some(Link { text: "Download it from its release page".into(), url: release.page }));
     r.panel.run(Request::CheckUpdates(false), &mut yes);
-    assert!(!r.folder.switches.switch(CHECK_UPDATES, true));
+    assert!(!r.admin.switch(CHECK_UPDATES, true));
     assert!(!labels(&r.panel).iter().any(|t| t.contains("Version v1.1")));
 }
 
 #[test]
 fn the_auto_update_switch_is_red_warns_and_asks_first() {
-    let mut r = rig_with(builtins(), &[], &[], |_| {}, None, |f| { added(f, "extra", json!({})); });
+    let mut r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| { added(plugins, "extra", json!({})); });
     let rows = r.panel.update_rows.clone().unwrap();
     assert!(!rows.auto_on && rows.auto_enabled && rows.check_on);
     let mut asked = vec![];
     r.panel.run(Request::AutoUpdate(true), &mut |q| { asked.push(q.clone()); false });
     assert!(asked[0].danger && asked[0].text.contains("every time they publish a release"));
-    assert!(!r.panel.update_rows.clone().unwrap().auto_on && !r.folder.switches.switch(AUTO_UPDATE, false));
+    assert!(!r.panel.update_rows.clone().unwrap().auto_on && !r.admin.switch(AUTO_UPDATE, false));
     r.panel.run(Request::AutoUpdate(true), &mut yes);
-    assert!(r.folder.switches.switch(AUTO_UPDATE, false) && r.checks.get() == 1);
+    assert!(r.admin.switch(AUTO_UPDATE, false) && r.checks.load(Ordering::SeqCst) == 1);
     assert!(r.panel.update_rows.clone().unwrap().auto_on);
     let count = asked.len();
     r.panel.run(Request::AutoUpdate(false), &mut |q| { asked.push(q.clone()); true }); // off again without asking
-    assert!(asked.len() == count && !r.folder.switches.switch(AUTO_UPDATE, true));
+    assert!(asked.len() == count && !r.admin.switch(AUTO_UPDATE, true));
 }
 
 #[test]
 fn without_the_check_the_auto_switch_cant_go_on() {
-    let r = rig_with(builtins(), &[], &[], |_| {}, None, |f| {
-        added(f, "extra", json!({}));
-        f.switches.set_switch(CHECK_UPDATES, false).unwrap();
+    let r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, admin| {
+        added(plugins, "extra", json!({}));
+        admin.set_switch(CHECK_UPDATES, false).unwrap();
     });
     let rows = r.panel.update_rows.unwrap();
     assert!(!rows.auto_enabled && !rows.check_on);
@@ -481,13 +502,13 @@ fn tiles_are_grouped_by_category_and_sorted_by_name() {
 #[test]
 fn the_filter_shows_the_ones_on_or_off() {
     let mut r = rig(grouped(), &[]);
-    r.folder.switches.set_builtin_off("presets", true).unwrap();
-    r.folder.switches.set_builtin_off("echo", true).unwrap();
+    r.admin.set_builtin_off("presets", true).unwrap();
+    r.admin.set_builtin_off("echo", true).unwrap();
     r.panel.refresh();
     assert_eq!(r.panel.shown_tiles("", Filter::Off), ["Echo", "Presets"]);
     assert_eq!(r.panel.shown_tiles("", Filter::On), ["Alpha", "Zoom tool", "Camera", "Connection", "Lost"]); // a required one is on
     assert!(r.panel.shown_tiles("echo", Filter::On).is_empty() && Panel::empty_note("echo", Filter::On) == "No plugins match “echo”.");
-    r.folder.switches.all_builtin_on().unwrap();
+    r.admin.all_builtin_on().unwrap();
     r.panel.refresh();
     assert!(r.panel.shown_tiles("", Filter::Off).is_empty());
     assert_eq!(Panel::empty_note("", Filter::Off), "Every plugin is switched on.");
@@ -506,7 +527,7 @@ fn the_search_finds_by_name_and_description() {
 
 #[test]
 fn the_search_finds_an_added_plugin_by_its_author() {
-    let r = rig_with(builtins(), &[], &[], |_| {}, None, |f| { added(f, "extra", json!({"author": "Ada Lovelace"})); });
+    let r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| { added(plugins, "extra", json!({"author": "Ada Lovelace"})); });
     assert_eq!(r.panel.shown_tiles("lovelace", Filter::All), ["Extra"]);
 }
 
@@ -541,9 +562,9 @@ fn required_plugins_are_locked_on_and_say_so() {
 
 #[test]
 fn an_added_plugin_goes_in_the_group_its_plugin_json_names() {
-    let r = rig_with(builtins(), &[], &[], |_| {}, None, |f| {
-        added(f, "extra", json!({"category": "sound"}));
-        added(f, "other", json!({"category": "made_up"}));
+    let r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| {
+        added(plugins, "extra", json!({"category": "sound"}));
+        added(plugins, "other", json!({"category": "made_up"}));
     });
     let group = |id: &str| r.panel.groups.iter().find(|g| g.id == id).unwrap().tiles.iter().map(|t| t.title.clone()).collect::<Vec<_>>();
     assert_eq!(group("sound"), ["Extra"]);
@@ -562,12 +583,12 @@ fn a_dropped_file_has_to_be_one_zip() {
 
 #[test]
 fn removing_one_asks_and_deletes_its_folder() {
-    let mut r = rig_with(builtins(), &[], &[], |_| {}, None, |f| { added(f, "extra", json!({})); });
+    let mut r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| { added(plugins, "extra", json!({})); });
     let mut asked = vec![];
     r.panel.run(Request::Remove { name: "extra".into() }, &mut |q| { asked.push(q.clone()); false });
-    assert!(r.folder.folder.join("extra").is_dir());
+    assert!(r.plugins.join("extra").is_dir());
     r.panel.run(Request::Remove { name: "extra".into() }, &mut |q| { asked.push(q.clone()); true });
-    assert!(!r.folder.folder.join("extra").exists() && r.panel.installed.is_empty());
+    assert!(!r.plugins.join("extra").exists() && r.panel.installed.is_empty());
     assert!(asked[0].title == "Remove Extra?" && asked[0].danger && asked[0].text.contains("(extra)"));
 }
 
