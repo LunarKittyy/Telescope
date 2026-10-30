@@ -13,6 +13,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use unicode_bidi::{bidi_class, BidiClass, BidiInfo, Level};
+use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// The two weights the app draws with.
@@ -172,6 +173,22 @@ fn takes_neighbours_font(ch: char) -> bool {
     matches!(bidi_class(ch), WS | ON | CS | ES | ET | S | B | NSM | BN)
 }
 
+/// The script each character is written in: spaces, punctuation, digits and marks (Common and Inherited) take the script of the
+/// letter before them, or of the first letter after them when the text starts with some.
+fn script_runs(chars: impl Iterator<Item = char>) -> Vec<Script> {
+    let mut scripts: Vec<Script> = chars.map(|c| c.script()).collect();
+    let plain = |s: Script| s == Script::Common || s == Script::Inherited;
+    let mut before = scripts.iter().copied().find(|&s| !plain(s)).unwrap_or(Script::Common);
+    for s in scripts.iter_mut() {
+        if plain(*s) {
+            *s = before;
+        } else {
+            before = *s;
+        }
+    }
+    scripts
+}
+
 /// Marks and joiners that belong to the letter before them.
 fn is_mark(ch: char) -> bool {
     matches!(bidi_class(ch), BidiClass::NSM | BidiClass::BN)
@@ -238,7 +255,8 @@ impl Face {
         if self.fallbacks { fallback_for(ch, self.heavy) } else { None }
     }
 
-    /// `run` split into stretches that one font covers, in text order. A space or a mark stays in its neighbours' font when that
+    /// `run` split into stretches that one font covers and one script writes, in text order (Qt itemizes by script too, so Hebrew
+    /// followed by Arabic is shaped as each, not both as the first). A space or a mark stays in its neighbours' font when that
     /// has it, so one Arabic phrase is not cut into a piece per word.
     fn pieces(&self, text: &str, run: Range<usize>) -> Vec<(Range<usize>, FontArc)> {
         let chars: Vec<(usize, char)> = text[run.clone()].char_indices().map(|(i, c)| (run.start + i, c)).collect();
@@ -253,7 +271,9 @@ impl Face {
             }
             ahead[i] = next;
         }
+        let scripts = script_runs(chars.iter().map(|&(_, c)| c));
         let mut out: Vec<(Range<usize>, FontArc)> = Vec::new();
+        let mut last_script = None;
         let mut cur: Option<FontArc> = None;
         for (i, &(at, ch)) in chars.iter().enumerate() {
             let font = if weak[i] {
@@ -266,9 +286,10 @@ impl Face {
             cur = Some(font.clone());
             let end = at + ch.len_utf8();
             match out.last_mut() {
-                Some((range, last)) if last.same(&font) => range.end = end,
+                Some((range, last)) if last.same(&font) && last_script == Some(scripts[i]) => range.end = end,
                 _ => out.push((at..end, font)),
             }
+            last_script = Some(scripts[i]);
         }
         out
     }

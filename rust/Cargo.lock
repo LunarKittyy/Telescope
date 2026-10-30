@@ -4820,6 +4820,7 @@ dependencies = [
  "serde_json",
  "unicode-bidi",
  "unicode-joining-type",
+ "unicode-script",
  "unicode-segmentation",
 ]
 

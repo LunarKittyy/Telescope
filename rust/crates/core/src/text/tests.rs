@@ -151,6 +151,22 @@ fn arabic_letters_join() {
 }
 
 #[test]
+fn a_run_is_shaped_in_the_script_of_its_letters_not_of_the_run_before() {
+    // Hebrew then Arabic: one right to left run, and when one fallback font covers both, one font piece too. Qt itemizes by script,
+    // so the Arabic letters still join (probed: their glyphs are the initial, medial and final forms)
+    let text = "\u{5e9}\u{5dc}\u{5d5}\u{5dd} \u{633}\u{644}\u{645}";
+    let Some(f) = face_with(40.0, text, "Hebrew then Arabic") else { return };
+    let own: Vec<u16> = "\u{633}\u{644}\u{645}".chars().map(|c| nominal(&f, c)).collect();
+    let line = f.layout(text, 0.0);
+    let arabic: Vec<u16> = line.clusters().iter().zip(line.glyph_ids()).filter(|(c, _)| **c >= 9).map(|(_, id)| id).collect();
+    assert_eq!(arabic.len(), 3, "{:?}", line.clusters());
+    assert!(arabic.iter().all(|id| !own.contains(id)), "the Arabic is shaped as {arabic:?}, the letters alone are {own:?}");
+    // and the Arabic does not change how the Hebrew is shaped
+    let hebrew = f.layout("\u{5e9}\u{5dc}\u{5d5}\u{5dd}", 0.0).glyph_ids();
+    assert!(line.glyph_ids().ends_with(&hebrew));
+}
+
+#[test]
 fn a_combining_mark_lands_over_its_base() {
     // there is no x with an acute in Unicode, so nothing composes it into one glyph
     let Some(f) = face_with(60.0, "x\u{301}", "x with an accent") else { return };

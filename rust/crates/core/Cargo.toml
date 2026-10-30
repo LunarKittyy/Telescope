@@ -15,5 +15,7 @@ harfrust = "0.12"
 unicode-bidi = "0.3"
 unicode-segmentation = "1"
 unicode-joining-type = "1"
+unicode-script = "0.5"
+
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
