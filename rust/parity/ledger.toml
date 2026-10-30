@@ -69,7 +69,7 @@
 "Telescope: streaming the mic, camera off (muted)" = { status = "todo" }
 "That failed; Copy diagnostics has the details." = { status = "todo" }
 "The phone got hot and lowered the frame rate to {fps} fps for now." = { status = "todo" }
-"The phone sent data this version can't read. Update both apps to the same version." = { status = "todo" }
+"The phone sent data this version can't read. Update both apps to the same version." = { status = "ported", rust = "rust/crates/shell/src/streams.rs::apply_state", note = "The check is core::models (12 tests); the status line in apply_state has no window-level test of its own" }
 "The phone's camera is making fewer frames than asked for. Dim light slows it down." = { status = "todo" }
 "The stream from {name} stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "The stream stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
@@ -3042,18 +3042,18 @@
 "test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::reads_authenticated_frames_in_order_then_reports_eof" }
 "test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::returns_a_frame_without_waiting_for_the_next_one" }
 # ── models
-"test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "todo" }
-"test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_bool_where_int_expected" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_missing_field" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_wrong_type" = { status = "todo" }
-"test_models.py::test_phone_state_decodes_full_valid_payload" = { status = "todo" }
-"test_models.py::test_phone_state_empty_dict_is_not_an_error" = { status = "todo" }
-"test_models.py::test_phone_state_optional_iso_and_shutter_default_to_none" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_malformed_camera_entry" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_missing_required_field" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_non_list_cameras" = { status = "todo" }
+"test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_from_dict_round_trips_all_fields" }
+"test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_reads_phone_zoom_fields_and_defaults_them" }
+"test_models.py::test_camera_capabilities_rejects_bool_where_int_expected" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_bool_where_int_expected" }
+"test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_lens_zooms_that_arent_numbers" }
+"test_models.py::test_camera_capabilities_rejects_missing_field" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_missing_field" }
+"test_models.py::test_camera_capabilities_rejects_wrong_type" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_wrong_type" }
+"test_models.py::test_phone_state_decodes_full_valid_payload" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_decodes_full_valid_payload" }
+"test_models.py::test_phone_state_empty_dict_is_not_an_error" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_empty_dict_is_not_an_error" }
+"test_models.py::test_phone_state_optional_iso_and_shutter_default_to_none" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_optional_iso_and_shutter_default_to_none" }
+"test_models.py::test_phone_state_rejects_malformed_camera_entry" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_malformed_camera_entry" }
+"test_models.py::test_phone_state_rejects_missing_required_field" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_missing_required_field" }
+"test_models.py::test_phone_state_rejects_non_list_cameras" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_non_list_cameras" }
 # ── motion
 "test_motion.py::test_a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" }
 "test_motion.py::test_a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" }
@@ -3274,10 +3274,10 @@
 "test_people.py::test_tracking_is_kept_per_stream_and_forgets_what_stopped" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_tracking_is_kept_per_stream_and_forgets_what_stopped" }
 "test_people.py::test_two_skeletons_on_one_person_count_once" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_two_skeletons_on_one_person_count_once" }
 # ── phone_check
-"test_phone_check.py::test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay" = { status = "todo" }
-"test_phone_check.py::test_gap_measurement_includes_the_last_frame_before_the_operation" = { status = "todo" }
-"test_phone_check.py::test_handover_uses_automatic_discovery_and_keeps_the_worker" = { status = "todo" }
-"test_phone_check.py::test_lag_is_the_first_frame_that_clearly_changed" = { status = "todo" }
+"test_phone_check.py::test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_gap_measurement_includes_the_last_frame_before_the_operation" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_handover_uses_automatic_discovery_and_keeps_the_worker" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_lag_is_the_first_frame_that_clearly_changed" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
 # ── phone_client
 "test_phone_client.py::test_a_lost_request_gives_up_in_the_end" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::a_lost_request_gives_up_in_the_end" }
 "test_phone_client.py::test_a_lost_request_gives_way_to_a_newer_value" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::a_lost_request_gives_way_to_a_newer_value" }
@@ -3310,12 +3310,12 @@
 "test_phone_client.py::test_settings_the_phone_lost_are_found" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::settings_the_phone_lost_are_found" }
 "test_phone_client.py::test_worker_skips_stale_pending_key" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::worker_skips_stale_pending_key" }
 # ── phone_texts
-"test_phone_texts.py::test_camera_error_is_worded_from_the_code" = { status = "todo" }
-"test_phone_texts.py::test_codec_error_falls_back_to_the_english_text" = { status = "todo" }
-"test_phone_texts.py::test_codec_error_is_worded_from_the_code_and_size" = { status = "todo" }
-"test_phone_texts.py::test_lens_label_from_fields_matches_the_one_cut_from_the_english_label" = { status = "todo" }
-"test_phone_texts.py::test_lens_names_are_worded_in_the_language_but_keep_their_english_key" = { status = "todo" }
-"test_phone_texts.py::test_mic_refusal_is_worded_from_the_code" = { status = "todo" }
+"test_phone_texts.py::test_camera_error_is_worded_from_the_code" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::camera_error_is_worded_from_the_code" }
+"test_phone_texts.py::test_codec_error_falls_back_to_the_english_text" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::codec_error_falls_back_to_the_english_text" }
+"test_phone_texts.py::test_codec_error_is_worded_from_the_code_and_size" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::codec_error_is_worded_from_the_code_and_size" }
+"test_phone_texts.py::test_lens_label_from_fields_matches_the_one_cut_from_the_english_label" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::lens_label_from_fields_matches_the_one_cut_from_the_english_label" }
+"test_phone_texts.py::test_lens_names_are_worded_in_the_language_but_keep_their_english_key" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::lens_names_are_worded_in_the_language_but_keep_their_english_key" }
+"test_phone_texts.py::test_mic_refusal_is_worded_from_the_code" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::mic_refusal_is_worded_from_the_code", note = "Through a real 403 from a local server rather than a built HTTPError" }
 # ── phones
 "test_phones.py::test_a_different_phone_on_usb_is_not_mistaken_for_ours" = { status = "ported", rust = "rust/crates/link/src/phones.rs::a_different_phone_on_usb_is_not_mistaken_for_ours" }
 "test_phones.py::test_a_newer_phone_app_asks_for_a_desktop_update" = { status = "ported", rust = "rust/crates/link/src/phones.rs::a_newer_phone_app_asks_for_a_desktop_update" }
@@ -4146,27 +4146,27 @@
 "test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
 # ── text_fit
-"test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "todo" }
-"test_text_fit.py::test_a_column_as_wide_before_the_pick_isnt_put_down_to_it" = { status = "todo" }
-"test_text_fit.py::test_a_column_pushed_wider_than_it_shows_is_one_finding" = { status = "todo" }
-"test_text_fit.py::test_a_finding_matches_its_known_line_wherever_it_shows" = { status = "todo" }
-"test_text_fit.py::test_a_label_too_narrow_for_its_text_is_cut_off" = { status = "todo" }
-"test_text_fit.py::test_a_readout_column_widens_for_the_words_it_can_show" = { status = "todo" }
-"test_text_fit.py::test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it" = { status = "todo" }
-"test_text_fit.py::test_an_app_text_cut_short_is_found_but_a_name_is_cut_on_purpose" = { status = "todo" }
-"test_text_fit.py::test_english_left_in_the_pseudo_language_is_found" = { status = "todo" }
-"test_text_fit.py::test_every_text_fits" = { status = "todo" }
-"test_text_fit.py::test_japanese_wraps_between_letters_so_no_sentence_counts_as_one_long_word" = { status = "todo" }
-"test_text_fit.py::test_one_known_line_covers_every_stop_of_a_readout" = { status = "todo" }
-"test_text_fit.py::test_text_a_widget_draws_past_its_box_is_found" = { status = "todo" }
-"test_text_fit.py::test_text_that_fits_is_left_alone" = { status = "todo" }
-"test_text_fit.py::test_walking_a_card_finds_a_readout_only_one_slider_stop_shows" = { status = "todo" }
+"test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_column_as_wide_before_the_pick_isnt_put_down_to_it" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_column_pushed_wider_than_it_shows_is_one_finding" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_finding_matches_its_known_line_wherever_it_shows" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_label_too_narrow_for_its_text_is_cut_off" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_readout_column_widens_for_the_words_it_can_show" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_an_app_text_cut_short_is_found_but_a_name_is_cut_on_purpose" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_english_left_in_the_pseudo_language_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_every_text_fits" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_japanese_wraps_between_letters_so_no_sentence_counts_as_one_long_word" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_one_known_line_covers_every_stop_of_a_readout" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_text_a_widget_draws_past_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_text_that_fits_is_left_alone" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_walking_a_card_finds_a_readout_only_one_slider_stop_shows" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
 # ── text_fits
-"test_text_fits.py::test_add_phone_and_phones_dialog_button_text_fits" = { status = "todo" }
-"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "todo" }
-"test_text_fits.py::test_layout_widths_grow_with_the_font" = { status = "todo" }
-"test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "todo" }
-"test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "todo" }
+"test_text_fits.py::test_add_phone_and_phones_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_layout_widths_grow_with_the_font" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
 # ── tooltips
 "test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" }
 "test_tooltips.py::test_a_tip_stays_while_the_mouse_is_on_its_control" = { status = "todo" }
