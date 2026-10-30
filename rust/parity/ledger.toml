@@ -4669,7 +4669,7 @@
 "test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
 "test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs" }
 # ── widgets
-"test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "todo" }
+"test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_picked_segment_keeps_room_for_its_bold_text" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_rows_controls_get_its_label_as_their_screen_reader_name", note = "each control is given its row label in its .slint, not found for it afterwards" }
 "test_widgets.py::test_a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_switch_toggles_from_anywhere_on_its_row" }
 "test_widgets.py::test_a_tag_measures_itself_in_the_themes_font_not_the_systems" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_tag_measures_itself_in_the_themes_font_not_the_systems" }
