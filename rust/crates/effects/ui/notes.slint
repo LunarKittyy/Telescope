@@ -114,10 +114,12 @@ export component NotesCard inherits Card {
     title: @tr("Notes");
     icon: Icons.notes;
     opacity: active ? 1 : 0.4;
+    enabled: active;
 
     HorizontalLayout {
         spacing: 6px;
         ChoiceField {
+            enabled: active;
             compact: true;
             caption: set-tip;
             items: set-items;
@@ -146,12 +148,14 @@ export component NotesCard inherits Card {
         }
     }
     NotesEditor {
+        enabled: active;
         text <=> root.text;
         placeholder: root.placeholder;
         label: editor-label;
         edited(t) => { root.text-edited(t); }
     }
     SliderRow {
+        enabled: active;
         label: @tr("Text size");
         tip: size-tip;
         hint: reset-hint;
@@ -168,7 +172,7 @@ export component NotesCard inherits Card {
         label: @tr("Scroll");
         Segmented {
             items: scroll-items;
-            disabled: [false, false];
+            disabled: [!active, !active];
             has-icons: [false, false];
             icons: [Icons.colour, Icons.colour];
             label: @tr("Scroll");
@@ -177,6 +181,7 @@ export component NotesCard inherits Card {
         }
     }
     if show-auto: SliderRow {
+        enabled: active;
         label: @tr("Speed");
         hint: reset-hint;
         minimum: 1;
@@ -196,7 +201,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: back-text;
             tip: back-tip;
-            enabled: nav-enabled;
+            enabled: active && (nav-enabled);
             clicked => { root.back-clicked(); }
         }
         if show-auto: Button {
@@ -206,7 +211,7 @@ export component NotesCard inherits Card {
             text: play-text;
             tip: play-tip;
             role: playing ? "primary" : "";
-            enabled: nav-enabled;
+            enabled: active && (nav-enabled);
             clicked => { root.play-toggled(!root.playing); }
         }
         Button {
@@ -215,7 +220,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: next-text;
             tip: next-tip;
-            enabled: nav-enabled;
+            enabled: active && (nav-enabled);
             clicked => { root.next-clicked(); }
         }
     }
@@ -227,7 +232,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: send-text;
             role: "primary";
-            enabled: send-enabled;
+            enabled: active && (send-enabled);
             clicked => { root.send-clicked(); }
         }
         Button {
@@ -235,11 +240,11 @@ export component NotesCard inherits Card {
             preferred-width: 0px;
             min-width: 0px;
             text: clear-text;
-            enabled: clear-enabled;
+            enabled: active && (clear-enabled);
             clicked => { root.clear-clicked(); }
         }
     }
     Note { text: status; kind: status-kind; }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

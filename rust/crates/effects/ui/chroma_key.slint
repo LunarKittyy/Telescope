@@ -47,7 +47,9 @@ export component ChromaKeyCard inherits Card {
     title: @tr("Chroma key");
     icon: Icons.eyedropper;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     has-switch: true;
+    switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
     switch-tip: switch-help;
@@ -61,7 +63,7 @@ export component ChromaKeyCard inherits Card {
                 spacing: 8px;
                 Segmented {
                     items: [@tr("Green"), @tr("Blue"), @tr("Picked")];
-                    disabled: [false, false, false];
+                    disabled: [!active, !active, !active];
                     has-icons: [false, false, false];
                     icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
                     label: @tr("Screen");
@@ -77,6 +79,7 @@ export component ChromaKeyCard inherits Card {
         }
     }
     for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: SliderRow {
+        enabled: active;
         label: name;
         tip: slider-tips[i];
         minimum: 0;
@@ -93,7 +96,7 @@ export component ChromaKeyCard inherits Card {
         label: @tr("Behind you");
         Segmented {
             items: [@tr("Colour"), @tr("Picture")];
-            disabled: [false, false];
+            disabled: [!active, !active];
             has-icons: [false, false];
             icons: [Icons.image, Icons.image];
             label: @tr("Behind you");
@@ -106,6 +109,7 @@ export component ChromaKeyCard inherits Card {
         HorizontalLayout {
             spacing: 8px;
             Button {
+                enabled: active;
                 text: @tr("Choose…");
                 tip: colour-tip;
                 has-icon: false;
@@ -126,6 +130,7 @@ export component ChromaKeyCard inherits Card {
             color: Theme.text-dim;
         }
         for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+            enabled: active;
             label: name;
             minimum: 0;
             maximum: 255;
@@ -140,6 +145,7 @@ export component ChromaKeyCard inherits Card {
         HorizontalLayout {
             spacing: 8px;
             Button {
+                enabled: active;
                 text: @tr("Choose…");
                 tip: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
@@ -165,5 +171,5 @@ export component ChromaKeyCard inherits Card {
         kind: status-kind;
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

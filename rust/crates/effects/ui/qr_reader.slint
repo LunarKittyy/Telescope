@@ -20,7 +20,9 @@ export component QrReaderCard inherits Card {
     title: @tr("QR codes");
     icon: Icons.qr;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     has-switch: true;
+    switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
     switch-tip: switch-help;
@@ -55,6 +57,7 @@ export component QrReaderCard inherits Card {
             }
         }
         notify-switch := Switch {
+            enabled: active;
             y: (parent.height - self.height) / 2;
             checked: notify;
             label: notify-name;
@@ -62,5 +65,5 @@ export component QrReaderCard inherits Card {
         }
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

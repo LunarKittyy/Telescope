@@ -65,6 +65,8 @@ export component Card inherits Rectangle {
     in property <color> hue: Theme.accent;
     // A disabled card's chip icon greys out, as Qt draws a disabled QLabel's pixmap
     in property <bool> enabled: true;
+    // Nothing in the card takes a click or a key (a plugin's card before a phone is paired)
+    in property <bool> blocked;
     in property <string> note;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
@@ -207,6 +209,8 @@ export component Card inherits Rectangle {
             @children
         }
     }
+    // dim_until_paired's setEnabled(False): over the whole card and outside its layout, so it takes no row of its own
+    if blocked: TouchArea { }
 }
 
 // add_section_heading: a small icon, the name and a hairline to the card's edge.

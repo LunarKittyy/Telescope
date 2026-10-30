@@ -41,7 +41,9 @@ export component DeskCard inherits Card {
     title: @tr("Desk mode");
     icon: Icons.pencil;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     has-switch: true;
+    switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
     switch-tip: switch-help;
@@ -54,6 +56,7 @@ export component DeskCard inherits Card {
         if picking: Button { text: cancel-text; clicked => { root.cancel-clicked(); } }
         Rectangle { horizontal-stretch: 1; }
         if reset-shown: Button {
+            enabled: active;
             text: reset-text;
             tip: reset-tip;
             role: "quiet";
@@ -69,6 +72,7 @@ export component DeskCard inherits Card {
         Rectangle {
             horizontal-stretch: 1;
             ChoiceField {
+                enabled: active;
                 width: parent.width;
                 compact: true;
                 caption: @tr("Writing");
@@ -84,6 +88,7 @@ export component DeskCard inherits Card {
         Rectangle {
             horizontal-stretch: 1;
             ChoiceField {
+                enabled: active;
                 width: parent.width;
                 compact: true;
                 caption: @tr("Shape");
@@ -96,7 +101,7 @@ export component DeskCard inherits Card {
     }
     SliderRow {
         label: @tr("Width");
-        enabled: stretch-enabled;
+        enabled: active && (stretch-enabled);
         tip: stretch-tips[0];
         hint: reset-hint;
         minimum: 50;
@@ -110,7 +115,7 @@ export component DeskCard inherits Card {
     }
     SliderRow {
         label: @tr("Height");
-        enabled: stretch-enabled;
+        enabled: active && (stretch-enabled);
         tip: stretch-tips[1];
         hint: reset-hint;
         minimum: 50;
@@ -124,5 +129,5 @@ export component DeskCard inherits Card {
     }
     if status != "": Note { text: status; kind: status-kind; }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

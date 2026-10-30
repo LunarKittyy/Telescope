@@ -10,6 +10,7 @@ component PickRow inherits FormRow {
     Rectangle {
         horizontal-stretch: 1;
         ChoiceField {
+            enabled: root.enabled;
             width: parent.width;
             compact: true;
             caption: root.label;
@@ -32,6 +33,7 @@ component NumberRow inherits FormRow {
         Rectangle {
             width: 78px;
             TextField {
+                enabled: root.enabled;
                 width: parent.width;
                 height: 32px;
                 y: 2px;
@@ -111,6 +113,7 @@ export component PhotosCard inherits Card {
     icon: Icons.photo;
     visible: shown;
     opacity: active ? 1 : 0.4;
+    enabled: active;
 
     HorizontalLayout {
         spacing: 8px;
@@ -134,12 +137,14 @@ export component PhotosCard inherits Card {
     }
     if info-shown: Note { text: info; }
     if format-shown: PickRow {
+        enabled: active;
         label: @tr("Format");
         items: format-items;
         current: format-current;
         picked(i) => { root.choice-picked(1, i); }
     }
     if quality-shown: SliderRow {
+        enabled: active;
         label: @tr("Quality");
         minimum: 50;
         maximum: 100;
@@ -152,6 +157,7 @@ export component PhotosCard inherits Card {
         moved(v) => { root.quality-moved(v); }
     }
     if mode-shown: PickRow {
+        enabled: active;
         label: @tr("Mode");
         items: mode-items;
         current: mode-current;
@@ -160,29 +166,34 @@ export component PhotosCard inherits Card {
         picked(i) => { root.choice-picked(0, i); }
     }
     if shots-shown: PickRow {
+        enabled: active;
         label: @tr("Shots");
         items: shots-items;
         current: shots-current;
         picked(i) => { root.choice-picked(2, i); }
     }
     if burst-shown: NumberRow {
+        enabled: active;
         label: @tr("How many");
         text: burst-text;
         edited(t) => { root.number-edited(0, t); }
     }
     if bracket-shown: PickRow {
+        enabled: active;
         label: @tr("Bracket");
         items: bracket-items;
         current: bracket-current;
         picked(i) => { root.choice-picked(4, i); }
     }
     if focus-shown: NumberRow {
+        enabled: active;
         label: @tr("Steps");
         text: focus-text;
         tip: focus-tip;
         edited(t) => { root.number-edited(1, t); }
     }
     if exposure-shown: PickRow {
+        enabled: active;
         label: @tr("Exposure");
         items: exposure-items;
         current: exposure-current;
@@ -206,6 +217,7 @@ export component PhotosCard inherits Card {
             Rectangle {
                 width: 36px;
                 Switch {
+                    enabled: active;
                     y: 8px;
                     checked: best;
                     label: best-name;
@@ -225,6 +237,7 @@ export component PhotosCard inherits Card {
         }
     }
     if distortion-shown: PickRow {
+        enabled: active;
         label: @tr("Distortion fix");
         items: distortion-items;
         current: distortion-current;
@@ -252,5 +265,5 @@ export component PhotosCard inherits Card {
         }
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

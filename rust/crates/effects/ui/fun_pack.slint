@@ -43,10 +43,12 @@ export component FunPackCard inherits Card {
     title: @tr("Fun pack");
     icon: Icons.sparkle;
     opacity: active ? 1 : 0.4;
+    enabled: active;
 
     FormRow {
         label: @tr("Effect");
         ChoiceField {
+            enabled: active;
             compact: true;
             items: effect-items;
             current: effect;
@@ -62,7 +64,7 @@ export component FunPackCard inherits Card {
         Button {
             text: plate-text;
             tip: plate-tip;
-            enabled: plate-enabled;
+            enabled: active && (plate-enabled);
             clicked => { root.plate-clicked(); }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -72,23 +74,25 @@ export component FunPackCard inherits Card {
         if show-clone: Button {
             text: clone-text;
             tip: clone-tip;
-            enabled: clone-enabled;
+            enabled: active && (clone-enabled);
             clicked => { root.clone-clicked(); }
         }
         if show-clean: Button {
+            enabled: active;
             text: @tr("Clean up");
             tip: clean-tip;
             clicked => { root.clean-clicked(); }
         }
         if show-clear: Button {
             text: @tr("Clear");
-            enabled: clear-enabled;
+            enabled: active && (clear-enabled);
             clicked => { root.clear-clicked(); }
         }
         Rectangle { horizontal-stretch: 1; }
     }
     // Hidden rows are left out, not shrunk: a shrunk one still gets the card's spacing
     if slider-show[0]: SliderRow {
+        enabled: active;
         label: @tr("Edges");
         tip: slider-tips[0];
         minimum: slider-min[0];
@@ -102,6 +106,7 @@ export component FunPackCard inherits Card {
         moved(v) => { root.slider-moved(0, v); }
     }
     if slider-show[1]: SliderRow {
+        enabled: active;
         label: @tr("Trails");
         tip: slider-tips[1];
         minimum: slider-min[1];
@@ -115,6 +120,7 @@ export component FunPackCard inherits Card {
         moved(v) => { root.slider-moved(1, v); }
     }
     if slider-show[2]: SliderRow {
+        enabled: active;
         label: @tr("Brightness");
         tip: slider-tips[2];
         minimum: slider-min[2];
@@ -128,6 +134,7 @@ export component FunPackCard inherits Card {
         moved(v) => { root.slider-moved(2, v); }
     }
     if slider-show[3]: SliderRow {
+        enabled: active;
         label: @tr("Spread");
         tip: slider-tips[3];
         minimum: slider-min[3];
@@ -141,6 +148,7 @@ export component FunPackCard inherits Card {
         moved(v) => { root.slider-moved(3, v); }
     }
     if slider-show[4]: SliderRow {
+        enabled: active;
         label: @tr("Smear");
         tip: slider-tips[4];
         minimum: slider-min[4];
@@ -157,7 +165,7 @@ export component FunPackCard inherits Card {
         label: @tr("Direction");
         Segmented {
             items: [@tr("Down"), @tr("Across")];
-            disabled: [false, false];
+            disabled: [!active, !active];
             has-icons: [false, false];
             icons: [Icons.sparkle, Icons.sparkle];
             label: @tr("Direction");
@@ -170,5 +178,5 @@ export component FunPackCard inherits Card {
         kind: "status_warn";
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

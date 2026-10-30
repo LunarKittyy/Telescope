@@ -144,7 +144,9 @@ export component ColourGradingCard inherits Card {
     title: @tr("Colour grading");
     icon: Icons.colour;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     has-switch: true;
+    switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
     switch-tip: switch-help;
@@ -154,6 +156,7 @@ export component ColourGradingCard inherits Card {
         label: @tr("Compare");
         Rectangle { horizontal-stretch: 1; }
         Switch {
+            enabled: active;
             y: (parent.height - self.height) / 2;
             checked: compare;
             label: @tr("Compare");
@@ -163,6 +166,7 @@ export component ColourGradingCard inherits Card {
     }
     // A hidden row keeps its height out of the layout with visible and max-height
     if compare: SliderRow {
+        enabled: active;
         label: @tr("Split");
         tip: @tr("Where the line between before and after is");
         minimum: 0;
@@ -180,7 +184,7 @@ export component ColourGradingCard inherits Card {
         Segmented {
             margin: 0px;
             items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            disabled: [false, false, false];
+            disabled: [!active, !active, !active];
             has-icons: [false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Page");
@@ -209,6 +213,7 @@ export component ColourGradingCard inherits Card {
         HorizontalLayout {
             spacing: 12px;
             WheelCell {
+                enabled: active;
                 name: @tr("Lift");
                 wheel-label: wheel-labels[0];
                 tip: wheel-tips[0];
@@ -226,6 +231,7 @@ export component ColourGradingCard inherits Card {
                 master-moved(v) => { root.master-moved(0, v); }
             }
             WheelCell {
+                enabled: active;
                 name: @tr("Gamma");
                 wheel-label: wheel-labels[1];
                 tip: wheel-tips[1];
@@ -246,6 +252,7 @@ export component ColourGradingCard inherits Card {
         HorizontalLayout {
             spacing: 12px;
             WheelCell {
+                enabled: active;
                 name: @tr("Gain");
                 wheel-label: wheel-labels[2];
                 tip: wheel-tips[2];
@@ -263,6 +270,7 @@ export component ColourGradingCard inherits Card {
                 master-moved(v) => { root.master-moved(2, v); }
             }
             WheelCell {
+                enabled: active;
                 name: @tr("Offset");
                 wheel-label: wheel-labels[3];
                 tip: wheel-tips[3];
@@ -282,6 +290,7 @@ export component ColourGradingCard inherits Card {
         }
         }
         for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
+            enabled: active;
             label: name;
             tip: slider-tips[i];
             minimum: slider-min[i];
@@ -304,7 +313,7 @@ export component ColourGradingCard inherits Card {
         Segmented {
             margin: 0px;
             items: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
-            disabled: [false, false, false];
+            disabled: [!active, !active, !active];
             has-icons: [false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Curve");
@@ -314,7 +323,7 @@ export component ColourGradingCard inherits Card {
         if curve == 0: Segmented {
             margin: 0px;
             items: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
-            disabled: [false, false, false, false];
+            disabled: [!active, !active, !active, !active];
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Channel");
@@ -349,6 +358,7 @@ export component ColourGradingCard inherits Card {
             HorizontalLayout {
                 spacing: 8px;
                 Button {
+                    enabled: active;
                     text: @tr("Load…");
                     tip: @tr("Pick a .cube LUT to put on top of the grade");
                     clicked => { root.load-clicked(); }
@@ -374,6 +384,7 @@ export component ColourGradingCard inherits Card {
             }
         }
         if lut-loaded: SliderRow {
+            enabled: active;
             label: @tr("Strength");
             tip: @tr("How much of the LUT's look goes on the picture");
             minimum: 0;
@@ -394,6 +405,7 @@ export component ColourGradingCard inherits Card {
             label: @tr("Export");
             HorizontalLayout {
                 Button {
+                    enabled: active;
                     text: @tr("Export grade…");
                     tip: @tr("Save the grade, LUT included, as a .cube file for other apps");
                     clicked => { root.export-clicked(); }
@@ -413,5 +425,5 @@ export component ColourGradingCard inherits Card {
         }
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }

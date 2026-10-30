@@ -38,6 +38,7 @@ export component TransformsCard inherits Card {
     title: @tr("Transforms");
     icon: Icons.crop;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     has-action: true;
     action-icon: Icons.reset;
     action-label: reset-tip;
@@ -57,7 +58,7 @@ export component TransformsCard inherits Card {
         label: @tr("Rotation");
         Segmented {
             items: ["0\u{b0}", "90\u{b0}", "180\u{b0}", "270\u{b0}"];
-            disabled: [false, false, false, false];
+            disabled: [!active, !active, !active, !active];
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Rotation");
@@ -150,6 +151,7 @@ export component TransformsCard inherits Card {
         }
     }
     SliderRow {
+        enabled: active;
         label: @tr("Width");
         tip: stretch-tips[0];
         hint: reset-hint;
@@ -163,6 +165,7 @@ export component TransformsCard inherits Card {
         moved(v) => { root.stretch-moved(0, v); }
     }
     SliderRow {
+        enabled: active;
         label: @tr("Height");
         tip: stretch-tips[1];
         hint: reset-hint;
@@ -176,5 +179,5 @@ export component TransformsCard inherits Card {
         moved(v) => { root.stretch-moved(1, v); }
     }
     // Nothing to touch until a phone is paired
-    if !active: TouchArea { }
+    blocked: !active;
 }
