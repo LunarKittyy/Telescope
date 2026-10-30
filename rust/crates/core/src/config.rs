@@ -29,17 +29,48 @@ fn home() -> PathBuf {
     std::env::home_dir().unwrap_or_default()
 }
 
+/// Where config_path looks, so the Linux and the Windows rules can both be checked from either system.
+pub struct PathEnv {
+    pub windows: bool,
+    pub dev_profile: Option<PathBuf>,
+    pub appdata: Option<String>,
+    pub xdg_config_home: Option<String>,
+    pub home: PathBuf,
+}
+
+impl PathEnv {
+    pub fn current() -> PathEnv {
+        PathEnv {
+            windows: cfg!(windows),
+            dev_profile: dev_profile(),
+            appdata: env_nonempty("APPDATA"),
+            xdg_config_home: env_nonempty("XDG_CONFIG_HOME"),
+            home: home(),
+        }
+    }
+
+    /// The real app's settings folder, which a dev profile does not change: %APPDATA%\Telescope or $XDG_CONFIG_HOME/telescope.
+    pub fn app_folder(&self) -> PathBuf {
+        if self.windows {
+            return self.appdata.clone().map(PathBuf::from).unwrap_or_else(|| self.home.clone()).join(APP_NAME);
+        }
+        self.xdg_config_home.clone().map(PathBuf::from).unwrap_or_else(|| self.home.join(".config")).join(APP_NAME.to_lowercase())
+    }
+
+    /// config_path: the dev profile's file, or the real app's.
+    pub fn config_path(&self) -> PathBuf {
+        self.dev_profile.clone().unwrap_or_else(|| self.app_folder()).join(CONFIG_FILENAME)
+    }
+
+    /// Where this app keeps its own settings while the rewrite is unfinished: next to the real folder, called telescope-rs.
+    pub fn own_profile_folder(&self) -> PathBuf {
+        self.app_folder().with_file_name("telescope-rs")
+    }
+}
+
 /// Where the settings live (config_path): the dev profile's folder, %APPDATA%\Telescope, or $XDG_CONFIG_HOME/telescope.
 pub fn config_path() -> PathBuf {
-    if let Some(folder) = dev_profile() {
-        return folder.join(CONFIG_FILENAME);
-    }
-    if cfg!(windows) {
-        let base = env_nonempty("APPDATA").map(PathBuf::from).unwrap_or_else(home);
-        return base.join(APP_NAME).join(CONFIG_FILENAME);
-    }
-    let base = env_nonempty("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".config"));
-    base.join(APP_NAME.to_lowercase()).join(CONFIG_FILENAME)
+    PathEnv::current().config_path()
 }
 
 /// What a fresh start saves (_empty).
@@ -438,6 +469,52 @@ mod tests {
     fn backups(dir: &Path) -> Vec<PathBuf> {
         fs::read_dir(dir).unwrap().flatten().map(|e| e.path())
             .filter(|p| p.file_name().unwrap().to_string_lossy().contains(".invalid-")).collect()
+    }
+
+    fn env(windows: bool) -> PathEnv {
+        PathEnv {
+            windows,
+            dev_profile: None,
+            appdata: None,
+            xdg_config_home: None,
+            home: PathBuf::from(if windows { "C:/Users/luna" } else { "/home/luna" }),
+        }
+    }
+
+    #[test]
+    fn the_real_config_path_is_where_config_py_puts_it() {
+        let mut linux = env(false);
+        assert_eq!(linux.config_path(), PathBuf::from("/home/luna/.config/telescope/telescope_config.json"));
+        linux.xdg_config_home = Some("/data/cfg".into());
+        assert_eq!(linux.config_path(), PathBuf::from("/data/cfg/telescope/telescope_config.json"));
+        let mut windows = env(true);
+        // Without %APPDATA% config.py falls back to the home folder itself
+        assert_eq!(windows.config_path(), PathBuf::from("C:/Users/luna/Telescope/telescope_config.json"));
+        windows.appdata = Some("C:/Users/luna/AppData/Roaming".into());
+        assert_eq!(windows.config_path(), PathBuf::from("C:/Users/luna/AppData/Roaming/Telescope/telescope_config.json"));
+        // $XDG_CONFIG_HOME means nothing on Windows
+        windows.xdg_config_home = Some("/data/cfg".into());
+        assert_eq!(windows.config_path(), PathBuf::from("C:/Users/luna/AppData/Roaming/Telescope/telescope_config.json"));
+    }
+
+    #[test]
+    fn a_dev_profile_wins_on_both_systems() {
+        for windows in [false, true] {
+            let mut e = env(windows);
+            e.dev_profile = Some(PathBuf::from("/tmp/dev"));
+            assert_eq!(e.config_path(), PathBuf::from("/tmp/dev/telescope_config.json"));
+        }
+    }
+
+    #[test]
+    fn the_own_profile_sits_beside_the_real_folder() {
+        let mut linux = env(false);
+        assert_eq!(linux.own_profile_folder(), PathBuf::from("/home/luna/.config/telescope-rs"));
+        linux.xdg_config_home = Some("/data/cfg".into());
+        assert_eq!(linux.own_profile_folder(), PathBuf::from("/data/cfg/telescope-rs"));
+        let mut windows = env(true);
+        windows.appdata = Some("C:/Users/luna/AppData/Roaming".into());
+        assert_eq!(windows.own_profile_folder(), PathBuf::from("C:/Users/luna/AppData/Roaming/telescope-rs"));
     }
 
     #[test]
