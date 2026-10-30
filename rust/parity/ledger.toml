@@ -387,12 +387,12 @@
 "Several cameras in one picture" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 "Without it there's no One picture card and each stream only goes to its own camera." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 # ── connection
-"<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>." = { status = "todo" }
+"<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>." = { status = "ported", rust = "rust/crates/link/src/plugin.rs", note = "two buttons: Slint has no inline links yet" }
 "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Add a phone" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Add a phone to stream from." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Add phone" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Also switch it on at every startup" = { status = "todo" }
+"Also switch it on at every startup" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Android didn't let the camera start in the background.\n\nBring Telescope to the front on the phone and try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Automatic" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Automatic: USB when the phone's plugged in, Wi-Fi otherwise." = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
@@ -401,8 +401,8 @@
 "Can't reach {phone}" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Can't reach {phone} over USB" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Can't reach {phone} over Wi-Fi" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Change name" = { status = "todo" }
-"Change this computer's name" = { status = "todo" }
+"Change name" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Change this computer's name" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Check that it's on the same network as this computer." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Check the cable and that Telescope is open on the phone." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Checking…" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
@@ -411,10 +411,10 @@
 "Connect via" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Connecting…" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Connection" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Copying adb…" = { status = "todo" }
+"Copying adb…" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Couldn't reach the phone. Open Telescope on it and try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Couldn't set up the virtual camera" = { status = "todo" }
-"Couldn't update the phone app: {error}" = { status = "todo" }
+"Couldn't set up the virtual camera" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
+"Couldn't update the phone app: {error}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Done" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone." = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Experimental" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
@@ -423,9 +423,9 @@
 "Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Lost contact with the phone while its camera was starting." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Lost the connection to the phone. Try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Name" = { status = "todo" }
-"Name your phones show (applies to phones you pair from now on)" = { status = "todo" }
-"Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it." = { status = "todo" }
+"Name" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Name your phones show (applies to phones you pair from now on)" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs", note = "the sentence without its link, and a button" }
 "Needs adb, which isn't installed. Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Needs pairing again" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "No phone yet" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
@@ -437,10 +437,10 @@
 "Open or close the setup guide: the virtual camera, the phone app and pairing" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Or plug the phone in with a USB cable to pair it over USB." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Pair a phone over Wi-Fi or USB" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Pair another phone" = { status = "todo" }
+"Pair another phone" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Pair {phone}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Paired with {name}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Pairing phones, picking one and connecting to it over Wi-Fi or USB." = { status = "todo" }
+"Pairing phones, picking one and connecting to it over Wi-Fi or USB." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Pairing {phone}. Keep Telescope open on it until it's done." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Phone" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Phone accepts USB only" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
@@ -450,24 +450,24 @@
 "Phone went quiet for a moment, still waiting... ({seconds}s)" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Phone · {ip}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Phone's camera is opening... ({seconds}s)" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"Phones" = { status = "todo" }
-"Phones and connection" = { status = "todo" }
+"Phones" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Phones and connection" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Pick a phone below to pair it over USB." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Ready" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Reconnecting…" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Remove" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Remove browser" = { status = "todo" }
-"Remove phone" = { status = "todo" }
-"Remove {name}" = { status = "todo" }
+"Remove browser" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
+"Remove phone" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
+"Remove {name}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Rename" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Rename phone" = { status = "todo" }
-"Rename this computer" = { status = "todo" }
-"Rename {name}" = { status = "todo" }
+"Rename phone" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Rename this computer" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Rename {name}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Same phone?" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see." = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Set up the virtual camera" = { status = "todo" }
+"Set up the virtual camera" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Setup guide" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Starting the phone's camera..." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Starting…" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
@@ -475,16 +475,16 @@
 "Stop it there or on the phone, then try again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Streaming over USB" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Streaming over Wi-Fi" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Switch on" = { status = "todo" }
+"Switch on" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Switch to Automatic" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Switch to USB" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Switching it on asks for your password." = { status = "todo" }
-"Telescope needs to switch on its virtual camera first. This asks for your password." = { status = "todo" }
+"Switching it on asks for your password." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
+"Telescope needs to switch on its virtual camera first. This asks for your password." = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "The Telescope app on {phone} is newer than this one. Update Telescope on this computer." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "The Telescope app on {phone} is older than this one." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "The Telescope app on {phone} is older than this one. Update it on the phone." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"The name your phones show for this computer" = { status = "todo" }
+"The name your phones show for this computer" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "The phone hasn't given Telescope camera access.\n\nOpen the app on the phone and allow the camera permission." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "The phone is busy starting or stopping a stream.\n\nTry again in a moment." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
@@ -494,7 +494,7 @@
 "The phone was plugged in; reconnect over the cable" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "The phone's camera didn't finish starting in time.\n\nTry again. If it keeps happening, open Telescope on the phone." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "The phone's camera stopped before it finished starting.\n\nCheck the phone for a permission prompt or an error." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"The virtual camera is off" = { status = "todo" }
+"The virtual camera is off" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "This app needs an update" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "This computer" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "This computer isn't on a network right now, so pair over USB." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
@@ -507,21 +507,21 @@
 "Update over USB" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Update this app" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Updating the phone app over USB…" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Virtual camera is set up differently" = { status = "todo" }
+"Virtual camera is set up differently" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Waiting for the phone's camera... ({seconds}s)" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "Waiting for {source}…" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"What your phones call it" = { status = "todo" }
+"What your phones call it" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Which phone to stream from" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Wi-Fi only" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "You can start streaming now." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Your phones" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Your phones: add, rename, remove" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again." = { status = "ported", rust = "rust/crates/link/src/service.rs" }
-"search|udp tcp transport network lag freezes stutter wifi" = { status = "todo" }
-"status|Streaming" = { status = "todo" }
+"search|udp tcp transport network lag freezes stutter wifi" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
+"status|Streaming" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "the phone isn't answering over USB" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "unknown error" = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
-"v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:" = { status = "todo" }
+"v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
 "{source}, no phone needed" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 # ── denoise
@@ -1774,7 +1774,7 @@
 "Open plugins folder" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Order" = { status = "todo" }
 "Pick a plugin's .zip file. You can also drop one onto this window." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"Pick adb.exe or the platform-tools zip" = { status = "todo" }
+"Pick adb.exe or the platform-tools zip" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Picked stream" = { status = "todo" }
 "Picture preview" = { status = "todo" }
 "Picture…" = { status = "todo" }
@@ -1861,7 +1861,7 @@
 "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on." = { status = "todo" }
 "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
 "Your distro's PyAV" = { status = "todo" }
-"adb.exe or platform-tools zip (adb.exe *.zip)" = { status = "todo" }
+"adb.exe or platform-tools zip (adb.exe *.zip)" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "dev_desktop.py --plugin loads this one, so it's always on" = { status = "todo" }
 "lens|Auto" = { status = "todo" }
 "lens|External" = { status = "todo" }
@@ -2615,7 +2615,7 @@
 "test_connection.py::test_a_failed_hand_over_lets_go_of_usb_and_offers_the_button_instead" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_failed_hand_over_lets_go_of_usb_and_offers_the_button_instead", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_failed_phone_update_says_why" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_failed_phone_update_says_why" }
 "test_connection.py::test_a_hand_over_holds_both_routes_until_it_moves_then_only_the_new_one" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_hand_over_holds_both_routes_until_it_moves_then_only_the_new_one", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen" = { status = "todo" }
+"test_connection.py::test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen" = { status = "ported", rust = "rust/app/tests/connection_ui.rs::a_long_phone_list_scrolls_instead_of_growing_off_the_screen" }
 "test_connection.py::test_a_lost_stream_says_reconnecting_until_frames_return" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_lost_stream_says_reconnecting_until_frames_return", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_new_connect_via_is_checked_before_the_stream_moves" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_new_connect_via_is_checked_before_the_stream_moves", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_newer_phone_app_points_at_this_app_s_update" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_newer_phone_app_points_at_this_app_s_update" }
@@ -2623,7 +2623,7 @@
 "test_connection.py::test_a_reinstalled_phone_takes_the_old_ones_place_once_confirmed" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_reinstalled_phone_is_found_by_name_while_the_old_one_doesnt_answer", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_reinstalled_phone_that_was_picked_keeps_the_settings_on_screen" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_reinstalled_phone_that_was_picked_keeps_the_settings_on_screen" }
 "test_connection.py::test_a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_a_start_nobody_asked_for_never_prompts_for_a_password" = { status = "todo" }
+"test_connection.py::test_a_start_nobody_asked_for_never_prompts_for_a_password" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_start_nobody_asked_for_never_prompts_for_a_password" }
 "test_connection.py::test_a_usb_answer_after_the_stream_stopped_is_ignored" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_usb_answer_after_the_stream_stopped_is_ignored", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_usb_check_that_finishes_after_the_move_doesnt_start_another" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_usb_check_that_finishes_after_the_move_doesnt_start_another" }
 "test_connection.py::test_add_phone_request_on_the_bus_opens_pairing" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::add_phone_request_on_the_bus_opens_pairing" }
@@ -2660,9 +2660,9 @@
 "test_connection.py::test_forgetting_the_phone_being_streamed_stops_it_while_it_can_still_be_reached" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::forgetting_the_phone_being_streamed_stops_it_while_it_can_still_be_reached" }
 "test_connection.py::test_header_holds_the_phone_picker_and_manage_button" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::header_holds_the_phone_picker_and_manage_button" }
 "test_connection.py::test_idle_checks_tell_whether_the_phone_is_ready" = { status = "ported", rust = "rust/crates/link/src/connection.rs::idle_checks_tell_whether_the_phone_is_ready", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_linux_virtual_camera_conflict_and_cancel" = { status = "todo" }
-"test_connection.py::test_linux_virtual_camera_one_prompt_with_the_startup_choice" = { status = "todo" }
-"test_connection.py::test_linux_virtual_camera_without_a_password_prompt_shows_the_command" = { status = "todo" }
+"test_connection.py::test_linux_virtual_camera_conflict_and_cancel" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::linux_virtual_camera_conflict_and_cancel" }
+"test_connection.py::test_linux_virtual_camera_one_prompt_with_the_startup_choice" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::linux_virtual_camera_one_prompt_with_the_startup_choice" }
+"test_connection.py::test_linux_virtual_camera_without_a_password_prompt_shows_the_command" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::linux_virtual_camera_without_a_password_prompt_shows_the_command" }
 "test_connection.py::test_local_only_on_windows_without_adb_points_at_add_phone" = { status = "ported", rust = "rust/crates/link/src/connection.rs::local_only_on_windows_without_adb_points_at_add_phone", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_no_route_is_adopted_once_the_stream_stopped" = { status = "ported", rust = "rust/crates/link/src/connection.rs::no_route_is_adopted_once_the_stream_stopped", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_no_usb_watch_when_wifi_was_chosen_explicitly_or_already_on_usb" = { status = "ported", rust = "rust/crates/link/src/connection.rs::no_usb_watch_when_wifi_was_chosen_explicitly_or_already_on_usb", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -2698,7 +2698,7 @@
 "test_connection.py::test_session_channel_without_a_route_or_token_yields_none" = { status = "ported", rust = "rust/crates/link/src/connection.rs::session_channel_without_a_route_or_token_yields_none", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_set_config_discards_malformed_phones_and_bad_values" = { status = "ported", rust = "rust/crates/link/src/connection.rs::set_config_discards_malformed_phones_and_bad_values", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_showing_the_window_checks_straight_away_and_polls_again" = { status = "ported", rust = "rust/crates/link/src/connection.rs::showing_the_window_checks_straight_away_and_polls_again", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
-"test_connection.py::test_sources_changing_while_the_picker_is_open_wait_for_it_to_close" = { status = "todo" }
+"test_connection.py::test_sources_changing_while_the_picker_is_open_wait_for_it_to_close" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::sources_changing_while_the_picker_is_open_wait_for_it_to_close" }
 "test_connection.py::test_stale_resolutions_are_ignored" = { status = "ported", rust = "rust/crates/link/src/connection.rs::stale_resolutions_are_ignored", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_start_failures_offer_the_matching_fix" = { status = "ported", rust = "rust/crates/link/src/connection.rs::start_failures_offer_the_matching_fix", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_start_on_an_unreachable_phone_shows_the_fix" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::start_on_an_unreachable_phone_shows_the_fix" }
@@ -2725,9 +2725,9 @@
 "test_connection_dialogs.py::test_an_unauthorized_phone_asks_for_the_debugging_prompt" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
 "test_connection_dialogs.py::test_buttons_name_the_phone_as_it_names_itself" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::plugged_in_phones_get_a_pair_button_each" }
 "test_connection_dialogs.py::test_closing_stops_the_pairing_server" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::closing_stops_the_pairing_server" }
-"test_connection_dialogs.py::test_lots_of_phones_scroll_instead_of_growing_the_dialog" = { status = "todo" }
+"test_connection_dialogs.py::test_lots_of_phones_scroll_instead_of_growing_the_dialog" = { status = "ported", rust = "rust/app/tests/connection_ui.rs::lots_of_phones_scroll_instead_of_growing_the_dialog" }
 "test_connection_dialogs.py::test_on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb" }
-"test_connection_dialogs.py::test_plugging_in_after_it_opened_grows_the_dialog_to_fit" = { status = "todo" }
+"test_connection_dialogs.py::test_plugging_in_after_it_opened_grows_the_dialog_to_fit" = { status = "ported", rust = "rust/app/tests/connection_ui.rs::plugging_in_after_it_opened_grows_the_dialog_to_fit" }
 "test_connection_dialogs.py::test_qr_widget_builds_matrix_and_renders" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::qr_widget_builds_matrix_and_renders" }
 "test_connection_dialogs.py::test_reopened_mid_download_it_says_so_instead_of_offering_it_again" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::reopened_mid_download_it_says_so_instead_of_offering_it_again" }
 "test_connection_dialogs.py::test_shows_a_qr_code_when_the_computer_is_on_a_network" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::add_phone_request_on_the_bus_opens_pairing" }
