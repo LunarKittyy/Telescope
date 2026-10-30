@@ -69,6 +69,14 @@ python record_sanitize.py
 
 Rewrites `../crates/core/fixtures/sanitize.json`: what the Python app's `sanitize()` makes of text around zero-width, combining and other odd characters, and which characters Python's `re` counts as word, digit and space. `diagnostics_tests.rs` replays it. Run it again after changing the list of characters in the script, or when the desktop's patterns change.
 
+## The search matcher
+
+```bash
+python record_fuzzy.py
+```
+
+Rewrites `../crates/core/fixtures/fuzzy.json`: what `telescope/fuzzy.py` makes of text with case folds, ligatures and marks, and the scores it gives a few searches. `fuzzy.rs`'s tests replay it.
+
 ## Screens
 
 ```bash
