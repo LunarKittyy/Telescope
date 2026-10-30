@@ -11,7 +11,7 @@ use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
@@ -1119,7 +1119,7 @@ impl Window {
             return self.quit("Restarting");
         }
         let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned());
-        match exe.and_then(|exe| telescope_system::update_guard::launch(&[exe, "--restarted".to_string()])) {
+        match exe.and_then(|exe| (app_hooks().relaunch)(&[exe, "--restarted".to_string()])) {
             Ok(()) => self.quit("Restarting"),
             Err(e) => log::error!("Couldn't start Telescope again: {e}"),
         }
@@ -1154,6 +1154,33 @@ pub fn forget() {
 }
 
 /// The window, until it's closed.
+/// What only the program around the window knows; the binary hands them over before the window opens (the plain defaults
+/// are for tests and tools).
+pub struct AppHooks {
+    /// Which Telescope this is, as the UI says it, and its commit.
+    pub build: fn() -> String,
+    pub commit: fn() -> &'static str,
+    /// Hands memory the allocator kept after frames were freed back to the system.
+    pub release_memory: fn(),
+    /// Starts argv on its own, outliving this process.
+    pub relaunch: fn(&[String]) -> std::io::Result<()>,
+}
+
+static APP_HOOKS: OnceLock<AppHooks> = OnceLock::new();
+
+pub fn use_app_hooks(hooks: AppHooks) {
+    let _ = APP_HOOKS.set(hooks);
+}
+
+pub(crate) fn app_hooks() -> &'static AppHooks {
+    APP_HOOKS.get_or_init(|| AppHooks {
+        build: || telescope_core::version::version().to_string(),
+        commit: || "",
+        release_memory: || {},
+        relaunch: |_| Err(std::io::ErrorKind::Unsupported.into()),
+    })
+}
+
 /// What the process should exit with once run() is back, for the dev launcher.
 static EXIT_CODE: AtomicI32 = AtomicI32::new(0);
 

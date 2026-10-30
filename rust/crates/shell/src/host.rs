@@ -255,8 +255,8 @@ impl HostShell for Ctx<'_> {
     }
     fn diagnostics_report(&self) -> String {
         use telescope_core::diagnostics::{events, report_for};
-        use telescope_system::version::{commit, display_version};
-        report_for(events(), &display_version(), commit(), &self.state.diagnostics(), crate::window::windowing())
+        let hooks = crate::window::app_hooks();
+        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics(), crate::window::windowing())
     }
     fn open_url(&mut self, url: &str) {
         self.state.effects.push(Effect::OpenUrl(url.into()));

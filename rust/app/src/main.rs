@@ -306,6 +306,13 @@ fn take_launch(words: &mut Vec<String>) -> Launch {
 }
 
 fn main() {
+    use telescope_system::{memory, update_guard, version};
+    telescope_shell::window::use_app_hooks(telescope_shell::window::AppHooks {
+        build: version::display_version,
+        commit: version::commit,
+        release_memory: memory::release_freed_memory,
+        relaunch: update_guard::launch,
+    });
     // Before the decoder and the stream start their threads, which would each get a pool of their own
     telescope_system::memory::limit_malloc_arenas(4);
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
@@ -398,7 +405,7 @@ fn main() {
         eprintln!("{e}");
         std::process::exit(1);
     }
-    let code = telescope_shell::exit_code();
+    let code = telescope_shell::window::exit_code();
     if code != 0 {
         std::process::exit(code);
     }

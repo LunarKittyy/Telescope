@@ -1,5 +1,4 @@
-//! The window and the stream flow. What it uses from other crates comes in through core's traits (Services), but for
-//! the few plain calls into telescope-system a window makes for itself (which build this is, starting a new copy of itself).
+//! The window and the stream flow. Everything it uses from other crates comes in through core's traits (Services).
 
 pub mod banners;
 pub mod collapse;
