@@ -301,6 +301,10 @@ impl FakeWorker {
         self.log.lock().unwrap().iter().any(|l| l == what)
     }
 
+    pub fn is_parked(&self) -> bool {
+        self.parked_now.load(Ordering::SeqCst)
+    }
+
     pub fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::SeqCst)
     }
@@ -537,6 +541,11 @@ impl Rig {
         self.pump();
     }
 
+    /// `id` stops streaming.
+    pub fn stop(&self, id: Option<&str>) {
+        self.w.with_flow(|flow, host| flow.stop_stream(host, id));
+    }
+
     /// Start pressed, and the phone woke.
     pub fn start(&self) {
         let workers = self.workers.lock().unwrap().len();
@@ -631,6 +640,11 @@ impl Rig {
         self.w.streams.flow.borrow().sessions.focus.as_ref().map(|s| s.id_str().to_string())
     }
 
+    /// The virtual cameras last said to be free, as the listeners heard it.
+    pub fn idle_outputs(&self) -> String {
+        self.heard().into_iter().rev().find_map(|l| l.strip_prefix("panel idle ").map(String::from)).unwrap_or_default()
+    }
+
     pub fn host_says_camera_on(&self) -> bool {
         !self.w.state.borrow().streams.camera_off
     }
@@ -647,6 +661,17 @@ fn rows_of(model: &ModelRc<SValue>) -> Vec<BTreeMap<String, String>> {
             _ => String::new(),
         })).collect()
     }).collect()
+}
+
+/// A phone state that passes the check, with these keys on top.
+pub fn state_with(extra: Value) -> Value {
+    let mut state = json!({"cameras": [], "auto": true, "wb_manual": false, "ois": true, "focus_mode": "continuous", "focus_distance": 0.0,
+                           "ae_comp": 0, "nr_mode": 1, "edge_mode": 1, "black_level_lock": false, "torch": false, "battery": 80,
+                           "charging": false, "battery_temp_c": 25.0});
+    if let (Some(map), Value::Object(more)) = (state.as_object_mut(), extra) {
+        map.extend(more);
+    }
+    state
 }
 
 /// A frame, for what wants one.
