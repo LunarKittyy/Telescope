@@ -68,6 +68,8 @@ component StripTop inherits HorizontalLayout {
         spacing: 1px;
         alignment: center;
         Text {
+            // A QLabel's 17px line, a pixel under Slint's
+            max-height: bare ? 17px : 100000px;
             text: title;
             font-family: Theme.font;
             font-size: Theme.body;
@@ -81,7 +83,7 @@ component StripTop inherits HorizontalLayout {
             text: sub;
             font-family: Theme.font;
             font-size: Theme.small;
-            color: !enabled ? Theme.text-disabled : sub-kind == "" ? Theme.text-dim : Status.color(sub-kind);
+            color: !enabled ? Theme.text-disabled : sub-kind == "" ? Theme.text-faint : Status.color(sub-kind);
             wrap: word-wrap;
             line-height-factor: Theme.line-factor(self.font-size);
         }

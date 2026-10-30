@@ -45,7 +45,7 @@ export component QrReaderCard inherits Card {
             text: @tr("Notify me when a code is read");
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Theme.text;
+            color: active ? Theme.text : Theme.text-disabled;
             vertical-alignment: center;
             horizontal-stretch: 1;
             TouchArea {

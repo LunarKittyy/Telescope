@@ -41,6 +41,9 @@ def qt_render(id: str, scale: float, plugins: list) -> tuple:
         import telescope.plugins as builtins
         from scripts import translation_preview as preview
         from PyQt6.QtWidgets import QApplication
+        from telescope import pyav_vaapi
+        # Dropped from Rust, which links FFmpeg with VA-API in it
+        pyav_vaapi.supported = lambda: False
         # render() grabs after one round of events, before a WrapLabel's new height has reached the layouts around it
         settle = QApplication.processEvents
         QApplication.processEvents = staticmethod(lambda *args: [settle(*args) for _ in range(5)][-1])

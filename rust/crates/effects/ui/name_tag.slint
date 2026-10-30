@@ -23,12 +23,16 @@ component ChoiceRow inherits FormRow {
     in property <[string]> items;
     in property <int> current;
     callback picked(int);
-    ChoiceField {
-        compact: true;
-        caption: root.label;
-        items: root.items;
-        current: root.current;
-        picked(i) => { root.picked(i); }
+    Rectangle {
+        horizontal-stretch: 1;
+        ChoiceField {
+            width: parent.width;
+            compact: true;
+            caption: root.label;
+            items: root.items;
+            current: root.current;
+            picked(i) => { root.picked(i); }
+        }
     }
 }
 
