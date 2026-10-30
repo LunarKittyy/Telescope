@@ -234,7 +234,7 @@ impl ShortcutsPlugin {
     }
 
     fn apply_backend(&mut self) {
-        if self.started && self.backend.is_some() {
+        if let (true, Some(_)) = (self.started, self.backend.as_ref()) {
             let skip = clashes(&self.bindings);
             let hotkeys: Vec<Hotkey> = self.bindings.iter()
                 .filter(|b| b.global && !skip.contains(&b.id) && self.action(&b.action).is_some())
@@ -242,7 +242,9 @@ impl ShortcutsPlugin {
                 .collect();
             // Rebinding can ask the user to confirm them all again (Plasma)
             if self.last_global.as_ref() != Some(&hotkeys) {
-                self.backend.as_mut().unwrap().apply(&hotkeys);
+                if let Some(backend) = self.backend.as_mut() {
+                    backend.apply(&hotkeys);
+                }
                 self.last_global = Some(hotkeys);
             }
         }

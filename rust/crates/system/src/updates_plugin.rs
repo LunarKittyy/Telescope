@@ -291,8 +291,8 @@ impl UpdatesPlugin {
         match self.phase {
             Phase::Downloading => {
                 let (done, total) = self.progress;
-                if total > 0 {
-                    return (tr("Downloading {percent}%…").replace("{percent}", &(done * 100 / total).to_string()), "status_dim");
+                if let Some(percent) = (done * 100).checked_div(total) {
+                    return (tr("Downloading {percent}%…").replace("{percent}", &percent.to_string()), "status_dim");
                 }
                 return (tr("Downloading…"), "status_dim");
             }

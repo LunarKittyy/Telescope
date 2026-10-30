@@ -9,6 +9,11 @@ use zbus::blocking::Connection;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
+/// An icon as the tray protocol sends it: width, height and ARGB bytes.
+type Pixmap = (i32, i32, Vec<u8>);
+/// What the tray shows on hover: the icon's name, its pixmaps, the title and a description.
+type ToolTip = (String, Vec<Pixmap>, String, String);
+
 const ITEM_PATH: &str = "/StatusNotifierItem";
 const MENU_PATH: &str = "/MenuBar";
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
@@ -55,11 +60,11 @@ impl Item {
         ICON.into()
     }
     #[zbus(property)]
-    fn icon_pixmap(&self) -> Vec<(i32, i32, Vec<u8>)> {
+    fn icon_pixmap(&self) -> Vec<Pixmap> {
         Vec::new()
     }
     #[zbus(property)]
-    fn tool_tip(&self) -> (String, Vec<(i32, i32, Vec<u8>)>, String, String) {
+    fn tool_tip(&self) -> ToolTip {
         let tip = self.0.lock().unwrap().tooltip.clone();
         (String::new(), Vec::new(), tip, String::new())
     }
@@ -318,7 +323,7 @@ mod tests {
 
         let reply = panel.call_method(Some(name.as_str()), ITEM_PATH, Some("org.freedesktop.DBus.Properties"), "Get", &("org.kde.StatusNotifierItem", "ToolTip")).unwrap();
         let tip: OwnedValue = reply.body().deserialize().unwrap();
-        let (_, _, title, _): (String, Vec<(i32, i32, Vec<u8>)>, String, String) = tip.try_into().unwrap();
+        let (_, _, title, _): ToolTip = tip.try_into().unwrap();
         assert_eq!(title, "Telescope: streaming the camera");
     }
 }

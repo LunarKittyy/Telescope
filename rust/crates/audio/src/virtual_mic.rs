@@ -113,7 +113,8 @@ fn private_temp_dir(temp: &Path) -> std::io::Result<PathBuf> {
     Ok(temp.to_path_buf())
 }
 
-fn stale_modules(out: &str) -> Vec<u32> {
+/// The loaded modules (a `pactl list short modules` answer) an earlier run of this profile left behind.
+pub fn stale_modules(out: &str) -> Vec<u32> {
     let tags = ours();
     out.lines()
         .filter(|line| tags.iter().any(|t| line.contains(t.as_str())))
