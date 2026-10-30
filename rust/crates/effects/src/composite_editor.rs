@@ -161,10 +161,17 @@ impl CompositePlugin {
 
     /// (source id, name, aspect) of the running streams that have a picture, in the order they started.
     pub fn streams(&self) -> Vec<composite::Stream> {
-        let names: BTreeMap<String, String> = self.shared.store().stream_frames().into_iter().map(|sf| (sf.source_id, sf.name)).collect();
-        self.frames_now().iter().map(|(sid, (frame, _))| {
-            (sid.clone(), names.get(sid).cloned().unwrap_or_else(|| sid.clone()), frame.width as f64 / frame.height.max(1) as f64)
-        }).collect()
+        let mut frames = self.frames_now();
+        let aspect = |frame: &Frame| frame.width as f64 / frame.height.max(1) as f64;
+        let mut out: Vec<composite::Stream> = Vec::new();
+        for sf in self.shared.store().stream_frames() {
+            if let Some((frame, _)) = frames.remove(&sf.source_id) {
+                out.push((sf.source_id, sf.name, aspect(&frame)));
+            }
+        }
+        // The main stream's picture with no frame of its own in the store comes last, as setdefault puts it
+        out.extend(frames.iter().map(|(sid, (frame, _))| (sid.clone(), sid.clone(), aspect(frame))));
+        out
     }
 
     fn canvas_aspect(&self) -> f64 {

@@ -42,6 +42,7 @@ event sensors_changed
 event setup_guide_requested
 event setup_needed
 event source_selected
+event source_shown
 event still_busy_changed
 event still_saved
 event stream_behind

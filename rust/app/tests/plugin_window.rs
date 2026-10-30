@@ -397,3 +397,59 @@ fn a_layer_on_the_preview_moves_to_the_pop_out() {
     let popout = w.popout_window().expect("it opened");
     assert_eq!(paths(&popout, "layer-paths"), 1);
 }
+
+/// Hears Connection's two events.
+struct Picks(Arc<Mutex<Vec<String>>>);
+
+impl Plugin for Picks {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "picks".into(), title: "Picks".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        match event {
+            Event::SelectSource { source_id } => self.0.lock().unwrap().push(format!("select {source_id}")),
+            Event::SourceShown { source_id } => self.0.lock().unwrap().push(format!("shown {source_id}")),
+            _ => {}
+        }
+    }
+}
+
+fn picks_window(name: &str) -> (Rc<window::Window>, Arc<Mutex<Vec<String>>>) {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir(name);
+    let services = Arc::new(Services {
+        link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+    });
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Picks(h)) as Box<dyn Plugin>], Some(services), None).unwrap();
+    (w, heard)
+}
+
+#[test]
+fn moving_the_panels_moves_the_selection_with_them() {
+    let (w, heard) = picks_window("window-focus-selection");
+    w.add_plugin_source(Arc::new(Browser("browser:a")));
+    w.add_plugin_source(Arc::new(Browser("browser:b")));
+    w.stream_plugin_source("browser:a");
+    w.stream_plugin_source("browser:b");
+    w.with_flow(|flow, host| flow.focus_stream(host, "browser:a"));
+    w.process();
+    assert_eq!(w.state.borrow().selected.as_deref(), Some("browser:a"));
+    assert_eq!(heard.lock().unwrap().last().map(String::as_str), Some("shown browser:a"));
+    w.with_flow(|flow, host| flow.focus_stream(host, "browser:b"));
+    w.process();
+    assert_eq!(w.state.borrow().selected.as_deref(), Some("browser:b"), "a save now files the panels' settings under b");
+}
+
+#[test]
+fn removing_the_picked_source_picks_the_next_through_connection_first() {
+    let (w, heard) = picks_window("window-remove-selected");
+    w.add_plugin_source(Arc::new(Browser("browser:a")));
+    w.add_plugin_source(Arc::new(Browser("browser:b")));
+    w.state.borrow_mut().selected = Some("browser:a".into());
+    w.remove_plugin_source("browser:a");
+    assert_eq!(heard.lock().unwrap().as_slice(), ["select browser:b"]);
+    assert_eq!(w.state.borrow().selected.as_deref(), Some("browser:b"));
+}
