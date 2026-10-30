@@ -117,6 +117,14 @@ pub fn window() -> Option<ComponentInstance> {
 }
 
 /// The settings window, built the first time it's asked for; on `tab` if that's one it shows.
+/// Host::set_plugin_hues reaches the settings window too, which has its own Theme.
+pub fn set_hues(on: bool) {
+    if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
+        let _ = settings.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
+        settings.show_panel();
+    }
+}
+
 pub fn open(window: &Rc<Window>, tab: &str) {
     let existing = SETTINGS.with(|s| s.borrow().clone());
     let settings = match existing {
@@ -124,6 +132,9 @@ pub fn open(window: &Rc<Window>, tab: &str) {
         None => match build(window) {
             Ok(s) => {
                 SETTINGS.with(|slot| *slot.borrow_mut() = Some(s.clone()));
+                if let Ok(own) = window.ui.get_global_property("Theme", "own-hues") {
+                    let _ = s.ui.set_global_property("Theme", "own-hues", own);
+                }
                 s
             }
             Err(e) => {

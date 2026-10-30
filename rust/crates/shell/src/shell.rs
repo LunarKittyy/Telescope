@@ -101,6 +101,12 @@ pub enum Effect {
     CopyText(String),
     /// Host::take_still: the photo for `plugin`'s request on stream `source`, answered by RequestProgress and RequestDone.
     TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
+    /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
+    PluginHues(bool),
+    /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
+    RestartCanvas { plugin: String, request: RequestId },
+    /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
+    RemoveExtras { plugin: String, request: RequestId },
     /// Host::open_url: a link for the browser.
     OpenUrl(String),
     /// Host::hand_over_stream: link prepared url on route next to the stream's running one; the worker tries it.
