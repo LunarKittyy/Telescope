@@ -55,6 +55,15 @@ impl SensorReader for NoFrames {
     }
 }
 
+/// The reading FakeHost::sensor_reading holds.
+struct HeldReading(Arc<Mutex<Option<Value>>>);
+
+impl SensorReader for HeldReading {
+    fn reading(&self, _source_id: Option<&str>) -> Option<Value> {
+        self.0.lock().unwrap().clone()
+    }
+}
+
 /// A host with nothing streaming that writes down every call (calls) and event (events), for testing a plugin on its own.
 #[derive(Default)]
 pub struct FakeHost {
@@ -115,6 +124,12 @@ pub struct FakeHost {
     pub issues: Vec<(String, Issue)>,
     /// What each plugin has on the preview, by owner.
     pub layers: HashMap<String, PreviewLayer>,
+    /// The passes plugins put on the preview, by owner.
+    pub passes: HashMap<String, Arc<dyn crate::preview::PreviewPass>>,
+    /// What sensor_status() answers instead of {"state": "off"}.
+    pub sensor_status: Option<Value>,
+    /// What the sensors' reading() answers, as SensorReading's fields.
+    pub sensor_reading: Arc<Mutex<Option<Value>>>,
     /// What still_caps() answers: the lens's photo options as JSON, or None for a stream that can't take photos.
     pub still_caps: Option<Value>,
     /// What still_busy() answers.
@@ -452,6 +467,11 @@ impl HostPreview for FakeHost {
     fn remove_preview_layer(&mut self, owner: &str) {
         self.note(format!("remove_preview_layer {owner}"));
         self.layers.remove(owner);
+        self.passes.remove(owner);
+    }
+    fn add_preview_pass(&mut self, owner: &str, pass: Arc<dyn crate::preview::PreviewPass>) {
+        self.note(format!("add_preview_pass {owner}"));
+        self.passes.insert(owner.to_string(), pass);
     }
     fn refresh_preview(&mut self) {
         self.note("refresh_preview");
@@ -503,10 +523,10 @@ impl HostSensors for FakeHost {
         self.note(format!("want_sensors {owner} {kinds:?}"));
     }
     fn sensor_status(&self, _source_id: Option<&str>) -> Value {
-        json!({"state": "off"})
+        self.sensor_status.clone().unwrap_or_else(|| json!({"state": "off"}))
     }
     fn sensors(&self) -> Arc<dyn SensorReader> {
-        Arc::new(NoFrames)
+        Arc::new(HeldReading(self.sensor_reading.clone()))
     }
 }
 

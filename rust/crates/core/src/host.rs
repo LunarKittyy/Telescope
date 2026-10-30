@@ -374,8 +374,12 @@ pub trait HostMotion {
 /// Drawing on the preview without it reaching the virtual camera, and asking for points and areas there.
 pub trait HostPreview {
     fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer);
+    /// Takes off whatever this owner put on the preview, a layer or a pass.
     fn remove_preview_layer(&mut self, owner: &str);
     fn refresh_preview(&mut self);
+    /// Puts a pass on the preview for this owner (PreviewLayer's tint, analyse and paint), in place of its earlier one. A host
+    /// without a preview ignores it.
+    fn add_preview_pass(&mut self, _owner: &str, _pass: Arc<dyn crate::preview::PreviewPass>) {}
     /// Starts a pick; Event::PreviewPicked brings the result. False if there's no preview to pick on.
     fn pick_on_preview(&mut self, owner: &str, kind: PickKind, start: Option<[[f32; 2]; 4]>, hint: &str) -> bool;
     fn finish_pick(&mut self, owner: &str) -> bool;
