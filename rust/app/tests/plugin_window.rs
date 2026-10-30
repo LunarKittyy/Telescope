@@ -419,7 +419,7 @@ fn picks_window(name: &str) -> (Rc<window::Window>, Arc<Mutex<Vec<String>>>) {
     let dir = telescope_core::testing::scratch_dir(name);
     let services = Arc::new(Services {
         link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
-        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(), plugin_admin: None,
     });
     let heard = Arc::new(Mutex::new(Vec::new()));
     let h = heard.clone();
