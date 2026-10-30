@@ -80,6 +80,9 @@ pub trait FlowHost {
     /// The owners of the packet steps plugins asked for on the shown stream.
     fn packet_steps(&self) -> Vec<String>;
     fn ask_keyframe(&mut self, source: &SourceRef);
+    /// The panels leave source's stream, which carries on behind: its frame steps keep the settings the plugins have now
+    /// (pipeline(live=False)), before the next stream's settings reach them.
+    fn freeze_steps(&mut self, source: &SourceRef);
 }
 
 /// Every stream's start, stop and focus; the state itself is in Sessions.
@@ -440,6 +443,7 @@ impl StreamFlow {
             if let Some(session) = old.session() {
                 host.save_profile(old.id.as_deref(), &Self::followers(host)); // as it was, before the stop hooks
                 if let Some(worker) = &session.worker {
+                    host.freeze_steps(&old);
                     worker.set_pipeline(false);
                     if worker.set_packets(&[]) {
                         host.ask_keyframe(&old); // packet steps stay with the panels
@@ -832,6 +836,8 @@ mod tests {
         saved: Vec<(String, Vec<String>)>,
         applied: Vec<(String, Vec<String>)>,
         packet_makers: Vec<String>,
+        /// (source, how many device profiles had been applied) for each stream whose frame steps were frozen.
+        frozen: Vec<(String, usize)>,
         keyframes: Vec<String>,
         later: Vec<Later>,
         workers: Vec<Rc<FakeWorker>>,
@@ -911,6 +917,9 @@ mod tests {
         fn apply_device_profile(&mut self, source_id: Option<&str>, plugins: &[String]) {
             self.applied.push((source_id.unwrap_or_default().into(), plugins.to_vec()));
         }
+        fn freeze_steps(&mut self, source: &SourceRef) {
+            self.frozen.push((source.id_str().into(), self.applied.len()));
+        }
         fn schedule_save(&mut self) {}
         fn canvas_size(&self) -> Option<(u32, u32)> {
             Some((1920, 1080))
@@ -950,7 +959,7 @@ mod tests {
             stands.insert(id.to_string(), stand);
         }
         let host = Host { log, plugins: vec![("camera".into(), true), ("mic".into(), false)], sources, stands,
-                          selected: "a".into(), problems: vec![], saved: vec![], applied: vec![], packet_makers: vec![],
+                          selected: "a".into(), problems: vec![], saved: vec![], applied: vec![], packet_makers: vec![], frozen: vec![],
                           keyframes: vec![], later: vec![], workers: vec![] };
         (StreamFlow::new(), host)
     }
@@ -1118,5 +1127,18 @@ mod tests {
         flow.move_focus(&mut host, &a);
         assert!(!host.worker("a").packets.borrow().is_empty() && host.worker("b").packets.borrow().is_empty());
         assert_eq!(host.keyframes, ["b", "a"]);
+    }
+
+    #[test]
+    fn a_stream_left_behind_keeps_its_own_settings_not_the_next_phones() {
+        let (mut flow, mut host) = setup();
+        two_streams(&mut flow, &mut host);
+        host.frozen.clear();
+        let applied = host.applied.len();
+        let a = host.sources["a"].clone();
+        flow.move_focus(&mut host, &a);
+        // pipeline(live=False) before a's profile reaches the plugins, or b would stream on with a's name tag and sheet
+        assert_eq!(host.frozen, [("b".to_string(), applied)]);
+        assert_eq!(host.applied.last().map(|(id, _)| id.as_str()), Some("a"));
     }
 }

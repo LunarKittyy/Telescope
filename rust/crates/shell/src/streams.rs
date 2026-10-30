@@ -36,7 +36,10 @@ pub struct ShellWorker {
 impl Worker for ShellWorker {
     fn set_pipeline(&self, live: bool) {
         self.live.set(live);
-        self.steps_due.set(true);
+        // A stream left behind already has its steps (freeze_steps); the one the panels show takes theirs as they are
+        if live {
+            self.steps_due.set(true);
+        }
     }
     fn set_packets(&self, owners: &[String]) -> bool {
         let Some(tap) = self.inner.tap() else { return false };
@@ -1076,6 +1079,12 @@ impl FlowHost for Host<'_> {
     }
     fn ask_keyframe(&mut self, source: &SourceRef) {
         ask_keyframe(source);
+    }
+    fn freeze_steps(&mut self, source: &SourceRef) {
+        if let Some(w) = self.w.worker_of(source) {
+            let steps = self.w.state.borrow_mut().pipeline_steps(w.inner.source_id());
+            w.inner.set_steps(steps);
+        }
     }
 }
 
