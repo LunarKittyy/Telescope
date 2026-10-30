@@ -22,7 +22,8 @@ pub mod reader;
 mod yuv;
 #[cfg(test)]
 mod guard_alloc;
-#[cfg(all(test, ffmpeg))]
+#[cfg(ffmpeg)]
+#[allow(dead_code)] // the tests use the rest of what it makes
 mod testenc;
 
 #[cfg(test)]
@@ -34,6 +35,19 @@ use telescope_core::frame::Frame;
 #[cfg(ffmpeg)]
 use telescope_core::frame::PixelFormat;
 use telescope_core::media::*;
+
+/// H.264 made with this build's encoder for tests in other crates (None where it has none): a grey square moving over a picture
+/// that changes every 6 frames, as raw packets with no delimiters.
+#[doc(hidden)]
+pub fn test_h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {
+    #[cfg(ffmpeg)]
+    return testenc::h264_moving(count, w, h, gop, profile);
+    #[cfg(not(ffmpeg))]
+    {
+        let _ = (count, w, h, gop, profile);
+        None
+    }
+}
 
 /// The decoders and frame steps this build has.
 #[derive(Default)]
@@ -51,7 +65,7 @@ impl Scaler for PreviewScaler {
     fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
         if let Some(gpu) = self.gpu.get_or_insert_with(gpu::Gpu::shared) {
             match gpu.rgba(frame, width, height) {
-                Ok(rgba) => return rgba.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect(),
+                Ok(rgba) => return rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect(),
                 Err(why) => {
                     log::warn!("The preview can't be drawn on the graphics card ({why}); drawing it on the processor");
                     self.gpu = Some(None);

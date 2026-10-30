@@ -84,7 +84,7 @@ fn every_scope_makes_a_bgra_picture() {
         let image = scope_image(name, &f).unwrap();
         assert_eq!(image.data.len(), image.w * image.h * 4, "{name}");
         // the backdrop shows everywhere, so the scope reads over any picture
-        assert!(image.data.chunks_exact(4).all(|p| p[3] > 0), "{name}");
+        assert!(image.data.as_chunks::<4>().0.iter().all(|p| p[3] > 0), "{name}");
     }
     assert!(scope_image("oscilloscope", &f).is_none());
 }

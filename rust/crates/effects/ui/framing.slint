@@ -53,8 +53,8 @@ export component FramingCard inherits Card {
     in property <string> hand-name;
     // Every word a readout can show, a line each: value_label's fits
     in property <string> fits;
-    in property <string> status;
-    in property <bool> status-download;
+    in property <string> vision-text;
+    in property <bool> vision-download;
     callback switch-toggled-by-hand(bool);
     callback framing-moved(float);
     callback speed-moved(float);
@@ -160,9 +160,9 @@ export component FramingCard inherits Card {
             toggled(v) => { root.hand-toggled(v); }
         }
     }
-    if status != "": VisionStatus {
-        text: status;
-        download: status-download;
+    if vision-text != "": VisionStatus {
+        text: vision-text;
+        download: vision-download;
         download-clicked => { root.download-clicked(); }
     }
     // Nothing to touch until a phone is paired

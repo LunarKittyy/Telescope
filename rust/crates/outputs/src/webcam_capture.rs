@@ -30,13 +30,16 @@ pub trait Capture: Send {
 /// Opens a capture of device asking for choice: Err((opened at all, why)).
 pub type Opener = std::sync::Arc<dyn Fn(&Device, &Choice) -> Result<Box<dyn Capture>, (bool, String)> + Send + Sync>;
 
+/// Picks what to ask a device for, or None when it can't be read.
+pub type Want = std::sync::Arc<dyn Fn(&Device) -> Option<Choice> + Send + Sync>;
+
 /// What a reader needs, so tests can stand in for cameras.
 #[derive(Clone)]
 pub struct ReaderDeps {
     /// The camera as it's plugged in now, or None.
     pub locate: std::sync::Arc<dyn Fn() -> Option<Device> + Send + Sync>,
     /// What to ask it for.
-    pub want: std::sync::Arc<dyn Fn(&Device) -> Option<Choice> + Send + Sync>,
+    pub want: Want,
     pub report: Report,
     pub opener: Opener,
     /// The program holding a node ("" if none or unknown).
@@ -63,7 +66,7 @@ pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>
     };
     let Some(device) = (deps.locate)() else { return say(GONE_TEXT, "gone", "") };
     let Some(choice) = (deps.want)(&device) else { return say(NO_FRAMES_TEXT, "silent", "") };
-    let opened = (deps.opener)(&device, &choice).map_err(|(opened, why)| (opened, why)).and_then(|mut cap| {
+    let opened = (deps.opener)(&device, &choice).and_then(|mut cap| {
         cap.read().map(|first| (cap, first)).map_err(|why| (true, why))
     });
     match opened {
@@ -193,7 +196,7 @@ pub fn raw_to_i420(fourcc: &str, width: u32, height: u32, data: &[u8]) -> Option
             if data.len() < w * h * 3 {
                 return None;
             }
-            let rgb: Vec<u8> = if fourcc == "BGR3" { data[..w * h * 3].chunks_exact(3).flat_map(|p| [p[2], p[1], p[0]]).collect() } else { data[..w * h * 3].to_vec() };
+            let rgb: Vec<u8> = if fourcc == "BGR3" { data[..w * h * 3].as_chunks::<3>().0.iter().flat_map(|p| [p[2], p[1], p[0]]).collect() } else { data[..w * h * 3].to_vec() };
             return Some(crate::convert::rgb_to_i420(&rgb, width, height, 3, false));
         }
         _ => return None,

@@ -410,7 +410,7 @@ impl PhotosPlugin {
     /// The range of the How many (0) and Steps (1) boxes.
     fn number_range(&self, which: usize) -> (i64, i64) {
         let burst_max = self.effective_caps().burst_max;
-        if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.min(30).max(2)) }
+        if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.clamp(2, 30)) }
     }
 
     /// What the box shows for the value it holds.

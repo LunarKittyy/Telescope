@@ -243,7 +243,7 @@ fn nothing_is_sent_while_the_lens_cant_meter_on_a_point() {
     r.switch(true);
     r.event(Event::FocusPointAvailable { available: false });
     r.see((0.4, 0.3));
-    assert!(r.focus.is_empty() && r.prop("status").as_str().unwrap().contains("can't meter"));
+    assert!(r.focus.is_empty() && r.prop("vision-text").as_str().unwrap().contains("can't meter"));
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone() {
     r.event(Event::MeterPointAvailable { available: true });
     r.see((0.4, 0.3));
     assert!(r.focus.is_empty() && r.metered.len() == 1 && at(r.metered[0], (0.4, 0.3)));
-    assert!(!r.prop("status").as_str().unwrap().contains("can't meter"));
+    assert!(!r.prop("vision-text").as_str().unwrap().contains("can't meter"));
     // The phone's next state says the same: the point isn't sent again
     r.event(Event::FocusPointAvailable { available: false });
     r.event(Event::MeterPointAvailable { available: true });
@@ -432,7 +432,7 @@ fn whole_runs_send_what_python_sends() {
             }
             assert_eq!(r.diagnosis(), op["diagnostics"].as_str().unwrap(), "{name} op {i}");
             if op["op"] != "tracked" && op["op"] != "view" {
-                assert_eq!(r.prop("status"), op["status"], "{name} op {i}");
+                assert_eq!(r.prop("vision-text"), op["status"], "{name} op {i}");
                 assert_eq!(r.prop("held"), op["held"], "{name} op {i}");
                 if op["held"] == true {
                     assert_eq!(r.prop("held-note"), op["note"], "{name} op {i}");

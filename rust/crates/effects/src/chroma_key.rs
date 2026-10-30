@@ -178,6 +178,9 @@ fn bgr(value: Option<&Value>) -> Option<[u8; 3]> {
     Some(out)
 }
 
+/// What the baked tables were made from: the key colour and the sliders.
+type TablesKey = (String, [i64; 3]);
+
 pub struct ChromaKeyPlugin {
     on: bool,
     screen: &'static str,
@@ -200,7 +203,7 @@ pub struct ChromaKeyPlugin {
     asked: Option<RequestId>,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
-    cached: Option<((String, [i64; 3]), Arc<Tables>)>,
+    cached: Option<(TablesKey, Arc<Tables>)>,
 }
 
 impl Default for ChromaKeyPlugin {

@@ -77,13 +77,13 @@ pub fn luma_of(r: u8, g: u8, b: u8) -> u8 {
 
 /// Brightness of each pixel of a frame, 0..255 (BT.709 weights).
 pub fn luma(frame: &Rgb) -> Gray {
-    Gray { w: frame.w, h: frame.h, data: frame.data.chunks_exact(3).map(|p| luma_of(p[0], p[1], p[2])).collect() }
+    Gray { w: frame.w, h: frame.h, data: frame.data.as_chunks::<3>().0.iter().map(|p| luma_of(p[0], p[1], p[2])).collect() }
 }
 
 /// [blue, green, red, luma] pixel counts at each level.
 pub fn histogram(frame: &Rgb) -> [[u32; 256]; 4] {
     let mut counts = [[0u32; 256]; 4];
-    for p in frame.data.chunks_exact(3) {
+    for p in frame.data.as_chunks::<3>().0 {
         counts[0][p[2] as usize] += 1;
         counts[1][p[1] as usize] += 1;
         counts[2][p[0] as usize] += 1;
@@ -105,7 +105,7 @@ pub fn waveform(channel: &[u8], w: usize, h: usize) -> Vec<u32> {
 }
 
 fn channel(frame: &Rgb, c: usize) -> Vec<u8> {
-    frame.data.chunks_exact(3).map(|p| p[c]).collect()
+    frame.data.as_chunks::<3>().0.iter().map(|p| p[c]).collect()
 }
 
 /// (256 x 3w) counts: the red, green and blue waveforms side by side.
@@ -142,7 +142,7 @@ pub fn bgr_of_ycrcb(y: u8, cr: u8, cb: u8) -> [u8; 3] {
 
 /// (Cb, Cr) of each pixel, 128 for no colour.
 pub fn chroma(frame: &Rgb) -> (Vec<u8>, Vec<u8>) {
-    frame.data.chunks_exact(3).map(|p| {
+    frame.data.as_chunks::<3>().0.iter().map(|p| {
         let (_, cr, cb) = ycrcb_of(p[0], p[1], p[2]);
         (cb, cr)
     }).unzip()
@@ -156,7 +156,7 @@ fn cell(cb: u8, cr: u8, size: usize) -> (usize, usize) {
 /// (size x size) counts of each pixel's colour: Cb to the right, Cr up, no colour in the middle.
 pub fn vectorscope(frame: &Rgb, size: usize) -> Vec<u32> {
     let mut counts = vec![0u32; size * size];
-    for p in frame.data.chunks_exact(3) {
+    for p in frame.data.as_chunks::<3>().0 {
         let (_, cr, cb) = ycrcb_of(p[0], p[1], p[2]);
         let (x, y) = cell(cb, cr, size);
         counts[y * size + x] += 1;
@@ -181,7 +181,7 @@ pub fn glow(counts: &[u32], per_cell: f64) -> Vec<f32> {
 
 fn backdrop(w: usize, h: usize) -> Bgra {
     let mut out = Bgra::new(w, h);
-    for p in out.data.chunks_exact_mut(4) {
+    for p in out.data.as_chunks_mut::<4>().0 {
         p[3] = BACKDROP;
     }
     out
@@ -206,8 +206,8 @@ fn paint_trace(image: &mut Bgra, strength: &[f32], w: usize, colour: [u8; 3], x0
         for x in 0..w {
             let s = strength[y * w + x];
             let i = (y * image.w + x0 + x) * 4;
-            for c in 0..3 {
-                let trace = (s * colour[c] as f32) as u8;
+            for (c, &col) in colour.iter().enumerate() {
+                let trace = (s * col as f32) as u8;
                 image.data[i + c] = image.data[i + c].max(trace);
             }
             let alpha = (BACKDROP as f32 + s * 105.0) as u8;
@@ -250,11 +250,11 @@ pub fn histogram_image(frame: &Rgb, height: usize) -> Bgra {
     for (c, colour) in [(2, TRACE_R), (1, TRACE_G), (0, TRACE_B)] {
         for row in 0..height {
             let level = (height - row) as f32;
-            for x in 0..256 {
-                let filled = (if level <= heights[c][x] { 1.0f32 } else { 0.0 }) * 0.6;
+            for (x, &bar) in heights[c].iter().enumerate() {
+                let filled = (if level <= bar { 1.0f32 } else { 0.0 }) * 0.6;
                 let i = (row * 256 + x) * 4;
-                for k in 0..3 {
-                    let v = image.data[i + k] as f32 + filled * colour[k] as f32;
+                for (k, &col) in colour.iter().enumerate() {
+                    let v = image.data[i + k] as f32 + filled * col as f32;
                     image.data[i + k] = v.clamp(0.0, 255.0) as u8;
                 }
                 let alpha = if filled > 0.0 { 220 } else { 0 };
@@ -264,8 +264,8 @@ pub fn histogram_image(frame: &Rgb, height: usize) -> Bgra {
     }
     for row in 0..height {
         let level = (height - row) as f32;
-        for x in 0..256 {
-            if (level - heights[3][x]).abs() < 1.0 {
+        for (x, &bar) in heights[3].iter().enumerate() {
+            if (level - bar).abs() < 1.0 {
                 image.set(x, row, [TRACE_LUMA[0], TRACE_LUMA[1], TRACE_LUMA[2], 255]);
             }
         }
@@ -273,8 +273,8 @@ pub fn histogram_image(frame: &Rgb, height: usize) -> Bgra {
     for quarter in [64, 128, 192] {
         for row in 0..height {
             let i = (row * 256 + quarter) * 4;
-            for k in 0..3 {
-                image.data[i + k] = image.data[i + k].max(GRID[k]);
+            for (k, &grid) in GRID.iter().take(3).enumerate() {
+                image.data[i + k] = image.data[i + k].max(grid);
             }
         }
     }
@@ -295,7 +295,7 @@ const GRID_256: &[u8] = include_bytes!("../tests/fixtures/scope_grid_256.bin");
 /// The sparse list of lit pixels (x, y, B, G, R, A, each a byte) the Python app's 256 vectorscope grid has.
 fn recorded_grid() -> Bgra {
     let mut grid = Bgra::new(256, 256);
-    for p in GRID_256.chunks_exact(6) {
+    for p in GRID_256.as_chunks::<6>().0 {
         grid.set(p[0] as usize, p[1] as usize, [p[2], p[3], p[4], p[5]]);
     }
     grid
@@ -359,17 +359,17 @@ pub fn vectorscope_image(frame: &Rgb, size: usize) -> Bgra {
             let bgr = bgr_of_ycrcb(170, cr, cb);
             let s = strength[row * size + col];
             let i = (row * size + col) * 4;
-            for k in 0..3 {
+            for (k, &value) in bgr.iter().enumerate() {
                 // paler, so a dim spot still shows on the dark backdrop
-                let tint = bgr[k] as f32 * 0.6 + 100.0;
+                let tint = value as f32 * 0.6 + 100.0;
                 image.data[i + k] = (tint * s).clamp(0.0, 255.0) as u8;
             }
             let alpha = (BACKDROP as f32 + s * 105.0) as u8;
             image.data[i + 3] = image.data[i + 3].max(alpha);
             let g = grid.at(col, row);
             if g[3] > 0 {
-                for k in 0..4 {
-                    image.data[i + k] = image.data[i + k].max(g[k]);
+                for (k, &value) in g.iter().enumerate() {
+                    image.data[i + k] = image.data[i + k].max(value);
                 }
             }
         }

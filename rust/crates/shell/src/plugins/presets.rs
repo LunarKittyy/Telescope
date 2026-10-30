@@ -325,11 +325,13 @@ impl Plugin for PresetsPlugin {
         };
         vec![
             click("presets.apply", tr("Apply a preset"), vec![
-                json!({"name": "name", "label": tr("Preset"), "kind": "choice", "default": "", "choices": names, "dynamic": true}),
+                json!({"name": "name", "label": tr("Preset"), "kind": "choice", "default": "", "choices": names, "dynamic": true,
+                       "describe": tr("Preset: {name}")}),
             ]),
             click("presets.cycle", tr("Next or previous preset"), vec![
                 json!({"name": "op", "label": tr("Does"), "kind": "choice", "default": "next",
-                       "choices": ops.iter().map(|(v, l)| json!([v, l])).collect::<Vec<_>>()}),
+                       "choices": ops.iter().map(|(v, l)| json!([v, l])).collect::<Vec<_>>(),
+                       "describe": tr("Preset: {name}"), "lower": true}),
             ]),
         ]
     }

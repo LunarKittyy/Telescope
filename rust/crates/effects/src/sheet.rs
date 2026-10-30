@@ -155,14 +155,15 @@ pub fn perspective(from: &[P; 4], to: &[P; 4]) -> M3 {
         if d.abs() < 1e-12 {
             continue;
         }
-        for k in col..9 {
-            a[col][k] /= d;
+        for v in &mut a[col][col..] {
+            *v /= d;
         }
         for row in 0..8 {
             if row != col {
                 let f = a[row][col];
-                for k in col..9 {
-                    a[row][k] -= f * a[col][k];
+                let pivot_row = a[col];
+                for (v, p) in a[row][col..].iter_mut().zip(&pivot_row[col..]) {
+                    *v -= f * p;
                 }
             }
         }
@@ -185,9 +186,9 @@ pub fn invert(m: &M3) -> M3 {
     let c = |r: usize, c: usize| m[(r + 1) % 3][(c + 1) % 3] * m[(r + 2) % 3][(c + 2) % 3] - m[(r + 1) % 3][(c + 2) % 3] * m[(r + 2) % 3][(c + 1) % 3];
     let det = m[0][0] * c(0, 0) + m[0][1] * c(0, 1) + m[0][2] * c(0, 2);
     let mut out = [[0.0; 3]; 3];
-    for i in 0..3 {
-        for j in 0..3 {
-            out[i][j] = c(j, i) / det;
+    for (i, row) in out.iter_mut().enumerate() {
+        for (j, v) in row.iter_mut().enumerate() {
+            *v = c(j, i) / det;
         }
     }
     out
@@ -258,7 +259,7 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
                     // The position as a short, and what is left of it in 1/32 pixels
                     let sx = (fx >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
                     let sy = (fy >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
-                    let (ax, ay) = ((fx & (TAB_SIZE - 1)) as i32, (fy & (TAB_SIZE - 1)) as i32);
+                    let (ax, ay) = (fx & (TAB_SIZE - 1), fy & (TAB_SIZE - 1));
                     // The weights are exact: products of two 1/32 steps, in units of 1/32768
                     let weights = [(TAB_SIZE - ay) * (TAB_SIZE - ax), (TAB_SIZE - ay) * ax, ay * (TAB_SIZE - ax), ay * ax].map(|v| v << (COEF_BITS - 2 * TAB_BITS));
                     // BORDER_REPLICATE: a pixel outside the picture is the nearest one in it
@@ -309,7 +310,7 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let (sw, sh) = ((w / SHADE_SMALL).max(1), (h / SHADE_SMALL).max(1));
     let mut paper_map: Vec<Vec<u8>> = Vec::new();
     for c in 0..3 {
-        let plane: Vec<u8> = sheet.chunks_exact(3).map(|p| p[c]).collect();
+        let plane: Vec<u8> = sheet.as_chunks::<3>().0.iter().map(|p| p[c]).collect();
         let small = resize_area(&plane, w, h, 1, sw, sh);
         // Ink is thin: the max is paper
         let mut dilated = vec![0u8; sw * sh];
@@ -337,7 +338,7 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
 
 /// cv2.cvtColor(BGR2GRAY) of a sheet held as R, G, B: OpenCV's whole-number weights, not the float ones.
 fn grey_plane(sheet: &[u8]) -> Vec<u8> {
-    sheet.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect()
+    sheet.as_chunks::<3>().0.iter().map(|p| grey_of(p[0], p[1], p[2])).collect()
 }
 
 /// Ink black, paper white: an adaptive threshold that follows the light across the sheet.

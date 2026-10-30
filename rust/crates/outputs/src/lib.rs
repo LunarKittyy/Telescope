@@ -257,7 +257,7 @@ impl Outputs for VirtualCameras {
             None => wait_screen::load_frames(None, width, height),
         };
         let (rgb, _) = frames.into_iter().next()?;
-        let rgba = rgb.data.chunks_exact(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+        let rgba = rgb.data.as_chunks::<3>().0.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect();
         Some(Frame::new(rgb.width, rgb.height, PixelFormat::Rgba, rgba))
     }
 
@@ -265,6 +265,7 @@ impl Outputs for VirtualCameras {
         gate().release()
     }
 
+    #[allow(clippy::needless_return)] // the other platforms' blocks follow it
     fn setup_status(&self) -> SetupStatus {
         #[cfg(target_os = "linux")]
         {
@@ -294,6 +295,7 @@ impl Outputs for VirtualCameras {
         SetupStatus::default()
     }
 
+    #[allow(clippy::needless_return)] // the other platforms' blocks follow it
     fn set_up(&self, action: SetupAction, _progress: &dyn Fn(&str)) -> SetupResult {
         #[cfg(target_os = "linux")]
         {

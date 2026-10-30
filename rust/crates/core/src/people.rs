@@ -295,12 +295,14 @@ impl PeopleTracker {
     }
 }
 
+type Latest = (Vec<Track>, u32, f64);
+
 /// A PeopleTracker per stream, by source id.
 #[derive(Clone, Debug, Default)]
 pub struct PeopleTracking {
     trackers: HashMap<String, PeopleTracker>,
     /// source id: (tracks, count, when), in the order streams were first heard from
-    last: Vec<(String, (Vec<Track>, u32, f64))>,
+    last: Vec<(String, Latest)>,
 }
 
 impl PeopleTracking {

@@ -10,6 +10,7 @@ use crate::fun_effects::{self as fx, Clones, Effect, Inputs, Look, PlateMask};
 use crate::imgops::Gray;
 use crate::mosh::{Mosh, MosherFactory};
 use crate::shared::Paired;
+use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Mutex};
 use telescope_core::actions::{self, Choice, SliderSpec};
@@ -24,7 +25,7 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{upright_to_shown, Geometry};
 
 pub const NAME: &str = "fun_pack";
-const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/fun_pack.slint"));
+const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/fun_pack.slint"));
 const GAME_BOY: &str = include_str!("game_boy.wgsl");
 const T_TICK: &str = "tick";
 const T_TAKEN: &str = "taken";
@@ -383,7 +384,12 @@ impl FunPackPlugin {
     }
 
     fn show(&self, host: &mut dyn Host) {
-        let props = self.all_props(Some(&*host));
+        let mut props = self.all_props(Some(&*host));
+        // Stick figure needs vision; the edges of a cloak or clones are only cleaner with it
+        let edges = fx::EDGES.contains(&self.effect);
+        if let (Value::Object(p), Value::Object(row)) = (&mut props, vision_row::props_for(&*host, edges || self.effect == "stick", "", edges)) {
+            p.extend(row);
+        }
         host.set_ui_props("card", &props);
     }
 
@@ -641,6 +647,7 @@ impl Plugin for FunPackPlugin {
                 self.refresh(host);
             }
             Event::StreamTransportChanged | Event::StreamStopped | Event::StreamStarted { .. } | Event::VisionStateChanged { .. } => self.refresh(host),
+            e if vision_row::changes_it(e) => self.show(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK => self.tick(host),
             Event::Posted { owner, token, .. } if owner == NAME && token == T_TAKEN => {
                 let taken: Vec<Taken> = std::mem::take(&mut self.hub.state.lock().unwrap().mailbox);
@@ -672,6 +679,7 @@ impl Plugin for FunPackPlugin {
             "clone-clicked" => self.start_countdown(host, Grab::Clone),
             "clean-clicked" => self.clean_up(host),
             "clear-clicked" => self.clear(host),
+            "download-clicked" => host.download_vision(),
             "slider-moved" => self.set_slider(host, (n(0) as usize).min(4), n(1).round() as i64),
             "direction-picked" => {
                 self.across = n(0) as usize == 1;

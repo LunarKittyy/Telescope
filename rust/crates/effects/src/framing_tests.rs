@@ -340,11 +340,11 @@ fn it_says_so_when_something_else_has_the_view() {
     r.host.view_owner = "Something".into();
     r.switch(true);
     assert!(r.host.view_owner == "Something" && !r.wants_people());
-    assert!(r.prop("status").as_str().unwrap().contains("Something else"));
+    assert!(r.prop("vision-text").as_str().unwrap().contains("Something else"));
     // The switch stays on, and the reason stays through what else the status row hears
     assert_eq!(r.plugin.get_config()["on"], true);
     r.event(Event::VisionStateChanged { state: "ready".into() });
-    assert!(r.prop("status").as_str().unwrap().contains("Something else"));
+    assert!(r.prop("vision-text").as_str().unwrap().contains("Something else"));
 }
 
 #[test]
@@ -482,18 +482,18 @@ fn the_status_row_offers_the_download_and_says_how_far_it_got() {
     r.host.vision = Some(vision::MISSING.into());
     r.host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
     r.switch(true);
-    assert_eq!((r.prop("status"), r.prop("status-download")), (json!("Needs a one-time download (about 47 MB)."), json!(true)));
+    assert_eq!((r.prop("vision-text"), r.prop("vision-download")), (json!("Needs a one-time download (about 47 MB)."), json!(true)));
     r.ui("download-clicked", Value::Null);
     assert!(r.host.calls.iter().any(|c| c == "download_vision"));
     r.host.pack = VisionPack { downloading: true, done: 10, size: 40, ..r.host.pack.clone() };
     r.event(Event::VisionDownloadProgress { done: 10, size: 40 });
-    assert_eq!((r.prop("status"), r.prop("status-download")), (json!("Downloading… 25%"), json!(false)));
+    assert_eq!((r.prop("vision-text"), r.prop("vision-download")), (json!("Downloading… 25%"), json!(false)));
     r.host.vision = Some(vision::LOADING.into());
     r.host.pack = VisionPack::default();
     r.event(Event::VisionStateChanged { state: vision::LOADING.into() });
-    assert_eq!(r.prop("status"), "Getting ready…");
+    assert_eq!(r.prop("vision-text"), "Getting ready…");
     r.switch(false);
-    assert_eq!(r.prop("status"), "");
+    assert_eq!(r.prop("vision-text"), "");
 }
 
 #[test]
@@ -692,7 +692,7 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
         assert_eq!(r.plugin.get_config(), end["config"], "{name}");
         assert_eq!(r.host.view_owner, end["owner"].as_str().unwrap(), "{name}");
         assert_eq!(r.wants_people(), !end["wanted"].as_array().unwrap().is_empty(), "{name}");
-        assert_eq!(r.prop("status"), end["status"], "{name}");
+        assert_eq!(r.prop("vision-text"), end["status"], "{name}");
         assert_eq!(r.plugin.diagnostics()[0].1, end["diagnostics"]["Auto framing"].as_str().unwrap(), "{name}");
     }
 }
