@@ -2780,30 +2780,30 @@
 "test_desk.py::test_the_warp_is_worked_out_once_until_something_changes" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::the_warp_is_worked_out_once_until_something_changes" }
 "test_desk.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::without_a_stream_the_card_says_to_start_one" }
 # ── dev_profile
-"test_dev_profile.py::test_a_dev_profile_keeps_everything_apart_from_the_real_app" = { status = "todo" }
-"test_dev_profile.py::test_setting_up_the_dev_mic_never_unloads_the_real_one" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_stops_the_app_when_it_is_stopped" = { status = "todo" }
-"test_dev_profile.py::test_without_a_profile_nothing_changes" = { status = "todo" }
+"test_dev_profile.py::test_a_dev_profile_keeps_everything_apart_from_the_real_app" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::a_dev_profile_keeps_everything_apart_from_the_real_app" }
+"test_dev_profile.py::test_setting_up_the_dev_mic_never_unloads_the_real_one" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::setting_up_the_dev_mic_never_unloads_the_real_one" }
+"test_dev_profile.py::test_the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked", note = "The launcher starts the app again on its exit codes 75 and 76; the window still has to exit with them when plugin files change (shell's restart is not there yet)" }
+"test_dev_profile.py::test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away", note = "The launcher is `telescope-rs dev`; dev_desktop.py keeps starting the Python app" }
+"test_dev_profile.py::test_the_launcher_stops_the_app_when_it_is_stopped" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_stops_the_app_when_it_is_stopped" }
+"test_dev_profile.py::test_without_a_profile_nothing_changes" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::without_a_profile_nothing_changes" }
 # ── diagnostics
-"test_diagnostics.py::test_a_log_that_cant_be_rotated_keeps_being_written" = { status = "todo" }
-"test_diagnostics.py::test_describe_exception_has_no_full_path" = { status = "todo" }
-"test_diagnostics.py::test_file_lines_are_sanitized" = { status = "todo" }
-"test_diagnostics.py::test_install_records_thread_crashes_and_keeps_old_hooks" = { status = "todo" }
-"test_diagnostics.py::test_keeps_telescope_info_but_only_warnings_from_libraries" = { status = "todo" }
-"test_diagnostics.py::test_link_log" = { status = "todo" }
-"test_diagnostics.py::test_link_log_leaves_a_real_file_alone" = { status = "todo" }
-"test_diagnostics.py::test_repeats_collapse_into_a_count" = { status = "todo" }
-"test_diagnostics.py::test_report" = { status = "todo" }
-"test_diagnostics.py::test_report_is_bounded" = { status = "todo" }
-"test_diagnostics.py::test_report_without_problems" = { status = "todo" }
-"test_diagnostics.py::test_rotates_and_keeps_one_previous_file" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_hides_home" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_keeps_ordinary_text" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_removes_addresses_and_secrets" = { status = "todo" }
-"test_diagnostics.py::test_ticking_status_collapses_into_a_count" = { status = "todo" }
-"test_diagnostics.py::test_windows_11_is_named_from_the_build_number" = { status = "todo" }
+"test_diagnostics.py::test_a_log_that_cant_be_rotated_keeps_being_written" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::a_log_that_cant_be_rotated_keeps_being_written" }
+"test_diagnostics.py::test_describe_exception_has_no_full_path" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::describe_exception_has_no_full_path", note = "A panic stands in for the exception" }
+"test_diagnostics.py::test_file_lines_are_sanitized" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::file_lines_are_sanitized" }
+"test_diagnostics.py::test_install_records_thread_crashes_and_keeps_old_hooks" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::install_records_thread_crashes_and_keeps_old_hooks", note = "One panic hook for every thread, so the thread hook has no separate part" }
+"test_diagnostics.py::test_keeps_telescope_info_but_only_warnings_from_libraries" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::keeps_telescope_info_but_only_warnings_from_libraries", note = "A log record with an error stands in for the logged exception" }
+"test_diagnostics.py::test_link_log" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::link_log_makes_and_repoints_the_shortcut" }
+"test_diagnostics.py::test_link_log_leaves_a_real_file_alone" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::link_log_leaves_a_real_file_alone" }
+"test_diagnostics.py::test_repeats_collapse_into_a_count" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::repeats_collapse_into_a_count" }
+"test_diagnostics.py::test_report" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report", note = "The windowing line says Slint where Python said Qt; the shell still has to call report_for from Host::diagnostics_report" }
+"test_diagnostics.py::test_report_is_bounded" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report_is_bounded" }
+"test_diagnostics.py::test_report_without_problems" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report_without_problems" }
+"test_diagnostics.py::test_rotates_and_keeps_one_previous_file" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::rotates_and_keeps_one_previous_file" }
+"test_diagnostics.py::test_sanitize_hides_home" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_hides_home" }
+"test_diagnostics.py::test_sanitize_keeps_ordinary_text" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_keeps_ordinary_text" }
+"test_diagnostics.py::test_sanitize_removes_addresses_and_secrets" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_removes_addresses_and_secrets", note = "Also compared with diagnostics.py's own answers in sanitize_gives_what_diagnostics_py_gives" }
+"test_diagnostics.py::test_ticking_status_collapses_into_a_count" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::ticking_status_collapses_into_a_count" }
+"test_diagnostics.py::test_windows_11_is_named_from_the_build_number" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::windows_11_is_named_from_the_build_number" }
 "test_diagnostics.py::test_without_a_file_it_keeps_the_last_lines_in_memory" = { status = "todo" }
 "test_diagnostics.py::test_writes_to_the_file_and_reads_it_back_after_a_restart" = { status = "todo" }
 # ── face_exposure
@@ -5872,10 +5872,10 @@
 "env:XDG_CONFIG_HOME" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
 "folder:telescope/config.py:config_path:Path.home" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
 # ── diagnostics
-"env:XDG_CURRENT_DESKTOP" = { status = "todo" }
-"env:XDG_SESSION_TYPE" = { status = "todo" }
-"folder:telescope/diagnostics.py:log_dir:tempfile.gettempdir" = { status = "todo" }
-"folder:telescope/diagnostics.py:sanitize:Path.home" = { status = "todo" }
+"env:XDG_CURRENT_DESKTOP" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::system_lines" }
+"env:XDG_SESSION_TYPE" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::system_lines" }
+"folder:telescope/diagnostics.py:log_dir:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::log_dir", note = "Compared with diagnostics.py on Linux and Windows" }
+"folder:telescope/diagnostics.py:sanitize:Path.home" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::sanitize" }
 # ── main
 "env:OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT" = { status = "todo" }
 "env:QT_MEDIA_BACKEND" = { status = "todo" }

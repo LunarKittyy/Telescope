@@ -7,6 +7,7 @@
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
+//!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
 //!
@@ -16,6 +17,7 @@
 
 mod cli;
 mod confirm;
+mod dev;
 mod scenes;
 
 use std::path::PathBuf;
@@ -115,13 +117,14 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
 /// Log lines from every crate to stderr, at the level RUST_LOG names; when unset, warnings from this app's crates and
 /// only errors from libraries (wgpu warns about every Vulkan driver it skips).
 struct Stderr {
+    level: log::LevelFilter,
     quiet_libraries: bool,
 }
 
 impl log::Log for Stderr {
     fn enabled(&self, meta: &log::Metadata) -> bool {
         let floor = if self.quiet_libraries && !meta.target().starts_with("telescope") { log::Level::Error } else { log::Level::Trace };
-        meta.level() <= log::max_level() && meta.level() <= floor
+        meta.level() <= self.level && meta.level() <= floor
     }
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
@@ -131,13 +134,38 @@ impl log::Log for Stderr {
     fn flush(&self) {}
 }
 
-fn start_logging() {
-    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse().ok());
-    let level = asked.unwrap_or(log::LevelFilter::Warn);
-    let logger: &'static Stderr = Box::leak(Box::new(Stderr { quiet_libraries: asked.is_none() }));
-    if log::set_logger(logger).is_ok() {
-        log::set_max_level(level);
+/// The terminal and the desktop log (Copy diagnostics shows its latest lines), which wants Info from this app's crates.
+struct Both {
+    stderr: Stderr,
+    events: &'static telescope_core::diagnostics::EventLog,
+}
+
+impl log::Log for Both {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        self.stderr.enabled(meta) || self.events.enabled(meta)
     }
+    fn log(&self, record: &log::Record) {
+        self.stderr.log(record);
+        self.events.log(record);
+    }
+    fn flush(&self) {}
+}
+
+fn start_logging() {
+    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse::<log::LevelFilter>().ok());
+    let level = asked.unwrap_or(log::LevelFilter::Warn);
+    let stderr = Stderr { level, quiet_libraries: asked.is_none() };
+    let logger: &'static Both = Box::leak(Box::new(Both { stderr, events: telescope_core::diagnostics::events() }));
+    if log::set_logger(logger).is_ok() {
+        log::set_max_level(level.max(log::LevelFilter::Info));
+    }
+}
+
+/// Log to the desktop log file from here on, and keep panics in it (main.py's diagnostics.install). Once the profile is settled, since
+/// a dev profile's log lives in its folder.
+fn start_diagnostics() {
+    let version = telescope_system::version::display_version();
+    telescope_core::diagnostics::start(telescope_core::diagnostics::events(), &telescope_core::diagnostics::log_dir(), Some(&app_dir()), &version);
 }
 
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
@@ -239,6 +267,9 @@ fn main() {
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     let mut words: Vec<String> = std::env::args().skip(1).collect();
+    if words.first().map(String::as_str) == Some("dev") {
+        std::process::exit(dev::run(&words[1..]));
+    }
     // --action takes every word after it
     let action = words.iter().position(|w| w == "--action").map(|i| words.split_off(i).split_off(1));
     let list_actions = words.iter().any(|w| w == "--list-actions");
@@ -295,6 +326,7 @@ fn main() {
     }
     if command != Some("config-snapshot") {
         use_own_profile();
+        start_diagnostics();
     }
     let result = match command {
         Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
