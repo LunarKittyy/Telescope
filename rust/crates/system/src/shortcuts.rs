@@ -7,7 +7,9 @@
 //!
 //! An action's params are JSON: {"name", "label", "kind": "choice", "default", "choices": [[value, label], ...],
 //! "shown_if": [name, [values]], "dynamic": true for a list that changes (a saved choice that's gone is kept)} or
-//! {"name", "label", "kind": "number", "default", "min", "max", "decimals", "suffix"}.
+//! {"name", "label", "kind": "number", "default", "minimum", "maximum", "decimals", "suffix"}. The first param can carry
+//! "describe": a text with {name} for what the binding does ("Preset: {name}", with "lower": true for the choice's label in
+//! lower case), where the usual wording ("Zoom: increase by 5%") doesn't fit.
 
 use crate::hotkeys::{self, Hotkey, HotkeyBackend, Signals, HOTKEY};
 use crate::keys;
@@ -17,7 +19,9 @@ use std::hash::{BuildHasher, Hasher};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use telescope_core::actions;
 use telescope_core::event::Event;
+use telescope_core::fuzzy::{self, Doc};
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
@@ -182,6 +186,8 @@ pub struct ShortcutsPlugin {
     menu: Option<Vec<ShortcutEntry>>,
     /// A shortcut a right-click asked for, to edit once Settings is up.
     from_menu: Option<Binding>,
+    /// Starts a program with an argument; false when it isn't there.
+    launch: Box<dyn Fn(&[&str]) -> bool + Send>,
 }
 
 impl ShortcutsPlugin {
@@ -193,8 +199,14 @@ impl ShortcutsPlugin {
         ShortcutsPlugin {
             remote, factory: Some(factory), poster: None, bindings: Vec::new(), notify: false, actions: Vec::new(),
             backend: None, started: false, held: HashMap::new(), held_scan: HashMap::new(), editing: false, last_global: None, recent: HashMap::new(),
-            editor: None, section_made: false, note_override: None, menu: None, from_menu: None,
+            editor: None, section_made: false, note_override: None, menu: None, from_menu: None, launch: Box::new(spawn_detached),
         }
+    }
+
+    /// How the desktop's own settings get started, for a test to stand in for it.
+    pub fn with_launcher(mut self, launch: impl Fn(&[&str]) -> bool + Send + 'static) -> ShortcutsPlugin {
+        self.launch = Box::new(launch);
+        self
     }
 
     fn start(&mut self, host: &mut dyn Host) {
@@ -525,8 +537,8 @@ fn clean_value(p: &Value, given: Option<&Value>) -> Value {
     let Some(given) = given else { return default };
     if p["kind"] == "number" {
         let Some(n) = (match given { Value::Bool(_) => None, v => number(v) }).filter(|n| n.is_finite()) else { return default };
-        let lo = p["min"].as_f64().unwrap_or(f64::NEG_INFINITY);
-        let hi = p["max"].as_f64().unwrap_or(f64::INFINITY).max(lo);
+        let lo = p["minimum"].as_f64().unwrap_or(f64::NEG_INFINITY);
+        let hi = p["maximum"].as_f64().unwrap_or(f64::INFINITY).max(lo);
         let n = n.clamp(lo, hi);
         let n = match p["decimals"].as_u64() {
             Some(d) => (n * 10f64.powi(d as i32)).round() / 10f64.powi(d as i32),
@@ -563,8 +575,94 @@ fn repeats(action: &ActionSpec, params: &Map<String, Value>) -> bool {
     action.repeats && !matches!(params.get("op").and_then(Value::as_str), Some("set" | "reset"))
 }
 
-/// What a binding with these params does: "Streaming: start or stop", "ISO: raise by 1 stops".
+fn fill(text: String, fields: &[(&str, &str)]) -> String {
+    fields.iter().fold(text, |t, (k, v)| t.replace(&format!("{{{k}}}"), v))
+}
+
+fn param<'a>(action: &'a ActionSpec, name: &str) -> Option<&'a Value> {
+    action.params.iter().find(|p| p["name"] == name)
+}
+
+/// A number param's value as shown: with its suffix, signed where the range goes below zero (the control's own readout does).
+fn shown_number(p: &Value, value: &Value) -> Option<String> {
+    let n = value.as_f64()?;
+    let signed = p["minimum"].as_f64().is_some_and(|lo| lo < 0.0);
+    Some(actions::shown(n, p["decimals"].as_u64().unwrap_or(0) as usize, p["suffix"].as_str().unwrap_or(""), signed))
+}
+
+/// What the actions made by core::actions' builders say they do (describe in shortcuts.py): "Compensation: increase by 1.0 EV",
+/// "ISO: raise by 1 stop", "Lens: next". None for any other shape of params.
+fn builder_summary(action: &ActionSpec, params: &Map<String, Value>) -> Option<String> {
+    let names: Vec<&str> = action.params.iter().filter_map(|p| p["name"].as_str()).collect();
+    let label = action.label.as_str();
+    let text = |name: &str| params.get(name).and_then(Value::as_str).unwrap_or("");
+    let value_text = |name: &str| -> String {
+        let shown = param(action, name).and_then(|p| params.get(name).and_then(|v| shown_number(p, v)));
+        shown.unwrap_or_else(|| "…".into())
+    };
+    match names.as_slice() {
+        ["mode"] => {
+            // A card's own words for a mode ("Mute") stand alone; the generic ones read on from the label in lower case
+            let mode = text("mode");
+            let generic = actions::TOGGLE_MODES.iter().find(|(m, _)| *m == mode).map(|(_, t)| tr(t))?;
+            let own = choices(param(action, "mode")?).into_iter().find(|(v, _)| *v == mode).map(|(_, l)| l)?;
+            (own != generic).then_some(own)
+        }
+        ["op", "amount", "value"] => Some(match text("op") {
+            "set" => fill(tr("{label}: set to {value}"), &[("label", label), ("value", &value_text("value"))]),
+            "reset" => fill(tr("{label}: reset to default"), &[("label", label)]),
+            op => {
+                let p = param(action, "amount")?;
+                let amount = params.get("amount").filter(|v| v.as_f64().is_some_and(|n| n != 0.0)).cloned().unwrap_or(json!(0));
+                // The amount is never signed
+                let unsigned = json!({"decimals": p["decimals"], "suffix": p["suffix"]});
+                let amount = shown_number(&unsigned, &amount)?;
+                let template = if op == "up" { tr("{label}: increase by {amount}") } else { tr("{label}: decrease by {amount}") };
+                fill(template, &[("label", label), ("amount", &amount)])
+            }
+        }),
+        ["op", "stops", "value"] => Some(match text("op") {
+            "set" => fill(tr("{label}: set to {value}"), &[("label", label), ("value", &value_text("value"))]),
+            op => {
+                let stops = params.get("stops").and_then(Value::as_f64).unwrap_or(0.0);
+                let whole = stops.fract() == 0.0;
+                // gettext plurals take whole numbers and 1.5 counts as plural; only the English rule until core knows plurals
+                let one = stops == 1.0;
+                let amount = telescope_core::i18n::number(stops, if whole { 0 } else { 1 }, false);
+                let template = match (op == "up", one) {
+                    (true, true) => tr("{label}: raise by {stops} stop"),
+                    (true, false) => tr("{label}: raise by {stops} stops"),
+                    (false, true) => tr("{label}: lower by {stops} stop"),
+                    (false, false) => tr("{label}: lower by {stops} stops"),
+                };
+                fill(template, &[("label", label), ("stops", &amount)])
+            }
+        }),
+        ["op", "option"] => Some(match text("op") {
+            "set" => {
+                let option = text("option");
+                let shown = choices(param(action, "option")?).into_iter().find(|(v, _)| v == option).map_or_else(|| option.to_string(), |(_, l)| l);
+                fill(tr("{label}: {value}"), &[("label", label), ("value", if shown.is_empty() { "…" } else { &shown })])
+            }
+            op => fill(tr("{label}: {value}"), &[("label", label), ("value", &if op == "next" { tr("next") } else { tr("previous") })]),
+        }),
+        _ => None,
+    }
+}
+
+/// What a binding with these params does: "Streaming: start or stop", "ISO: raise by 1 stop".
 fn summary(action: &ActionSpec, params: &Map<String, Value>) -> String {
+    if let Some(first) = action.params.first() {
+        if let Some(template) = first["describe"].as_str() {
+            let name = first["name"].as_str().unwrap_or("");
+            let v = match params.get(name) { Some(Value::String(s)) => s.clone(), _ => String::new() };
+            let value = if first["lower"] == true { choices(first).into_iter().find(|(c, _)| *c == v).map_or(v, |(_, l)| l.to_lowercase()) } else { v };
+            return fill(tr(template), &[("name", if value.is_empty() { "…" } else { &value })]);
+        }
+    }
+    if let Some(text) = builder_summary(action, params) {
+        return text;
+    }
     let mut parts = Vec::new();
     for p in &action.params {
         let Some(name) = p["name"].as_str() else { continue };
@@ -573,16 +671,7 @@ fn summary(action: &ActionSpec, params: &Map<String, Value>) -> String {
         }
         let value = params.get(name).cloned().unwrap_or(Value::Null);
         let text = if p["kind"] == "number" {
-            match value.as_f64() {
-                Some(n) => {
-                    let n = match p["decimals"].as_u64() {
-                        Some(d) => format!("{n:.*}", d as usize),
-                        None => fmt_number(n),
-                    };
-                    format!("{n}{}", p["suffix"].as_str().unwrap_or(""))
-                }
-                None => "…".into(),
-            }
+            shown_number(p, &value).unwrap_or_else(|| "…".into())
         } else {
             let v = match &value { Value::String(s) => s.clone(), Value::Null => String::new(), v => v.to_string() };
             let label = choices(p).into_iter().find(|(c, _)| *c == v).map(|(_, l)| l);
@@ -645,7 +734,7 @@ fn list_text(actions: &[(Option<String>, ActionSpec)]) -> String {
         for p in &a.params {
             let name = p["name"].as_str().unwrap_or("");
             if p["kind"] == "number" {
-                let (lo, hi) = (p["min"].as_f64().unwrap_or(0.0), p["max"].as_f64().unwrap_or(0.0));
+                let (lo, hi) = (p["minimum"].as_f64().unwrap_or(0.0), p["maximum"].as_f64().unwrap_or(0.0));
                 lines.push(format!("    {name}=<number {} to {}{}>", fmt_number(lo), fmt_number(hi), p["suffix"].as_str().unwrap_or("")));
             } else {
                 let values = choices(p).into_iter().map(|(v, _)| v).collect::<Vec<_>>().join(" | ");
@@ -695,6 +784,13 @@ const COPIED: &str = "copied";
 // A right-click asked for a shortcut: the editor opens this long after Settings, once its page is built
 const FROM_MENU: &str = "from_menu";
 const FROM_MENU_MS: u64 = 150;
+
+/// Starts a program that carries on without us; false when it can't be started.
+fn spawn_detached(cmd: &[&str]) -> bool {
+    let Some((program, args)) = cmd.split_first() else { return false };
+    std::process::Command::new(program).args(args)
+        .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().is_ok()
+}
 
 /// The command line that runs this action in the running Telescope (for a desktop's own shortcut settings).
 pub fn action_command(action: &str, params: &Map<String, Value>) -> Vec<String> {
@@ -751,19 +847,20 @@ fn windows_quote(word: &str) -> String {
     out
 }
 
-/// Whether every word of the query starts a word of the action's name, keywords, card, id or choices.
+/// Whether the query fits the action's card, name, id, keywords or the names of what it can do (forgiving about typos).
 fn matches(action: &ActionSpec, query: &str) -> bool {
-    let mut doc = format!("{} {} {} {}", action.label, action.keywords, action.group, action.id);
+    if fuzzy::split(query).is_empty() {
+        return true;
+    }
+    let mut extra = action.id.clone();
     for p in action.params.iter().filter(|p| p["kind"] != "number" && p["dynamic"] != true) {
         for (_, label) in choices(p) {
-            doc.push(' ');
-            doc.push_str(&label);
+            extra.push(' ');
+            extra.push_str(&label);
         }
     }
-    let doc = doc.to_lowercase();
-    let words: Vec<&str> = doc.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
-    query.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|q| !q.is_empty())
-        .all(|q| words.iter().any(|w| w.starts_with(q)))
+    let doc = Doc::new(&[("name", &action.label), ("keywords", &action.keywords), ("card", &action.group), ("extra", &extra)]);
+    doc.score(query, &[("name", 1.0), ("keywords", 0.9), ("card", 0.7), ("extra", 0.6)], false) > 0.0
 }
 
 /// The shortcut being added or changed.
@@ -817,7 +914,7 @@ impl ShortcutsPlugin {
         for p in &action.params {
             let Some(name) = p["name"].as_str() else { continue };
             if p["kind"] == "number" && params.get(name).is_none_or(Value::is_null) {
-                let start = action.current.or_else(|| p["min"].as_f64()).unwrap_or(0.0);
+                let start = action.current.or_else(|| p["minimum"].as_f64()).unwrap_or(0.0);
                 params.insert(name.into(), clean_value(p, Some(&json!(start))));
             }
         }
@@ -992,9 +1089,7 @@ impl ShortcutsPlugin {
         }
         if cfg!(target_os = "linux") {
             for cmd in [["systemsettings", "kcm_keys"], ["kcmshell6", "kcm_keys"], ["kcmshell5", "kcm_keys"]] {
-                let started = std::process::Command::new(cmd[0]).arg(cmd[1])
-                    .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn();
-                if started.is_ok() {
+                if (self.launch)(&cmd) {
                     return true;
                 }
             }
@@ -1316,9 +1411,9 @@ mod tests {
             id: "transforms.zoom".into(), label: "Zoom".into(), group: "Transforms".into(),
             params: vec![json!({"name": "op", "label": "Does", "kind": "choice", "default": "up",
                                 "choices": [["up", "Increase by"], ["down", "Decrease by"], ["set", "Set to"]]}),
-                         json!({"name": "amount", "label": "By", "kind": "number", "default": 1, "min": 0, "max": 100,
+                         json!({"name": "amount", "label": "By", "kind": "number", "default": 1, "minimum": 0, "maximum": 100,
                                 "suffix": "%", "shown_if": ["op", ["up", "down"]]}),
-                         json!({"name": "value", "label": "Value", "kind": "number", "default": null, "min": 0, "max": 100,
+                         json!({"name": "value", "label": "Value", "kind": "number", "default": null, "minimum": 0, "maximum": 100,
                                 "suffix": "%", "shown_if": ["op", ["set"]]})],
             repeats: true, on_release: false, current: Some(0.0), keywords: String::new(),
         }
@@ -1527,7 +1622,7 @@ mod tests {
 
     #[test]
     fn params_are_cleaned() {
-        let number = json!({"name": "amount", "kind": "number", "default": 1.0, "min": 0.0, "max": 5.0, "decimals": 1});
+        let number = json!({"name": "amount", "kind": "number", "default": 1.0, "minimum": 0.0, "maximum": 5.0, "decimals": 1});
         assert_eq!(clean_value(&number, Some(&json!(9))), json!(5.0));
         assert_eq!(clean_value(&number, Some(&json!("2.26"))), json!(2.3));
         assert_eq!(clean_value(&number, Some(&json!("lots"))), json!(1.0));
@@ -1741,7 +1836,7 @@ mod tests {
         let spec = ActionSpec {
             id: "camera.iso".into(), label: "ISO".into(), group: "Camera".into(),
             params: vec![json!({"name": "op", "label": "Does", "kind": "choice", "default": "up", "choices": [["up", "Up"], ["set", "Set to"]]}),
-                         json!({"name": "value", "label": "To", "kind": "number", "default": null, "min": 50, "max": 3200, "suffix": "", "shown_if": ["op", ["set"]]})],
+                         json!({"name": "value", "label": "To", "kind": "number", "default": null, "minimum": 50, "maximum": 3200, "suffix": "", "shown_if": ["op", ["set"]]})],
             repeats: true, on_release: false, current: None, keywords: String::new(),
         };
         let params = |v: Value| v.as_object().unwrap().clone();
@@ -1802,5 +1897,180 @@ mod tests {
         assert!(host.calls.iter().any(|c| c == "set_shortcut_menu []"));
         plugin.shutdown(&mut host);
         assert!(host.calls.iter().any(|c| c == "set_shortcut_menu null"));
+    }
+
+    /// What a binding with these settings does, as the list shows it.
+    fn says(action: &ActionSpec, params: Value) -> String {
+        summary(action, &full_params(action, params.as_object().unwrap()))
+    }
+
+    #[test]
+    fn start_collects_actions_app_ones_first() {
+        let (plugin, _host, _) = make(json!([]), false, true);
+        let ids: Vec<&str> = plugin.actions.iter().map(|(_, a)| a.id.as_str()).collect();
+        assert_eq!(ids, ["streaming.start_stop", "streaming.camera", "window.show_hide", "microphone.mute", "camera.torch", "transforms.zoom"]);
+        let own: Vec<String> = own_actions().into_iter().map(|a| a.id).collect();
+        assert_eq!(own, ids[..3]);
+    }
+
+    #[test]
+    fn the_controls_menu_lists_the_saved_shortcuts() {
+        let (plugin, _host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        let entries = plugin.menu_entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!((entries[0].action.as_str(), entries[0].text.as_str()), ("camera.torch", "Ctrl+T: Torch"));
+    }
+
+    #[test]
+    fn a_plain_button_has_no_settings_and_a_binding_for_it_reads_as_its_name() {
+        let reset = ActionSpec { id: "x.reset".into(), label: "Reset".into(), group: "X".into(), params: Vec::new(), repeats: false,
+                                 on_release: false, current: None, keywords: String::new() };
+        assert_eq!(says(&reset, json!({})), "Reset");
+    }
+
+    #[test]
+    fn a_switch_binding_reads_on_from_the_label_unless_the_card_has_words_of_its_own() {
+        let torch = actions::toggle_action("t.torch", "Torch", "Camera", "", &[]);
+        assert_eq!(says(&torch, json!({"mode": "on"})), "Torch: turn on");
+        assert_eq!(says(&torch, json!({})), "Torch: switch on or off");
+        assert_eq!(says(&torch, json!({"mode": "hold"})), "Torch: switch while held, back on release");
+        let mute = actions::toggle_action("m", "Mute", "Microphone", "", &[("on", "Mute".into()), ("off", "Unmute".into())]);
+        assert_eq!(says(&mute, json!({"mode": "on"})), "Mute");
+        assert_eq!(says(&mute, json!({"mode": "off"})), "Unmute");
+        assert_eq!(says(&mute, json!({"mode": "toggle"})), "Mute: switch on or off");
+    }
+
+    #[test]
+    fn a_slider_steps_in_shown_units_and_its_bindings_read_in_them() {
+        let spec = actions::SliderSpec { id: "c", label: "Compensation", group: "Camera", keywords: "", minimum: -8.0 / 3.0, maximum: 8.0 / 3.0, step: 1.0,
+                                decimals: 1, suffix: " EV", has_default: true };
+        let action = actions::slider_action(&spec, 0.0);
+        let scale = 1.0 / 3.0;
+        let go = |p: Value, cur: i64| actions::slider_target(&Value::Object(full_params(&action, p.as_object().unwrap())), cur, scale, -8, 8, Some(0));
+        assert_eq!(go(json!({"op": "up", "amount": 1.0}), 0), Some(3));
+        assert_eq!(go(json!({"op": "down", "amount": 0.3}), 3), Some(2), "never less than one step");
+        assert_eq!(go(json!({"op": "up", "amount": 20}), 2), Some(8), "clamped to the end");
+        assert_eq!(go(json!({"op": "set", "value": -1.0}), 8), Some(-3));
+        assert_eq!(go(json!({"op": "reset"}), -3), Some(0));
+        assert_eq!(says(&action, json!({"op": "down", "amount": 1.0})), "Compensation: decrease by 1.0 EV");
+        assert_eq!(says(&action, json!({"op": "up", "amount": 1.0})), "Compensation: increase by 1.0 EV");
+        assert_eq!(says(&action, json!({"op": "set", "value": -1})), "Compensation: set to -1.0 EV");
+        assert_eq!(says(&action, json!({"op": "set", "value": 1})), "Compensation: set to +1.0 EV", "a range below zero shows its sign");
+        assert_eq!(says(&action, json!({"op": "reset"})), "Compensation: reset to default");
+        assert_eq!(action.current, Some(0.0));
+        let (lo, hi) = (action.params[2]["minimum"].as_f64().unwrap(), action.params[2]["maximum"].as_f64().unwrap());
+        assert_eq!(((lo * 100.0).round() / 100.0, (hi * 100.0).round() / 100.0), (-2.67, 2.67));
+    }
+
+    #[test]
+    fn a_slider_without_a_default_offers_no_reset() {
+        let spec = actions::SliderSpec { id: "s", label: "S", group: "G", keywords: "", minimum: 0.0, maximum: 100.0, step: 1.0, decimals: 0, suffix: "", has_default: false };
+        let action = actions::slider_action(&spec, 0.0);
+        let ops: Vec<&str> = action.params[0]["choices"].as_array().unwrap().iter().map(|c| c[0].as_str().unwrap()).collect();
+        assert!(!ops.contains(&"reset"));
+    }
+
+    #[test]
+    fn a_log_slider_moves_in_stops_and_reads_them_in_the_singular_or_plural() {
+        let spec = actions::LogSliderSpec { id: "iso", label: "ISO", group: "Camera", keywords: "", minimum: 50.0, maximum: 6400.0, decimals: 0, suffix: "" };
+        let action = actions::log_slider_action(&spec, 400.0);
+        assert_eq!(actions::log_slider_target(&json!({"op": "up", "stops": 1}), 400.0, 50.0, 6400.0, 1.0).map(f64::round), Some(800.0));
+        assert_eq!(actions::log_slider_target(&json!({"op": "down", "stops": 3}), 800.0, 50.0, 6400.0, 1.0).map(f64::round), Some(100.0));
+        assert_eq!(actions::log_slider_target(&json!({"op": "set", "value": 99999}), 100.0, 50.0, 6400.0, 1.0), Some(6400.0));
+        assert_eq!(says(&action, json!({"op": "up", "stops": 1})), "ISO: raise by 1 stop");
+        assert_eq!(says(&action, json!({"op": "down", "stops": 3})), "ISO: lower by 3 stops");
+        assert_eq!(says(&action, json!({"op": "up", "stops": 1.5})), "ISO: raise by 1.5 stops", "1.5 counts as plural");
+        assert_eq!(says(&action, json!({"op": "set", "value": 800})), "ISO: set to 800");
+    }
+
+    #[test]
+    fn a_choice_binding_reads_next_previous_or_the_option_it_picks() {
+        let action = actions::choice_action("fps", "FPS", "Out", "", &[("15 fps", "15 fps".into()), ("30 fps", "30 fps".into()), ("60 fps", "60 fps".into())]);
+        assert_eq!(says(&action, json!({"op": "next"})), "FPS: next");
+        assert_eq!(says(&action, json!({"op": "previous"})), "FPS: previous");
+        assert_eq!(says(&action, json!({"op": "set", "option": "30 fps"})), "FPS: 30 fps");
+        assert_eq!(says(&action, json!({"op": "set", "option": ""})), "FPS: …");
+        let values: Vec<&str> = action.params[1]["choices"].as_array().unwrap().iter().map(|c| c[0].as_str().unwrap()).collect();
+        assert_eq!(values, ["15 fps", "30 fps", "60 fps"]);
+    }
+
+    #[test]
+    fn choices_skip_the_greyed_out_and_stop_at_the_end_without_wrap() {
+        let list = |off: &[usize]| -> Vec<(String, bool)> { (0..3).map(|i| (format!("{} fps", [15, 30, 60][i]), !off.contains(&i))).collect() };
+        let run = |opts: &[(String, bool)], p: Value, cur: usize, wrap: bool| {
+            let options: Vec<actions::Choice> = opts.iter().map(|(v, on)| actions::Choice { value: v, shown: v, enabled: *on }).collect();
+            actions::choice_target(&p, &options, Some(cur), wrap).map(|(i, picked)| (opts[i].0.clone(), picked))
+        };
+        let opts = list(&[2]);
+        assert_eq!(run(&opts, json!({"op": "next"}), 0, true), Some(("30 fps".into(), true)));
+        assert_eq!(run(&opts, json!({"op": "next"}), 1, true), Some(("15 fps".into(), true)), "60 is greyed out, so it wraps round");
+        assert_eq!(run(&opts, json!({"op": "previous"}), 0, true), Some(("30 fps".into(), true)));
+        assert_eq!(run(&opts, json!({"op": "set", "option": "15 fps"}), 1, true), Some(("15 fps".into(), true)));
+        assert_eq!(run(&opts, json!({"op": "set", "option": "60 fps"}), 0, true), None);
+        let two: Vec<(String, bool)> = vec![("a".into(), true), ("b".into(), true)];
+        assert_eq!(run(&two, json!({"op": "next"}), 1, false), Some(("b".into(), false)), "stays where it is");
+        // Buttons that come and go: none yet, then a row with the first on
+        assert_eq!(actions::choice_target(&json!({"op": "next"}), &[], None, true), None);
+        let lenses = [actions::Choice { value: "Wide", shown: "Wide", enabled: true }, actions::Choice { value: "Tele", shown: "Tele", enabled: true }];
+        assert_eq!(actions::choice_target(&json!({"op": "next"}), &lenses, Some(0), true), Some((1, true)));
+        let exclusive = [actions::Choice { value: "Auto", shown: "Auto", enabled: true }, actions::Choice { value: "Manual", shown: "Manual", enabled: true }];
+        assert_eq!(actions::choice_target(&json!({"op": "next"}), &exclusive, Some(0), true), Some((1, true)));
+        assert_eq!(actions::choice_target(&json!({"op": "set", "option": "Auto"}), &exclusive, Some(1), true), Some((0, true)));
+    }
+
+    #[test]
+    fn a_preset_binding_reads_as_the_preset_and_one_that_is_gone_stays_named() {
+        let apply = ActionSpec {
+            id: "presets.apply".into(), label: "Apply a preset".into(), group: "Presets".into(),
+            params: vec![json!({"name": "name", "label": "Preset", "kind": "choice", "default": "", "choices": [["Desk", "Desk"]],
+                                "dynamic": true, "describe": "Preset: {name}"})],
+            repeats: false, on_release: false, current: None, keywords: String::new(),
+        };
+        assert_eq!(says(&apply, json!({"name": "Desk"})), "Preset: Desk");
+        assert_eq!(says(&apply, json!({"name": "Gone"})), "Preset: Gone");
+        assert_eq!(says(&apply, json!({})), "Preset: …");
+        let cycle = ActionSpec {
+            id: "presets.cycle".into(), label: "Next or previous preset".into(), group: "Presets".into(),
+            params: vec![json!({"name": "op", "label": "Does", "kind": "choice", "default": "next",
+                                "choices": [["next", "Next"], ["previous", "Previous"]], "describe": "Preset: {name}", "lower": true})],
+            repeats: false, on_release: false, current: None, keywords: String::new(),
+        };
+        assert_eq!(says(&cycle, json!({"op": "previous"})), "Preset: previous");
+    }
+
+    #[test]
+    fn the_editors_search_forgives_typos_and_still_wants_word_starts() {
+        let mut mute = ActionSpec { id: "microphone.mute".into(), label: "Mute".into(), group: "Microphone".into(), params: Vec::new(),
+                                    repeats: false, on_release: false, current: None, keywords: "silence".into() };
+        assert!(matches(&mute, "") && matches(&mute, "mute") && matches(&mute, "mutee") && matches(&mute, "silence"));
+        assert!(!matches(&mute, "crop"), "inside microphone is no match");
+        mute.keywords.clear();
+        assert!(!matches(&mute, "silence"));
+    }
+
+    #[test]
+    fn the_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "F9", "camera.torch", json!({}), true)]), false, true);
+        let launched = Arc::new(Mutex::new(Vec::<Vec<String>>::new()));
+        let record = launched.clone();
+        plugin.launch = Box::new(move |cmd| {
+            record.lock().unwrap().push(cmd.iter().map(|s| s.to_string()).collect());
+            true
+        });
+        let applies = seen.lock().unwrap().applied.len();
+        assert!(plugin.open_system_settings(&mut host));
+        assert_eq!(*launched.lock().unwrap(), vec![vec!["systemsettings".to_string(), "kcm_keys".to_string()]]);
+        assert_eq!(seen.lock().unwrap().applied.len(), applies, "nothing was rebound");
+        // A desktop without the first program tries the next
+        launched.lock().unwrap().clear();
+        let tried = launched.clone();
+        plugin.launch = Box::new(move |cmd| {
+            tried.lock().unwrap().push(cmd.iter().map(|s| s.to_string()).collect());
+            cmd[0] == "kcmshell6"
+        });
+        assert!(plugin.open_system_settings(&mut host));
+        assert_eq!(launched.lock().unwrap().len(), 2);
+        plugin.launch = Box::new(|_| false);
+        assert!(!plugin.open_system_settings(&mut host));
     }
 }
