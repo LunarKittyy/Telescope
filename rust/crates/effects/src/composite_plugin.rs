@@ -395,7 +395,7 @@ impl CompositePlugin {
                 ("layout-items".to_string(), json!(names)),
                 ("layout-current".to_string(), json!(current)),
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
-                ("note".to_string(), json!(self.note)),
+                ("status".to_string(), json!(self.note)),
             ]);
         }
         props
