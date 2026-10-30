@@ -112,3 +112,34 @@ fn a_plugin_that_hides_its_card_keeps_it_hidden_when_folded() {
         assert_eq!(below(&w), without, "folded: {folded}");
     }
 }
+
+const HEADED: &str = r#"
+import { Card, Section, Icons } from "@ui-kit/ui-kit.slint";
+export component HeadedCard inherits Card {
+    title: @tr("Phone");
+    icon: Icons.sun;
+    Text { text: "row"; }
+}
+"#;
+
+struct Headed;
+
+impl Plugin for Headed {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "monitoring".into(), title: "Monitoring".into(), category: "look".into(), icon: "sun".into(), ..Default::default() }
+    }
+    fn card(&mut self) -> Option<CardSpec> {
+        Some(CardSpec { region: "right".into(), ui: UiSpec { source: SlintSource::Text(HEADED.into()), component: "HeadedCard".into(), props: serde_json::json!({}) } })
+    }
+}
+
+#[test]
+fn a_fold_is_kept_under_the_cards_heading_not_the_plugins_title() {
+    i_slint_backend_testing::init_no_event_loop();
+    let file = ConfigFile::at(telescope_core::testing::scratch_dir("collapse-heading").join(CONFIG_FILENAME));
+    file.save(&mut serde_json::json!({"collapsed": ["monitoring/Phone"]}));
+    let w = window::build(file, |_| vec![Box::new(Headed)], None, None).unwrap();
+    w.ui.window().set_size(slint::LogicalSize::new(1400.0, 900.0));
+    w.ui.show().unwrap();
+    assert_eq!(title(&w, "Phone").accessible_checked(), Some(false), "folded");
+}

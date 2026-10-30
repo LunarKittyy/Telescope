@@ -66,6 +66,9 @@ fn test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open()
     assert_eq!(finished(&bus), [(String::new(), "framing".to_string())]);
     let pack = h.pack();
     assert!(pack.ready && pack.error.is_empty() && pack.failed_for.is_empty());
+    h.download_failed("The switch couldn't be saved", "framing");
+    let pack = h.pack();
+    assert_eq!((pack.error.as_str(), pack.failed_for.as_str()), ("The switch couldn't be saved", "framing"));
 }
 
 #[test]

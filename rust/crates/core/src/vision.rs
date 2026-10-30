@@ -152,6 +152,8 @@ pub trait VisionService: Send + Sync {
     fn cancel_download(&self);
     /// Delete the downloaded packs.
     fn remove_pack(&self);
+    /// What went wrong after the download itself, shown like its own failure on the waiting plugin's tile.
+    fn download_failed(&self, _error: &str, _plugin: &str) {}
 }
 
 #[cfg(test)]

@@ -920,9 +920,12 @@ impl State {
                 if let Event::VisionDownloadFinished { error, switch_on } = &event {
                     // the optional plugin that waited for the download goes on, with no dialog open (VisionDownload._done)
                     if error.is_empty() && !switch_on.is_empty() {
-                        if let Ok(mut cfg) = self.file.load_strict() {
+                        let saved = self.file.load_strict().and_then(|mut cfg| {
                             crate::switches::set_optional_on(&mut cfg, switch_on, true);
-                            self.file.save(&mut cfg);
+                            self.file.try_save(&mut cfg)
+                        });
+                        if let (Err(e), Some(vision)) = (saved, &self.vision) {
+                            vision.download_failed(&format!("The download worked but the switch couldn't be saved: {e}"), switch_on);
                         }
                     }
                 }
@@ -1208,6 +1211,58 @@ mod tests {
         assert_eq!(cfg["devices"]["B"]["plugin_configs"]["transforms"]["zoom"], json!(2.0));
         assert_eq!(cfg["devices"]["A"]["plugin_configs"]["mic"]["gain"], json!(3));
         assert!(cfg["devices"]["B"]["plugin_configs"].get("mic").is_none(), "A's mic isn't B's");
+    }
+
+    #[derive(Default)]
+    struct Pack(std::sync::Mutex<(String, String)>);
+
+    impl telescope_core::vision::VisionService for Pack {
+        fn attach(&self, _bus: telescope_core::BusSender) {}
+        fn state(&self) -> String {
+            String::new()
+        }
+        fn load(&self) {}
+        fn person_mask(&self, _source_id: &str, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn want_people(&self, _owner: &str, _on: bool) {}
+        fn wants_people(&self) -> bool {
+            false
+        }
+        fn feed_raw(&self, _source_id: &str, _frame: &telescope_core::Frame, _upright: telescope_core::vision::Upright) {}
+        fn tracked_people(&self, _source_id: &str) -> (Vec<Value>, u32) {
+            (Vec::new(), 0)
+        }
+        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn drop_stream(&self, _source_id: &str) {}
+        fn set_power_saving(&self, _on: bool) {}
+        fn diagnostics(&self) -> Vec<(String, String)> {
+            Vec::new()
+        }
+        fn shutdown(&self) {}
+        fn pack(&self) -> telescope_core::vision::VisionPack {
+            Default::default()
+        }
+        fn download(&self, _switch_on: &str) {}
+        fn cancel_download(&self) {}
+        fn remove_pack(&self) {}
+        fn download_failed(&self, error: &str, plugin: &str) {
+            *self.0.lock().unwrap() = (error.to_string(), plugin.to_string());
+        }
+    }
+
+    #[test]
+    fn a_download_that_worked_says_so_when_the_switch_couldnt_be_saved() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        let pack = Arc::new(Pack::default());
+        s.vision = Some(pack.clone());
+        std::fs::create_dir(s.file.path().with_extension("json.tmp")).unwrap();
+        s.bus.emit(Event::VisionDownloadFinished { error: String::new(), switch_on: "framing".into() });
+        s.deliver_events();
+        let (error, plugin) = pack.0.lock().unwrap().clone();
+        assert!(error.starts_with("The download worked but the switch couldn't be saved: "), "{error}");
+        assert_eq!(plugin, "framing");
     }
 
     #[test]
