@@ -6,8 +6,8 @@ use std::ptr;
 
 const AUD: &[u8] = b"\x00\x00\x00\x01\x09\xf0";
 
-/// Encodes flat grey frames (one per value, as BGR greys turn into YUV) with the given pixel format and options.
-fn encode(name: &str, values: &[u8], w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)]) -> Option<Vec<Vec<u8>>> {
+/// Encodes flat frames (Y as each value is, every U and V the same) with the given pixel format and options.
+fn encode(name: &str, values: &[u8], chroma: (u8, u8), w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)]) -> Option<Vec<Vec<u8>>> {
     // SAFETY: plain libavcodec encoding; everything allocated here is freed before returning
     unsafe {
         let cname = CString::new(name).unwrap();
@@ -41,11 +41,10 @@ fn encode(name: &str, values: &[u8], w: u32, h: u32, fmt: ff::AVPixelFormat, opt
         let mut pkt = ff::av_packet_alloc();
         let mut out = Vec::new();
         let (cw, ch) = (w.div_ceil(2) as usize, h.div_ceil(2) as usize);
-        let full_range = fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P;
         for (i, &v) in values.iter().enumerate() {
             ff::av_frame_make_writable(frame);
-            let y = if full_range { v } else { (16.0 + v as f64 * 219.0 / 255.0).round() as u8 };
-            for (plane, value, pw, ph) in [(0, y, w as usize, h as usize), (1, 128, cw, ch), (2, 128, cw, ch)] {
+            let y = v;
+            for (plane, value, pw, ph) in [(0, y, w as usize, h as usize), (1, chroma.0, cw, ch), (2, chroma.1, cw, ch)] {
                 let (data, stride) = ((*frame).data[plane], (*frame).linesize[plane] as usize);
                 for row in 0..ph {
                     ptr::write_bytes(data.add(row * stride), value, pw);
@@ -74,12 +73,27 @@ fn encode(name: &str, values: &[u8], w: u32, h: u32, fmt: ff::AVPixelFormat, opt
 /// delimiter after each packet. gop: frames between keyframes.
 pub fn h264(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>>> {
     let g = gop.to_string();
-    let packets = encode("libx264", values, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+    // As BGR greys turn into YUV: the limited range
+    let limited: Vec<u8> = values.iter().map(|&v| (16.0 + v as f64 * 219.0 / 255.0).round() as u8).collect();
+    let packets = encode("libx264", &limited, (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
                          &[("tune", "zerolatency"), ("g", &g), ("bf", "0"), ("preset", "ultrafast")])?;
     Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
 }
 
 /// A JPEG of a flat grey.
 pub fn jpeg(value: u8, w: u32, h: u32) -> Vec<u8> {
-    encode("mjpeg", &[value], w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
+    encode("mjpeg", &[value], (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
+}
+
+/// One flat H.264 picture with these Y, U and V values as they are in the stream, saying in its headers what matrix
+/// ("bt709") and range ("tv" or "pc") they are in. Framed as h264() is.
+pub fn h264_yuv(y: u8, u: u8, v: u8, w: u32, h: u32, matrix: &str, range: &str) -> Option<Vec<Vec<u8>>> {
+    let packets = encode("libx264", &[y], (u, v), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+                         &[("tune", "zerolatency"), ("bf", "0"), ("preset", "ultrafast"), ("colorspace", matrix), ("color_range", range)])?;
+    Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
+}
+
+/// A JPEG of a flat colour with these full-range Y, U and V values.
+pub fn jpeg_yuv(y: u8, u: u8, v: u8, w: u32, h: u32) -> Vec<u8> {
+    encode("mjpeg", &[y], (u, v), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
 }

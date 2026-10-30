@@ -237,8 +237,10 @@ fn read_frames(path: &str, width: u32, height: u32) -> Result<Vec<(Rgb, f64)>, S
     use image::{AnimationDecoder, ImageDecoder};
     let open = || -> Result<image::ImageReader<std::io::BufReader<std::fs::File>>, String> {
         let mut reader = image::ImageReader::open(path).map_err(|e| e.to_string())?.with_guessed_format().map_err(|e| e.to_string())?;
-        // A huge photo loads (and gets scaled down) rather than failing
-        reader.no_limits();
+        // A huge photo is scaled down as it's read, but nothing is allowed to ask for more than this
+        let mut limits = image::Limits::default();
+        limits.max_alloc = Some(DECODE_LIMIT);
+        reader.limits(limits);
         Ok(reader)
     };
     if open()?.format() == Some(image::ImageFormat::Gif) {
@@ -265,11 +267,43 @@ fn read_frames(path: &str, width: u32, height: u32) -> Result<Vec<(Rgb, f64)>, S
     }
     let mut decoder = open()?.into_decoder().map_err(|e| e.to_string())?;
     let orientation = decoder.orientation().ok();
-    let mut img = image::DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?;
+    let mut img = decode_still(decoder, width.max(height), QT_ALLOC_LIMIT)?;
     if let Some(o) = orientation {
         img.apply_orientation(o);
     }
     Ok(vec![(fit_image(&img.to_rgba8(), width, height), STILL_PERIOD)])
+}
+
+/// What Qt's allocation limit is by default, which Python's wait screen measures a photo against.
+const QT_ALLOC_LIMIT: u64 = 256 * 1024 * 1024;
+/// The most a picture's decoder may allocate: room for a 100 megapixel photo, and nothing a few header bytes could claim.
+const DECODE_LIMIT: u64 = 512 * 1024 * 1024;
+
+/// The size a picture too big for Qt's allocation limit is read at, if it is (vcam._limit_decode_size): fitted to
+/// longest a side, keeping its shape. The longest side, not width x height, so a rotated photo still has pixels to spare.
+fn reduced_decode_size(w: u32, h: u32, longest: u32, limit: u64) -> Option<(u32, u32)> {
+    if w.max(h) <= longest || (w as u64 * h as u64 * 4) <= limit / 2 {
+        return None;
+    }
+    // QSize::scaled(KeepAspectRatio) in whole numbers, which truncates
+    let (w, h, longest) = (w as u64, h as u64, longest as u64);
+    let wide = longest * w / h;
+    Some(if wide <= longest { (wide as u32, longest as u32) } else { (longest as u32, (longest * h / w) as u32) })
+}
+
+/// A still picture, shrunk to the reduced size when it is big. Python asks Qt for that size, which a JPEG gives by
+/// decoding fewer coefficients; the image crate reads it whole (within DECODE_LIMIT) and it is shrunk before it is kept.
+fn decode_still(decoder: impl image::ImageDecoder, longest: u32, limit: u64) -> Result<image::DynamicImage, String> {
+    let (w, h) = decoder.dimensions();
+    // The JPEG decoder doesn't hold itself to the reader's limit, so the header's claim is checked here before anything is allocated
+    if decoder.total_bytes() > DECODE_LIMIT {
+        return Err(format!("a {w} x {h} picture is over the memory limit for reading one"));
+    }
+    let img = image::DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?;
+    Ok(match reduced_decode_size(w, h, longest, limit) {
+        Some((rw, rh)) => img.resize_exact(rw.max(1), rh.max(1), image::imageops::FilterType::Triangle),
+        None => img,
+    })
 }
 
 /// The wait screen as [(picture, seconds)] fitted to width x height: the image or animation at path, or the default
@@ -806,6 +840,78 @@ mod tests {
         assert_eq!(&frames[0].0.data[mid..mid + 3], &[200, 10, 10]);
         // 4:3 in a 16:9 box leaves the background at the sides
         assert_eq!(&frames[0].0.data[..3], &SURFACE_SUNK);
+    }
+
+    /// A small JPEG whose header claims w x h.
+    fn jpeg_claiming(w: u16, h: u16) -> Vec<u8> {
+        let mut out = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new(&mut out).encode(&[90u8; 16 * 16 * 3], 16, 16, image::ExtendedColorType::Rgb8).unwrap();
+        let at = out.windows(2).position(|p| p == [0xFF, 0xC0]).unwrap() + 5;
+        out[at..at + 2].copy_from_slice(&h.to_be_bytes());
+        out[at + 2..at + 4].copy_from_slice(&w.to_be_bytes());
+        out
+    }
+
+    #[test]
+    fn a_photo_claiming_a_size_nobody_could_hold_is_refused_before_decoding() {
+        let dir = telescope_core::testing::scratch_dir("wait");
+        let path = dir.join("claims.jpg");
+        std::fs::write(&path, jpeg_claiming(30000, 30000)).unwrap();
+        // Not unwrap_err: a picture that did load would be printed pixel by pixel
+        let Err(why) = read_frames(&path.to_string_lossy(), 64, 36) else { panic!("a 30000 x 30000 photo was decoded") };
+        assert!(why.to_lowercase().contains("limit") || why.to_lowercase().contains("memory"), "{why}");
+    }
+
+    #[test]
+    fn every_format_the_picker_offers_loads() {
+        let dir = telescope_core::testing::scratch_dir("wait");
+        // The picker lists the formats Qt reads in the Python app that this can read too
+        for ext in ["bmp", "gif", "ico", "jpeg", "jpg", "pbm", "pgm", "png", "ppm", "tga", "webp"] {
+            let path = dir.join(format!("pic.{ext}"));
+            let img = image::RgbImage::from_pixel(32, 32, image::Rgb([200, 200, 200]));
+            match ext {
+                // These keep one channel
+                "pbm" | "pgm" => image::DynamicImage::ImageRgb8(img).to_luma8().save(&path).unwrap(),
+                // The icon decoder only takes the RGBA pictures real icon files hold
+                "ico" => image::DynamicImage::ImageRgb8(img).to_rgba8().save(&path).unwrap(),
+                _ => img.save(&path).unwrap(),
+            }
+            let frames = match read_frames(&path.to_string_lossy(), 64, 36) {
+                Ok(frames) => frames,
+                Err(why) => panic!("{ext} didn't load: {why}"),
+            };
+            assert_eq!(frames.len(), 1, "{ext} gave {} pictures", frames.len());
+            let mid = ((18 * 64 + 32) * 3) as usize;
+            let got = frames[0].0.data[mid];
+            assert!(got > 150, "{ext} came out as {got}");
+            assert!(crate::wait_screen_plugin::PICKER_FORMATS.contains(&format!("*.{ext}")), "{ext} isn't in the picker");
+        }
+        assert!(crate::wait_screen_plugin::PICKER_FORMATS.contains("*.jfif"));
+    }
+
+    #[test]
+    fn a_huge_photo_is_decoded_at_the_size_qt_would_be_asked_for() {
+        // 12000 x 9000 on a 1920 x 1080 screen: 1920 x 1440, the screen's longest side on the longest side
+        assert_eq!(reduced_decode_size(12000, 9000, 1920, QT_ALLOC_LIMIT), Some((1920, 1440)));
+        assert_eq!(reduced_decode_size(9000, 12000, 1920, QT_ALLOC_LIMIT), Some((1440, 1920)));
+        assert_eq!(reduced_decode_size(40000, 1000, 1920, QT_ALLOC_LIMIT), Some((1920, 48)));
+        // 4000 x 3000 is 48 MB, under half the limit: decoded whole
+        assert_eq!(reduced_decode_size(4000, 3000, 1920, QT_ALLOC_LIMIT), None);
+        // Small enough for the screen already, however low the limit
+        assert_eq!(reduced_decode_size(1920, 1080, 1920, 1000), None);
+        assert_eq!(reduced_decode_size(5000, 4000, 1920, QT_ALLOC_LIMIT / 4), Some((1920, 1536)));
+    }
+
+    #[test]
+    fn a_photo_over_the_limit_is_scaled_down_while_it_is_read() {
+        let dir = telescope_core::testing::scratch_dir("wait");
+        let path = dir.join("over.png");
+        image::RgbImage::from_pixel(120, 60, image::Rgb([30, 60, 90])).save(&path).unwrap();
+        let decoder = image::ImageReader::open(&path).unwrap().into_decoder().unwrap();
+        // 120 x 60 x 4 is 28800 bytes, over half of a 20000 byte limit; the bound is 64 a side
+        let img = decode_still(decoder, 64, 20_000).unwrap();
+        assert_eq!((img.width(), img.height()), (64, 32));
+        assert_eq!(img.to_rgb8().get_pixel(10, 10).0, [30, 60, 90]);
     }
 
     fn gif(path: &std::path::Path, frames: usize, delay_ms: u32) {
