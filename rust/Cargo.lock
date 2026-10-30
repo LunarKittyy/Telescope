@@ -5691,6 +5691,7 @@ dependencies = [
  "telescope-system",
  "telescope-ui-kit",
  "telescope-vision",
+ "zip",
 ]
 
 [[package]]

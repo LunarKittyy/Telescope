@@ -1685,46 +1685,46 @@
 "The webcam isn't plugged in. Plug it back in and it carries on." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
 "The webcam isn't sending anything. Try another resolution or frame rate." = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs" }
 # ── widgets
-"A plugin can do anything on your computer. Only switch it on if you trust its source." = { status = "todo" }
-"AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "todo" }
-"Added" = { status = "todo" }
+"A plugin can do anything on your computer. Only switch it on if you trust its source." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope leaves out. Telescope can use one that has it instead." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Added" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Added plugins" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Agree and download" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Background colour" = { status = "todo" }
 "Background picture" = { status = "todo" }
-"Being written" = { status = "todo" }
+"Being written" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Big and small" = { status = "todo" }
 "Border" = { status = "todo" }
 "Border colour" = { status = "todo" }
 "Bring forward" = { status = "todo" }
 "Build" = { status = "todo" }
-"Build one here" = { status = "todo" }
-"Builds PyAV {version} against your system's FFmpeg, in a minute or two" = { status = "todo" }
-"By {author}." = { status = "todo" }
-"Check for updates" = { status = "todo" }
-"Checking the existing build..." = { status = "todo" }
+"Build one here" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Builds PyAV {version} against your system's FFmpeg, in a minute or two" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"By {author}." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Check for updates" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Checking the existing build..." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Cleaner edges with a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Click a stream in the picture to change it." = { status = "todo" }
 "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Collapsed. Press Space or Enter to expand." = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/folds.slint" }
-"Copy the command, to paste in a terminal" = { status = "todo" }
+"Copy the command, to paste in a terminal" = { status = "ported", rust = "rust/crates/setup/ui/parts.slint" }
 "Corners" = { status = "todo" }
-"Couldn't install it" = { status = "todo" }
-"Couldn't open it" = { status = "todo" }
-"Couldn't remove it" = { status = "todo" }
+"Couldn't install it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Couldn't open it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Couldn't remove it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Couldn't restart" = { status = "todo" }
-"Couldn't save that" = { status = "todo" }
+"Couldn't save that" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Crop" = { status = "todo" }
-"Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release." = { status = "todo" }
-"Delete the download the plugins here use. Switching one on gets it again." = { status = "todo" }
+"Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Delete the download the plugins here use. Switching one on gets it again." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Delete this layout" = { status = "todo" }
 "Dismiss" = { status = "ported", rust = "rust/crates/shell/ui/frame.slint" }
-"Doesn't load in Telescope's Python {version}" = { status = "todo" }
+"Doesn't load in Telescope's Python {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Double-click to reset" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Download" = { status = "ported", rust = "rust/crates/effects/ui/vision_status.slint" }
-"Download about {mb} MB?" = { status = "todo" }
-"Download and switch on" = { status = "todo" }
+"Download about {mb} MB?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Download and switch on" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Downloading… {percent}%" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping." = { status = "todo" }
 "Drag to move the view. Double-click to centre it." = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
@@ -1733,42 +1733,42 @@
 "Every plugin is switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Expanded. Press Space or Enter to collapse." = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/folds.slint" }
 "Fit its shape" = { status = "todo" }
-"From the next start" = { status = "todo" }
+"From the next start" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Getting ready…" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Grid" = { status = "todo" }
 "How plugins work" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "In use" = { status = "todo" }
 "Install" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"Install a plugin" = { status = "todo" }
-"Install plugin updates without asking?" = { status = "todo" }
-"Install updates without asking" = { status = "todo" }
-"Installed, but it won't load" = { status = "todo" }
-"Installs new versions of the plugins you switched on and switches them on again." = { status = "todo" }
-"It didn't start ({problem})." = { status = "todo" }
-"It frees about {mb} MB. Switching on one of the optional plugins downloads it again." = { status = "todo" }
-"Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it." = { status = "todo" }
-"Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version." = { status = "todo" }
-"Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again." = { status = "todo" }
+"Install a plugin" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Install plugin updates without asking?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Install updates without asking" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Installed, but it won't load" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Installs new versions of the plugins you switched on and switches them on again." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"It didn't start ({problem})." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"It frees about {mb} MB. Switching on one of the optional plugins downloads it again." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Its settings stay saved for when you switch it back on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Keep this picture under a name" = { status = "todo" }
 "Layout {n}" = { status = "todo" }
-"Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files." = { status = "todo" }
-"Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded." = { status = "todo" }
+"Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Make the box the stream's own shape again, with nothing cropped or stretched" = { status = "todo" }
 "MediaPipe didn't load on this computer. Copy diagnostics has the details." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Move" = { status = "todo" }
 "Needs a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Needs the vision download" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Needs {needs}. To install them:" = { status = "todo" }
-"Needs {needs}. Your distro has them." = { status = "todo" }
+"Needs {needs}. To install them:" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Needs {needs}. Your distro has them." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "No cameras available" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "No picture" = { status = "todo" }
 "No plugin is switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "No plugins match “{text}”." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "None" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
-"None installed" = { status = "todo" }
-"Not in use: {problem}" = { status = "todo" }
+"None installed" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Not in use: {problem}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Nothing matches every word. These match some of them." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Open plugins folder" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
@@ -1778,29 +1778,29 @@
 "Picked stream" = { status = "todo" }
 "Picture preview" = { status = "todo" }
 "Picture…" = { status = "todo" }
-"Plugins (*.zip)" = { status = "todo" }
-"Plugins you add are listed with the others, marked Added." = { status = "todo" }
+"Plugins (*.zip)" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Plugins you add are listed with the others, marked Added." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Put a picture behind the streams instead of the colour" = { status = "todo" }
-"PyAV {version} is built" = { status = "todo" }
-"PyAV {version}, with VA-API" = { status = "todo" }
-"PyAV {v}, built without VA-API" = { status = "todo" }
-"PyAV {v}, but VA-API didn't open with it" = { status = "todo" }
-"PyAV {v}. It needs PyAV 14 or newer" = { status = "todo" }
-"Rebuild" = { status = "todo" }
-"Remove download" = { status = "todo" }
-"Remove the download?" = { status = "todo" }
-"Remove {plugin}" = { status = "todo" }
-"Remove {plugin}?" = { status = "todo" }
+"PyAV {version} is built" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"PyAV {version}, with VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"PyAV {v}, built without VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"PyAV {v}, but VA-API didn't open with it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"PyAV {v}. It needs PyAV 14 or newer" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Rebuild" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Remove download" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"Remove the download?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Remove {plugin}" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"Remove {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Rename layout" = { status = "todo" }
 "Rename this layout" = { status = "todo" }
 "Rename…" = { status = "todo" }
 "Replace layout" = { status = "todo" }
-"Replace {plugin}?" = { status = "todo" }
-"Replaced" = { status = "todo" }
+"Replace {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Replaced" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Required" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Restart" = { status = "todo" }
-"Restart Telescope now?" = { status = "todo" }
-"Restart Telescope to switch." = { status = "todo" }
+"Restart" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Restart Telescope now?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Restart Telescope to switch." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Restart to apply {n} change" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Save as…" = { status = "todo" }
 "Save layout" = { status = "todo" }
@@ -1810,76 +1810,76 @@
 "Search results" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Search settings" = { status = "ported", rust = "rust/crates/shell/src/doc.rs" }
 "Send back" = { status = "todo" }
-"Set up VA-API" = { status = "todo" }
+"Set up VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Settings tabs" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Show all plugins" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Show this one's settings" = { status = "ported", rust = "rust/crates/shell/ui/frame.slint" }
-"Show: {which}" = { status = "todo" }
+"Show: {which}" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Side by side" = { status = "todo" }
 "Start Telescope again to apply your changes" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Start again with the running streams laid out like this" = { status = "todo" }
 "Start from" = { status = "todo" }
 "Start streaming to load lenses" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Start two or more streams to put them together. The + next to Stop adds one." = { status = "todo" }
-"Starting the build..." = { status = "todo" }
+"Starting the build..." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Stop streaming {name}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Stream" = { status = "todo" }
-"Streaming stops while Telescope restarts. It takes a few seconds." = { status = "todo" }
+"Streaming stops while Telescope restarts. It takes a few seconds." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Streams" = { status = "todo" }
 "Stretch" = { status = "todo" }
 "Switch every built-in plugin back on" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Switch off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch off {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Switch on {plugin}?" = { status = "todo" }
+"Switch on {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "todo" }
+"Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Tab" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
 "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "todo" }
 "Telescope can't work without this one, so it can't be switched off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete it: {error}" = { status = "todo" }
-"Telescope couldn't delete its folder: {error}" = { status = "todo" }
-"Telescope couldn't make its plugins folder: {error}" = { status = "todo" }
-"Telescope couldn't save the change: {error}" = { status = "todo" }
+"Telescope couldn't delete its folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Telescope couldn't make its plugins folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Telescope couldn't save the change: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes." = { status = "todo" }
-"Telescope is using the built PyAV {version}" = { status = "todo" }
-"Telescope is using the distro's PyAV {version}" = { status = "todo" }
+"Telescope is using the built PyAV {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Telescope is using the distro's PyAV {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n\nWhoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that." = { status = "todo" }
-"The build failed: {message}" = { status = "todo" }
-"The download didn't work. {error}" = { status = "todo" }
-"The existing build no longer works. Rebuild it against your system's FFmpeg." = { status = "todo" }
-"The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off." = { status = "todo" }
+"The build failed: {message}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"The download didn't work. {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"The existing build no longer works. Rebuild it against your system's FFmpeg." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "There's already a layout called \"{name}\". Replace it?" = { status = "todo" }
-"There's no download of what it needs for this computer yet, so it can't be switched on." = { status = "todo" }
-"There's no vision download for this computer yet." = { status = "todo" }
+"There's no download of what it needs for this computer yet, so it can't be switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"There's no vision download for this computer yet." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Turn all back on" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "USB needs adb, Google's tool for talking to Android phones." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Updated to {version} automatically. The new version runs after Telescope restarts." = { status = "todo" }
-"Use it" = { status = "todo" }
-"Use the standard one" = { status = "todo" }
-"Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one." = { status = "todo" }
+"Updated to {version} automatically. The new version runs after Telescope restarts." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"Use it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Use the standard one" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
+"Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Waits for a restart" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on." = { status = "todo" }
+"Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
-"Your distro's PyAV" = { status = "todo" }
+"Your distro's PyAV" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "adb.exe or platform-tools zip (adb.exe *.zip)" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"dev_desktop.py --plugin loads this one, so it's always on" = { status = "todo" }
-"lens|Auto" = { status = "todo" }
-"lens|External" = { status = "todo" }
-"lens|Front" = { status = "todo" }
-"lens|Tele" = { status = "todo" }
+"dev_desktop.py --plugin loads this one, so it's always on" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"lens|Auto" = { status = "ported", rust = "rust/crates/core/src/lens.rs" }
+"lens|External" = { status = "ported", rust = "rust/crates/core/src/lens.rs" }
+"lens|Front" = { status = "ported", rust = "rust/crates/core/src/lens.rs" }
+"lens|Tele" = { status = "ported", rust = "rust/crates/core/src/lens.rs" }
 "plugins|All" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "plugins|Off" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "plugins|On" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"search|plugins extensions addons add ons modules features turn off on disable enable install zip" = { status = "todo" }
+"search|plugins extensions addons add ons modules features turn off on disable enable install zip" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "to {output}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "{mode}, no snapping" = { status = "todo" }
 "{name} (not streaming)" = { status = "todo" }
 "{name} isn't streaming" = { status = "todo" }
 "{on} of {total} on" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope." = { status = "todo" }
-"{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share." = { status = "todo" }
-"{plugin} was installed, but it can't run yet. {problem}" = { status = "todo" }
-"{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope." = { status = "todo" }
+"{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"{plugin} was installed, but it can't run yet. {problem}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "{q}%: Balanced" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "{q}%: High" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "{q}%: Low" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
@@ -2406,40 +2406,40 @@
 "test_cinema.py::test_why_the_level_cant_show_is_on_the_card" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::why_the_level_cant_show_is_on_the_card" }
 "test_cinema.py::test_zebras_stripe_only_what_is_bright_enough" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::zebras_stripe_only_what_is_bright_enough" }
 # ── collapse
-"test_collapse.py::test_a_card_is_only_made_collapsible_once" = { status = "todo" }
-"test_collapse.py::test_a_card_that_goes_and_comes_back_is_folded_as_it_was" = { status = "todo" }
-"test_collapse.py::test_a_dimmed_card_still_folds" = { status = "todo" }
-"test_collapse.py::test_a_fold_is_remembered_in_any_language" = { status = "todo" }
-"test_collapse.py::test_a_folded_section_stays_folded_when_its_card_is_folded_and_opened" = { status = "todo" }
-"test_collapse.py::test_a_malformed_saved_list_is_reset" = { status = "todo" }
-"test_collapse.py::test_a_panel_holding_cards_gets_each_of_them" = { status = "todo" }
-"test_collapse.py::test_a_plugin_added_later_is_collapsible_without_doing_anything" = { status = "todo" }
-"test_collapse.py::test_a_plugin_that_hides_its_card_keeps_it_hidden_when_folded" = { status = "todo" }
-"test_collapse.py::test_a_row_keeps_its_stretch_and_alignment_inside_the_fold" = { status = "todo" }
-"test_collapse.py::test_a_row_that_grows_once_folding_is_installed_gets_its_new_height" = { status = "todo" }
-"test_collapse.py::test_a_section_folds_alone" = { status = "todo" }
-"test_collapse.py::test_a_switched_off_plugins_folds_survive_saving_while_it_is_gone" = { status = "todo" }
-"test_collapse.py::test_a_title_that_goes_dim_with_its_card_stops_looking_hovered" = { status = "todo" }
-"test_collapse.py::test_card_and_section_titles_are_named_keyboard_toggles" = { status = "todo" }
+"test_collapse.py::test_a_card_is_only_made_collapsible_once" = { status = "dropped", reason = "Qt only: there Collapsing.install() takes a finished panel apart and rewires its layout, which Slint cards never do; the kit Card and Section are foldable as they are written" }
+"test_collapse.py::test_a_card_that_goes_and_comes_back_is_folded_as_it_was" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_card_that_goes_and_comes_back_is_folded_as_it_was" }
+"test_collapse.py::test_a_dimmed_card_still_folds" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_dimmed_card_still_folds", note = "the dimming layer used to cover the title too; it now starts under the header" }
+"test_collapse.py::test_a_fold_is_remembered_in_any_language" = { status = "ported", rust = "rust/crates/shell/tests/collapse_language.rs::a_fold_is_remembered_in_any_language" }
+"test_collapse.py::test_a_folded_section_stays_folded_when_its_card_is_folded_and_opened" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_folded_section_stays_folded_when_its_card_is_folded_and_opened" }
+"test_collapse.py::test_a_malformed_saved_list_is_reset" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs::a_malformed_saved_list_is_reset" }
+"test_collapse.py::test_a_panel_holding_cards_gets_each_of_them" = { status = "dropped", reason = "Qt only: there Collapsing.install() takes a finished panel apart and rewires its layout, which Slint cards never do; the kit Card and Section are foldable as they are written" }
+"test_collapse.py::test_a_plugin_added_later_is_collapsible_without_doing_anything" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::a_plugin_added_later_is_collapsible_without_doing_anything" }
+"test_collapse.py::test_a_plugin_that_hides_its_card_keeps_it_hidden_when_folded" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::a_plugin_that_hides_its_card_keeps_it_hidden_when_folded" }
+"test_collapse.py::test_a_row_keeps_its_stretch_and_alignment_inside_the_fold" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_keeps_its_stretch_inside_the_fold", note = "only the row growing is checked, not a stretch row taking spare height" }
+"test_collapse.py::test_a_row_that_grows_once_folding_is_installed_gets_its_new_height" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_keeps_its_stretch_inside_the_fold", note = "a row that grows makes the card grow with it" }
+"test_collapse.py::test_a_section_folds_alone" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_section_folds_alone" }
+"test_collapse.py::test_a_switched_off_plugins_folds_survive_saving_while_it_is_gone" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_switched_off_plugins_folds_survive_saving_while_it_is_gone" }
+"test_collapse.py::test_a_title_that_goes_dim_with_its_card_stops_looking_hovered" = { status = "ported", rust = "rust/crates/shell/tests/collapse_hover.rs::hovering_a_title_marks_it_and_a_dimmed_cards_title_stays_as_it_was" }
+"test_collapse.py::test_card_and_section_titles_are_named_keyboard_toggles" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::card_and_section_titles_are_named_keyboard_toggles", note = "Slint has no stacking-order accessibility tree to check" }
 "test_collapse.py::test_changes_are_reported_once_each" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
-"test_collapse.py::test_clicking_a_card_title_hides_everything_under_it_and_again_shows_it" = { status = "todo" }
-"test_collapse.py::test_clicking_the_label_releases_the_native_toggle" = { status = "todo" }
+"test_collapse.py::test_clicking_a_card_title_hides_everything_under_it_and_again_shows_it" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::clicking_a_card_title_hides_everything_under_it_and_again_shows_it" }
+"test_collapse.py::test_clicking_the_label_releases_the_native_toggle" = { status = "dropped", reason = "Qt only: the title is a QToolButton whose pressed state had to be released by hand; Slint has no native button underneath" }
 "test_collapse.py::test_everything_starts_open" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
-"test_collapse.py::test_folding_a_card_while_a_shortcut_is_held_still_restores_it" = { status = "todo" }
-"test_collapse.py::test_folding_moves_focus_out_of_the_rows_it_hides" = { status = "todo" }
+"test_collapse.py::test_folding_a_card_while_a_shortcut_is_held_still_restores_it" = { status = "dropped", reason = "Qt only: a held shortcut there pressed a widget that folding hides; here the action and its release are plugin code" }
+"test_collapse.py::test_folding_moves_focus_out_of_the_rows_it_hides" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::folding_moves_focus_out_of_the_rows_it_hides", note = "focus goes to the title on any fold, not only when it was inside the rows, since a Slint control cannot be asked where focus is" }
 "test_collapse.py::test_folds_are_saved_and_come_back_with_the_next_window" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"test_collapse.py::test_hovering_a_title_marks_it_and_leaving_puts_it_back" = { status = "todo" }
+"test_collapse.py::test_hovering_a_title_marks_it_and_leaving_puts_it_back" = { status = "ported", rust = "rust/crates/shell/tests/collapse_hover.rs::hovering_a_title_marks_it_and_a_dimmed_cards_title_stays_as_it_was" }
 "test_collapse.py::test_keys_say_who_owns_the_card_and_section" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
-"test_collapse.py::test_loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" = { status = "todo" }
-"test_collapse.py::test_only_the_left_button_folds" = { status = "todo" }
-"test_collapse.py::test_resizing_into_another_layout_keeps_folds" = { status = "todo" }
-"test_collapse.py::test_same_title_twice_in_one_card_gets_its_own_key" = { status = "todo" }
-"test_collapse.py::test_shortcuts_work_inside_folded_cards_and_sections" = { status = "todo" }
+"test_collapse.py::test_loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" }
+"test_collapse.py::test_only_the_left_button_folds" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::only_the_left_button_folds" }
+"test_collapse.py::test_resizing_into_another_layout_keeps_folds" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::resizing_into_another_layout_keeps_folds" }
+"test_collapse.py::test_same_title_twice_in_one_card_gets_its_own_key" = { status = "dropped", reason = "Python works the key out from the title; here each Section writes its own key in the card .slint (no built-in card repeats a heading, checked), and any key, #2 included, folds" }
+"test_collapse.py::test_shortcuts_work_inside_folded_cards_and_sections" = { status = "dropped", reason = "Qt only: a shortcut there clicks the plugin widget and had to ignore hidden ones; here an action runs the plugin code itself, so folding cannot stop it" }
 "test_collapse.py::test_state_that_isnt_a_list_of_strings_is_ignored" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
-"test_collapse.py::test_the_rule_and_icon_of_a_section_heading_fold_it_too" = { status = "todo" }
-"test_collapse.py::test_two_plugins_with_the_same_titles_fold_separately" = { status = "todo" }
-"test_collapse.py::test_unfolding_a_card_keeps_rows_a_plugin_hid_itself" = { status = "todo" }
-"test_collapse.py::test_widgets_without_a_card_header_are_left_alone" = { status = "todo" }
+"test_collapse.py::test_the_rule_and_icon_of_a_section_heading_fold_it_too" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::the_rule_and_icon_of_a_section_heading_fold_it_too" }
+"test_collapse.py::test_two_plugins_with_the_same_titles_fold_separately" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::two_plugins_with_the_same_titles_fold_separately" }
+"test_collapse.py::test_unfolding_a_card_keeps_rows_a_plugin_hid_itself" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::unfolding_a_card_keeps_rows_a_plugin_hid_itself" }
+"test_collapse.py::test_widgets_without_a_card_header_are_left_alone" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::widgets_without_a_card_header_are_left_alone" }
 # ── colour
 "test_colour.py::test_a_1d_lut_with_its_own_domain" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
 "test_colour.py::test_a_3d_cube_reads_red_fastest" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
@@ -3637,43 +3637,43 @@
 # ── plugins_panel
 "test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_plugins_panel.py::test_a_built_in_plugin_that_breaks_still_stops_the_start" = { status = "todo" }
-"test_plugins_panel.py::test_a_failed_download_leaves_it_off_and_says_why" = { status = "todo" }
-"test_plugins_panel.py::test_a_footer_with_nowhere_to_go_never_becomes_a_window" = { status = "todo" }
-"test_plugins_panel.py::test_a_newer_release_is_mentioned_with_a_link_to_it" = { status = "todo" }
-"test_plugins_panel.py::test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch" = { status = "todo" }
-"test_plugins_panel.py::test_a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies" = { status = "todo" }
-"test_plugins_panel.py::test_a_plugin_that_didnt_start_says_why_in_the_list" = { status = "todo" }
-"test_plugins_panel.py::test_an_added_plugin_goes_in_the_group_its_plugin_json_names" = { status = "todo" }
-"test_plugins_panel.py::test_an_added_plugin_switched_on_loads" = { status = "todo" }
-"test_plugins_panel.py::test_an_added_plugin_that_breaks_while_starting_is_taken_back_out" = { status = "todo" }
-"test_plugins_panel.py::test_an_added_plugin_that_exits_while_starting_is_left_out" = { status = "todo" }
+"test_plugins_panel.py::test_a_failed_download_leaves_it_off_and_says_why" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_failed_download_leaves_it_off_and_says_why" }
+"test_plugins_panel.py::test_a_footer_with_nowhere_to_go_never_becomes_a_window" = { status = "dropped", reason = "Qt only: a widget with no parent shows as a window of its own, and the restart bar here is a Slint element that can only be drawn inside the settings window" }
+"test_plugins_panel.py::test_a_newer_release_is_mentioned_with_a_link_to_it" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_newer_release_is_mentioned_with_a_link_to_it" }
+"test_plugins_panel.py::test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_plugin_being_written_shows_where_its_from_with_nothing_to_switch" }
+"test_plugins_panel.py::test_a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies" }
+"test_plugins_panel.py::test_a_plugin_that_didnt_start_says_why_in_the_list" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_plugin_that_didnt_start_says_why_in_the_list" }
+"test_plugins_panel.py::test_an_added_plugin_goes_in_the_group_its_plugin_json_names" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::an_added_plugin_goes_in_the_group_its_plugin_json_names" }
+"test_plugins_panel.py::test_an_added_plugin_switched_on_loads" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::added_plugins_are_listed_in_the_diagnostics_as_running_or_not", note = "what loads them is the plugin host (plugin_loader tests); this checks the window lists one as running, with no banner" }
+"test_plugins_panel.py::test_an_added_plugin_that_breaks_while_starting_is_taken_back_out" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::an_added_plugin_that_breaks_while_starting_is_taken_back_out" }
+"test_plugins_panel.py::test_an_added_plugin_that_exits_while_starting_is_left_out" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::an_added_plugin_that_breaks_while_starting_is_taken_back_out", note = "a plugin that panics stands in for SystemExit" }
 "test_plugins_panel.py::test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" = { status = "ported", rust = "rust/crates/shell/src/switches.rs" }
-"test_plugins_panel.py::test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" = { status = "todo" }
-"test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon" = { status = "todo" }
-"test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon" = { status = "todo" }
-"test_plugins_panel.py::test_installing_a_plugin_thats_there_asks_then_replaces_it" = { status = "todo" }
-"test_plugins_panel.py::test_one_thats_on_can_be_switched_off_even_with_a_problem" = { status = "todo" }
-"test_plugins_panel.py::test_required_plugins_are_locked_on_and_say_so" = { status = "todo" }
-"test_plugins_panel.py::test_restart_now_restarts" = { status = "todo" }
-"test_plugins_panel.py::test_side_columns_put_the_pinned_cards_first_then_sort_by_group" = { status = "todo" }
-"test_plugins_panel.py::test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart" = { status = "todo" }
-"test_plugins_panel.py::test_switching_on_an_added_plugin_warns_about_trust" = { status = "todo" }
-"test_plugins_panel.py::test_switching_one_keeps_the_list_where_it_was" = { status = "todo" }
-"test_plugins_panel.py::test_switching_one_on_asks_to_download_first_then_switches_it_on" = { status = "todo" }
-"test_plugins_panel.py::test_the_auto_update_switch_is_red_warns_and_asks_first" = { status = "todo" }
-"test_plugins_panel.py::test_the_filter_shows_the_ones_on_or_off" = { status = "todo" }
-"test_plugins_panel.py::test_the_footer_counts_a_removed_plugin_that_still_runs" = { status = "todo" }
-"test_plugins_panel.py::test_the_footer_counts_the_changes_that_wait_for_a_restart" = { status = "todo" }
-"test_plugins_panel.py::test_the_plugins_tab_opens_over_the_main_window_without_blocking_it" = { status = "todo" }
+"test_plugins_panel.py::test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_list_stays_where_it_was_when_a_switch_is_changed", note = "the offset is the page widget own, kept whatever tiles come back; the download path rebuilds the tiles the same way" }
+"test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon" = { status = "ported", rust = "rust/app/src/scenes.rs::every_built_in_plugin_picks_its_category_and_icon" }
+"test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon" = { status = "ported", rust = "rust/app/src/scenes.rs::every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon", note = "the icon half is checked on the cards .slint; every card gets its group hue from doc.rs, which has no card without one" }
+"test_plugins_panel.py::test_installing_a_plugin_thats_there_asks_then_replaces_it" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::installing_a_plugin_thats_there_asks_then_replaces_it" }
+"test_plugins_panel.py::test_one_thats_on_can_be_switched_off_even_with_a_problem" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::one_thats_on_can_be_switched_off_even_with_a_problem" }
+"test_plugins_panel.py::test_required_plugins_are_locked_on_and_say_so" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::required_plugins_are_locked_on_and_say_so" }
+"test_plugins_panel.py::test_restart_now_restarts" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::restart_now_restarts", note = "the tab asks to restart; Effect::Restart itself is not handled anywhere yet, so the button does nothing in the app" }
+"test_plugins_panel.py::test_side_columns_put_the_pinned_cards_first_then_sort_by_group" = { status = "ported", rust = "rust/crates/shell/src/layout.rs::side_columns_put_the_pinned_cards_first_then_sort_by_group" }
+"test_plugins_panel.py::test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_off_asks_first_names_what_goes_and_waits_for_a_restart" }
+"test_plugins_panel.py::test_switching_on_an_added_plugin_warns_about_trust" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_on_an_added_plugin_warns_about_trust" }
+"test_plugins_panel.py::test_switching_one_keeps_the_list_where_it_was" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_list_stays_where_it_was_when_a_switch_is_changed" }
+"test_plugins_panel.py::test_switching_one_on_asks_to_download_first_then_switches_it_on" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_one_on_asks_to_download_first_then_switches_it_on" }
+"test_plugins_panel.py::test_the_auto_update_switch_is_red_warns_and_asks_first" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_auto_update_switch_is_red_warns_and_asks_first" }
+"test_plugins_panel.py::test_the_filter_shows_the_ones_on_or_off" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_filter_shows_the_ones_on_or_off" }
+"test_plugins_panel.py::test_the_footer_counts_a_removed_plugin_that_still_runs" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_footer_counts_a_removed_plugin_that_still_runs" }
+"test_plugins_panel.py::test_the_footer_counts_the_changes_that_wait_for_a_restart" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_footer_counts_the_changes_that_wait_for_a_restart" }
+"test_plugins_panel.py::test_the_plugins_tab_opens_over_the_main_window_without_blocking_it" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_plugins_tab_opens_without_blocking_and_a_second_open_reuses_the_window", note = "Slint has no owner-window link, so it is not tied to the main window; it is its own window and does not block" }
 "test_plugins_panel.py::test_the_plugins_tab_says_how_many_are_off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"test_plugins_panel.py::test_the_repo_shows_as_a_link_next_to_the_author" = { status = "todo" }
-"test_plugins_panel.py::test_the_search_finds_by_name_and_description_in_the_language_shown" = { status = "todo" }
-"test_plugins_panel.py::test_tiles_are_grouped_by_category_and_sorted_by_name" = { status = "todo" }
-"test_plugins_panel.py::test_turn_all_back_on" = { status = "todo" }
-"test_plugins_panel.py::test_with_no_added_plugins_there_are_no_update_switches" = { status = "todo" }
-"test_plugins_panel.py::test_with_the_download_there_switching_on_is_just_a_switch" = { status = "todo" }
-"test_plugins_panel.py::test_without_a_pack_for_this_computer_it_cant_be_switched_on" = { status = "todo" }
-"test_plugins_panel.py::test_without_the_check_the_auto_switch_cant_go_on" = { status = "todo" }
+"test_plugins_panel.py::test_the_repo_shows_as_a_link_next_to_the_author" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_repo_shows_as_a_link_next_to_the_author" }
+"test_plugins_panel.py::test_the_search_finds_by_name_and_description_in_the_language_shown" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_language.rs::the_search_finds_by_name_and_description_in_the_language_shown" }
+"test_plugins_panel.py::test_tiles_are_grouped_by_category_and_sorted_by_name" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::tiles_are_grouped_by_category_and_sorted_by_name" }
+"test_plugins_panel.py::test_turn_all_back_on" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::turn_all_back_on" }
+"test_plugins_panel.py::test_with_no_added_plugins_there_are_no_update_switches" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::with_no_added_plugins_there_are_no_update_switches" }
+"test_plugins_panel.py::test_with_the_download_there_switching_on_is_just_a_switch" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::with_the_download_there_switching_on_is_just_a_switch" }
+"test_plugins_panel.py::test_without_a_pack_for_this_computer_it_cant_be_switched_on" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::without_a_pack_for_this_computer_it_cant_be_switched_on" }
+"test_plugins_panel.py::test_without_the_check_the_auto_switch_cant_go_on" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::without_the_check_the_auto_switch_cant_go_on" }
 # ── presets
 "test_presets.py::test_a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts" }
 "test_presets.py::test_a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits" }
@@ -4168,7 +4168,7 @@
 "test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "todo" }
 "test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "todo" }
 # ── tooltips
-"test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" = { status = "todo" }
+"test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" }
 "test_tooltips.py::test_a_tip_stays_while_the_mouse_is_on_its_control" = { status = "todo" }
 "test_tooltips.py::test_tooltips_show_sooner" = { status = "todo" }
 # ── transforms
@@ -4669,49 +4669,49 @@
 "test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
 "test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs" }
 # ── widgets
-"test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "todo" }
-"test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "todo" }
-"test_widgets.py::test_a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end" = { status = "todo" }
-"test_widgets.py::test_a_tag_measures_itself_in_the_themes_font_not_the_systems" = { status = "todo" }
-"test_widgets.py::test_control_row_starts_the_control_at_the_label_column" = { status = "todo" }
-"test_widgets.py::test_control_row_widget_is_hideable" = { status = "todo" }
+"test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_picked_segment_keeps_room_for_its_bold_text" }
+"test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_rows_controls_get_its_label_as_their_screen_reader_name", note = "each control is given its row label in its .slint, not found for it afterwards" }
+"test_widgets.py::test_a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_switch_toggles_from_anywhere_on_its_row" }
+"test_widgets.py::test_a_tag_measures_itself_in_the_themes_font_not_the_systems" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_tag_measures_itself_in_the_themes_font_not_the_systems" }
+"test_widgets.py::test_control_row_starts_the_control_at_the_label_column" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
+"test_widgets.py::test_control_row_widget_is_hideable" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_double_log_slider_converts_scaled_spin_value" = { status = "todo" }
 "test_widgets.py::test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin" = { status = "todo" }
 "test_widgets.py::test_eliding_label_keeps_its_full_text_available" = { status = "todo" }
-"test_widgets.py::test_empty_lenses_show_a_placeholder" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_leaves_a_popup_that_fits_alone" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_shrinks_only_when_taller_than_the_screen" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_slides_popup_down_without_shrinking" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_slides_popup_up_off_the_bottom" = { status = "todo" }
-"test_widgets.py::test_flow_layout_wraps_and_reports_height_for_width" = { status = "todo" }
+"test_widgets.py::test_empty_lenses_show_a_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::empty_lenses_show_a_placeholder" }
+"test_widgets.py::test_fit_on_screen_leaves_a_popup_that_fits_alone" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_shrinks_only_when_taller_than_the_screen" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_slides_popup_down_without_shrinking" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_slides_popup_up_off_the_bottom" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_flow_layout_wraps_and_reports_height_for_width" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_focus_ring_shows_after_tab_and_not_after_a_click" = { status = "todo" }
-"test_widgets.py::test_form_labels_are_left_aligned" = { status = "todo" }
-"test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal" = { status = "todo" }
-"test_widgets.py::test_lens_labels_keep_the_zoom_factor_when_shortened" = { status = "todo" }
-"test_widgets.py::test_lens_panel_load_select_placeholder_and_clear" = { status = "todo" }
-"test_widgets.py::test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows" = { status = "todo" }
-"test_widgets.py::test_log_scale_endpoints_midpoint_and_clamping" = { status = "todo" }
-"test_widgets.py::test_log_scale_round_trip_is_close_across_range" = { status = "todo" }
-"test_widgets.py::test_log_scale_survives_a_camera_reporting_an_empty_or_single_value_range" = { status = "todo" }
-"test_widgets.py::test_log_slider_range_and_enabled_state" = { status = "todo" }
-"test_widgets.py::test_make_segmented_handles_a_lone_button" = { status = "todo" }
-"test_widgets.py::test_make_segmented_marks_ends_and_middles" = { status = "todo" }
+"test_widgets.py::test_form_labels_are_left_aligned" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
+"test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::integer_log_slider_syncs_slider_spin_and_signal", note = "the model of the row; the Camera card has no number box to type in yet" }
+"test_widgets.py::test_lens_labels_keep_the_zoom_factor_when_shortened" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::lens_labels_keep_the_zoom_factor_when_shortened" }
+"test_widgets.py::test_lens_panel_load_select_placeholder_and_clear" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::lens_panel_load_select_placeholder_and_clear" }
+"test_widgets.py::test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows" }
+"test_widgets.py::test_log_scale_endpoints_midpoint_and_clamping" = { status = "ported", rust = "rust/crates/core/src/actions.rs::log_scale_endpoints_midpoint_and_clamping" }
+"test_widgets.py::test_log_scale_round_trip_is_close_across_range" = { status = "ported", rust = "rust/crates/core/src/actions.rs::log_scale_round_trip_is_close_across_range" }
+"test_widgets.py::test_log_scale_survives_a_camera_reporting_an_empty_or_single_value_range" = { status = "ported", rust = "rust/crates/core/src/actions.rs::log_scale_survives_a_camera_reporting_an_empty_or_single_value_range" }
+"test_widgets.py::test_log_slider_range_and_enabled_state" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::log_slider_range_and_enabled_state", note = "the model of the row; the Camera card has no number box yet" }
+"test_widgets.py::test_make_segmented_handles_a_lone_button" = { status = "dropped", reason = "Qt only: dynamic properties for the stylesheet to round the ends of a track of buttons; the kit Segmented draws its own track and pill" }
+"test_widgets.py::test_make_segmented_marks_ends_and_middles" = { status = "dropped", reason = "Qt only: dynamic properties for the stylesheet to round the ends of a track of buttons; the kit Segmented draws its own track and pill" }
 "test_widgets.py::test_menus_and_tooltips_have_see_through_corners" = { status = "todo" }
-"test_widgets.py::test_ns_to_display" = { status = "todo" }
+"test_widgets.py::test_ns_to_display" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::ns_to_display_reads_exposure_times" }
 "test_widgets.py::test_pan_slider_clamps_resets_and_emits" = { status = "todo" }
 "test_widgets.py::test_quality_label_boundaries" = { status = "todo" }
-"test_widgets.py::test_run_off_ui_thread_keeps_the_event_loop_turning" = { status = "todo" }
-"test_widgets.py::test_run_off_ui_thread_reraises" = { status = "todo" }
-"test_widgets.py::test_run_off_ui_thread_returns_the_result_from_a_worker_thread" = { status = "todo" }
-"test_widgets.py::test_segmented_row_puts_the_buttons_in_one_track" = { status = "todo" }
-"test_widgets.py::test_separator_and_all_known_vector_icons_are_constructible" = { status = "todo" }
+"test_widgets.py::test_run_off_ui_thread_keeps_the_event_loop_turning" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
+"test_widgets.py::test_run_off_ui_thread_reraises" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
+"test_widgets.py::test_run_off_ui_thread_returns_the_result_from_a_worker_thread" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
+"test_widgets.py::test_segmented_row_puts_the_buttons_in_one_track" = { status = "dropped", reason = "Qt only: the kit Segmented is one component with its track drawn inside it" }
+"test_widgets.py::test_separator_and_all_known_vector_icons_are_constructible" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::separator_and_all_known_vector_icons_are_constructible" }
 "test_widgets.py::test_slider_fill_doesnt_stick_out_past_the_handle_at_zero" = { status = "todo" }
 "test_widgets.py::test_stretch_slider_sets_a_floor_not_a_fixed_width" = { status = "todo" }
-"test_widgets.py::test_tab_follows_the_layout_not_the_order_widgets_were_made" = { status = "todo" }
-"test_widgets.py::test_tab_in_a_dialog_stops_on_every_option_of_a_group" = { status = "todo" }
-"test_widgets.py::test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple" = { status = "todo" }
-"test_widgets.py::test_uniform_flow_divides_each_row_evenly" = { status = "todo" }
-"test_widgets.py::test_value_to_log_position_endpoints_and_invalid_values" = { status = "todo" }
+"test_widgets.py::test_tab_follows_the_layout_not_the_order_widgets_were_made" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::tab_follows_the_layout_not_the_order_widgets_were_made" }
+"test_widgets.py::test_tab_in_a_dialog_stops_on_every_option_of_a_group" = { status = "dropped", reason = "Qt only: Qt's own focus chain skips all but one button of an exclusive group, which the theme's style had to undo; a Slint item with a FocusScope is always a Tab stop" }
+"test_widgets.py::test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::turning_plugin_colours_off_repaints_every_card_in_the_app_purple" }
+"test_widgets.py::test_uniform_flow_divides_each_row_evenly" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
+"test_widgets.py::test_value_to_log_position_endpoints_and_invalid_values" = { status = "ported", rust = "rust/crates/core/src/actions.rs::value_to_log_position_endpoints_and_invalid_values" }
 "test_widgets.py::test_zoom_slider_marks_sit_where_the_handle_would" = { status = "todo" }
 
 [scene]
@@ -6107,6 +6107,6 @@
 "folder:telescope/widgets/plugin_updater.py:_on_done:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
 "folder:telescope/widgets/plugin_updater.py:_run:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
 "folder:telescope/widgets/plugin_updater.py:_run:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/plugin-host/src/updater.rs" }
-"folder:telescope/widgets/plugins_panel.py:_add_zip:Path.home" = { status = "todo" }
-"run:telescope/widgets/plugins_panel.py:__init__:QDesktopServices.openUrl:<QUrl(DOCS_URL)>" = { status = "todo" }
-"run:telescope/widgets/plugins_panel.py:_open_folder:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(folder))>" = { status = "todo" }
+"folder:telescope/widgets/plugins_panel.py:_add_zip:Path.home" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs::start_folder" }
+"run:telescope/widgets/plugins_panel.py:__init__:QDesktopServices.openUrl:<QUrl(DOCS_URL)>" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::open_url" }
+"run:telescope/widgets/plugins_panel.py:_open_folder:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(folder))>" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::open_plugins_folder" }

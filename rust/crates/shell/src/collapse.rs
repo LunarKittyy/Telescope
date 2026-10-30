@@ -78,6 +78,18 @@ mod tests {
     }
 
     #[test]
+    fn a_malformed_saved_list_is_reset() {
+        use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
+        let path = telescope_core::testing::scratch_dir("collapse-config").join(CONFIG_FILENAME);
+        let file = ConfigFile::at(&path);
+        let version = telescope_core::config::empty()["version"].clone();
+        std::fs::write(&path, json!({"version": version, "collapsed": [1, "a"]}).to_string()).unwrap();
+        assert_eq!(file.load()["collapsed"], json!([]));
+        std::fs::write(&path, json!({"version": version, "collapsed": ["a"]}).to_string()).unwrap();
+        assert_eq!(file.load()["collapsed"], json!(["a"]));
+    }
+
+    #[test]
     fn everything_starts_open() {
         assert!(!Collapsing::default().is_folded("p/Things"));
     }

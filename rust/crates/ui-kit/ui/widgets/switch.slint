@@ -8,31 +8,46 @@ import { ShortcutMenu } from "shortcut-menu.slint";
 
 // common.Switch: a 36x20 track at the row's end.
 export component Switch inherits Rectangle {
+    // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
     in-out property <bool> checked;
+    // What the person last chose, shown until the parent says something new
+    property <bool> local;
+    property <bool> touched;
+    out property <bool> shown: touched ? local : checked;
+    changed checked => { touched = false; }
+    // What a click does, and what a key does; SwitchTile calls it for a click on the tile
+    public function flip() {
+        local = !shown;
+        touched = true;
+        toggled(local);
+    }
     in property <string> label;
     in property <bool> enabled: true;
     // A tooltip, when there's something to say beyond the label
     in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // A switch that's risky to leave on stays red while it is
+    in property <bool> danger;
     callback toggled(bool);
     width: 36px;
     height: 20px;
     border-radius: 10px;
-    background: !enabled ? (checked ? Theme.border-strong : Theme.surface-raise)
-        : checked ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+    background: !enabled ? (shown ? Theme.border-strong : Theme.surface-raise)
+        : shown && danger ? Theme.err
+        : shown ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
-    accessible-checked: checked;
-    accessible-action-default => { checked = !checked; toggled(checked); }
+    accessible-checked: shown;
+    accessible-action-default => { flip(); }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == " ") { checked = !checked; toggled(checked); return accept; }
+            if (e.text == " ") { flip(); return accept; }
             reject
         }
     }
@@ -40,7 +55,7 @@ export component Switch inherits Rectangle {
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
-        clicked => { checked = !checked; toggled(checked); }
+        clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     Rectangle {
@@ -48,8 +63,8 @@ export component Switch inherits Rectangle {
         height: 14px;
         border-radius: 7px;
         y: 3px;
-        x: checked ? parent.width - 17px : 3px;
-        background: !enabled ? Theme.text-disabled : checked ? white : Theme.text-dim;
+        x: shown ? parent.width - 17px : 3px;
+        background: !enabled ? Theme.text-disabled : shown ? white : Theme.text-dim;
         animate x { duration: 90ms; }
     }
     if tip != "": Tooltip { TipBody { says: tip; } }
@@ -62,6 +77,8 @@ export component SwitchTile inherits Rectangle {
     in property <color> hue: Theme.accent;
     in-out property <bool> checked;
     in property <bool> enabled: true;
+    // A tooltip for the whole tile, say why it can't be used
+    in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback toggled(bool);
@@ -76,9 +93,10 @@ export component SwitchTile inherits Rectangle {
     TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
-        clicked => { sw.checked = !sw.checked; sw.toggled(sw.checked); }
+        clicked => { sw.flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if root.tip != "": Tooltip { TipBody { says: root.tip; } }
     // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
         padding-left: 11px;
@@ -86,7 +104,7 @@ export component SwitchTile inherits Rectangle {
         spacing: 9px;
         Icon {
             source: icon;
-            tint: checked && enabled ? hue : Theme.text-dim;
+            tint: sw.shown && enabled ? hue : Theme.text-dim;
             width: 15px;
             height: 15px;
             y: (parent.height - self.height) / 2;

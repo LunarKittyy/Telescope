@@ -414,7 +414,8 @@ export component ConnectionCard inherits Card {
                 spacing: 8px;
                 alignment: start;
                 Switch {
-                    checked <=> root.vcam-persist;
+                    checked: root.vcam-persist;
+                    toggled(on) => { root.vcam-persist = on; }
                     label: @tr("Also switch it on at every startup");
                 }
                 Text {

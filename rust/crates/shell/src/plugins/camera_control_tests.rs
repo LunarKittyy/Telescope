@@ -613,6 +613,85 @@ fn lens_labels_become_tiles() {
     assert_eq!(split_lens_label("Main"), ("Main".into(), String::new(), String::new()));
 }
 
+// tests/test_widgets.py::test_ns_to_display
+#[test]
+fn ns_to_display_reads_exposure_times() {
+    for (value, expected) in [(0, "?"), (-1, "?"), (1_000_000_000, "1.0 s"), (2_500_000_000, "2.5 s"), (500_000_000, "1/2"), (1_000_000, "1/1,000")] {
+        assert_eq!(ns_to_display(value), expected, "{value}");
+    }
+}
+
+// tests/test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal
+#[test]
+fn integer_log_slider_syncs_slider_spin_and_signal() {
+    let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
+    row.set_value(100.0);
+    assert!(close(row.get_value(), 100.0, 0.01));
+    assert_eq!(row.spin, 100.0);
+    assert_eq!(row.text(), "ISO 100");
+    row.pos = LOG_STEPS;
+    assert!(close(row.get_value(), 1000.0, 0.001));
+    assert_eq!(row.to_spin(row.get_value()), 1000.0);
+}
+
+// tests/test_widgets.py::test_log_slider_range_and_enabled_state
+#[test]
+fn log_slider_range_and_enabled_state() {
+    let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
+    row.set_value(100.0);
+    row.set_range(20.0, 2000.0);
+    row.enabled = false;
+    assert_eq!((row.v_min, row.v_max), (20.0, 2000.0));
+    assert_eq!((row.to_spin(1.0), row.to_spin(1e9)), (20.0, 2000.0));
+    assert!(!row.enabled);
+    assert!(close(row.get_value(), 100.0, 0.01));
+}
+
+// tests/test_widgets.py::test_empty_lenses_show_a_placeholder
+#[test]
+fn empty_lenses_show_a_placeholder() {
+    let mut lenses = Lenses::new();
+    lenses.load(&[]);
+    assert!(lenses.cameras.is_empty());
+    assert_eq!(lenses.placeholder, "No cameras available");
+}
+
+// tests/test_widgets.py::test_lens_panel_load_select_placeholder_and_clear
+#[test]
+fn lens_panel_load_select_placeholder_and_clear() {
+    let mut lenses = Lenses::new();
+    let cameras = [json!({"id": "wide", "label": "Wide", "current": false}), json!({"id": "tele", "label": "Tele", "current": true})];
+    lenses.load(&cameras);
+    assert_eq!(lens_label(&lenses.cameras[0]), "Wide");
+    assert_eq!(lenses.checked, Some(1));
+    assert_eq!(lenses.select_id("wide"), Some(cameras[0].clone()));
+    assert_eq!(lenses.checked, Some(0));
+    assert_eq!(lenses.select_id("none"), None);
+    lenses.set_placeholder("Unavailable".into());
+    assert_eq!(lenses.placeholder, "Unavailable");
+    lenses.clear();
+    assert!(lenses.cameras.is_empty());
+    assert_eq!(lenses.placeholder, "Start streaming to load lenses");
+}
+
+// tests/test_widgets.py::test_lens_labels_keep_the_zoom_factor_when_shortened
+#[test]
+fn lens_labels_keep_the_zoom_factor_when_shortened() {
+    assert_eq!(shorten_lens_label("Back Telephoto 3x [phys]", true), "Tele 3x");
+    assert_eq!(shorten_lens_label("Back ~24mm OIS [auto]", true), "Auto ~24mm OIS");
+}
+
+// tests/test_widgets.py::test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows
+#[test]
+fn lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows() {
+    assert_eq!(split_lens_label("Auto ~24mm OIS"), ("24".into(), "mm".into(), "Auto · OIS".into()));
+    assert_eq!(split_lens_label("F/~25mm"), ("25".into(), "mm".into(), "Front".into()));
+    assert_eq!(split_lens_label("Tele 3x"), ("3".into(), "x".into(), "Tele".into()));
+    assert_eq!(split_lens_label("Wide"), ("Wide".into(), String::new(), String::new()));
+    assert_eq!([1, 3, 5, 6, 7, 10, 11].map(lens_columns), [1, 3, 5, 3, 4, 5, 4]);
+    assert_eq!(lens_columns(0), 1);
+}
+
 #[test]
 fn the_card_compiles_and_has_every_property_the_plugin_sets() {
     let def = crate::compile::compile("camera.slint", include_str!("../../ui/cards/camera.slint"), vec![], "CameraCard").unwrap();

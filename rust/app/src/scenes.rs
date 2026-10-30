@@ -197,6 +197,7 @@ fn services(link: SceneLink) -> Arc<Services> {
         autostart: None,
         updater: None,
         plugin_problems: Default::default(),
+        plugin_admin: None,
         vision: None,
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
@@ -505,4 +506,61 @@ pub fn run(words: &[String]) -> Result<(), String> {
     }
     println!("{n} pictures in {out}");
     if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) }
+}
+
+#[cfg(test)]
+mod tests {
+    // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
+    #[test]
+    fn every_built_in_plugin_picks_its_category_and_icon() {
+        let bus = telescope_core::EventBus::new();
+        // The app's own list, as the real window loads it
+        let s = crate::services(None, telescope_system::shortcuts::RemoteActions::default(), false);
+        let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
+        plugins.extend((s.plugins)());
+        assert!(plugins.len() > 25, "{} plugins", plugins.len());
+        let icons = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../crates/ui-kit/ui/icons"));
+        for plugin in &plugins {
+            let info = plugin.info();
+            assert!(telescope_core::plugin::PLUGIN_CATEGORIES.iter().any(|(id, _)| *id == info.category), "{} needs a category", info.name);
+            let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file());
+            assert!(known, "{} needs an icon the kit has, not {:?}", info.name, info.icon);
+        }
+    }
+
+    /// The icon a plugin's own card puts on its header, from its .slint (the first `icon: Icons.x;` after the card's component).
+    fn card_icon(plugin: &mut dyn telescope_core::plugin::Plugin) -> Option<String> {
+        use telescope_core::ui::SlintSource;
+        let spec = plugin.card()?;
+        let text = match &spec.ui.source {
+            SlintSource::Text(t) => t.clone(),
+            SlintSource::File(p) => std::fs::read_to_string(p).ok()?,
+        };
+        // The stage has no header of its own; only a standard card has one
+        let at = text.find(&format!("component {} inherits Card", spec.ui.component))?;
+        let rest = &text[at..];
+        let icon = rest.split("icon: Icons.").nth(1)?;
+        Some(icon.split(';').next()?.trim().replace('-', "_"))
+    }
+
+    // test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon
+    #[test]
+    fn every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon() {
+        let bus = telescope_core::EventBus::new();
+        let s = crate::services(None, telescope_system::shortcuts::RemoteActions::default(), false);
+        let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
+        plugins.extend((s.plugins)());
+        let mut found = 0;
+        let mut wrong = Vec::new();
+        for plugin in &mut plugins {
+            let info = plugin.info();
+            let Some(icon) = card_icon(plugin.as_mut()) else { continue };
+            found += 1;
+            if icon.trim_start_matches("v_") != info.icon.trim_start_matches("v_") {
+                wrong.push(format!("{}: card {icon}, plugin {}", info.name, info.icon));
+            }
+        }
+        assert!(found > 15, "{found} cards");
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
 }

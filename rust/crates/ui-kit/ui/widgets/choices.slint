@@ -4,16 +4,29 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { TipBody } from "tip.slint";
 
 // segmented_row: equal segments in one track, the picked one a filled pill.
 export component Segmented inherits Rectangle {
     in property <[string]> items;
     in property <[bool]> disabled;
+    // What to say on hover over each item, where there's something to say (why it can't be picked)
+    in property <[string]> tips;
     // A 13px line icon before each item's text, where has-icons says so
     in property <[image]> icons;
     in property <[bool]> has-icons;
     in property <string> label;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
     in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
@@ -27,8 +40,8 @@ export component Segmented inherits Rectangle {
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
-            if (e.text == Key.LeftArrow && current > 0 && !disabled[current - 1]) { current -= 1; picked(current); return accept; }
-            if (e.text == Key.RightArrow && current < items.length - 1 && !disabled[current + 1]) { current += 1; picked(current); return accept; }
+            if (e.text == Key.LeftArrow && shown > 0 && !disabled[shown - 1]) { pick(shown - 1); return accept; }
+            if (e.text == Key.RightArrow && shown < items.length - 1 && !disabled[shown + 1]) { pick(shown + 1); return accept; }
             reject
         }
     }
@@ -47,10 +60,11 @@ export component Segmented inherits Rectangle {
         padding: 3px;
         spacing: 2px;
         for item[i] in items: seg := Rectangle {
-            property <bool> on: i == current;
+            property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            min-width: 0px;
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end
+            min-width: bold-width.preferred-width + 16px;
             preferred-width: 0px;
             border-radius: 6px;
             background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
@@ -59,12 +73,13 @@ export component Segmented inherits Rectangle {
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
+            if tips[i] != "": Tooltip { TipBody { says: tips[i]; } }
+            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
                 clicked => {
                     if (!off) {
-                        current = i;
-                        picked(i);
+                        pick(i);
                     }
                 }
             }

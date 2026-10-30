@@ -9,6 +9,9 @@ export component SettingRow inherits Rectangle {
     in property <string> sub;
     // A disabled row greys its text, as Qt greys a disabled strip's labels
     in property <bool> enabled: true;
+    // setting_row's below: a note across the row's width under the name and the controls
+    in property <string> note;
+    in property <color> note-color: Theme.text-dim;
     min-height: 46px;
     border-radius: 9px;
     border-width: 1px;
@@ -19,41 +22,52 @@ export component SettingRow inherits Rectangle {
     accessible-label: title;
     accessible-description: sub;
     // The QSS border sits outside the layout's 12px and 8px margins
-    HorizontalLayout {
+    VerticalLayout {
         padding-left: 13px;
         padding-right: 13px;
         padding-top: 9px;
         padding-bottom: 9px;
-        spacing: 12px;
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 1px;
-            alignment: center;
-            Text {
-                text: title;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: enabled ? Theme.text : Theme.text-disabled;
-                wrap: word-wrap;
-                line-height-factor: Theme.line-factor(self.font-size);
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 1px;
+                alignment: center;
+                Text {
+                    text: title;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: enabled ? Theme.text : Theme.text-disabled;
+                    wrap: word-wrap;
+                    line-height-factor: Theme.line-factor(self.font-size);
+                }
+                if sub != "": Text {
+                    text: sub;
+                    font-family: Theme.font;
+                    font-size: Theme.small;
+                    color: enabled ? Theme.text-dim : Theme.text-disabled;
+                    wrap: word-wrap;
+                    line-height-factor: Theme.line-factor(self.font-size);
+                }
             }
-            if sub != "": Text {
-                text: sub;
-                font-family: Theme.font;
-                font-size: Theme.small;
-                color: enabled ? Theme.text-dim : Theme.text-disabled;
-                wrap: word-wrap;
-                line-height-factor: Theme.line-factor(self.font-size);
+            // Qt centres the controls on the strip
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    @children
+                }
             }
         }
-        // Qt centres the controls on the strip
-        VerticalLayout {
-            alignment: center;
-            HorizontalLayout {
-                spacing: 8px;
-                alignment: end;
-                @children
-            }
+        if note != "": Text {
+            text: note;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: note-color;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
         }
     }
 }

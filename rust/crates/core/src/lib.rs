@@ -23,6 +23,7 @@ pub mod names;
 pub mod output;
 pub mod people;
 pub mod plugin;
+pub mod plugin_admin;
 pub mod pose;
 pub mod preview;
 pub mod qr;
