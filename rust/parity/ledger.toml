@@ -162,71 +162,71 @@
 # ── camera_control
 "Auto" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Black level lock" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps." = { status = "todo" }
+"Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps." = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Brightness" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Camera level: {level}" = { status = "todo" }
-"Click the preview to focus there" = { status = "todo" }
-"Compensation" = { status = "todo" }
+"Camera level: {level}" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Click the preview to focus there" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Compensation" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Distance" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Exposure" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Exposure mode" = { status = "todo" }
-"Exposure, white balance, focus, lenses and the phone camera's other settings." = { status = "todo" }
-"External" = { status = "todo" }
+"Exposure mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Exposure, white balance, focus, lenses and the phone camera's other settings." = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"External" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Fast" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Focus" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Focus distance" = { status = "todo" }
-"Focus mode" = { status = "todo" }
-"Full" = { status = "todo" }
-"Full manual control" = { status = "todo" }
-"High Quality" = { status = "todo" }
+"Focus distance" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Focus mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Full" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Full manual control" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"High Quality" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Image" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Legacy" = { status = "todo" }
-"Lens" = { status = "todo" }
-"Level 3" = { status = "todo" }
-"Limited" = { status = "todo" }
-"Limited manual control" = { status = "todo" }
-"Loading lenses..." = { status = "todo" }
-"Low light" = { status = "todo" }
+"Legacy" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Level 3" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Limited" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Limited manual control" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Loading lenses..." = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Low light" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Manual" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Manual WB" = { status = "todo" }
-"Manual exposure" = { status = "todo" }
-"Manual focus" = { status = "todo" }
+"Manual WB" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Manual exposure" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Manual focus" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Noise reduction" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Not supported: {features}" = { status = "todo" }
-"Optical image stabilization" = { status = "todo" }
-"Point focus" = { status = "todo" }
+"Not supported: {features}" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Optical image stabilization" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Point focus" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Sharpening" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Shutter" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Stabilization" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Supports: {features}" = { status = "todo" }
+"Supports: {features}" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Tap a point" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Temperature" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"This lens can't focus on a point" = { status = "todo" }
-"This lens has no flash to use as a torch" = { status = "todo" }
-"This lens has no manual exposure" = { status = "todo" }
-"This lens has no manual focus" = { status = "todo" }
-"This lens has no manual white balance" = { status = "todo" }
-"This lens has no optical stabilization" = { status = "todo" }
+"This lens can't focus on a point" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"This lens has no flash to use as a torch" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"This lens has no manual exposure" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"This lens has no manual focus" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"This lens has no manual white balance" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"This lens has no optical stabilization" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "Tint" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Tint G–M" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Torch" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"Unavailable" = { status = "todo" }
+"Unavailable" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "White balance" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"White balance mode" = { status = "todo" }
-"Without it there's no Camera card and the phone uses its own automatic settings." = { status = "todo" }
+"White balance mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"Without it there's no Camera card and the phone uses its own automatic settings." = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "camera section|Light" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
-"focus|Manual" = { status = "todo" }
-"search|dark night brightness" = { status = "todo" }
-"search|edge" = { status = "todo" }
-"search|exposure ev brightness" = { status = "todo" }
-"search|exposure manual" = { status = "todo" }
-"search|exposure manual speed" = { status = "todo" }
-"search|flash light" = { status = "todo" }
-"search|manual focus" = { status = "todo" }
-"search|white balance wb green magenta" = { status = "todo" }
-"search|white balance wb kelvin" = { status = "todo" }
-"{n} EV" = { status = "todo" }
-"{n} m" = { status = "todo" }
+"focus|Manual" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|dark night brightness" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|edge" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|exposure ev brightness" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|exposure manual" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|exposure manual speed" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|flash light" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|manual focus" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|white balance wb green magenta" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"search|white balance wb kelvin" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"{n} EV" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"{n} m" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 # ── chroma_key
 "Behind you" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
 "Blue" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
@@ -1300,7 +1300,7 @@
 "search|v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe" = { status = "todo" }
 "search|zoom limit magnify telephoto digital crop 10x 30x slider range" = { status = "todo" }
 # ── shortcuts
-" stops" = { status = "todo" }
+" stops" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "A command can't hold a key down; pick another choice to copy one" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "A command line that does the same, for your desktop's own keyboard settings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
@@ -1331,7 +1331,7 @@
 "Keyboard shortcut" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Keys for Telescope's controls, including ones that work in other apps." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
-"Lower by" = { status = "todo" }
+"Lower by" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "No action called {action}. telescope --list-actions lists them." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "No control matches that search." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "No shortcuts yet. Add one, or right-click a control in the main window." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
@@ -1346,7 +1346,7 @@
 "Pick a control, what the key does to it, then press the key." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Pick a control." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"Raise by" = { status = "todo" }
+"Raise by" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "Remove {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Reset to default" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Save" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
@@ -1355,7 +1355,7 @@
 "Shortcuts" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Show or hide Telescope" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Start or stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"Stops" = { status = "todo" }
+"Stops" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "Streaming: starting" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Streaming: stopped" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Switch on or off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
@@ -1761,7 +1761,7 @@
 "Needs the vision download" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Needs {needs}. To install them:" = { status = "todo" }
 "Needs {needs}. Your distro has them." = { status = "todo" }
-"No cameras available" = { status = "todo" }
+"No cameras available" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "No picture" = { status = "todo" }
 "No plugin is switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
@@ -2319,43 +2319,43 @@
 "test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource" = { status = "todo" }
 "test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "todo" }
 # ── camera_control
-"test_camera_control.py::test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" = { status = "todo" }
-"test_camera_control.py::test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" = { status = "todo" }
-"test_camera_control.py::test_auto_mode_handlers_send_reset_commands" = { status = "todo" }
-"test_camera_control.py::test_back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is" = { status = "todo" }
-"test_camera_control.py::test_camera_config_round_trip_for_supported_values" = { status = "todo" }
-"test_camera_control.py::test_capability_gating_forces_unsupported_modes_off" = { status = "todo" }
-"test_camera_control.py::test_capability_line_is_rebuilt_not_appended" = { status = "todo" }
-"test_camera_control.py::test_capability_line_names_only_what_the_lens_supports" = { status = "todo" }
-"test_camera_control.py::test_compensation_snaps_and_all_three_reset_on_a_double_click" = { status = "todo" }
-"test_camera_control.py::test_default_config_resets_boolean_camera_settings" = { status = "todo" }
-"test_camera_control.py::test_derive_camera_control_view_defaults_ae_range_without_current_camera" = { status = "todo" }
-"test_camera_control.py::test_derive_camera_control_view_maps_auto_and_manual_flags" = { status = "todo" }
-"test_camera_control.py::test_derive_camera_control_view_maps_nr_and_edge_mode_indices" = { status = "todo" }
-"test_camera_control.py::test_derive_camera_control_view_picks_current_camera_and_its_ranges" = { status = "todo" }
-"test_camera_control.py::test_derive_camera_control_view_returns_none_for_empty_state" = { status = "todo" }
-"test_camera_control.py::test_diopters_label" = { status = "todo" }
-"test_camera_control.py::test_discrete_control_handlers_send_selected_values" = { status = "todo" }
-"test_camera_control.py::test_empty_phone_state_and_stop_clear_camera_ui" = { status = "todo" }
-"test_camera_control.py::test_focus_on_a_point_from_the_preview_or_the_point_button" = { status = "todo" }
-"test_camera_control.py::test_focus_slider_conversion_and_manual_send" = { status = "todo" }
-"test_camera_control.py::test_kelvin_gains_are_symmetric_and_tint_is_clamped" = { status = "todo" }
-"test_camera_control.py::test_lens_selection_updates_ranges_caps_and_sends_camera" = { status = "todo" }
-"test_camera_control.py::test_low_light_is_saved_and_sent_at_stream_start_only_when_on" = { status = "todo" }
-"test_camera_control.py::test_low_light_shortcut_toggles_only_on_a_phone_that_takes_it" = { status = "todo" }
-"test_camera_control.py::test_low_light_shows_only_once_the_phone_says_it_takes_it" = { status = "todo" }
-"test_camera_control.py::test_low_light_toggle_sends_and_saves" = { status = "todo" }
-"test_camera_control.py::test_manual_controls_are_progressively_disclosed" = { status = "todo" }
-"test_camera_control.py::test_manual_focus_at_infinity_loads_from_a_preset" = { status = "todo" }
-"test_camera_control.py::test_manual_handlers_send_controls_and_schedule_saves" = { status = "todo" }
-"test_camera_control.py::test_phone_state_populates_camera_capabilities_and_controls" = { status = "todo" }
-"test_camera_control.py::test_point_focus_follows_the_phone_and_the_lens" = { status = "todo" }
-"test_camera_control.py::test_saved_manual_modes_are_pushed_to_phone_on_stream_start" = { status = "todo" }
-"test_camera_control.py::test_saved_point_focus_shortcuts_accept_the_previous_name" = { status = "todo" }
-"test_camera_control.py::test_stream_start_pushes_all_default_settings" = { status = "todo" }
-"test_camera_control.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "todo" }
-"test_camera_control.py::test_the_focus_mode_is_published_however_it_changes" = { status = "todo" }
-"test_camera_control.py::test_unknown_hardware_level_passes_through_verbatim" = { status = "todo" }
+"test_camera_control.py::test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" }
+"test_camera_control.py::test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" }
+"test_camera_control.py::test_auto_mode_handlers_send_reset_commands" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::auto_mode_handlers_send_reset_commands" }
+"test_camera_control.py::test_back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is" }
+"test_camera_control.py::test_camera_config_round_trip_for_supported_values" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::camera_config_round_trip_for_supported_values" }
+"test_camera_control.py::test_capability_gating_forces_unsupported_modes_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_gating_forces_unsupported_modes_off" }
+"test_camera_control.py::test_capability_line_is_rebuilt_not_appended" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_line_is_rebuilt_not_appended" }
+"test_camera_control.py::test_capability_line_names_only_what_the_lens_supports" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_line_names_only_what_the_lens_supports" }
+"test_camera_control.py::test_compensation_snaps_and_all_three_reset_on_a_double_click" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::compensation_snaps_and_all_three_reset_on_a_double_click" }
+"test_camera_control.py::test_default_config_resets_boolean_camera_settings" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::default_config_resets_boolean_camera_settings" }
+"test_camera_control.py::test_derive_camera_control_view_defaults_ae_range_without_current_camera" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_defaults_ae_range_without_current_camera" }
+"test_camera_control.py::test_derive_camera_control_view_maps_auto_and_manual_flags" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_maps_auto_and_manual_flags" }
+"test_camera_control.py::test_derive_camera_control_view_maps_nr_and_edge_mode_indices" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_maps_nr_and_edge_mode_indices" }
+"test_camera_control.py::test_derive_camera_control_view_picks_current_camera_and_its_ranges" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_picks_current_camera_and_its_ranges" }
+"test_camera_control.py::test_derive_camera_control_view_returns_none_for_empty_state" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_returns_none_for_empty_state" }
+"test_camera_control.py::test_diopters_label" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::diopters_label" }
+"test_camera_control.py::test_discrete_control_handlers_send_selected_values" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::discrete_control_handlers_send_selected_values" }
+"test_camera_control.py::test_empty_phone_state_and_stop_clear_camera_ui" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::empty_phone_state_and_stop_clear_camera_ui" }
+"test_camera_control.py::test_focus_on_a_point_from_the_preview_or_the_point_button" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::focus_on_a_point_from_the_preview_or_the_point_button" }
+"test_camera_control.py::test_focus_slider_conversion_and_manual_send" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::focus_slider_conversion_and_manual_send" }
+"test_camera_control.py::test_kelvin_gains_are_symmetric_and_tint_is_clamped" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::kelvin_gains_are_symmetric_and_tint_is_clamped" }
+"test_camera_control.py::test_lens_selection_updates_ranges_caps_and_sends_camera" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::lens_selection_updates_ranges_caps_and_sends_camera" }
+"test_camera_control.py::test_low_light_is_saved_and_sent_at_stream_start_only_when_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::low_light_is_saved_and_sent_at_stream_start_only_when_on" }
+"test_camera_control.py::test_low_light_shortcut_toggles_only_on_a_phone_that_takes_it" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::low_light_shortcut_toggles_only_on_a_phone_that_takes_it" }
+"test_camera_control.py::test_low_light_shows_only_once_the_phone_says_it_takes_it" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::low_light_shows_only_once_the_phone_says_it_takes_it" }
+"test_camera_control.py::test_low_light_toggle_sends_and_saves" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::low_light_toggle_sends_and_saves" }
+"test_camera_control.py::test_manual_controls_are_progressively_disclosed" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::manual_controls_are_progressively_disclosed" }
+"test_camera_control.py::test_manual_focus_at_infinity_loads_from_a_preset" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::manual_focus_at_infinity_loads_from_a_preset" }
+"test_camera_control.py::test_manual_handlers_send_controls_and_schedule_saves" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::manual_handlers_send_controls_and_schedule_saves" }
+"test_camera_control.py::test_phone_state_populates_camera_capabilities_and_controls" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::phone_state_populates_camera_capabilities_and_controls" }
+"test_camera_control.py::test_point_focus_follows_the_phone_and_the_lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::point_focus_follows_the_phone_and_the_lens" }
+"test_camera_control.py::test_saved_manual_modes_are_pushed_to_phone_on_stream_start" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::saved_manual_modes_are_pushed_to_phone_on_stream_start" }
+"test_camera_control.py::test_saved_point_focus_shortcuts_accept_the_previous_name" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::saved_point_focus_shortcuts_accept_the_previous_name" }
+"test_camera_control.py::test_stream_start_pushes_all_default_settings" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::stream_start_pushes_all_default_settings" }
+"test_camera_control.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
+"test_camera_control.py::test_the_focus_mode_is_published_however_it_changes" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::the_focus_mode_is_published_however_it_changes" }
+"test_camera_control.py::test_unknown_hardware_level_passes_through_verbatim" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::unknown_hardware_level_passes_through_verbatim" }
 # ── check
 "test_check_plugin.py::test_a_broken_plugin_gets_each_problem_with_its_own_traceback" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::a_broken_plugin_gets_each_problem_with_where_it_is" }
 "test_check_plugin.py::test_a_plugin_that_wont_load_says_why" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::a_plugin_that_wont_load_says_why" }
@@ -3675,18 +3675,18 @@
 "test_plugins_panel.py::test_without_a_pack_for_this_computer_it_cant_be_switched_on" = { status = "todo" }
 "test_plugins_panel.py::test_without_the_check_the_auto_switch_cant_go_on" = { status = "todo" }
 # ── presets
-"test_presets.py::test_a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
-"test_presets.py::test_a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
+"test_presets.py::test_a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts" }
+"test_presets.py::test_a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits" }
 "test_presets.py::test_a_section_that_fails_to_apply_leaves_the_rest_applied" = { status = "ported", rust = "rust/app/tests/presets_state.rs::a_section_that_fails_to_apply_leaves_the_rest_applied" }
 "test_presets.py::test_an_ampersand_in_a_name_shows_in_the_menu" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::an_ampersand_in_a_name_shows_in_the_menu" }
 "test_presets.py::test_any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone" }
 "test_presets.py::test_apply_hands_sections_to_the_host_camera_first" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::apply_hands_sections_to_the_host_in_registration_order" }
 "test_presets.py::test_blank_names_are_ignored" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::blank_names_are_ignored" }
-"test_presets.py::test_camera_preset_for_the_live_lens_sends_no_switch" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
-"test_presets.py::test_camera_preset_while_idle_only_loads" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
-"test_presets.py::test_camera_saves_the_lens_and_applying_switches_it_before_sending_settings" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
+"test_presets.py::test_camera_preset_for_the_live_lens_sends_no_switch" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::camera_preset_for_the_live_lens_sends_no_switch" }
+"test_presets.py::test_camera_preset_while_idle_only_loads" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::camera_preset_while_idle_only_loads" }
+"test_presets.py::test_camera_saves_the_lens_and_applying_switches_it_before_sending_settings" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::camera_saves_the_lens_and_applying_switches_it_before_sending_settings" }
 "test_presets.py::test_clean_presets_drops_malformed_and_duplicate_entries" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::clean_presets_drops_malformed_and_duplicate_entries" }
-"test_presets.py::test_full_round_trip_follows_the_lens_switch" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
+"test_presets.py::test_full_round_trip_follows_the_lens_switch" = { status = "ported", rust = "rust/app/tests/presets_state.rs::full_round_trip_follows_the_lens_switch" }
 "test_presets.py::test_menu_lists_presets_then_save_rename_delete" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::the_menu_lists_the_presets_and_delete_removes_one" }
 "test_presets.py::test_names_lose_control_characters_when_saved_renamed_and_loaded" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::names_lose_control_characters_when_saved_renamed_and_loaded" }
 "test_presets.py::test_overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off" }
@@ -3695,7 +3695,7 @@
 "test_presets.py::test_save_suggests_a_name_no_preset_has" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::save_suggests_a_name_no_preset_has" }
 "test_presets.py::test_saving_or_renaming_onto_another_preset_asks_first" = { status = "ported", rust = "rust/crates/shell/src/plugins/presets_tests.rs::saving_or_renaming_onto_another_preset_asks_first" }
 "test_presets.py::test_stream_output_preset_sends_fps_quality_and_resolution" = { status = "ported", rust = "rust/app/tests/presets_state.rs::a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone" }
-"test_presets.py::test_switching_lens_keeps_the_manual_focus_distance" = { status = "todo", note = "Needs the Camera card's settings and apply_preset, which the Rust Camera card doesn't have yet. The same round trip through Transforms and Stream output is in rust/app/tests/presets_state.rs" }
+"test_presets.py::test_switching_lens_keeps_the_manual_focus_distance" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::switching_lens_keeps_the_manual_focus_distance" }
 # ── preview
 "test_preview.py::test_a_click_on_a_warped_picture_focuses_where_it_came_from" = { status = "todo" }
 "test_preview.py::test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored" = { status = "todo" }
@@ -5448,21 +5448,21 @@
 "global.browser_camera.known" = { status = "todo" }
 "global.browser_camera.size" = { status = "todo" }
 # ── camera_control
-"device.camera_control.ae_comp" = { status = "todo" }
-"device.camera_control.bll" = { status = "todo" }
-"device.camera_control.edge_mode" = { status = "todo" }
-"device.camera_control.exp_manual" = { status = "todo" }
-"device.camera_control.focus_diopters" = { status = "todo" }
-"device.camera_control.focus_manual" = { status = "todo" }
-"device.camera_control.iso" = { status = "todo" }
-"device.camera_control.lens" = { status = "todo" }
-"device.camera_control.low_light" = { status = "todo" }
-"device.camera_control.nr_mode" = { status = "todo" }
-"device.camera_control.ois" = { status = "todo" }
-"device.camera_control.shutter_ns" = { status = "todo" }
-"device.camera_control.wb_kelvin" = { status = "todo" }
-"device.camera_control.wb_manual" = { status = "todo" }
-"device.camera_control.wb_tint" = { status = "todo" }
+"device.camera_control.ae_comp" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.bll" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.edge_mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.exp_manual" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.focus_diopters" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.focus_manual" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.iso" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.low_light" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.nr_mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.ois" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.shutter_ns" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.wb_kelvin" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.wb_manual" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"device.camera_control.wb_tint" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 # ── chroma_key
 "device.chroma_key.background" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "device.chroma_key.colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
@@ -5672,22 +5672,22 @@
 "background.blur" = { status = "todo" }
 "background.mode" = { status = "todo" }
 # ── camera_control
-"camera.black_level_lock" = { status = "todo" }
-"camera.compensation" = { status = "todo" }
-"camera.exposure_mode" = { status = "todo" }
-"camera.focus" = { status = "todo" }
-"camera.focus_mode" = { status = "todo" }
-"camera.iso" = { status = "todo" }
-"camera.lens" = { status = "todo" }
-"camera.low_light" = { status = "todo" }
-"camera.noise_reduction" = { status = "todo" }
-"camera.sharpening" = { status = "todo" }
-"camera.shutter" = { status = "todo" }
-"camera.stabilization" = { status = "todo" }
-"camera.temperature" = { status = "todo" }
-"camera.tint" = { status = "todo" }
-"camera.torch" = { status = "todo" }
-"camera.wb_mode" = { status = "todo" }
+"camera.black_level_lock" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.compensation" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.exposure_mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.focus" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.focus_mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.iso" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.low_light" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.noise_reduction" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.sharpening" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.shutter" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.stabilization" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.temperature" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.tint" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.torch" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
+"camera.wb_mode" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 # ── chroma_key
 "chroma_key.on" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "chroma_key.screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
@@ -5806,16 +5806,16 @@
 "control.edge_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.focus_distance" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.focus_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.focus_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::focus_point", note = "the body, byte for byte; sent by camera_control once that is ported" }
+"control.focus_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::focus_point", note = "the body, byte for byte; the Camera card (rust/crates/shell/src/plugins/camera_control.rs) builds the same one" }
 "control.iso" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.low_light" = { status = "ported", rust = "rust/crates/link/src/controls.rs::low_light", note = "the body, byte for byte; sent by camera_control once that is ported" }
-"control.meter_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::meter_point", note = "the body, byte for byte; sent by camera_control once that is ported" }
+"control.low_light" = { status = "ported", rust = "rust/crates/link/src/controls.rs::low_light", note = "the body, byte for byte; the Camera card (rust/crates/shell/src/plugins/camera_control.rs) builds the same one" }
+"control.meter_point" = { status = "ported", rust = "rust/crates/link/src/controls.rs::meter_point", note = "the body, byte for byte; the Camera card (rust/crates/shell/src/plugins/camera_control.rs) builds the same one" }
 "control.nr_mode" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.ois" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.shutter" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.torch" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
 "control.wb_auto" = { status = "ported", rust = "rust/crates/shell/src/window.rs", note = "prototype" }
-"control.wb_gains" = { status = "ported", rust = "rust/crates/link/src/controls.rs::wb_gains", note = "the body, byte for byte; sent by camera_control once that is ported" }
+"control.wb_gains" = { status = "ported", rust = "rust/crates/link/src/controls.rs::wb_gains", note = "the body, byte for byte; the Camera card (rust/crates/shell/src/plugins/camera_control.rs) builds the same one" }
 # ── connection
 "/v1/video" = { status = "ported", rust = "rust/crates/link/src/feeds.rs" }
 "/v1/video.h264" = { status = "ported", rust = "rust/crates/link/src/service.rs", note = "prototype" }

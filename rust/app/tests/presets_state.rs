@@ -10,6 +10,7 @@ use telescope_core::ui::UiEvent;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 use telescope_outputs::stream_output::StreamOutputPlugin;
+use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::plugins::presets::PresetsPlugin;
 use telescope_shell::shell::{Effect, State};
 
@@ -194,23 +195,33 @@ fn a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone() {
     assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change, .. } if change.fps == Some(Some(24)))));
 }
 
-// test_presets.py::test_full_round_trip_follows_the_lens_switch (without the Camera card, which isn't ported yet)
+// test_presets.py::test_full_round_trip_follows_the_lens_switch
 #[test]
-fn a_round_trip_through_the_real_plugins_follows_the_stream_output() {
-    let (mut s, _) = fresh(vec![]);
-    let i = s.index("stream_output").unwrap();
-    s.call(i, |p, host| p.on_stream_start(host, &StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into() }));
+fn full_round_trip_follows_the_lens_switch() {
+    let (mut s, _) = fresh(vec![Box::new(CameraControl::new())]);
+    let stream = StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into() };
     let sizes = json!([{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]);
-    let cams = json!([{"id": "0", "current": true, "maxFps": 60, "supportedSizes": sizes, "h264Sizes": sizes}]);
-    s.call(i, |p, host| p.on_phone_state(host, &json!({"codecs": ["h264", "mjpeg"], "codec": "h264", "cameras": cams,
-                                                        "stream_width": 1920, "stream_height": 1080})));
+    let cams = json!([{"id": "0", "label": "Back camera", "current": true, "maxFps": 60, "supportedSizes": sizes, "h264Sizes": sizes},
+                      {"id": "2", "label": "Back camera (wide)", "current": false, "supportedSizes": sizes, "h264Sizes": sizes}]);
+    let state = json!({"codecs": ["h264", "mjpeg"], "codec": "h264", "cameras": cams, "auto": true, "stream_width": 1920, "stream_height": 1080});
+    for name in ["camera_control", "stream_output"] {
+        let i = s.index(name).unwrap();
+        s.call(i, |p, host| p.on_stream_start(host, &stream));
+        s.call(i, |p, host| p.on_phone_state(host, &state));
+    }
 
     set(&mut s, "transforms", json!({"zoom": 2.0, "flip_h": true}));
     save_as(&mut s, "Wide");
     set(&mut s, "transforms", json!({}));
+    let mut presets = s.plugin_config("presets").unwrap();
+    presets["presets"][0]["camera"]["lens"] = json!("2");
+    set(&mut s, "presets", presets);
     s.effects.clear();
     ui(&mut s, "apply", vec![json!("Wide")]);
 
+    let sent: Vec<Value> = s.effects.iter().filter_map(|e| match e { Effect::PhoneControl { body, .. } => Some(body.clone()), _ => None }).collect();
+    assert_eq!(sent[0], json!({"action": "camera", "id": "2"}), "{sent:?}");
+    assert_eq!(s.plugin_config("camera_control").unwrap()["lens"], "2");
     let t = s.plugin_config("transforms").unwrap();
     assert_eq!((t["zoom"].as_f64(), t["flip_h"].as_bool()), (Some(2.0), Some(true)));
     assert_eq!(s.plugin_config("stream_output").unwrap()["resolution"], "1920 x 1080");
