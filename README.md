@@ -43,14 +43,14 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
 
 <table>
   <tr>
-    <td width="33%"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in the camera app.</td>
-    <td width="33%"><img src="site/media/framing.avif" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zooms and pans to keep you in the shot.</td>
-    <td width="33%"><img src="site/media/chroma.avif" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
+    <td width="33%" valign="top"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in your phone's camera app.</td>
+    <td width="33%" valign="top"><img src="site/media/framing.avif" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zooms and pans to keep you in the shot.</td>
+    <td width="33%" valign="top"><img src="site/media/chroma.avif" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
   </tr>
   <tr>
-    <td><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Side by side, in a grid or in your own layout, for apps that take only one camera.</td>
-    <td><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straightens anything flat the phone looks at, like a page or a drawing, so calls see it head-on.</td>
-    <td><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Clone party, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
+    <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Side by side, in a grid or in your own layout, for apps that take only one camera.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straightens anything flat the phone looks at, like a page or a drawing, so calls see it head-on.</td>
+    <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Clone party, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>
 
