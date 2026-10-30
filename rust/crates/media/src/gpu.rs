@@ -3,6 +3,7 @@
 //! wgpu because it's one API over Vulkan, Direct3D 12 and OpenGL, runs WGSL (what Lua and WASM plugins hand over) and
 //! is what Slint 1.18 can take textures from (unstable-wgpu-30), so the preview can later skip the download too.
 
+use crate::pool::Pool;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -27,6 +28,9 @@ enum Mode {
     ToUv = 6,
 }
 
+/// The most memory the kept textures take: a few 4K pictures' worth, with the sizes least recently used dropped first.
+const POOL_BUDGET: usize = 256 * 1024 * 1024;
+
 pub struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -39,7 +43,7 @@ pub struct Gpu {
     linear: wgpu::Sampler,
     /// Stands in for planes a format doesn't have.
     blank: wgpu::TextureView,
-    pool: Mutex<HashMap<(u32, u32, wgpu::TextureFormat), Vec<wgpu::Texture>>>,
+    pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
     pub adapter_name: String,
 }
 
@@ -170,7 +174,7 @@ impl Gpu {
             frame_layout,
             linear,
             blank,
-            pool: Mutex::default(),
+            pool: Mutex::new(Pool::new(POOL_BUDGET)),
             adapter_name,
         }
     }
@@ -207,7 +211,7 @@ impl Gpu {
     }
 
     fn texture(&self, w: u32, h: u32, format: wgpu::TextureFormat) -> wgpu::Texture {
-        if let Some(t) = self.pool.lock().unwrap().get_mut(&(w, h, format)).and_then(Vec::pop) {
+        if let Some(t) = self.pool.lock().unwrap().take((w, h, format)) {
             return t;
         }
         self.device.create_texture(&wgpu::TextureDescriptor {
@@ -227,10 +231,8 @@ impl Gpu {
     fn give_back(&self, textures: impl IntoIterator<Item = wgpu::Texture>) {
         let mut pool = self.pool.lock().unwrap();
         for t in textures {
-            let list = pool.entry((t.width(), t.height(), t.format())).or_default();
-            if list.len() < 4 {
-                list.push(t);
-            }
+            let bytes = t.width() as usize * t.height() as usize * t.format().block_copy_size(None).unwrap_or(8) as usize;
+            pool.give((t.width(), t.height(), t.format()), t, bytes);
         }
     }
 

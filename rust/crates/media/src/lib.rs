@@ -12,6 +12,7 @@ pub mod jpeg_guard;
 pub mod mjpeg;
 pub mod packets;
 pub mod pipeline;
+mod pool;
 pub mod reader;
 #[cfg(ffmpeg)]
 mod yuv;
