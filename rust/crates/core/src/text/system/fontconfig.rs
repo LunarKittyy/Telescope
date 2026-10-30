@@ -163,14 +163,14 @@ fn nearest(styles: &[Style], weight: f32) -> &Style {
 }
 
 /// The style of the first family fontconfig lists for this character's script that has the character.
-fn pick(ch: char, _weight: f32) -> Option<&'static Style> {
+fn pick(ch: char, weight: f32) -> Option<&'static Style> {
     static SORTED: OnceLock<Mutex<HashMap<Option<&'static str>, &'static Sorted>>> = OnceLock::new();
     let lang = language(ch.script());
     let sorted: &'static Sorted = {
         let mut cache = SORTED.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
         *cache.entry(lang).or_insert_with(|| Box::leak(Box::new(sort(lang))))
     };
-    sorted.0.iter().filter(|styles| !styles.is_empty()).map(|styles| nearest(styles, 400.0)).find(|style| style.covers.has(ch))
+    sorted.0.iter().filter(|styles| !styles.is_empty()).map(|styles| nearest(styles, weight)).find(|style| style.covers.has(ch))
 }
 
 /// The system's own font for this character in this weight, as Qt would pick it when the app's fonts lack it.

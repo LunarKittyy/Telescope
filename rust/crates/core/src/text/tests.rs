@@ -209,6 +209,30 @@ fn the_fallback_for_a_script_is_the_font_qt_picks() {
 }
 
 #[test]
+fn a_demi_bold_face_falls_back_on_bold_fonts() {
+    // Qt takes DejaVu Sans Bold for Hebrew in the name's DemiBold, and Noto Sans Khmer's SemiBold instance for Khmer; the regular
+    // files with a weight variation set do nothing to a font that has no weight axis
+    let Some(semibold) = app_font(Weight::SemiBold) else { return };
+    let heavy = Face::em(semibold, 40.0).heavy();
+    let regular = Face::em(app_font(Weight::Regular).unwrap(), 40.0);
+    let hebrew = "\u{5e9}\u{5dc}\u{5d5}\u{5dd}";
+    if let Some(bold) = font_named(&["DejaVuSans-Bold.ttf"]).map(|f| Face::em(f, 40.0)) {
+        if heavy.has_glyph('\u{5e9}') && regular.has_glyph('\u{5e9}') {
+            let (got, want) = (heavy.advance(hebrew), bold.advance(hebrew));
+            assert!((got - want).abs() < 0.01, "demi-bold Hebrew is {got} wide, DejaVu Sans Bold makes it {want}");
+            assert!((regular.advance(hebrew) - want).abs() > 1.0, "regular and bold Hebrew are the same width: the weight did nothing");
+        }
+    }
+    let khmer = "\u{1780}\u{17d2}\u{1798}\u{17c2}\u{179a}";
+    if let Some(bytes) = find_font_file(&["NotoSansKhmer[wght].ttf"]) {
+        let semi = Face::em(FontArc::from_bytes(bytes, 600.0).unwrap(), 40.0);
+        let (got, want) = (heavy.advance(khmer), semi.advance(khmer));
+        assert!((got - want).abs() < 0.01, "demi-bold Khmer is {got} wide, Noto Sans Khmer at 600 makes it {want}");
+        assert!((regular.advance(khmer) - want).abs() > 0.5, "regular and demi-bold Khmer are the same width");
+    }
+}
+
+#[test]
 fn a_run_is_shaped_in_the_script_of_its_letters_not_of_the_run_before() {
     // Hebrew then Arabic: one right to left run, and when one fallback font covers both, one font piece too. Qt itemizes by script,
     // so the Arabic letters still join (probed: their glyphs are the initial, medial and final forms)

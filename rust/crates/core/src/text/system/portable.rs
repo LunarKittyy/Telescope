@@ -53,7 +53,7 @@ pub(in crate::text) fn font_for(ch: char, weight: f32) -> Option<FontArc> {
         let mut found = Vec::new();
         let mut query = collection.query(sources);
         query.set_families(std::iter::empty::<QueryFamily>());
-        query.set_attributes(Attributes::new(FontWidth::NORMAL, FontStyle::Normal, FontWeight::NORMAL));
+        query.set_attributes(Attributes::new(FontWidth::NORMAL, FontStyle::Normal, FontWeight::new(weight)));
         query.set_fallbacks(FallbackKey::new(script, None));
         query.matches_with(|font| {
             let weight = font.synthesis.variation_settings().iter().find(|(tag, _)| tag.to_be_bytes() == *b"wght").map_or(weight, |&(_, w)| w);
