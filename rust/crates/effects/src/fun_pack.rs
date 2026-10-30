@@ -9,7 +9,7 @@ use crate::cpu::Rgb;
 use crate::fun_effects::{self as fx, Clones, Effect, Inputs, Look, PlateMask};
 use crate::imgops::Gray;
 use crate::mosh::{Mosh, MosherFactory};
-use crate::shared::Paired;
+use crate::shared::{mask_of, Paired};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Mutex};
@@ -175,11 +175,6 @@ struct FunStep {
     frozen: Arc<Look>,
     /// A stream that isn't the shown one starts without anyone else's history
     own: Runner,
-}
-
-pub(crate) fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<Gray> {
-    let m = ctx.person_mask(frame)?;
-    (m.len() == (frame.width * frame.height) as usize).then(|| Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
 }
 
 impl CpuStep for FunStep {

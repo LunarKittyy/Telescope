@@ -1,7 +1,7 @@
 //! The Privacy blur plugin (plugins/privacy_blur.py): when someone else shows up, blurs everyone but you, the whole background, or puts the wait screen up instead. A CPU step for the same reason as Background: the person mask only reaches FrameContext.
 
 use crate::cpu::Rgb;
-use crate::fun_pack::mask_of;
+use crate::shared::mask_of;
 use crate::imgops::{blur_f32, compose, Gray};
 use crate::shared::Paired;
 use crate::vision_row;

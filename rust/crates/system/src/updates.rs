@@ -155,7 +155,9 @@ impl Default for Web {
 impl Opener for Web {
     fn open(&self, url: &str) -> std::result::Result<Reply, NetError> {
         let t = Some(self.timeout);
-        let config = ureq::Agent::config_builder()
+        // The system's certificate store, so security software that inspects HTTPS with its own root still works (telescope.web.urlopen)
+        let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+        let config = ureq::Agent::config_builder().tls_config(tls)
             .timeout_resolve(t).timeout_connect(t).timeout_send_request(t).timeout_recv_response(t).timeout_per_read(t)
             .http_status_as_error(false).user_agent(format!("Telescope/{}", version::version())).build();
         let response = ureq::Agent::new_with_config(config).get(url).call().map_err(|e| {

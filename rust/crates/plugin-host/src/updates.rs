@@ -43,7 +43,9 @@ pub struct Https;
 
 impl Fetch for Https {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<Reply, String> {
-        let config = ureq::Agent::config_builder().timeout_global(Some(REQUEST_TIMEOUT)).http_status_as_error(false)
+        // The system's certificate store, as every download of Telescope's own (telescope.web.urlopen)
+        let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+        let config = ureq::Agent::config_builder().tls_config(tls).timeout_global(Some(REQUEST_TIMEOUT)).http_status_as_error(false)
             .user_agent(format!("Telescope/{}", env!("CARGO_PKG_VERSION"))).build();
         let agent = ureq::Agent::new_with_config(config);
         let mut request = agent.get(url);
