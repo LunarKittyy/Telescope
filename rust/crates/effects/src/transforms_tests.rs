@@ -257,6 +257,20 @@ fn the_zoom_slider_follows_max_zoom() {
     assert_eq!(r.plugin.zoom(), 20.0);
 }
 
+#[test]
+fn the_zoom_action_follows_max_zoom() {
+    let mut r = Rig::new();
+    let top = |r: &mut Rig| {
+        let zoom = r.plugin.actions().into_iter().find(|a| a.id == "transforms.zoom").unwrap();
+        zoom.params.iter().find(|p| p["name"] == "value").unwrap()["maximum"].clone()
+    };
+    assert_eq!(top(&mut r), json!(10.0));
+    r.host.calls.clear();
+    r.event(Event::MaxZoomChanged { max_zoom: 20 });
+    assert_eq!(top(&mut r), json!(20.0));
+    assert!(r.host.calls.iter().any(|c| c == "refresh_actions"), "the shortcut list asks for the actions again");
+}
+
 // ── What the lens dot says ───────────────────────────────────────────
 
 fn tele() -> PhoneZoomCaps {

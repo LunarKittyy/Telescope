@@ -524,6 +524,8 @@ impl Plugin for TransformsPlugin {
             Event::MaxZoomChanged { max_zoom } => {
                 // a zoom past it is clamped, through the zoom handler
                 self.max_zoom_steps = max_zoom * 100;
+                // the Zoom action's range moves with it
+                host.refresh_actions();
                 if self.zoom_steps > self.max_zoom_steps {
                     self.on_zoom_changed(host, self.max_zoom_steps);
                 } else {
