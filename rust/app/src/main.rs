@@ -80,11 +80,13 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         plugin_problems: problems,
         vision: Some(Arc::new(telescope_vision::VisionHost::system())),
         plugins: Box::new(move || {
+            let browser = browser_camera(browser_media.clone());
+            let browser_mics = Arc::new(browser.mics());
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
                 Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone())),
-                Box::new(connection.connection_plugin()),
-                Box::new(browser_camera(browser_media.clone())),
+                Box::new(connection.connection_plugin().with_outputs(outputs.clone())),
+                Box::new(browser),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
                 Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
@@ -100,7 +102,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
                 Box::new(telescope_effects::composite_plugin::CompositePlugin::with(pictures.clone(), Some(outputs.clone()))),
-                Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone()).with_source_audio(browser_mics)),
                 Box::new(updates_plugin()),
                 Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(outputs.clone())),
                 Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),

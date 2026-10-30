@@ -43,6 +43,10 @@ pub trait FlowHost {
     fn emit(&mut self, event: Event);
     /// Connection is there to start from (phones need it, and so does the virtual camera check).
     fn can_start(&self) -> bool;
+    /// Connection's virtual camera check, before any source gets ready.
+    fn camera_ready(&mut self, _interactive: bool, _source_id: Option<&str>) -> bool {
+        true
+    }
     /// The phone picker's choice, and moving it.
     fn selected_device(&self) -> Option<String>;
     fn select_device(&mut self, source_id: Option<&str>);
@@ -162,7 +166,7 @@ impl StreamFlow {
         self.start_id = source.id.clone();
         host.clear_issue(&format!("stopped:{}", source.id_str()));
         self.sessions.preparing = true;
-        let ok = source.kind.prepare(interactive);
+        let ok = host.camera_ready(interactive, source.id.as_deref()) && source.kind.prepare(interactive);
         self.sessions.preparing = false;
         host.later(Later::AfterStart);
         if !ok {
@@ -841,6 +845,9 @@ mod tests {
         keyframes: Vec<String>,
         later: Vec<Later>,
         workers: Vec<Rc<FakeWorker>>,
+        /// Whether the virtual camera is ready, and what asked.
+        no_camera: bool,
+        camera_asked: Vec<(bool, Option<String>)>,
     }
 
     impl Host {
@@ -870,6 +877,10 @@ mod tests {
             for p in plugins {
                 self.log.borrow_mut().push(format!("{p} {name}"));
             }
+        }
+        fn camera_ready(&mut self, interactive: bool, source_id: Option<&str>) -> bool {
+            self.camera_asked.push((interactive, source_id.map(String::from)));
+            !self.no_camera
         }
         fn emit(&mut self, event: Event) {
             let text = match &event {
@@ -960,7 +971,7 @@ mod tests {
         }
         let host = Host { log, plugins: vec![("camera".into(), true), ("mic".into(), false)], sources, stands,
                           selected: "a".into(), problems: vec![], saved: vec![], applied: vec![], packet_makers: vec![], frozen: vec![],
-                          keyframes: vec![], later: vec![], workers: vec![] };
+                          keyframes: vec![], later: vec![], workers: vec![], no_camera: false, camera_asked: vec![] };
         (StreamFlow::new(), host)
     }
 
@@ -1102,6 +1113,16 @@ mod tests {
         assert!(logged(&host, "stream_stopped"));
         assert_eq!(host.saved.last().unwrap(), &("a".to_string(), vec!["mic".to_string()]));
         assert_eq!(host.applied.last().unwrap(), &("b".to_string(), vec!["mic".to_string()])); // idle, the panels show b
+    }
+
+    #[test]
+    fn a_camera_that_isnt_ready_ends_the_start_before_the_source_is_asked() {
+        let (mut flow, mut host) = setup();
+        host.no_camera = true;
+        flow.start(&mut host, false, None);
+        assert_eq!(host.camera_asked, [(false, Some("a".to_string()))]);
+        assert!(flow.sessions.streams.is_empty() && !flow.sessions.preparing);
+        assert!(logged(&host, "stream_start_failed"));
     }
 
     #[test]

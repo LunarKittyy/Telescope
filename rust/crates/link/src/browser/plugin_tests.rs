@@ -645,6 +645,28 @@ fn browsers_let_in_during_a_start_dont_outnumber_the_cameras() {
 }
 
 #[test]
+fn the_microphone_plugin_reaches_a_browsers_mic_and_hears_why_there_is_none() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    let mics = r.plugin.mics();
+    let (feed, gen) = r.arrive("pixel-aaaaaaaa", "Chrome on Android");
+    assert!(mics.has("browser:pixel-aaaaaaaa") && !mics.has("some-phone"));
+    assert!(mics.open("some-phone").is_none());
+    assert_eq!(mics.key("browser:pixel-aaaaaaaa"), "browser:/audio");
+
+    let mut mic = mics.open("browser:pixel-aaaaaaaa").unwrap().unwrap();
+    assert_eq!(feed.page_config().1["audio"], true); // the page starts sending
+    feed.put_audio(gen, &[1, 0, 2, 0]);
+    assert_eq!(mic.read().unwrap().data, [1, 0, 2, 0]);
+    drop(mic);
+    assert_eq!(feed.page_config().1["audio"], false);
+
+    feed.note_hello(gen, "Chrome on Android", "Not allowed");
+    assert_eq!(mics.open("browser:pixel-aaaaaaaa").unwrap().err().as_deref(), Some("Not allowed"));
+    assert!(mics.open("browser:left-long-ago").unwrap().is_err());
+}
+
+#[test]
 fn the_card_compiles_and_has_every_property_the_plugin_sets() {
     let source = include_str!("../../ui/browser_camera.slint");
     let mut compiler = slint_interpreter::Compiler::default();

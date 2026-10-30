@@ -102,6 +102,11 @@ pub enum SetupAction {
     Install { devices: u32, reset: bool },
 }
 
+/// SetupResult::message when the person said no at the password prompt. Compared, never shown, so it stays as it is.
+pub const SETUP_CANCELLED: &str = "Cancelled.";
+/// Slot 0's node, as the Linux setup makes it (platform/linux.py V4L2_PHONE_DEV).
+pub const V4L2_PHONE_DEV: &str = "/dev/video11";
+
 /// How far the virtual camera is set up on this computer, for the setup checks.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetupStatus {
