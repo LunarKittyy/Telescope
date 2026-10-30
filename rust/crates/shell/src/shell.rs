@@ -1450,4 +1450,95 @@ mod tests {
         assert_eq!(colour(&mut s, None), 0);
     }
 
+    /// A plugin named like the Camera card that writes down every event it hears.
+    fn camera_hears(s: &mut State) -> Arc<Mutex<Vec<Event>>> {
+        struct Hears(Arc<Mutex<Vec<Event>>>);
+        impl Plugin for Hears {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "camera_control".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Hears(heard.clone()))).unwrap();
+        s.streams.source_id = Some("phone".into());
+        s.frame_sizes.lock().unwrap().insert("phone".into(), (160, 90));
+        heard
+    }
+
+    fn focus_points(heard: &Arc<Mutex<Vec<Event>>>) -> Vec<(f32, f32)> {
+        heard.lock().unwrap().iter().filter_map(|e| if let Event::FocusPoint { x, y } = e { Some(((x * 1000.0).round() / 1000.0, (y * 1000.0).round() / 1000.0)) } else { None }).collect()
+    }
+
+    #[test]
+    fn a_picked_point_lands_on_the_phone_frame_through_a_stretch() {
+        let mut s = state();
+        let heard = camera_hears(&mut s);
+        s.view.stretch_x = 2.0;
+        s.view.stretch_y = 0.5;
+        s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.6 });
+        s.deliver_events();
+        assert_eq!(focus_points(&heard), [(0.375, 0.7)]);
+    }
+
+    #[test]
+    fn a_picked_point_only_undoes_the_desktop_share_of_the_zoom() {
+        let mut s = state();
+        let heard = camera_hears(&mut s);
+        let caps = json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
+        s.vc.set_view(&mut s.view, &telescope_core::host::ViewChange { zoom: Some(1.0), ..Default::default() }, 0.0);
+        s.vc.stream_start(&s.view, "phone", 0.0);
+        s.vc.phone_state(&s.view, &caps, 0.0);
+        s.vc.set_view(&mut s.view, &telescope_core::host::ViewChange { zoom: Some(2.0), ..Default::default() }, 0.0);
+        s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.5 });
+        s.deliver_events();
+        // The phone zoomed, so the point is already in its stream frame
+        assert_eq!(focus_points(&heard), [(0.25, 0.5)]);
+    }
+
+    #[test]
+    fn a_plugin_failing_on_its_pick_doesnt_break_the_next_pick() {
+        use telescope_core::host::PickKind;
+        struct Breaks;
+        impl Plugin for Breaks {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "breaks".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                if matches!(event, Event::PreviewPicked { .. }) {
+                    panic!("plugin bug");
+                }
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Breaks)).unwrap();
+        s.overlays.start_pick(&s.view, "breaks", PickKind::Point, None, "", &s.bus);
+        assert!(s.overlays.press(&s.view, 0.5, 0.5, (640.0, 360.0)));
+        s.overlays.release(&s.view, &s.bus);
+        s.deliver_events();
+        assert_eq!(s.overlays.picking(), "");
+        s.overlays.start_pick(&s.view, "breaks", PickKind::Point, None, "", &s.bus);
+        assert_eq!(s.overlays.picking(), "breaks");
+    }
+
+    #[test]
+    fn nothing_to_pick_on_without_a_preview() {
+        use telescope_core::host::{HostPreview, PickKind};
+        struct Preview;
+        impl Plugin for Preview {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "preview".into(), ..Default::default() }
+            }
+        }
+        let mut s = state();
+        let ask = |s: &mut State| crate::host::Ctx { state: s, me: "Test".into() }.pick_on_preview("Test", PickKind::Point, None, "");
+        assert!(!ask(&mut s), "no stream, no preview");
+        s.streams.streaming = true;
+        assert!(!ask(&mut s), "a stream the preview card isn't there to show");
+        s.register(Box::new(Preview)).unwrap();
+        assert!(ask(&mut s));
+        assert_eq!(s.overlays.picking(), "Test");
+    }
 }

@@ -216,4 +216,16 @@ mod tests {
         let FrameStep::Shader(s) = &steps(&View { rotation: Some(90), zoom: 2.0, ..View::default() })[1] else { panic!() };
         assert_eq!((s.uniforms["turn"].as_u64(), s.uniforms["done"].as_u64()), (Some(1), Some(1)));
     }
+
+    #[test]
+    fn a_step_keeps_the_view_it_was_made_with() {
+        let mut view = View { flip_h: true, zoom: 2.0, ..View::default() };
+        let step = steps(&view);
+        view.flip_h = false;
+        view.rotation = Some(90);
+        view.zoom = 1.0;
+        assert!(!view.flip_h && view.rotation.is_some() && view.zoom == 1.0);
+        let FrameStep::Shader(s) = &step[0] else { panic!() };
+        assert_eq!((step.len(), s.uniforms["flip_h"].as_bool(), s.uniforms["crop_w"].as_f64()), (1, Some(true), Some(0.5)));
+    }
 }

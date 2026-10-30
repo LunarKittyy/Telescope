@@ -869,9 +869,9 @@
 "Virtual camera" = { status = "todo" }
 "Without it the setup checklist never shows, not even when nothing is set up yet." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 # ── overlays
-"Click a point on the picture. Esc cancels." = { status = "todo" }
-"Drag across the picture to mark an area. Esc cancels." = { status = "todo" }
-"Drag the corners into place, then press Enter. Esc cancels." = { status = "todo" }
+"Click a point on the picture. Esc cancels." = { status = "ported", rust = "rust/crates/shell/src/overlays.rs" }
+"Drag across the picture to mark an area. Esc cancels." = { status = "ported", rust = "rust/crates/shell/src/overlays.rs" }
+"Drag the corners into place, then press Enter. Esc cancels." = { status = "ported", rust = "rust/crates/shell/src/overlays.rs" }
 # ── phones
 "adb isn't installed, so USB can't be used" = { status = "ported", rust = "rust/crates/link/src/phones.rs" }
 "adb isn't installed, so USB can't be used (Add phone can get it)" = { status = "ported", rust = "rust/crates/link/src/phones.rs" }
@@ -1306,7 +1306,7 @@
 "A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
 "Add" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Add keyboard shortcut…" = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/shortcut-menu.slint" }
-"Add shortcut for {action}…" = { status = "todo" }
+"Add shortcut for {action}…" = { status = "todo", note = "A control with several actions gets one menu item per action in Python. ui-kit's ShortcutMenu and window.rs offer only the single Add keyboard shortcut… item" }
 "Already streaming" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Also works while another app is in front" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "By" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
@@ -1316,7 +1316,7 @@
 "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Decrease by" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Desktop shortcut settings" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
-"Edit" = { status = "todo" }
+"Edit" = { status = "todo", note = "The Edit button on a shortcut's row has the label (Edit {shortcut}) but no tooltip: system/ui/shortcuts.slint isn't set up to give IconButton its tip" }
 "Edit {shortcut}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Everywhere (setting up)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
@@ -1359,7 +1359,7 @@
 "Streaming: starting" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Streaming: stopped" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Switch on or off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"Switch while held, back on release" = { status = "todo" }
+"Switch while held, back on release" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "Telescope: hidden" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Telescope: shown" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Turn off" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
@@ -1370,27 +1370,27 @@
 "While Telescope is in the background" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "hold needs a key to let go of; use toggle, on or off with --action." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"next" = { status = "todo" }
+"next" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "nothing right now" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "off" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "on" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
-"previous" = { status = "todo" }
+"previous" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "search|global hotkeys portal kde plasma gnome desktop keys rebind" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "search|global system wide hotkeys background other apps" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "search|hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "search|notification notify toast confirmation popup" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{action} can't be used right now (no phone, or the control is off)." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"{action} has no setting {name}." = { status = "todo" }
-"{action} needs {name}=… for that." = { status = "todo" }
+"{action} has no setting {name}." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{action} needs {name}=… for that." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{keys} already does \"{action}\". Pick another key." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"{label}: decrease by {amount}" = { status = "todo" }
-"{label}: increase by {amount}" = { status = "todo" }
-"{label}: lower by {stops} stop" = { status = "todo" }
-"{label}: raise by {stops} stop" = { status = "todo" }
-"{label}: reset to default" = { status = "todo" }
-"{label}: set to {value}" = { status = "todo" }
-"{name} can be {options}, not {value}." = { status = "todo" }
-"{name} has to be a number, not {value}." = { status = "todo" }
+"{label}: decrease by {amount}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{label}: increase by {amount}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{label}: lower by {stops} stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{label}: raise by {stops} stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{label}: reset to default" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{label}: set to {value}" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{name} can be {options}, not {value}." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"{name} has to be a number, not {value}." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{value} (not there now)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── single_instance
 "Telescope can't start" = { status = "todo" }
@@ -1557,16 +1557,16 @@
 "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "Zoomed on this computer" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "Zoomed on this computer: this lens can't zoom itself" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
-"search|crop framing" = { status = "todo" }
-"search|framing move" = { status = "todo" }
-"search|mirror" = { status = "todo" }
-"search|mirror upside down" = { status = "todo" }
-"search|rotate turn" = { status = "todo" }
-"search|stretch squish aspect tall" = { status = "todo" }
-"search|stretch squish aspect wide" = { status = "todo" }
+"search|crop framing" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|framing move" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|mirror" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|mirror upside down" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|rotate turn" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|stretch squish aspect tall" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
+"search|stretch squish aspect wide" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "the main camera" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "the telephoto" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
-"{n}×" = { status = "todo" }
+"{n}×" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "{owner} is moving the zoom and pan" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 # ── updates
 "Cancelled." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
@@ -3200,30 +3200,30 @@
 "test_onboarding.py::test_usb_install_reports_a_missing_phone" = { status = "todo" }
 "test_onboarding.py::test_windows_offers_to_install_the_driver" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 # ── overlays
-"test_overlays.py::test_a_click_is_not_an_area" = { status = "todo" }
-"test_overlays.py::test_a_failing_on_done_does_not_break_the_next_pick" = { status = "todo" }
-"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "todo" }
-"test_overlays.py::test_a_pick_result_is_frozen" = { status = "todo" }
-"test_overlays.py::test_a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" = { status = "todo" }
-"test_overlays.py::test_a_quad_past_one_edge_still_moves_away_from_it" = { status = "todo" }
-"test_overlays.py::test_a_quad_reaching_past_the_picture_does_not_jump_when_dragged" = { status = "todo" }
-"test_overlays.py::test_a_rectangle_is_dragged_out_and_comes_back_sorted" = { status = "todo" }
-"test_overlays.py::test_a_rotated_rectangle_is_sorted_in_each_space_of_its_own" = { status = "todo" }
-"test_overlays.py::test_a_warp_that_squashes_the_picture_flat_counts_as_none" = { status = "todo" }
-"test_overlays.py::test_analyse_gets_the_frame_before_tint_on_its_own_thread" = { status = "todo" }
-"test_overlays.py::test_dragging_a_quad_to_the_edge_stops_it_there_whole" = { status = "todo" }
-"test_overlays.py::test_dragging_inside_a_quad_moves_all_of_it_and_outside_is_left_to_the_preview" = { status = "todo" }
-"test_overlays.py::test_escape_another_pick_or_the_owner_cancels" = { status = "todo" }
-"test_overlays.py::test_layers_tint_in_order_and_a_broken_one_leaves_the_frame_alone" = { status = "todo" }
-"test_overlays.py::test_no_analysis_while_no_layer_wants_it" = { status = "todo" }
-"test_overlays.py::test_nothing_to_pick_on_without_a_preview" = { status = "todo" }
-"test_overlays.py::test_paint_reaches_every_layer_even_past_a_broken_one" = { status = "todo" }
-"test_overlays.py::test_pick_changed_says_who_picks" = { status = "todo" }
-"test_overlays.py::test_quad_corners_start_inset_move_and_finish_with_enter" = { status = "todo" }
-"test_overlays.py::test_quad_corners_stay_on_the_picture_when_the_view_moves" = { status = "todo" }
-"test_overlays.py::test_with_a_plugin_moving_the_picture_picks_map_back_through_it" = { status = "todo" }
-"test_overlays.py::test_without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" = { status = "todo" }
-"test_overlays.py::test_zoom_maps_onto_the_part_of_the_picture_shown" = { status = "todo" }
+"test_overlays.py::test_a_click_is_not_an_area" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_click_is_not_an_area" }
+"test_overlays.py::test_a_failing_on_done_does_not_break_the_next_pick" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_failing_on_its_pick_doesnt_break_the_next_pick" }
+"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "dropped", reason = "The Rust Pick has no picture field: Chroma key reads the colour from the frame store's newest frame at in_picture (chroma_key.rs), the same picture before the preview's tint. Not checked on a live stream" }
+"test_overlays.py::test_a_pick_result_is_frozen" = { status = "dropped", reason = "A Rust Pick reaches a plugin as an event holding its own copy, so there's nothing to change it through (Python's frozen dataclass guards a shared object)" }
+"test_overlays.py::test_a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" }
+"test_overlays.py::test_a_quad_past_one_edge_still_moves_away_from_it" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_quad_past_one_edge_still_moves_away_from_it" }
+"test_overlays.py::test_a_quad_reaching_past_the_picture_does_not_jump_when_dragged" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_quad_reaching_past_the_picture_does_not_jump_when_dragged" }
+"test_overlays.py::test_a_rectangle_is_dragged_out_and_comes_back_sorted" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_rectangle_is_dragged_out_and_comes_back_sorted" }
+"test_overlays.py::test_a_rotated_rectangle_is_sorted_in_each_space_of_its_own" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_rotated_rectangle_is_sorted_in_each_space_of_its_own" }
+"test_overlays.py::test_a_warp_that_squashes_the_picture_flat_counts_as_none" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_warp_that_squashes_the_picture_flat_counts_as_none" }
+"test_overlays.py::test_analyse_gets_the_frame_before_tint_on_its_own_thread" = { status = "ported", rust = "rust/crates/shell/src/preview_passes.rs::analyse_gets_the_frame_before_tint_on_its_own_thread" }
+"test_overlays.py::test_dragging_a_quad_to_the_edge_stops_it_there_whole" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::dragging_a_quad_to_the_edge_stops_it_there_whole" }
+"test_overlays.py::test_dragging_inside_a_quad_moves_all_of_it_and_outside_is_left_to_the_preview" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::dragging_inside_a_quad_moves_all_of_it_and_outside_is_left_to_the_preview" }
+"test_overlays.py::test_escape_another_pick_or_the_owner_cancels" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::escape_another_pick_or_the_owner_cancels" }
+"test_overlays.py::test_layers_tint_in_order_and_a_broken_one_leaves_the_frame_alone" = { status = "ported", rust = "rust/crates/shell/src/preview_passes.rs::layers_tint_in_order_and_a_broken_one_leaves_the_frame_alone" }
+"test_overlays.py::test_no_analysis_while_no_layer_wants_it" = { status = "ported", rust = "rust/crates/shell/src/preview_passes.rs::no_analysis_while_no_layer_wants_it" }
+"test_overlays.py::test_nothing_to_pick_on_without_a_preview" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::nothing_to_pick_on_without_a_preview" }
+"test_overlays.py::test_paint_reaches_every_layer_even_past_a_broken_one" = { status = "ported", rust = "rust/crates/shell/src/preview_passes.rs::paint_reaches_every_layer_even_past_a_broken_one" }
+"test_overlays.py::test_pick_changed_says_who_picks" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::pick_changed_says_who_picks" }
+"test_overlays.py::test_quad_corners_start_inset_move_and_finish_with_enter" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::quad_corners_start_inset_move_and_finish_with_enter" }
+"test_overlays.py::test_quad_corners_stay_on_the_picture_when_the_view_moves" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::quad_corners_stay_on_the_picture_when_the_view_moves" }
+"test_overlays.py::test_with_a_plugin_moving_the_picture_picks_map_back_through_it" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::with_a_plugin_moving_the_picture_picks_map_back_through_it" }
+"test_overlays.py::test_without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" }
+"test_overlays.py::test_zoom_maps_onto_the_part_of_the_picture_shown" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::zoom_maps_onto_the_part_of_the_picture_shown" }
 # ── packets
 "test_packets.py::test_a_failing_step_passes_units_through_and_is_left_out_after_a_while" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
 "test_packets.py::test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
@@ -3917,35 +3917,35 @@
 "test_setup.py::test_windows_status_offers_download_when_dll_missing" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::windows_status_offers_download_when_dll_missing" }
 "test_setup.py::test_without_adb_advanced_offers_to_get_it" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::without_adb_advanced_offers_to_get_it" }
 # ── shortcuts
-"test_shortcuts.py::test_checkable_button_modes" = { status = "todo" }
-"test_shortcuts.py::test_choice_on_a_combo_skips_disabled_items_and_says_it_was_picked" = { status = "todo" }
-"test_shortcuts.py::test_choice_on_exclusive_buttons_clicks_the_next" = { status = "todo" }
-"test_shortcuts.py::test_choice_over_buttons_that_come_and_go" = { status = "todo" }
-"test_shortcuts.py::test_choice_without_wrap_stops_at_the_end" = { status = "todo" }
+"test_shortcuts.py::test_checkable_button_modes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_switch_binding_reads_on_from_the_label_unless_the_card_has_words_of_its_own" }
+"test_shortcuts.py::test_choice_on_a_combo_skips_disabled_items_and_says_it_was_picked" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::choices_skip_the_greyed_out_and_stop_at_the_end_without_wrap" }
+"test_shortcuts.py::test_choice_on_exclusive_buttons_clicks_the_next" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::choices_skip_the_greyed_out_and_stop_at_the_end_without_wrap" }
+"test_shortcuts.py::test_choice_over_buttons_that_come_and_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::choices_skip_the_greyed_out_and_stop_at_the_end_without_wrap" }
+"test_shortcuts.py::test_choice_without_wrap_stops_at_the_end" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::choices_skip_the_greyed_out_and_stop_at_the_end_without_wrap" }
 "test_shortcuts.py::test_clashes_marks_later_bindings_on_the_same_keys" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clashes_marks_later_bindings_on_the_same_keys" }
 "test_shortcuts.py::test_clean_bindings_keeps_good_ones_and_fixes_ids" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::clean_bindings_keeps_good_ones_and_fixes_ids" }
-"test_shortcuts.py::test_control_ready_needs_enabled_and_shown_in_its_card" = { status = "todo" }
+"test_shortcuts.py::test_control_ready_needs_enabled_and_shown_in_its_card" = { status = "dropped", reason = "Qt widgets: a Rust card has no widgets to look at, each plugin's run_action answers None while its own control is off or hidden (for instance transforms_tests.rs::pan_and_zoom_shortcuts_have_nothing_to_do_while_they_cant_be_used)" }
 "test_shortcuts.py::test_edits_text" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
-"test_shortcuts.py::test_hold_flips_while_held_and_back_on_release" = { status = "todo" }
+"test_shortcuts.py::test_hold_flips_while_held_and_back_on_release" = { status = "ported", rust = "rust/crates/core/src/actions.rs::a_switch_toggles_turns_on_or_off_and_flips_while_held" }
 "test_shortcuts.py::test_keys_from_event_drops_keypad_and_bare_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::slint_key_events_drop_bare_modifiers_and_name_shift_tab" }
-"test_shortcuts.py::test_log_slider_moves_in_stops" = { status = "todo" }
+"test_shortcuts.py::test_log_slider_moves_in_stops" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_log_slider_moves_in_stops_and_reads_them_in_the_singular_or_plural" }
 "test_shortcuts.py::test_native_keys_names_the_windows_key_after_the_system" = { status = "ported", rust = "rust/crates/system/src/keys.rs::native_keys_names_the_windows_key_after_the_system" }
 "test_shortcuts.py::test_normalize_keys" = { status = "ported", rust = "rust/crates/system/src/keys.rs::normalize_keys_reads_qt_portable_text" }
 "test_shortcuts.py::test_param_clean" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::params_are_cleaned" }
-"test_shortcuts.py::test_plain_button_clicks" = { status = "todo" }
-"test_shortcuts.py::test_slider_steps_in_shown_units" = { status = "todo" }
-"test_shortcuts.py::test_slider_without_default_offers_no_reset" = { status = "todo" }
+"test_shortcuts.py::test_plain_button_clicks" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_plain_button_has_no_settings_and_a_binding_for_it_reads_as_its_name" }
+"test_shortcuts.py::test_slider_steps_in_shown_units" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_slider_steps_in_shown_units_and_its_bindings_read_in_them" }
+"test_shortcuts.py::test_slider_without_default_offers_no_reset" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_slider_without_a_default_offers_no_reset" }
 "test_shortcuts.py::test_split_keys_and_command_modifiers" = { status = "ported", rust = "rust/crates/system/src/keys.rs::modifiers_and_typing_keys" }
 "test_shortcuts_plugin.py::test_a_background_press_notifies_only_when_asked" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_background_press_notifies_only_when_asked" }
 "test_shortcuts_plugin.py::test_a_global_press_runs_the_action_and_hold_comes_back_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_global_press_runs_the_action_and_hold_comes_back_on_release" }
 "test_shortcuts_plugin.py::test_a_key_whose_control_is_off_goes_to_the_control_with_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::a_key_whose_control_is_off_goes_to_the_control_with_focus" }
-"test_shortcuts_plugin.py::test_a_right_click_that_reaches_the_window_finds_the_later_control" = { status = "todo" }
+"test_shortcuts_plugin.py::test_a_right_click_that_reaches_the_window_finds_the_later_control" = { status = "todo", note = "The right-click lookup of controls that come later is the window's (window.rs and ui-kit's ShortcutMenu), which this pass leaves alone" }
 "test_shortcuts_plugin.py::test_action_command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::action_command_runs_the_action_in_the_running_copy" }
 "test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "dropped", reason = "Slint hands the shell one key event per press; Qt's walk up the parents is gone" }
 "test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
 "test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "ported", rust = "rust/crates/shell/tests/shortcut_menu.rs" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::desktop_settings_button_asks_again_for_unconfirmed_ones" }
-"test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "todo" }
+"test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::the_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" }
 "test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::dialog_lists_bindings" }
 "test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_builds_a_binding" }
 "test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_keeps_an_option_that_is_gone" }
@@ -3958,7 +3958,7 @@
 "test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
 "test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
 "test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
-"test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "todo" }
+"test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "todo", note = "Keys reach the plugin through the window's key handler (window.rs), which this pass leaves alone; nothing tests a window with no focused control" }
 "test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::one_key_press_seen_globally_and_inside_runs_once" }
 "test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::only_global_bindings_without_clashes_go_to_the_system" }
 "test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
@@ -3966,9 +3966,9 @@
 "test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::showing_the_window_from_the_background_doesnt_notify" }
-"test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo" }
-"test_shortcuts_plugin.py::test_the_editors_search_forgives_typos_and_still_wants_word_starts" = { status = "todo" }
+"test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::start_collects_actions_app_ones_first" }
+"test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "todo", note = "The editor's control picker lists 'Group: Control' as one flat list, ui-kit's ChoiceField can't show a title row that isn't an entry" }
+"test_shortcuts_plugin.py::test_the_editors_search_forgives_typos_and_still_wants_word_starts" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::the_editors_search_forgives_typos_and_still_wants_word_starts" }
 "test_shortcuts_plugin.py::test_the_key_filter_does_not_keep_a_watched_window_alive" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
 "test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
 "test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::without_a_backend_global_bindings_still_work_inside" }
@@ -4172,35 +4172,35 @@
 "test_tooltips.py::test_a_tip_stays_while_the_mouse_is_on_its_control" = { status = "todo" }
 "test_tooltips.py::test_tooltips_show_sooner" = { status = "todo" }
 # ── transforms
-"test_transforms.py::test_a_centre_only_phones_share_doesnt_change_with_the_pan" = { status = "todo" }
-"test_transforms.py::test_a_centred_window_just_past_a_lens_gets_back_onto_it" = { status = "todo" }
+"test_transforms.py::test_a_centre_only_phones_share_doesnt_change_with_the_pan" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_centre_only_phones_share_doesnt_change_with_the_pan" }
+"test_transforms.py::test_a_centred_window_just_past_a_lens_gets_back_onto_it" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_centred_window_just_past_a_lens_gets_back_onto_it" }
 "test_transforms.py::test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_a_double_click_resets_zoom_and_pan" = { status = "todo" }
-"test_transforms.py::test_a_frozen_frame_step_keeps_the_settings_it_was_taken_with" = { status = "todo" }
+"test_transforms.py::test_a_double_click_resets_zoom_and_pan" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::a_double_click_resets_zoom_and_pan" }
+"test_transforms.py::test_a_frozen_frame_step_keeps_the_settings_it_was_taken_with" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::a_step_keeps_the_view_it_was_made_with" }
 "test_transforms.py::test_a_lens_box_is_the_centred_part_of_the_view_that_lens_sees" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
 "test_transforms.py::test_a_lens_step_never_lands_under_the_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
-"test_transforms.py::test_a_lens_that_cant_zoom_leaves_it_all_to_the_desktop" = { status = "todo" }
-"test_transforms.py::test_a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges" = { status = "todo" }
-"test_transforms.py::test_a_picked_point_goes_out_in_phone_frame_coordinates" = { status = "todo" }
-"test_transforms.py::test_a_picked_point_lands_on_the_phone_frame_through_a_stretch" = { status = "todo" }
-"test_transforms.py::test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom" = { status = "todo" }
+"test_transforms.py::test_a_lens_that_cant_zoom_leaves_it_all_to_the_desktop" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_lens_that_cant_zoom_leaves_it_all_to_the_desktop" }
+"test_transforms.py::test_a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges" }
+"test_transforms.py::test_a_picked_point_goes_out_in_phone_frame_coordinates" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_reaches_the_phone_in_its_own_frame" }
+"test_transforms.py::test_a_picked_point_lands_on_the_phone_frame_through_a_stretch" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_lands_on_the_phone_frame_through_a_stretch" }
+"test_transforms.py::test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_only_undoes_the_desktop_share_of_the_zoom" }
 "test_transforms.py::test_a_saved_zoom_loads_exactly" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_a_scroll_step_stops_on_the_first_lens_it_crosses" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
-"test_transforms.py::test_a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels" = { status = "todo" }
+"test_transforms.py::test_a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels" }
 "test_transforms.py::test_a_squish_leaves_black_bars_and_a_stretch_crops" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
 "test_transforms.py::test_a_zoom_right_on_a_lens_mark_gets_that_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_auto_framing_visibly_disables_the_zoom_handle_and_value" = { status = "todo" }
+"test_transforms.py::test_auto_framing_visibly_disables_the_zoom_handle_and_value" = { status = "ported", rust = "rust/app/tests/transforms_ui.rs::auto_framing_visibly_disables_the_zoom_handle_and_value" }
 "test_transforms.py::test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens" = { status = "todo" }
+"test_transforms.py::test_below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs::below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens" }
 "test_transforms.py::test_caps_come_from_the_current_camera_entry" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
 "test_transforms.py::test_config_round_trip_updates_widgets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_dragging_stops_at_the_edge_and_does_nothing_unzoomed" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_dragging_the_preview_moves_the_picture_with_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_dragging_the_preview_sticks_at_the_centre_then_lets_go" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont" = { status = "todo" }
-"test_transforms.py::test_inverse_map_clamps_and_survives_an_unknown_frame_size" = { status = "todo" }
-"test_transforms.py::test_inverse_map_undoes_a_stretch" = { status = "todo" }
-"test_transforms.py::test_inverse_map_undoes_what_the_preview_shows" = { status = "todo" }
+"test_transforms.py::test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont" = { status = "ported", rust = "rust/app/tests/transforms_ui.rs::dragging_the_zoom_sticks_to_a_lens_but_keys_dont" }
+"test_transforms.py::test_inverse_map_clamps_and_survives_an_unknown_frame_size" = { status = "ported", rust = "rust/crates/core/src/view.rs::inverse_map_clamps_and_survives_an_unknown_frame_size" }
+"test_transforms.py::test_inverse_map_undoes_a_stretch" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::inverse_map_undoes_a_stretch" }
+"test_transforms.py::test_inverse_map_undoes_what_the_preview_shows" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::inverse_map_undoes_what_the_preview_shows" }
 "test_transforms.py::test_lens_note_says_nothing_on_the_default_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_lens_note_says_when_panning_fell_back_to_the_main_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
@@ -4209,26 +4209,26 @@
 "test_transforms.py::test_no_stretch_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
 "test_transforms.py::test_pan_for_is_the_inverse_of_the_window_centre_and_clamps" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
 "test_transforms.py::test_pan_pad_works_from_the_keyboard" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_panning_out_of_the_telephotos_view_goes_back_to_the_main_lens" = { status = "todo" }
-"test_transforms.py::test_past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest" = { status = "todo" }
-"test_transforms.py::test_plugin_crops_everything_itself_without_a_phone_that_zooms" = { status = "todo" }
+"test_transforms.py::test_panning_out_of_the_telephotos_view_goes_back_to_the_main_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs::panning_out_of_the_telephotos_view_goes_back_to_the_main_lens" }
+"test_transforms.py::test_past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest" = { status = "ported", rust = "rust/crates/core/src/view.rs::past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest" }
+"test_transforms.py::test_plugin_crops_everything_itself_without_a_phone_that_zooms" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::this_computer_crops_everything_without_a_phone_that_zooms" }
 "test_transforms.py::test_plugin_handlers_update_runtime_state_and_schedule_save" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_plugin_tells_the_phone_only_when_its_share_changes" = { status = "todo" }
+"test_transforms.py::test_plugin_tells_the_phone_only_when_its_share_changes" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::the_phone_is_told_only_when_its_share_changes" }
 "test_transforms.py::test_red_wins_when_the_phone_is_off_the_lens_after_switching" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_returning_zoom_to_one_resets_and_disables_pan" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_saved_pan_config_updates_runtime_processing_state" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_scrolling_zooms_around_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_shown_and_view_points_map_both_ways_and_agree_with_focus" = { status = "todo" }
-"test_transforms.py::test_shown_and_view_points_round_trip_through_a_stretch" = { status = "todo" }
+"test_transforms.py::test_shown_and_view_points_map_both_ways_and_agree_with_focus" = { status = "ported", rust = "rust/crates/core/src/view.rs::points_map_both_ways_and_agree_with_focus" }
+"test_transforms.py::test_shown_and_view_points_round_trip_through_a_stretch" = { status = "ported", rust = "rust/crates/core/src/view.rs::points_round_trip_through_a_stretch_and_the_centre_stays_put" }
 "test_transforms.py::test_small_scrolls_add_up_and_stop_on_a_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_split_zoom_always_frames_what_was_asked" = { status = "todo" }
+"test_transforms.py::test_split_zoom_always_frames_what_was_asked" = { status = "ported", rust = "rust/crates/core/src/view.rs::split_zoom_always_frames_what_was_asked" }
 "test_transforms.py::test_stretch_saves_loads_and_resets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_unzoomed_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_lens_doesnt_flip_back_and_forth_at_its_edge" = { status = "todo" }
+"test_transforms.py::test_the_lens_doesnt_flip_back_and_forth_at_its_edge" = { status = "ported", rust = "rust/crates/core/src/view.rs::the_lens_doesnt_flip_back_and_forth_at_its_edge" }
 "test_transforms.py::test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_preview_hears_about_the_lens_boxes_and_the_pan" = { status = "todo" }
+"test_transforms.py::test_the_preview_hears_about_the_lens_boxes_and_the_pan" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::the_preview_hears_about_the_lens_boxes_and_the_pan" }
 "test_transforms.py::test_the_view_crops_flips_and_rotates_as_the_card_says" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
 "test_transforms.py::test_the_view_stretches_the_picture_as_shown" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_the_zoom_slider_follows_max_zoom" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
@@ -4238,7 +4238,7 @@
 "test_transforms.py::test_visible_rotation_and_pan_controls_keep_their_shortcuts" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
 "test_transforms.py::test_zoom_at_or_below_one_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
 "test_transforms.py::test_zoom_pan_selects_opposite_source_regions" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
-"test_transforms.py::test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop" = { status = "todo" }
+"test_transforms.py::test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop" = { status = "ported", rust = "rust/crates/core/src/view.rs::zoom_past_what_the_phone_allows_is_finished_on_the_desktop" }
 "test_transforms.py::test_zoom_preserves_shape_for_all_pan_extremes" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
 # ── translation_account
 "test_translation_account.py::test_anonymisation_covers_current_base_archived_and_approval_authors" = { status = "todo" }
@@ -5621,8 +5621,8 @@
 "global.setup.plugin_hues" = { status = "ported", rust = "rust/crates/setup/src/setup.rs", note = "Compared with what Python saves in rust/crates/setup/tests/config_parity.rs" }
 "global.setup.power_saving" = { status = "ported", rust = "rust/crates/setup/src/setup.rs", note = "Compared with what Python saves in rust/crates/setup/tests/config_parity.rs" }
 # ── shortcuts
-"global.shortcuts.bindings" = { status = "todo" }
-"global.shortcuts.notify" = { status = "todo" }
+"global.shortcuts.bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"global.shortcuts.notify" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── startup
 "global.startup.notify_stop" = { status = "ported", rust = "rust/crates/system/src/startup.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }
 "global.startup.start_on" = { status = "ported", rust = "rust/crates/system/src/startup.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }
@@ -5760,9 +5760,9 @@
 # ── qr_reader
 "qr_reader.on" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 # ── shortcuts
-"streaming.camera" = { status = "todo" }
-"streaming.start_stop" = { status = "todo" }
-"window.show_hide" = { status = "todo" }
+"streaming.camera" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::own_actions" }
+"streaming.start_stop" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::own_actions" }
+"window.show_hide" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::own_actions" }
 # ── stream_output
 "stream.aspect_ratio" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
 "stream.bitrate" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs::actions" }
@@ -6064,7 +6064,7 @@
 "run:telescope/plugins/setup.py:_open_log:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(diagnostics.events.path))>" = { status = "todo", note = "Open log is there but stays hidden: the Rust app has no log file yet" }
 "run:telescope/plugins/setup.py:_report_bug:QDesktopServices.openUrl:<QUrl(BUG_REPORT_URL)>" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 # ── shortcuts
-"run:telescope/plugins/shortcuts.py:open_system_settings:subprocess.Popen:<cmd>" = { status = "todo" }
+"run:telescope/plugins/shortcuts.py:open_system_settings:subprocess.Popen:<cmd>" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::open_system_settings" }
 # ── single_instance
 "env:USER" = { status = "todo" }
 "env:USERNAME" = { status = "todo" }
