@@ -33,8 +33,8 @@ const KEPT_PREFIX: &str = "wait_screen-";
 const RETRY: Duration = Duration::from_secs(10);
 /// The picture in the card, when it's an animation, moves on.
 const TICK: &str = "preview-tick";
-/// The formats the pictures can be loaded from, as the file dialog lists them.
-const FORMATS: &str = "*.gif *.jpeg *.jpg *.png";
+/// The formats the pictures can be loaded from, as the file dialog lists them: the ones Qt reads in the Python app that this can too.
+pub(crate) const PICKER_FORMATS: &str = "*.bmp *.gif *.ico *.jfif *.jpeg *.jpg *.pbm *.pgm *.png *.ppm *.tga *.webp";
 
 // ── In place of the stream's picture ──────────────────────────────────
 
@@ -504,7 +504,7 @@ impl WaitScreenPlugin {
             kind: FileDialogKind::Open,
             title: tr("Choose a wait screen"),
             start: home.to_string_lossy().into_owned(),
-            filters: vec![tr("Images ({formats})").replace("{formats}", FORMATS)],
+            filters: vec![tr("Images ({formats})").replace("{formats}", PICKER_FORMATS)],
         };
         self.picking = host.pick_file(&dialog);
     }

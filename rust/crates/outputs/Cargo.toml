@@ -9,8 +9,8 @@ publish.workspace = true
 telescope-core.workspace = true
 log.workspace = true
 serde_json.workspace = true
-# The wait screen: pictures and GIFs people pick, and the default screen drawn the way vcam.py paints it
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif"] }
+# The wait screen: pictures and GIFs people pick, in the formats its file dialog lists (Python's list of Qt's, less the ones with no decoder here), and the default screen drawn the way vcam.py paints it
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "ico", "pnm", "tga", "webp"] }
 tiny-skia = "0.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]

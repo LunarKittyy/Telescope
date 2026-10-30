@@ -863,6 +863,33 @@ mod tests {
     }
 
     #[test]
+    fn every_format_the_picker_offers_loads() {
+        let dir = telescope_core::testing::scratch_dir("wait");
+        // The picker lists the formats Qt reads in the Python app that this can read too
+        for ext in ["bmp", "gif", "ico", "jpeg", "jpg", "pbm", "pgm", "png", "ppm", "tga", "webp"] {
+            let path = dir.join(format!("pic.{ext}"));
+            let img = image::RgbImage::from_pixel(32, 32, image::Rgb([200, 200, 200]));
+            match ext {
+                // These keep one channel
+                "pbm" | "pgm" => image::DynamicImage::ImageRgb8(img).to_luma8().save(&path).unwrap(),
+                // The icon decoder only takes the RGBA pictures real icon files hold
+                "ico" => image::DynamicImage::ImageRgb8(img).to_rgba8().save(&path).unwrap(),
+                _ => img.save(&path).unwrap(),
+            }
+            let frames = match read_frames(&path.to_string_lossy(), 64, 36) {
+                Ok(frames) => frames,
+                Err(why) => panic!("{ext} didn't load: {why}"),
+            };
+            assert_eq!(frames.len(), 1, "{ext} gave {} pictures", frames.len());
+            let mid = ((18 * 64 + 32) * 3) as usize;
+            let got = frames[0].0.data[mid];
+            assert!(got > 150, "{ext} came out as {got}");
+            assert!(crate::wait_screen_plugin::PICKER_FORMATS.contains(&format!("*.{ext}")), "{ext} isn't in the picker");
+        }
+        assert!(crate::wait_screen_plugin::PICKER_FORMATS.contains("*.jfif"));
+    }
+
+    #[test]
     fn a_huge_photo_is_decoded_at_the_size_qt_would_be_asked_for() {
         // 12000 x 9000 on a 1920 x 1080 screen: 1920 x 1440, the screen's longest side on the longest side
         assert_eq!(reduced_decode_size(12000, 9000, 1920, QT_ALLOC_LIMIT), Some((1920, 1440)));
