@@ -274,8 +274,8 @@ pub mod v4l2 {
     const VIDIOC_STREAMON: u32 = 0x4004_5612;
     const VIDIOC_STREAMOFF: u32 = 0x4004_5613;
     const VIDIOC_S_PARM: u32 = 0xc0cc_5616;
-    /// How long a read waits for a frame before the camera counts as silent.
-    const READ_TIMEOUT_MS: i32 = 5000;
+    /// How long a read waits for a frame before the camera counts as silent (main.py's OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT).
+    const READ_TIMEOUT_MS: i32 = 3000;
 
     pub struct V4l2Capture {
         file: File,
@@ -380,7 +380,7 @@ pub mod v4l2 {
                     break;
                 }
                 if std::time::Instant::now() > deadline {
-                    return Err("no frame within 5 s".into());
+                    return Err("no frame within 3 s".into());
                 }
             }
             let io = super::Fd(&self.file);
@@ -417,6 +417,28 @@ pub mod v4l2 {
                 // SAFETY: mapped in open
                 unsafe { libc::munmap(addr, length) };
             }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::os::fd::FromRawFd;
+
+        // main.py sets OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT: a webcam that stops sending drops after 3 s rather than 10
+        #[test]
+        fn a_webcam_that_stops_sending_drops_after_three_seconds() {
+            let mut ends = [0; 2];
+            // SAFETY: room for the two descriptors pipe gives back, each then owned by one File
+            let (silent, _writer) = unsafe {
+                assert_eq!(libc::pipe(ends.as_mut_ptr()), 0);
+                (File::from_raw_fd(ends[0]), File::from_raw_fd(ends[1]))
+            };
+            let mut capture = V4l2Capture { file: silent, format: Choice { fourcc: "MJPG".into(), width: 640, height: 480, fps: 30.0 }, stride: 0, maps: Vec::new(), stop: Arc::default() };
+            let started = std::time::Instant::now();
+            assert_eq!(capture.read().unwrap_err(), "no frame within 3 s");
+            let waited = started.elapsed().as_secs_f64();
+            assert!((3.0..4.0).contains(&waited), "{waited}");
         }
     }
 }
