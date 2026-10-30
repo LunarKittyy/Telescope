@@ -43,14 +43,14 @@ Conecta el teléfono por cable o por Wi-Fi. Puedes usar hasta cuatro a la vez, c
 
 <table>
   <tr>
-    <td width="33%"><img src="site/media/pro.avif" alt="ISO, velocidad de obturación, enfoque y balance de blancos ajustados manualmente desde la app de escritorio"><br><b>Controles Pro</b><br>Control manual de ISO, velocidad de obturación, enfoque y balance de blancos, como en el modo Pro de la cámara de tu teléfono.</td>
-    <td width="33%"><img src="site/media/framing.avif" alt="El encuadre automático mantiene a la persona dentro del encuadre"><br><b>Encuadre automático</b><br>Ajusta el zoom y mueve la imagen para mantenerte dentro del encuadre.</td>
-    <td width="33%"><img src="site/media/chroma.avif" alt="Una pantalla verde sustituida por una imagen"><br><b>Fondo y croma</b><br>Desenfoca el fondo o cámbialo, con o sin pantalla verde.</td>
+    <td width="33%" valign="top"><img src="site/media/pro.avif" alt="ISO, velocidad de obturación, enfoque y balance de blancos ajustados manualmente desde la app de escritorio"><br><b>Controles Pro</b><br>Control manual de ISO, velocidad de obturación, enfoque y balance de blancos, como en el modo Pro de la cámara de tu teléfono.</td>
+    <td width="33%" valign="top"><img src="site/media/framing.avif" alt="El encuadre automático mantiene a la persona dentro del encuadre"><br><b>Encuadre automático</b><br>Ajusta el zoom y mueve la imagen para mantenerte dentro del encuadre.</td>
+    <td width="33%" valign="top"><img src="site/media/chroma.avif" alt="Una pantalla verde sustituida por una imagen"><br><b>Fondo y croma</b><br>Desenfoca el fondo o cámbialo, con o sin pantalla verde.</td>
   </tr>
   <tr>
-    <td><img src="site/media/one-picture.avif" alt="Dos cámaras combinadas en una sola imagen"><br><b>Varias cámaras en una imagen</b><br>Una al lado de otra, en una cuadrícula o como tú las acomodes, para apps que solo aceptan una cámara.</td>
-    <td><img src="site/media/desk.avif" alt="Una hoja de papel sobre un escritorio, con la perspectiva corregida para que se vea de frente"><br><b>Modo escritorio</b><br>Corrige la perspectiva de cualquier objeto plano que enfoques con el teléfono, como una página o un dibujo, para que se vea de frente en las llamadas.</td>
-    <td><img src="site/media/fun.avif" alt="Efectos retro como VHS y Game Boy en la imagen de la cámara"><br><b>Paquete de diversión</b><br>Fiesta de clones, una capa de invisibilidad, VHS, una cámara web de 1998 y mucho más.</td>
+    <td valign="top"><img src="site/media/one-picture.avif" alt="Dos cámaras combinadas en una sola imagen"><br><b>Varias cámaras en una imagen</b><br>Una al lado de otra, en una cuadrícula o como tú las acomodes, para apps que solo aceptan una cámara.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="Una hoja de papel sobre un escritorio, con la perspectiva corregida para que se vea de frente"><br><b>Modo escritorio</b><br>Corrige la perspectiva de cualquier objeto plano que enfoques con el teléfono, como una página o un dibujo, para que se vea de frente en las llamadas.</td>
+    <td valign="top"><img src="site/media/fun.avif" alt="Efectos retro como VHS y Game Boy en la imagen de la cámara"><br><b>Paquete de diversión</b><br>Fiesta de clones, una capa de invisibilidad, VHS, una cámara web de 1998 y mucho más.</td>
   </tr>
 </table>
 

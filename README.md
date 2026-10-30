@@ -43,7 +43,7 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
 
 <table>
   <tr>
-    <td width="33%"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in your phone's camera app.</td>
+    <td width="33%"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in the camera app.</td>
     <td width="33%"><img src="site/media/framing.avif" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zooms and pans to keep you in the shot.</td>
     <td width="33%"><img src="site/media/chroma.avif" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
   </tr>
