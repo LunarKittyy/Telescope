@@ -5342,7 +5342,7 @@
 # ── window
 "banner-plugins-failed" = { status = "todo" }
 "banner-plugins-failed-many" = { status = "todo" }
-"banner-plugins-off" = { status = "todo" }
+"banner-plugins-off" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "banner-plugins-off-several" = { status = "todo" }
 "banner-plugins-off-two" = { status = "todo" }
 "banner-settings-reset" = { status = "todo" }
