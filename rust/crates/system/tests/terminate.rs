@@ -1,5 +1,4 @@
-// test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back, with real signals at a real process:
-// a logout during a new version's first start confirms it, then the process dies the way the signal would have killed it.
+// test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back, with real signals at a real process.
 
 #[cfg(unix)]
 fn main() {

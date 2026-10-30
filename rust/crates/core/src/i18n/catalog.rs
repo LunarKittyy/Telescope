@@ -17,9 +17,7 @@ pub struct Catalog {
     english: HashMap<String, String>,
 }
 
-/// Whether a form of a translation can be filled with the fields its English has. Python finds out when it formats the text and shows the
-/// English of that form then; here the form is left out as the catalog loads, so a text that's filled in afterwards can't come out wrong.
-/// A format spec is only kept on a plural's {n}: every other field gets filled with str::replace, which wouldn't see it.
+/// Whether a form can be filled with its English's fields, found out as the catalog loads; a spec only counts on a plural's {n}, as other fields go through str::replace.
 fn fits(english: &str, plural: &str, form: &str) -> bool {
     let is_plural = !plural.is_empty();
     if super::spec_fields(form).iter().any(|name| !is_plural || name != "n") {

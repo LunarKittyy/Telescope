@@ -349,8 +349,7 @@ fn started_fine() {
 /// Removing the replaced copy, which a process that's quitting has to wait for (a non-daemon thread in Python).
 static TIDYING: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
 
-/// The first thing a copy does as the only one running (main.py, right after write_control_key). Nothing here may run for a command or a
-/// duplicate launch, whose lock is held by the copy that owns this state: Linux drops a virtual mic source a crashed run left.
+/// What only the copy holding the lock may do, after taking it (main.py): a command or a duplicate launch never gets here.
 fn own_the_lock(take: impl FnOnce() -> Option<()>, clean_up: impl FnOnce()) -> Option<()> {
     let owned = take()?;
     clean_up();

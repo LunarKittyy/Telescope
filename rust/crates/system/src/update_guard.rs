@@ -402,8 +402,7 @@ pub fn launch(argv: &[String]) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        // A session of its own (start_new_session), so a closing terminal or this process's group going takes nothing with it
-        // SAFETY: setsid only touches the child's own session and is safe between fork and exec
+        // SAFETY: setsid (start_new_session) only touches the child's own session and is safe between fork and exec
         unsafe {
             cmd.pre_exec(|| if libc::setsid() < 0 { Err(io::Error::last_os_error()) } else { Ok(()) });
         }

@@ -234,9 +234,7 @@ fn solid(rgb: [u8; 3]) -> [u32; 3] {
     [y[0] as u32, uv[0] as u32, uv[1] as u32]
 }
 
-/// What the camera's DLL shows while Telescope sends nothing (write_camera_wait_screen.py, read by desktop/virtualcamera/wait_screen.cpp): the
-/// lens as NV12 on the app's background and the name as an 8-bit mask it tints, both at a fixed scale it resizes for the size an app picks.
-/// No "Waiting for camera" line: the camera can't know the user's language.
+/// What the camera's DLL shows while Telescope sends nothing (write_camera_wait_screen.py): the lens as NV12 and the name as a mask, read by wait_screen.cpp.
 pub fn camera_wait_screen() -> Result<Vec<u8>, String> {
     let blank = |w, h, fill: [u8; 3]| {
         let mut pm = tiny_skia::Pixmap::new(w, h).ok_or("a picture that size won't fit")?;

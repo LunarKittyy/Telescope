@@ -82,8 +82,7 @@ fn as_number(text: &str) -> Option<f64> {
     text.parse::<f64>().ok().filter(|v| v.is_finite())
 }
 
-/// `text` through a str.format spec: [[fill]align][sign][0][width][,_][.precision][dfFs]. The others (%, e, g, x and so on) are an Err, which
-/// shows the English; no text in any catalog uses even these.
+/// `text` through a str.format spec: [[fill]align][sign][0][width][,_][.precision][dfFs]; the others (%, e, g, x) are an Err, which shows the English.
 fn format_spec(text: &str, spec: &str) -> Result<String, String> {
     let bad = || format!("the format spec {spec:?} on {text:?}");
     let mut chars: Vec<char> = spec.chars().collect();
@@ -177,8 +176,7 @@ fn format_field(value: &dyn Display, conversion: &str, spec: &str) -> Result<Str
     if spec.is_empty() { Ok(text) } else { format_spec(&text, spec) }
 }
 
-/// text with each {name} replaced by its value, taking a conversion and a format spec like str.format ({n:02d}); {{ and }} stand for braces.
-/// An Err says what didn't fit, which is a {name} with no value, a lone brace or a spec the value can't take.
+/// text with each {name} filled in like str.format, conversion and spec too ({n:02d}), {{ and }} for braces; an Err says what didn't fit.
 pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, String> {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;

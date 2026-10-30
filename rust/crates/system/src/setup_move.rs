@@ -173,8 +173,7 @@ pub fn installed_location() -> Option<PathBuf> {
     None
 }
 
-/// In the installed copy, shows this version in Settings > Apps: the installer wrote the one it installed, and an update since then
-/// didn't run it. True when the entry was changed.
+/// In the installed copy, shows this version in Settings > Apps, as an update doesn't run the installer that wrote it; true when the entry changed.
 pub fn note_installed_version_in(directory: &Path, version: &str, registry: &dyn Uninstall) -> bool {
     let key = uninstall_key();
     if !same_place(directory, installed_location_in(registry).as_deref()) {

@@ -1,5 +1,4 @@
-// test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs. The Python imports it names are part of this program, so
-// the one thing still loaded from outside, the vision pack's libraries, is what has to wait for a stream.
+// test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs: only the vision pack is still loaded from outside
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;

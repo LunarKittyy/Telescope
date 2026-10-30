@@ -1,7 +1,6 @@
 // The real program started the way main.py is in test_main.py.
 
-// test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone: a command talks to the running copy and touches nothing
-// that copy owns, which on Linux is the virtual mic source a fresh start clears
+// test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone: a command leaves the mic source a fresh start clears
 #[cfg(target_os = "linux")]
 #[test]
 fn commands_leave_what_the_running_copy_owns_alone() {
