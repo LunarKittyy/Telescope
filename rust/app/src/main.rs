@@ -12,9 +12,10 @@
 //!
 //! main.py's own options: --action ID [NAME=VALUE ...] runs a shortcut action in the running copy, --list-actions
 //! lists them, --minimized starts in the tray, --after-update and --restarted wait for the old copy to let go of
-//! the lock, --moved-from FOLDER is taken and ignored until the updater is ported.
+//! the lock, --moved-from FOLDER is the unzipped copy the installed one replaced, which it removes once it has started fine.
 
 mod cli;
+mod confirm;
 mod scenes;
 
 use std::path::PathBuf;
@@ -27,20 +28,26 @@ fn use_own_profile() {
     if std::env::var_os(DEV_PROFILE_ENV).is_some() || std::env::var("TELESCOPE_RS_REAL_CONFIG").as_deref() == Ok("1") {
         return;
     }
-    let folder = std::env::var_os("TELESCOPE_RS_PROFILE").map(PathBuf::from).unwrap_or_else(|| {
-        let base = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()).map(PathBuf::from)
-            .unwrap_or_else(|| std::env::home_dir().unwrap_or_default().join(".config"));
-        base.join("telescope-rs")
-    });
+    let folder = std::env::var_os("TELESCOPE_RS_PROFILE").map(PathBuf::from)
+        .unwrap_or_else(|| telescope_core::config::PathEnv::current().own_profile_folder());
     // Only this thread runs yet, so changing the environment can't race anything
     std::env::set_var(DEV_PROFILE_ENV, folder);
+}
+
+/// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
+fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
+    use telescope_system::updates_plugin::{RealBackend, UpdatesPlugin};
+    let mut backend = RealBackend::default();
+    backend.before_setup = Some(Arc::new(telescope_link::adb::stop_adb_server));
+    UpdatesPlugin::new(Arc::new(backend), telescope_system::version::channel())
 }
 
 /// tray: the window's run, which shows the tray icon.
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
+    let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into()], "en".into());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into()], "en".into(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let connection = link.clone();
@@ -56,6 +63,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
         tray: if tray { telescope_system::system_tray().map(std::sync::Mutex::new) } else { None },
+        plugin_problems: problems,
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
@@ -70,7 +78,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
                 Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
-                Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
+                Box::new(updates_plugin()),
                 Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(outputs.clone())),
                 Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
                 Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
@@ -192,8 +200,19 @@ fn started_fine() {
         telescope_system::update_guard::confirm(&dir);
         // Every start, not just after an update: an old version's files can still be locked the first time
         telescope_system::update_guard::clean_up_after_update(&dir, None);
+        // Only now: had this copy failed to start, the old one would still be there to use
+        let moved_from = MOVED_FROM.get().cloned().flatten().or_else(|| telescope_system::setup_move::pending_move(&dir));
+        if let Some(old) = moved_from {
+            // Not detached from the process, so quitting straight away still lets it finish (a few seconds at most)
+            let _ = std::thread::spawn(move || {
+                telescope_system::setup_move::finish_move(&old, &dir, &telescope_system::setup_move::desktop_folders());
+            });
+        }
     });
 }
+
+/// --moved-from: the unzipped folder this installed copy replaced.
+static MOVED_FROM: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
 
 fn main() {
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
@@ -231,7 +250,7 @@ fn main() {
     };
     let minimized = flag(&mut words, "--minimized");
     let wait_for_lock = flag(&mut words, "--after-update") | flag(&mut words, "--restarted");
-    let _moved_from = value(&mut words, "--moved-from");
+    let _ = MOVED_FROM.set(value(&mut words, "--moved-from").map(PathBuf::from));
     let remote = telescope_system::shortcuts::RemoteActions::default();
     let after_update = std::env::args().any(|a| a == "--after-update");
     // Before the window: an update cut short is finished, or one that never started is rolled back
@@ -264,18 +283,15 @@ fn main() {
         Some("control") => cli::control(&args, &services(None, remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
-            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false))
+            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
         None => match take_lock(wait_for_lock, &remote) {
             Some(()) => {
-                std::thread::spawn(|| {
-                    std::thread::sleep(STARTED_FINE);
-                    started_fine();
-                });
-                let result = telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized));
-                started_fine();
-                result
+                let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
+                confirm::run_confirming(STARTED_FINE, confirm, |shown| {
+                    telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized, Some(shown)))
+                })
             }
             None => Ok(()),
         },

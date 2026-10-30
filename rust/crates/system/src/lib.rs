@@ -7,6 +7,7 @@ pub mod hotkeys_portal;
 pub mod hotkeys_windows;
 pub mod keys;
 pub mod shortcuts;
+pub mod setup_move;
 pub mod single_instance;
 pub mod startup;
 #[cfg(target_os = "linux")]
@@ -42,7 +43,10 @@ pub fn open_url(url: &str) {
 /// This desktop's tray icon: StatusNotifierItem on Linux, the notification area on Windows; None where neither shows.
 pub fn system_tray() -> Option<Box<dyn telescope_core::system::Tray>> {
     #[cfg(target_os = "linux")]
-    return tray::SniTray::new().map(|t| Box::new(t) as Box<dyn telescope_core::system::Tray>);
+    return tray::SniTray::new().map(|t| {
+        TRAY_SHOWN.store(true, std::sync::atomic::Ordering::SeqCst);
+        Box::new(t) as Box<dyn telescope_core::system::Tray>
+    });
     #[cfg(windows)]
     return tray_windows::WindowsTray::new().map(|t| Box::new(t) as Box<dyn telescope_core::system::Tray>);
     #[cfg(not(any(target_os = "linux", windows)))]
@@ -58,13 +62,38 @@ pub fn notify_command(title: &str, body: &str, urgent: bool) -> Vec<String> {
         .into_iter().map(String::from).collect()
 }
 
+/// Whether the tray icon is showing, which Linux notifications fall back on without notify-send (send_notification's `elif self._tray`).
+static TRAY_SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// How a notification gets out.
+#[derive(Debug, PartialEq, Eq)]
+pub enum NotifyRoute {
+    NotifySend,
+    /// Through the tray icon, which on Linux is the desktop's notification service.
+    Tray,
+    Nowhere,
+}
+
+/// send_notification's choice: notify-send on Linux when it is installed, else the tray icon where there is one.
+pub fn notify_route(linux: bool, has_notify_send: bool, tray_shown: bool) -> NotifyRoute {
+    if linux && has_notify_send {
+        NotifyRoute::NotifySend
+    } else if tray_shown {
+        NotifyRoute::Tray
+    } else {
+        NotifyRoute::Nowhere
+    }
+}
+
 fn on_path(program: &str) -> bool {
     std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| d.join(program).is_file()))
 }
 
 impl Notifier for Desktop {
     fn notify(&self, title: &str, body: &str, urgent: bool) {
-        if cfg!(target_os = "linux") && on_path("notify-send") {
+        let route = notify_route(cfg!(target_os = "linux"), cfg!(target_os = "linux") && on_path("notify-send"),
+                                 TRAY_SHOWN.load(std::sync::atomic::Ordering::SeqCst));
+        if route == NotifyRoute::NotifySend {
             let cmd = notify_command(title, body, urgent);
             let spawned = std::process::Command::new(&cmd[0]).args(&cmd[1..])
                 .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn();
@@ -78,6 +107,13 @@ impl Notifier for Desktop {
         // Windows shows it as the tray icon's balloon, which needs the tray
         #[cfg(windows)]
         if tray_windows::balloon(title, body, urgent) {
+            return;
+        }
+        #[cfg(target_os = "linux")]
+        if route == NotifyRoute::Tray {
+            if let Err(e) = tray::desktop_message(title, body, urgent) {
+                log::warn!("Couldn't show a notification: {e}");
+            }
             return;
         }
         log::info!("Notification: {title}: {body}");
@@ -112,6 +148,18 @@ impl Updater for Desktop {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn without_notify_send_the_tray_shows_a_notification() {
+        use super::{notify_route, NotifyRoute::*};
+        assert_eq!(notify_route(true, true, true), NotifySend);
+        assert_eq!(notify_route(true, true, false), NotifySend);
+        assert_eq!(notify_route(true, false, true), Tray);
+        assert_eq!(notify_route(true, false, false), Nowhere);
+        // Windows has no notify-send: its tray balloon is the only way
+        assert_eq!(notify_route(false, false, true), Tray);
+        assert_eq!(notify_route(false, false, false), Nowhere);
+    }
+
     #[test]
     fn notifications_go_through_notify_send() {
         assert_eq!(super::notify_command("Telescope", "-Torch: on", false),

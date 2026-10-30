@@ -15,6 +15,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{RequestId, View};
 use telescope_core::i18n::tr;
 use telescope_core::plugin::{load_config_tolerantly, Plugin, PluginInfo};
+use telescope_core::services::PluginProblem;
 use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueAction, IssueDoes, TrayAction, UiEvent, UiSpec};
 use telescope_core::EventBus;
 
@@ -393,6 +394,27 @@ impl State {
             }
         }
         self.remind_plugins_off(&cfg);
+    }
+
+    /// Added plugins that are on but didn't start: remembered for the Plugins tab, with a warning banner saying which (load_plugins).
+    pub fn set_plugin_problems(&mut self, problems: &[PluginProblem]) {
+        self.problems = problems.iter().map(|p| (p.name.clone(), p.error.clone())).collect();
+        if problems.is_empty() {
+            return;
+        }
+        let titles: Vec<String> = problems.iter().map(|p| tr(&p.title)).collect();
+        let n = titles.len();
+        let title = if n < 4 {
+            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).replace("{plugins}", &crate::texts::and_list(&titles))
+        } else {
+            crate::texts::trn("{n} plugin didn't start", "{n} plugins didn't start", n)
+        };
+        let text = crate::texts::trn("Telescope works without it. The Plugins tab in Settings says what went wrong.",
+                                     "Telescope works without them. The Plugins tab in Settings says what went wrong.", n);
+        self.banners.show("plugins", Issue {
+            title, text, kind: "warn".into(), details: String::new(), tell_dismiss: false,
+            actions: vec![IssueAction { label: tr("Plugins…"), does: IssueDoes::OpenSettings { tab: "plugins".into() } }],
+        });
     }
 
     /// Once per change: which built-in plugins are off, so a card that's gone doesn't look like a bug.
@@ -997,6 +1019,30 @@ mod tests {
         assert!(s.index("notes").is_none() && s.index("setup").is_some());
         assert_eq!(s.plugins_off().len(), 1);
         assert!(s.banners.issue("plugins_off").is_some());
+    }
+
+    fn broken(name: &str, title: &str) -> PluginProblem {
+        PluginProblem { name: name.into(), title: title.into(), error: format!("{name} broke") }
+    }
+
+    #[test]
+    fn added_plugins_that_didnt_start_get_a_banner_with_a_plugins_action() {
+        let mut s = state();
+        s.set_plugin_problems(&[]);
+        assert!(s.banners.issue("plugins").is_none());
+        s.set_plugin_problems(&[broken("a", "Alpha")]);
+        let issue = s.banners.issue("plugins").unwrap().clone();
+        assert_eq!(issue.title, "Alpha didn't start");
+        assert_eq!(issue.text, "Telescope works without it. The Plugins tab in Settings says what went wrong.");
+        assert_eq!(issue.kind, "warn");
+        assert_eq!(issue.actions, vec![IssueAction { label: "Plugins…".into(), does: IssueDoes::OpenSettings { tab: "plugins".into() } }]);
+        assert_eq!(s.problems.get("a").map(String::as_str), Some("a broke"));
+        s.set_plugin_problems(&[broken("a", "Alpha"), broken("b", "Beta"), broken("c", "Gamma")]);
+        let issue = s.banners.issue("plugins").unwrap();
+        assert_eq!(issue.title, "Alpha, Beta and Gamma didn't start");
+        assert_eq!(issue.text, "Telescope works without them. The Plugins tab in Settings says what went wrong.");
+        s.set_plugin_problems(&[broken("a", "A"), broken("b", "B"), broken("c", "C"), broken("d", "D")]);
+        assert_eq!(s.banners.issue("plugins").unwrap().title, "4 plugins didn't start");
     }
 
     #[test]

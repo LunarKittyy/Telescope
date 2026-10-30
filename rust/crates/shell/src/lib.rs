@@ -33,4 +33,4 @@ pub mod view_control;
 pub mod window;
 pub mod worker;
 
-pub use window::{run, WindowOptions};
+pub use window::{run, ShownHook, WindowOptions};

@@ -187,6 +187,16 @@ pub struct SniTray {
     shared: Shared,
 }
 
+/// A notification through the desktop's notification service, which is what Qt's showMessage did on Linux (org.freedesktop.Notifications).
+pub fn desktop_message(title: &str, body: &str, urgent: bool) -> zbus::Result<()> {
+    let conn = Connection::session()?;
+    let icon = if urgent { "dialog-warning" } else { "dialog-information" };
+    let hints: HashMap<&str, Value> = HashMap::new();
+    conn.call_method(Some("org.freedesktop.Notifications"), "/org/freedesktop/Notifications", Some("org.freedesktop.Notifications"), "Notify",
+                     &("Telescope", 0u32, icon, title, body, Vec::<&str>::new(), hints, 0i32))?;
+    Ok(())
+}
+
 impl SniTray {
     /// The tray on the session bus, or None where nothing shows tray icons.
     pub fn new() -> Option<SniTray> {
