@@ -1712,7 +1712,7 @@ mod tests {
 
     #[test]
     fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
-        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default() };
+        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
         let seen = with_steps(Vec::new(), Some(vision), 2);
         let masks = seen.masks.lock().unwrap();
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
