@@ -29,7 +29,7 @@ component WheelCell inherits VerticalLayout {
     HorizontalLayout {
         Text { text: name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
-        Text { text: readout; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.accent; vertical-alignment: center; }
+        Text { text: readout; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.accent-soft; vertical-alignment: center; }
     }
     Wheel {
         puck-x: root.puck-x;
@@ -44,12 +44,12 @@ component WheelCell inherits VerticalLayout {
         reset => { root.reset(); }
         key(k, shift) => { root.key(k, shift); }
     }
-    // QSlider's 20px
+    // QSlider's 20px; the Slider keeps its own row height, centred on that
     Rectangle {
         height: 20px;
         Slider {
             width: parent.width;
-            height: parent.height;
+            y: (parent.height - self.height) / 2;
             has-readout: false;
             hue: root.hue;
             label: root.name;

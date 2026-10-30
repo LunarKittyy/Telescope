@@ -106,8 +106,8 @@ export component Card inherits Rectangle {
         padding-right: 17px;
         padding-top: 15px;
         padding-bottom: 17px;
-        // Qt skips a layout with nothing shown in it, spacing and all
-        spacing: folded || body.preferred-height == 0 ? 0 : 8px;
+        // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
+        spacing: folded || (fold-key == "" && body.preferred-height == 0) ? 0 : 8px;
         HorizontalLayout {
             spacing: 10px;
             padding-bottom: 2px;

@@ -75,17 +75,20 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
                 .map(|&i| format!("({}.visible ? 1 : 0)", cards[i].piece.id)).collect();
             if n.is_empty() { "0".into() } else { n.join(" + ") }
         });
+        let hint = mode_expr(|m| sum_hints(cards, &cols[m][c].0));
         out.push_str(&format!("    property <length> col{c}-pref: {pref};\n"));
         out.push_str(&format!("    property <int> col{c}-centers: {centers};\n"));
         out.push_str(&format!(
-            "    property <length> extra{c}: col{c}-centers > 0 ? max(0px, view-h - col{c}-pref) / col{c}-centers : 0px;\n"));
-        out.push_str(&format!("    property <length> s{c}: clamp(scroll{c}, 0px, max(0px, col{c}-pref - view-h));\n"));
-        out.push_str(&format!("    changed col{c}-pref => {{ check-bars(); }}\n"));
+            "    property <length> col{c}-full: col{c}-centers > 0 ? max(col{c}-pref, {hint}) : col{c}-pref;\n"));
+        out.push_str(&format!(
+            "    property <length> extra{c}: col{c}-centers > 0 ? max(0px, max(view-h, col{c}-full) - col{c}-pref) / col{c}-centers : 0px;\n"));
+        out.push_str(&format!("    property <length> s{c}: clamp(scroll{c}, 0px, max(0px, col{c}-full - view-h));\n"));
+        out.push_str(&format!("    changed col{c}-full => {{ check-bars(); }}\n"));
     }
     out.push_str("    changed view-h => { check-bars(); }\n    property <bool> bars-checked;\n    Timer { interval: 1ms; running: !root.bars-checked; triggered => { root.check-bars(); root.bars-checked = true; } }\n");
     out.push_str("    public function check-bars() {\n");
     for c in 0..3 {
-        out.push_str(&format!("        bar{c} = col{c}-pref > view-h;\n"));
+        out.push_str(&format!("        bar{c} = col{c}-full > view-h;\n"));
     }
     out.push_str("    }\n");
 
@@ -160,6 +163,20 @@ fn sum_heights(cards: &[CardPlace], list: &[usize]) -> String {
         return "0px".into();
     }
     let parts: Vec<String> = list.iter().map(|&i| format!("({p}.visible ? {p}.preferred-height + {GAP}px : 0px)", p = cards[i].piece.id)).collect();
+    format!("max(0px, {} - {GAP}px)", parts.join(" + "))
+}
+
+/// A column's height from its cards' size hints: a QVBoxLayout column adds them up, then the stage card (the only one that
+/// stretches) takes what that leaves over. A card's hint is its height plus its out property hint-extra, if it has one.
+fn sum_hints(cards: &[CardPlace], list: &[usize]) -> String {
+    if list.is_empty() {
+        return "0px".into();
+    }
+    let parts: Vec<String> = list.iter().map(|&i| {
+        let p = &cards[i].piece;
+        let more = if p.iface.outs.iter().any(|o| o == "hint-extra") { format!(" + {}.hint-extra", p.id) } else { String::new() };
+        format!("({id}.visible ? {id}.preferred-height{more} + {GAP}px : 0px)", id = p.id)
+    }).collect();
     format!("max(0px, {} - {GAP}px)", parts.join(" + "))
 }
 
@@ -255,7 +272,7 @@ export component TelescopeWindow inherits Window {
     property <length> body-top: 60px + banner-area.preferred-height + tiles-row.preferred-height;
     property <length> view-h: max(0px, root.height - 40px - body-top - 32px);
     property <length> body-w: max(0px, root.width - 32px);
-    out property <length> content-height: max(col0-pref, max(col1-pref, col2-pref));
+    out property <length> content-height: max(col0-full, max(col1-full, col2-full));
     // False for a card shown on its own (the card scenes), which doesn't fold
     in property <bool> card-folds: true;
     out property <length> view-top: body-top + 16px;
@@ -362,20 +379,20 @@ const BODY_TOP: &str = r#"
         TouchArea {
             scroll-event(e) => {
                 if (self.mouse-x >= root.c2x && root.c2w > 0) {
-                    root.scroll2 = clamp(root.s2 - e.delta-y, 0px, max(0px, root.col2-pref - root.view-h));
+                    root.scroll2 = clamp(root.s2 - e.delta-y, 0px, max(0px, root.col2-full - root.view-h));
                 } else if (self.mouse-x >= root.c1x && root.c1w > 0) {
-                    root.scroll1 = clamp(root.s1 - e.delta-y, 0px, max(0px, root.col1-pref - root.view-h));
+                    root.scroll1 = clamp(root.s1 - e.delta-y, 0px, max(0px, root.col1-full - root.view-h));
                 } else {
-                    root.scroll0 = clamp(root.s0 - e.delta-y, 0px, max(0px, root.col0-pref - root.view-h));
+                    root.scroll0 = clamp(root.s0 - e.delta-y, 0px, max(0px, root.col0-full - root.view-h));
                 }
                 accept
             }
 "#;
 
 const BODY_BOTTOM: &str = r#"        }
-        ColumnScrollbar { x: root.c0x + root.c0w - 11px; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-pref; viewport: root.view-h; offset <=> root.scroll0; }
-        ColumnScrollbar { x: root.c1x + root.c1w - 11px; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-pref; viewport: root.view-h; offset <=> root.scroll1; }
-        ColumnScrollbar { x: root.c2x + root.c2w - 11px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-pref; viewport: root.view-h; offset <=> root.scroll2; }
+        ColumnScrollbar { x: root.c0x + root.c0w - 11px; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
+        ColumnScrollbar { x: root.c1x + root.c1w - 11px; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
+        ColumnScrollbar { x: root.c2x + root.c2w - 11px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
     }
     Footer {
         x: 0;
@@ -408,6 +425,33 @@ export component Stage inherits Card {
     Text { text: words; height: 50px; }
 }
 "#;
+
+    const HINTED: &str = r#"
+import { Card } from "@ui-kit/ui-kit.slint";
+export component Hinted inherits Card {
+    out property <length> hint-extra: 16px;
+    title: "Hinted";
+    Text { text: "x"; height: 50px; }
+}
+"#;
+
+    #[test]
+    fn a_stage_card_takes_what_its_size_hint_adds_and_a_rails_card_doesnt() {
+        i_slint_backend_testing::init_no_event_loop();
+        let height = |region: Region| {
+            let (p0, f0) = piece("p0", "plugins/one/card.slint", "Hinted", HINTED);
+            let cards = vec![CardPlace { piece: p0, region, fold_key: "one/Hinted".into(), category: "preview".into() }];
+            let mut panels = Panels::default();
+            panels.place(region, 0, false, "preview");
+            let text = window(&cards, &panels, &[]);
+            let def = crate::compile::compile("window.slint", &text, vec![f0], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+            let win = def.create().unwrap();
+            win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+            win.window().set_size(slint::LogicalSize::new(1300.0, 40.0)); // shorter than the card: nothing to fill
+            match win.get_property("content-height").unwrap() { Value::Number(n) => n, v => panic!("{v:?}") }
+        };
+        assert_eq!(height(Region::Center) - height(Region::Right), 16.0);
+    }
 
     fn piece(id: &str, file: &str, component: &str, text: &str) -> (Piece, (String, String)) {
         (Piece { id: id.into(), file: file.into(), component: component.into(), iface: scan(text, component) }, (file.into(), text.into()))

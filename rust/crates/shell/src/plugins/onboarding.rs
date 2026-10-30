@@ -9,6 +9,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::host::RequestId;
+use telescope_core::text::{app_font, Face, Weight, BODY_AVERAGE_CHAR};
 use telescope_core::{BusSender, Host};
 
 /// The phone app's download link (version.release_asset_url): dev builds point at nightly.
@@ -21,6 +22,11 @@ pub type VcamCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 
 /// The answer to a virtual camera check comes back on the bus as a RequestDone with this id.
 const VCAM_CHECKED: RequestId = RequestId(u64::MAX - 1);
+
+/// The lines a label's sizeHint gives this text at the body size, which the card's height follows on the stage.
+fn hint_lines(text: &str, weight: Weight) -> u32 {
+    app_font(weight).map_or(0, |font| Face::em(font, 13.0).qt_hint_lines(text, BODY_AVERAGE_CHAR))
+}
 
 pub struct Onboarding {
     phones: u32,
@@ -60,7 +66,9 @@ impl Onboarding {
     /// The four steps as the card shows them.
     pub fn steps(&self) -> Vec<Value> {
         let step = |title: &str, text: String, kind: &str, done: bool, button: String, primary: bool| {
-            json!({"title": tr(title), "text": text, "kind": if done && kind == "status_dim" { "status_ok" } else { kind },
+            let title = tr(title);
+            json!({"title-lines": hint_lines(&title, Weight::SemiBold), "text-lines": hint_lines(&text, Weight::Regular), "title": title,
+                   "text": text, "kind": if done && kind == "status_dim" { "status_ok" } else { kind },
                    "done": done, "button": button, "primary": primary, "busy": false})
         };
         let vcam = if !self.vcam_checked {

@@ -360,3 +360,14 @@ fn a_line_with_no_room_for_the_ellipsis_is_dropped() {
     // a character outside the BMP is two units, so it is cut like any other text
     assert_eq!(f.elide("\u{1F600}", 10.0), "");
 }
+
+#[test]
+fn a_wrapped_labels_hint_guesses_at_80_then_40_then_20_characters() {
+    let Some(font) = app_font(Weight::Regular) else { return };
+    let face = Face::em(font, 13.0);
+    // What QLabel.sizeHint gave for these, at 16px a line
+    assert_eq!(face.qt_hint_lines("Start streaming", BODY_AVERAGE_CHAR), 1);
+    assert_eq!(face.qt_hint_lines("Press Start, then pick Telescope as the camera in your video app.", BODY_AVERAGE_CHAR), 2);
+    assert_eq!(face.qt_hint_lines("Set up the virtual camera so apps can see Telescope.", BODY_AVERAGE_CHAR), 2);
+    assert_eq!(face.qt_hint_lines("", BODY_AVERAGE_CHAR), 0);
+}

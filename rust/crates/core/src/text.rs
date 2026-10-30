@@ -93,6 +93,9 @@ pub fn font_named(names: &[&str]) -> Option<FontArc> {
     load(find_font_file(names)?, 400.0)
 }
 
+/// QFontMetrics.averageCharWidth for the app's font at the body size (13px).
+pub const BODY_AVERAGE_CHAR: f32 = 8.0;
+
 /// The app's own font (Inter, as the stylesheet asks for first) in this weight, else a sans the system has.
 pub fn app_font(weight: Weight) -> Option<FontArc> {
     static CACHE: [OnceLock<Option<FontArc>>; 2] = [OnceLock::new(), OnceLock::new()];
@@ -357,6 +360,39 @@ impl Face {
     /// How wide the text is on one line.
     pub fn advance(&self, text: &str) -> f32 {
         self.layout(text, 0.0).width
+    }
+
+    /// The text word-wrapped at `width`: how many lines, and how wide the widest is.
+    fn wrapped(&self, text: &str, width: f32) -> (u32, f32) {
+        let space = self.advance(" ");
+        let (mut lines, mut line, mut widest) = (u32::from(!text.is_empty()), 0.0f32, 0.0f32);
+        for word in text.split_whitespace() {
+            let w = self.advance(word);
+            if line > 0.0 && line + space + w > width {
+                lines += 1;
+                widest = widest.max(line);
+                line = w;
+            } else {
+                line += if line > 0.0 { space + w } else { w };
+            }
+        }
+        (lines, widest.max(line))
+    }
+
+    /// How many lines a word-wrapped QLabel's sizeHint gives the text, which it has to guess a width for: 80 average characters,
+    /// half that when it fits in under 4 lines, half again under 2 (QLabelPrivate::sizeForWidth). average_char is
+    /// QFontMetrics.averageCharWidth.
+    pub fn qt_hint_lines(&self, text: &str, average_char: f32) -> u32 {
+        let mut width = average_char * 80.0;
+        let (mut lines, mut widest) = self.wrapped(text, width);
+        if lines < 4 && widest > width / 2.0 {
+            width /= 2.0;
+            (lines, widest) = self.wrapped(text, width);
+        }
+        if lines < 2 && widest > width / 2.0 {
+            (lines, _) = self.wrapped(text, width / 2.0);
+        }
+        lines
     }
 
     /// How wide the ellipsis is: the main font's own glyph, else a fallback's.
