@@ -12,7 +12,7 @@
 //!
 //! main.py's own options: --action ID [NAME=VALUE ...] runs a shortcut action in the running copy, --list-actions
 //! lists them, --minimized starts in the tray, --after-update and --restarted wait for the old copy to let go of
-//! the lock, --moved-from FOLDER is taken and ignored until the updater is ported.
+//! the lock, --moved-from FOLDER is the unzipped copy the installed one replaced, which it removes once it has started fine.
 
 mod cli;
 mod confirm;
@@ -32,6 +32,14 @@ fn use_own_profile() {
         .unwrap_or_else(|| telescope_core::config::PathEnv::current().own_profile_folder());
     // Only this thread runs yet, so changing the environment can't race anything
     std::env::set_var(DEV_PROFILE_ENV, folder);
+}
+
+/// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
+fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
+    use telescope_system::updates_plugin::{RealBackend, UpdatesPlugin};
+    let mut backend = RealBackend::default();
+    backend.before_setup = Some(Arc::new(telescope_link::adb::stop_adb_server));
+    UpdatesPlugin::new(Arc::new(backend), telescope_system::version::channel())
 }
 
 /// tray: the window's run, which shows the tray icon.
@@ -68,7 +76,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
                 Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone())),
-                Box::new(telescope_system::updates_plugin::UpdatesPlugin::default()),
+                Box::new(updates_plugin()),
                 Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(outputs.clone())),
                 Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
                 Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
@@ -190,8 +198,19 @@ fn started_fine() {
         telescope_system::update_guard::confirm(&dir);
         // Every start, not just after an update: an old version's files can still be locked the first time
         telescope_system::update_guard::clean_up_after_update(&dir, None);
+        // Only now: had this copy failed to start, the old one would still be there to use
+        let moved_from = MOVED_FROM.get().cloned().flatten().or_else(|| telescope_system::setup_move::pending_move(&dir));
+        if let Some(old) = moved_from {
+            // Not detached from the process, so quitting straight away still lets it finish (a few seconds at most)
+            let _ = std::thread::spawn(move || {
+                telescope_system::setup_move::finish_move(&old, &dir, &telescope_system::setup_move::desktop_folders());
+            });
+        }
     });
 }
+
+/// --moved-from: the unzipped folder this installed copy replaced.
+static MOVED_FROM: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
 
 fn main() {
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
@@ -229,7 +248,7 @@ fn main() {
     };
     let minimized = flag(&mut words, "--minimized");
     let wait_for_lock = flag(&mut words, "--after-update") | flag(&mut words, "--restarted");
-    let _moved_from = value(&mut words, "--moved-from");
+    let _ = MOVED_FROM.set(value(&mut words, "--moved-from").map(PathBuf::from));
     let remote = telescope_system::shortcuts::RemoteActions::default();
     let after_update = std::env::args().any(|a| a == "--after-update");
     // Before the window: an update cut short is finished, or one that never started is rolled back

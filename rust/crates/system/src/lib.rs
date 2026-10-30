@@ -7,6 +7,7 @@ pub mod hotkeys_portal;
 pub mod hotkeys_windows;
 pub mod keys;
 pub mod shortcuts;
+pub mod setup_move;
 pub mod single_instance;
 pub mod startup;
 #[cfg(target_os = "linux")]
