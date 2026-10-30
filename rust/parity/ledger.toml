@@ -1631,9 +1631,9 @@
 # ── vcam
 "Waiting for camera" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::default_screen" }
 # ── vision_pack
-"The download contains unexpected paths, so it wasn't used." = { status = "todo" }
-"The download didn't match what this version of Telescope expects, so it wasn't used." = { status = "todo" }
-"There's no download for this computer yet." = { status = "todo" }
+"The download contains unexpected paths, so it wasn't used." = { status = "ported", rust = "rust/crates/vision/src/pack.rs" }
+"The download didn't match what this version of Telescope expects, so it wasn't used." = { status = "ported", rust = "rust/crates/vision/src/pack.rs" }
+"There's no download for this computer yet." = { status = "ported", rust = "rust/crates/vision/src/pack.rs" }
 # ── wait_screen
 "Choose a wait screen" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs" }
 "Choose image…" = { status = "ported", rust = "rust/crates/outputs/ui/wait_screen.slint" }
@@ -1703,7 +1703,7 @@
 "By {author}." = { status = "todo" }
 "Check for updates" = { status = "todo" }
 "Checking the existing build..." = { status = "todo" }
-"Cleaner edges with a one-time download (about {mb} MB)." = { status = "todo" }
+"Cleaner edges with a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Click a stream in the picture to change it." = { status = "todo" }
 "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -1725,7 +1725,7 @@
 "Download" = { status = "todo" }
 "Download about {mb} MB?" = { status = "todo" }
 "Download and switch on" = { status = "todo" }
-"Downloading… {percent}%" = { status = "todo" }
+"Downloading… {percent}%" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping." = { status = "todo" }
 "Drag to move the view. Double-click to centre it." = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "Drag towards a colour to add it. Double-click to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -1734,7 +1734,7 @@
 "Expanded. Press Space or Enter to collapse." = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/folds.slint" }
 "Fit its shape" = { status = "todo" }
 "From the next start" = { status = "todo" }
-"Getting ready…" = { status = "todo" }
+"Getting ready…" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Grid" = { status = "todo" }
 "How plugins work" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "In use" = { status = "todo" }
@@ -1755,9 +1755,9 @@
 "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files." = { status = "todo" }
 "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded." = { status = "todo" }
 "Make the box the stream's own shape again, with nothing cropped or stretched" = { status = "todo" }
-"MediaPipe didn't load on this computer. Copy diagnostics has the details." = { status = "todo" }
+"MediaPipe didn't load on this computer. Copy diagnostics has the details." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Move" = { status = "todo" }
-"Needs a one-time download (about {mb} MB)." = { status = "todo" }
+"Needs a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Needs the vision download" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Needs {needs}. To install them:" = { status = "todo" }
 "Needs {needs}. Your distro has them." = { status = "todo" }
@@ -1947,7 +1947,7 @@
 "test_app.py::test_a_dropped_stream_keeps_asking_the_phone_why" = { status = "todo" }
 "test_app.py::test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled" = { status = "todo" }
 "test_app.py::test_a_failed_hand_over_leaves_the_stream_where_it_was" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_failed_hand_over_leaves_the_stream_where_it_was" }
-"test_app.py::test_a_finished_vision_download_makes_vision_look_for_the_pack_again" = { status = "todo" }
+"test_app.py::test_a_finished_vision_download_makes_vision_look_for_the_pack_again" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::a_downloaded_pack_makes_a_missing_vision_look_again", note = "VisionHost calls pack_downloaded itself when its download works" }
 "test_app.py::test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light" = { status = "todo" }
 "test_app.py::test_a_frame_rate_lowered_for_the_heat_says_so" = { status = "todo" }
 "test_app.py::test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped" = { status = "todo" }
@@ -2061,7 +2061,7 @@
 "test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "test_app.py::test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" = { status = "todo" }
 "test_app.py::test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" = { status = "todo" }
-"test_app.py::test_people_are_tracked_steadily_and_carried_through_a_flip" = { status = "todo" }
+"test_app.py::test_people_are_tracked_steadily_and_carried_through_a_flip" = { status = "ported", rust = "rust/crates/vision/src/host_tests.rs::people_are_tracked_steadily_and_reach_the_bus" }
 "test_app.py::test_photo_options_follow_a_lens_switch" = { status = "todo" }
 "test_app.py::test_photos_follow_the_shown_streams_phone_and_tell_every_plugin" = { status = "todo" }
 "test_app.py::test_picking_another_source_while_the_phone_wakes_still_stops_the_phone" = { status = "todo" }
@@ -3263,16 +3263,16 @@
 "test_pairing_server.py::test_valid_payload_pairs_and_invokes_callback" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::valid_payload_pairs_and_invokes_callback" }
 "test_pairing_server.py::test_wrong_nonce_is_rejected" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::wrong_nonce_is_rejected" }
 # ── people
-"test_people.py::test_a_second_person_walking_behind_keeps_both_ids" = { status = "todo" }
-"test_people.py::test_box_and_face_come_from_the_points_the_model_is_sure_of" = { status = "todo" }
-"test_people.py::test_boxes_are_smoothed_and_the_one_there_longest_is_main" = { status = "todo" }
-"test_people.py::test_drop_outs_keep_the_same_person_and_the_count" = { status = "todo" }
-"test_people.py::test_flipping_the_picture_keeps_everyone_and_their_ids" = { status = "todo" }
-"test_people.py::test_one_update_with_a_ghost_doesnt_count" = { status = "todo" }
-"test_people.py::test_someone_gone_for_good_is_let_go_slowly" = { status = "todo" }
-"test_people.py::test_someone_new_counts_after_two_updates_in_a_row" = { status = "todo" }
-"test_people.py::test_tracking_is_kept_per_stream_and_forgets_what_stopped" = { status = "todo" }
-"test_people.py::test_two_skeletons_on_one_person_count_once" = { status = "todo" }
+"test_people.py::test_a_second_person_walking_behind_keeps_both_ids" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_a_second_person_walking_behind_keeps_both_ids" }
+"test_people.py::test_box_and_face_come_from_the_points_the_model_is_sure_of" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_box_and_face_come_from_the_points_the_model_is_sure_of" }
+"test_people.py::test_boxes_are_smoothed_and_the_one_there_longest_is_main" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_boxes_are_smoothed_and_the_one_there_longest_is_main" }
+"test_people.py::test_drop_outs_keep_the_same_person_and_the_count" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_drop_outs_keep_the_same_person_and_the_count" }
+"test_people.py::test_flipping_the_picture_keeps_everyone_and_their_ids" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_flipping_the_picture_keeps_everyone_and_their_ids" }
+"test_people.py::test_one_update_with_a_ghost_doesnt_count" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_one_update_with_a_ghost_doesnt_count" }
+"test_people.py::test_someone_gone_for_good_is_let_go_slowly" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_someone_gone_for_good_is_let_go_slowly" }
+"test_people.py::test_someone_new_counts_after_two_updates_in_a_row" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_someone_new_counts_after_two_updates_in_a_row" }
+"test_people.py::test_tracking_is_kept_per_stream_and_forgets_what_stopped" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_tracking_is_kept_per_stream_and_forgets_what_stopped" }
+"test_people.py::test_two_skeletons_on_one_person_count_once" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_two_skeletons_on_one_person_count_once" }
 # ── phone_check
 "test_phone_check.py::test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay" = { status = "todo" }
 "test_phone_check.py::test_gap_measurement_includes_the_last_frame_before_the_operation" = { status = "todo" }
@@ -4529,48 +4529,48 @@
 "test_view_controller.py::test_the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_them" = { status = "todo" }
 "test_view_controller.py::test_without_anything_setting_a_view_the_phone_is_left_alone_and_frames_go_through" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::without_anything_setting_a_view_the_phone_is_left_alone_and_frames_go_through" }
 # ── vision
-"test_vision.py::test_a_broken_mediapipe_fails_once_and_names_only_the_error" = { status = "todo" }
-"test_vision.py::test_a_failure_message_with_a_path_in_it_stays_out_of_diagnostics" = { status = "todo" }
-"test_vision.py::test_a_loader_finishing_after_shutdown_does_not_notify_the_window" = { status = "todo" }
-"test_vision.py::test_a_mask_is_worked_out_once_per_frame_and_per_stream" = { status = "todo" }
-"test_vision.py::test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked" = { status = "todo" }
-"test_vision.py::test_a_pose_model_nobody_feeds_closes_in_its_own_thread_and_comes_back" = { status = "todo" }
-"test_vision.py::test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library" = { status = "todo" }
-"test_vision.py::test_auto_framing_loads_a_pack_that_arrives_while_it_is_on" = { status = "todo" }
-"test_vision.py::test_before_its_ready_or_outside_a_stream_there_is_no_mask" = { status = "todo" }
-"test_vision.py::test_camera_noise_alone_doesnt_count_as_moving" = { status = "todo" }
-"test_vision.py::test_dropping_a_stream_closes_its_segmenter" = { status = "todo" }
-"test_vision.py::test_flipping_auto_framing_on_and_off_keeps_the_pose_model_loaded" = { status = "todo" }
-"test_vision.py::test_frames_for_people_are_spaced_out_and_made_small" = { status = "todo" }
-"test_vision.py::test_model_input_looks_like_one_area_shrink" = { status = "todo" }
-"test_vision.py::test_more_of_the_last_mask_carries_over_while_nothing_moves" = { status = "todo" }
-"test_vision.py::test_people_are_found_upright_and_put_where_they_are_shown" = { status = "todo" }
-"test_vision.py::test_people_are_looked_for_less_often_while_nothing_moves" = { status = "todo" }
-"test_vision.py::test_people_come_from_their_own_thread_only_while_wanted" = { status = "todo" }
-"test_vision.py::test_people_detection_finishing_after_shutdown_does_not_notify_the_window" = { status = "todo" }
-"test_vision.py::test_power_saving_runs_the_models_less_often_even_while_something_moves" = { status = "todo" }
-"test_vision.py::test_shutdown_waits_for_a_state_callback_already_in_progress" = { status = "todo" }
-"test_vision.py::test_the_real_models_find_a_person_shaped_blob" = { status = "todo" }
-"test_vision.py::test_the_real_pack_has_no_address_to_report_usage_to" = { status = "todo" }
-"test_vision.py::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" = { status = "todo" }
-"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "todo" }
-"test_vision.py::test_while_nothing_moves_the_mask_is_worked_out_less_often" = { status = "todo" }
-"test_vision.py::test_without_a_pack_its_missing_and_tries_again_later" = { status = "todo" }
+"test_vision.py::test_a_broken_mediapipe_fails_once_and_names_only_the_error" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_broken_mediapipe_fails_once_and_names_only_the_error" }
+"test_vision.py::test_a_failure_message_with_a_path_in_it_stays_out_of_diagnostics" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_failure_message_with_a_path_in_it_stays_out_of_diagnostics" }
+"test_vision.py::test_a_loader_finishing_after_shutdown_does_not_notify_the_window" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_loader_finishing_after_shutdown_does_not_notify_the_window" }
+"test_vision.py::test_a_mask_is_worked_out_once_per_frame_and_per_stream" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_mask_is_worked_out_once_per_frame_and_per_stream" }
+"test_vision.py::test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked" }
+"test_vision.py::test_a_pose_model_nobody_feeds_closes_in_its_own_thread_and_comes_back" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_pose_model_nobody_feeds_closes_in_its_own_thread_and_comes_back" }
+"test_vision.py::test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library" }
+"test_vision.py::test_auto_framing_loads_a_pack_that_arrives_while_it_is_on" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_auto_framing_loads_a_pack_that_arrives_while_it_is_on" }
+"test_vision.py::test_before_its_ready_or_outside_a_stream_there_is_no_mask" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_before_its_ready_or_outside_a_stream_there_is_no_mask", note = "Outside a stream can't happen: VisionService::person_mask takes the stream's id, which only a frame step's FrameContext has" }
+"test_vision.py::test_camera_noise_alone_doesnt_count_as_moving" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_camera_noise_alone_doesnt_count_as_moving" }
+"test_vision.py::test_dropping_a_stream_closes_its_segmenter" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_dropping_a_stream_closes_its_segmenter" }
+"test_vision.py::test_flipping_auto_framing_on_and_off_keeps_the_pose_model_loaded" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_flipping_auto_framing_on_and_off_keeps_the_pose_model_loaded" }
+"test_vision.py::test_frames_for_people_are_spaced_out_and_made_small" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_frames_for_people_are_spaced_out_and_made_small" }
+"test_vision.py::test_model_input_looks_like_one_area_shrink" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_model_input_looks_like_one_area_shrink" }
+"test_vision.py::test_more_of_the_last_mask_carries_over_while_nothing_moves" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_more_of_the_last_mask_carries_over_while_nothing_moves" }
+"test_vision.py::test_people_are_found_upright_and_put_where_they_are_shown" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_are_found_upright_and_put_where_they_are_shown" }
+"test_vision.py::test_people_are_looked_for_less_often_while_nothing_moves" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_are_looked_for_less_often_while_nothing_moves" }
+"test_vision.py::test_people_come_from_their_own_thread_only_while_wanted" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_come_from_their_own_thread_only_while_wanted" }
+"test_vision.py::test_people_detection_finishing_after_shutdown_does_not_notify_the_window" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_detection_finishing_after_shutdown_does_not_notify_the_window" }
+"test_vision.py::test_power_saving_runs_the_models_less_often_even_while_something_moves" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_power_saving_runs_the_models_less_often_even_while_something_moves" }
+"test_vision.py::test_shutdown_waits_for_a_state_callback_already_in_progress" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_shutdown_waits_for_a_state_callback_already_in_progress" }
+"test_vision.py::test_the_real_models_find_a_person_shaped_blob" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_models_find_a_person_shaped_blob", note = "Also checks the astronaut's mask and pose against Python's recording: identical on the a0043f33 pack" }
+"test_vision.py::test_the_real_pack_has_no_address_to_report_usage_to" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_pack_has_no_address_to_report_usage_to" }
+"test_vision.py::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" }
+"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "ported", rust = "rust/crates/shell/src/worker.rs", note = "FrameContext::source_id, which person_mask passes on to the vision service" }
+"test_vision.py::test_while_nothing_moves_the_mask_is_worked_out_less_often" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_while_nothing_moves_the_mask_is_worked_out_less_often" }
+"test_vision.py::test_without_a_pack_its_missing_and_tries_again_later" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_without_a_pack_its_missing_and_tries_again_later" }
 # ── vision_pack
-"test_vision_pack.py::test_a_computer_without_a_pack_gets_no_download" = { status = "todo" }
-"test_vision_pack.py::test_a_download_much_bigger_than_expected_is_stopped" = { status = "todo" }
-"test_vision_pack.py::test_a_download_that_escapes_its_folder_is_refused" = { status = "todo" }
-"test_vision_pack.py::test_a_download_with_other_files_is_refused_and_leaves_nothing" = { status = "todo" }
-"test_vision_pack.py::test_a_dropped_connection_says_to_check_the_internet" = { status = "todo" }
-"test_vision_pack.py::test_a_failed_download_remembers_why_for_the_plugin_that_waited" = { status = "todo" }
-"test_vision_pack.py::test_a_good_download_is_unpacked_under_its_id_and_older_packs_go" = { status = "todo" }
-"test_vision_pack.py::test_mediapipes_usage_report_is_pointed_somewhere_unreachable" = { status = "todo" }
-"test_vision_pack.py::test_pack_hash_uses_case_sensitive_path_order_on_every_platform" = { status = "todo" }
-"test_vision_pack.py::test_pack_notices_have_the_same_bytes_on_every_build_platform" = { status = "todo" }
-"test_vision_pack.py::test_the_asset_is_named_by_platform_and_pack_id" = { status = "todo" }
-"test_vision_pack.py::test_the_committed_packs_are_for_both_platforms" = { status = "todo" }
-"test_vision_pack.py::test_the_pack_script_runs_without_opencv_or_the_apps_other_packages" = { status = "todo" }
-"test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open" = { status = "todo" }
+"test_vision_pack.py::test_a_computer_without_a_pack_gets_no_download" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_computer_without_a_pack_gets_no_download" }
+"test_vision_pack.py::test_a_download_much_bigger_than_expected_is_stopped" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_download_much_bigger_than_expected_is_stopped" }
+"test_vision_pack.py::test_a_download_that_escapes_its_folder_is_refused" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_download_that_escapes_its_folder_is_refused" }
+"test_vision_pack.py::test_a_download_with_other_files_is_refused_and_leaves_nothing" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_download_with_other_files_is_refused_and_leaves_nothing" }
+"test_vision_pack.py::test_a_dropped_connection_says_to_check_the_internet" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_dropped_connection_says_to_check_the_internet" }
+"test_vision_pack.py::test_a_failed_download_remembers_why_for_the_plugin_that_waited" = { status = "ported", rust = "rust/crates/vision/src/host_tests.rs::test_a_failed_download_remembers_why_for_the_plugin_that_waited" }
+"test_vision_pack.py::test_a_good_download_is_unpacked_under_its_id_and_older_packs_go" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_a_good_download_is_unpacked_under_its_id_and_older_packs_go" }
+"test_vision_pack.py::test_mediapipes_usage_report_is_pointed_somewhere_unreachable" = { status = "dropped", reason = "Tests scripts/build_vision_pack.py, which keeps building the one pack both apps load; there's no Rust side to it" }
+"test_vision_pack.py::test_pack_hash_uses_case_sensitive_path_order_on_every_platform" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_pack_hash_uses_case_sensitive_path_order_on_every_platform" }
+"test_vision_pack.py::test_pack_notices_have_the_same_bytes_on_every_build_platform" = { status = "dropped", reason = "Tests scripts/build_vision_pack.py, which keeps building the one pack both apps load; there's no Rust side to it" }
+"test_vision_pack.py::test_the_asset_is_named_by_platform_and_pack_id" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_the_asset_is_named_by_platform_and_pack_id" }
+"test_vision_pack.py::test_the_committed_packs_are_for_both_platforms" = { status = "ported", rust = "rust/crates/vision/src/pack_tests.rs::test_the_committed_packs_are_for_both_platforms" }
+"test_vision_pack.py::test_the_pack_script_runs_without_opencv_or_the_apps_other_packages" = { status = "dropped", reason = "Tests scripts/build_vision_pack.py, which keeps building the one pack both apps load; there's no Rust side to it" }
+"test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open" = { status = "ported", rust = "rust/crates/vision/src/host_tests.rs::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open", note = "The shell switches the plugin on from vision_download_finished (shell.rs deliver_events); that half has no test yet" }
 # ── wait_screen
 "test_wait_screen.py::test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen" }
 "test_wait_screen.py::test_a_chosen_image_is_kept_next_to_the_config" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::a_chosen_image_is_kept_next_to_the_config" }
@@ -6092,10 +6092,10 @@
 "path:/sys/class/video4linux/" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::locked_size_in" }
 "path:/sys/class/video4linux/video*/name" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::find_by_label_in" }
 # ── vision_pack
-"folder:telescope/vision_pack.py:_unpack:shutil.rmtree" = { status = "todo" }
-"folder:telescope/vision_pack.py:default_dir:Path.home" = { status = "todo" }
-"folder:telescope/vision_pack.py:download:shutil.rmtree" = { status = "todo" }
-"folder:telescope/vision_pack.py:remove:shutil.rmtree" = { status = "todo" }
+"folder:telescope/vision_pack.py:_unpack:shutil.rmtree" = { status = "ported", rust = "rust/crates/vision/src/pack.rs::unpack" }
+"folder:telescope/vision_pack.py:default_dir:Path.home" = { status = "ported", rust = "rust/crates/vision/src/pack.rs::default_dir", note = "The same folder as Python's, so either app's pack works for both" }
+"folder:telescope/vision_pack.py:download:shutil.rmtree" = { status = "ported", rust = "rust/crates/vision/src/pack.rs::download" }
+"folder:telescope/vision_pack.py:remove:shutil.rmtree" = { status = "ported", rust = "rust/crates/vision/src/pack.rs::remove" }
 # ── wait_screen
 "folder:telescope/plugins/wait_screen.py:_choose:Path.home" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs::choose", note = "Where the file dialog opens" }
 # ── webcams
