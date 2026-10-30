@@ -6,6 +6,7 @@ use telescope_core::plugin::Plugin;
 use telescope_core::ui::{SlintSource, UiSpec};
 use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
+use telescope_effects::composite_plugin::CompositePlugin;
 use telescope_effects::desk::DeskPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
@@ -99,6 +100,9 @@ fn the_cards_have_what_their_plugins_use() {
     has_what_the_plugin_uses(&mut photos, &[
         "take-clicked", "open-clicked", "choice-picked", "quality-moved", "number-edited", "timer-picked", "best-toggled", "folder-clicked",
     ]);
+    let mut composite = CompositePlugin::new();
+    compile(&mut composite);
+    has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked"]);
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);

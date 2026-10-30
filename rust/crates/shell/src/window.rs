@@ -147,6 +147,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
              opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     let mut state = State::new(file);
     state.link = services.as_ref().map(|s| s.link.clone());
+    state.frames = services.as_ref().and_then(|s| s.media.stream_frames()).map(|f| f as Arc<dyn telescope_core::host::FrameStore>);
     let plugins = plugins(&state.bus.sender());
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();

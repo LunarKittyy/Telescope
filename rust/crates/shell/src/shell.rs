@@ -252,6 +252,8 @@ pub struct State {
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
+    /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
+    pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
     pub window_active: bool,
     /// The Microphone card's (enabled, muted), for the tray's tooltip.
@@ -298,6 +300,7 @@ impl State {
             off: Vec::new(),
             builtins: Vec::new(),
             problems: BTreeMap::new(),
+            frames: None,
             keep_in_tray: false,
             link: None,
             window_active: false,

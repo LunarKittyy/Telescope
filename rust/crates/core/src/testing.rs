@@ -121,6 +121,12 @@ pub struct FakeHost {
     pub still_busy: bool,
     /// The photos asked for, as (options, folder) in order.
     pub stills_taken: Vec<(Value, String)>,
+    /// What stream_on_camera() answers, as (slot, source id, width, height).
+    pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
+    /// Streams is_streaming_from() says run, besides the focused one while streaming.
+    pub live: Vec<String>,
+    /// What frames() hands out in place of stream_frames, for a test that changes the frames as it goes.
+    pub frame_store: Option<Arc<dyn FrameStore>>,
     next_request: u64,
 }
 
@@ -194,7 +200,7 @@ impl HostStreams for FakeHost {
         self.restarting
     }
     fn is_streaming_from(&self, source_id: Option<&str>) -> bool {
-        self.streaming && source_id.map(str::to_string) == self.focused
+        (self.streaming && source_id.map(str::to_string) == self.focused) || source_id.is_some_and(|id| self.live.iter().any(|l| l == id))
     }
     fn stream_count(&self) -> u32 {
         if self.streaming { self.streams.unwrap_or(1) } else { 0 }
@@ -252,8 +258,8 @@ impl HostStreams for FakeHost {
     fn stream_output(&self, _source_id: &str) -> String {
         String::new()
     }
-    fn stream_on_camera(&self, _slot: u32) -> Option<(String, Option<u32>, Option<u32>)> {
-        None
+    fn stream_on_camera(&self, slot: u32) -> Option<(String, Option<u32>, Option<u32>)> {
+        self.cameras.iter().find(|c| c.0 == slot).map(|c| (c.1.clone(), c.2, c.3))
     }
     fn remove_extra_cameras(&mut self) -> RequestId {
         self.note("remove_extra_cameras");
@@ -431,6 +437,9 @@ impl HostVision for FakeHost {
 
 impl HostFrames for FakeHost {
     fn frames(&self) -> Arc<dyn FrameStore> {
+        if let Some(store) = &self.frame_store {
+            return store.clone();
+        }
         if self.stream_frames.is_empty() { Arc::new(NoFrames) } else { Arc::new(HeldFrames(self.stream_frames.clone())) }
     }
 }

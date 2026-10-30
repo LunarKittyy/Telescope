@@ -2,6 +2,9 @@
 //! LUT files (`cube`) are here too; the pixel work goes through core's shader steps and colour pipeline.
 
 pub mod chroma_key;
+pub mod composite;
+pub mod composite_plugin;
+pub mod compositor;
 pub mod cpu;
 pub mod cube;
 pub mod desk;
