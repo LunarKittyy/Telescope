@@ -71,7 +71,7 @@ pub fn take_samples(odd: &mut Vec<u8>, data: &[u8]) -> Vec<f32> {
     let mut all = std::mem::take(odd);
     all.extend_from_slice(data);
     let whole = all.len() - all.len() % 2;
-    let samples = all[..whole].chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]]) as f32).collect();
+    let samples = all[..whole].as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes([b[0], b[1]]) as f32).collect();
     *odd = all[whole..].to_vec();
     samples
 }

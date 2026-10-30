@@ -32,6 +32,8 @@ pub enum Page {
     /// One plugin's card alone, CARD_WIDTH wide with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
+    /// A window of a plugin's own, opened as its card opens it (plugin, the card's callback, the window's id).
+    PluginWindow { plugin: String, open: String, id: String },
 }
 
 thread_local! {
@@ -48,6 +50,11 @@ pub fn every_optional() -> bool {
 pub const CARD_WIDTH: f32 = 480.0;
 pub const CARD_MARGIN: f32 = 16.0;
 
+/// Builds a scene's plugins in place of the built-ins.
+pub type PluginList = fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>;
+/// What a scene does to its window once it's settled.
+pub type AfterBuilt = Box<dyn FnOnce(&std::rc::Rc<window::Window>)>;
+
 /// How to put the window in a scene's state.
 pub struct Setup {
     /// What the plugins run on (a stand-in link answering what the scene needs); None for the built-ins alone.
@@ -59,9 +66,9 @@ pub struct Setup {
     pub height: f32,
     pub page: Page,
     /// Builds the plugins in place of the built-ins and the services' ones.
-    pub plugins: Option<fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>>,
+    pub plugins: Option<PluginList>,
     /// Called once the window has settled, to do what the Python scene does after building it.
-    pub then: Option<Box<dyn FnOnce(&std::rc::Rc<window::Window>)>>,
+    pub then: Option<AfterBuilt>,
     /// Start every optional plugin, as translation_scenes.main_window registers them all; false for a scene built through
     /// load_plugins (loaded_window), where only the ones switched on start.
     pub every_optional: bool,
@@ -169,6 +176,14 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
                 let m = CARD_MARGIN;
                 crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)
             })
+        }
+        Page::PluginWindow { plugin, open, id } => {
+            if !w.call_ui(plugin, "card", open) {
+                return Err(format!("{plugin}'s card has no {open}"));
+            }
+            settle(&w);
+            let shown = w.plugin_window(plugin, id).ok_or("the window didn't open")?;
+            crate::offscreen::draw(shown.window(), setup.width, setup.height, scale)
         }
         Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w.ui, &p, frame, owner, scale)),
         Page::SettingsDialog { tab, call, frame, owner } => {

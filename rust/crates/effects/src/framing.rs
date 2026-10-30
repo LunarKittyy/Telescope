@@ -1,6 +1,7 @@
 //! The Auto framing plugin (plugins/framing.py): zooms and pans to keep the people in the picture framed, through the window's view.
 
 use crate::shared::Paired;
+use crate::vision_row;
 use serde_json::{json, Value};
 use telescope_core::actions::{self, round_half_even, SliderSpec};
 use telescope_core::event::Event;
@@ -11,7 +12,7 @@ use telescope_core::pose::{arm, body, hands_out, upright, Person, ARM_SEEN, SEEN
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{pan_for, shown_to_view, view_to_shown, window_centre, Geometry};
-use telescope_core::vision::{status_text, turned, Turn};
+use telescope_core::vision::{turned, Turn};
 
 pub const NAME: &str = "framing";
 const TITLE: &str = n_("Auto framing");
@@ -401,8 +402,8 @@ impl FramingPlugin {
     }
 
     fn show_status(&self, host: &mut dyn Host) {
-        let (text, download) = status_text(self.status_active, &self.status_problem, false, &host.vision_state(), &host.vision_pack());
-        host.set_ui_props("card", &json!({"status": text, "status-download": download}));
+        let row = vision_row::props(&*host, self.status_active, &self.status_problem);
+        host.set_ui_props("card", &row);
     }
 
     fn apply(&mut self, host: &mut dyn Host, on: bool) {
@@ -581,7 +582,7 @@ impl Plugin for FramingPlugin {
             Event::PeopleSeen { source_id, people } => self.on_people(host, source_id, people),
             Event::ViewChanged { view } => self.on_view_changed(view),
             Event::MaxZoomChanged { max_zoom } => self.max_zoom = MAX_ZOOM.min(*max_zoom as f64),
-            Event::VisionStateChanged { .. } | Event::VisionDownloadProgress { .. } | Event::VisionDownloadFinished { .. } => self.show_status(host),
+            e if vision_row::changes_it(e) => self.show_status(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK && self.steering => {
                 self.tick(host);
                 host.schedule(TICK_MS, T_TICK);

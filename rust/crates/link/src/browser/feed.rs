@@ -420,6 +420,20 @@ impl AudioQueue {
         }
         self.more.notify_all();
     }
+
+    fn close(&self) {
+        let mut b = self.buf.lock().unwrap_or_else(|e| e.into_inner());
+        b.1 = true;
+        self.more.notify_all();
+    }
+}
+
+struct AudioStopper(Arc<AudioQueue>);
+
+impl FeedStopper for AudioStopper {
+    fn stop(&self) {
+        self.0.close();
+    }
 }
 
 /// The browser's mic as the audio worker reads it (BrowserAudioStream).
@@ -443,9 +457,7 @@ impl BrowserAudio {
     }
 
     pub fn close(&self) {
-        let mut b = self.queue.buf.lock().unwrap_or_else(|e| e.into_inner());
-        b.1 = true;
-        self.queue.more.notify_all();
+        self.queue.close();
     }
 }
 
@@ -456,6 +468,10 @@ impl AudioFeed for BrowserAudio {
             return Err(FeedEnd::Stopped);
         }
         Ok(AudioPacket { data, time_ns: telescope_core::time::monotonic_ns() })
+    }
+
+    fn stopper(&self) -> Option<Box<dyn FeedStopper>> {
+        Some(Box::new(AudioStopper(self.queue.clone())))
     }
 }
 
@@ -513,4 +529,27 @@ impl VideoFeed for BrowserVideo {
     }
 
     fn decoded(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stopping_a_silent_mic_wakes_its_reader_and_unregisters_it() {
+        let feed = Arc::new(BrowserFeed::new());
+        let mut mic = feed.open_audio().unwrap();
+        assert_eq!(feed.page_config().1["audio"], true);
+        let stopper = mic.stopper().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let read = mic.read();
+            drop(mic);
+            let _ = tx.send(matches!(read, Err(FeedEnd::Stopped)));
+        });
+        std::thread::sleep(Duration::from_millis(50));
+        stopper.stop();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)), Ok(true));
+        assert_eq!(feed.page_config().1["audio"], false);
+    }
 }

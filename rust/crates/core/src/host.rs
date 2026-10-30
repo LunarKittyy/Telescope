@@ -105,11 +105,14 @@ pub enum Shape {
     Dim { points: Vec<[f32; 2]>, color: String },
 }
 
+/// The function inside a StageFn.
+pub type StageFnBox = Arc<dyn Fn(&mut [f32]) + Send + Sync>;
+
 /// How to work a colour stage out exactly at any colours: RGB triples 0..1 in, the changed ones out in place (colour.ColourStage.fn).
 /// A stage that has one is evaluated at the previous stage's output when stages are put one after the other; one that doesn't
 /// (a plugin in another process) is read off its baked lattice.
 #[derive(Clone, Default)]
-pub struct StageFn(pub Option<Arc<dyn Fn(&mut [f32]) + Send + Sync>>);
+pub struct StageFn(pub Option<StageFnBox>);
 
 impl std::fmt::Debug for StageFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -339,6 +342,13 @@ pub trait HostUi {
     fn set_ui_image(&mut self, _ui: &str, _prop: &str, _frame: &Frame) {}
     /// This plugin's actions changed (a list a param offers, say): the host asks Plugin::actions again.
     fn refresh_actions(&mut self) {}
+    /// Opens a window of this plugin's own beside the main one (a dialog that isn't modal, like Composite's Edit picture), or
+    /// brings it forward when it's open. window.ui's component inherits Window and sets its title. It goes by id as a piece of UI: set_ui_props(id)
+    /// reaches it, its callbacks come to Plugin::on_ui with ui = id, and "closed" comes once it's closed. A host with no window
+    /// ignores it.
+    fn open_window(&mut self, _id: &str, _window: &crate::ui::WindowSpec) {}
+    /// Closes this plugin's window with this id, if it's open ("closed" still comes).
+    fn close_window(&mut self, _id: &str) {}
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.

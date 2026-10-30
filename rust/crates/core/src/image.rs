@@ -9,8 +9,8 @@ pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let mut out = Vec::with_capacity(w * h * 3);
     match frame.format {
-        PixelFormat::Rgba => frame.data.chunks_exact(4).for_each(|p| out.extend_from_slice(&p[..3])),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).for_each(|p| out.extend([p[2], p[1], p[0]])),
+        PixelFormat::Rgba => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend_from_slice(&p[..3])),
+        PixelFormat::Bgra => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend([p[2], p[1], p[0]])),
         PixelFormat::I420 => {
             let (y, u, v) = frame.i420_planes()?;
             let cw = w.div_ceil(2);

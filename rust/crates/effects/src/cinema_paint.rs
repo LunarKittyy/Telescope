@@ -5,7 +5,6 @@
 
 use crate::cinema_tools::*;
 use crate::cpu::Rgb;
-use crate::imgops::resize_area;
 use crate::scopes::{self, Bgra};
 use std::sync::{Arc, Mutex};
 use telescope_core::frame::{Frame, PixelFormat};
@@ -146,7 +145,7 @@ impl Canvas {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data.chunks_exact(4).all(|p| p[3] == 0)
+        self.data.as_chunks::<4>().0.iter().all(|p| p[3] == 0)
     }
 }
 
@@ -221,6 +220,7 @@ pub fn paint_level(canvas: &mut Canvas, rect: Rect, level: &Level, scale: f64) {
         }
     }
     let Some(face) = face(9.0, scale) else { return };
+    #[allow(clippy::type_complexity)] // a throwaway row: text, colour, alpha, position
     let mut labels: Vec<(String, [u8; 3], u8, (f64, f64))> = Vec::new();
     if let Some(roll) = level.roll {
         labels.push((format!("{:.1}°", roll.abs()), colour, colour_alpha, (c.0 + half + 8.0 * scale, c.1 - 8.0 * scale)));
@@ -350,12 +350,41 @@ impl CinemaLayer {
             if name == look.scope {
                 let (x, y, w, h) = scope_target(rect, (image.w, image.h), look.scope_size, scale);
                 let (tw, th) = ((w.round() as usize).max(1), (h.round() as usize).max(1));
-                let scaled = Bgra { w: tw, h: th, data: resize_area(&image.data, image.w, image.h, 4, tw, th) };
+                let scaled = Bgra { w: tw, h: th, data: smooth_scale(&image.data, image.w, image.h, tw, th) };
                 canvas.image(&scaled, x.round() as i64, y.round() as i64);
             }
         }
         (!canvas.is_empty()).then_some(canvas)
     }
+}
+
+/// QPainter.drawImage with SmoothPixmapTransform: bilinear on premultiplied colour, so see-through pixels don't darken what's
+/// next to them.
+fn smooth_scale(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8> {
+    let at = |x: usize, y: usize| -> [f32; 4] {
+        let p = &src[(y * w + x) * 4..][..4];
+        let a = p[3] as f32 / 255.0;
+        [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, p[3] as f32]
+    };
+    let mut out = Vec::with_capacity(tw * th * 4);
+    for ty in 0..th {
+        let sy = (((ty as f32 + 0.5) * h as f32 / th as f32) - 0.5).clamp(0.0, (h - 1) as f32);
+        let (y0, fy) = (sy.floor() as usize, sy.fract());
+        let y1 = (y0 + 1).min(h - 1);
+        for tx in 0..tw {
+            let sx = (((tx as f32 + 0.5) * w as f32 / tw as f32) - 0.5).clamp(0.0, (w - 1) as f32);
+            let (x0, fx) = (sx.floor() as usize, sx.fract());
+            let x1 = (x0 + 1).min(w - 1);
+            let (a, b, c, d) = (at(x0, y0), at(x1, y0), at(x0, y1), at(x1, y1));
+            let mix: [f32; 4] = std::array::from_fn(|i| (a[i] * (1.0 - fx) + b[i] * fx) * (1.0 - fy) + (c[i] * (1.0 - fx) + d[i] * fx) * fy);
+            let alpha = mix[3] / 255.0;
+            for colour in &mix[..3] {
+                out.push(if alpha > 0.0 { (colour / alpha).round().min(255.0) as u8 } else { 0 });
+            }
+            out.push(mix[3].round() as u8);
+        }
+    }
+    out
 }
 
 impl PreviewPass for CinemaLayer {

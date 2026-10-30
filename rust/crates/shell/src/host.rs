@@ -217,9 +217,15 @@ impl HostCamera for Ctx<'_> {
 }
 
 impl HostSources for Ctx<'_> {
-    fn add_stream_source(&mut self, _source: Arc<dyn StreamSource>) {}
-    fn remove_stream_source(&mut self, _source_id: &str) {}
-    fn stream_source(&mut self, _source_id: &str) {}
+    fn add_stream_source(&mut self, source: Arc<dyn StreamSource>) {
+        self.state.effects.push(Effect::AddSource(crate::shell::OfferedSource(source)));
+    }
+    fn remove_stream_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::RemoveSource(source_id.into()));
+    }
+    fn stream_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::StreamSource(source_id.into()));
+    }
 }
 
 impl HostShell for Ctx<'_> {
@@ -323,6 +329,12 @@ impl HostUi for Ctx<'_> {
     fn refresh_actions(&mut self) {
         self.state.effects.push(Effect::RefreshActions(self.me.clone()));
     }
+    fn open_window(&mut self, id: &str, window: &telescope_core::ui::WindowSpec) {
+        self.state.effects.push(Effect::OpenWindow { plugin: self.me.clone(), id: id.into(), window: window.clone() });
+    }
+    fn close_window(&mut self, id: &str) {
+        self.state.effects.push(Effect::CloseWindow { plugin: self.me.clone(), id: id.into() });
+    }
 }
 
 impl HostView for Ctx<'_> {
@@ -390,16 +402,21 @@ impl HostFrames for Ctx<'_> {
 }
 
 impl HostMotion for Ctx<'_> {
-    fn watch_motion(&mut self, _owner: &str, _zones: &[[f32; 4]], _sensitivity: u32) {}
-    fn motion(&self, _owner: &str) -> Vec<u32> {
-        Vec::new()
+    fn watch_motion(&mut self, owner: &str, zones: &[[f32; 4]], sensitivity: u32) {
+        self.state.motion.watch(owner, &telescope_core::motion::widen(zones), i64::from(sensitivity));
+    }
+    fn motion(&self, owner: &str) -> Vec<u32> {
+        self.focused_source_id().map(|id| self.state.motion.moving(&id, owner)).unwrap_or_default()
     }
 }
 
 impl HostPreview for Ctx<'_> {
-    fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
+    fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
+        self.state.layers.insert(owner.to_string(), layer);
+    }
     fn remove_preview_layer(&mut self, owner: &str) {
         self.state.passes.retain(|(o, _)| o != owner);
+        self.state.layers.remove(owner);
         self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
     }
     fn refresh_preview(&mut self) {

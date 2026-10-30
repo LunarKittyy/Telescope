@@ -76,10 +76,14 @@ pub struct Window {
     painted: Cell<u64>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
+    /// The layers' shapes last handed to the preview card, so they're only set again when they change.
+    layers_drawn: RefCell<(Vec<crate::overlays::LayerPath>, Vec<crate::overlays::LayerText>)>,
     /// The first frame shown has been written to the log.
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
+    plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
 }
 
@@ -138,7 +142,7 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
 fn image_of(frame: &Frame) -> Option<slint::Image> {
     let pixels: Vec<u8> = match frame.format {
         PixelFormat::Rgba => frame.data.to_vec(),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
+        PixelFormat::Bgra => frame.data.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
         _ => return None,
     };
     if pixels.len() != frame.width as usize * frame.height as usize * 4 {
@@ -230,8 +234,10 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
         passes: RefCell::default(),
+        layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
@@ -486,6 +492,7 @@ impl Window {
         }
         self.show_banners();
         self.paint_pick();
+        self.paint_layers();
     }
 
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
@@ -497,7 +504,9 @@ impl Window {
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
         let card = on("visible-card") && on("showing");
-        if !(popout.is_some() || card) || !on("camera-on") || !self.is_streaming() {
+        let window = self.ui.window();
+        let seen = window.is_visible() && !window.is_minimized();
+        if !crate::preview::wants_frames(popout.is_some(), card, seen) || !on("camera-on") || !self.is_streaming() {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
@@ -546,7 +555,7 @@ impl Window {
         };
         let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
             Some(shown) => {
-                let rgb: Vec<u8> = shown.data.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+                let rgb: Vec<u8> = shown.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
                 slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h))
             }
             None => {
@@ -568,15 +577,52 @@ impl Window {
         let name = |n: &str| if id.is_empty() { n.to_string() } else { format!("{id}-{n}") };
         let _ = target.set_property(&name("frame"), SValue::Image(image));
         let _ = target.set_property(&name("has-frame"), SValue::Bool(true));
-        // What passes draw over the frame, as one picture the size of the frame
+        // What passes draw over the frame, as one picture the size it's shown at
         let mut work = self.passes.borrow_mut();
-        if work.overlay_due(dirty, (w, h)) {
-            let overlay = work.overlay(&passes, w, h, self.ui.window().scale_factor());
+        let shown = crate::preview::shown_size((frame.width, frame.height), stage);
+        if work.overlay_due(dirty, shown) {
+            let overlay = work.overlay(&passes, shown.0, shown.1, self.ui.window().scale_factor());
             let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));
             if let Some(overlay) = overlay {
                 let _ = target.set_property(&name("overlay"), SValue::Image(overlay));
             }
         }
+    }
+
+    /// The shapes plugins draw on the preview card's picture (add_preview_layer), at the picture's size now.
+    fn paint_layers(&self) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
+        let name = |n: &str| format!("{}-{n}", r.id);
+        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let drawing = crate::overlays::layer_drawing(&self.state.borrow().layers, number("pic-width"), number("pic-height"));
+        if *self.layers_drawn.borrow() == drawing {
+            return;
+        }
+        let colour = |c: Option<[u8; 4]>| {
+            let [r, g, b, a] = c.unwrap_or([0; 4]);
+            SValue::Brush(slint::Brush::SolidColor(slint::Color::from_argb_u8(a, r, g, b)))
+        };
+        let paths: Vec<SValue> = drawing.0.iter().map(|p| {
+            SValue::Struct(Struct::from_iter([
+                ("commands".to_string(), SValue::String(p.commands.as_str().into())),
+                ("stroke".to_string(), colour(p.stroke)),
+                ("width".to_string(), SValue::Number(if p.stroke.is_some() { p.width as f64 } else { 0.0 })),
+                ("fill".to_string(), colour(p.fill)),
+                ("evenodd".to_string(), SValue::Bool(p.evenodd)),
+            ]))
+        }).collect();
+        let texts: Vec<SValue> = drawing.1.iter().map(|t| {
+            SValue::Struct(Struct::from_iter([
+                ("x".to_string(), SValue::Number(t.x as f64)),
+                ("y".to_string(), SValue::Number(t.y as f64)),
+                ("text".to_string(), SValue::String(t.text.as_str().into())),
+                ("color".to_string(), colour(Some(t.color))),
+                ("size".to_string(), SValue::Number(t.size as f64)),
+            ]))
+        }).collect();
+        let _ = self.ui.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
+        let _ = self.ui.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
+        *self.layers_drawn.borrow_mut() = drawing;
     }
 
     /// The pick under way on the preview card's picture (overlays.rs), drawn from the overlays as they are now.
@@ -672,7 +718,89 @@ impl Window {
         done
     }
 
+    /// HostUi::open_window: builds the plugin's window and shows it, or shows it again when it's open.
+    fn open_plugin_window(self: &Rc<Self>, plugin: &str, id: &str, spec: &telescope_core::ui::WindowSpec) {
+        if let Some((_, _, open)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id) {
+            let _ = open.show();
+            return;
+        }
+        let (file, text) = source_of(plugin, id, &spec.ui);
+        let component = &spec.ui.component;
+        // Its file goes through the loader as a card's does, so its texts are translated
+        let doc = format!("export {{ {component} }} from \"{file}\";\n");
+        let files = match &spec.ui.source {
+            SlintSource::Text(_) => vec![(file.clone(), text.clone())],
+            SlintSource::File(_) => Vec::new(),
+        };
+        let built = crate::compile::compile(&format!("{plugin}-{id}-window.slint"), &doc, files, component)
+            .and_then(|d| d.create().map_err(|e| e.to_string()));
+        let ui = match built {
+            Ok(ui) => ui,
+            Err(e) => {
+                log::error!("{plugin}'s window {id} didn't build: {e}");
+                return;
+            }
+        };
+        ui.window().set_size(slint::LogicalSize::new(spec.size[0], spec.size[1]));
+        for cb in scan(&text, component).callbacks {
+            let (plugin, id, weak) = (plugin.to_string(), id.to_string(), Rc::downgrade(self));
+            let callback = cb.clone();
+            let _ = ui.set_callback(&cb, move |args| {
+                if let Some(w) = weak.upgrade() {
+                    let event = UiEvent { ui: id.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                    w.state.borrow_mut().ui_event(&plugin, event);
+                    w.process();
+                }
+                SValue::Void
+            });
+        }
+        let (p, i, weak) = (plugin.to_string(), id.to_string(), Rc::downgrade(self));
+        ui.window().on_close_requested(move || {
+            let (p, i, weak) = (p.clone(), i.clone(), weak.clone());
+            // After the close request returns, since dropping the window inside its own handler isn't safe
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(w) = weak.upgrade() {
+                    w.close_plugin_window(&p, &i);
+                }
+            });
+            slint::CloseRequestResponse::HideWindow
+        });
+        Self::set_window_props(&ui, plugin, id, &spec.ui.props);
+        let _ = ui.show();
+        self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
+    }
+
+    /// A plugin's own window while it's open.
+    pub fn plugin_window(&self, plugin: &str, id: &str) -> Option<ComponentInstance> {
+        self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id).map(|(_, _, w)| w.clone_strong())
+    }
+
+    /// HostUi::close_window, or the person closed it: gone, and the plugin hears "closed".
+    fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
+        let gone = {
+            let mut windows = self.plugin_windows.borrow_mut();
+            windows.iter().position(|(p, i, _)| p == plugin && i == id).map(|at| windows.remove(at))
+        };
+        let Some((_, _, ui)) = gone else { return };
+        let _ = ui.hide();
+        drop(ui);
+        self.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: "closed".into(), args: Vec::new() });
+        self.process();
+    }
+
+    fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
+        for (k, v) in props.as_object().into_iter().flatten() {
+            let like = ui.get_property(k).unwrap_or(SValue::Void);
+            if let Err(e) = ui.set_property(k, to_slint(v, &like)) {
+                log::warn!("{plugin} set {k} on its window {id}: {e:?}");
+            }
+        }
+    }
+
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
+        if let Some((_, _, window)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == ui) {
+            return Self::set_window_props(window, plugin, ui, props);
+        }
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
             // Not a card or a header: one of its settings sections, if the settings window has been built
             if let Some(settings) = crate::settings::current() {
@@ -695,6 +823,12 @@ impl Window {
             log::warn!("{plugin} gave its {ui} a {:?} picture, which can't be shown", picture.format);
             return;
         };
+        if let Some((_, _, window)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == ui) {
+            if let Err(e) = window.set_property(prop, SValue::Image(image)) {
+                log::warn!("{plugin} set {prop} on its window {ui}: {e:?}");
+            }
+            return;
+        }
         match self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) {
             Some(r) => {
                 if let Err(e) = self.ui.set_property(&format!("{}-{prop}", r.id), SValue::Image(image)) {
@@ -713,6 +847,11 @@ impl Window {
         match effect {
             Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
             Effect::Image { plugin, ui, prop, picture } => self.set_image(&plugin, &ui, &prop, &picture.0),
+            Effect::AddSource(source) => self.add_plugin_source(source.0),
+            Effect::RemoveSource(id) => self.remove_plugin_source(&id),
+            Effect::StreamSource(id) => self.stream_plugin_source(&id),
+            Effect::OpenWindow { plugin, id, window } => self.open_plugin_window(&plugin, &id, &window),
+            Effect::CloseWindow { plugin, id } => self.close_plugin_window(&plugin, &id),
             Effect::RefreshActions(plugin) => {
                 let mut state = self.state.borrow_mut();
                 if let Some(i) = state.index(&plugin) {
@@ -912,6 +1051,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         if let Some(w) = weak.upgrade() {
             w.paint_preview();
             w.paint_pick();
+            w.paint_layers();
             w.watch_focus();
         }
     });

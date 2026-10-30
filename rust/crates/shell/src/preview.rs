@@ -104,9 +104,37 @@ pub fn fit_within(frame: (u32, u32), stage: (u32, u32)) -> (u32, u32) {
     (((w * scale).round() as u32).max(1), ((h * scale).round() as u32).max(1))
 }
 
+/// Where the picture lands on the stage, in px: fit_within without the cap, since a small frame is drawn bigger. Overlays are
+/// painted at this size, so their lines and text stay the same on any stream (the rect PreviewLayer.paint gets).
+pub fn shown_size(frame: (u32, u32), stage: (u32, u32)) -> (u32, u32) {
+    let (w, h) = (frame.0.max(1) as f64, frame.1.max(1) as f64);
+    let scale = (stage.0 as f64 / w).min(stage.1 as f64 / h);
+    (((w * scale).round() as u32).max(1), ((h * scale).round() as u32).max(1))
+}
+
+/// process_frame's gate: the pop-out always shows; the card only while it's shown in a window someone can see.
+pub fn wants_frames(popout: bool, card: bool, window_seen: bool) -> bool {
+    popout || (card && window_seen)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_small_stream_in_a_big_window_is_shown_at_the_windows_size() {
+        assert_eq!(shown_size((640, 360), (1280, 720)), (1280, 720));
+        assert_eq!(shown_size((1920, 1080), (640, 640)), (640, 360));
+        assert_eq!(shown_size((640, 360), (0, 0)), (1, 1));
+    }
+
+    #[test]
+    fn a_window_hidden_in_the_tray_paints_nothing_but_the_pop_out_goes_on() {
+        assert!(wants_frames(false, true, true));
+        assert!(!wants_frames(false, true, false), "nothing to see, so a pass's painted_at must not move");
+        assert!(wants_frames(true, true, false));
+        assert!(!wants_frames(false, false, true));
+    }
 
     #[test]
     fn frames_shrink_to_the_stage_but_never_grow() {

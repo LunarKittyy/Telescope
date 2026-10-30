@@ -6,6 +6,7 @@ pub mod hotkeys;
 pub mod hotkeys_portal;
 pub mod hotkeys_windows;
 pub mod keys;
+pub mod memory;
 pub mod shortcuts;
 pub mod setup_move;
 pub mod single_instance;
@@ -19,6 +20,7 @@ pub mod update_guard;
 pub mod updates;
 pub mod updates_plugin;
 pub mod version;
+pub mod winapp;
 
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
 

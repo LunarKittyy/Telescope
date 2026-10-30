@@ -99,8 +99,8 @@ export component Card inherits Rectangle {
     in property <string> extra-label;
     in property <string> extra-name: extra-label;
     callback extra;
-    // A folding card's title is a styled label 6px taller than the 30px chip; a settings card's header is the chip's height
-    property <length> lift: fold-key != "" ? 3px : 0px;
+    // A folding card's title is a styled label 6px taller than the 30px chip, a header switch's row 2px (its 32px size hint)
+    property <length> lift: fold-key != "" ? 3px : has-switch ? 1px : 0px;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -110,11 +110,12 @@ export component Card inherits Rectangle {
         padding-right: 17px;
         padding-top: 15px;
         padding-bottom: 17px;
-        spacing: folded ? 0 : 8px;
+        // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
+        spacing: folded || (fold-key == "" && body.preferred-height == 0) ? 0 : 8px;
         HorizontalLayout {
             spacing: 10px;
             padding-bottom: 2px;
-            height: fold-key != "" ? 38px : 32px;
+            height: 32px + 2 * lift;
             Rectangle {
                 y: lift;
                 width: 30px;
@@ -208,7 +209,7 @@ export component Card inherits Rectangle {
             }
         }
         // The rows sit in a box that is as tall as they are, or no taller than nothing while folded
-        Rectangle {
+        body := Rectangle {
             min-height: 0px;
             preferred-height: folded ? 0px : rows.preferred-height;
             max-height: folded ? 0px : 100000px;

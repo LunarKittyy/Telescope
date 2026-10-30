@@ -431,10 +431,12 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
     }
 }
 
+type TagKey = (Spec, u32, u32);
+
 /// The last rendered tag, kept until the spec or the canvas size changes.
 #[derive(Default)]
 pub struct TagCache {
-    entry: Option<((Spec, u32, u32), Option<std::sync::Arc<Tag>>)>,
+    entry: Option<(TagKey, Option<std::sync::Arc<Tag>>)>,
     /// How many times it painted, for tests.
     pub renders: usize,
 }

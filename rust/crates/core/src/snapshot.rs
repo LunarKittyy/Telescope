@@ -129,6 +129,14 @@ mod tests {
     }
 
     #[test]
+    fn there_is_a_fixture_for_each_kind_of_file() {
+        let names: Vec<String> = std::fs::read_dir(fixtures()).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        for kind in ["fresh-install", "cut-off", "version-1", "version-2", "future-version", "damaged-sections"] {
+            assert!(names.iter().any(|n| n == kind), "no fixture called {kind}");
+        }
+    }
+
+    #[test]
     fn dump_matches_the_fixture_format() {
         let folder = fixtures().join("fresh-install");
         let ours = snapshot(&folder, &scratch_dir("fresh"), &[], &[]).unwrap();

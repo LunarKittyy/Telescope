@@ -11,7 +11,7 @@ fn colour_for(pct: u32) -> [u8; 3] {
 }
 
 fn fraction(frame: &Rgb, rgb: [u8; 3]) -> f64 {
-    frame.data.chunks_exact(3).filter(|p| **p == rgb).count() as f64 / (frame.w * frame.h) as f64
+    frame.data.as_chunks::<3>().0.iter().filter(|p| **p == rgb).count() as f64 / (frame.w * frame.h) as f64
 }
 
 fn look() -> Look {

@@ -167,7 +167,7 @@ impl<P: FrameProcessor> Denoise for Denoiser<P> {
         let whole = all.len() - all.len() % FRAME;
         let mut out = std::mem::take(&mut self.out);
         let mut frame = vec![0f32; FRAME];
-        for chunk in all[..whole].chunks_exact(FRAME) {
+        for chunk in all[..whole].as_chunks::<FRAME>().0 {
             match self.state.as_mut() {
                 Some(state) => state.process_frame(&mut frame, chunk),
                 None => frame.copy_from_slice(chunk),

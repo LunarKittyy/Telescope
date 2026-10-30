@@ -5,6 +5,9 @@ import { Theme, Icons, Card, Button } from "@ui-kit/ui-kit.slint";
 export struct Step {
     title: string,
     text: string,
+    // The lines their QLabels' sizeHint gives them, at the width Qt guesses
+    title-lines: int,
+    text-lines: int,
     // "status_dim", "status_ok", "status_warn" or "status_err"
     kind: string,
     done: bool,
@@ -22,6 +25,8 @@ component StepRow inherits HorizontalLayout {
     // Some step shows a button: they share one grid in Qt, so every step's text leaves room for the button column
     in property <bool> button-column;
     callback clicked;
+    // How much more room Qt's size hints want for its text than it needs at this width
+    out property <length> hint-gap: max(0px, step.title-lines * 16px - title.preferred-height) + max(0px, step.text-lines * 16px - body.preferred-height);
     spacing: 14px;
     VerticalLayout {
         alignment: start;
@@ -46,8 +51,8 @@ component StepRow inherits HorizontalLayout {
         padding-top: 3px;
         spacing: 4px;
         alignment: start;
-        Text { text: step.title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
-        Text {
+        title := Text { text: step.title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
+        body := Text {
             text: step.text;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
@@ -95,6 +100,8 @@ export component OnboardingCard inherits Card {
     in property <int> qr-size;
     callback step-clicked(int);
     callback close;
+    // What its wrapped text's size hints add to the card's: a column with a stage card grows by it (doc.rs)
+    out property <length> hint-extra: s0.hint-gap + s1.hint-gap + s2.hint-gap + s3.hint-gap;
     property <bool> any-button: steps[0].button != "" || steps[1].button != "" || steps[2].button != "" || steps[3].button != "";
     title: @tr("Get set up");
     icon: Icons.check;
@@ -106,14 +113,41 @@ export component OnboardingCard inherits Card {
         padding-top: 4px;
         spacing: 22px;
         alignment: start;
-        for step[i] in steps: StepRow {
-            number: i + 1;
-            step: step;
-            qr-shown: i == 1 && root.qr-shown;
+        s0 := StepRow {
+            number: 1;
+            step: steps[0];
+            qr-shown: false;
             qr-cells: root.qr-cells;
             qr-size: root.qr-size;
             button-column: root.any-button;
-            clicked => { root.step-clicked(i); }
+            clicked => { root.step-clicked(0); }
+        }
+        s1 := StepRow {
+            number: 2;
+            step: steps[1];
+            qr-shown: root.qr-shown;
+            qr-cells: root.qr-cells;
+            qr-size: root.qr-size;
+            button-column: root.any-button;
+            clicked => { root.step-clicked(1); }
+        }
+        s2 := StepRow {
+            number: 3;
+            step: steps[2];
+            qr-shown: false;
+            qr-cells: root.qr-cells;
+            qr-size: root.qr-size;
+            button-column: root.any-button;
+            clicked => { root.step-clicked(2); }
+        }
+        s3 := StepRow {
+            number: 4;
+            step: steps[3];
+            qr-shown: false;
+            qr-cells: root.qr-cells;
+            qr-size: root.qr-size;
+            button-column: root.any-button;
+            clicked => { root.step-clicked(3); }
         }
     }
 }

@@ -429,7 +429,7 @@ pub(crate) mod tests {
         }
         fn shape_all(&mut self, x: &[f64]) -> Vec<f32> {
             let x = ints(x);
-            x.chunks_exact(CHUNK).flat_map(|c| self.shape(c)).map(|v| v as f32).collect()
+            x.as_chunks::<CHUNK>().0.iter().flat_map(|c| self.shape(c)).map(|v| v as f32).collect()
         }
     }
 

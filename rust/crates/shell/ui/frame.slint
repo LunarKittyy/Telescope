@@ -214,11 +214,12 @@ export component Banner inherits Rectangle {
     border-color: data.kind == "warn" ? #5c4a2a : #5a3134;
     accessible-role: groupbox;
     accessible-label: data.title;
+    // banner.py's margins sit inside the QSS border; here the border is inside the padding
     HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 10px;
-        padding-top: 12px;
-        padding-bottom: 12px;
+        padding-left: 15px;
+        padding-right: 11px;
+        padding-top: 13px;
+        padding-bottom: 13px;
         spacing: 12px;
         VerticalLayout {
             alignment: start;

@@ -512,7 +512,7 @@ impl Settings {
                     continue;
                 }
                 let r = rect(e);
-                let card = cards.iter().filter(|(_, c)| kind == "setting" && r.1 >= c.1 && r.1 < c.1 + c.3).map(|(n, _)| n.clone()).last().unwrap_or_default();
+                let card = cards.iter().filter(|(_, c)| kind == "setting" && r.1 >= c.1 && r.1 < c.1 + c.3).map(|(n, _)| n.clone()).next_back().unwrap_or_default();
                 out.push(Entry {
                     card: if kind == "card" { label.clone() } else { card },
                     name: label,
@@ -591,7 +591,7 @@ impl Settings {
     /// The Plugins tab's tiles as the search and filter leave them.
     pub fn show_panel(&self) {
         let query = match self.ui.get_property("plugin-query") { Ok(SValue::String(q)) => q.to_string(), _ => String::new() };
-        let filter = match self.ui.get_property("plugin-filter") { Ok(SValue::Number(n)) if n == 1.0 => Filter::On, Ok(SValue::Number(n)) if n == 2.0 => Filter::Off, _ => Filter::All };
+        let filter = match self.ui.get_property("plugin-filter") { Ok(SValue::Number(1.0)) => Filter::On, Ok(SValue::Number(2.0)) => Filter::Off, _ => Filter::All };
         let panel = self.panel.borrow();
         let own = self.window.upgrade().is_none_or(|w| w.ui.get_global_property("Theme", "own-hues").map_or(true, |v| v == SValue::Bool(true)));
         let link = |l: &Option<plugins_tab::Link>| l.as_ref().map(|l| (l.text.clone(), l.url.clone())).unwrap_or_default();

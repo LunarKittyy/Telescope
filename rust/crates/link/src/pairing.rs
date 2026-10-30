@@ -85,6 +85,7 @@ struct Shared {
     /// One offer pairs one phone; a second (two plugged in, both sent the USB offer) is refused.
     claimed: Mutex<Option<String>>,
     on_paired: Box<dyn Fn(PairingResult) + Send + Sync>,
+    stop: AtomicBool,
 }
 
 impl Shared {
@@ -114,7 +115,6 @@ impl Shared {
 pub struct PairingServer {
     pub offer: PairingOffer,
     shared: Arc<Shared>,
-    stop: Arc<AtomicBool>,
 }
 
 impl PairingServer {
@@ -146,16 +146,16 @@ impl PairingServer {
         let usb = [PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
         let offer = PairingOffer { payload: payload_for(&candidates), usb_payload: payload_for(&usb), port, nonce: nonce.clone(),
                                    token: token.clone(), candidates };
-        let shared = Arc::new(Shared { nonce, token, limits, open: Mutex::default(), claimed: Mutex::default(), on_paired: Box::new(on_paired) });
-        let stop = Arc::new(AtomicBool::new(false));
-        let (serving, stopped) = (shared.clone(), stop.clone());
-        std::thread::Builder::new().name("pairing-server".into()).spawn(move || serve(listener, serving, stopped))?;
-        Ok(PairingServer { offer, shared, stop })
+        let shared = Arc::new(Shared { nonce, token, limits, open: Mutex::default(), claimed: Mutex::default(), on_paired: Box::new(on_paired), stop: AtomicBool::new(false) });
+        let serving = shared.clone();
+        std::thread::Builder::new().name("pairing-server".into()).spawn(move || serve(listener, serving))?;
+        Ok(PairingServer { offer, shared })
     }
 
-    /// Stops taking connections (idempotent); the port closes within a moment.
+    /// Refuses every request from now on, ones on a connection already open too (idempotent); the port closes within a
+    /// moment.
     pub fn stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
+        self.shared.stop.store(true, Ordering::SeqCst);
     }
 
     /// How many connections each address has open now.
@@ -174,8 +174,8 @@ fn bind(port: u16) -> std::io::Result<TcpListener> {
     TcpListener::bind(("0.0.0.0", port))
 }
 
-fn serve(listener: TcpListener, shared: Arc<Shared>, stop: Arc<AtomicBool>) {
-    while !stop.load(Ordering::SeqCst) {
+fn serve(listener: TcpListener, shared: Arc<Shared>) {
+    while !shared.stop.load(Ordering::SeqCst) {
         let (conn, addr) = match listener.accept() {
             Ok(c) => c,
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -258,6 +258,9 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result
     let mut body = vec![0u8; length as usize];
     reader.read_exact(&mut body)?;
     let Some(result) = check(&body, &shared.nonce, &shared.token, source_ip) else { return respond(conn, "400 Bad Request", b"") };
+    if shared.stop.load(Ordering::SeqCst) {
+        return respond(conn, "404 Not Found", b"");
+    }
     let taken = {
         let mut claimed = shared.claimed.lock().unwrap();
         let taken = claimed.as_deref().is_some_and(|id| id != result.phone_id);
@@ -556,6 +559,23 @@ mod tests {
             assert_eq!((data["computer_id"].as_str(), data["computer_name"].as_str()), (Some("pc-9"), Some("Desk")));
             assert_eq!((data["nonce"].as_str(), data["token"].as_str()), (Some(server.offer.nonce.as_str()), Some(server.offer.token.as_str())));
         }
+    }
+
+    #[test]
+    fn a_request_on_a_connection_from_before_the_stop_is_refused() {
+        let (server, paired) = server();
+        let offer = server.offer.clone();
+        let body = pair_body(&offer);
+        let mut conn = TcpStream::connect(("127.0.0.1", offer.port)).unwrap();
+        conn.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        write!(conn, "POST /pair/{} HTTP/1.1\r\nContent-Length: {}\r\n\r\n", offer.nonce, body.len()).unwrap();
+        wait_until(|| !server.open_connections().is_empty());
+        server.stop();
+        conn.write_all(&body).unwrap();
+        let mut reply = String::new();
+        let _ = conn.read_to_string(&mut reply);
+        assert!(reply.starts_with("HTTP/1.1 404"), "{reply}");
+        assert!(paired.lock().unwrap().is_empty());
     }
 
     #[test]

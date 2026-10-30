@@ -96,8 +96,8 @@ pub fn status_text(active: bool, problem: &str, optional: bool, state: &str, pac
     } else if !problem.is_empty() {
         (problem.to_string(), false)
     } else if pack.downloading {
-        let text = if pack.size > 0 {
-            tr("Downloading… {percent}%").replace("{percent}", &(pack.done * 100 / pack.size).min(99).to_string())
+        let text = if let Some(percent) = (pack.done * 100).checked_div(pack.size) {
+            tr("Downloading… {percent}%").replace("{percent}", &percent.min(99).to_string())
         } else {
             tr("Downloading…")
         };

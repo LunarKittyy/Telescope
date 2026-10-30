@@ -561,4 +561,50 @@ mod tests {
         let at = |x: usize| s.data[20 * 160 + x];
         assert!(at(79) > 0 && at(79) < 255 && at(5) == 0 && at(155) == 255);
     }
+
+    /// test_pictures.py's scene: gradients with a disc in the middle.
+    fn scene(w: usize, h: usize) -> Rgb {
+        let mut image = Rgb::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let inside = (x as f64 - (w / 2) as f64).powi(2) + (y as f64 - (h / 2) as f64).powi(2) <= ((h / 4) as f64).powi(2);
+                let px = if inside { [40, 200, 90] } else {
+                    [(x as f32 / w as f32 * 255.0) as u8, (y as f32 / h as f32 * 255.0) as u8, ((x + y) as f32 / (w + h) as f32 * 255.0) as u8]
+                };
+                image.data[(y * w + x) * 3..(y * w + x) * 3 + 3].copy_from_slice(&px);
+            }
+        }
+        image
+    }
+
+    fn mean_gap(a: &Rgb, b: &Rgb) -> f64 {
+        a.data.iter().zip(&b.data).map(|(x, y)| (*x as i32 - *y as i32).abs() as f64).sum::<f64>() / a.data.len() as f64
+    }
+
+    #[test]
+    fn shrink_gives_the_size_asked_for_and_looks_like_one_area_step() {
+        let frame = scene(1920, 1080);
+        for (w, h) in [(120, 67), (240, 135), (256, 144), (128, 72), (1500, 900), (1920, 1080)] {
+            let out = frame.shrink(w, h);
+            assert_eq!((out.w, out.h, out.data.len()), (w, h, w * h * 3));
+            assert!(mean_gap(&out, &frame.area(w, h)) < 1.5, "{w} x {h}");
+        }
+    }
+
+    #[test]
+    fn shrink_by_powers_of_two_matches_one_area_step_to_a_level() {
+        let frame = scene(1920, 1080);
+        let (a, b) = (frame.shrink(240, 135), frame.area(240, 135));
+        assert!(a.data.iter().zip(&b.data).all(|(x, y)| (*x as i32 - *y as i32).abs() <= 1));
+    }
+
+    #[test]
+    fn shrink_takes_one_channel_and_odd_sizes() {
+        let mut mask = Gray::new(1923, 1081);
+        for y in 300..800 {
+            mask.data[y * 1923 + 600..y * 1923 + 1300].fill(255);
+        }
+        let out = mask.shrink(120, 67);
+        assert_eq!((out.w, out.h, out.data.len()), (120, 67, 120 * 67));
+    }
 }

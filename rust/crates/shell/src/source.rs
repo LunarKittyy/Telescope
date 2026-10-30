@@ -182,7 +182,7 @@ fn declare(stmt: &str, iface: &mut Interface) {
     };
     match kind {
         "property" if first == "out" => {
-            let after = stmt.splitn(2, "property").nth(1).unwrap_or("");
+            let after = stmt.split_once("property").map_or("", |x| x.1);
             let after = match after.trim_start().strip_prefix('<') {
                 Some(t) => skip_type(t),
                 None => after,
@@ -193,7 +193,7 @@ fn declare(stmt: &str, iface: &mut Interface) {
         }
         "property" if settable && first != "property" => {
             // Skip the <type>, which may hold spaces
-            let after = stmt.splitn(2, "property").nth(1).unwrap_or("");
+            let after = stmt.split_once("property").map_or("", |x| x.1);
             let after = match after.trim_start().strip_prefix('<') {
                 Some(t) => skip_type(t),
                 None => after,
@@ -203,7 +203,7 @@ fn declare(stmt: &str, iface: &mut Interface) {
             }
         }
         "callback" => {
-            let after = stmt.splitn(2, "callback").nth(1).unwrap_or("");
+            let after = stmt.split_once("callback").map_or("", |x| x.1);
             if let Some(name) = ident(after) {
                 iface.callbacks.push(name);
             }

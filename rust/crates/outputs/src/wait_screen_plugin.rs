@@ -84,7 +84,7 @@ fn picture_in(rgb: &Rgb, format: PixelFormat, mirror: bool) -> Option<Frame> {
         PixelFormat::Rgba => Frame::new(rgb.width, rgb.height, PixelFormat::Rgba, wait_screen::rgba(rgb, mirror)),
         PixelFormat::Bgra => {
             let mut data = wait_screen::rgba(rgb, mirror);
-            data.chunks_exact_mut(4).for_each(|p| p.swap(0, 2));
+            data.as_chunks_mut::<4>().0.iter_mut().for_each(|p| p.swap(0, 2));
             Frame::new(rgb.width, rgb.height, PixelFormat::Bgra, data)
         }
         _ => return None,
@@ -212,13 +212,15 @@ fn random_hex() -> String {
     format!("{:016x}", hasher.finish())
 }
 
+type Copier = Box<dyn Fn(&Path, &Path) -> std::io::Result<()> + Send>;
+
 pub struct WaitScreenPlugin {
     outputs: Arc<dyn Outputs>,
     covers: Arc<Covers>,
     /// The folder the chosen image is kept in: next to the config.
     folder: Box<dyn Fn() -> PathBuf + Send>,
     /// Copies a file (fs::copy), which a test can make fail.
-    copy: Box<dyn Fn(&Path, &Path) -> std::io::Result<()> + Send>,
+    copy: Copier,
     screen: Option<Box<dyn WaitScreen>>,
     /// The extra cameras' screens, kept once made (each registers for driver reloads).
     extras: BTreeMap<u32, Box<dyn WaitScreen>>,

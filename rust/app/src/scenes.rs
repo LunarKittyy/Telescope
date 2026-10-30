@@ -405,6 +405,19 @@ pub fn all() -> Vec<Scene> {
             ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
         }
     }));
+    // translation_scenes_camera.composite_editor_alone, with both streams stopped: a scene has none to run
+    scenes.push(Scene::new("composite-editor-alone", || {
+        let mut config = main_window_config(true);
+        config["plugin_configs"]["composite"] = json!({"layout": {"tiles": [
+            {"source_id": "phone:a", "name": "Pixel 8"},
+            {"source_id": "phone:b", "name": "Desk phone", "x": 0.62, "y": 0.6, "w": 0.33, "h": 0.33},
+        ]}});
+        Setup {
+            page: Page::PluginWindow { plugin: "composite".into(), open: "edit-clicked".into(), id: "editor".into() },
+            plugins: Some(|_| vec![Box::new(telescope_effects::composite_plugin::CompositePlugin::new()) as Box<dyn telescope_core::plugin::Plugin>]),
+            ..Setup::window(Some(services(quiet())), config, 1240.0, 760.0)
+        }
+    }));
     // translation_scenes.shortcut_editor: a new shortcut, nothing picked yet
     scenes.push(Scene::new("dialog-shortcut", || Setup {
         page: Page::SettingsDialog {

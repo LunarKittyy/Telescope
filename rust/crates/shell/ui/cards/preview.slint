@@ -2,6 +2,10 @@
 
 import { Theme, Icons, Button } from "@ui-kit/ui-kit.slint";
 
+// A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
+export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
+export struct LayerText { x: length, y: length, text: string, color: color, size: length }
+
 export component PreviewCard inherits Rectangle {
     in property <string> fold-key;
     in property <color> hue;
@@ -12,6 +16,8 @@ export component PreviewCard inherits Rectangle {
     // What plugins draw over the frame (Cinema tools' guides and scope), the frame's size
     in property <image> overlay;
     in property <bool> has-overlay;
+    in property <[LayerPath]> layer-paths;
+    in property <[LayerText]> layer-texts;
     // What the stage says without a frame, and whether it's the camera-off note with its icon
     in property <string> stage-text;
     in property <bool> camera-off;
@@ -77,6 +83,31 @@ export component PreviewCard inherits Rectangle {
                 source: overlay;
                 image-fit: contain;
                 image-rendering: smooth;
+            }
+            if has-frame && (layer-paths.length > 0 || layer-texts.length > 0): Rectangle {
+                x: pic-x;
+                y: pic-y;
+                width: pic-width;
+                height: pic-height;
+                for shape in layer-paths: Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: self.width / 1px;
+                    viewbox-height: self.height / 1px;
+                    commands: shape.commands;
+                    stroke: shape.stroke;
+                    stroke-width: shape.width;
+                    fill: shape.fill;
+                    fill-rule: shape.evenodd ? FillRule.evenodd : FillRule.nonzero;
+                }
+                for t in layer-texts: Text {
+                    x: t.x;
+                    y: t.y;
+                    text: t.text;
+                    color: t.color;
+                    font-family: Theme.font;
+                    font-size: t.size;
+                }
             }
             if !has-frame: VerticalLayout {
                 alignment: center;

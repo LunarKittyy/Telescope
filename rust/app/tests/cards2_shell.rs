@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
+use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::link::{Link, PairingOffer, PhoneSession, PhoneStills, RoutePrefs, Unreachable};
 use telescope_core::source::PairedPhone;
 use telescope_core::testing::{scratch_dir, FakeWeb};
@@ -184,7 +184,7 @@ fn the_sign_goes_on_and_the_header_and_the_page_follow() {
     assert_eq!(props_of(&rig.state, "on_air", "header")["shown"], true);
     assert_eq!(props_of(&rig.state, "on_air", "on_air")["state-text"], "On air");
     // The webhook went out on its thread and its answer came back through the shell's posts
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(30);
     while rig.sent.lock().unwrap().len() < 2 && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }

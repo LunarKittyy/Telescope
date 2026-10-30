@@ -143,12 +143,7 @@ impl Link for LinkService {
     }
 
     fn pair(&self, computer_id: &str, computer_name: &str) -> Result<Arc<dyn PairingOffer>, String> {
-        let (tx, rx) = mpsc::channel::<PairingResult>();
-        let tx = Mutex::new(tx);
-        let server = PairingServer::start(computer_id, computer_name, None, move |r| {
-            let _ = tx.lock().unwrap().send(r);
-        }).map_err(|e| e.to_string())?;
-        Ok(Arc::new(Offer { server, paired: Mutex::new(rx), reversed: Mutex::default() }))
+        Ok(Arc::new(Offer::start(computer_id, computer_name, Arc::new(Adb::system))?))
     }
 
     fn check(&self, phone: &PairedPhone, preference: RoutePreference) -> Resolution {
@@ -371,16 +366,35 @@ impl PhoneSession for Session {
 struct Offer {
     server: PairingServer,
     paired: Mutex<mpsc::Receiver<PairingResult>>,
-    /// Serials with an adb reverse to the pairing server, taken down when the offer goes.
-    reversed: Mutex<HashSet<String>>,
+    /// Serials with an adb reverse to the pairing server, taken down when it's revoked (None from then on).
+    reversed: Mutex<Option<HashSet<String>>>,
+    adb: Arc<dyn Fn() -> Adb + Send + Sync>,
 }
 
 impl Offer {
+    fn start(computer_id: &str, computer_name: &str, adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
+        let (tx, rx) = mpsc::channel::<PairingResult>();
+        let tx = Mutex::new(tx);
+        let server = PairingServer::start(computer_id, computer_name, None, move |r| {
+            let _ = tx.lock().unwrap().send(r);
+        }).map_err(|e| e.to_string())?;
+        Ok(Offer { server, paired: Mutex::new(rx), reversed: Mutex::new(Some(HashSet::new())), adb })
+    }
+
     /// Sends the USB offer to one phone (again: the broadcast only lands while the app is on screen).
     fn offer_to(&self, adb: &Adb, serial: &str, package: &str) -> bool {
         let b64 = crate::util::base64(self.server.offer.usb_payload.as_bytes());
-        if self.reversed.lock().unwrap().insert(serial.to_string()) {
-            adb.reverse(self.server.offer.port, Some(serial));
+        let port = self.server.offer.port;
+        let Some(fresh) = self.reversed.lock().unwrap().as_mut().map(|r| r.insert(serial.to_string())) else { return false };
+        if fresh {
+            adb.reverse(port, Some(serial));
+        }
+        if self.reversed.lock().unwrap().is_none() {
+            // Revoked during that reverse: its removal may have gone first
+            if fresh {
+                adb.unreverse(port, Some(serial));
+            }
+            return false;
         }
         adb.broadcast_pair(&b64, Some(serial), package).0
     }
@@ -400,7 +414,7 @@ impl PairingOffer for Offer {
     }
 
     fn offer_over_usb(&self, package: &str) -> usize {
-        let adb = Adb::system();
+        let adb = (self.adb)();
         adb.devices().iter().filter(|serial| self.offer_to(&adb, serial, package)).count()
     }
 
@@ -409,23 +423,23 @@ impl PairingOffer for Offer {
     }
 
     fn offer_to(&self, serial: &str, package: &str) -> bool {
-        Offer::offer_to(self, &Adb::system(), serial, package)
+        Offer::offer_to(self, &(self.adb)(), serial, package)
+    }
+
+    fn revoke(&self) {
+        self.server.stop();
+        let port = self.server.offer.port;
+        let serials = self.reversed.lock().unwrap().take().unwrap_or_default();
+        for serial in serials {
+            let adb = self.adb.clone();
+            std::thread::spawn(move || adb().unreverse(port, Some(&serial)));
+        }
     }
 }
 
 impl Drop for Offer {
     fn drop(&mut self) {
-        self.server.stop();
-        let port = self.server.offer.port;
-        let serials: Vec<String> = self.reversed.lock().unwrap().drain().collect();
-        if !serials.is_empty() {
-            std::thread::spawn(move || {
-                let adb = Adb::system();
-                for serial in serials {
-                    adb.unreverse(port, Some(&serial));
-                }
-            });
-        }
+        self.revoke();
     }
 }
 
@@ -468,6 +482,77 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         };
         assert_eq!((phone.name.as_str(), phone.token.as_str(), phone.active_ip), ("Pixel 8", token, None));
+    }
+
+    /// adb that logs each command and stalls in the first one holding `stalls` until the sender goes.
+    fn stalling_adb(stalls: &'static str) -> (Arc<dyn Fn() -> Adb + Send + Sync>, mpsc::Receiver<Vec<String>>, mpsc::Sender<()>) {
+        let (log, seen) = mpsc::channel::<Vec<String>>();
+        let (free, gate) = mpsc::channel::<()>();
+        let (log, gate) = (Mutex::new(log), Arc::new(Mutex::new(Some(gate))));
+        let adb = move || {
+            let (log, gate) = (Mutex::new(log.lock().unwrap().clone()), gate.clone());
+            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+                let _ = log.lock().unwrap().send(cmd.to_vec());
+                if cmd.iter().any(|a| a == stalls) {
+                    if let Some(gate) = gate.lock().unwrap().take() {
+                        let _ = gate.recv();
+                    }
+                }
+                (0, String::new(), String::new())
+            }) }
+        };
+        (Arc::new(adb), seen, free)
+    }
+
+    fn removes_reverse(cmd: &[String]) -> bool {
+        cmd.iter().any(|a| a == "--remove")
+    }
+
+    fn post_offer(offer: &Offer) -> String {
+        let payload: Value = serde_json::from_str(&offer.payload()).unwrap();
+        let (nonce, token) = (payload["nonce"].as_str().unwrap(), payload["token"].as_str().unwrap());
+        let cert = "ab".repeat(32);
+        let proof = crate::util::pairing_proof(token, nonce, "phone-1", &cert);
+        let body = serde_json::json!({"name": "Pixel 8", "phone_id": "phone-1", "cert_sha256": cert, "proof": proof, "ips": []}).to_string();
+        let Ok(mut conn) = TcpStream::connect(("127.0.0.1", offer.port())) else { return String::new() };
+        let _ = write!(conn, "POST /pair/{nonce} HTTP/1.1\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+        let mut reply = String::new();
+        let _ = conn.read_to_string(&mut reply);
+        reply
+    }
+
+    #[test]
+    fn revoking_during_a_stalled_broadcast_shuts_the_offer_at_once() {
+        let (adb, seen, free) = stalling_adb("broadcast");
+        let offer = Arc::new(Offer::start("computer", "desk", adb).unwrap());
+        let sending = offer.clone();
+        let thread = std::thread::spawn(move || sending.offer_to(&(sending.adb)(), "serial-1", "app"));
+        assert!(seen.iter().any(|cmd| cmd.iter().any(|a| a == "broadcast")));
+        let started = std::time::Instant::now();
+        PairingOffer::revoke(&*offer);
+        assert!(started.elapsed() < Duration::from_millis(300), "revoke waited {:?} for adb", started.elapsed());
+        // The broadcast is still stuck, holding the offer, and neither of these waits for it
+        assert!(!post_offer(&offer).starts_with("HTTP/1.1 200"));
+        assert!(seen.recv_timeout(Duration::from_secs(2)).is_ok_and(|cmd| removes_reverse(&cmd)));
+        assert!(!thread.is_finished());
+        drop(free);
+        thread.join().unwrap();
+    }
+
+    #[test]
+    fn a_reverse_that_comes_back_after_the_revoke_is_taken_down_and_nothing_is_sent() {
+        let (adb, seen, free) = stalling_adb("reverse");
+        let offer = Arc::new(Offer::start("computer", "desk", adb).unwrap());
+        let sending = offer.clone();
+        let thread = std::thread::spawn(move || sending.offer_to(&(sending.adb)(), "serial-1", "app"));
+        assert!(seen.recv().is_ok_and(|cmd| !removes_reverse(&cmd)));
+        PairingOffer::revoke(&*offer);
+        assert!(seen.recv_timeout(Duration::from_secs(2)).is_ok_and(|cmd| removes_reverse(&cmd)));
+        drop(free);
+        assert!(!thread.join().unwrap());
+        assert!(seen.recv_timeout(Duration::from_secs(2)).is_ok_and(|cmd| removes_reverse(&cmd)));
+        assert!(!PairingOffer::offer_to(&*offer, "serial-2", "app"), "revoked stays revoked");
+        assert!(seen.try_recv().is_err());
     }
 
     #[test]

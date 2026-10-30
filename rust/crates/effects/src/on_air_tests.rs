@@ -26,7 +26,7 @@ fn each_trigger_reads_what_it_says() {
     for (trigger, watched, streaming, (enabled, muted), expected) in cases {
         assert_eq!(is_on_air(trigger, watched, streaming, enabled, muted), expected, "{trigger} {watched} {streaming} {enabled} {muted}");
     }
-    assert_eq!(is_on_air("moon", true, true, true, false), true, "anything else is the camera");
+    assert!(is_on_air("moon", true, true, true, false), "anything else is the camera");
 }
 
 #[test]
@@ -260,10 +260,13 @@ fn a_failing_send_never_leaks_the_address() {
     assert!(sender.wait_idle(Duration::from_secs(2)), "it carries on after a failure");
 }
 
+type Bodies = Arc<Mutex<Vec<String>>>;
+type Results = Arc<Mutex<Vec<(String, String)>>>;
+
 /// A sender that holds each send until released, and notes what went out.
-fn held_sender() -> (WebhookSender, Arc<Mutex<Vec<String>>>, std::sync::mpsc::Sender<()>, Arc<Mutex<Vec<(String, String)>>>) {
+fn held_sender() -> (WebhookSender, Bodies, std::sync::mpsc::Sender<()>, Results) {
     let (release, wait) = std::sync::mpsc::channel::<()>();
-    let (sent, results): (Arc<Mutex<Vec<String>>>, Arc<Mutex<Vec<(String, String)>>>) = Default::default();
+    let (sent, results): (Bodies, Results) = Default::default();
     let (note, done) = (sent.clone(), results.clone());
     let wait = Mutex::new(wait);
     let sender = WebhookSender::with_send(move |tag, error| done.lock().unwrap().push((tag.into(), error.into())), move |req| {

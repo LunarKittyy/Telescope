@@ -532,15 +532,18 @@ mod tests {
         })).unwrap()
     }
 
+    /// A status and a body.
+    type Canned = (u16, Vec<u8>);
+
     /// Serves bodies by URL and remembers what was asked.
     struct Fake {
-        bodies: Mutex<HashMap<String, Vec<(u16, Vec<u8>)>>>,
+        bodies: Mutex<HashMap<String, Vec<Canned>>>,
         seen: Mutex<Vec<String>>,
     }
 
     impl Fake {
         fn new(pairs: &[(&str, u16, &[u8])]) -> Fake {
-            let mut bodies: HashMap<String, Vec<(u16, Vec<u8>)>> = HashMap::new();
+            let mut bodies: HashMap<String, Vec<Canned>> = HashMap::new();
             for (url, status, body) in pairs {
                 bodies.entry(url.to_string()).or_default().push((*status, body.to_vec()));
             }

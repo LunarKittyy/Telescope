@@ -114,6 +114,7 @@ fn the_cards_have_what_their_plugins_use() {
     let mut composite = CompositePlugin::new();
     compile(&mut composite);
     has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked"]);
+    compile_editor();
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);
@@ -155,4 +156,20 @@ fn the_chroma_key_card_compiles() {
 #[test]
 fn the_fun_pack_card_compiles() {
     compile(&mut FunPackPlugin::new());
+}
+
+/// One picture's editor, a window of its own: it compiles against ui-kit like a card.
+fn compile_editor() {
+    let source = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/composite_editor.slint")).to_string();
+    let doc = "import { CompositeEditor } from \"plugin/card.slint\";\nexport { CompositeEditor }".to_string();
+    let mut compiler = slint_interpreter::Compiler::default();
+    compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
+    compiler.set_file_loader(move |path: &Path| {
+        let found = path.ends_with("plugin/card.slint").then(|| Ok(source.clone()));
+        Box::pin(async move { found })
+    });
+    let result = spin_on(compiler.build_from_source(doc, Path::new("/root/editor.slint").to_path_buf()));
+    let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
+    assert!(result.component("CompositeEditor").is_some());
 }

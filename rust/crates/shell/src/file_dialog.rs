@@ -248,9 +248,13 @@ mod tests {
         assert_eq!(portal_filter("All files"), ("All files".into(), vec![(0, "*".into())]));
     }
 
+    /// What the fake portal was asked.
+    #[cfg(target_os = "linux")]
+    type Calls = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
     /// A private session bus with a FileChooser that answers every dialog with answer (code, uri), recording the calls.
     #[cfg(target_os = "linux")]
-    fn fake_portal(answer: (u32, &'static str)) -> Option<(std::process::Child, String, std::sync::Arc<std::sync::Mutex<Vec<String>>>)> {
+    fn fake_portal(answer: (u32, &'static str)) -> Option<(std::process::Child, String, Calls)> {
         use std::io::BufRead;
         use zbus::blocking::{Connection, MessageIterator};
         use zbus::zvariant::{OwnedValue, Value as Z};

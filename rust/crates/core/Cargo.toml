@@ -17,6 +17,9 @@ qrcode.workspace = true
 unicode-segmentation = "1"
 unicode-joining-type = "1"
 unicode-script = "0.5"
+# Finding what to hide in the log: URLs, addresses and tokens
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
+unicode-normalization = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

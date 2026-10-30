@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use telescope_core::audio::{AudioFeed, AudioPacket, SourceAudio};
+use telescope_core::media::FeedStopper;
 use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx};
@@ -102,6 +103,10 @@ struct SessionFeed {
 impl AudioFeed for SessionFeed {
     fn read(&mut self) -> Result<AudioPacket, FeedEnd> {
         self.feed.read()
+    }
+
+    fn stopper(&self) -> Option<Box<dyn FeedStopper>> {
+        self.feed.stopper()
     }
 }
 
