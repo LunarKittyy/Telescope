@@ -28,11 +28,8 @@ fn use_own_profile() {
     if std::env::var_os(DEV_PROFILE_ENV).is_some() || std::env::var("TELESCOPE_RS_REAL_CONFIG").as_deref() == Ok("1") {
         return;
     }
-    let folder = std::env::var_os("TELESCOPE_RS_PROFILE").map(PathBuf::from).unwrap_or_else(|| {
-        let base = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()).map(PathBuf::from)
-            .unwrap_or_else(|| std::env::home_dir().unwrap_or_default().join(".config"));
-        base.join("telescope-rs")
-    });
+    let folder = std::env::var_os("TELESCOPE_RS_PROFILE").map(PathBuf::from)
+        .unwrap_or_else(|| telescope_core::config::PathEnv::current().own_profile_folder());
     // Only this thread runs yet, so changing the environment can't race anything
     std::env::set_var(DEV_PROFILE_ENV, folder);
 }

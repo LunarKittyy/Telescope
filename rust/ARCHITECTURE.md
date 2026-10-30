@@ -46,7 +46,7 @@ Any thread can emit (`BusSender`) and the host delivers on its own thread in emi
 
 `telescope-rs config-snapshot <fixture>` prints what `desktop/scripts/config_fixtures.py` records. The test in `core/src/snapshot.rs` checks the parts config.py and the window decide against every fixture and lists each place where a plugin still has to be ported to close the gap.
 
-Until the rewrite replaces the Python app, `telescope-rs` treats `~/.config/telescope-rs` (or `$TELESCOPE_RS_PROFILE`) as a dev profile and trying it never touches the real settings. `TELESCOPE_DEV_PROFILE` works as in Python and `TELESCOPE_RS_REAL_CONFIG=1` uses the real file.
+Until the rewrite replaces the Python app, `telescope-rs` treats `~/.config/telescope-rs` (`%APPDATA%\telescope-rs` on Windows, or `$TELESCOPE_RS_PROFILE`) as a dev profile and trying it never touches the real settings. `TELESCOPE_DEV_PROFILE` works as in Python and `TELESCOPE_RS_REAL_CONFIG=1` uses the real file.
 
 ## UI
 
