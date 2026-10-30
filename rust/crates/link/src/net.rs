@@ -213,11 +213,18 @@ mod tests {
 
     #[test]
     fn no_route_probe_towards_a_public_address_remains() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
         let probe = ["8", "8", "8", "8"].join(".");
-        for entry in std::fs::read_dir(dir).unwrap().flatten() {
-            let text = std::fs::read_to_string(entry.path()).unwrap();
-            assert!(!text.contains(&probe), "{:?}", entry.path());
+        let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
+        while let Some(dir) = dirs.pop() {
+            for entry in std::fs::read_dir(dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    dirs.push(path);
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                assert!(!text.contains(&probe), "{path:?}");
+            }
         }
     }
 }
