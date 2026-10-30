@@ -287,3 +287,36 @@ fn extra_cameras_go_only_once_nothing_streams_to_them() {
     w.process();
     assert_eq!(heard.lock().unwrap().last().unwrap(), &(false, "There are none to remove".to_string()));
 }
+
+/// Hears what happens around a start, in order.
+struct Order(Arc<Mutex<Vec<String>>>);
+
+impl Plugin for Order {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "order".into(), title: "Order".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        match event {
+            Event::SelectSource { source_id } => self.0.lock().unwrap().push(format!("select {source_id}")),
+            Event::StreamStarted { url } => self.0.lock().unwrap().push(format!("started {url}")),
+            _ => {}
+        }
+    }
+}
+
+#[test]
+fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in() {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-try-again");
+    let services = Arc::new(Services {
+        link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
+        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+    });
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Order(h)) as Box<dyn Plugin>], Some(services), None).unwrap();
+    w.add_plugin_source(Arc::new(Browser("browser:a")));
+    w.start_source(Some("browser:a".into()));
+    w.process();
+    assert_eq!(*heard.lock().unwrap(), ["select browser:a", "started browser:"]);
+}

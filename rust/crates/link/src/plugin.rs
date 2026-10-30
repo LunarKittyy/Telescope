@@ -1235,6 +1235,7 @@ impl Plugin for ConnectionPlugin {
             }
             Event::StreamTransportChanged => self.refresh_transport(host),
             Event::AddPhoneRequested => self.open_add_phone(host),
+            Event::SelectSource { source_id } => self.select(host, Some(source_id), false, false),
             Event::StreamSourcesChanged { sources } => {
                 self.sources = sources.clone();
                 self.refresh_picker(host);

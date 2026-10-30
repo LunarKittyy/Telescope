@@ -403,6 +403,14 @@ impl Window {
     }
 
     /// Host::copy_text: onto the clipboard, through the window's hidden TextInput.
+    /// Opens url, or copies what a copy_url holds (a banner's Copy command).
+    pub fn follow_url(&self, url: &str) {
+        match url.strip_prefix(crate::banners::COPY_SCHEME) {
+            Some(text) => self.copy_text(text),
+            None => open_url(url),
+        }
+    }
+
     pub(crate) fn copy_text(&self, text: &str) {
         let _ = self.ui.invoke("copy-text", &[SValue::String(text.into())]);
     }
@@ -433,7 +441,7 @@ impl Window {
                 }
                 self.state.borrow_mut().effects.push(Effect::OpenSettings(tab));
             }
-            Pressed::Action(IssueDoes::OpenUrl { url }) => open_url(&url),
+            Pressed::Action(IssueDoes::OpenUrl { url }) => self.follow_url(&url),
             Pressed::Action(IssueDoes::StartAgain { source_id, before }) => {
                 // The plugin that showed it changes something first (Connect via back to Automatic)
                 if let Some(before) = before {
@@ -909,10 +917,7 @@ impl Window {
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
-            Effect::OpenUrl(url) => match url.strip_prefix(crate::banners::COPY_SCHEME) {
-                Some(text) => self.copy_text(text),
-                None => open_url(&url),
-            },
+            Effect::OpenUrl(url) => self.follow_url(&url),
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));

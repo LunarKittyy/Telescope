@@ -269,6 +269,9 @@ impl Window {
     pub fn start_source(self: &Rc<Self>, id: Option<String>) {
         let id = id.or_else(|| self.streams.flow.borrow().start_id.clone());
         let streaming = !self.streams.flow.borrow().sessions.streams.is_empty();
+        if !streaming {
+            self.select_first(id.as_deref());
+        }
         self.with_flow(move |flow, host| {
             if streaming && !flow.sessions.is_streaming_from(id.as_deref()) {
                 if let Some(id) = id.as_deref() {
@@ -792,6 +795,20 @@ impl Window {
         self.with_flow(|flow, host| flow.stream_reconnected(host, source));
     }
 
+    /// Picks id as Connection does before a start, so its settings are in (app.py _start_source's conn.select): the event is
+    /// delivered here, as the start runs right after.
+    fn selected_now(&self) -> Option<String> {
+        self.services.as_ref().and_then(|s| s.link.picked_source()).or_else(|| self.state.borrow().selected.clone())
+    }
+
+    fn select_first(self: &Rc<Self>, id: Option<&str>) {
+        let Some(id) = id else { return };
+        if self.selected_now().as_deref() != Some(id) {
+            self.state.borrow_mut().bus.emit(Event::SelectSource { source_id: id.to_string() });
+            self.process();
+        }
+    }
+
     /// HostSources::add_stream_source. The same source offered again (a new name) carries on streaming.
     pub fn add_plugin_source(self: &Rc<Self>, source: Arc<dyn StreamSource>) {
         let id = source.id();
@@ -843,6 +860,9 @@ impl Window {
         if busy || !self.streams.plugin_sources.borrow().contains_key(id) {
             return;
         }
+        if !streaming {
+            self.select_first(Some(id));
+        }
         self.with_flow(|flow, host| {
             if streaming {
                 return flow.add_stream(host, id);
@@ -850,7 +870,8 @@ impl Window {
             if host.selected_device().as_deref() != Some(id) {
                 host.select_device(Some(id));
             }
-            flow.start(host, false, None);
+            let source = host.source_by_id(Some(id));
+            flow.start(host, false, Some(source));
         });
     }
 
@@ -1108,7 +1129,7 @@ impl FlowHost for Host<'_> {
         state.call(i, |plugin, ctx| plugin.ensure_virtual_camera(ctx, interactive, source_id)).unwrap_or(true)
     }
     fn selected_device(&self) -> Option<String> {
-        self.w.services.as_ref().and_then(|s| s.link.picked_source()).or_else(|| self.w.state.borrow().selected.clone())
+        self.w.selected_now()
     }
     fn select_device(&mut self, source_id: Option<&str>) {
         let prev = self.w.state.borrow().selected.clone();

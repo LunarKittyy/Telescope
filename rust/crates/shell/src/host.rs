@@ -298,9 +298,6 @@ impl HostShell for Ctx<'_> {
         self.state.effects.push(Effect::ShortcutMenu);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
-        if !cfg!(target_os = "linux") {
-            return None;
-        }
         let request = self.state.request_id();
         self.state.effects.push(Effect::PickFile { plugin: self.me.clone(), request, dialog: dialog.clone() });
         Some(request)
