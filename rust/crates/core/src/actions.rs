@@ -357,4 +357,47 @@ mod tests {
         assert!((log_pos_to_val(857.0, 2000.0, 50.0, 6400.0) - 400.0).abs() < 1.0);
         assert_eq!((log_pos_to_val(5.0, 2000.0, 80.0, 80.0), val_to_log_pos(80.0, 2000.0, 80.0, 80.0)), (80.0, 0.0));
     }
+
+    fn near(a: f64, b: f64, rel: f64) -> bool {
+        (a - b).abs() <= b.abs() * rel + 1e-9
+    }
+
+    // test_widgets.py::test_log_scale_endpoints_midpoint_and_clamping
+    #[test]
+    fn log_scale_endpoints_midpoint_and_clamping() {
+        assert!(near(log_pos_to_val(0.0, 100.0, 10.0, 1000.0), 10.0, 1e-6));
+        assert!(near(log_pos_to_val(100.0, 100.0, 10.0, 1000.0), 1000.0, 1e-6));
+        assert!(near(log_pos_to_val(50.0, 100.0, 10.0, 1000.0), 100.0, 1e-6));
+        assert!(near(log_pos_to_val(-20.0, 100.0, 10.0, 1000.0), 10.0, 1e-6));
+        assert!(near(log_pos_to_val(120.0, 100.0, 10.0, 1000.0), 1000.0, 1e-6));
+        assert!(near(log_pos_to_val(0.0, 0.0, 0.0, 100.0), 1.0, 1e-6));
+    }
+
+    // test_widgets.py::test_value_to_log_position_endpoints_and_invalid_values
+    #[test]
+    fn value_to_log_position_endpoints_and_invalid_values() {
+        assert_eq!(val_to_log_pos(10.0, 100.0, 10.0, 1000.0), 0.0);
+        assert_eq!(val_to_log_pos(1000.0, 100.0, 10.0, 1000.0), 100.0);
+        assert_eq!(val_to_log_pos(100.0, 100.0, 10.0, 1000.0), 50.0);
+        assert_eq!(val_to_log_pos(-1.0, 100.0, 10.0, 1000.0), 0.0);
+        assert_eq!(val_to_log_pos(50.0, 100.0, 0.0, 1000.0), 0.0);
+    }
+
+    // test_widgets.py::test_log_scale_survives_a_camera_reporting_an_empty_or_single_value_range
+    #[test]
+    fn log_scale_survives_a_camera_reporting_an_empty_or_single_value_range() {
+        assert_eq!(log_pos_to_val(50.0, 100.0, 50.0, 0.0), 50.0);
+        assert_eq!(log_pos_to_val(50.0, 100.0, 100.0, 100.0), 100.0);
+        assert_eq!(val_to_log_pos(100.0, 100.0, 100.0, 100.0), 0.0);
+        assert_eq!(val_to_log_pos(100.0, 100.0, 50.0, 0.0), 0.0);
+    }
+
+    // test_widgets.py::test_log_scale_round_trip_is_close_across_range
+    #[test]
+    fn log_scale_round_trip_is_close_across_range() {
+        for value in [50.0, 100.0, 400.0, 1600.0, 6400.0] {
+            let pos = val_to_log_pos(value, 2000.0, 50.0, 6400.0);
+            assert!(near(log_pos_to_val(pos, 2000.0, 50.0, 6400.0), value, 0.003), "{value}");
+        }
+    }
 }
