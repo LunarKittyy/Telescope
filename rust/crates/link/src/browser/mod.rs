@@ -6,3 +6,5 @@ pub mod ws;
 
 #[cfg(test)]
 mod server_tests;
+#[cfg(test)]
+mod rtc_tests;

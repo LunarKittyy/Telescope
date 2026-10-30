@@ -1,6 +1,6 @@
 //! The Browser camera's WebRTC side (browser_rtc.py): answers a page's offer and hands its video and mic on.
 //!
-//! str0m does the WebRTC on a UDP socket and a thread of its own per browser. Python's aiortc decoded the video there;
+//! str0m does the WebRTC on UDP sockets and a thread of its own per browser. Python's aiortc decoded the video there;
 //! here the frames go on still encoded (H.264 as Annex B, or VP8), so the stream decodes them like a phone's, on the
 //! graphics card when it can. The mic arrives as Opus and goes on as 48 kHz mono s16le, the same PCM the phone's
 //! /v1/audio sends.
@@ -29,6 +29,8 @@ const STATS_EVERY: Duration = Duration::from_secs(1);
 pub const VIDEO_CODECS: [&str; 2] = ["H264", "VP8"];
 /// The longest the connection's thread sleeps, so close() is noticed soon.
 const TICK: Duration = Duration::from_millis(100);
+/// How long the thread sleeps when no socket has anything.
+const IDLE_NAP: Duration = Duration::from_millis(2);
 /// A keyframe asked for again no sooner than this.
 const KEYFRAME_AGAIN: Duration = Duration::from_secs(1);
 
@@ -127,7 +129,7 @@ pub trait RtcSession: Send {
 /// Makes a browser's WebRTC side for each offer.
 pub type RtcMaker = Arc<dyn Fn(VideoSink, AudioSink) -> Box<dyn RtcSession> + Send + Sync>;
 
-/// The real one: str0m on a UDP socket of its own, offering this computer's addresses as host candidates.
+/// The real one: str0m on a UDP socket per address of this computer, each one offered as a host candidate.
 pub struct StrSession {
     addresses: Vec<IpAddr>,
     opus: Arc<dyn Fn() -> Option<Box<dyn AudioDecoder>> + Send + Sync>,
@@ -163,12 +165,20 @@ impl RtcSession for StrSession {
         }
         let offer = SdpOffer::from_sdp_string(offer).map_err(|e| RtcError(format!("not an offer: {e}")))?;
         let mut rtc = StrSession::config().build(Instant::now());
-        let socket = UdpSocket::bind(("0.0.0.0", 0)).map_err(|e| RtcError(e.to_string()))?;
-        let port = socket.local_addr().map_err(|e| RtcError(e.to_string()))?.port();
+        // One socket per address rather than one on all of them, so each packet's own address is known: str0m
+        // matches it against the candidates
+        let mut sockets = Vec::new();
         for ip in &self.addresses {
-            if let Ok(c) = Candidate::host(SocketAddr::new(*ip, port), "udp") {
+            let Ok(socket) = UdpSocket::bind(SocketAddr::new(*ip, 0)) else { continue };
+            let Ok(local) = socket.local_addr() else { continue };
+            if let Ok(c) = Candidate::host(local, "udp") {
                 rtc.add_local_candidate(c);
+                let _ = socket.set_nonblocking(true);
+                sockets.push(socket);
             }
+        }
+        if sockets.is_empty() {
+            return Err(RtcError("no address to offer the browser".into()));
         }
         let answer = rtc.sdp_api().accept_offer(offer).map_err(|e| RtcError(e.to_string()))?;
         let sdp = answer.to_sdp_string();
@@ -181,7 +191,7 @@ impl RtcSession for StrSession {
         let (started, ready) = mpsc::channel();
         std::thread::Builder::new().name("browser-rtc".into()).spawn(move || {
             let _ = started.send(());
-            run(rtc, socket, &stop, &keyframe, video, audio, opus.as_ref()());
+            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()());
         }).map_err(|e| RtcError(e.to_string()))?;
         ready.recv_timeout(ANSWER_TIMEOUT).map_err(|_| RtcError("the connection's thread didn't start".into()))?;
         Ok(tune_answer(&sdp, max_kbps))
@@ -207,9 +217,8 @@ impl Drop for StrSession {
 }
 
 /// The connection until it's closed or the browser goes.
-fn run(mut rtc: Rtc, socket: UdpSocket, stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
+fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
        mut opus: Option<Box<dyn AudioDecoder>>) {
-    let local = socket.local_addr().ok();
     let mut buf = vec![0u8; 2000];
     let mut video_mid: Option<Mid> = None;
     let (mut frames, mut received, mut since, mut per_frame) = (0u64, 0u64, Instant::now(), 0u64);
@@ -224,7 +233,9 @@ fn run(mut rtc: Rtc, socket: UdpSocket, stop: &AtomicBool, keyframe: &AtomicBool
         let timeout = match rtc.poll_output() {
             Ok(Output::Timeout(at)) => at,
             Ok(Output::Transmit(t)) => {
-                let _ = socket.send_to(&t.contents, t.destination);
+                if let Some(socket) = sockets.iter().find(|s| s.local_addr().ok() == Some(t.source)) {
+                    let _ = socket.send_to(&t.contents, t.destination);
+                }
                 continue;
             }
             Ok(Output::Event(event)) => {
@@ -270,15 +281,21 @@ fn run(mut rtc: Rtc, socket: UdpSocket, stop: &AtomicBool, keyframe: &AtomicBool
             }
             continue;
         }
-        let _ = socket.set_read_timeout(Some(wait));
-        let input = match socket.recv_from(&mut buf) {
-            Ok((n, source)) => {
+        let got = sockets.iter().find_map(|socket| {
+            let (n, source) = socket.recv_from(&mut buf).ok()?;
+            Some((n, source, socket.local_addr().ok()?))
+        });
+        let input = match got {
+            Some((n, source, destination)) => {
                 received += n as u64;
-                let Some(destination) = local else { return };
                 let Ok(contents) = buf[..n].try_into() else { continue };
                 Input::Receive(Instant::now(), Receive { proto: Protocol::Udp, source, destination, contents })
             }
-            Err(_) => Input::Timeout(Instant::now()),
+            None => {
+                // Nothing in on any of them: a short nap, never past str0m's own next deadline
+                std::thread::sleep(wait.min(IDLE_NAP));
+                Input::Timeout(Instant::now())
+            }
         };
         if rtc.handle_input(input).is_err() {
             return;
