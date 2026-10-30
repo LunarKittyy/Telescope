@@ -49,6 +49,8 @@ fn max_kbps_follows_size_and_rate_within_bounds() {
 
 // ── A real connection ────────────────────────────────────────────────────────
 
+type Frames = Arc<Mutex<Vec<(Codec, Vec<u8>)>>>;
+
 /// Hands the packet on as it came, so the test sees what the browser sent.
 struct Echo;
 
@@ -121,7 +123,7 @@ fn a_browser_over_webrtc_reaches_the_reader_and_the_mic() {
     let (tell, answered) = std::sync::mpsc::channel();
     let stop = Arc::new(AtomicBool::new(false));
     let offer = fake_browser(answered, stop.clone());
-    let frames: Arc<Mutex<Vec<(Codec, Vec<u8>)>>> = Arc::default();
+    let frames: Frames = Arc::default();
     let heard: Arc<Mutex<Vec<u8>>> = Arc::default();
     let (f, h) = (frames.clone(), heard.clone());
     let loopback: Vec<IpAddr> = vec![[127, 0, 0, 1].into()];

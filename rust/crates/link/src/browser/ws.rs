@@ -59,19 +59,23 @@ pub fn unmask(payload: &[u8], mask: [u8; 4]) -> Vec<u8> {
     payload.iter().enumerate().map(|(i, b)| b ^ mask[i % 4]).collect()
 }
 
+/// Sends through the connection, from inside its tick.
+type SendFn<'s> = dyn FnMut(&[u8]) -> Result<(), Closed> + 's;
+type OnTick<'a> = Box<dyn for<'s> FnMut(&'s mut SendFn<'s>) -> Result<(), Closed> + 'a>;
+
 /// Reads a browser's frames off the socket with its own buffer, so a read timeout (used to send pending messages and
 /// notice a quiet peer) never loses half a frame. Everything is sent from the reading thread too.
 pub struct WsConnection<'a> {
     sock: Box<dyn Socket>,
     buf: Vec<u8>,
-    on_tick: Box<dyn FnMut(&mut dyn FnMut(&[u8]) -> Result<(), Closed>) -> Result<(), Closed> + 'a>,
+    on_tick: OnTick<'a>,
     last_heard: Instant,
     idle: Duration,
 }
 
 impl<'a> WsConnection<'a> {
     /// on_tick runs each time a read times out with nothing in, and may send through what it's handed.
-    pub fn new(sock: Box<dyn Socket>, on_tick: impl FnMut(&mut dyn FnMut(&[u8]) -> Result<(), Closed>) -> Result<(), Closed> + 'a)
+    pub fn new(sock: Box<dyn Socket>, on_tick: impl for<'s> FnMut(&'s mut SendFn<'s>) -> Result<(), Closed> + 'a)
                -> WsConnection<'a> {
         WsConnection { sock, buf: Vec::new(), on_tick: Box::new(on_tick), last_heard: Instant::now(), idle: IDLE_TIMEOUT }
     }

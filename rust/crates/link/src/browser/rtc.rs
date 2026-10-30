@@ -250,7 +250,7 @@ fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &Atomic
                             }
                             frames += 1;
                             if since.elapsed() >= STATS_EVERY {
-                                per_frame = if frames > 0 { received / frames } else { per_frame };
+                                per_frame = received.checked_div(frames).unwrap_or(per_frame);
                                 (frames, received, since) = (0, 0, Instant::now());
                             }
                             video(codec, data.data.to_vec(), per_frame);

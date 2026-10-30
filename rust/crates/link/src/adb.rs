@@ -209,7 +209,7 @@ pub struct Adb {
 impl Adb {
     /// The adb found now, run for real.
     pub fn system() -> Adb {
-        Adb { exe: adb_exe().map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|cmd, t| run(cmd, t)) }
+        Adb { exe: adb_exe().map(|p| p.to_string_lossy().into_owned()), runner: Box::new(run) }
     }
 
     pub fn available(&self) -> bool {

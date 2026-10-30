@@ -891,11 +891,9 @@ impl ConnectionPlugin {
             }
             T_USB_WATCH => self.watch_usb(host),
             T_PAIR_POLL => self.poll_pairing(host),
-            T_PAIR_USB => {
-                if self.add.as_ref().is_some_and(|a| a.paired.is_none() && a.offer.is_some()) {
-                    host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
-                    self.poll_usb();
-                }
+            T_PAIR_USB if self.add.as_ref().is_some_and(|a| a.paired.is_none() && a.offer.is_some()) => {
+                host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
+                self.poll_usb();
             }
             _ => {}
         }
