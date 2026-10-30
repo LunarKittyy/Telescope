@@ -4515,18 +4515,18 @@
 "test_version.py::test_a_stamped_build_reports_itself" = { status = "ported", rust = "rust/crates/system/src/version.rs::a_stamped_build_reports_itself" }
 # ── view_controller
 "test_view_controller.py::test_a_framing_the_phone_share_cant_show_gets_one_at_once" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::a_framing_the_phone_share_cant_show_gets_one_at_once" }
-"test_view_controller.py::test_a_frozen_step_keeps_the_view_it_was_taken_with" = { status = "todo" }
-"test_view_controller.py::test_a_handover_gives_up_waiting_after_a_while" = { status = "todo" }
-"test_view_controller.py::test_a_new_phone_share_is_cropped_for_only_once_its_frames_arrive" = { status = "todo" }
-"test_view_controller.py::test_a_picked_point_reaches_camera_control_without_the_transforms_card" = { status = "todo" }
+"test_view_controller.py::test_a_frozen_step_keeps_the_view_it_was_taken_with" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::a_frozen_step_keeps_the_view_it_was_taken_with" }
+"test_view_controller.py::test_a_handover_gives_up_waiting_after_a_while" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::a_handover_gives_up_waiting_after_a_while" }
+"test_view_controller.py::test_a_new_phone_share_is_cropped_for_only_once_its_frames_arrive" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::a_new_phone_share_is_cropped_for_only_once_its_frames_arrive" }
+"test_view_controller.py::test_a_picked_point_reaches_camera_control_without_the_transforms_card" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_reaches_the_phone_in_its_own_frame" }
 "test_view_controller.py::test_a_steady_new_framing_gets_a_new_phone_share_after_a_while" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::a_steady_new_framing_gets_a_new_phone_share_after_a_while" }
-"test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share" = { status = "todo" }
+"test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::people_are_found_through_the_phone_share" }
 "test_view_controller.py::test_releasing_puts_back_the_manual_zoom" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::releasing_puts_back_the_manual_zoom" }
-"test_view_controller.py::test_rest_within_says_what_this_computer_crops_from_a_phone_share" = { status = "todo" }
+"test_view_controller.py::test_rest_within_says_what_this_computer_crops_from_a_phone_share" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::rest_within_says_what_this_computer_crops_from_a_phone_share" }
 "test_view_controller.py::test_small_steers_move_on_this_computer_and_leave_the_phone_alone" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::small_steers_move_on_this_computer_and_leave_the_phone_alone" }
 "test_view_controller.py::test_steering_alone_wakes_the_phone_up_to_its_share" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::steering_alone_wakes_the_phone_up_to_its_share" }
 "test_view_controller.py::test_taking_the_view_moves_zoom_and_pan_but_leaves_flip_and_rotation_manual" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::taking_the_view_moves_zoom_and_pan_but_leaves_flip_and_rotation_manual" }
-"test_view_controller.py::test_the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_them" = { status = "todo" }
+"test_view_controller.py::test_the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_them" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::scrolling_does_nothing_while_something_else_moves_the_view" }
 "test_view_controller.py::test_without_anything_setting_a_view_the_phone_is_left_alone_and_frames_go_through" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::without_anything_setting_a_view_the_phone_is_left_alone_and_frames_go_through" }
 # ── vision
 "test_vision.py::test_a_broken_mediapipe_fails_once_and_names_only_the_error" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_a_broken_mediapipe_fails_once_and_names_only_the_error" }

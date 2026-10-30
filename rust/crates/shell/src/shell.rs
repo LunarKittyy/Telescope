@@ -713,7 +713,7 @@ impl State {
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
-        for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
+        for step in telescope_core::view_step::steps(&self.vc.frame_view(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step });
         }
         let colour = self.colour.step(source_id);

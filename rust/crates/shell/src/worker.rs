@@ -95,6 +95,8 @@ pub struct WorkerSetup {
     pub vision: Option<VisionFeed>,
     /// The frame steps, in before the thread starts: no frame goes out without them (a privacy blur, say).
     pub steps: Vec<StagedStep>,
+    /// Which crop each frame gets while the phone's share changes.
+    pub gate: Option<Arc<crate::handover::ViewGate>>,
 }
 
 /// What a worker hands the vision service: its frames before the view, turned as the window's view says.
@@ -310,6 +312,7 @@ struct Shared {
     slot_number: u32,
     source_id: String,
     vision: Option<VisionFeed>,
+    gate: Option<Arc<crate::handover::ViewGate>>,
     hardware: bool,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
@@ -365,7 +368,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None),
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
             last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -602,7 +605,9 @@ impl Shared {
         if seq <= publish.1 {
             return false;
         }
-        if let Some(steps) = self.next_steps.lock().unwrap().take() {
+        let next_steps = self.next_steps.lock().unwrap().take();
+        let replaced = next_steps.is_some();
+        if let Some(steps) = next_steps {
             publish.0.set_steps(steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
@@ -612,6 +617,9 @@ impl Shared {
         };
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
+        if let Some(view) = self.gate.as_ref().and_then(|g| g.for_frame(&self.source_id, &frame, crate::shell::now_s(), replaced)) {
+            publish.0.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps(&view));
+        }
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
             let mut sizes = feed.frame_sizes.lock().unwrap();
@@ -1335,7 +1343,7 @@ mod tests {
                    plugin_source: bool) -> StreamWorker {
         let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
                                   canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text, vision: None,
-                                  plugin_source, steps: Vec::new() };
+                                  plugin_source, steps: Vec::new(), gate: None };
         let events: Events = Arc::new(move |e| {
             if !matches!(e, WorkerEvent::Preview(..)) {
                 log.lock().unwrap().push(e)
@@ -1555,6 +1563,7 @@ mod tests {
 
     #[derive(Default)]
     struct Seen {
+        replaced: Mutex<Vec<String>>,
         tapped: Mutex<Vec<Codec>>,
         plain: Mutex<Vec<Codec>>,
         sources: Mutex<Vec<String>>,
@@ -1595,6 +1604,9 @@ mod tests {
     impl FramePipeline for Says {
         fn set_steps(&mut self, steps: Vec<StagedStep>) {
             self.1 = steps.len();
+        }
+        fn replace_steps(&mut self, owner: &str, _stage: telescope_core::frame::FrameStage, _steps: Vec<telescope_core::frame::FrameStep>) {
+            self.0.replaced.lock().unwrap().push(owner.to_string());
         }
         fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame {
             self.0.steps_at_first.lock().unwrap().push(self.1);
@@ -1639,7 +1651,7 @@ mod tests {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new() };
+                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
@@ -1690,17 +1702,33 @@ mod tests {
     }
 
     fn with_steps(steps: Vec<StagedStep>, vision: Option<VisionFeed>, frames: usize) -> Arc<Seen> {
+        with_gate(steps, vision, frames, None)
+    }
+
+    fn with_gate(steps: Vec<StagedStep>, vision: Option<VisionFeed>, frames: usize, gate: Option<Arc<crate::handover::ViewGate>>) -> Arc<Seen> {
         let seen = Arc::new(Seen::default());
         let opener: Opener = Arc::new(|| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
-                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps };
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
                                     telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
         wait_for(|| seen.sources.lock().unwrap().len() >= frames);
         w.stop();
         seen
+    }
+
+    #[test]
+    fn the_view_changes_crop_from_the_worker_while_a_phone_share_is_on_its_way() {
+        use telescope_core::host::View;
+        use telescope_core::view::PhoneZoom;
+        let gate = Arc::new(crate::handover::ViewGate::default());
+        gate.follow(Some("phone-1"), true);
+        let (old, new) = (PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.6, y: 0.5 });
+        gate.begin(old, new, (View { zoom: 2.0, ..View::default() }, View { zoom: 3.0, ..View::default() }), crate::shell::now_s());
+        let seen = with_gate(Vec::new(), None, 1, Some(gate));
+        assert_eq!(seen.replaced.lock().unwrap().first().map(String::as_str), Some("view"));
     }
 
     #[test]

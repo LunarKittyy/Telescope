@@ -1246,7 +1246,7 @@ impl FlowHost for Host<'_> {
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
-                                  vision: self.w.state.borrow().vision_feed(), steps };
+                                  vision: self.w.state.borrow().vision_feed(), steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
