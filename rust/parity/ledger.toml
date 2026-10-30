@@ -2571,41 +2571,41 @@
 "test_composite.py::test_zooming_in_shows_less_and_the_centre_stays_inside_the_frame" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_in_shows_less_and_the_centre_stays_inside_the_frame" }
 "test_composite.py::test_zooming_stays_inside_the_crop" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_stays_inside_the_crop" }
 # ── config
-"test_config.py::test_a_backup_of_a_bad_config_is_private" = { status = "todo" }
-"test_config.py::test_a_briefly_locked_config_is_read_again_not_reset" = { status = "todo" }
-"test_config.py::test_a_config_nested_too_deep_is_backed_up_not_fatal" = { status = "todo" }
-"test_config.py::test_a_config_saved_with_a_byte_order_mark_still_loads" = { status = "todo" }
-"test_config.py::test_a_config_that_is_not_utf8_is_backed_up_not_fatal" = { status = "todo" }
-"test_config.py::test_a_filesystem_that_refuses_chmod_still_saves" = { status = "todo" }
-"test_config.py::test_a_numpy_value_saves_as_plain_and_a_bad_one_keeps_the_saved_file" = { status = "todo" }
-"test_config.py::test_a_reset_is_reported_once_with_where_the_copy_went" = { status = "todo" }
-"test_config.py::test_config_missing_version_resets_to_empty" = { status = "todo" }
-"test_config.py::test_config_older_than_current_version_resets_to_empty" = { status = "todo" }
-"test_config.py::test_current_version_config_keeps_custom_keys_and_fills_in_missing_sections" = { status = "todo" }
-"test_config.py::test_devices_section_with_non_dict_entry_resets_alone" = { status = "todo" }
-"test_config.py::test_fresh_config_is_empty_current_version" = { status = "todo" }
-"test_config.py::test_fresh_install_is_not_backed_up" = { status = "todo" }
-"test_config.py::test_future_version_config_is_preserved" = { status = "todo" }
-"test_config.py::test_invalid_top_level_config_shapes_fall_back_to_empty" = { status = "todo" }
-"test_config.py::test_linux_config_path_uses_xdg_or_home_fallback" = { status = "todo" }
-"test_config.py::test_loading_a_bad_config_again_before_saving_backs_it_up_once" = { status = "todo" }
-"test_config.py::test_malformed_devices_section_resets_alone" = { status = "todo" }
-"test_config.py::test_malformed_json_falls_back_to_empty" = { status = "todo" }
-"test_config.py::test_malformed_json_is_backed_up_before_reset" = { status = "todo" }
-"test_config.py::test_malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" = { status = "todo" }
-"test_config.py::test_malformed_plugin_configs_section_resets_alone" = { status = "todo" }
-"test_config.py::test_malformed_selected_device_resets_alone" = { status = "todo" }
-"test_config.py::test_save_and_reload_roundtrip" = { status = "todo" }
-"test_config.py::test_save_failure_returns_false_and_sets_version" = { status = "todo" }
-"test_config.py::test_save_is_atomic_no_leftover_tmp_file" = { status = "todo" }
-"test_config.py::test_saved_config_is_private_whatever_the_umask" = { status = "todo" }
-"test_config.py::test_saving_tightens_a_config_left_readable_by_others" = { status = "todo" }
-"test_config.py::test_stale_version_config_is_backed_up_before_reset" = { status = "todo" }
-"test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "todo" }
-"test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "todo" }
-"test_config.py::test_windows_config_path_uses_appdata" = { status = "todo" }
-"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "todo" }
-"test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "todo" }
+"test_config.py::test_a_backup_of_a_bad_config_is_private" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_backup_of_a_bad_config_is_private" }
+"test_config.py::test_a_briefly_locked_config_is_read_again_not_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_briefly_locked_config_is_read_again_not_reset" }
+"test_config.py::test_a_config_nested_too_deep_is_backed_up_not_fatal" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_nested_too_deep_is_backed_up_not_fatal" }
+"test_config.py::test_a_config_saved_with_a_byte_order_mark_still_loads" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_saved_with_a_byte_order_mark_still_loads" }
+"test_config.py::test_a_config_that_is_not_utf8_is_backed_up_not_fatal" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_that_is_not_utf8_is_backed_up_not_fatal" }
+"test_config.py::test_a_filesystem_that_refuses_chmod_still_saves" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_filesystem_that_refuses_chmod_still_saves" }
+"test_config.py::test_a_numpy_value_saves_as_plain_and_a_bad_one_keeps_the_saved_file" = { status = "dropped", reason = "Python numpy values and objects that JSON can't hold don't exist in Rust: settings are serde_json values, always plain JSON, and a save that fails (save_failure_returns_false_and_sets_version) already leaves the old file" }
+"test_config.py::test_a_reset_is_reported_once_with_where_the_copy_went" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_reset_is_reported_once_with_where_the_copy_went" }
+"test_config.py::test_config_missing_version_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::config_missing_version_resets_to_empty" }
+"test_config.py::test_config_older_than_current_version_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::config_older_than_current_version_resets_to_empty" }
+"test_config.py::test_current_version_config_keeps_custom_keys_and_fills_in_missing_sections" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::current_version_config_keeps_custom_keys_and_fills_in_missing_sections" }
+"test_config.py::test_devices_section_with_non_dict_entry_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::devices_section_with_non_dict_entry_resets_alone" }
+"test_config.py::test_fresh_config_is_empty_current_version" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::fresh_config_is_empty_current_version" }
+"test_config.py::test_fresh_install_is_not_backed_up" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::fresh_install_is_not_backed_up" }
+"test_config.py::test_future_version_config_is_preserved" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::future_version_config_is_preserved" }
+"test_config.py::test_invalid_top_level_config_shapes_fall_back_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::invalid_top_level_config_shapes_fall_back_to_empty" }
+"test_config.py::test_linux_config_path_uses_xdg_or_home_fallback" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::linux_config_path_uses_xdg_or_home_fallback" }
+"test_config.py::test_loading_a_bad_config_again_before_saving_backs_it_up_once" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::loading_a_bad_config_again_before_saving_backs_it_up_once" }
+"test_config.py::test_malformed_devices_section_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_devices_section_resets_alone" }
+"test_config.py::test_malformed_json_falls_back_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_json_falls_back_to_empty" }
+"test_config.py::test_malformed_json_is_backed_up_before_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_json_is_backed_up_before_reset" }
+"test_config.py::test_malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" }
+"test_config.py::test_malformed_plugin_configs_section_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_plugin_configs_section_resets_alone" }
+"test_config.py::test_malformed_selected_device_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_selected_device_resets_alone" }
+"test_config.py::test_save_and_reload_roundtrip" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_and_reload_roundtrip" }
+"test_config.py::test_save_failure_returns_false_and_sets_version" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_failure_returns_false_and_sets_version" }
+"test_config.py::test_save_is_atomic_no_leftover_tmp_file" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_is_atomic_no_leftover_tmp_file" }
+"test_config.py::test_saved_config_is_private_whatever_the_umask" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::saved_config_is_private_whatever_the_umask" }
+"test_config.py::test_saving_tightens_a_config_left_readable_by_others" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::saving_tightens_a_config_left_readable_by_others" }
+"test_config.py::test_stale_version_config_is_backed_up_before_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::stale_version_config_is_backed_up_before_reset" }
+"test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" }
+"test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::valid_current_version_config_round_trips_through_migrate" }
+"test_config.py::test_windows_config_path_uses_appdata" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::windows_config_path_uses_appdata" }
+"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::config_level_parts_match_every_fixture", note = "Settings and sections are compared in Rust; each plugin's own settings are compared by parity/compare_config.py as their settings get ported" }
+"test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::there_is_a_fixture_for_each_kind_of_file" }
 # ── connection
 "test_connection.py::test_a_cable_that_is_not_used_gets_explained" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_cable_that_is_not_used_gets_explained", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_check_slower_than_the_poll_still_lands" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_check_slower_than_the_poll_still_lands", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -5661,10 +5661,10 @@
 "collapsed" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "devices" = { status = "ported", rust = "rust/crates/shell/src/profiles.rs" }
 "output_slots" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"plugin_configs" = { status = "todo" }
+"plugin_configs" = { status = "ported", rust = "rust/crates/core/src/config.rs" }
 "plugins" = { status = "ported", rust = "rust/crates/shell/src/switches.rs" }
 "selected_device" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"version" = { status = "todo" }
+"version" = { status = "ported", rust = "rust/crates/core/src/config.rs" }
 
 [action]
 # shortcut action ids, which --action also takes
@@ -5868,9 +5868,9 @@
 "folder:telescope/plugins/colour_grading.py:_export:Path.home" = { status = "todo" }
 "folder:telescope/plugins/colour_grading.py:_start_folder:Path.home" = { status = "todo" }
 # ── config
-"env:APPDATA" = { status = "todo" }
-"env:XDG_CONFIG_HOME" = { status = "todo" }
-"folder:telescope/config.py:config_path:Path.home" = { status = "todo" }
+"env:APPDATA" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
+"env:XDG_CONFIG_HOME" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
+"folder:telescope/config.py:config_path:Path.home" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
 # ── diagnostics
 "env:XDG_CURRENT_DESKTOP" = { status = "todo" }
 "env:XDG_SESSION_TYPE" = { status = "todo" }

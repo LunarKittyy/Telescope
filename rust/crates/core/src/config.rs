@@ -82,11 +82,17 @@ pub fn empty() -> Value {
 #[derive(Clone, Debug)]
 pub struct ConfigFile {
     path: PathBuf,
+    /// The timestamp in a set-aside copy's name.
+    clock: fn() -> String,
+}
+
+fn local_stamp() -> String {
+    chrono::Local::now().format("%Y%m%dT%H%M%S").to_string()
 }
 
 impl Default for ConfigFile {
     fn default() -> Self {
-        ConfigFile { path: config_path() }
+        ConfigFile::at(config_path())
     }
 }
 
@@ -106,7 +112,7 @@ fn with_set_aside<T>(path: &Path, f: impl FnOnce(&mut SetAside) -> T) -> T {
 
 impl ConfigFile {
     pub fn at(path: impl Into<PathBuf>) -> ConfigFile {
-        ConfigFile { path: path.into() }
+        ConfigFile { path: path.into(), clock: local_stamp }
     }
 
     pub fn path(&self) -> &Path {
@@ -124,9 +130,14 @@ impl ConfigFile {
     }
 
     fn read(&self, strict: bool) -> io::Result<Value> {
+        self.read_with(strict, &|path| fs::read(path), &std::thread::sleep)
+    }
+
+    // The file read and the wait between tries are passed in so a test can make the file briefly locked
+    fn read_with(&self, strict: bool, read: &dyn Fn(&Path) -> io::Result<Vec<u8>>, sleep: &dyn Fn(Duration)) -> io::Result<Value> {
         let mut attempt = 0;
         let data = loop {
-            match fs::read(&self.path) {
+            match read(&self.path) {
                 Ok(data) => break data,
                 Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(empty()),
                 // Often brief (a virus scanner or sync app holding the file); starting fresh would save over it later
@@ -139,7 +150,7 @@ impl ConfigFile {
                 }
                 Err(_) => {
                     attempt += 1;
-                    std::thread::sleep(Duration::from_millis(200));
+                    sleep(Duration::from_millis(200));
                 }
             }
         };
@@ -183,12 +194,17 @@ impl ConfigFile {
     }
 
     fn write_atomically(&self, bytes: &[u8]) -> io::Result<()> {
+        self.write_with(bytes, &set_mode)
+    }
+
+    // chmod is passed in so a test can stand in for a filesystem without Unix permissions
+    fn write_with(&self, bytes: &[u8], chmod: Chmod) -> io::Result<()> {
         let dir = self.path.parent().unwrap_or(Path::new("."));
-        private_dir(dir)?;
+        private_dir(dir, chmod)?;
         let mut tmp_name = self.path.file_name().unwrap_or_default().to_os_string();
         tmp_name.push(".tmp");
         let tmp = self.path.with_file_name(tmp_name);
-        let mut f = open_private(&tmp)?;
+        let mut f = open_private(&tmp, chmod)?;
         f.write_all(bytes)?;
         f.flush()?;
         f.sync_all()?;
@@ -228,11 +244,11 @@ impl ConfigFile {
         if !fresh {
             return;
         }
-        let stamp = chrono::Local::now().format("%Y%m%dT%H%M%S");
+        let stamp = (self.clock)();
         let mut name = self.path.file_name().unwrap_or_default().to_os_string();
         name.push(format!(".invalid-{stamp}"));
         let backup = self.path.with_file_name(name);
-        match open_private(&backup).and_then(|mut f| f.write_all(original)) {
+        match open_private(&backup, &set_mode).and_then(|mut f| f.write_all(original)) {
             Ok(()) => {
                 log::info!("Backed up invalid config to {}", backup.display());
                 with_set_aside(&self.path, |s| s.notice = Some(backup.display().to_string()));
@@ -242,33 +258,53 @@ impl ConfigFile {
     }
 }
 
+/// Sets a file or folder's Unix permission bits.
+type Chmod<'a> = &'a dyn Fn(&Path, u32) -> io::Result<()>;
+
+#[cfg(unix)]
+fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(mode))
+}
+
+#[cfg(not(unix))]
+fn set_mode(_path: &Path, _mode: u32) -> io::Result<()> {
+    Ok(())
+}
+
 // The config holds pairing tokens: only this user may read it (nothing to do on Windows, where %APPDATA% is per-user)
-fn private_dir(dir: &Path) -> io::Result<()> {
+fn private_dir(dir: &Path, chmod: Chmod) -> io::Result<()> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        use std::os::unix::fs::DirBuilderExt;
         fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
-        tighten(fs::set_permissions(dir, fs::Permissions::from_mode(0o700)), dir);
+        tighten(chmod(dir, 0o700), dir);
     }
     #[cfg(not(unix))]
-    fs::create_dir_all(dir)?;
+    {
+        let _ = chmod;
+        fs::create_dir_all(dir)?;
+    }
     Ok(())
 }
 
 // 0600 from creation, and again for a file left from before, since the mode only applies to new files
-fn open_private(path: &Path) -> io::Result<fs::File> {
+fn open_private(path: &Path, chmod: Chmod) -> io::Result<fs::File> {
     let mut options = fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
         let f = options.open(path)?;
-        tighten(f.set_permissions(fs::Permissions::from_mode(0o600)), path);
+        tighten(chmod(path, 0o600), path);
         Ok(f)
     }
     #[cfg(not(unix))]
-    options.open(path)
+    {
+        let _ = chmod;
+        options.open(path)
+    }
 }
 
 // A filesystem without Unix permissions (a FAT drive, some sync folders) shouldn't stop the config saving
@@ -299,6 +335,16 @@ fn upgrade_from_v2(cfg: Value) -> Value {
     map.insert("version".into(), CONFIG_VERSION.into());
     log::info!("Migrated config from version 2; phones need pairing again");
     Value::Object(map)
+}
+
+/// _migrate: a loaded value upgraded from version 2 and checked, or a fresh start when it isn't a usable config.
+pub fn migrate(cfg: Value) -> Value {
+    let cfg = upgrade_from_v2(cfg);
+    if !is_whole_config_valid(&cfg) {
+        return empty();
+    }
+    let Value::Object(map) = cfg else { unreachable!() };
+    Value::Object(validate_sections(map))
 }
 
 fn is_whole_config_valid(cfg: &Value) -> bool {
@@ -609,3 +655,7 @@ mod tests {
         assert_eq!(out["output_slots"], json!({"x": 1, "z": true}));
     }
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod python_tests;
