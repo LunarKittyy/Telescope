@@ -100,16 +100,16 @@ export component Button inherits Rectangle {
     }
 }
 
-// QPushButton#icon_btn: transparent, quiet border, just an icon.
+// QPushButton#icon_btn: transparent, quiet border, just an icon (icon_button: 30px, a 15px icon).
 export component IconButton inherits Rectangle {
     in property <image> icon;
-    in property <length> icon-size: 18px;
+    in property <length> icon-size: 15px;
     in property <string> label;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback clicked;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
     border-width: 1px;
     border-color: touch.has-hover ? Theme.border-hover : Theme.border;

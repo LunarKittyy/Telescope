@@ -160,11 +160,9 @@ export component ChromaKeyCard inherits Card {
             }
         }
     }
-    Note {
+    if status != "": Note {
         text: status;
         kind: status-kind;
-        visible: status != "";
-        height: status != "" ? self.preferred-height : 0px;
     }
     // Nothing to touch until a phone is paired
     if !active: TouchArea { }

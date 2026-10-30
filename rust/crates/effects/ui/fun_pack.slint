@@ -54,10 +54,8 @@ export component FunPackCard inherits Card {
             picked(i) => { root.effect-picked(i); }
         }
     }
-    Note {
+    if hint != "": Note {
         text: hint;
-        visible: hint != "";
-        height: hint != "" ? self.preferred-height : 0px;
     }
     if show-plate: HorizontalLayout {
         spacing: 8px;
@@ -89,20 +87,71 @@ export component FunPackCard inherits Card {
         }
         Rectangle { horizontal-stretch: 1; }
     }
-    for name[i] in [@tr("Edges"), @tr("Trails"), @tr("Brightness"), @tr("Spread"), @tr("Smear")]: SliderRow {
-        visible: slider-show[i];
-        height: slider-show[i] ? self.preferred-height : 0px;
-        label: name;
-        tip: slider-tips[i];
-        minimum: slider-min[i];
-        maximum: slider-max[i];
-        value: slider-value[i];
-        readout: slider-text[i];
+    // Hidden rows are left out, not shrunk: a shrunk one still gets the card's spacing
+    if slider-show[0]: SliderRow {
+        label: @tr("Edges");
+        tip: slider-tips[0];
+        minimum: slider-min[0];
+        maximum: slider-max[0];
+        value: slider-value[0];
+        readout: slider-text[0];
         hue: root.hue;
         has-default: true;
-        default-value: slider-default[i];
+        default-value: slider-default[0];
         hint: root.reset-hint;
-        moved(v) => { root.slider-moved(i, v); }
+        moved(v) => { root.slider-moved(0, v); }
+    }
+    if slider-show[1]: SliderRow {
+        label: @tr("Trails");
+        tip: slider-tips[1];
+        minimum: slider-min[1];
+        maximum: slider-max[1];
+        value: slider-value[1];
+        readout: slider-text[1];
+        hue: root.hue;
+        has-default: true;
+        default-value: slider-default[1];
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(1, v); }
+    }
+    if slider-show[2]: SliderRow {
+        label: @tr("Brightness");
+        tip: slider-tips[2];
+        minimum: slider-min[2];
+        maximum: slider-max[2];
+        value: slider-value[2];
+        readout: slider-text[2];
+        hue: root.hue;
+        has-default: true;
+        default-value: slider-default[2];
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(2, v); }
+    }
+    if slider-show[3]: SliderRow {
+        label: @tr("Spread");
+        tip: slider-tips[3];
+        minimum: slider-min[3];
+        maximum: slider-max[3];
+        value: slider-value[3];
+        readout: slider-text[3];
+        hue: root.hue;
+        has-default: true;
+        default-value: slider-default[3];
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(3, v); }
+    }
+    if slider-show[4]: SliderRow {
+        label: @tr("Smear");
+        tip: slider-tips[4];
+        minimum: slider-min[4];
+        maximum: slider-max[4];
+        value: slider-value[4];
+        readout: slider-text[4];
+        hue: root.hue;
+        has-default: true;
+        default-value: slider-default[4];
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(4, v); }
     }
     if show-direction: FormRow {
         label: @tr("Direction");
@@ -116,11 +165,9 @@ export component FunPackCard inherits Card {
             picked(i) => { root.direction-picked(i); }
         }
     }
-    Note {
+    if problem != "": Note {
         text: problem;
         kind: "status_warn";
-        visible: problem != "";
-        height: problem != "" ? self.preferred-height : 0px;
     }
     // Nothing to touch until a phone is paired
     if !active: TouchArea { }

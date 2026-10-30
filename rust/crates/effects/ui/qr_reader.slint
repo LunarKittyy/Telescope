@@ -35,21 +35,30 @@ export component QrReaderCard inherits Card {
             Button { text: copy-text; tip: copy-tip; clicked => { root.copy-clicked(); } }
         }
     }
+    // Switch("Notify me…"): the text on the left, the track at the right end, the whole row toggling it
     HorizontalLayout {
-        spacing: 10px;
-        alignment: start;
-        Switch {
-            y: (parent.height - self.height) / 2;
-            checked: notify;
-            label: notify-name;
-            toggled(v) => { root.notify-toggled(v); }
-        }
+        height: 32px;
+        spacing: 12px;
         Text {
             text: @tr("Notify me when a code is read");
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text;
             vertical-alignment: center;
+            horizontal-stretch: 1;
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    notify-switch.checked = !notify-switch.checked;
+                    root.notify-toggled(notify-switch.checked);
+                }
+            }
+        }
+        notify-switch := Switch {
+            y: (parent.height - self.height) / 2;
+            checked: notify;
+            label: notify-name;
+            toggled(v) => { root.notify-toggled(v); }
         }
     }
     // Nothing to touch until a phone is paired

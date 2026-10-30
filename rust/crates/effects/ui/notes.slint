@@ -8,6 +8,8 @@ component NotesEditor inherits Rectangle {
     in property <bool> enabled: true;
     callback edited(string);
     min-height: 140px;
+    // QAbstractScrollArea's size hint
+    preferred-height: 192px;
     vertical-stretch: 1;
     border-radius: 7px;
     border-width: 1px;

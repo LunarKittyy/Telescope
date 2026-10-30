@@ -44,8 +44,9 @@ component WheelCell inherits VerticalLayout {
         reset => { root.reset(); }
         key(k, shift) => { root.key(k, shift); }
     }
+    // QSlider's 20px
     Rectangle {
-        height: 36px;
+        height: 20px;
         Slider {
             width: parent.width;
             height: parent.height;
@@ -153,7 +154,7 @@ export component ColourGradingCard inherits Card {
         label: @tr("Compare");
         Rectangle { horizontal-stretch: 1; }
         Switch {
-            y: 8px;
+            y: (parent.height - self.height) / 2;
             checked: compare;
             label: @tr("Compare");
             tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
@@ -177,6 +178,7 @@ export component ColourGradingCard inherits Card {
     HorizontalLayout {
         spacing: 8px;
         Segmented {
+            margin: 0px;
             items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
             disabled: [false, false, false];
             has-icons: [false, false, false];
@@ -186,8 +188,9 @@ export component ColourGradingCard inherits Card {
             picked(i) => { root.page-picked(i); }
         }
         Rectangle {
-            width: 34px;
+            width: 30px;
             IconButton {
+                y: (parent.height - self.height) / 2;
                 icon: Icons.reset;
                 label: @tr("Reset the grade");
                 clicked => { root.reset-clicked(); }
@@ -198,8 +201,11 @@ export component ColourGradingCard inherits Card {
 
     // ── Primaries ─────────────────────────────────────────────────────
     if page == 0: VerticalLayout {
-        spacing: 10px;
+        spacing: 8px;
         padding-top: 4px;
+        // The wheels' grid has rows 10px apart, the rows under it 8px (_primaries_page)
+        VerticalLayout {
+        spacing: 10px;
         HorizontalLayout {
             spacing: 12px;
             WheelCell {
@@ -274,6 +280,7 @@ export component ColourGradingCard inherits Card {
                 master-moved(v) => { root.master-moved(3, v); }
             }
         }
+        }
         for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
             label: name;
             tip: slider-tips[i];
@@ -295,6 +302,7 @@ export component ColourGradingCard inherits Card {
         spacing: 8px;
         padding-top: 4px;
         Segmented {
+            margin: 0px;
             items: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
             disabled: [false, false, false];
             has-icons: [false, false, false];
@@ -304,6 +312,7 @@ export component ColourGradingCard inherits Card {
             picked(i) => { root.curve-picked-by-hand(i); }
         }
         if curve == 0: Segmented {
+            margin: 0px;
             items: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
             disabled: [false, false, false, false];
             has-icons: [false, false, false, false];
@@ -326,10 +335,8 @@ export component ColourGradingCard inherits Card {
             double-clicked(x, y, w, h) => { root.curve-double-clicked(x, y, w, h); }
             key(k, s) => { root.curve-key(k, s); }
         }
-        Note {
+        if curve-note != "": Note {
             text: curve-note;
-            visible: curve-note != "";
-            height: curve-note != "" ? self.preferred-height : 0px;
         }
     }
 
@@ -379,11 +386,9 @@ export component ColourGradingCard inherits Card {
             hint: root.reset-hint;
             moved(v) => { root.strength-moved(v); }
         }
-        Note {
+        if lut-note != "": Note {
             text: lut-note;
             kind: "status_warn";
-            visible: lut-note != "";
-            height: lut-note != "" ? self.preferred-height : 0px;
         }
         FormRow {
             label: @tr("Export");
@@ -396,11 +401,9 @@ export component ColourGradingCard inherits Card {
                 Rectangle { horizontal-stretch: 1; }
             }
         }
-        Note {
+        if export-note != "": Note {
             text: export-note;
             kind: "status_" + export-kind;
-            visible: export-note != "";
-            height: export-note != "" ? self.preferred-height : 0px;
         }
         if replace-open: HorizontalLayout {
             spacing: 8px;

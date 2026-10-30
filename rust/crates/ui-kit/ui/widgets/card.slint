@@ -182,8 +182,9 @@ export component Card inherits Rectangle {
             }
             if has-switch: Rectangle {
                 width: 36px;
+                // Centred on the 30px chip, as Qt's header row centres it
                 Switch {
-                    y: lift + 9px;
+                    y: lift + 5px;
                     checked <=> root.switch-checked;
                     enabled: root.switch-enabled;
                     label: root.switch-label;

@@ -16,8 +16,10 @@ export component Segmented inherits Rectangle {
     in-out property <int> current: 0;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
+    in property <length> margin: 2px;
     callback picked(int);
-    height: 36px;
+    height: 32px + 2 * margin;
     horizontal-stretch: 1;
     forward-focus: focus;
     accessible-role: tab-list;
@@ -31,7 +33,7 @@ export component Segmented inherits Rectangle {
         }
     }
     track := Rectangle {
-        y: 2px;
+        y: margin;
         height: 32px;
         background: Theme.surface-raise;
         border-width: 1px;
@@ -40,7 +42,7 @@ export component Segmented inherits Rectangle {
         FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
     }
     HorizontalLayout {
-        y: 2px;
+        y: margin;
         height: 32px;
         padding: 3px;
         spacing: 2px;

@@ -98,15 +98,28 @@ component Wheel inherits Rectangle {
             reject
         }
     }
-    // The ring of hues, each where a puck pointing at it would push the picture
-    Rectangle {
-        x: cx - (radius + 9px);
-        y: cy - (radius + 9px);
-        width: 2 * (radius + 9px);
-        height: 2 * (radius + 9px);
-        border-radius: self.width / 2;
+    // The ring of hues, each where a puck pointing at it would push the picture: 72 arcs, since the software renderer
+    // doesn't clip a gradient to a border radius
+    property <length> ring: radius + 6.5px;
+    for c[i] in [#ff4a89, #ff499b, #ff48ad, #ff47be, #ff47cf, #ff48e0, #ff48ee, #ff4af9, #fc4bff, #f44dff, #eb4fff, #de52ff, #d155ff, #c358ff, #b45cff, #a660ff, #9664ff, #8868ff, #786cff, #6972ff, #5a76ff, #4a7cff, #3c80ff, #2e86ff, #218aff, #148fff, #0a93ff, #0498ff, #009cf9, #00a0ee, #00a4e0, #00a8cf, #00acbe, #00aead, #00b19b, #00b389, #00b577, #00b664, #00b752, #00b841, #00b830, #00b71f, #00b611, #00b606, #04b400, #0ab200, #14b000, #21ad00, #2eaa00, #3ca700, #4aa300, #5a9f00, #699b00, #789700, #889200, #968e00, #a68800, #b48400, #c37e00, #d17a00, #de7500, #eb7000, #f46c00, #fc6700, #ff6306, #ff5f11, #ff5b1f, #ff5730, #ff5441, #ff5052, #ff4e64, #ff4c77] : Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        stroke: c;
+        stroke-width: 5px;
         opacity: enabled ? 1 : 0.3;
-        background: @conic-gradient(#ff4b80 0deg, #ff48a4 10deg, #ff47c7 20deg, #ff48e8 30deg, #ff4aff 40deg, #f14eff 50deg, #d853ff 60deg, #bc5aff 70deg, #9e62ff 80deg, #806aff 90deg, #6174ff 100deg, #437eff 110deg, #2788ff 120deg, #0e91ff 130deg, #009aff 140deg, #00a2e8 150deg, #00aac7 160deg, #00b0a4 170deg, #00b480 180deg, #00b75b 190deg, #00b838 200deg, #00b717 210deg, #00b500 220deg, #0eb100 230deg, #27ac00 240deg, #43a500 250deg, #619d00 260deg, #809500 270deg, #9e8b00 280deg, #bc8100 290deg, #d87700 300deg, #f16e00 310deg, #ff6500 320deg, #ff5d17 330deg, #ff5538 340deg, #ff4f5b 350deg, #ff4b80 360deg);
+        MoveTo {
+            x: (cx + ring * sin(i * 5deg - 0.4deg)) / 1px;
+            y: (cy - ring * cos(i * 5deg - 0.4deg)) / 1px;
+        }
+        ArcTo {
+            x: (cx + ring * sin(i * 5deg + 5.4deg)) / 1px;
+            y: (cy - ring * cos(i * 5deg + 5.4deg)) / 1px;
+            radius-x: ring / 1px;
+            radius-y: ring / 1px;
+            sweep: true;
+        }
     }
     Rectangle {
         x: cx - (radius + 4px);
@@ -116,6 +129,15 @@ component Wheel inherits Rectangle {
         border-radius: self.width / 2;
         background: Theme.surface;
     }
+    // The well, lighter towards the middle: rings of solid colour, as the software renderer doesn't clip a gradient either
+    for t[i] in [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] : Rectangle {
+        x: cx - radius * t;
+        y: cy - radius * t;
+        width: 2 * radius * t;
+        height: 2 * radius * t;
+        border-radius: radius * t;
+        background: Theme.surface-raise.mix(Theme.surface-hover, t - 0.05);
+    }
     Rectangle {
         x: cx - radius;
         y: cy - radius;
@@ -124,7 +146,6 @@ component Wheel inherits Rectangle {
         border-radius: radius;
         border-width: 1px;
         border-color: Theme.border-strong;
-        background: @radial-gradient(circle, Theme.surface-hover 0%, Theme.surface-raise 100%);
     }
     Rectangle { x: cx - radius; y: cy - 0.5px; width: 2 * radius; height: 1px; background: Theme.border-strong; }
     Rectangle { x: cx - 0.5px; y: cy - radius; width: 1px; height: 2 * radius; background: Theme.border-strong; }
