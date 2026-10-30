@@ -187,13 +187,13 @@ fn asked_to_stand_in_for_the_stream_the_wait_screen_joins_the_pipeline_at_its_st
     let (_, file) = config_with(json!({}));
     let cameras = Arc::new(Cameras::default());
     let mut s = state(&file, vec![Box::new(WaitScreenPlugin::new(cameras))]);
-    assert!(s.pipeline_steps().iter().all(|step| step.owner != "wait_screen"));
+    assert!(s.pipeline_steps(None).iter().all(|step| step.owner != "wait_screen"));
     s.effects.clear();
     s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: true });
     s.deliver_events();
     // The asker hears it's in place, and the window is told to rebuild the steps
     assert!(pushed(&s, &Effect::FrameStep("wait_screen".into())));
-    let mut steps = s.pipeline_steps();
+    let mut steps = s.pipeline_steps(None);
     let step = steps.iter_mut().find(|step| step.owner == "wait_screen").expect("its step");
     assert_eq!(step.stage, FrameStage::Cover);
     let FrameStep::Cpu(cpu) = &mut step.step else { panic!("a CPU step") };
@@ -217,7 +217,7 @@ fn asked_to_stand_in_for_the_stream_the_wait_screen_joins_the_pipeline_at_its_st
     assert_ne!(frame.data[0], 99);
     s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: false });
     s.deliver_events();
-    assert!(s.pipeline_steps().iter().all(|step| step.owner != "wait_screen"));
+    assert!(s.pipeline_steps(None).iter().all(|step| step.owner != "wait_screen"));
 }
 
 #[test]

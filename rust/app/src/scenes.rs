@@ -25,11 +25,14 @@ struct SceneLink {
     adb: bool,
     /// This computer is on a network, so pairing offers an address.
     network: bool,
+    /// A phone pairs as soon as Add phone is open (translation_scenes.add_phone_done).
+    pairs: bool,
 }
 
 /// translation_scenes_connection.pairing_dialog's Server: a fixed payload, and nobody ever pairs.
 struct SceneOffer {
     network: bool,
+    pairs: std::sync::atomic::AtomicBool,
 }
 
 impl PairingOffer for SceneOffer {
@@ -46,7 +49,14 @@ impl PairingOffer for SceneOffer {
         0
     }
     fn poll(&self) -> Option<PairedPhone> {
-        None
+        self.pairs.swap(false, std::sync::atomic::Ordering::Relaxed).then(|| PairedPhone {
+            id: "phone-1".into(),
+            name: "Pixel 8".into(),
+            token: "token".into(),
+            ips: Vec::new(),
+            active_ip: None,
+            cert_sha256: String::new(),
+        })
     }
 }
 
@@ -58,7 +68,7 @@ impl Link for SceneLink {
         Err(Unreachable::NoAnswer)
     }
     fn pair(&self, _cid: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
-        Ok(Arc::new(SceneOffer { network: self.network }))
+        Ok(Arc::new(SceneOffer { network: self.network, pairs: self.pairs.into() }))
     }
     fn check(&self, _phone: &PairedPhone, _preference: RoutePreference) -> Resolution {
         match &self.answer {
@@ -179,7 +189,7 @@ impl Backend for NoUpdates {
 }
 
 fn quiet() -> SceneLink {
-    SceneLink { answer: None, adb: true, network: true }
+    SceneLink { answer: None, adb: true, network: true, pairs: false }
 }
 
 fn res(status: PhoneStatus, route: Option<&str>, note: Option<UsbNote>) -> Resolution {
@@ -230,14 +240,31 @@ const ADD_PHONE: &[(&str, bool, bool)] = &[("dialog-add-phone", false, true), ("
 
 /// The window with nothing paired on a computer called Studio PC, and the Add phone dialog open.
 fn add_phone(adb: bool, network: bool) -> Setup {
+    add_phone_pairing(adb, network, false)
+}
+
+/// Runs the event loop for a while, for what plugins do on timers (Add phone polls for a pairing every 250 ms).
+fn wait(w: &std::rc::Rc<telescope_shell::window::Window>, ms: u64) {
+    let start = std::time::Instant::now();
+    while start.elapsed() < std::time::Duration::from_millis(ms) {
+        telescope_shell::offscreen::pump();
+        w.process();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     let mut config = main_window_config(false);
     config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
     config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
-    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb, network };
+    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb, network, pairs };
     Setup {
         page: Page::Dialog { frame: "DialogFrame".into(), owner: "ConnectionCard".into() },
-        then: Some(Box::new(|w| {
+        then: Some(Box::new(move |w| {
             w.call_ui("connection", "card", "add-phone");
+            if pairs {
+                wait(w, 600);
+            }
         })),
         ..Setup::window(Some(services(link)), config, WIDTH_THREE_COL, 900.0)
     }
@@ -272,13 +299,43 @@ pub fn all() -> Vec<Scene> {
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
             telescope_link::platform::set_windows(windows.then_some(true));
-            let link = SceneLink { answer: Some(answer.clone()), adb, network: true };
+            let link = SceneLink { answer: Some(answer.clone()), adb, network: true, pairs: false };
             Setup::window(Some(services(link)), with_route(main_window_config(true), route), WIDTH_THREE_COL, 700.0)
         }));
     }
     for &(id, adb, network) in ADD_PHONE {
         scenes.push(Scene::new(id, move || add_phone(adb, network)));
     }
+    scenes.push(Scene::new("dialog-add-phone-done", || add_phone_pairing(true, true, true)));
+    // translation_scenes.phones_dialog: Pixel 8 on Studio PC, and a browser remembered as a camera
+    scenes.push(Scene::new("dialog-phones", || {
+        let mut config = main_window_config(true);
+        config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
+        config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
+        Setup {
+            page: Page::Dialog { frame: "DialogFrame".into(), owner: "PhonePicker".into() },
+            then: Some(Box::new(|w| {
+                let browser = telescope_core::event::RememberedSource {
+                    id: "browser:x".into(),
+                    name: "Chrome on Android".into(),
+                    detail: "Browser".into(),
+                };
+                w.emit(telescope_core::event::Event::RememberedSources { sources: vec![browser] });
+                w.call_ui("connection", "header", "manage");
+            })),
+            ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }
+    }));
+    // translation_scenes.shortcut_editor: a new shortcut, nothing picked yet
+    scenes.push(Scene::new("dialog-shortcut", || Setup {
+        page: Page::SettingsDialog {
+            tab: "shortcuts".into(),
+            call: ("shortcuts".into(), "shortcuts".into(), "add".into()),
+            frame: "DialogFrame".into(),
+            owner: "ShortcutsSettings".into(),
+        },
+        ..Setup::window(Some(services(quiet())), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1)
+    }));
     for &tab in SETTINGS_PAGES {
         scenes.push(Scene::new(format!("settings-{tab}"), move || Setup {
             page: Page::Settings(tab.into()),

@@ -2,7 +2,9 @@
 //! QFileDialog. The dialog runs on a thread; the answer comes back to the plugin as Event::RequestDone.
 
 use serde_json::{json, Value};
-use telescope_core::host::{FileDialog, FileDialogKind};
+use telescope_core::host::FileDialog;
+#[cfg(target_os = "linux")]
+use telescope_core::host::FileDialogKind;
 
 /// "LUT files (*.cube *.3dl)" as the portal's (name, [(0 = glob, pattern)]).
 pub fn portal_filter(filter: &str) -> (String, Vec<(u32, String)>) {
@@ -50,9 +52,107 @@ pub fn ask(dialog: &FileDialog) -> Answer {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
+pub fn ask(dialog: &FileDialog) -> Answer {
+    match windows_dialog::ask(dialog) {
+        Ok(answer) => answer,
+        Err(e) => {
+            log::info!("No file dialog: {e}");
+            (false, e.to_string(), json!({}))
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 pub fn ask(_dialog: &FileDialog) -> Answer {
     (false, "no file dialog in this build".into(), json!({}))
+}
+
+/// The common item dialog (IFileOpenDialog, IFileSaveDialog), what QFileDialog shows on Windows.
+#[cfg(windows)]
+mod windows_dialog {
+    use super::{portal_filter, Answer};
+    use serde_json::json;
+    use std::path::Path;
+    use telescope_core::host::{FileDialog, FileDialogKind};
+    use windows::core::{Interface, HSTRING, PCWSTR};
+    use windows::Win32::Foundation::ERROR_CANCELLED;
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
+    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
+    use windows::Win32::UI::Shell::{FileOpenDialog, FileSaveDialog, IFileDialog, IFileOpenDialog, IFileSaveDialog, IShellItem,
+                                    SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
+
+    fn folder_item(folder: &Path) -> Option<IShellItem> {
+        // SAFETY: the path is a live HSTRING for the call
+        folder.is_dir().then(|| unsafe { SHCreateItemFromParsingName(&HSTRING::from(folder.as_os_str()), None) }.ok()).flatten()
+    }
+
+    pub fn ask(dialog: &FileDialog) -> windows::core::Result<Answer> {
+        // SAFETY: COM is set up for this thread (the dialog's own) and taken down once it's done
+        unsafe {
+            let inited = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
+            let answer = show(dialog);
+            if inited {
+                CoUninitialize();
+            }
+            answer
+        }
+    }
+
+    unsafe fn show(dialog: &FileDialog) -> windows::core::Result<Answer> {
+        let d: IFileDialog = match dialog.kind {
+            FileDialogKind::Save => CoCreateInstance::<_, IFileSaveDialog>(&FileSaveDialog, None, CLSCTX_INPROC_SERVER)?.cast()?,
+            _ => CoCreateInstance::<_, IFileOpenDialog>(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)?.cast()?,
+        };
+        d.SetTitle(&HSTRING::from(dialog.title.as_str()))?;
+        // The texts stay alive until the dialog is done with them
+        let specs: Vec<(HSTRING, HSTRING)> = dialog.filters.iter().map(|f| {
+            let (name, globs) = portal_filter(f);
+            (HSTRING::from(name), HSTRING::from(globs.into_iter().map(|(_, g)| g).collect::<Vec<_>>().join(";")))
+        }).collect();
+        if !specs.is_empty() && dialog.kind != FileDialogKind::Folder {
+            let list: Vec<COMDLG_FILTERSPEC> = specs.iter().map(|(n, s)| COMDLG_FILTERSPEC { pszName: PCWSTR(n.as_ptr()), pszSpec: PCWSTR(s.as_ptr()) }).collect();
+            d.SetFileTypes(&list)?;
+            d.SetFileTypeIndex(1)?;
+        }
+        let start = Path::new(&dialog.start);
+        match dialog.kind {
+            FileDialogKind::Save => {
+                let (folder, name) = if start.is_dir() || dialog.start.ends_with(['/', '\\']) {
+                    (start.to_path_buf(), None)
+                } else {
+                    (start.parent().map(Path::to_path_buf).unwrap_or_default(), start.file_name().map(|n| n.to_string_lossy().into_owned()))
+                };
+                if let Some(name) = name {
+                    d.SetFileName(&HSTRING::from(name))?;
+                }
+                if let Some(item) = folder_item(&folder) {
+                    d.SetFolder(&item)?;
+                }
+            }
+            FileDialogKind::Open | FileDialogKind::Folder => {
+                if let Some(item) = folder_item(start) {
+                    d.SetFolder(&item)?;
+                }
+                if dialog.kind == FileDialogKind::Folder {
+                    d.SetOptions(d.GetOptions()? | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)?;
+                }
+            }
+        }
+        if let Err(e) = d.Show(None) {
+            // Cancel isn't a problem to tell anyone about
+            if e.code() == ERROR_CANCELLED.to_hresult() {
+                return Ok((false, String::new(), json!({})));
+            }
+            return Err(e);
+        }
+        let raw = d.GetResult()?.GetDisplayName(SIGDN_FILESYSPATH)?;
+        let path = raw.to_string().unwrap_or_default();
+        CoTaskMemFree(Some(raw.0 as *const _));
+        let picked = d.GetFileTypeIndex().ok().and_then(|i| dialog.filters.get((i as usize).checked_sub(1)?).cloned());
+        let filter = picked.or_else(|| dialog.filters.first().cloned());
+        Ok((true, String::new(), json!({"path": path, "filter": filter})))
+    }
 }
 
 #[cfg(target_os = "linux")]

@@ -457,12 +457,23 @@ fn run_own(host: &mut dyn Host, id: &str, p: &Value) -> Option<String> {
     }
 }
 
-/// Every action by its id, the app's own first, then the cards' in their order (start()'s grouping); the plugin
-/// that runs each, None for this one.
+/// Every action by its id in the order the plugins give them, this one's own where it sits (first when the host
+/// doesn't list it), then grouped by card with the app's own group first (start()'s grouping); the plugin that runs
+/// each, None for this one.
 fn all_actions(host: &dyn Host) -> Vec<(Option<String>, ActionSpec)> {
-    let mut out: Vec<(Option<String>, ActionSpec)> = own_actions().into_iter().map(|a| (None, a)).collect();
-    for (plugin, action) in host.shortcut_actions() {
-        if plugin != "shortcuts" && !out.iter().any(|(_, a)| a.id == action.id) {
+    let listed = host.shortcut_actions();
+    let mut out: Vec<(Option<String>, ActionSpec)> = Vec::new();
+    if !listed.iter().any(|(plugin, _)| plugin == "shortcuts") {
+        out.extend(own_actions().into_iter().map(|a| (None, a)));
+    }
+    let mut own_added = !out.is_empty();
+    for (plugin, action) in listed {
+        if plugin == "shortcuts" {
+            if !own_added {
+                own_added = true;
+                out.extend(own_actions().into_iter().filter(|o| !out.iter().any(|(_, a)| a.id == o.id)).map(|a| (None, a)).collect::<Vec<_>>());
+            }
+        } else if !out.iter().any(|(_, a)| a.id == action.id) {
             out.push((Some(plugin), action));
         }
     }

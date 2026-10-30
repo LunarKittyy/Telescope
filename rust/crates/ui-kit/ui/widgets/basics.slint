@@ -44,7 +44,8 @@ export component Button inherits Rectangle {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback clicked;
-    height: 34px;
+    // QPushButton's 30px min-height inside its 1px border
+    height: 32px;
     min-width: lay.preferred-width;
     border-radius: 7px;
     border-width: 1px;

@@ -1,7 +1,7 @@
 // The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
 // card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch, SettingRow } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
 
 export struct BindingRow {
     keys: string,
@@ -145,12 +145,14 @@ component KeyBox inherits Rectangle {
             accept
         }
     }
+    // QKeySequenceEdit's line edit: QSS's 10px padding and its own 2px margin
     HorizontalLayout {
-        padding-left: 10px;
+        padding-left: 13px;
         padding-right: 4px;
         Text {
             horizontal-stretch: 1;
-            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key…") : "";
+            // Unfocused and empty: QKeySequenceEdit's own placeholder
+            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key…") : "Press shortcut";
             font-family: Theme.font;
             font-size: Theme.body;
             color: root.text != "" ? Theme.text : Theme.text-faint;
@@ -261,30 +263,20 @@ export component ShortcutsSettings inherits VerticalLayout {
 
     editor := PopupWindow {
         close-policy: no-auto-close;
-        x: (root.width - self.width) / 2;
+        x: 0px;
         y: 0px;
-        width: min(root.width, 560px);
-        Rectangle {
-            background: Theme.surface-raise;
-            border-width: 1px;
-            border-color: Theme.border-strong;
-            border-radius: 12px;
-            drop-shadow-blur: 24px;
-            drop-shadow-color: #00000080;
+        // BindingEditor's minimum width
+        width: min(root.width, 520px);
+        DialogFrame {
+            title: @tr("Keyboard shortcut");
+            subtitle: @tr("Pick a control, what the key does to it, then press the key.");
             VerticalLayout {
-                padding: 20px;
-                spacing: 10px;
-                Text {
-                    text: @tr("Keyboard shortcut");
-                    font-family: Theme.font;
-                    font-size: Theme.card-title;
-                    font-weight: 600;
-                    color: Theme.text;
-                }
-                Note { text: @tr("Pick a control, what the key does to it, then press the key."); }
+                spacing: 14px;
                 FormRow {
                     label: @tr("Find");
                     TextField {
+                        // BindingEditor opens with the search box focused
+                        init => { self.focus(); }
                         y: (parent.height - self.height) / 2;
                         horizontal-stretch: 1;
                         text: query;
@@ -307,7 +299,7 @@ export component ShortcutsSettings inherits VerticalLayout {
                 }
                 for p[i] in params: FormRow {
                     visible: p.shown;
-                    height: p.shown ? self.preferred-height : 0px;
+                    height: p.shown ? max(self.preferred-height, self.min-height) : 0px;
                     label: p.label;
                     if !p.number: ChoiceField {
                         compact: true;
@@ -337,21 +329,23 @@ export component ShortcutsSettings inherits VerticalLayout {
                 }
                 FormRow {
                     label: "";
+                    // widgets.Switch with its text: the words on the left, the track at the row's end
                     HorizontalLayout {
-                        spacing: 10px;
+                        spacing: 12px;
+                        Note { text: @tr("Also works while another app is in front"); kind: ""; horizontal-stretch: 1; }
                         Switch {
                             y: (parent.height - self.height) / 2;
                             checked: global;
                             label: @tr("Also works while another app is in front");
                             toggled(on) => { root.global-toggled(on); }
                         }
-                        Note { text: @tr("Also works while another app is in front"); kind: ""; }
                     }
                 }
                 if problem != "": Note { text: problem; kind: "status_warn"; }
+                // dialog_buttons: Cancel and Save 96px wide, 4px under the rows
                 HorizontalLayout {
                     spacing: 8px;
-                    padding-top: 6px;
+                    padding-top: 4px;
                     Button {
                         text: copy-text;
                         tip: copy-tip;
@@ -359,8 +353,8 @@ export component ShortcutsSettings inherits VerticalLayout {
                         clicked => { root.copy-command(); }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("Cancel"); clicked => { root.cancel(); } }
-                    Button { text: @tr("Save"); role: "primary"; enabled: save-enabled; clicked => { root.save(); } }
+                    Button { width: 96px; text: @tr("Cancel"); clicked => { root.cancel(); } }
+                    Button { width: 96px; text: @tr("Save"); role: "primary"; enabled: save-enabled; clicked => { root.save(); } }
                 }
             }
         }

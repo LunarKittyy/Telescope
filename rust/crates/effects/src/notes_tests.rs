@@ -484,3 +484,27 @@ fn it_is_an_optional_card_on_the_right_in_on_screen() {
     assert_eq!((info.name.as_str(), info.category.as_str(), info.icon.as_str(), info.optional, info.in_presets, info.device_local), ("notes", "on_screen", "notes", true, false, false));
     assert_eq!(NotesPlugin::new().card().unwrap().region, "right");
 }
+
+#[test]
+fn sent_notes_are_followed_by_asking_the_phone_its_state() {
+    let mut r = Rig::new();
+    r.streaming("phone", default_state());
+    let asks = |r: &Rig| r.host.calls.iter().filter(|c| *c == "request_phone_state Some(\"phone\")").count();
+    // Nothing sent yet and the phone said it takes notes: nothing to follow
+    r.event(Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });
+    assert_eq!(asks(&r), 0);
+    assert!(r.host.scheduled.iter().any(|(ms, t)| *ms == POLL_MS && t == T_POLL), "the poll keeps going");
+    r.type_text("Say hello");
+    r.click("send-clicked");
+    assert!(r.host.scheduled.iter().any(|(ms, t)| *ms == FIRST_POLL_MS && t == T_FIRST_POLL));
+    r.event(Event::TimerFired { owner: NAME.into(), token: T_FIRST_POLL.into() });
+    r.event(Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });
+    assert_eq!(asks(&r), 2);
+    // The answer comes back as the stream's state
+    r.state(state(true, true, true, "front", json!({})));
+    assert!(r.plugin.diagnostics().contains(&("Notes".into(), "on the phone".into())));
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(r.host.scheduled.is_empty(), "no polling once the stream stopped");
+    r.event(Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });
+    assert_eq!(asks(&r), 2);
+}

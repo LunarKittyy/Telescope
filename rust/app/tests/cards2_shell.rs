@@ -86,7 +86,7 @@ fn a_code_held_up_to_the_camera_reaches_the_clipboard_and_a_notification() {
     assert!(state.slots[0].info.frame_stage == telescope_core::FrameStage::Reading);
 
     // The frame step the shell gives the stream looks at the picture on a thread of its own and posts what it finds
-    let steps = state.pipeline_steps();
+    let steps = state.pipeline_steps(None);
     let mut step = steps.into_iter().find(|s| s.owner == "qr_reader").map(|s| s.step).expect("a frame step");
     let FrameStep::Cpu(step) = &mut step else { panic!("a Rust step") };
     let frame = frame_with_code("WIFI:T:WPA;S:Telescope;P:hunter22;;");

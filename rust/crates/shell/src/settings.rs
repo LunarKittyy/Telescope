@@ -146,6 +146,11 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     window.process();
 }
 
+/// Drops the settings window, so the next open builds it again (each scene has a window of its own).
+pub fn forget() {
+    SETTINGS.with(|s| *s.borrow_mut() = None);
+}
+
 /// The window if it's been built, for tests and scenes.
 pub fn current() -> Option<Rc<Settings>> {
     SETTINGS.with(|s| s.borrow().clone())
@@ -341,6 +346,16 @@ impl Settings {
     pub fn current_tab(&self) -> String {
         let i = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };
         self.tabs.get(i).map(|t| t.0.clone()).unwrap_or_default()
+    }
+
+    /// Runs a callback of a plugin's settings section as if it had been clicked (scene renders open its dialogs this way).
+    pub fn call(&self, plugin: &str, ui: &str, callback: &str) -> bool {
+        let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return false };
+        let done = self.ui.invoke(&format!("{id}-{callback}"), &[]).is_ok();
+        if let Some(w) = self.window.upgrade() {
+            w.process();
+        }
+        done
     }
 
     /// Go to the tab with this id; false if there isn't one.

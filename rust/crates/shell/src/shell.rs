@@ -33,6 +33,28 @@ pub struct Slot {
     pub defaults: Value,
 }
 
+/// The plugins' packet step makers by owner, in the order they came on (HostPackets).
+#[derive(Clone, Default)]
+pub struct PacketMakers(pub Vec<(String, Arc<dyn telescope_core::host::PacketStepFactory>)>);
+
+impl PacketMakers {
+    pub fn owners(&self) -> Vec<String> {
+        self.0.iter().map(|(o, _)| o.clone()).collect()
+    }
+}
+
+impl std::fmt::Debug for PacketMakers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PacketMakers({:?})", self.owners())
+    }
+}
+
+impl PartialEq for PacketMakers {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len() && self.0.iter().zip(&other.0).all(|(a, b)| a.0 == b.0 && Arc::ptr_eq(&a.1, &b.1))
+    }
+}
+
 /// A picture a plugin set on its UI, which Effect compares by what it shows.
 #[derive(Clone, Debug)]
 pub struct Picture(pub telescope_core::Frame);
@@ -63,6 +85,9 @@ pub enum Effect {
     /// Restart a stream for new connection settings: source_id's, or the panels' without one.
     Reconnect(Option<String>),
     PhoneControl { source_id: Option<String>, body: Value },
+    RequestPhoneState { source_id: Option<String> },
+    /// The packet steps the shown stream's H.264 goes through now, after one plugin's change_packets.
+    Packets(PacketMakers),
     CameraOn { on: bool, auto: bool },
     ToggleWindow,
     /// Host::update_stream_output: a new size or rate for a stream's camera (the focused one's without an id).
@@ -114,6 +139,10 @@ pub struct Streams {
     /// Phone streams that could move to another route now: up, not recovering, not moving already, and with a worker
     /// that can take it (or the camera off).
     pub can_hand_over: Vec<String>,
+    /// The streams the panels don't show (Sessions.background), for host.background_streams.
+    pub background: Vec<telescope_core::host::BackgroundStream>,
+    /// The shown stream's URL, for host.packets_problem.
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -194,6 +223,7 @@ pub struct State {
     pub file: ConfigFile,
     pub bus: EventBus,
     pub effects: Vec<Effect>,
+    pub packet_makers: PacketMakers,
     /// The picked source (Connection's selected_device), whose device profile the panels show.
     pub selected: Option<String>,
     pub streams: Streams,
@@ -204,6 +234,8 @@ pub struct State {
     pub colour: ColourPipeline,
     /// While Colour grading compares: each stream's newest frame from just before the colour step, for the preview.
     pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
+    /// The pick under way on the preview, and the warp a plugin moving the picture told it about.
+    pub overlays: crate::overlays::Overlays,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -250,12 +282,14 @@ impl State {
             file,
             bus: EventBus::new(),
             effects: Vec::new(),
+            packet_makers: PacketMakers::default(),
             selected: None,
             streams: Streams::default(),
             view: View::default(),
             vc: crate::view_control::ViewController::new(),
             colour: ColourPipeline::new(),
             colour_before: Arc::default(),
+            overlays: Default::default(),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -528,8 +562,9 @@ impl State {
         }
     }
 
-    /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage).
-    pub fn pipeline_steps(&mut self) -> Vec<telescope_core::media::StagedStep> {
+    /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage), with the colour
+    /// stages source_id's stream gets.
+    pub fn pipeline_steps(&mut self, source_id: Option<&str>) -> Vec<telescope_core::media::StagedStep> {
         use telescope_core::frame::FrameStage;
         use telescope_core::media::StagedStep;
         let mut steps = Vec::new();
@@ -537,12 +572,15 @@ impl State {
         for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
             steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
         }
-        if let Some(step) = self.colour.step(None) {
+        let colour = self.colour.step(source_id);
+        // The picture from before is kept only while there's a colour step to compare with
+        if colour.is_none() || self.colour.split().is_none() {
+            self.colour_before.lock().unwrap().clear();
+        }
+        if let Some(step) = colour {
             if self.colour.split().is_some() {
                 let keep = KeepBefore(self.colour_before.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
-            } else {
-                self.colour_before.lock().unwrap().clear();
             }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
         }
@@ -677,6 +715,10 @@ impl State {
                 if let Event::MicChanged { enabled, muted } = event {
                     self.mic = (enabled, muted);
                 }
+                if matches!(event, Event::StreamStopped | Event::DeviceChanged { .. }) {
+                    // A warp stays: only its plugin ends it
+                    self.overlays.cancel_pick(None, &self.bus);
+                }
                 if let Event::CameraSwitched { camera } = &event {
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
@@ -747,9 +789,40 @@ impl State {
 
     /// A callback from one of plugin `name`'s pieces of UI.
     pub fn ui_event(&mut self, name: &str, event: UiEvent) {
+        if name == "preview" && event.callback.starts_with("pick-") {
+            self.pick_input(&event);
+            self.deliver_events();
+            return;
+        }
         if let Some(i) = self.index(name) {
             self.call(i, |p, host| p.on_ui(host, &event));
             self.deliver_events();
+        }
+    }
+
+    /// The mouse and keys on the preview card's stage while a pick runs: pick-pointer(kind, u, v, width, height) with
+    /// the point in the frame as shown and the frame's size on screen, and pick-key(text).
+    fn pick_input(&mut self, event: &UiEvent) {
+        let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
+        let s = |i: usize| event.args.get(i).and_then(Value::as_str).unwrap_or("");
+        let (view, o, bus) = (&self.view, &mut self.overlays, &self.bus);
+        let (u, v, size) = (n(1), n(2), (n(3), n(4)));
+        match (event.callback.as_str(), s(0)) {
+            ("pick-pointer", "down") => {
+                o.press(view, u, v, size);
+            }
+            ("pick-pointer", "move") => {
+                o.move_to(view, u, v);
+                o.cursor = Some(o.cursor_at(view, u, v, size).unwrap_or(crate::overlays::Cursor::Default));
+            }
+            ("pick-pointer", "up") => {
+                o.release(view, bus);
+            }
+            ("pick-pointer", "right") => o.cancel_pick(None, bus),
+            ("pick-key", key) => {
+                o.key(view, key, bus);
+            }
+            _ => {}
         }
     }
 
@@ -1140,11 +1213,11 @@ mod tests {
         let mut s = state();
         let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
         s.colour.set_stage("grade", Some(warm), 0, None);
-        let colour = |s: &mut State| s.pipeline_steps().into_iter().filter(|st| st.stage == FrameStage::Colour)
+        let colour = |s: &mut State| s.pipeline_steps(None).into_iter().filter(|st| st.stage == FrameStage::Colour)
             .map(|st| matches!(st.step, FrameStep::Cpu(_))).collect::<Vec<bool>>();
         assert_eq!(colour(&mut s), [false], "just the LUT");
         s.colour.set_split("grade", Some(0.5));
-        let mut steps = s.pipeline_steps();
+        let mut steps = s.pipeline_steps(None);
         let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
         let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
         let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
@@ -1153,6 +1226,27 @@ mod tests {
         s.colour.set_split("grade", None);
         assert_eq!(colour(&mut s), [false]);
         assert!(s.colour_before.lock().unwrap().is_empty());
+        // The last stage going away while comparing lets the picture go too
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps(None);
+        let keep = steps.iter_mut().find(|st| st.stage == FrameStage::Colour && matches!(st.step, FrameStep::Cpu(_))).unwrap();
+        let FrameStep::Cpu(step) = &mut keep.step else { unreachable!() };
+        step.process(&mut frame, &NoCtx);
+        s.colour.set_stage("grade", None, 0, None);
+        assert!(colour(&mut s).is_empty());
+        assert!(s.colour_before.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_stream_gets_the_colour_stages_set_for_it_alone() {
+        use telescope_core::frame::FrameStage;
+        let mut s = state();
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, Some("tablet"));
+        let colour = |s: &mut State, id| s.pipeline_steps(id).into_iter().filter(|st| st.stage == FrameStage::Colour).count();
+        assert_eq!(colour(&mut s, Some("tablet")), 1);
+        assert_eq!(colour(&mut s, Some("phone")), 0);
+        assert_eq!(colour(&mut s, None), 0);
     }
 
 }

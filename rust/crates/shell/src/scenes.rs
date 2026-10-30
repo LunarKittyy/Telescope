@@ -26,6 +26,9 @@ pub enum Page {
     /// The type name of the component that frames the popup, and of the one that opens it at its own top left (positions
     /// inside a popup start from the popup).
     Dialog { frame: String, owner: String },
+    /// A popup the settings window opens on one of its tabs, by running a plugin's settings callback (plugin, section,
+    /// callback), cut out like Dialog.
+    SettingsDialog { tab: String, call: (String, String, String), frame: String, owner: String },
     /// One plugin's card alone, CARD_WIDTH wide with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
@@ -151,7 +154,20 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
                 crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)
             })
         }
-        Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w, &p, frame, owner, scale)),
+        Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w.ui, &p, frame, owner, scale)),
+        Page::SettingsDialog { tab, call, frame, owner } => {
+            // Opened as the window opens it, so what plugins say to their sections reaches it
+            crate::settings::open(&w, tab);
+            let settings = crate::settings::current().ok_or("no settings window")?;
+            settings.call(&call.0, &call.1, &call.2);
+            settle(&w);
+            // The popup opens from a changed handler, which runs as the window draws
+            crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
+            let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale)
+                .and_then(|p| cut_out(&settings.ui, &p, frame, owner, scale));
+            crate::settings::forget();
+            picture
+        }
         Page::Settings(tab) => {
             let settings = crate::settings::build(&w)?;
             settings.show_tab(tab);
@@ -217,10 +233,10 @@ impl Plugin for StandIn {
 }
 
 /// The part of picture the last open element of type frame covers, in a popup opened by an element of type owner.
-fn cut_out(w: &window::Window, picture: &crate::offscreen::Picture, frame: &str, owner: &str, scale: f32) -> Option<crate::offscreen::Picture> {
+fn cut_out(ui: &slint_interpreter::ComponentInstance, picture: &crate::offscreen::Picture, frame: &str, owner: &str, scale: f32) -> Option<crate::offscreen::Picture> {
     use i_slint_backend_testing::ElementHandle;
-    let found = ElementHandle::find_by_element_type_name(&w.ui, frame).last()?;
-    let at = ElementHandle::find_by_element_type_name(&w.ui, owner).next()?.absolute_position();
+    let found = ElementHandle::find_by_element_type_name(ui, frame).last()?;
+    let at = ElementHandle::find_by_element_type_name(ui, owner).next()?.absolute_position();
     let (mut pos, size) = (found.absolute_position(), found.size());
     pos.x += at.x;
     pos.y += at.y;

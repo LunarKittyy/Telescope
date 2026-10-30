@@ -23,6 +23,21 @@ export component PreviewCard inherits Rectangle {
     // The stage's size in logical px, for the window to paint frames at
     out property <length> stage-width: surface.width;
     out property <length> stage-height: surface.height;
+    // A pick under way on the picture (overlays.rs): what the window draws for it, in px of the picture's rect
+    in property <bool> picking;
+    in property <string> pick-dim;
+    in property <string> pick-line;
+    in property <string> pick-handles;
+    in property <string> pick-hint;
+    in property <string> pick-cursor;
+    // Where the picture sits on the stage (image-fit contain)
+    property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : surface.width / max(1px, surface.height);
+    out property <length> pic-width: min(surface.width, surface.height * aspect);
+    out property <length> pic-height: pic-width / max(aspect, 0.01);
+    property <length> pic-x: (surface.width - pic-width) / 2;
+    property <length> pic-y: (surface.height - pic-height) / 2;
+    callback pick-pointer(string, float, float, float, float);
+    callback pick-key(string);
     callback toggle;
     callback camera-clicked;
     callback pop-out;
@@ -66,6 +81,94 @@ export component PreviewCard inherits Rectangle {
                     font-family: Theme.font;
                     font-size: camera-off ? 15px : 13px;
                     color: camera-off ? Theme.accent-soft : Theme.text-faint;
+                }
+            }
+            if picking: Rectangle {
+                x: pic-x;
+                y: pic-y;
+                width: pic-width;
+                height: pic-height;
+                if pick-dim != "": Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: self.width / 1px;
+                    viewbox-height: self.height / 1px;
+                    commands: pick-dim;
+                    fill: #0000005a;
+                    fill-rule: evenodd;
+                }
+                if pick-line != "": Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: self.width / 1px;
+                    viewbox-height: self.height / 1px;
+                    commands: pick-line;
+                    stroke: #00000082;
+                    stroke-width: 4px;
+                }
+                if pick-line != "": Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: self.width / 1px;
+                    viewbox-height: self.height / 1px;
+                    commands: pick-line;
+                    stroke: #ffffffeb;
+                    stroke-width: 2px;
+                }
+                if pick-handles != "": Path {
+                    width: parent.width;
+                    height: parent.height;
+                    viewbox-width: self.width / 1px;
+                    viewbox-height: self.height / 1px;
+                    commands: pick-handles;
+                    fill: #ffffffeb;
+                    stroke: #00000082;
+                    stroke-width: 2px;
+                }
+                // The hint chip at the top of the picture, as _paint_hint draws it
+                Rectangle {
+                    y: 12px;
+                    width: min(hint.preferred-width + 12px, parent.width - 12px);
+                    height: hint.preferred-height + 6px;
+                    background: #000000aa;
+                    border-radius: 4px;
+                    hint := Text {
+                        width: parent.width - 6px;
+                        text: pick-hint;
+                        font-family: Theme.font;
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: white;
+                        horizontal-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
+            if picking: keys := FocusScope {
+                init => { self.focus(); }
+                key-pressed(e) => {
+                    if e.text == Key.Return || e.text == Key.Escape {
+                        root.pick-key(e.text);
+                        return accept;
+                    }
+                    reject
+                }
+                TouchArea {
+                    mouse-cursor: pick-cursor == "cross" ? MouseCursor.crosshair : pick-cursor == "move" ? MouseCursor.move : pick-cursor == "grab" ? MouseCursor.grab : MouseCursor.default;
+                    pointer-event(e) => {
+                        let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                        let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                        let kind = e.kind == PointerEventKind.move ? "move"
+                            : e.button == PointerEventButton.right ? (e.kind == PointerEventKind.down ? "right" : "")
+                            : e.button != PointerEventButton.left ? ""
+                            : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
+                        if kind == "down" {
+                            keys.focus();
+                        }
+                        if kind != "" {
+                            root.pick-pointer(kind, u, v, pic-width / 1px, pic-height / 1px);
+                        }
+                    }
                 }
             }
         }

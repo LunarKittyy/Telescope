@@ -133,7 +133,7 @@ impl HostStreams for Ctx<'_> {
         self.state.streams.source_id.clone().or_else(|| self.state.selected.clone())
     }
     fn background_streams(&self) -> Vec<BackgroundStream> {
-        Vec::new()
+        self.state.streams.background.clone()
     }
     /// StreamFlow::pick_source's answer, known now from the streams as they are: the host takes over (moving the panels
     /// to a stream that's up, or swapping the focused stream while several run); false leaves the pick to the caller.
@@ -183,6 +183,9 @@ impl HostStreams for Ctx<'_> {
     }
     fn phone_state(&self, _source_id: Option<&str>) -> Option<Value> {
         self.state.streams.phone_state.clone()
+    }
+    fn request_phone_state(&mut self, source_id: Option<&str>) {
+        self.state.effects.push(Effect::RequestPhoneState { source_id: source_id.map(String::from) });
     }
 }
 
@@ -363,14 +366,26 @@ impl HostPreview for Ctx<'_> {
     fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
     fn remove_preview_layer(&mut self, _owner: &str) {}
     fn refresh_preview(&mut self) {}
-    fn pick_on_preview(&mut self, _owner: &str, _kind: PickKind, _start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool {
-        false
+    /// Only on a stream the preview card shows.
+    fn pick_on_preview(&mut self, owner: &str, kind: PickKind, start: Option<[[f32; 2]; 4]>, hint: &str) -> bool {
+        if !self.is_streaming() || !self.has_plugin("preview") {
+            return false;
+        }
+        let st = &mut *self.state;
+        st.overlays.start_pick(&st.view, owner, kind, start, hint, &st.bus);
+        true
     }
-    fn finish_pick(&mut self, _owner: &str) -> bool {
-        false
+    fn finish_pick(&mut self, owner: &str) -> bool {
+        let st = &mut *self.state;
+        st.overlays.finish_pick(&st.view, Some(owner), &st.bus)
     }
-    fn cancel_pick(&mut self, _owner: &str) {}
-    fn set_preview_warp(&mut self, _owner: &str, _matrix: Option<[f32; 9]>) {}
+    fn cancel_pick(&mut self, owner: &str) {
+        let st = &mut *self.state;
+        st.overlays.cancel_pick(Some(owner), &st.bus);
+    }
+    fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
+        self.state.overlays.set_warp(owner, matrix);
+    }
 }
 
 impl Ctx<'_> {
@@ -435,9 +450,25 @@ impl HostSensors for Ctx<'_> {
 
 impl HostPackets for Ctx<'_> {
     fn packets_problem(&self) -> String {
-        String::new()
+        let heavy = match &self.state.streams.url {
+            Some(url) => url.ends_with(".mjpeg"),
+            None => self.state.plugin_config("stream_output").is_some_and(|c| c["format"] == "mjpeg"),
+        };
+        if heavy { telescope_core::i18n::tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with.") } else { String::new() }
     }
-    fn change_packets(&mut self, _owner: &str, _factory: Option<Arc<dyn PacketStepFactory>>) {}
+    /// Each change reaches the stream on its own, so taking a step off and on again gives it a fresh one.
+    fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {
+        let makers = &mut self.state.packet_makers.0;
+        match (makers.iter().position(|(o, _)| o == owner), factory) {
+            (Some(i), Some(f)) => makers[i].1 = f,
+            (None, Some(f)) => makers.push((owner.to_string(), f)),
+            (Some(i), None) => {
+                makers.remove(i);
+            }
+            (None, None) => {}
+        }
+        self.state.effects.push(Effect::Packets(self.state.packet_makers.clone()));
+    }
 }
 
 impl Host for Ctx<'_> {

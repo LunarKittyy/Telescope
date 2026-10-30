@@ -446,6 +446,7 @@ impl Window {
             }
         }
         self.show_banners();
+        self.paint_pick();
     }
 
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
@@ -501,6 +502,31 @@ impl Window {
         let _ = target.set_property(&name("has-frame"), SValue::Bool(true));
     }
 
+    /// The pick under way on the preview card's picture (overlays.rs), drawn from the overlays as they are now.
+    fn paint_pick(&self) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
+        let name = |n: &str| format!("{}-{n}", r.id);
+        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let st = self.state.borrow();
+        let drawing = st.overlays.pick_drawing(&st.view);
+        let shown = self.ui.get_property(&name("picking")) == Ok(SValue::Bool(true));
+        if drawing.is_none() && !shown {
+            return;
+        }
+        let (dim, line, handles) = drawing.as_ref().map(|d| d.paths(number("pic-width"), number("pic-height"))).unwrap_or_default();
+        let cursor = st.overlays.cursor.map_or("", |c| c.name());
+        let picking = drawing.is_some();
+        let hint = drawing.map(|d| d.hint).unwrap_or_default();
+        let text = |t: &str| SValue::String(t.into());
+        let props = [("picking", SValue::Bool(picking)), ("pick-dim", text(&dim)), ("pick-line", text(&line)),
+            ("pick-handles", text(&handles)), ("pick-hint", text(&hint)), ("pick-cursor", text(cursor))];
+        for (n, v) in props {
+            if self.ui.get_property(&name(n)).ok().as_ref() != Some(&v) {
+                let _ = self.ui.set_property(&name(n), v);
+            }
+        }
+    }
+
     /// Opens or closes the pop-out window as the preview card asks, and brings it forward when Pop out is pressed again.
     fn follow_popout(self: &Rc<Self>, open: bool, asks: i32) {
         let shown = self.popout.borrow().is_some();
@@ -552,6 +578,12 @@ impl Window {
         let e = i_slint_backend_testing::ElementHandle::find_by_element_id(&self.ui, &format!("TelescopeWindow::{}", r.id)).next()?;
         let (pos, size) = (e.absolute_position(), e.size());
         Some((pos.x, pos.y, size.width, size.height))
+    }
+
+    /// Puts an event on the bus as if a plugin sent it, and lets the plugins hear it (scenes stand in for unported plugins).
+    pub fn emit(self: &Rc<Self>, event: telescope_core::event::Event) {
+        self.state.borrow_mut().bus.emit(event);
+        self.process();
     }
 
     /// Runs a callback of a plugin's card or header widget as if it had been clicked (scene renders open dialogs this way).
@@ -656,6 +688,8 @@ impl Window {
                 self.timers.borrow_mut().remove(&(plugin, token));
             }
             Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
+            Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
+            Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),
             Effect::Tray(_) => self.refresh_tray_menu(),
             Effect::ToggleWindow => self.toggle_window(),
@@ -789,6 +823,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(15), move || {
         if let Some(w) = weak.upgrade() {
             w.paint_preview();
+            w.paint_pick();
             w.watch_focus();
         }
     });
