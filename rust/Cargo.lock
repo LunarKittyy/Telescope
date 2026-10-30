@@ -4894,6 +4894,7 @@ dependencies = [
  "telescope-core",
  "telescope-ui-kit",
  "ureq",
+ "windows",
 ]
 
 [[package]]

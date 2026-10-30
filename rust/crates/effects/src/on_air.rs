@@ -239,18 +239,19 @@ pub fn webhook_request(url: &str, method: &str, payload: &str, on: bool) -> Webh
     WebhookRequest { url: whole, method: Method::Post, body: Some(payload.into_bytes()), content_type: Some(content_type.into()), user_agent }
 }
 
+/// strerror for an io error: the system's words for it without the code.
+fn os_text(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    match text.rsplit_once(" (os error ") {
+        Some((words, _)) => words.to_string(),
+        None if e.kind() == std::io::ErrorKind::TimedOut => "timed out".into(),
+        None => text,
+    }
+}
+
 /// What a failed send says, short and never the address (it can hold a secret): Python's strerror for the things that go wrong on
 /// a network, so "Connection refused" reads the same.
 fn failure_text(e: &ureq::Error) -> String {
-    use std::io::ErrorKind;
-    let os_text = |e: &std::io::Error| {
-        let text = e.to_string();
-        match text.rsplit_once(" (os error ") {
-            Some((words, _)) => words.to_string(),
-            None if e.kind() == ErrorKind::TimedOut => "timed out".into(),
-            None => text,
-        }
-    };
     match e {
         ureq::Error::StatusCode(code) => format!("HTTP {code}"),
         // A POST can't follow a 307 or 308 on, which urllib raises as the status itself
@@ -269,17 +270,37 @@ fn failure_text(e: &ureq::Error) -> String {
     }
 }
 
+/// What a body that breaks says, as Python's read(4096) would: TimeoutError for a stall, IncompleteRead for a garbled one, and
+/// nothing for one cut short (read(4096) hands back what came). A reset is the same to ureq as a cut, where Python names it.
+fn body_failure_text(e: &std::io::Error) -> String {
+    use std::io::ErrorKind;
+    let timed_out = e.kind() == ErrorKind::TimedOut || e.get_ref().and_then(|inner| inner.downcast_ref::<ureq::Error>()).is_some_and(|inner| matches!(inner, ureq::Error::Timeout(_)));
+    if timed_out {
+        return "TimeoutError".into();
+    }
+    match (e.kind(), e.raw_os_error()) {
+        (ErrorKind::UnexpectedEof, _) => String::new(),
+        (_, Some(_)) => os_text(e),
+        _ => "IncompleteRead".into(),
+    }
+}
+
 /// Sends it; "" when the other end took it, else a short reason (English, never the address: it can hold a secret).
 pub fn send_webhook(request: &WebhookRequest) -> String {
+    send_webhook_within(request, WEBHOOK_TIMEOUT)
+}
+
+/// send_webhook with its own patience for each step.
+pub fn send_webhook_within(request: &WebhookRequest, timeout: Duration) -> String {
     let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .tls_config(tls)
         .user_agent(request.user_agent.clone())
-        .timeout_resolve(Some(WEBHOOK_TIMEOUT))
-        .timeout_connect(Some(WEBHOOK_TIMEOUT))
-        .timeout_send_request(Some(WEBHOOK_TIMEOUT))
-        .timeout_recv_response(Some(WEBHOOK_TIMEOUT))
-        .timeout_recv_body(Some(WEBHOOK_TIMEOUT))
+        .timeout_resolve(Some(timeout))
+        .timeout_connect(Some(timeout))
+        .timeout_send_request(Some(timeout))
+        .timeout_recv_response(Some(timeout))
+        .timeout_recv_body(Some(timeout))
         .build()
         .into();
     let sent = match (request.method, &request.body) {
@@ -296,8 +317,11 @@ pub fn send_webhook(request: &WebhookRequest) -> String {
         Ok(mut response) => {
             use std::io::Read;
             let mut sink = Vec::new();
-            let _ = response.body_mut().as_reader().take(4096).read_to_end(&mut sink);
-            String::new()
+            // A body that stalls or breaks is a failed send, as response.read(4096) raising is in Python
+            match response.body_mut().as_reader().take(4096).read_to_end(&mut sink) {
+                Ok(_) => String::new(),
+                Err(e) => body_failure_text(&e),
+            }
         }
         Err(e) => failure_text(&e),
     }

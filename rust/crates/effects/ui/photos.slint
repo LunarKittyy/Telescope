@@ -26,13 +26,18 @@ component PickRow inherits FormRow {
 // control_row with a number box (a QSpinBox without buttons)
 component NumberRow inherits FormRow {
     in property <string> text;
+    // The text the box goes back to whenever sync changes (a refused key, leaving the box)
+    in property <string> restore;
+    in property <int> sync;
     in property <string> tip;
     callback edited(string);
+    callback left;
+    changed sync => { field.text = root.restore; }
     HorizontalLayout {
         alignment: start;
         Rectangle {
             width: 78px;
-            TextField {
+            field := TextField {
                 enabled: root.enabled;
                 width: parent.width;
                 height: 32px;
@@ -41,6 +46,7 @@ component NumberRow inherits FormRow {
                 text: root.text;
                 align-right: true;
                 edited(t) => { root.edited(t); }
+                changed has-focus => { if (!self.has-focus) { root.left(); } }
             }
             if tip != "": Tooltip { TipBody { says: root.tip; } }
         }
@@ -76,11 +82,15 @@ export component PhotosCard inherits Card {
     in property <int> shots-current;
     in property <bool> shots-shown;
     in property <string> burst-text;
+    in property <string> burst-restore;
+    in property <int> burst-sync;
     in property <bool> burst-shown;
     in property <[string]> bracket-items: ["", "", "", ""];
     in property <int> bracket-current;
     in property <bool> bracket-shown;
     in property <string> focus-text;
+    in property <string> focus-restore;
+    in property <int> focus-sync;
     in property <string> focus-tip;
     in property <bool> focus-shown;
     in property <[string]> exposure-items: [""];
@@ -105,6 +115,7 @@ export component PhotosCard inherits Card {
     callback choice-picked(int, int);
     callback quality-moved(float);
     callback number-edited(int, string);
+    callback number-left(int);
     callback timer-picked(int);
     callback best-toggled(bool);
     callback folder-clicked;
@@ -176,7 +187,10 @@ export component PhotosCard inherits Card {
         enabled: active;
         label: @tr("How many");
         text: burst-text;
+        restore: burst-restore;
+        sync: burst-sync;
         edited(t) => { root.number-edited(0, t); }
+        left => { root.number-left(0); }
     }
     if bracket-shown: PickRow {
         enabled: active;
@@ -189,8 +203,11 @@ export component PhotosCard inherits Card {
         enabled: active;
         label: @tr("Steps");
         text: focus-text;
+        restore: focus-restore;
+        sync: focus-sync;
         tip: focus-tip;
         edited(t) => { root.number-edited(1, t); }
+        left => { root.number-left(1); }
     }
     if exposure-shown: PickRow {
         enabled: active;

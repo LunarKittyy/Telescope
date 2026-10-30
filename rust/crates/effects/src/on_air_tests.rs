@@ -200,6 +200,54 @@ fn what_goes_wrong_is_said_without_quoting_the_address() {
     assert!(!failure_text(&ureq::Error::Other("boom at /api/webhook/SECRET".into())).contains("SECRET"));
 }
 
+/// A server that answers one request with `reply`, holds the connection for `then`, and drops it.
+fn odd_hub(reply: &'static [u8], then: fn(&mut TcpStream)) -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        let Ok((mut conn, _)) = listener.accept() else { return };
+        let mut reader = BufReader::new(conn.try_clone().unwrap());
+        let mut length = 0usize;
+        loop {
+            let mut line = String::new();
+            if reader.read_line(&mut line).unwrap_or(0) == 0 || line.trim().is_empty() {
+                break;
+            }
+            if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = v.trim().parse().unwrap_or(0);
+            }
+        }
+        let _ = reader.read_exact(&mut vec![0; length]);
+        let _ = conn.write_all(reply);
+        then(&mut conn);
+    });
+    port
+}
+
+fn sent_to(port: u16) -> String {
+    send_webhook_within(&webhook_request(&format!("http://127.0.0.1:{port}/x"), "POST", "", true), Duration::from_secs(1))
+}
+
+// Python (urllib, read(4096), timeout 1 s) said: TimeoutError, IncompleteRead, and "" for a body cut short. A reset mid-body is
+// "Connection reset by peer" there, but ureq reports it as the body ending, so it reads as a short body here.
+#[test]
+fn a_body_that_stalls_or_is_garbled_is_a_failed_send() {
+    let stall = odd_hub(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nok", |_| std::thread::sleep(Duration::from_secs(3)));
+    assert_eq!(sent_to(stall), "TimeoutError");
+    let bad_chunk = odd_hub(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\nok\r\n", |conn| {
+        std::thread::sleep(Duration::from_millis(200));
+        let _ = conn.shutdown(std::net::Shutdown::Write);
+        std::thread::sleep(Duration::from_millis(200));
+    });
+    assert_eq!(sent_to(bad_chunk), "IncompleteRead");
+    let short = odd_hub(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\nok", |conn| {
+        std::thread::sleep(Duration::from_millis(200));
+        let _ = conn.shutdown(std::net::Shutdown::Write);
+        std::thread::sleep(Duration::from_millis(200));
+    });
+    assert_eq!(sent_to(short), "");
+}
+
 #[test]
 fn a_failing_send_never_leaks_the_address() {
     let (tx, rx) = std::sync::mpsc::channel();
