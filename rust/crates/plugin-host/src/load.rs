@@ -4,6 +4,7 @@ use crate::guest::{GuestPlugin, HostCalls, PluginContext};
 use crate::lua::LuaGuest;
 use crate::package::{capped, Installed, PluginFolder};
 use crate::text::tr;
+use telescope_core::services::{PluginProblem, PluginProblems};
 use telescope_core::Plugin;
 
 /// A Lua plugin that's ready to register.
@@ -48,13 +49,55 @@ impl PluginFolder {
 }
 
 /// Services::plugins for the binary: every added plugin that's switched on, and any being written (TELESCOPE_DEV_PLUGINS), loaded afresh
-/// each time the shell builds its plugins. reserved are the built-in plugins' names; lang picks each plugin's locale/<lang>.po.
-pub fn factory(reserved: Vec<String>, lang: String) -> telescope_core::services::PluginFactory {
+/// each time the shell builds its plugins. reserved are the built-in plugins' names; lang picks each plugin's locale/<lang>.po. The ones
+/// that are on but can't load go in problems, for the window to say so.
+pub fn factory(reserved: Vec<String>, lang: String, problems: PluginProblems) -> telescope_core::services::PluginFactory {
+    factory_in(move || PluginFolder::app(reserved.clone()), lang, problems)
+}
+
+/// factory() for any plugins folder.
+pub(crate) fn factory_in(folder: impl Fn() -> PluginFolder + Send + Sync + 'static, lang: String, problems: PluginProblems)
+    -> telescope_core::services::PluginFactory {
     Box::new(move || {
-        let (loaded, failed) = PluginFolder::app(reserved.clone()).load_enabled(&lang);
-        for plugin in failed {
+        let (loaded, failed) = folder().load_enabled(&lang);
+        for plugin in &failed {
             log::warn!("Plugin {} didn't start: {}", plugin.name, plugin.error);
         }
+        *problems.lock().unwrap_or_else(|e| e.into_inner()) = failed.into_iter()
+            .map(|p| PluginProblem { title: if p.title.is_empty() { p.name.clone() } else { p.title }, name: p.name, error: p.error }).collect();
         loaded
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package::tests::{plugin, plugins};
+    use crate::switches::Switches;
+    use serde_json::json;
+    use telescope_core::config::ConfigFile;
+
+    #[test]
+    fn plugins_that_are_on_but_cant_load_are_listed_for_the_window() {
+        let p = plugins();
+        plugin(&p.folder, "fine", "return {}\n", json!({}));
+        plugin(&p.folder, "broken", "this is not lua(", json!({"title": "Broken thing"}));
+        for item in p.find_installed() {
+            p.set_enabled(&item, true).unwrap();
+        }
+        let (folder, config) = (p.folder.clone(), p.folder.parent().unwrap().join("telescope_config.json"));
+        let problems = PluginProblems::default();
+        let make = factory_in(move || PluginFolder::new(folder.clone(), Switches::new(ConfigFile::at(config.clone())), []), "en".into(), problems.clone());
+        let loaded = make();
+        assert_eq!(loaded.iter().map(|l| l.info().name).collect::<Vec<_>>(), ["fine"]);
+        let listed = problems.lock().unwrap().clone();
+        assert_eq!(listed.len(), 1, "{listed:?}");
+        assert_eq!((listed[0].name.as_str(), listed[0].title.as_str()), ("broken", "Broken thing"));
+        assert!(!listed[0].error.is_empty());
+        // Each run starts the list over
+        let broken = p.find_installed().into_iter().find(|i| i.name == "broken").unwrap();
+        p.set_enabled(&broken, false).unwrap();
+        make();
+        assert!(problems.lock().unwrap().is_empty());
+    }
 }

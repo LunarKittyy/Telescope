@@ -148,6 +148,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let mut state = State::new(file);
     state.link = services.as_ref().map(|s| s.link.clone());
     let plugins = plugins(&state.bus.sender());
+    // Filled in by the factory just now: the added plugins that are on but couldn't start
+    let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
+    state.set_plugin_problems(&problems);
     state.load_builtins(plugins);
     state.apply_saved_config();
     let phones = state.plugin_config("connection").map_or_else(
