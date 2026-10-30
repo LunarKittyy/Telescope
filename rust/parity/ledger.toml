@@ -101,22 +101,22 @@
 "The phone's microphone stopped." = { status = "ported", rust = "rust/crates/audio/src/worker.rs" }
 "The virtual microphone stopped taking audio." = { status = "ported", rust = "rust/crates/audio/src/worker.rs" }
 # ── background
-"Background" = { status = "todo" }
-"Background blur" = { status = "todo" }
-"Blur" = { status = "todo" }
-"Blurs the background behind you or swaps it for a picture." = { status = "todo" }
-"Choose a picture" = { status = "todo" }
-"Choose a picture to put behind you." = { status = "todo" }
-"Choose…" = { status = "todo" }
-"Edges" = { status = "todo" }
-"How soft the edge around you is" = { status = "todo" }
-"No picture yet" = { status = "todo" }
+"Background" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Background blur" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Blur" = { status = "ported", rust = "rust/crates/effects/ui/background.slint" }
+"Blurs the background behind you or swaps it for a picture." = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Choose a picture" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Choose a picture to put behind you." = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Choose…" = { status = "ported", rust = "rust/crates/effects/ui/background.slint" }
+"Edges" = { status = "ported", rust = "rust/crates/effects/ui/background.slint" }
+"How soft the edge around you is" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"No picture yet" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
 "Off" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
-"Pick the picture that goes behind you" = { status = "todo" }
-"Picture" = { status = "todo" }
-"Pictures (*.png *.jpg *.jpeg *.webp *.bmp)" = { status = "todo" }
-"Telescope can't open that picture." = { status = "todo" }
-"Without it there's no Background card and the background stays as the camera sees it." = { status = "todo" }
+"Pick the picture that goes behind you" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Picture" = { status = "ported", rust = "rust/crates/effects/ui/background.slint" }
+"Pictures (*.png *.jpg *.jpeg *.webp *.bmp)" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Telescope can't open that picture." = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"Without it there's no Background card and the background stays as the camera sees it." = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
 # ── browser_camera
 "A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Address" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
@@ -1114,19 +1114,19 @@
 "Waiting for the first frame…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Without it the window doesn't show the picture but apps using the virtual camera still get it." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 # ── privacy_blur
-"Blur all but me" = { status = "todo" }
-"Blur automatically when a second person shows up" = { status = "todo" }
-"Blur by hand until you click again" = { status = "todo" }
-"Blur now" = { status = "todo" }
-"Blur the others" = { status = "todo" }
-"Blurs the other people, everything but you, or puts the wait screen up when someone else walks in." = { status = "todo" }
-"Privacy blur" = { status = "todo" }
-"Privacy blur when someone walks in" = { status = "todo" }
-"Privacy blur: what happens" = { status = "todo" }
-"Show the wait screen" = { status = "todo" }
-"What happens while someone else is in the picture" = { status = "todo" }
-"With Wait screen switched off in Plugins the whole picture gets blurred instead." = { status = "todo" }
-"Without it there's no Privacy blur card and nothing gets hidden when someone walks in." = { status = "todo" }
+"Blur all but me" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blur automatically when a second person shows up" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blur by hand until you click again" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blur now" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blur the others" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blurs the other people, everything but you, or puts the wait screen up when someone else walks in." = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Privacy blur" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Privacy blur when someone walks in" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Privacy blur: what happens" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Show the wait screen" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"What happens while someone else is in the picture" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"With Wait screen switched off in Plugins the whole picture gets blurred instead." = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Without it there's no Privacy blur card and nothing gets hidden when someone walks in." = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 # ── pyav_vaapi
 "FFmpeg's development files" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
 "PyAV {version} has no VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
@@ -1722,7 +1722,7 @@
 "Dismiss" = { status = "ported", rust = "rust/crates/shell/ui/frame.slint" }
 "Doesn't load in Telescope's Python {version}" = { status = "todo" }
 "Double-click to reset" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
-"Download" = { status = "todo" }
+"Download" = { status = "ported", rust = "rust/crates/effects/ui/vision_row.slint" }
 "Download about {mb} MB?" = { status = "todo" }
 "Download and switch on" = { status = "todo" }
 "Downloading… {percent}%" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
@@ -2218,18 +2218,18 @@
 "test_audio.py::test_worker_reports_an_output_that_wont_open" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_reports_an_output_that_wont_open" }
 "test_audio.py::test_worker_reports_the_phones_reason_and_keeps_trying" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::worker_reports_the_phones_reason_and_keeps_trying" }
 # ── background
-"test_background.py::test_a_frozen_step_keeps_its_settings" = { status = "todo" }
-"test_background.py::test_a_picture_covers_the_frame_and_is_cut_evenly" = { status = "todo" }
-"test_background.py::test_a_picture_with_a_non_ascii_path_opens" = { status = "todo" }
-"test_background.py::test_blur_blurs_only_behind_the_person" = { status = "todo" }
-"test_background.py::test_off_leaves_frames_alone_without_asking_for_a_mask" = { status = "todo" }
-"test_background.py::test_picture_mode_puts_the_picture_behind_and_survives_a_bad_file" = { status = "todo" }
-"test_background.py::test_settings_round_trip_and_damaged_ones_fall_back" = { status = "todo" }
-"test_background.py::test_softer_edges_feather_the_mask_and_zero_leaves_it" = { status = "todo" }
-"test_background.py::test_the_person_doesnt_smear_into_a_halo_around_them" = { status = "todo" }
-"test_background.py::test_the_person_stays_and_the_rest_is_the_background" = { status = "todo" }
-"test_background.py::test_without_a_mask_yet_the_frame_goes_out_as_it_is" = { status = "todo" }
-"test_background.py::test_without_the_download_the_card_offers_it" = { status = "todo" }
+"test_background.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::a_frozen_step_keeps_its_settings" }
+"test_background.py::test_a_picture_covers_the_frame_and_is_cut_evenly" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::a_picture_covers_the_frame_and_is_cut_evenly" }
+"test_background.py::test_a_picture_with_a_non_ascii_path_opens" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::a_picture_with_a_non_ascii_path_opens" }
+"test_background.py::test_blur_blurs_only_behind_the_person" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::blur_blurs_only_behind_the_person" }
+"test_background.py::test_off_leaves_frames_alone_without_asking_for_a_mask" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::off_leaves_frames_alone_without_asking_for_a_mask" }
+"test_background.py::test_picture_mode_puts_the_picture_behind_and_survives_a_bad_file" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::picture_mode_puts_the_picture_behind_and_survives_a_bad_file" }
+"test_background.py::test_settings_round_trip_and_damaged_ones_fall_back" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::settings_round_trip_and_damaged_ones_fall_back" }
+"test_background.py::test_softer_edges_feather_the_mask_and_zero_leaves_it" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::softer_edges_feather_the_mask_and_zero_leaves_it" }
+"test_background.py::test_the_person_doesnt_smear_into_a_halo_around_them" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::the_person_doesnt_smear_into_a_halo_around_them" }
+"test_background.py::test_the_person_stays_and_the_rest_is_the_background" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::the_person_stays_and_the_rest_is_the_background" }
+"test_background.py::test_without_a_mask_yet_the_frame_goes_out_as_it_is" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_a_mask_yet_the_frame_goes_out_as_it_is" }
+"test_background.py::test_without_the_download_the_card_offers_it" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_the_download_the_card_offers_it" }
 # ── banner
 "test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 "test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "todo" }
@@ -3735,26 +3735,26 @@
 "test_preview.py::test_the_stage_says_the_camera_is_off_and_why" = { status = "todo" }
 "test_preview.py::test_the_wheel_over_the_frame_zooms_around_the_mouse" = { status = "todo" }
 # ── privacy_blur
-"test_privacy_blur.py::test_a_second_person_flickering_in_and_out_keeps_it_on" = { status = "todo" }
-"test_privacy_blur.py::test_a_stream_behind_the_panels_blurs_whenever_the_shown_one_does" = { status = "todo" }
-"test_privacy_blur.py::test_a_stream_behind_the_panels_keeps_its_own_view" = { status = "todo" }
-"test_privacy_blur.py::test_a_stream_left_blurred_stays_blurred_behind_the_panels" = { status = "todo" }
-"test_privacy_blur.py::test_a_stream_seen_for_the_first_time_starts_from_what_tracking_knows" = { status = "todo" }
-"test_privacy_blur.py::test_a_visitor_alone_for_a_moment_is_never_taken_for_you" = { status = "todo" }
-"test_privacy_blur.py::test_all_but_me_blurs_the_room_and_leaves_you" = { status = "todo" }
-"test_privacy_blur.py::test_blur_now_asks_for_people_so_it_can_tell_you_apart" = { status = "todo" }
-"test_privacy_blur.py::test_blur_now_with_only_you_found_blurs_all_but_you" = { status = "todo" }
-"test_privacy_blur.py::test_blur_now_works_without_anyone_found" = { status = "todo" }
-"test_privacy_blur.py::test_boxes_follow_the_view_and_fade_at_the_edges" = { status = "todo" }
-"test_privacy_blur.py::test_coming_back_to_a_blurred_stream_keeps_it_blurred" = { status = "todo" }
-"test_privacy_blur.py::test_it_blurs_once_a_second_person_is_there_two_updates_in_a_row" = { status = "todo" }
-"test_privacy_blur.py::test_it_stops_only_once_one_person_has_been_there_for_a_while" = { status = "todo" }
-"test_privacy_blur.py::test_someone_sitting_right_next_to_you_is_blurred_too" = { status = "todo" }
-"test_privacy_blur.py::test_switched_on_it_blurs_the_other_person_but_not_you" = { status = "todo" }
-"test_privacy_blur.py::test_the_person_mask_blurs_all_of_the_other_person_not_just_their_box" = { status = "todo" }
-"test_privacy_blur.py::test_the_wait_screen_is_asked_for_and_the_picture_blurred_until_it_answers" = { status = "todo" }
-"test_privacy_blur.py::test_while_you_are_away_the_mode_decides_what_gets_blurred" = { status = "todo" }
-"test_privacy_blur.py::test_you_stay_you_when_your_track_is_lost_and_found_again" = { status = "todo" }
+"test_privacy_blur.py::test_a_second_person_flickering_in_and_out_keeps_it_on" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_second_person_flickering_in_and_out_keeps_it_on" }
+"test_privacy_blur.py::test_a_stream_behind_the_panels_blurs_whenever_the_shown_one_does" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_stream_behind_the_panels_blurs_whenever_the_shown_one_does" }
+"test_privacy_blur.py::test_a_stream_behind_the_panels_keeps_its_own_view" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_stream_behind_the_panels_keeps_its_own_view" }
+"test_privacy_blur.py::test_a_stream_left_blurred_stays_blurred_behind_the_panels" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_stream_left_blurred_stays_blurred_behind_the_panels" }
+"test_privacy_blur.py::test_a_stream_seen_for_the_first_time_starts_from_what_tracking_knows" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_stream_seen_for_the_first_time_starts_from_what_tracking_knows" }
+"test_privacy_blur.py::test_a_visitor_alone_for_a_moment_is_never_taken_for_you" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_visitor_alone_for_a_moment_is_never_taken_for_you" }
+"test_privacy_blur.py::test_all_but_me_blurs_the_room_and_leaves_you" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::all_but_me_blurs_the_room_and_leaves_you" }
+"test_privacy_blur.py::test_blur_now_asks_for_people_so_it_can_tell_you_apart" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::blur_now_asks_for_people_so_it_can_tell_you_apart" }
+"test_privacy_blur.py::test_blur_now_with_only_you_found_blurs_all_but_you" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::blur_now_with_only_you_found_blurs_all_but_you" }
+"test_privacy_blur.py::test_blur_now_works_without_anyone_found" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::blur_now_works_without_anyone_found" }
+"test_privacy_blur.py::test_boxes_follow_the_view_and_fade_at_the_edges" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::boxes_follow_the_view_and_fade_at_the_edges" }
+"test_privacy_blur.py::test_coming_back_to_a_blurred_stream_keeps_it_blurred" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::coming_back_to_a_blurred_stream_keeps_it_blurred" }
+"test_privacy_blur.py::test_it_blurs_once_a_second_person_is_there_two_updates_in_a_row" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::it_blurs_once_a_second_person_is_there_two_updates_in_a_row" }
+"test_privacy_blur.py::test_it_stops_only_once_one_person_has_been_there_for_a_while" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::it_stops_only_once_one_person_has_been_there_for_a_while" }
+"test_privacy_blur.py::test_someone_sitting_right_next_to_you_is_blurred_too" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::someone_sitting_right_next_to_you_is_blurred_too" }
+"test_privacy_blur.py::test_switched_on_it_blurs_the_other_person_but_not_you" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::switched_on_it_blurs_the_other_person_but_not_you" }
+"test_privacy_blur.py::test_the_person_mask_blurs_all_of_the_other_person_not_just_their_box" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::the_person_mask_blurs_all_of_the_other_person_not_just_their_box" }
+"test_privacy_blur.py::test_the_wait_screen_is_asked_for_and_the_picture_blurred_until_it_answers" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::the_wait_screen_is_asked_for_and_the_picture_blurred_until_it_answers" }
+"test_privacy_blur.py::test_while_you_are_away_the_mode_decides_what_gets_blurred" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::while_you_are_away_the_mode_decides_what_gets_blurred" }
+"test_privacy_blur.py::test_you_stay_you_when_your_track_is_lost_and_found_again" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::you_stay_you_when_your_track_is_lost_and_found_again" }
 # ── pyav_vaapi
 "test_pyav_vaapi.py::test_a_build_for_another_pyav_version_is_left_out" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
 "test_pyav_vaapi.py::test_a_build_pins_cython_so_a_newer_one_cant_break_it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it" }
@@ -5438,10 +5438,10 @@
 [setting]
 # settings keys, global.plugin.key or device.plugin.key
 # ── background
-"device.background.blur" = { status = "todo" }
-"device.background.edges" = { status = "todo" }
-"device.background.mode" = { status = "todo" }
-"device.background.picture" = { status = "todo" }
+"device.background.blur" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"device.background.edges" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"device.background.mode" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"device.background.picture" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
 # ── browser_camera
 "global.browser_camera.address" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "global.browser_camera.fps" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
@@ -5604,8 +5604,8 @@
 "global.preview.lens_boxes" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "global.preview.skeleton" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs", note = "saved off until vision is ported, as Python saves a hidden button" }
 # ── privacy_blur
-"global.privacy_blur.mode" = { status = "todo" }
-"global.privacy_blur.on" = { status = "todo" }
+"global.privacy_blur.mode" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"global.privacy_blur.on" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 # ── qr_reader
 "global.qr_reader.notify" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 "global.qr_reader.on" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
@@ -5669,8 +5669,8 @@
 [action]
 # shortcut action ids, which --action also takes
 # ── background
-"background.blur" = { status = "todo" }
-"background.mode" = { status = "todo" }
+"background.blur" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
+"background.mode" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
 # ── camera_control
 "camera.black_level_lock" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "camera.compensation" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
@@ -5754,9 +5754,9 @@
 "preview.show_hide" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "preview.skeleton" = { status = "todo" }
 # ── privacy_blur
-"privacy_blur.auto" = { status = "todo" }
-"privacy_blur.mode" = { status = "todo" }
-"privacy_blur.now" = { status = "todo" }
+"privacy_blur.auto" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"privacy_blur.mode" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"privacy_blur.now" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 # ── qr_reader
 "qr_reader.on" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 # ── shortcuts
@@ -5859,7 +5859,7 @@
 "tray-message:telescope/app.py:send_notification" = { status = "todo" }
 "tray:telescope/app.py:_setup_tray" = { status = "todo" }
 # ── background
-"folder:telescope/plugins/background.py:_choose_picture:Path.home" = { status = "todo" }
+"folder:telescope/plugins/background.py:_choose_picture:Path.home" = { status = "ported", rust = "rust/crates/effects/src/background.rs" }
 # ── browser_server
 "port:telescope/browser_server.py:BROWSER_PORT=8767" = { status = "ported", rust = "rust/crates/link/src/browser/server.rs" }
 # ── chroma_key
