@@ -72,6 +72,8 @@ export component CameraCard inherits Card {
     in property <bool> phone-only-hidden;
     in property <[Lens]> lenses;
     in property <int> current-lens: -1;
+    // Up to five tiles in a row, more lenses in rows as even as they can be
+    in property <int> lens-columns: 1;
     in property <string> lens-placeholder;
     // What the lens can do, quietly in the header ("Full manual control"), with the details for a tooltip
     in property <string> info;
@@ -144,9 +146,13 @@ export component CameraCard inherits Card {
         height: 16px;
         vertical-alignment: center;
     }
-    if lenses.length > 0: HorizontalLayout {
-        spacing: 6px;
+    if lenses.length > 0: Rectangle {
+        property <length> tile-width: (self.width - (lens-columns - 1) * 6px) / lens-columns;
+        height: ceil(lenses.length / lens-columns) * 60px - 6px;
         for lens[i] in lenses: LensTile {
+            x: mod(i, lens-columns) * (parent.tile-width + 6px);
+            y: floor(i / lens-columns) * 60px;
+            width: parent.tile-width;
             lens: lens;
             hue: root.hue;
             on: i == current-lens;

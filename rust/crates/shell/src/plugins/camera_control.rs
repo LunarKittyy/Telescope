@@ -118,6 +118,15 @@ fn lens_value(cam: &Value) -> String {
     }
 }
 
+/// _columns: up to five tiles in a row; more lenses split into rows as even as they can be.
+pub fn lens_columns(count: usize) -> usize {
+    if count == 0 {
+        return 1;
+    }
+    let rows = count.div_ceil(5);
+    count.div_ceil(rows).max(1)
+}
+
 /// split_lens_label: (number, unit, the rest) of a shortened label, "Auto ~24mm OIS" being ("24", "mm", "Auto · OIS").
 pub fn split_lens_label(label: &str) -> (String, String, String) {
     let chars: Vec<char> = label.chars().collect();
@@ -1109,7 +1118,7 @@ impl CameraControl {
                    "name": lens_name(&label)})
         }).collect();
         let tile = |t: &Tile| json!({"checked": t.checked, "enabled": t.enabled, "tip": t.tip});
-        json!({
+        let mut props = json!({
             "active": self.card_on(),
             "phone-only-hidden": !self.source.is_empty(),
             "lenses": lenses,
@@ -1151,7 +1160,10 @@ impl CameraControl {
             "torch": tile(&self.torch),
             "noise-reduction": self.nr,
             "sharpening": self.edge,
-        })
+        });
+        // Apart from the rest: json! gives up on one this long
+        props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
+        props
     }
 
     /// What the handlers queued goes out, then the card shows where things are.

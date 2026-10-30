@@ -17,7 +17,9 @@ component FoldTitle inherits Rectangle {
     in property <bool> folded;
     // Hovering the icon chip or rule beside it counts too
     in property <bool> hovered-elsewhere;
-    out property <bool> hot: touch.has-hover || hovered-elsewhere;
+    // A title in a dimmed card never looks hovered, though it still folds
+    in property <bool> card-enabled: true;
+    out property <bool> hot: card-enabled && (touch.has-hover || hovered-elsewhere);
     property <bool> foldable: key != "";
     height: 30px;
     width: label.preferred-width + (foldable ? 12px : 0px);
@@ -28,6 +30,8 @@ component FoldTitle inherits Rectangle {
     accessible-description: !foldable ? "" : folded ? FoldText.collapsed : FoldText.expanded;
     accessible-action-default => { if (foldable) { Folds.toggle(key); } }
     forward-focus: focus;
+    // Folding moves keyboard focus out of the rows it hides, onto the title
+    public function take-focus() { focus.focus(); }
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: foldable;
@@ -124,7 +128,7 @@ export component Card inherits Rectangle {
                 }
                 Icon { source: icon; tint: enabled ? hue : Theme.text-disabled; width: 16px; height: 16px; accessible-role: none; }
             }
-            FoldTitle {
+            fold-title := FoldTitle {
                 y: lift;
                 key: fold-key;
                 text: title;
@@ -132,6 +136,7 @@ export component Card inherits Rectangle {
                 text-color: Theme.text;
                 hot-color: Theme.text-hover;
                 folded: root.folded;
+                card-enabled: root.enabled;
                 hovered-elsewhere: chip-touch.has-hover;
             }
             Rectangle { horizontal-stretch: 1; }
@@ -202,15 +207,29 @@ export component Card inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-        VerticalLayout {
-            spacing: 8px;
-            visible: !folded;
+        // The rows sit in a box that is as tall as they are, or no taller than nothing while folded
+        Rectangle {
+            min-height: 0px;
+            preferred-height: folded ? 0px : rows.preferred-height;
             max-height: folded ? 0px : 100000px;
-            @children
+            vertical-stretch: folded ? 0 : 1;
+            clip: folded;
+            rows := VerticalLayout {
+                width: parent.width;
+                height: parent.height;
+                spacing: 8px;
+                visible: !folded;
+                @children
+            }
         }
     }
-    // dim_until_paired's setEnabled(False): over the whole card and outside its layout, so it takes no row of its own
-    if blocked: TouchArea { }
+    changed folded => { if (folded) { fold-title.take-focus(); } }
+    // dim_until_paired's setEnabled(False): over the rows and outside the layout, so it takes no row of its own. The
+    // header stays out of it: a dimmed card still folds.
+    if blocked: TouchArea {
+        y: 15px + (fold-key != "" ? 38px : 32px);
+        height: root.height - self.y;
+    }
 }
 
 // add_section_heading: a small icon, the name and a hairline to the card's edge.
@@ -265,6 +284,7 @@ export component Section inherits VerticalLayout {
     property <string> fold-key: scope == "" ? "" : scope + "/" + key;
     out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
     spacing: folded ? 0 : 8px;
+    changed folded => { if (folded) { section-title.take-focus(); } }
     HorizontalLayout {
         height: 25px;
         padding-top: 4px;
@@ -274,7 +294,7 @@ export component Section inherits VerticalLayout {
             icon-touch := TouchArea { enabled: fold-key != ""; clicked => { Folds.toggle(fold-key); } }
             Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; accessible-role: none; }
         }
-        FoldTitle {
+        section-title := FoldTitle {
             key: fold-key;
             text: title;
             height: 21px;
@@ -290,10 +310,18 @@ export component Section inherits VerticalLayout {
             Rectangle { height: 1px; width: parent.width; background: Theme.border; }
         }
     }
-    VerticalLayout {
-        spacing: 8px;
-        visible: !folded;
+    Rectangle {
+        min-height: 0px;
+        preferred-height: folded ? 0px : rows.preferred-height;
         max-height: folded ? 0px : 100000px;
-        @children
+        vertical-stretch: folded ? 0 : 1;
+        clip: folded;
+        rows := VerticalLayout {
+            width: parent.width;
+            height: parent.height;
+            spacing: 8px;
+            visible: !folded;
+            @children
+        }
     }
 }

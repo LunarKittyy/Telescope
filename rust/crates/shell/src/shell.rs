@@ -1192,6 +1192,14 @@ mod tests {
     }
 
     #[test]
+    fn a_switched_off_plugins_folds_survive_saving_while_it_is_gone() {
+        let mut s = state();
+        s.collapse.load(Some(&json!(["gone/Card", "gone/Card/Section"])));
+        s.save_now();
+        assert_eq!(s.file.load()["collapsed"], json!(["gone/Card", "gone/Card/Section"]));
+    }
+
+    #[test]
     fn a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once() {
         let mut s = state();
         let mut cfg = s.file.load();
