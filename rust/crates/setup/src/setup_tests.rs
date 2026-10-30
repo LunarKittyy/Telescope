@@ -482,6 +482,16 @@ fn setup_plugin_builds_its_cards_and_syncs_config() {
 }
 
 #[test]
+fn open_log_shows_once_there_is_a_log_and_opens_it_with_any_name() {
+    let mut r = Rig::linux();
+    assert_eq!(r.plugin.about_props()["log-shown"], json!(false));
+    r.plugin.log_path = Some("/tmp/telescope-me #1/telescope.log".into());
+    assert_eq!(r.plugin.about_props()["log-shown"], json!(true));
+    r.ui("about", "log-clicked", vec![]);
+    assert!(r.host.calls.contains(&"open_url file:///tmp/telescope-me%20%231/telescope.log".to_string()), "{:?}", r.host.calls);
+}
+
+#[test]
 fn show_event_refreshes_platform_specific_status() {
     let mut r = Rig::linux();
     r.ui("devices", "shown", vec![]);
