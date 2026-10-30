@@ -16,6 +16,7 @@ use telescope_core::event::{Event, RememberedSource, SourceName};
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::tr;
 use telescope_core::link::{Link, PairingOffer, PhoneStatus, Resolution, RoutePreference, UsbDevice};
+use telescope_core::output::{Outputs, SetupAction, SetupResult, SETUP_CANCELLED, V4L2_PHONE_DEV};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::{PairedPhone, RouteSpec};
 use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueAction, IssueDoes, SettingsSection, SlintSource, UiEvent, UiSpec};
@@ -43,6 +44,7 @@ const P_USB_FORWARD: &str = "usb_forward";
 const P_EARLIER: &str = "earlier";
 const P_ADB: &str = "adb";
 const P_ADB_PROGRESS: &str = "adb_progress";
+const P_VCAM: &str = "vcam";
 
 /// The Add phone dialog while it's open.
 struct AddPhone {
@@ -94,6 +96,10 @@ pub struct ConnectionPlugin {
     apk_bundled: bool,
     /// Kept across closing Add phone, so a download under way isn't started twice.
     downloader: adb_download::AdbDownloader,
+    /// The virtual camera, for the check at Start. None: no check.
+    outputs: Option<Arc<dyn Outputs>>,
+    /// What the Start waiting for the virtual camera's setup starts again.
+    vcam_source: Option<String>,
 }
 
 /// rust/parity's pair script: in a dev profile with TELESCOPE_PARITY_OFFER set, Add phone opens from
@@ -110,7 +116,14 @@ impl ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
             updating_phone: false, update_note: None, add: None, phones_open: false, same_phone: None, picker_ids: Vec::new(),
             stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
+            outputs: None, vcam_source: None,
         }
+    }
+
+    /// With the virtual camera to check at Start.
+    pub fn with_outputs(mut self, outputs: Arc<dyn Outputs>) -> ConnectionPlugin {
+        self.outputs = Some(outputs);
+        self
     }
 
     /// With another way to get adb (tests).
@@ -326,6 +339,33 @@ impl ConnectionPlugin {
                     kind: "err".into(), details: String::new(), tell_dismiss: false,
                 });
             }
+        }
+    }
+
+    // ── The virtual camera at Start ───────────────────────────────────────
+
+    /// The person answered the question about the password prompt; persist: at every startup too.
+    fn answer_vcam(&mut self, host: &mut dyn Host, ok: bool, persist: bool) {
+        host.set_ui_props("card", &json!({"vcam-open": false}));
+        let Some(outputs) = self.outputs.clone().filter(|_| ok) else { return };
+        self.spawn(P_VCAM, move || json!(outputs.set_up(SetupAction::Load { persist }, &|_| {})));
+    }
+
+    fn on_vcam(&mut self, host: &mut dyn Host, data: &Value) {
+        let Ok(result) = serde_json::from_value::<SetupResult>(data.clone()) else { return };
+        if result.ok {
+            host.start_again(self.vcam_source.as_deref());
+        } else if let Some(command) = result.command {
+            host.show_issue("start", Issue {
+                title: tr("Set up the virtual camera"), text: result.message, actions: vec![copy_action(&command)],
+                kind: "warn".into(), details: command, tell_dismiss: false,
+            });
+        } else if result.message != SETUP_CANCELLED {
+            let again = IssueAction { label: tr("Try again"), does: IssueDoes::StartAgain { source_id: self.vcam_source.clone(), before: None } };
+            host.show_issue("start", Issue {
+                title: tr("Couldn't set up the virtual camera"), text: result.message, actions: vec![again],
+                kind: "err".into(), details: String::new(), tell_dismiss: false,
+            });
         }
     }
 
@@ -856,6 +896,7 @@ impl ConnectionPlugin {
                 }
                 self.render_add(host, true);
             }
+            P_VCAM => self.on_vcam(host, data),
             P_UPDATED => {
                 self.updating_phone = false;
                 self.update_note = Some(if data["ok"].as_bool() == Some(true) {
@@ -1011,6 +1052,11 @@ fn fix_does(fix: Fix, source_id: &str) -> IssueDoes {
         Fix::SwitchToAutomatic => IssueDoes::StartAgain { source_id: Some(source_id.into()), before: Some("switch_auto".into()) },
         Fix::TryAgain => IssueDoes::StartAgain { source_id: Some(source_id.into()), before: None },
     }
+}
+
+/// A banner button that copies command (copy_action).
+fn copy_action(command: &str) -> IssueAction {
+    IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: format!("copy:{command}") } }
 }
 
 /// Your phones' rows: each phone with the address it was last seen at, then the browsers with settings of their own.
@@ -1232,6 +1278,10 @@ impl Plugin for ConnectionPlugin {
             ("card", "add-closed") => self.close_add(host),
             ("card", "pick") => self.pick_usb(host, &s(0)),
             ("card", "usb-action-clicked") => self.get_adb(host),
+            ("card", "vcam-answered") => {
+                let answer = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
+                self.answer_vcam(host, answer(0), answer(1));
+            }
             ("header", "picked") => {
                 let i = event.args.first().and_then(Value::as_i64).unwrap_or(-1);
                 if let Some(pid) = usize::try_from(i).ok().and_then(|i| self.picker_ids.get(i).cloned()) {
@@ -1275,6 +1325,41 @@ impl Plugin for ConnectionPlugin {
             }
             _ => {}
         }
+    }
+
+    fn ensure_virtual_camera(&mut self, host: &mut dyn Host, interactive: bool, source_id: Option<&str>) -> bool {
+        let Some(outputs) = self.outputs.clone().filter(|_| !crate::platform::windows()) else { return true };
+        if outputs.slots().iter().any(|s| s.slot == 0) {
+            return true;
+        }
+        let status = outputs.setup_status();
+        if status.ready {
+            return true;
+        }
+        if status.loaded {
+            let command = "sudo modprobe -r v4l2loopback";
+            host.show_issue("start", Issue {
+                title: tr("Virtual camera is set up differently"),
+                text: tr("v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:")
+                    .replace("{device}", V4L2_PHONE_DEV),
+                actions: vec![copy_action(command)], kind: "err".into(), details: command.into(), tell_dismiss: false,
+            });
+            return false;
+        }
+        if !interactive {
+            // Started by itself (nobody at the keyboard asked): no password prompt out of nowhere
+            let again = IssueDoes::StartAgain { source_id: source_id.map(str::to_string), before: None };
+            host.show_issue("start", Issue {
+                title: tr("The virtual camera is off"), text: tr("Switching it on asks for your password."),
+                actions: vec![IssueAction { label: tr("Switch on"), does: again }],
+                kind: "warn".into(), details: String::new(), tell_dismiss: false,
+            });
+            return false;
+        }
+        // Python's question held the Start up; here it ends this one and an OK starts again once the camera is on
+        self.vcam_source = source_id.map(str::to_string);
+        host.set_ui_props("card", &json!({"vcam-open": true}));
+        false
     }
 
     fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
@@ -1339,6 +1424,8 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
     use telescope_core::link::{PhoneSession, RoutePrefs, Unreachable};
+    use telescope_core::output::{SetupStatus, Slot, VideoOutput};
+    use telescope_core::PixelFormat;
     use telescope_core::testing::FakeHost;
 
     struct NoTunnels;
@@ -1513,6 +1600,165 @@ mod tests {
         fn phones_changed(&self) -> Vec<u32> {
             self.host.events.iter().filter_map(|e| match e { Event::PhonesChanged { count } => Some(*count), _ => None }).collect()
         }
+    }
+
+    /// A computer without the virtual camera, whose setup answers from `result`.
+    struct FakeOutputs {
+        status: Mutex<SetupStatus>,
+        result: Mutex<SetupResult>,
+        asked: Mutex<Vec<bool>>,
+    }
+
+    impl FakeOutputs {
+        fn new(loaded: bool) -> Arc<FakeOutputs> {
+            Arc::new(FakeOutputs {
+                status: Mutex::new(SetupStatus { loaded, ..SetupStatus::default() }),
+                result: Mutex::new(SetupResult { ok: true, message: "ok".into(), command: None }),
+                asked: Mutex::default(),
+            })
+        }
+
+        fn answers(&self, ok: bool, message: &str, command: Option<&str>) {
+            *self.result.lock().unwrap() = SetupResult { ok, message: message.into(), command: command.map(str::to_string) };
+        }
+    }
+
+    impl Outputs for FakeOutputs {
+        fn slots(&self) -> Vec<Slot> {
+            Vec::new()
+        }
+        fn formats(&self) -> Vec<PixelFormat> {
+            Vec::new()
+        }
+        fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+            Err("no camera".into())
+        }
+        fn setup_status(&self) -> SetupStatus {
+            self.status.lock().unwrap().clone()
+        }
+        fn set_up(&self, action: SetupAction, _progress: &dyn Fn(&str)) -> SetupResult {
+            if let SetupAction::Load { persist } = action {
+                self.asked.lock().unwrap().push(persist);
+            }
+            self.result.lock().unwrap().clone()
+        }
+    }
+
+    fn linux() -> std::sync::MutexGuard<'static, ()> {
+        let lock = crate::platform::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        crate::platform::set_windows(Some(false));
+        lock
+    }
+
+    fn vcam_env(outputs: &Arc<FakeOutputs>) -> Env {
+        let mut e = env();
+        e.plugin.outputs = Some(outputs.clone());
+        e
+    }
+
+    impl Env {
+        fn start(&mut self, interactive: bool) -> bool {
+            self.plugin.ensure_virtual_camera(&mut self.host, interactive, Some("id-a"))
+        }
+
+        fn start_issue(&self) -> Option<Issue> {
+            self.host.issues.iter().find(|(k, _)| k == "start").map(|(_, i)| i.clone())
+        }
+
+        fn vcam_open(&self) -> bool {
+            self.props("card").get("vcam-open").and_then(Value::as_bool) == Some(true)
+        }
+
+        fn answer_vcam(&mut self, ok: bool, persist: bool) {
+            self.ui("card", "vcam-answered", vec![json!(ok), json!(persist)]);
+        }
+    }
+
+    #[test]
+    fn linux_virtual_camera_conflict_and_cancel() {
+        let _lock = linux();
+        let outputs = FakeOutputs::new(true);
+        let mut e = vcam_env(&outputs);
+        assert!(!e.start(true));
+        let issue = e.start_issue().unwrap();
+        assert_eq!(issue.title, "Virtual camera is set up differently");
+        assert_eq!(issue.details, "sudo modprobe -r v4l2loopback");
+        assert!(issue.text.contains(V4L2_PHONE_DEV));
+        assert_eq!(issue.actions[0].label, "Copy command");
+        assert!(matches!(&issue.actions[0].does, IssueDoes::OpenUrl { url } if url == "copy:sudo modprobe -r v4l2loopback"));
+
+        e.host.issues.clear();
+        outputs.status.lock().unwrap().loaded = false;
+        assert!(!e.start(true));
+        assert!(e.vcam_open());
+        e.answer_vcam(false, false);
+        assert!(!e.vcam_open());
+        assert!(outputs.asked.lock().unwrap().is_empty()); // no password prompt after Cancel
+        assert!(e.start_issue().is_none());
+    }
+
+    #[test]
+    fn linux_virtual_camera_one_prompt_with_the_startup_choice() {
+        let _lock = linux();
+        let outputs = FakeOutputs::new(false);
+        let mut e = vcam_env(&outputs);
+        outputs.answers(false, "denied", None);
+        assert!(!e.start(true));
+        e.answer_vcam(true, true);
+        assert_eq!(*outputs.asked.lock().unwrap(), vec![true]);
+        assert_eq!(e.start_issue().unwrap().title, "Couldn't set up the virtual camera");
+        assert!(!e.called("start_again"));
+
+        e.host.issues.clear();
+        outputs.answers(false, SETUP_CANCELLED, None);
+        e.start(true);
+        e.answer_vcam(true, true);
+        assert!(e.start_issue().is_none()); // the person said no; nothing to explain
+
+        outputs.answers(true, "ok", None);
+        e.start(true);
+        e.answer_vcam(true, false);
+        assert_eq!(outputs.asked.lock().unwrap().last(), Some(&false));
+        assert!(e.called("start_again Some(\"id-a\")")); // goes on with the Start the question ended
+    }
+
+    #[test]
+    fn linux_virtual_camera_without_a_password_prompt_shows_the_command() {
+        let _lock = linux();
+        let outputs = FakeOutputs::new(false);
+        let mut e = vcam_env(&outputs);
+        outputs.answers(false, "no prompt", Some("sudo modprobe v4l2loopback"));
+        e.start(true);
+        e.answer_vcam(true, true);
+        let issue = e.start_issue().unwrap();
+        assert_eq!(issue.details, "sudo modprobe v4l2loopback");
+        assert_eq!(issue.actions.iter().map(|a| a.label.as_str()).collect::<Vec<_>>(), ["Copy command"]);
+    }
+
+    #[test]
+    fn a_start_nobody_asked_for_never_prompts_for_a_password() {
+        let _lock = linux();
+        let outputs = FakeOutputs::new(false);
+        let mut e = vcam_env(&outputs);
+        assert!(!e.start(false));
+        assert!(!e.vcam_open());
+        let issue = e.start_issue().unwrap();
+        assert_eq!(issue.title, "The virtual camera is off");
+        assert!(matches!(&issue.actions[0].does, IssueDoes::StartAgain { source_id: Some(s), before: None } if s == "id-a"));
+    }
+
+    #[test]
+    fn a_ready_camera_or_windows_needs_no_check() {
+        let _lock = linux();
+        let outputs = FakeOutputs::new(false);
+        outputs.status.lock().unwrap().ready = true;
+        let mut e = vcam_env(&outputs);
+        assert!(e.start(true));
+        outputs.status.lock().unwrap().ready = false;
+        crate::platform::set_windows(Some(true));
+        assert!(e.start(true));
+        crate::platform::set_windows(None);
+        assert!(e.host.issues.is_empty() && !e.vcam_open());
     }
 
     #[test]

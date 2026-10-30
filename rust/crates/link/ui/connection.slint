@@ -105,6 +105,11 @@ export component ConnectionCard inherits Card {
     callback pick(string);
     callback usb-action-clicked;
 
+    // The question before the virtual camera's password prompt
+    in property <bool> vcam-open;
+    property <bool> vcam-persist: true;
+    callback vcam-answered(bool, bool);
+
     title: @tr("Connection");
     icon: Icons.v-connection;
     has-action: true;
@@ -124,6 +129,14 @@ export component ConnectionCard inherits Card {
             add-popup.show();
         } else {
             add-popup.close();
+        }
+    }
+
+    changed vcam-open => {
+        if (self.vcam-open) {
+            vcam-popup.show();
+        } else {
+            vcam-popup.close();
         }
     }
 
@@ -296,6 +309,49 @@ export component ConnectionCard inherits Card {
                     text: paired ? @tr("Done") : @tr("Cancel");
                     role: paired ? "primary" : "";
                     clicked => { root.add-closed(); }
+                }
+            }
+        }
+    }
+
+    vcam-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 0px;
+        y: 0px;
+        width: max(root.width, 460px);
+        DialogFrame {
+            title: @tr("Set up the virtual camera");
+            Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                Switch {
+                    checked <=> root.vcam-persist;
+                    label: @tr("Also switch it on at every startup");
+                }
+                Text {
+                    text: @tr("Also switch it on at every startup");
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Button {
+                    width: 96px;
+                    height: 32px;
+                    text: @tr("Cancel");
+                    clicked => { root.vcam-answered(false, false); }
+                }
+                Button {
+                    width: 96px;
+                    height: 32px;
+                    text: @tr("OK");
+                    role: "primary";
+                    clicked => { root.vcam-answered(true, root.vcam-persist); }
                 }
             }
         }

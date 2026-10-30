@@ -64,6 +64,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
     let sign_outputs = outputs.clone();
+    let connection_outputs = outputs.clone();
     Arc::new(Services {
         link,
         media,
@@ -80,7 +81,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
             let browser_mics = Arc::new(browser.mics());
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
-                Box::new(connection.connection_plugin()),
+                Box::new(connection.connection_plugin().with_outputs(connection_outputs.clone())),
                 Box::new(browser),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
