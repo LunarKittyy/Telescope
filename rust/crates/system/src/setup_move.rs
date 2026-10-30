@@ -130,17 +130,48 @@ pub fn uninstall_key() -> String {
     format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1")
 }
 
-/// The value called name out of `reg query KEY /v NAME`'s answer ("    NAME    REG_SZ    <text>").
-pub fn parse_reg_value(output: &str, name: &str) -> Option<String> {
-    output.lines().find_map(|line| {
-        let rest = line.trim_start().strip_prefix(name)?;
-        let value = rest.trim_start().strip_prefix("REG_SZ")?.trim().to_string();
-        (!value.is_empty()).then_some(value)
-    })
+/// The text of a registry value's data (UTF-16, as winreg gets it) up to its first NUL; None unless it is a REG_SZ or REG_EXPAND_SZ.
+pub fn registry_text(kind: u32, data: &[u16]) -> Option<String> {
+    matches!(kind, 1 | 2).then(|| String::from_utf16_lossy(data.split(|&unit| unit == 0).next().unwrap_or_default()))
 }
 
-pub fn parse_install_location(output: &str) -> Option<PathBuf> {
-    parse_reg_value(output, "InstallLocation").map(PathBuf::from)
+/// A string value under hive ("HKCU" or "HKCR") at key, "" for the key's default value, read from the registry itself (winreg's way)
+/// rather than from reg.exe's text, which comes out in a code page.
+#[cfg(windows)]
+fn read_registry(hive: &str, key: &str, name: &str) -> Option<String> {
+    use std::ffi::c_void;
+    #[link(name = "advapi32")]
+    extern "system" {
+        fn RegOpenKeyExW(key: *mut c_void, sub: *const u16, options: u32, access: u32, out: *mut *mut c_void) -> i32;
+        fn RegQueryValueExW(key: *mut c_void, name: *const u16, reserved: *mut u32, kind: *mut u32, data: *mut u8, len: *mut u32) -> i32;
+        fn RegCloseKey(key: *mut c_void) -> i32;
+    }
+    const KEY_READ: u32 = 0x20019;
+    let root = match hive {
+        "HKCR" => 0x8000_0000_usize,
+        "HKCU" => 0x8000_0001,
+        _ => return None,
+    } as *mut c_void;
+    let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
+    let (key, name) = (wide(key), wide(name));
+    // SAFETY: the strings are NUL-terminated and outlive the calls; the first query only asks the size, the second reads into a buffer that big
+    unsafe {
+        let mut open = std::ptr::null_mut();
+        if RegOpenKeyExW(root, key.as_ptr(), 0, KEY_READ, &mut open) != 0 {
+            return None;
+        }
+        let (mut kind, mut len) = (0u32, 0u32);
+        let mut text = None;
+        if RegQueryValueExW(open, name.as_ptr(), std::ptr::null_mut(), &mut kind, std::ptr::null_mut(), &mut len) == 0 {
+            let mut buf = vec![0u16; (len as usize).div_ceil(2) + 1];
+            let mut size = (buf.len() * 2) as u32;
+            if RegQueryValueExW(open, name.as_ptr(), std::ptr::null_mut(), &mut kind, buf.as_mut_ptr().cast(), &mut size) == 0 {
+                text = registry_text(kind, &buf[..size as usize / 2]);
+            }
+        }
+        RegCloseKey(open);
+        text
+    }
 }
 
 /// What reading the uninstall entry needs of the registry.
@@ -154,19 +185,14 @@ pub fn installed_location_in(registry: &dyn Uninstall) -> Option<PathBuf> {
     registry.read("HKCU", &uninstall_key(), "InstallLocation").filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
-/// This computer's registry, asked through reg.exe.
+/// This computer's registry.
 #[cfg(windows)]
 struct Machine;
 
 #[cfg(windows)]
 impl Uninstall for Machine {
     fn read(&self, hive: &str, key: &str, name: &str) -> Option<String> {
-        use std::os::windows::process::CommandExt;
-        let out = std::process::Command::new("reg").args(["query", &format!(r"{hive}\{key}"), "/v", name]).creation_flags(0x0800_0000).output().ok()?;
-        if !out.status.success() {
-            return None;
-        }
-        parse_reg_value(&String::from_utf8_lossy(&out.stdout), name)
+        read_registry(hive, key, name)
     }
 }
 
@@ -191,15 +217,10 @@ pub fn driver_registered_here(registered: &[String], app_dir: &Path) -> bool {
 /// The same check against this computer's registry: the DLL each of the camera filters Telescope registers points to.
 #[cfg(windows)]
 pub fn driver_in_app_folder(app_dir: &Path) -> bool {
-    use std::os::windows::process::CommandExt;
-    let mut found = Vec::new();
-    for num in 0..4u32 {
+    let found: Vec<String> = (0..4u32).filter_map(|num| {
         let last = 0x10 + num + u32::from(num != 0);
-        let key = format!(r"HKCR\CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}\InprocServer32");
-        let Ok(out) = std::process::Command::new("reg").args(["query", &key, "/ve"]).creation_flags(0x0800_0000).output() else { continue };
-        let text = String::from_utf8_lossy(&out.stdout);
-        found.extend(text.lines().filter_map(|l| l.split_once("REG_SZ").map(|(_, v)| v.trim().to_string())));
-    }
+        read_registry("HKCR", &format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}\InprocServer32"), "")
+    }).collect();
     driver_registered_here(&found, app_dir)
 }
 
@@ -610,13 +631,25 @@ mod tests {
     }
 
     #[test]
-    fn the_install_location_is_read_from_the_uninstall_entry() {
-        let out = "\r\nHKEY_CURRENT_USER\\Software\\X\r\n    InstallLocation    REG_SZ    C:\\Users\\l\\AppData\\Local\\Programs\\Telescope\\\r\n\r\n";
-        assert_eq!(parse_install_location(out), Some(PathBuf::from("C:\\Users\\l\\AppData\\Local\\Programs\\Telescope\\")));
-        assert_eq!(parse_install_location("    InstallLocation    REG_SZ    \r\n"), None);
-        assert_eq!(parse_install_location(""), None);
+    fn the_uninstall_entry_is_the_installers() {
         assert!(uninstall_key().ends_with("{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"));
-        assert_eq!(parse_reg_value("    DisplayVersion    REG_SZ    1.2.3\r\n", "DisplayVersion").as_deref(), Some("1.2.3"));
+    }
+
+    // winreg gives the text as it is stored, so a folder with a letter outside the system's code page survives
+    #[test]
+    fn a_registry_string_keeps_every_character_of_the_path() {
+        let stored = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        for path in [r"C:\Users\Åsa\AppData\Local\Programs\Telescope\", r"C:\Users\田中\Telescope", r"D:\Игра\Telescope"] {
+            assert_eq!(registry_text(1, &stored(path)).as_deref(), Some(path));
+            assert_eq!(registry_text(2, &stored(path)).as_deref(), Some(path), "REG_EXPAND_SZ is a string too");
+        }
+        // Whatever follows the NUL is not part of the value, and a value stored without one is all of it
+        assert_eq!(registry_text(1, &[u16::from(b'a'), 0, u16::from(b'b')]).as_deref(), Some("a"));
+        assert_eq!(registry_text(1, &[u16::from(b'a'), u16::from(b'b')]).as_deref(), Some("ab"));
+        assert_eq!(registry_text(1, &[]).as_deref(), Some(""));
+        // A number or binary value is not a path
+        assert_eq!(registry_text(4, &stored("1")), None);
+        assert_eq!(registry_text(3, &stored("1")), None);
     }
 
     /// An unzipped copy at root/old and an installed one at root/new.
