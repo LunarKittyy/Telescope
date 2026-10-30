@@ -1237,6 +1237,22 @@ mod tests {
         assert_eq!(quits(&host), 1);
     }
 
+    // test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build, through the installer
+    #[test]
+    fn a_setup_replaced_before_its_download_marks_the_build_that_went_in() {
+        let body = b"setup".to_vec();
+        let fresh = real_asset(updates::WINDOWS_SETUP_ASSET, &body);
+        let stale = Asset { url: "https://h/stale".into(), sha256: "a".repeat(64), ..fresh.clone() };
+        let (old, latest) = (release(200, &[&stale]), release(201, &[&fresh]));
+        let served = vec![(stale.url.clone(), body.clone()), (fresh.url.clone(), body), (updates::manifest_url("nightly"), release_json(&latest))];
+        let (mut plugin, mut host, backend, _root) = real_env("setup-replaced", true, served);
+        plugin.available = Some(old);
+        plugin.update_now(&mut host);
+        assert_eq!(*backend.marked.lock().unwrap(), [201]);
+        assert_eq!(plugin.install_build, 201);
+        assert_eq!(quits(&host), 1);
+    }
+
     // _spawn_install: a stream started meanwhile may run over USB, so adb is left alone on either route
     #[test]
     fn a_stream_that_started_during_the_download_keeps_adb() {

@@ -1575,21 +1575,21 @@
 "Checking for new versions of Telescope and installing them." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't check for updates (HTTP {code})." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
-"Couldn't check for updates." = { status = "todo" }
+"Couldn't check for updates." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Couldn't check for updates. Check the internet connection." = { status = "ported", rust = "rust/crates/system/src/updates.rs::fetch_manifest" }
 "Couldn't replace Telescope's files: {error}" = { status = "ported", rust = "rust/crates/system/src/updates.rs::swap" }
-"Couldn't start the installer: {error}" = { status = "todo" }
+"Couldn't start the installer: {error}" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
 "Downloading {percent}%…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Downloading…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Installing…" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Keep this copy where it is" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Nightly" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"Nightly: built from every change. Fixes first, less tested." = { status = "todo" }
+"Nightly: built from every change. Fixes first, less tested." = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "Only the packaged app can update itself." = { status = "dropped", reason = "A Rust build is always the packaged app; only a dev-channel build is a source checkout" }
 "Open download page" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Stable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Stop streaming to update." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"Telescope was installed, but its folder wasn't where expected. Open it from the Start menu." = { status = "todo" }
+"Telescope was installed, but its folder wasn't where expected. Open it from the Start menu." = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
 "Telescope {version} didn't start after updating, so it's held back. Try again?" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Telescope {version} is available" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Telescope {version} is available." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
@@ -1600,8 +1600,8 @@
 "The download failed. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "The download is bigger than it should be." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
 "The download was cut short. Check the internet connection and try again." = { status = "ported", rust = "rust/crates/system/src/updates.rs::download" }
-"The installer stopped (code {code}), so this copy stays as it is." = { status = "todo" }
-"The installer took too long, so this copy stays as it is." = { status = "todo" }
+"The installer stopped (code {code}), so this copy stays as it is." = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
+"The installer took too long, so this copy stays as it is." = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
 "The latest nightly build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "The latest stable build is {version}." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "The update contains unexpected files, so it wasn't installed." = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
@@ -1618,13 +1618,13 @@
 "Updated. Close and reopen Telescope to finish." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Updated. Telescope restarts when you stop streaming." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "Updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"Updates this unzipped folder in place instead of installing Telescope for your user." = { status = "todo" }
-"Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along." = { status = "todo" }
+"Updates this unzipped folder in place instead of installing Telescope for your user." = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
+"Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "What's new" = { status = "ported", rust = "rust/crates/system/ui/updates.slint" }
 "You have the latest version." = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|automatic updates auto check every day background" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|current build number" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"search|portable keep this copy where it is zip folder in place windows" = { status = "todo" }
+"search|portable keep this copy where it is zip folder in place windows" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|stable nightly beta release track builds testing" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "search|update upgrade new version release download install latest" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 "{file} is in use, so the update wasn't installed. Try again after a restart." = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
@@ -2232,7 +2232,7 @@
 "test_background.py::test_without_the_download_the_card_offers_it" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_the_download_the_card_offers_it" }
 # ── banner
 "test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
-"test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "todo" }
+"test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::an_action_that_replaces_the_issue_keeps_the_new_one" }
 "test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 "test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 "test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
@@ -2314,10 +2314,10 @@
 "test_browser_server.py::test_url_carries_the_token_after_the_hash" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::url_carries_the_token_after_the_hash" }
 "test_browser_server.py::test_wrong_token_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::wrong_token_is_refused" }
 # ── camera
-"test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads" = { status = "todo" }
-"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "todo" }
-"test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource" = { status = "todo" }
-"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "todo" }
+"test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_cmake_resource_id_is_the_one_the_dll_loads" }
+"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_lays_it_out_like_the_app", note = "Against outputs::camera_wait_screen and this app's default_screen; the DLL's build still calls the Python writer" }
+"test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_turns_down_a_cut_short_resource" }
+"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_header_is_the_one_the_dll_reads", note = "Against outputs::camera_wait_screen; the DLL's build still calls the Python writer" }
 # ── camera_control
 "test_camera_control.py::test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" }
 "test_camera_control.py::test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" }
@@ -2828,8 +2828,8 @@
 "test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
 "test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
 "test_frames.py::test_streams_without_a_picture_or_that_stopped_are_left_out" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
-"test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
+"test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "ported", rust = "rust/app/tests/stream_window.rs::the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_opens" }
+"test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "ported", rust = "rust/app/tests/stream_window.rs::the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_opens" }
 # ── framing
 "test_framing.py::test_a_flipped_view_pans_the_other_way_to_the_same_person" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::a_flipped_view_pans_the_other_way_to_the_same_person" }
 "test_framing.py::test_a_hand_held_out_widens_the_box_on_its_side_once_it_counts" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::a_hand_held_out_widens_the_box_on_its_side_once_it_counts" }
@@ -2999,10 +2999,10 @@
 "test_level_meter.py::test_peak_holds_then_sinks" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::peak_holds_then_sinks" }
 "test_level_meter.py::test_to_db_floors_silence" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::to_db_floors_silence" }
 # ── main
-"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "todo" }
-"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "todo" }
+"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "ported", rust = "rust/app/tests/commands.rs::commands_leave_what_the_running_copy_owns_alone", note = "No PyAV build here: the same rule, that a command touches nothing the running copy owns, on what Rust has of that kind (the stale mic source)" }
+"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "ported", rust = "rust/app/src/main.rs::only_the_copy_with_the_lock_touches_what_the_running_copy_owns", note = "No PyAV to activate: what runs only once the lock is held is checked instead" }
 "test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
-"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "todo" }
+"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside" }
 # ── microphone
 "test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
 "test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_missing_piece_is_shown_with_its_fix_and_nothing_starts" }
@@ -4368,10 +4368,10 @@
 "test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "todo" }
+"test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" }
 "test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "todo" }
-"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "todo" }
+"test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::right_after_an_update_a_copy_from_before_the_per_user_lock_counts" }
+"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs" }
 "test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
 "test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs", note = "confirm_on_terminate is a no-op off unix" }
@@ -4394,8 +4394,8 @@
 "test_updates.py::test_linux_install_rolls_back_when_a_swap_fails" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_rolls_back_when_a_swap_fails" }
 "test_updates.py::test_linux_install_swaps_the_app_and_keeps_the_old_one" = { status = "ported", rust = "rust/crates/system/src/updates.rs::linux_install_swaps_the_app_and_keeps_the_old_one" }
 "test_updates.py::test_newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" = { status = "ported", rust = "rust/crates/system/src/updates.rs::newer_compares_build_numbers_and_never_offers_a_dev_build_an_update" }
-"test_updates.py::test_note_installed_version_leaves_another_copys_entry" = { status = "todo" }
-"test_updates.py::test_note_installed_version_updates_the_apps_entry" = { status = "todo" }
+"test_updates.py::test_note_installed_version_leaves_another_copys_entry" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::note_installed_version_leaves_another_copys_entry" }
+"test_updates.py::test_note_installed_version_updates_the_apps_entry" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::note_installed_version_updates_the_apps_entry" }
 "test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "ported", rust = "rust/crates/system/src/updates.rs::parses_a_manifest_and_names_its_version" }
 "test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "ported", rust = "rust/crates/system/src/updates.rs::rejects_a_manifest_it_cant_trust" }
 "test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_first_folder_build_installs_over_the_single_exe" }
@@ -4405,25 +4405,25 @@
 "test_updates_plugin.py::test_a_copy_that_cant_replace_itself_links_to_the_release" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_copy_that_cant_replace_itself_links_to_the_release" }
 "test_updates_plugin.py::test_a_failed_update_says_why_and_keeps_running" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_failed_update_says_why_and_keeps_running" }
 "test_updates_plugin.py::test_a_launch_without_internet_checks_again_on_the_next_tick" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_launch_without_internet_checks_again_on_the_next_tick" }
-"test_updates_plugin.py::test_a_move_needs_no_writable_folder" = { status = "todo" }
+"test_updates_plugin.py::test_a_move_needs_no_writable_folder" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_unzipped_copy_updates_through_the_installer_and_says_so" }
 "test_updates_plugin.py::test_a_newer_build_shows_the_update_button" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_build_shows_the_update_button" }
 "test_updates_plugin.py::test_a_newer_phone_app_opens_settings_on_updates" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_newer_phone_app_opens_settings_on_updates" }
-"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "ported", rust = "rust/crates/system/src/updates.rs::download_update_recovers_when_a_nightly_is_replaced", note = "RealBackend installs the build download_update picked; the setup route is still todo" }
-"test_updates_plugin.py::test_adb_is_stopped_before_the_setup_runs" = { status = "todo" }
-"test_updates_plugin.py::test_an_installed_copy_never_moves" = { status = "todo" }
-"test_updates_plugin.py::test_an_unzipped_copy_updates_through_the_installer_and_says_so" = { status = "todo" }
+"test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::a_setup_replaced_before_its_download_marks_the_build_that_went_in" }
+"test_updates_plugin.py::test_adb_is_stopped_before_the_setup_runs" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_installer_route_stops_adb_then_relaunches_the_installed_copy" }
+"test_updates_plugin.py::test_an_installed_copy_never_moves" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_installed_copy_never_moves_and_hides_the_portable_switch" }
+"test_updates_plugin.py::test_an_unzipped_copy_updates_through_the_installer_and_says_so" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_unzipped_copy_updates_through_the_installer_and_says_so" }
 "test_updates_plugin.py::test_an_update_that_cant_restart_stays_open_and_says_so" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_cant_restart_stays_open_and_says_so" }
 "test_updates_plugin.py::test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::an_update_that_lands_during_a_stream_restarts_only_once_it_stops" }
 "test_updates_plugin.py::test_background_failures_stay_quiet_but_a_manual_check_explains" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::background_failures_stay_quiet_but_a_manual_check_explains" }
 "test_updates_plugin.py::test_config_round_trips_and_defaults_to_the_build_s_channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::config_round_trips_and_defaults_to_the_build_s_channel" }
 "test_updates_plugin.py::test_each_launch_checks_even_if_the_last_check_was_recent" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::each_launch_checks_even_if_the_last_check_was_recent" }
-"test_updates_plugin.py::test_keeping_it_portable_updates_in_place" = { status = "todo" }
-"test_updates_plugin.py::test_no_move_without_a_setup_or_with_the_driver_in_this_folder" = { status = "todo" }
+"test_updates_plugin.py::test_keeping_it_portable_updates_in_place" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::keeping_it_portable_updates_in_place_with_the_zip" }
+"test_updates_plugin.py::test_no_move_without_a_setup_or_with_the_driver_in_this_folder" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::no_move_without_a_setup_or_with_the_driver_in_this_folder" }
 "test_updates_plugin.py::test_no_update_while_streaming" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::no_update_while_streaming" }
-"test_updates_plugin.py::test_the_camera_driver_check_is_remembered_for_half_a_minute" = { status = "todo" }
+"test_updates_plugin.py::test_the_camera_driver_check_is_remembered_for_half_a_minute" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_camera_driver_check_is_remembered_for_half_a_minute" }
 "test_updates_plugin.py::test_the_daily_check_waits_a_day_and_skips_source_checkouts" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_daily_check_waits_a_day_and_skips_source_checkouts" }
 "test_updates_plugin.py::test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again" }
-"test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy" = { status = "todo" }
+"test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::the_installer_route_stops_adb_then_relaunches_the_installed_copy" }
 "test_updates_plugin.py::test_the_relaunched_app_unpacks_its_own_copy" = { status = "dropped", reason = "PYINSTALLER_RESET_ENVIRONMENT is for the PyInstaller bundle; the Rust exe has nothing to unpack" }
 "test_updates_plugin.py::test_up_to_date_and_no_release_yet" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::up_to_date_and_no_release_yet" }
 "test_updates_plugin.py::test_updating_downloads_installs_relaunches_and_quits" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::updating_downloads_installs_relaunches_and_quits" }
@@ -5644,10 +5644,10 @@
 "device.transforms.stretch_y" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "device.transforms.zoom" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 # ── updates
-"global.updates.auto_check" = { status = "todo" }
-"global.updates.channel" = { status = "todo" }
-"global.updates.keep_portable" = { status = "todo" }
-"global.updates.last_check" = { status = "todo" }
+"global.updates.auto_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"global.updates.channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"global.updates.keep_portable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"global.updates.last_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
 # ── wait_screen
 "global.wait_screen.image" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }
 "global.wait_screen.last_size" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }
@@ -5787,8 +5787,8 @@
 "--action" = { status = "ported", rust = "rust/app/src/main.rs" }
 "--after-update" = { status = "ported", rust = "rust/app/src/main.rs" }
 "--list-actions" = { status = "ported", rust = "rust/app/src/main.rs" }
-"--minimized" = { status = "todo" }
-"--moved-from" = { status = "todo" }
+"--minimized" = { status = "ported", rust = "rust/app/src/main.rs::minimized_and_moved_from_come_off_the_words_like_argparse_takes_them" }
+"--moved-from" = { status = "ported", rust = "rust/app/src/main.rs::main_takes_the_moved_from_folder" }
 "--restarted" = { status = "ported", rust = "rust/app/src/main.rs" }
 "--warm-up" = { status = "dropped", reason = "Windows PyAV preload for the Python bundle's loader lock; the Rust exe has nothing to warm up" }
 
@@ -5877,11 +5877,11 @@
 "folder:telescope/diagnostics.py:log_dir:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::log_dir", note = "Compared with diagnostics.py on Linux and Windows" }
 "folder:telescope/diagnostics.py:sanitize:Path.home" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::sanitize" }
 # ── main
-"env:OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT" = { status = "todo" }
-"env:QT_MEDIA_BACKEND" = { status = "todo" }
-"env:QT_QPA_PLATFORMTHEME" = { status = "todo" }
-"folder:main.py:main:tempfile.gettempdir" = { status = "todo" }
-"run:main.py:_warm_up:subprocess.run:<sys.executable>" = { status = "todo" }
+"env:OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::a_webcam_that_stops_sending_drops_after_three_seconds" }
+"env:QT_MEDIA_BACKEND" = { status = "dropped", reason = "Picks Qt's backend for listing webcams; Rust lists them itself through Media Foundation (rust/crates/outputs/src/webcams_win.rs)" }
+"env:QT_QPA_PLATFORMTHEME" = { status = "dropped", reason = "Sends pip's Qt file pickers to the portal; Rust calls the file chooser portal directly (rust/crates/shell/src/file_dialog.rs)" }
+"folder:main.py:main:tempfile.gettempdir" = { status = "ported", rust = "rust/app/src/main.rs" }
+"run:main.py:_warm_up:subprocess.run:<sys.executable>" = { status = "dropped", reason = "The helper that had Windows scan PyAV's files outside the app's loader lock; nothing loads PyAV here" }
 # ── microphone
 "run:telescope/plugins/microphone.py:_open_action:QDesktopServices.openUrl:<QUrl(self._action_url)>" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs::open_url", note = "xdg-open / url.dll stand-in until the window offers plugins a way to open links" }
 # ── on_air
@@ -6028,7 +6028,7 @@
 "port:telescope/platform/__init__.py:ADB_PORT=5037" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ADB_PORT" }
 "registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_access_off", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_cameras", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
-"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "ported", rust = "rust/crates/system/src/autostart.rs", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "ported", rust = "rust/crates/system/src/autostart.rs", note = "Through advapi32 like the reads; Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "run:telescope/platform/__init__.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run" }
 "run:telescope/platform/__init__.py:adb_device_models:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_models" }
 "run:telescope/platform/__init__.py:adb_device_states:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_states" }
@@ -6061,7 +6061,7 @@
 # ── setup
 "run:telescope/plugins/setup.py:_build_ui:QDesktopServices.openUrl:<QUrl(HELP_URL)>" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "run:telescope/plugins/setup.py:_build_ui:QDesktopServices.openUrl:<QUrl(TRANSLATE_URL)>" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
-"run:telescope/plugins/setup.py:_open_log:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(diagnostics.events.path))>" = { status = "todo", note = "Open log is there but stays hidden: the Rust app has no log file yet" }
+"run:telescope/plugins/setup.py:_open_log:QDesktopServices.openUrl:<QUrl.fromLocalFile(str(diagnostics.events.path))>" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::open_log_shows_once_there_is_a_log_and_opens_it_with_any_name" }
 "run:telescope/plugins/setup.py:_report_bug:QDesktopServices.openUrl:<QUrl(BUG_REPORT_URL)>" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 # ── shortcuts
 "run:telescope/plugins/shortcuts.py:open_system_settings:subprocess.Popen:<cmd>" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::open_system_settings" }
@@ -6069,21 +6069,21 @@
 "env:USER" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
 "env:USERNAME" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
 # ── update_guard
-"folder:update_guard.py:finish_swap:shutil.rmtree" = { status = "todo" }
-"folder:update_guard.py:remove:shutil.rmtree" = { status = "todo" }
-"folder:update_guard.py:roll_back:shutil.rmtree" = { status = "todo" }
-"port:update_guard.py:INSTANCE_PORT=47823" = { status = "todo" }
-"run:update_guard.py:launch:subprocess.Popen:<argv>" = { status = "todo" }
+"folder:update_guard.py:finish_swap:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"folder:update_guard.py:remove:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"folder:update_guard.py:roll_back:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"port:update_guard.py:INSTANCE_PORT=47823" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"run:update_guard.py:launch:subprocess.Popen:<argv>" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::launching_starts_a_session_of_its_own" }
 # ── updates
-"env:OneDrive" = { status = "todo" }
-"env:USERPROFILE" = { status = "todo" }
+"env:OneDrive" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
+"env:USERPROFILE" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
 "folder:telescope/plugins/updates.py:work:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
 "folder:telescope/plugins/updates.py:work:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::RealBackend" }
 "folder:telescope/updates.py:_extract:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::extract" }
-"folder:telescope/updates.py:_keep_adb:shutil.rmtree" = { status = "todo" }
+"folder:telescope/updates.py:_keep_adb:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs" }
 "folder:telescope/updates.py:install_linux:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_linux" }
 "folder:telescope/updates.py:install_windows:shutil.rmtree" = { status = "ported", rust = "rust/crates/system/src/updates.rs::install_windows" }
-"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" = { status = "todo" }
+"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" = { status = "ported", rust = "rust/crates/system/src/registry.rs", note = "Read and written through advapi32 in setup_move.rs (installed_location, note_installed_version); compile-checked for Windows" }
 "run:telescope/plugins/updates.py:open_notes:QDesktopServices.openUrl:<QUrl(target.notes if target and target.notes else RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::open_notes" }
 "run:telescope/plugins/updates.py:update_now:QDesktopServices.openUrl:<QUrl(manifest.notes or RELEASES_URL)>" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::update_now" }
 # ── vcam
