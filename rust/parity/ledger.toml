@@ -560,49 +560,49 @@
 "Without it there's no Desk mode card and the picture stays the way the camera sees it." = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
 "Writing" = { status = "ported", rust = "rust/crates/effects/ui/desk.slint" }
 # ── face_exposure
-"Expose for my face" = { status = "todo" }
-"Focus is on Manual in the Camera card." = { status = "todo" }
-"Follow my face" = { status = "todo" }
-"Go back to metering on your face" = { status = "todo" }
-"Meter the exposure on your face" = { status = "todo" }
-"Moves the phone's metering point to your face to keep you well lit whatever's behind you." = { status = "todo" }
-"The phone meters on the point you picked by hand." = { status = "todo" }
-"This lens can't meter on a point." = { status = "todo" }
-"Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture." = { status = "todo" }
+"Expose for my face" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"Focus is on Manual in the Camera card." = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"Follow my face" = { status = "ported", rust = "rust/crates/effects/ui/face_exposure.slint" }
+"Go back to metering on your face" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"Meter the exposure on your face" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"Moves the phone's metering point to your face to keep you well lit whatever's behind you." = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"The phone meters on the point you picked by hand." = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"This lens can't meter on a point." = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture." = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
 # ── framing
-"Auto framing" = { status = "todo" }
-"Auto framing speed" = { status = "todo" }
-"Auto framing: how much of you" = { status = "todo" }
-"Body" = { status = "todo" }
-"Brisk" = { status = "todo" }
-"Calm" = { status = "todo" }
-"Chest" = { status = "todo" }
-"Easy" = { status = "todo" }
-"Fidget" = { status = "todo" }
-"Follow you with the zoom and pan" = { status = "todo" }
+"Auto framing" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Auto framing speed" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Auto framing: how much of you" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Body" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Brisk" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Calm" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Chest" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Easy" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Fidget" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Follow you with the zoom and pan" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
 "Framing" = { status = "ported", rust = "rust/crates/outputs/src/webcam.rs" }
-"Head" = { status = "todo" }
-"How much of you is in the picture: just your head, down to your chest, down to your waist or all of you" = { status = "todo" }
-"How quickly the framing catches up when you move" = { status = "todo" }
-"Lazy" = { status = "todo" }
-"Lean" = { status = "todo" }
-"Mellow" = { status = "todo" }
-"Quick" = { status = "todo" }
-"Roam" = { status = "todo" }
-"Room to move" = { status = "todo" }
-"Shift" = { status = "todo" }
-"Sloth" = { status = "todo" }
-"Snappy" = { status = "todo" }
-"Something else is moving the zoom and pan." = { status = "todo" }
-"Speed" = { status = "todo" }
-"Steady" = { status = "todo" }
-"Step" = { status = "todo" }
-"Waist" = { status = "todo" }
-"What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around" = { status = "todo" }
-"Widen for something in your hand" = { status = "todo" }
-"Without it there's no Auto framing card and the zoom stays where you put it." = { status = "todo" }
-"Zippy" = { status = "todo" }
-"Zooms and pans to keep you in the picture as you move." = { status = "todo" }
+"Head" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"How much of you is in the picture: just your head, down to your chest, down to your waist or all of you" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"How quickly the framing catches up when you move" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Lazy" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Lean" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Mellow" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Quick" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Roam" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Room to move" = { status = "ported", rust = "rust/crates/effects/ui/framing.slint" }
+"Shift" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Sloth" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Snappy" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Something else is moving the zoom and pan." = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Speed" = { status = "ported", rust = "rust/crates/effects/ui/framing.slint" }
+"Steady" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Step" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Waist" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Widen for something in your hand" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Without it there's no Auto framing card and the zoom stays where you put it." = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Zippy" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"Zooms and pans to keep you in the picture as you move." = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
 # ── fun_pack
 "1998 webcam" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 "A stick figure takes your place." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
@@ -1722,7 +1722,7 @@
 "Dismiss" = { status = "ported", rust = "rust/crates/shell/ui/frame.slint" }
 "Doesn't load in Telescope's Python {version}" = { status = "todo" }
 "Double-click to reset" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
-"Download" = { status = "todo" }
+"Download" = { status = "ported", rust = "rust/crates/effects/ui/vision_status.slint" }
 "Download about {mb} MB?" = { status = "todo" }
 "Download and switch on" = { status = "todo" }
 "Downloading… {percent}%" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
@@ -2025,7 +2025,7 @@
 "test_app.py::test_apply_state_discards_result_for_inactive_session" = { status = "todo" }
 "test_app.py::test_apply_state_emits_bus_and_calls_plugins" = { status = "todo" }
 "test_app.py::test_apply_state_rejects_malformed_non_empty_state" = { status = "todo" }
-"test_app.py::test_auto_framing_on_one_camera_doesnt_zoom_the_next_one_out" = { status = "todo" }
+"test_app.py::test_auto_framing_on_one_camera_doesnt_zoom_the_next_one_out" = { status = "ported", rust = "rust/app/tests/framing_shell.rs::auto_framing_on_one_camera_doesnt_zoom_the_next_one_out", note = "Through switch_device in the shell state, not two running streams" }
 "test_app.py::test_back_on_a_tile_its_state_is_asked_for_again" = { status = "todo" }
 "test_app.py::test_canvas_reload_failure_reports_error_and_clears_callback" = { status = "todo" }
 "test_app.py::test_clicking_a_tile_brings_its_settings_back" = { status = "todo" }
@@ -2807,20 +2807,20 @@
 "test_diagnostics.py::test_without_a_file_it_keeps_the_last_lines_in_memory" = { status = "todo" }
 "test_diagnostics.py::test_writes_to_the_file_and_reads_it_back_after_a_restart" = { status = "todo" }
 # ── face_exposure
-"test_face_exposure.py::test_a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone" = { status = "todo" }
-"test_face_exposure.py::test_a_point_picked_by_hand_wins_until_switched_off_and_on" = { status = "todo" }
-"test_face_exposure.py::test_a_real_move_is_followed_slowly_and_not_too_often" = { status = "todo" }
-"test_face_exposure.py::test_leaving_the_picture_holds_the_point" = { status = "todo" }
-"test_face_exposure.py::test_manual_focus_on_the_camera_card_is_left_alone_until_follow_my_face" = { status = "todo" }
-"test_face_exposure.py::test_nothing_is_sent_while_the_lens_cant_meter_on_a_point" = { status = "todo" }
-"test_face_exposure.py::test_picking_a_focus_mode_by_hand_wins_too_and_follow_my_face_comes_back" = { status = "todo" }
-"test_face_exposure.py::test_picking_manual_by_hand_shows_the_manual_focus_note" = { status = "todo" }
-"test_face_exposure.py::test_small_head_moves_dont_move_the_point" = { status = "todo" }
-"test_face_exposure.py::test_switching_on_asks_for_people_and_meters_on_the_face" = { status = "todo" }
-"test_face_exposure.py::test_the_first_move_waits_for_the_face_to_settle" = { status = "todo" }
-"test_face_exposure.py::test_the_point_follows_a_stretched_picture" = { status = "todo" }
-"test_face_exposure.py::test_the_point_goes_where_the_face_is_in_the_picture_as_shown" = { status = "todo" }
-"test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "todo" }
+"test_face_exposure.py::test_a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone" }
+"test_face_exposure.py::test_a_point_picked_by_hand_wins_until_switched_off_and_on" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::a_point_picked_by_hand_wins_until_switched_off_and_on" }
+"test_face_exposure.py::test_a_real_move_is_followed_slowly_and_not_too_often" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::a_real_move_is_followed_slowly_and_not_too_often" }
+"test_face_exposure.py::test_leaving_the_picture_holds_the_point" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::leaving_the_picture_holds_the_point" }
+"test_face_exposure.py::test_manual_focus_on_the_camera_card_is_left_alone_until_follow_my_face" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::manual_focus_on_the_camera_card_is_left_alone_until_follow_my_face" }
+"test_face_exposure.py::test_nothing_is_sent_while_the_lens_cant_meter_on_a_point" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::nothing_is_sent_while_the_lens_cant_meter_on_a_point" }
+"test_face_exposure.py::test_picking_a_focus_mode_by_hand_wins_too_and_follow_my_face_comes_back" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::picking_a_focus_mode_by_hand_wins_too_and_follow_my_face_comes_back" }
+"test_face_exposure.py::test_picking_manual_by_hand_shows_the_manual_focus_note" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::picking_manual_by_hand_shows_the_manual_focus_note" }
+"test_face_exposure.py::test_small_head_moves_dont_move_the_point" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::small_head_moves_dont_move_the_point" }
+"test_face_exposure.py::test_switching_on_asks_for_people_and_meters_on_the_face" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::switching_on_asks_for_people_and_meters_on_the_face" }
+"test_face_exposure.py::test_the_first_move_waits_for_the_face_to_settle" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::the_first_move_waits_for_the_face_to_settle" }
+"test_face_exposure.py::test_the_point_follows_a_stretched_picture" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::the_point_follows_a_stretched_picture" }
+"test_face_exposure.py::test_the_point_goes_where_the_face_is_in_the_picture_as_shown" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::the_point_goes_where_the_face_is_in_the_picture_as_shown" }
+"test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::walking_in_moves_the_point_once_you_settle" }
 # ── frames
 "test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
 "test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
@@ -2831,29 +2831,29 @@
 "test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
 "test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "todo", note = "the window side: it calls StreamFrames::set_streams" }
 # ── framing
-"test_framing.py::test_a_flipped_view_pans_the_other_way_to_the_same_person" = { status = "todo" }
-"test_framing.py::test_a_hand_held_out_widens_the_box_on_its_side_once_it_counts" = { status = "todo" }
-"test_framing.py::test_an_arm_reaching_past_the_edge_of_the_picture_counts" = { status = "todo" }
-"test_framing.py::test_framing_goes_smoothly_from_the_face_to_the_whole_body" = { status = "todo" }
-"test_framing.py::test_hands_on_hips_or_hanging_down_dont_count" = { status = "todo" }
-"test_framing.py::test_holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_speed" = { status = "todo" }
-"test_framing.py::test_it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave" = { status = "todo" }
-"test_framing.py::test_it_says_so_when_something_else_has_the_view" = { status = "todo" }
-"test_framing.py::test_rotating_the_view_keeps_the_same_part_of_the_person_in_frame" = { status = "todo" }
-"test_framing.py::test_rotating_while_tracking_does_not_steer_to_the_old_screen_coordinates" = { status = "todo" }
-"test_framing.py::test_settings_round_trip_and_damaged_ones_fall_back" = { status = "todo" }
-"test_framing.py::test_shifting_in_your_seat_doesnt_move_the_framing_but_moving_away_does" = { status = "todo" }
-"test_framing.py::test_shutting_down_gives_the_view_back" = { status = "todo" }
-"test_framing.py::test_small_moves_stay_put_and_a_steady_move_is_followed_without_hops" = { status = "todo" }
-"test_framing.py::test_smoothing_takes_the_wobble_out_of_the_target" = { status = "todo" }
-"test_framing.py::test_speed_goes_from_calm_and_patient_to_quick_and_close" = { status = "todo" }
-"test_framing.py::test_switching_on_takes_the_view_and_switching_off_gives_it_back" = { status = "todo" }
-"test_framing.py::test_the_box_takes_in_the_head_and_shoulders_and_upper_body_takes_more" = { status = "todo" }
-"test_framing.py::test_the_hand_latch_waits_before_switching_both_ways" = { status = "todo" }
-"test_framing.py::test_the_spring_settles_without_overshooting" = { status = "todo" }
-"test_framing.py::test_the_window_keeps_the_box_and_stays_in_the_picture" = { status = "todo" }
-"test_framing.py::test_two_people_get_one_box_around_both" = { status = "todo" }
-"test_framing.py::test_with_no_room_to_move_it_follows_every_shift" = { status = "todo" }
+"test_framing.py::test_a_flipped_view_pans_the_other_way_to_the_same_person" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::a_flipped_view_pans_the_other_way_to_the_same_person" }
+"test_framing.py::test_a_hand_held_out_widens_the_box_on_its_side_once_it_counts" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::a_hand_held_out_widens_the_box_on_its_side_once_it_counts" }
+"test_framing.py::test_an_arm_reaching_past_the_edge_of_the_picture_counts" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::an_arm_reaching_past_the_edge_of_the_picture_counts" }
+"test_framing.py::test_framing_goes_smoothly_from_the_face_to_the_whole_body" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::framing_goes_smoothly_from_the_face_to_the_whole_body" }
+"test_framing.py::test_hands_on_hips_or_hanging_down_dont_count" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::hands_on_hips_or_hanging_down_dont_count" }
+"test_framing.py::test_holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_speed" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_speed" }
+"test_framing.py::test_it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave" }
+"test_framing.py::test_it_says_so_when_something_else_has_the_view" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::it_says_so_when_something_else_has_the_view" }
+"test_framing.py::test_rotating_the_view_keeps_the_same_part_of_the_person_in_frame" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::rotating_the_view_keeps_the_same_part_of_the_person_in_frame" }
+"test_framing.py::test_rotating_while_tracking_does_not_steer_to_the_old_screen_coordinates" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::rotating_while_tracking_does_not_steer_to_the_old_screen_coordinates" }
+"test_framing.py::test_settings_round_trip_and_damaged_ones_fall_back" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::settings_round_trip_and_damaged_ones_fall_back" }
+"test_framing.py::test_shifting_in_your_seat_doesnt_move_the_framing_but_moving_away_does" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::shifting_in_your_seat_doesnt_move_the_framing_but_moving_away_does" }
+"test_framing.py::test_shutting_down_gives_the_view_back" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::shutting_down_gives_the_view_back" }
+"test_framing.py::test_small_moves_stay_put_and_a_steady_move_is_followed_without_hops" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::small_moves_stay_put_and_a_steady_move_is_followed_without_hops" }
+"test_framing.py::test_smoothing_takes_the_wobble_out_of_the_target" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::smoothing_takes_the_wobble_out_of_the_target" }
+"test_framing.py::test_speed_goes_from_calm_and_patient_to_quick_and_close" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::speed_goes_from_calm_and_patient_to_quick_and_close" }
+"test_framing.py::test_switching_on_takes_the_view_and_switching_off_gives_it_back" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::switching_on_takes_the_view_and_switching_off_gives_it_back" }
+"test_framing.py::test_the_box_takes_in_the_head_and_shoulders_and_upper_body_takes_more" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::the_box_takes_in_the_head_and_shoulders_and_upper_body_takes_more" }
+"test_framing.py::test_the_hand_latch_waits_before_switching_both_ways" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::the_hand_latch_waits_before_switching_both_ways" }
+"test_framing.py::test_the_spring_settles_without_overshooting" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::the_spring_settles_without_overshooting" }
+"test_framing.py::test_the_window_keeps_the_box_and_stays_in_the_picture" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::the_window_keeps_the_box_and_stays_in_the_picture" }
+"test_framing.py::test_two_people_get_one_box_around_both" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::two_people_get_one_box_around_both" }
+"test_framing.py::test_with_no_room_to_move_it_follows_every_shift" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::with_no_room_to_move_it_follows_every_shift" }
 # ── fun_pack
 "test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
 "test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
@@ -5518,14 +5518,14 @@
 "device.desk.shape" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
 "device.desk.stretch" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::set_config" }
 # ── face_exposure
-"device.face_exposure.on" = { status = "todo" }
-"global.face_exposure.on" = { status = "todo" }
+"device.face_exposure.on" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
+"global.face_exposure.on" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
 # ── framing
-"device.framing.framing" = { status = "todo" }
-"device.framing.hand" = { status = "todo" }
-"device.framing.on" = { status = "todo" }
-"device.framing.room" = { status = "todo" }
-"device.framing.speed" = { status = "todo" }
+"device.framing.framing" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"device.framing.hand" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"device.framing.on" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"device.framing.room" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"device.framing.speed" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
 # ── fun_pack
 "device.fun_pack.across" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 "device.fun_pack.brightness" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
@@ -5717,11 +5717,11 @@
 "desk.shape" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
 "desk.writing" = { status = "ported", rust = "rust/crates/effects/src/desk.rs::actions" }
 # ── face_exposure
-"face_exposure.on" = { status = "todo" }
+"face_exposure.on" = { status = "ported", rust = "rust/crates/effects/src/face_exposure.rs" }
 # ── framing
-"framing.framing" = { status = "todo" }
-"framing.on" = { status = "todo" }
-"framing.speed" = { status = "todo" }
+"framing.framing" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"framing.on" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
+"framing.speed" = { status = "ported", rust = "rust/crates/effects/src/framing.rs" }
 # ── fun_pack
 "fun_pack.clean" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 "fun_pack.clone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }

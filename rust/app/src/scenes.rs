@@ -155,6 +155,8 @@ fn services(link: SceneLink) -> Arc<Services> {
             vec![
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures)),
+                Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
+                Box::new(telescope_effects::framing::FramingPlugin::new()),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
