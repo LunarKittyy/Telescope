@@ -4,6 +4,7 @@ pub mod banners;
 pub mod collapse;
 pub mod compile;
 pub mod doc;
+mod extra_cameras;
 pub mod file_dialog;
 pub mod flow;
 pub mod layout;

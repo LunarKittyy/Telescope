@@ -171,3 +171,15 @@ fn the_false_colour_legend_names_the_colours_it_uses() {
         assert!(app_font(Weight::Regular).is_none());
     }
 }
+
+#[test]
+fn a_scope_shrinks_as_qt_draws_it_without_see_through_pixels_darkening_it() {
+    // Columns of opaque white and clear, 8 x 4 to 5 x 3; the alphas are what QPainter.drawImage gave
+    let src: Vec<u8> = (0..8 * 4).flat_map(|i| if i % 2 == 0 { [255u8; 4] } else { [0u8; 4] }).collect();
+    let out = smooth_scale(&src, 8, 4, 5, 3);
+    for (x, want) in [179i32, 229, 127, 25, 77].into_iter().enumerate() {
+        let p = &out[(5 + x) * 4..][..4];
+        assert_eq!(p[..3], [255, 255, 255], "clear neighbours leave the colour alone");
+        assert!((p[3] as i32 - want).abs() <= 1, "column {x}: {} against Qt's {want}", p[3]);
+    }
+}

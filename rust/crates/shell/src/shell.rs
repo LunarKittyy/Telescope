@@ -56,6 +56,22 @@ impl PartialEq for PacketMakers {
     }
 }
 
+/// A source a plugin offers, which Effect compares by which one it is.
+#[derive(Clone)]
+pub struct OfferedSource(pub Arc<dyn telescope_core::source::StreamSource>);
+
+impl std::fmt::Debug for OfferedSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "OfferedSource({})", self.0.id())
+    }
+}
+
+impl PartialEq for OfferedSource {
+    fn eq(&self, other: &OfferedSource) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 /// A picture a plugin set on its UI, which Effect compares by what it shows.
 #[derive(Clone, Debug)]
 pub struct Picture(pub telescope_core::Frame);
@@ -75,6 +91,10 @@ pub enum Effect {
     Image { plugin: String, ui: String, prop: String, picture: Picture },
     /// Host::refresh_actions: plugin's actions are asked for again.
     RefreshActions(String),
+    /// HostSources: a plugin's stream source offered, taken back, or to start.
+    AddSource(OfferedSource),
+    RemoveSource(String),
+    StreamSource(String),
     /// HostUi::open_window and close_window: a window of the plugin's own.
     OpenWindow { plugin: String, id: String, window: telescope_core::ui::WindowSpec },
     CloseWindow { plugin: String, id: String },
@@ -166,6 +186,9 @@ pub struct Posts {
     waker: std::sync::Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
+/// What's been posted: (owner, token, data) and (owner, event).
+type Taken = (Vec<(String, String, Value)>, Vec<(String, Event)>);
+
 impl Posts {
     pub fn set_waker(&self, waker: impl Fn() + Send + Sync + 'static) {
         *self.waker.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(waker));
@@ -188,7 +211,7 @@ impl Posts {
         }
     }
 
-    fn take(&self) -> (Vec<(String, String, Value)>, Vec<(String, Event)>) {
+    fn take(&self) -> Taken {
         (std::mem::take(&mut *self.queue.lock().unwrap_or_else(|e| e.into_inner())), std::mem::take(&mut *self.events.lock().unwrap_or_else(|e| e.into_inner())))
     }
 }
@@ -645,7 +668,7 @@ impl State {
         let mut steps = Vec::new();
         // The window's own steps: its view first, and the colour pipeline's LUT after the effects
         for step in telescope_core::view_step::steps(&self.vc.shown(&self.view)) {
-            steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step: step.into() });
+            steps.push(StagedStep { owner: "view".into(), stage: FrameStage::View, step });
         }
         let colour = self.colour.step(source_id);
         // The picture from before is kept only while there's a colour step to compare with
@@ -1243,7 +1266,7 @@ mod tests {
         let answers = s.call(0, |_, host| (host.stream_output("phone-1"), host.stream_on_camera(0), host.stream_on_camera(1)));
         assert_eq!(answers, Some(("Phone Camera".to_string(), Some(("phone-1".to_string(), Some(1920), Some(1080))), None)));
         let change = OutputChange { width: None, height: None, fps: Some(Some(60)) };
-        s.call(0, |_, host| host.update_stream_output(change.clone(), None));
+        s.call(0, |_, host| host.update_stream_output(change, None));
         assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change: c, source_id: None } if c.fps == Some(Some(60)))));
     }
 

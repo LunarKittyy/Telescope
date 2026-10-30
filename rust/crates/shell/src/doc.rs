@@ -67,6 +67,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         out.push_str(&format!("    property <length> card{c}w: c{c}w - {INSET}px - (bar{c} ? {BAR}px : 0px);\n"));
     }
     // Preferred content height and stretch room of each column in the current mode
+    #[allow(clippy::needless_range_loop)] // c names the column in the generated text as well
     for c in 0..3 {
         let pref = mode_expr(|m| sum_heights(cards, &cols[m][c].0));
         let centers = mode_expr(|m| {

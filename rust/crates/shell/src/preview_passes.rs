@@ -31,7 +31,7 @@ fn copy_of(scaler: &mut dyn Scaler, frame: &Frame, w: u32, h: u32) -> Option<Fra
         return None;
     }
     let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-    for p in rgb.chunks_exact(3) {
+    for p in rgb.as_chunks::<3>().0 {
         rgba.extend_from_slice(&[p[0], p[1], p[2], 255]);
     }
     Some(Frame::new(w, h, PixelFormat::Rgba, rgba))
@@ -102,7 +102,7 @@ impl PassWork {
         dirty || size != self.size || self.painted_at.is_none_or(|at| at.elapsed() >= REPAINT)
     }
 
-    /// What every pass paints over the frame, as one picture the frame's size (None when nothing shows).
+    /// What every pass paints over the frame, as one picture the size it's shown at (None when nothing shows).
     pub fn overlay(&mut self, passes: &[(String, Arc<dyn PreviewPass>)], w: u32, h: u32, scale: f32) -> Option<Image> {
         self.painted_at = Some(Instant::now());
         self.size = (w, h);
@@ -121,7 +121,7 @@ impl PassWork {
 
 /// `top` laid over `below`, both RGBA with straight alpha.
 fn over(below: &mut [u8], top: &[u8]) {
-    for (b, t) in below.chunks_exact_mut(4).zip(top.chunks_exact(4)) {
+    for (b, t) in below.as_chunks_mut::<4>().0.iter_mut().zip(top.as_chunks::<4>().0) {
         let (ta, ba) = (t[3] as f32 / 255.0, b[3] as f32 / 255.0);
         let out = ta + ba * (1.0 - ta);
         if out <= 0.0 {

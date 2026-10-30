@@ -48,6 +48,11 @@ pub fn every_optional() -> bool {
 pub const CARD_WIDTH: f32 = 480.0;
 pub const CARD_MARGIN: f32 = 16.0;
 
+/// Builds a scene's plugins in place of the built-ins.
+pub type PluginList = fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>;
+/// What a scene does to its window once it's settled.
+pub type AfterBuilt = Box<dyn FnOnce(&std::rc::Rc<window::Window>)>;
+
 /// How to put the window in a scene's state.
 pub struct Setup {
     /// What the plugins run on (a stand-in link answering what the scene needs); None for the built-ins alone.
@@ -59,9 +64,9 @@ pub struct Setup {
     pub height: f32,
     pub page: Page,
     /// Builds the plugins in place of the built-ins and the services' ones.
-    pub plugins: Option<fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>>,
+    pub plugins: Option<PluginList>,
     /// Called once the window has settled, to do what the Python scene does after building it.
-    pub then: Option<Box<dyn FnOnce(&std::rc::Rc<window::Window>)>>,
+    pub then: Option<AfterBuilt>,
     /// Start every optional plugin, as translation_scenes.main_window registers them all; false for a scene built through
     /// load_plugins (loaded_window), where only the ones switched on start.
     pub every_optional: bool,

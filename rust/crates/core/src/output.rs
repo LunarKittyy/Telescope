@@ -79,6 +79,9 @@ pub struct SetupResult {
     pub command: Option<String>,
 }
 
+/// SetupResult.message when the person said no at the password prompt: nothing to report.
+pub const CANCELLED: &str = "Cancelled.";
+
 /// Root operations on the virtual cameras: one password prompt (or Windows' admin prompt) each. Blocking: run them
 /// off the UI thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

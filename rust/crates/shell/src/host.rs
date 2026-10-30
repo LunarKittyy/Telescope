@@ -214,9 +214,15 @@ impl HostCamera for Ctx<'_> {
 }
 
 impl HostSources for Ctx<'_> {
-    fn add_stream_source(&mut self, _source: Arc<dyn StreamSource>) {}
-    fn remove_stream_source(&mut self, _source_id: &str) {}
-    fn stream_source(&mut self, _source_id: &str) {}
+    fn add_stream_source(&mut self, source: Arc<dyn StreamSource>) {
+        self.state.effects.push(Effect::AddSource(crate::shell::OfferedSource(source)));
+    }
+    fn remove_stream_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::RemoveSource(source_id.into()));
+    }
+    fn stream_source(&mut self, source_id: &str) {
+        self.state.effects.push(Effect::StreamSource(source_id.into()));
+    }
 }
 
 impl HostShell for Ctx<'_> {

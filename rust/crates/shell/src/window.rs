@@ -142,7 +142,7 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
 fn image_of(frame: &Frame) -> Option<slint::Image> {
     let pixels: Vec<u8> = match frame.format {
         PixelFormat::Rgba => frame.data.to_vec(),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
+        PixelFormat::Bgra => frame.data.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect(),
         _ => return None,
     };
     if pixels.len() != frame.width as usize * frame.height as usize * 4 {
@@ -501,7 +501,9 @@ impl Window {
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
         let card = on("visible-card") && on("showing");
-        if !(popout.is_some() || card) || !on("camera-on") || !self.is_streaming() {
+        let window = self.ui.window();
+        let seen = window.is_visible() && !window.is_minimized();
+        if !crate::preview::wants_frames(popout.is_some(), card, seen) || !on("camera-on") || !self.is_streaming() {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
@@ -550,7 +552,7 @@ impl Window {
         };
         let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
             Some(shown) => {
-                let rgb: Vec<u8> = shown.data.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+                let rgb: Vec<u8> = shown.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
                 slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h))
             }
             None => {
@@ -572,10 +574,11 @@ impl Window {
         let name = |n: &str| if id.is_empty() { n.to_string() } else { format!("{id}-{n}") };
         let _ = target.set_property(&name("frame"), SValue::Image(image));
         let _ = target.set_property(&name("has-frame"), SValue::Bool(true));
-        // What passes draw over the frame, as one picture the size of the frame
+        // What passes draw over the frame, as one picture the size it's shown at
         let mut work = self.passes.borrow_mut();
-        if work.overlay_due(dirty, (w, h)) {
-            let overlay = work.overlay(&passes, w, h, self.ui.window().scale_factor());
+        let shown = crate::preview::shown_size((frame.width, frame.height), stage);
+        if work.overlay_due(dirty, shown) {
+            let overlay = work.overlay(&passes, shown.0, shown.1, self.ui.window().scale_factor());
             let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));
             if let Some(overlay) = overlay {
                 let _ = target.set_property(&name("overlay"), SValue::Image(overlay));
@@ -841,6 +844,9 @@ impl Window {
         match effect {
             Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
             Effect::Image { plugin, ui, prop, picture } => self.set_image(&plugin, &ui, &prop, &picture.0),
+            Effect::AddSource(source) => self.add_plugin_source(source.0),
+            Effect::RemoveSource(id) => self.remove_plugin_source(&id),
+            Effect::StreamSource(id) => self.stream_plugin_source(&id),
             Effect::OpenWindow { plugin, id, window } => self.open_plugin_window(&plugin, &id, &window),
             Effect::CloseWindow { plugin, id } => self.close_plugin_window(&plugin, &id),
             Effect::RefreshActions(plugin) => {

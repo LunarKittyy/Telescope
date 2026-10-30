@@ -41,8 +41,8 @@ fn osa(a: &[char], b: &[char]) -> usize {
     for (i, row) in rows.iter_mut().enumerate() {
         row[0] = i;
     }
-    for j in 0..=b.len() {
-        rows[0][j] = j;
+    for (j, cell) in rows[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=a.len() {
         for j in 1..=b.len() {

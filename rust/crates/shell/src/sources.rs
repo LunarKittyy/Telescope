@@ -123,6 +123,13 @@ struct Handover {
     opened: Arc<Mutex<Option<Arc<dyn PhoneSession>>>>,
 }
 
+/// The window's hooks the timers call, with what fired and the source id.
+pub type TimerHook = Rc<dyn Fn(&str, &str)>;
+/// The stream format as the settings have it now.
+pub type FormatNow = Rc<dyn Fn() -> StreamFormat>;
+/// A plugin's source, swapped in place when it's offered again.
+pub type SharedSource = Rc<RefCell<Arc<dyn StreamSource>>>;
+
 /// A paired phone, by id.
 pub struct PhoneKind {
     pub id: Option<String>,
@@ -139,12 +146,12 @@ pub struct PhoneKind {
     recovery_timer: slint::Timer,
     heat_timer: slint::Timer,
     /// The window's hooks the timers call: park(source id), unreachable(source id), probe(source id), heat(source id).
-    pub on_timer: Rc<dyn Fn(&str, &str)>,
+    pub on_timer: TimerHook,
 }
 
 impl PhoneKind {
-    pub fn new(id: Option<String>, link: Arc<dyn Link>, format: Rc<dyn Fn() -> StreamFormat>, request: StreamRequest,
-               post: Post, on_timer: Rc<dyn Fn(&str, &str)>) -> PhoneKind {
+    pub fn new(id: Option<String>, link: Arc<dyn Link>, format: FormatNow, request: StreamRequest,
+               post: Post, on_timer: TimerHook) -> PhoneKind {
         PhoneKind { id, link, format, request, post, inner: RefCell::default(), stopping: Arc::default(),
                     park_timer: slint::Timer::default(), gone_timer: slint::Timer::default(),
                     recovery_timer: slint::Timer::default(), heat_timer: slint::Timer::default(), on_timer }
@@ -542,47 +549,54 @@ impl SourceKind for PhoneKind {
 
 /// A plugin's StreamSource: ready once it is, with nothing to wake.
 pub struct PluginKind {
-    pub source: Arc<dyn StreamSource>,
+    /// Shared with Streams, so the same source offered again (a new name) reaches a stream that already runs from it.
+    pub source: SharedSource,
+}
+
+impl PluginKind {
+    fn source(&self) -> Arc<dyn StreamSource> {
+        self.source.borrow().clone()
+    }
 }
 
 impl SourceKind for PluginKind {
     fn name(&self) -> String {
-        self.source.name()
+        self.source().name()
     }
     fn url(&self) -> String {
-        self.source.url()
+        self.source().url()
     }
     fn auto_canvas(&self) -> Option<(u32, u32)> {
         // A browser's first frame can be any shape (even square), and on Linux apps then keep the camera at that size
-        self.source.auto_canvas().or(if cfg!(target_os = "linux") { Some((1920, 1080)) } else { None })
+        self.source().auto_canvas().or(if cfg!(target_os = "linux") { Some((1920, 1080)) } else { None })
     }
     fn redirect(&self) -> Option<String> {
-        self.source.redirect()
+        self.source().redirect()
     }
     fn waiting(&self) -> bool {
-        self.source.waiting()
+        self.source().waiting()
     }
     fn cancel_wait(&self) {
-        self.source.cancel_wait();
+        self.source().cancel_wait();
     }
     fn prepare(&self, interactive: bool) -> bool {
-        self.source.prepare(interactive)
+        self.source().prepare(interactive)
     }
     fn control_client(&self, _source: &Source) -> Rc<dyn Client> {
-        Rc::new(PluginClient(self.source.control_client().map(Arc::from)))
+        Rc::new(PluginClient(self.source().control_client().map(Arc::from)))
     }
     fn stream_params(&self) -> (Option<u32>, Option<u32>, u32) {
-        (None, None, self.source.fps())
+        (None, None, self.source().fps())
     }
     fn opener(&self) -> Option<Opener> {
-        let source = self.source.clone();
+        let source = self.source();
         Some(Arc::new(move || {
             let (codec, feed) = source.open_feed()?;
             Ok(Opened { codec, feed, own_decoder: source.decoder() })
         }))
     }
     fn waiting_text(&self) -> Option<crate::worker::WaitingText> {
-        let source = self.source.clone();
+        let source = self.source();
         Some(Arc::new(move || source.waiting_text()))
     }
 }
@@ -756,8 +770,10 @@ mod tests {
 
     const USB_URL: &str = "https://127.0.0.1:41000/v1/video";
 
+    type Posted = Arc<Mutex<Vec<Report>>>;
+
     /// A phone streaming over Wi-Fi, and what it posts.
-    fn wifi_phone() -> (PhoneKind, Arc<FakeLink>, Arc<FakeSession>, Arc<Mutex<Vec<Report>>>) {
+    fn wifi_phone() -> (PhoneKind, Arc<FakeLink>, Arc<FakeSession>, Posted) {
         let link = Arc::new(FakeLink::default());
         let posted: Arc<Mutex<Vec<Report>>> = Arc::default();
         let post: Post = { let p = posted.clone(); Arc::new(move |r| p.lock().unwrap().push(r)) };

@@ -65,7 +65,7 @@ pub fn ns_to_display(ns: i64) -> String {
     let digits = denom.to_string();
     let mut grouped = String::new();
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             grouped.push(',');
         }
         grouped.push(c);
@@ -1015,7 +1015,7 @@ impl CameraControl {
         if let Some(ns) = num("shutter_ns")?.filter(|v| *v != 0.0) {
             self.shutter.set_value(ns);
         }
-        let ois = cfg.get("ois").map_or(true, truthy);
+        let ois = cfg.get("ois").is_none_or(truthy);
         self.set_ois(ois);
         let manual_focus = get_bool(cfg, "focus_manual", false);
         self.set_focus_index(if manual_focus { 2 } else { 0 });

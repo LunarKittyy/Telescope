@@ -349,19 +349,19 @@ impl StreamFlow {
     /// Restart the panels' stream, or source_id's, to pick up changed connection settings.
     pub fn reconnect_stream(&mut self, host: &mut dyn FlowHost, source_id: Option<&str>) {
         let waking = self.sessions.is_waking(source_id);
-        let source = if source_id.is_none() || waking {
-            if self.sessions.shown().is_none() && !self.sessions.waking {
-                return; // a start still waking would use the old settings
-            }
-            self.active_source(host)
-        } else {
+        let source = if let Some(id) = source_id.filter(|_| !waking) {
             let Some(source) = self.sessions.find(source_id) else { return };
             if self.sessions.is_starting() {
-                self.sessions.restart_later.insert(source_id.unwrap().into()); // one start at a time: this one goes after it
+                self.sessions.restart_later.insert(id.into()); // one start at a time: this one goes after it
                 return;
             }
             self.move_focus(host, &source); // it starts with the panels' settings, so they have to be its own
             source
+        } else {
+            if self.sessions.shown().is_none() && !self.sessions.waking {
+                return; // a start still waking would use the old settings
+            }
+            self.active_source(host)
         };
         self.stop_for_restart(host, Some(source.clone()));
         self.start(host, true, Some(source));
@@ -412,6 +412,13 @@ impl StreamFlow {
             return true;
         }
         false
+    }
+
+    /// _on_slots_ready: the extra cameras are there, so what waited for them starts, one at a time.
+    pub fn slots_ready(&mut self, host: &mut dyn FlowHost, waiting: Vec<String>) {
+        self.announce_idle_outputs(host, None);
+        self.sessions.start_later.extend(waiting);
+        self.after_start(host);
     }
 
     /// Start streaming source_id next to what streams already, to a virtual camera of its own.
@@ -841,6 +848,9 @@ mod tests {
         keyframes: Vec<String>,
         later: Vec<Later>,
         workers: Vec<Rc<FakeWorker>>,
+        /// How many virtual cameras are set up, and who asked for more.
+        cameras: u32,
+        slots_asked: Vec<String>,
     }
 
     impl Host {
@@ -924,10 +934,12 @@ mod tests {
         fn canvas_size(&self) -> Option<(u32, u32)> {
             Some((1920, 1080))
         }
-        fn slot_ready(&self, _slot: u32) -> bool {
-            true
+        fn slot_ready(&self, slot: u32) -> bool {
+            slot < self.cameras
         }
-        fn set_up_slots(&mut self, _source_id: &str) {}
+        fn set_up_slots(&mut self, source_id: &str) {
+            self.slots_asked.push(source_id.into());
+        }
         fn set_camera_on(&mut self, _on: bool) {}
         fn apply_state(&mut self, _session_id: u64, _state: &Value, _source: &SourceRef) {}
         fn new_worker(&mut self, _source: &SourceRef, _url: &str, _params: (Option<u32>, Option<u32>, u32), live: bool,
@@ -960,8 +972,57 @@ mod tests {
         }
         let host = Host { log, plugins: vec![("camera".into(), true), ("mic".into(), false)], sources, stands,
                           selected: "a".into(), problems: vec![], saved: vec![], applied: vec![], packet_makers: vec![], frozen: vec![],
-                          keyframes: vec![], later: vec![], workers: vec![] };
+                          keyframes: vec![], later: vec![], workers: vec![], cameras: 4, slots_asked: vec![] };
         (StreamFlow::new(), host)
+    }
+
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    /// What Browser camera offers, around the real PluginKind.
+    struct Offered {
+        ready: bool,
+        prepared: AtomicU32,
+    }
+
+    impl telescope_core::source::StreamSource for Offered {
+        fn id(&self) -> String {
+            "browser:".into()
+        }
+        fn name(&self) -> String {
+            "Browser camera".into()
+        }
+        fn url(&self) -> String {
+            "browser:".into()
+        }
+        fn prepare(&self, _interactive: bool) -> bool {
+            self.prepared.fetch_add(1, Ordering::SeqCst);
+            self.ready
+        }
+        fn open_feed(&self) -> Result<(telescope_core::media::Codec, Box<dyn telescope_core::media::VideoFeed>), String> {
+            Err("no feed in tests".into())
+        }
+        fn control_client(&self) -> Option<Box<dyn telescope_core::source::ControlClient>> {
+            None
+        }
+        fn fps(&self) -> u32 {
+            24
+        }
+    }
+
+    fn offer(host: &mut Host, ready: bool) -> std::sync::Arc<Offered> {
+        let offered = std::sync::Arc::new(Offered { ready, prepared: AtomicU32::new(0) });
+        let source: std::sync::Arc<dyn telescope_core::source::StreamSource> = offered.clone();
+        let kind = crate::sources::PluginKind { source: Rc::new(RefCell::new(source)) };
+        host.sources.insert("browser:".into(), Source::new(Some("browser:".into()), Box::new(kind)));
+        host.select_device(Some("browser:"));
+        offered
+    }
+
+    /// Another source that needs no waking, a browser that joined say.
+    fn stand(host: &mut Host, id: &str) {
+        let stand = Rc::new(Stand { id: id.into(), wakes: false, woken: Cell::new(false), cancelled: Cell::new(false), refuse: Cell::new(false) });
+        host.sources.insert(id.to_string(), Source::new(Some(id.into()), Box::new(stand.clone())));
+        host.stands.insert(id.to_string(), stand);
     }
 
     fn hooks(host: &Host) -> Vec<String> {
@@ -982,6 +1043,80 @@ mod tests {
 
     fn is(a: &Option<SourceRef>, id: &str) -> bool {
         a.as_ref().is_some_and(|s| s.id_str() == id)
+    }
+
+    #[test]
+    fn a_plugins_source_streams_without_waking_a_phone() {
+        let (mut flow, mut host) = setup();
+        let offered = offer(&mut host, true);
+        flow.start(&mut host, true, None);
+        assert_eq!(ids(&flow.sessions.streams), ["browser:"]);
+        assert_eq!(offered.prepared.load(Ordering::SeqCst), 1);
+        assert!(!flow.sessions.waking && host.worker("browser:").live.get());
+        assert_eq!(host.sources["browser:"].kind.stream_params(), (None, None, 24));
+        assert!(logged(&host, "stream_started browser:"));
+        assert!(hooks(&host).contains(&"camera on_stream_start".to_string()));
+        let worker = host.worker("browser:");
+        flow.stop_stream(&mut host, None);
+        assert!(flow.sessions.streams.is_empty() && worker.stopped.get());
+    }
+
+    #[test]
+    fn a_source_that_isnt_ready_builds_nothing() {
+        let (mut flow, mut host) = setup();
+        let offered = offer(&mut host, false);
+        flow.start(&mut host, true, None);
+        assert_eq!(offered.prepared.load(Ordering::SeqCst), 1);
+        assert!(flow.sessions.streams.is_empty() && host.workers.is_empty());
+        assert!(logged(&host, "stream_start_failed"));
+    }
+
+    #[test]
+    fn a_browser_takes_the_waiting_tile_over_next_to_a_phone() {
+        let (mut flow, mut host) = setup();
+        stand(&mut host, "browser:pixel");
+        flow.start(&mut host, true, None);
+        host.stands["b"].refuse.set(true); // Browser camera, waiting for one to join
+        flow.add_stream(&mut host, "b");
+        assert!(is(&flow.sessions.pending, "b") && is(&flow.sessions.focus, "b"));
+        // As the plugin does it: the browser starts, then the wait ends
+        flow.add_stream(&mut host, "browser:pixel");
+        flow.stop_stream(&mut host, Some("b"));
+        assert_eq!(ids(&flow.sessions.streams), ["a", "browser:pixel"]);
+        assert!(flow.sessions.pending.is_none() && is(&flow.sessions.focus, "browser:pixel"));
+    }
+
+    #[test]
+    fn every_browser_that_joined_during_a_phone_start_streams_after_it() {
+        let (mut flow, mut host) = setup();
+        stand(&mut host, "browser:one");
+        stand(&mut host, "browser:two");
+        flow.start(&mut host, true, None);
+        flow.add_stream(&mut host, "phone");
+        let phone = host.sources["phone"].clone();
+        flow.add_stream(&mut host, "browser:one");
+        assert_eq!(ids(&flow.sessions.streams), ["a"], "they wait for the phone");
+        flow.wake_done(&mut host, &phone, true, "");
+        // The plugin hears streams_changed and lets the next one in
+        flow.add_stream(&mut host, "browser:one");
+        flow.add_stream(&mut host, "browser:two");
+        assert_eq!(ids(&flow.sessions.streams), ["a", "phone", "browser:one", "browser:two"]);
+    }
+
+    #[test]
+    fn a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after() {
+        let (mut flow, mut host) = setup();
+        host.cameras = 1;
+        flow.start(&mut host, true, None);
+        flow.add_stream(&mut host, "b");
+        stand(&mut host, "browser:late");
+        flow.add_stream(&mut host, "browser:late");
+        assert_eq!(host.slots_asked, ["b", "browser:late"]);
+        assert_eq!(ids(&flow.sessions.streams), ["a"]);
+        host.cameras = 4;
+        let waiting = std::mem::take(&mut host.slots_asked);
+        flow.slots_ready(&mut host, waiting);
+        assert_eq!(ids(&flow.sessions.streams), ["a", "b", "browser:late"]);
     }
 
     #[test]

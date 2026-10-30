@@ -63,7 +63,9 @@ pub struct Streams {
     pub flow: RefCell<StreamFlow>,
     sources: RefCell<BTreeMap<String, SourceRef>>,
     /// Sources plugins offer (HostSources), by id.
-    pub plugin_sources: RefCell<BTreeMap<String, Arc<dyn StreamSource>>>,
+    pub plugin_sources: RefCell<BTreeMap<String, crate::sources::SharedSource>>,
+    /// The ids waiting for the extra cameras while they're set up (app.py _slots_then), and the question about them.
+    pub(crate) slots: crate::extra_cameras::SlotSetup,
     workers: RefCell<Vec<Rc<ShellWorker>>>,
     next_worker: Cell<u64>,
     later: RefCell<Vec<Later>>,
@@ -131,14 +133,14 @@ impl Window {
 
     fn phone_kind(self: &Rc<Self>, id: Option<&str>) -> Box<dyn crate::session::SourceKind> {
         let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else {
-            return Box::new(crate::sources::PluginKind { source: Arc::new(NoSource) });
+            return Box::new(crate::sources::PluginKind { source: Rc::new(RefCell::new(Arc::new(NoSource))) });
         };
         let weak = self.ui.as_weak();
         let post: crate::sources::Post = Arc::new(move |report| {
             let _ = weak.upgrade_in_event_loop(move |_| with_window(|w| w.phone_report(report)));
         });
         let me = Rc::downgrade(self);
-        let on_timer: Rc<dyn Fn(&str, &str)> = Rc::new(move |what, sid| {
+        let on_timer: crate::sources::TimerHook = Rc::new(move |what, sid| {
             if let Some(w) = me.upgrade() {
                 w.source_timer(what, sid);
             }
@@ -710,6 +712,68 @@ impl Window {
         self.with_flow(|flow, host| flow.stream_reconnected(host, source));
     }
 
+    /// HostSources::add_stream_source. The same source offered again (a new name) carries on streaming.
+    pub fn add_plugin_source(self: &Rc<Self>, source: Arc<dyn StreamSource>) {
+        let id = source.id();
+        let known = self.streams.plugin_sources.borrow().get(&id).cloned();
+        match known {
+            Some(cell) => *cell.borrow_mut() = source,
+            None => {
+                self.streams.plugin_sources.borrow_mut().insert(id.clone(), Rc::new(RefCell::new(source)));
+                // Asked for before it was offered, it was taken for a phone
+                self.streams.sources.borrow_mut().remove(&id);
+            }
+        }
+        self.announce_sources();
+        if self.streams.flow.borrow().sessions.streams.len() > 1 {
+            self.refresh_tiles(); // a new name for one that streams
+        }
+    }
+
+    /// HostSources::remove_stream_source.
+    pub fn remove_plugin_source(self: &Rc<Self>, id: &str) {
+        if !self.streams.plugin_sources.borrow().contains_key(id) {
+            return;
+        }
+        if self.streams.flow.borrow().sessions.is_streaming_from(Some(id)) {
+            self.with_flow(|flow, host| flow.stop_stream(host, Some(id)));
+        }
+        let idle = self.streams.flow.borrow().sessions.streams.is_empty();
+        let next = self.streams.plugin_sources.borrow().keys().find(|s| s.as_str() != id).cloned();
+        if idle && self.state.borrow().selected.as_deref() == Some(id) {
+            self.with_flow(|_, host| host.select_device(next.as_deref()));
+        }
+        self.streams.plugin_sources.borrow_mut().remove(id);
+        self.streams.sources.borrow_mut().remove(id);
+        self.announce_sources();
+    }
+
+    fn announce_sources(&self) {
+        let sources = self.streams.plugin_sources.borrow().iter()
+            .map(|(id, s)| telescope_core::event::SourceName { id: id.clone(), name: s.borrow().name() }).collect();
+        self.state.borrow_mut().bus.emit(Event::StreamSourcesChanged { sources });
+    }
+
+    /// HostSources::stream_source: picked and streamed when nothing streams yet, else next to the others.
+    pub fn stream_plugin_source(self: &Rc<Self>, id: &str) {
+        let flow = self.streams.flow.borrow();
+        let busy = flow.sessions.is_starting() || flow.sessions.is_streaming_from(Some(id));
+        let streaming = !flow.sessions.streams.is_empty();
+        drop(flow);
+        if busy || !self.streams.plugin_sources.borrow().contains_key(id) {
+            return;
+        }
+        self.with_flow(|flow, host| {
+            if streaming {
+                return flow.add_stream(host, id);
+            }
+            if host.selected_device().as_deref() != Some(id) {
+                host.select_device(Some(id));
+            }
+            flow.start(host, false, None);
+        });
+    }
+
     fn shell_worker(&self, w: &Rc<dyn Worker>) -> Option<Rc<ShellWorker>> {
         self.streams.workers.borrow().iter().find(|x| Rc::as_ptr(x) as *const () == Rc::as_ptr(w) as *const ()).cloned()
     }
@@ -1049,7 +1113,7 @@ impl FlowHost for Host<'_> {
         slot == 0 || self.w.services.as_ref().is_some_and(|s| s.outputs.slots().iter().any(|x| x.slot == slot))
     }
     fn set_up_slots(&mut self, source_id: &str) {
-        log::info!("Setting up more virtual cameras isn't in this build yet; {source_id} doesn't start");
+        self.w.set_up_slots(source_id);
     }
     fn set_camera_on(&mut self, on: bool) {
         self.w.state.borrow_mut().effects.push(crate::shell::Effect::CameraOn { on, auto: false });

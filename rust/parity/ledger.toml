@@ -2243,11 +2243,11 @@
 # ── browser_camera
 "test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" }
 "test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_stopped_here_leaves_room_for_another" }
-"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
-"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_browser_camera.py::test_a_new_link_ends_the_streams_it_cuts_off_without_starting_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_new_link_ends_the_streams_it_cuts_off_without_starting_another" }
 "test_browser_camera.py::test_a_saved_source_selection_is_restored" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_saved_source_selection_is_restored" }
-"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_browser_camera.py::test_a_stopped_browser_waits_until_it_connects_again" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_stopped_browser_waits_until_it_connects_again" }
 "test_browser_camera.py::test_a_streaming_browser_that_drops_stays_until_it_comes_back" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_streaming_browser_that_drops_stays_until_it_comes_back" }
 "test_browser_camera.py::test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" }
@@ -2258,7 +2258,7 @@
 "test_browser_camera.py::test_config_falls_back_on_bad_values" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::config_falls_back_on_bad_values" }
 "test_browser_camera.py::test_diagnostics_say_how_far_browsers_got_but_never_name_the_device" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::diagnostics_say_how_far_browsers_got_but_never_name_the_device" }
 "test_browser_camera.py::test_each_browser_streams_by_itself_to_a_camera_of_its_own" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::each_browser_streams_by_itself_to_a_camera_of_its_own" }
-"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_browser_camera.py::test_falling_behind_points_at_its_own_resolution_and_frame_rate" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::falling_behind_points_at_its_own_resolution_and_frame_rate" }
 "test_browser_camera.py::test_feed_drops_frames_from_a_replaced_browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::feed_drops_frames_from_a_replaced_browser" }
 "test_browser_camera.py::test_no_room_means_no_feed" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::no_room_means_no_feed" }
@@ -2266,9 +2266,9 @@
 "test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::phone_only_cards_hide_while_a_source_is_picked", note = "the Camera card's half; the Microphone card's is the audio crate's" }
 "test_browser_camera.py::test_picking_it_runs_the_server_and_shows_the_code" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::picking_it_runs_the_server_and_shows_the_code" }
 "test_browser_camera.py::test_sending_text_says_codec_size_and_rate_once_known" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::sending_text_says_codec_size_and_rate_once_known" }
-"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "ported", rust = "rust/app/tests/plugin_window.rs" }
 "test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::sources_are_listed_after_the_phones_and_can_be_picked" }
-"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_browser_camera.py::test_the_card_shows_the_browser_the_panels_show" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_card_shows_the_browser_the_panels_show" }
 "test_browser_camera.py::test_the_server_stays_up_while_a_browser_streams_behind_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_server_stays_up_while_a_browser_streams_behind_another" }
 "test_browser_camera.py::test_two_browsers_of_one_kind_are_told_apart_in_the_picker" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::two_browsers_of_one_kind_are_told_apart_in_the_picker" }
