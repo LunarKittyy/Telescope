@@ -456,8 +456,9 @@ impl State {
         Ok(())
     }
 
-    /// load_plugins for the built-in ones: all but those turned off in Plugins, never the required ones.
-    pub fn load_builtins(&mut self, plugins: Vec<Box<dyn Plugin>>) {
+    /// load_plugins for the built-in ones: all but those turned off in Plugins, never the required ones. One of those that
+    /// breaks stops the start, unlike an added plugin, which is left out with a banner.
+    pub fn load_builtins(&mut self, plugins: Vec<Box<dyn Plugin>>) -> Result<(), String> {
         let cfg = self.file.load();
         let added: std::collections::BTreeSet<String> = self.admin.find_installed().into_iter().map(|p| p.name).collect();
         let mut broke = Vec::new();
@@ -473,9 +474,7 @@ impl State {
             }
             self.builtins.push(info.clone());
             if switches::starts(&cfg, &info.name, info.required, info.optional) || (info.optional && crate::scenes::every_optional()) {
-                if let Err(e) = self.register(plugin) {
-                    log::error!("{e}");
-                }
+                self.register(plugin)?;
             } else if !info.optional {
                 self.off.push(info);
             }
@@ -488,6 +487,7 @@ impl State {
         }
         crate::settings::start_plugin_updates(self.admin.clone());
         self.remind_plugins_off(&cfg);
+        Ok(())
     }
 
     /// Added plugins that are on but didn't start: remembered for the Plugins tab, with a warning banner saying which (load_plugins).
@@ -1361,7 +1361,7 @@ mod tests {
         s.file.save(&mut cfg);
         let mut notes = stub("notes", json!({}), false).0;
         let _ = &mut notes;
-        s.load_builtins(vec![stub("setup", json!({}), false).0, notes]);
+        s.load_builtins(vec![stub("setup", json!({}), false).0, notes]).unwrap();
         assert!(s.index("notes").is_none() && s.index("setup").is_some());
         assert_eq!(s.plugins_off().len(), 1);
         assert!(s.banners.issue("plugins_off").is_some());
@@ -1403,7 +1403,7 @@ mod tests {
     fn added_plugins_are_listed_in_the_diagnostics_as_running_or_not() {
         let mut s = state();
         added_folder(&mut s, "extra");
-        s.load_builtins(vec![stub("setup", json!({}), false).0, stub("extra", json!({}), false).0]);
+        s.load_builtins(vec![stub("setup", json!({}), false).0, stub("extra", json!({}), false).0]).unwrap();
         assert!(s.banners.issue("plugins").is_none());
         assert_eq!(s.builtins.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["setup"]);
         s.set_plugin_problems(&[broken("gone", "Gone")]);
@@ -1413,10 +1413,16 @@ mod tests {
     }
 
     #[test]
+    fn a_built_in_plugin_that_breaks_still_stops_the_start() {
+        let mut s = state();
+        assert!(s.load_builtins(vec![Box::new(Quitter)]).unwrap_err().contains("quitter"));
+    }
+
+    #[test]
     fn an_added_plugin_that_breaks_while_starting_is_taken_back_out() {
         let mut s = state();
         added_folder(&mut s, "quitter");
-        s.load_builtins(vec![stub("setup", json!({}), false).0, Box::new(Quitter)]);
+        s.load_builtins(vec![stub("setup", json!({}), false).0, Box::new(Quitter)]).unwrap();
         assert!(s.index("quitter").is_none() && s.index("setup").is_some());
         assert_eq!(s.banners.issue("plugins").unwrap().title, "Quitter didn't start");
         assert!(s.problems["quitter"].contains("quitter"));

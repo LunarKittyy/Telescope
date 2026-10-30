@@ -251,7 +251,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
     state.set_plugin_problems(&problems);
-    state.load_builtins(plugins);
+    state.load_builtins(plugins)?;
     state.apply_saved_config();
     let phones = state.plugin_config("connection").map_or_else(
         || phones_from_file(&state.file).phones.len() as u32,
@@ -264,7 +264,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         if let Some(card) = &slot.card {
             let (file, text) = source_of(name, "card", &card.ui);
             let id = format!("p{i}");
-            let title = if slot.info.title.is_empty() { name.clone() } else { slot.info.title.clone() };
+            let title = crate::source::card_title(&text, &card.ui.component)
+                .or_else(|| (!slot.info.title.is_empty()).then(|| slot.info.title.clone())).unwrap_or_else(|| name.clone());
             cards.push(CardPlace {
                 piece: Piece { id: id.clone(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
                 region: Region::from_name(&card.region),
