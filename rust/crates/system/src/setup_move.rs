@@ -130,54 +130,14 @@ pub fn uninstall_key() -> String {
     format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1")
 }
 
-/// The text of a registry value's data (UTF-16, as winreg gets it) up to its first NUL; None unless it is a REG_SZ or REG_EXPAND_SZ.
-pub fn registry_text(kind: u32, data: &[u16]) -> Option<String> {
-    matches!(kind, 1 | 2).then(|| String::from_utf16_lossy(data.split(|&unit| unit == 0).next().unwrap_or_default()))
-}
-
-/// A string value under hive ("HKCU" or "HKCR") at key, "" for the key's default value, read from the registry itself (winreg's way)
-/// rather than from reg.exe's text, which comes out in a code page.
-#[cfg(windows)]
-fn read_registry(hive: &str, key: &str, name: &str) -> Option<String> {
-    use std::ffi::c_void;
-    #[link(name = "advapi32")]
-    extern "system" {
-        fn RegOpenKeyExW(key: *mut c_void, sub: *const u16, options: u32, access: u32, out: *mut *mut c_void) -> i32;
-        fn RegQueryValueExW(key: *mut c_void, name: *const u16, reserved: *mut u32, kind: *mut u32, data: *mut u8, len: *mut u32) -> i32;
-        fn RegCloseKey(key: *mut c_void) -> i32;
-    }
-    const KEY_READ: u32 = 0x20019;
-    let root = match hive {
-        "HKCR" => 0x8000_0000_usize,
-        "HKCU" => 0x8000_0001,
-        _ => return None,
-    } as *mut c_void;
-    let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
-    let (key, name) = (wide(key), wide(name));
-    // SAFETY: the strings are NUL-terminated and outlive the calls; the first query only asks the size, the second reads into a buffer that big
-    unsafe {
-        let mut open = std::ptr::null_mut();
-        if RegOpenKeyExW(root, key.as_ptr(), 0, KEY_READ, &mut open) != 0 {
-            return None;
-        }
-        let (mut kind, mut len) = (0u32, 0u32);
-        let mut text = None;
-        if RegQueryValueExW(open, name.as_ptr(), std::ptr::null_mut(), &mut kind, std::ptr::null_mut(), &mut len) == 0 {
-            let mut buf = vec![0u16; (len as usize).div_ceil(2) + 1];
-            let mut size = (buf.len() * 2) as u32;
-            if RegQueryValueExW(open, name.as_ptr(), std::ptr::null_mut(), &mut kind, buf.as_mut_ptr().cast(), &mut size) == 0 {
-                text = registry_text(kind, &buf[..size as usize / 2]);
-            }
-        }
-        RegCloseKey(open);
-        text
-    }
-}
-
-/// What reading the uninstall entry needs of the registry.
+/// What reading and updating the uninstall entry needs of the registry.
 pub trait Uninstall {
     /// A string value under hive ("HKCU") at key.
     fn read(&self, hive: &str, key: &str, name: &str) -> Option<String>;
+    /// Sets a string value in a key that's there.
+    fn write_text(&self, key: &str, name: &str, value: &str) -> io::Result<()>;
+    /// Sets a number value in a key that's there.
+    fn write_number(&self, key: &str, name: &str, value: u32) -> io::Result<()>;
 }
 
 /// Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed.
@@ -192,7 +152,13 @@ struct Machine;
 #[cfg(windows)]
 impl Uninstall for Machine {
     fn read(&self, hive: &str, key: &str, name: &str) -> Option<String> {
-        read_registry(hive, key, name)
+        crate::registry::read_text(hive, key, name)
+    }
+    fn write_text(&self, key: &str, name: &str, value: &str) -> io::Result<()> {
+        crate::registry::set_text("HKCU", key, name, value)
+    }
+    fn write_number(&self, key: &str, name: &str, value: u32) -> io::Result<()> {
+        crate::registry::set_number("HKCU", key, name, value)
     }
 }
 
@@ -207,6 +173,41 @@ pub fn installed_location() -> Option<PathBuf> {
     None
 }
 
+/// In the installed copy, shows this version in Settings > Apps: the installer wrote the one it installed, and an update since then
+/// didn't run it. True when the entry was changed.
+pub fn note_installed_version_in(directory: &Path, version: &str, registry: &dyn Uninstall) -> bool {
+    let key = uninstall_key();
+    if !same_place(directory, installed_location_in(registry).as_deref()) {
+        return false; // an unzipped copy: the entry belongs to the installed one
+    }
+    match registry.read("HKCU", &key, "DisplayVersion") {
+        Some(shown) if shown != version => {}
+        _ => return false,
+    }
+    if registry.write_text(&key, "DisplayVersion", version).is_err() {
+        return false;
+    }
+    for (name, part) in ["MajorVersion", "MinorVersion"].into_iter().zip(version.split('.')) {
+        // isdigit: "1-rc" isn't a number
+        let number = part.parse::<u32>().ok().filter(|_| part.bytes().all(|b| b.is_ascii_digit()));
+        if number.is_some_and(|n| registry.write_number(&key, name, n).is_err()) {
+            return false;
+        }
+    }
+    true
+}
+
+/// The same for the packaged app on this computer (main.py runs it once started, on Windows).
+#[cfg(windows)]
+pub fn note_installed_version(directory: &Path) -> bool {
+    directory.join(EXE_NAME).is_file() && note_installed_version_in(directory, crate::version::version(), &Machine)
+}
+
+#[cfg(not(windows))]
+pub fn note_installed_version(_directory: &Path) -> bool {
+    false
+}
+
 /// The DLL paths the UnityCapture camera filters are registered with are in this folder: an older Telescope registered the driver
 /// straight from the app's folder (windows.uc_in_app_folder), which Program Files' copy is not.
 pub fn driver_registered_here(registered: &[String], app_dir: &Path) -> bool {
@@ -219,7 +220,7 @@ pub fn driver_registered_here(registered: &[String], app_dir: &Path) -> bool {
 pub fn driver_in_app_folder(app_dir: &Path) -> bool {
     let found: Vec<String> = (0..4u32).filter_map(|num| {
         let last = 0x10 + num + u32::from(num != 0);
-        read_registry("HKCR", &format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}\InprocServer32"), "")
+        crate::registry::read_text("HKCR", &format!(r"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}\InprocServer32"), "")
     }).collect();
     driver_registered_here(&found, app_dir)
 }
@@ -638,6 +639,7 @@ mod tests {
     // winreg gives the text as it is stored, so a folder with a letter outside the system's code page survives
     #[test]
     fn a_registry_string_keeps_every_character_of_the_path() {
+        use crate::registry::registry_text;
         let stored = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
         for path in [r"C:\Users\Åsa\AppData\Local\Programs\Telescope\", r"C:\Users\田中\Telescope", r"D:\Игра\Telescope"] {
             assert_eq!(registry_text(1, &stored(path)).as_deref(), Some(path));

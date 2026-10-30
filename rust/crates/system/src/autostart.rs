@@ -7,7 +7,9 @@ use telescope_core::i18n::tr;
 /// The menu entry's file name, its icon's name, and the window's app id.
 pub const APP_ID: &str = "telescope";
 pub const MINIMIZED: &str = "--minimized";
-const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+#[cfg(windows)]
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+#[cfg(windows)]
 const VALUE: &str = "Telescope";
 
 /// The per-user Run key's Telescope value, behind a trait so tests can fake the registry.
@@ -251,50 +253,38 @@ pub fn disable(place: &Place) -> Result<(), String> {
     done.map_err(|e| tr("Couldn't stop Telescope opening at sign-in: {error}").replace("{error}", &e))
 }
 
-/// The real Run key, through reg.exe.
+/// The real Run key, through advapi32 like winreg, so a path outside the code page survives.
 pub struct Registry;
 
-/// The value out of `reg query`'s answer ("    Telescope    REG_SZ    <line>").
-pub fn parse_reg_query(output: &str) -> Option<String> {
-    output.lines().find_map(|line| {
-        let rest = line.trim_start().strip_prefix(VALUE)?;
-        let rest = rest.trim_start().strip_prefix("REG_SZ")?;
-        Some(rest.trim_start().trim_end_matches(['\r', '\n']).to_string())
-    })
-}
-
-fn reg(args: &[&str]) -> std::io::Result<std::process::Output> {
-    let mut cmd = std::process::Command::new("reg");
-    cmd.args(args);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000);
-    }
-    cmd.output()
-}
-
-fn reg_error(out: &std::process::Output) -> String {
-    String::from_utf8_lossy(&out.stderr).trim().trim_start_matches("ERROR: ").to_string()
-}
-
+#[cfg(windows)]
 impl RunKey for Registry {
     fn get(&self) -> Result<Option<String>, String> {
-        let out = reg(&["query", RUN_KEY, "/v", VALUE]).map_err(|e| e.to_string())?;
-        Ok(if out.status.success() { parse_reg_query(&String::from_utf8_lossy(&out.stdout)) } else { None })
+        // A value that isn't text still counts as there, and refresh() puts a good one over it
+        let value = crate::registry::read_value("HKCU", RUN_KEY, VALUE).map_err(|e| e.to_string())?;
+        Ok(value.map(|(kind, data)| crate::registry::registry_text(kind, &data).unwrap_or_default()))
     }
 
     fn set(&self, line: &str) -> Result<(), String> {
-        let out = reg(&["add", RUN_KEY, "/v", VALUE, "/t", "REG_SZ", "/d", line, "/f"]).map_err(|e| e.to_string())?;
-        if out.status.success() { Ok(()) } else { Err(reg_error(&out)) }
+        crate::registry::set_text("HKCU", RUN_KEY, VALUE, line).map_err(|e| e.to_string())
     }
 
     fn delete(&self) -> Result<(), String> {
-        if !matches!(self.get(), Ok(Some(_))) {
-            return Ok(());
-        }
-        let out = reg(&["delete", RUN_KEY, "/v", VALUE, "/f"]).map_err(|e| e.to_string())?;
-        if out.status.success() { Ok(()) } else { Err(reg_error(&out)) }
+        crate::registry::delete_value("HKCU", RUN_KEY, VALUE).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(not(windows))]
+impl RunKey for Registry {
+    fn get(&self) -> Result<Option<String>, String> {
+        Ok(None)
+    }
+
+    fn set(&self, _line: &str) -> Result<(), String> {
+        Err("There's no registry here".into())
+    }
+
+    fn delete(&self) -> Result<(), String> {
+        Ok(())
     }
 }
 
@@ -450,12 +440,5 @@ mod tests {
         enable(&argv(&[r"C:\Old\TelescopeDesktop.exe"]), &place).unwrap();
         assert!(refresh(&argv(&[r"C:\New\TelescopeDesktop.exe"]), &place));
         assert_eq!(key.0.borrow().as_deref(), Some(r"C:\New\TelescopeDesktop.exe"));
-    }
-
-    #[test]
-    fn reads_the_value_out_of_reg_query() {
-        let out = "\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\r\n    Telescope    REG_SZ    \"C:\\Program Files\\T\\TelescopeDesktop.exe\" --minimized\r\n\r\n";
-        assert_eq!(parse_reg_query(out).as_deref(), Some("\"C:\\Program Files\\T\\TelescopeDesktop.exe\" --minimized"));
-        assert_eq!(parse_reg_query("ERROR: nothing"), None);
     }
 }
