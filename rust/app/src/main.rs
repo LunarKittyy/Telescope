@@ -267,7 +267,11 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) ->
     let acquired = si::acquire(&address, std::time::Duration::from_secs(if wait { 15 } else { 0 }));
     let si::Acquired::Lock(lock) = acquired else {
         if let Some((title, text)) = si::notice(&acquired, &address) {
+            // Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
             eprintln!("{title}: {text}");
+            if let Err(e) = telescope_shell::notice::show(&title, &text) {
+                log::warn!("Couldn't show the message: {e}");
+            }
         }
         return None;
     };

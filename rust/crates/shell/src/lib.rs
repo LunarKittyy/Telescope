@@ -9,6 +9,7 @@ mod extra_cameras;
 pub mod file_dialog;
 pub mod flow;
 pub mod layout;
+pub mod notice;
 pub mod offscreen;
 pub mod overlays;
 pub mod preview_passes;

@@ -1393,16 +1393,16 @@
 "{name} has to be a number, not {value}." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{value} (not there now)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── single_instance
-"Telescope can't start" = { status = "todo" }
-"Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "todo" }
-"Telescope couldn't write the key --action needs next to its settings when it started. Restart it." = { status = "todo" }
-"Telescope didn't understand that. Is it an older version? Update it to use --action." = { status = "todo" }
-"Telescope is already running" = { status = "todo" }
-"Telescope is already running for another user on this computer. Close it there, then open it again here." = { status = "todo" }
-"Telescope isn't running." = { status = "todo" }
-"Telescope turned that down: it didn't come from this user's Telescope command." = { status = "todo" }
-"a local socket" = { status = "todo" }
-"port {port}" = { status = "todo" }
+"Telescope can't start" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice", note = "Shown in a window of its own (shell::notice), as Python's QMessageBox" }
+"Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope couldn't write the key --action needs next to its settings when it started. Restart it." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::answer" }
+"Telescope didn't understand that. Is it an older version? Update it to use --action." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::send_action" }
+"Telescope is already running" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope is already running for another user on this computer. Close it there, then open it again here." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope isn't running." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::send_action" }
+"Telescope turned that down: it didn't come from this user's Telescope command." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::answer" }
+"a local socket" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"port {port}" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
 # ── sources
 "Another app on the phone is using the camera" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Can't reach {name}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
@@ -2003,10 +2003,10 @@
 "test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_worker_that_cant_hand_over_lets_go_of_the_route_at_once", note = "the host answers from the streams snapshot (can_hand_over) before asking link, so there's no route to let go" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "todo" }
 "test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
-"test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open", note = "Python mocks the sockets; here a real Linux socket that's bound and never listens, and no socket is left open" }
 "test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
-"test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open" }
 "test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_an_action_reaches_the_running_copy_with_its_key" = { status = "todo" }
 "test_app.py::test_an_action_when_the_key_couldnt_be_written" = { status = "todo" }
@@ -6066,8 +6066,8 @@
 # ── shortcuts
 "run:telescope/plugins/shortcuts.py:open_system_settings:subprocess.Popen:<cmd>" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::open_system_settings" }
 # ── single_instance
-"env:USER" = { status = "todo" }
-"env:USERNAME" = { status = "todo" }
+"env:USER" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
+"env:USERNAME" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
 # ── update_guard
 "folder:update_guard.py:finish_swap:shutil.rmtree" = { status = "todo" }
 "folder:update_guard.py:remove:shutil.rmtree" = { status = "todo" }
