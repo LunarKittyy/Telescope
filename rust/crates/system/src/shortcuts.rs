@@ -783,6 +783,20 @@ impl ShortcutsPlugin {
         self.actions.iter().map(|(_, a)| a).filter(|a| matches(a, query)).collect()
     }
 
+    /// _fill_actions: the Control list's rows, each group's name in capitals over its actions; the action each row picks.
+    fn control_rows(listed: &[&ActionSpec]) -> Vec<(String, Option<usize>)> {
+        let mut rows = Vec::new();
+        let mut group = None;
+        for (i, a) in listed.iter().enumerate() {
+            if group != Some(&a.group) {
+                group = Some(&a.group);
+                rows.push((a.group.to_uppercase(), None));
+            }
+            rows.push((a.label.clone(), Some(i)));
+        }
+        rows
+    }
+
     fn open_editor(&mut self, host: &mut dyn Host, binding: Binding) {
         let action = self.action(&binding.action).map(|(_, a)| a.clone());
         let params = action.as_ref().map_or_else(|| binding.params.clone(), |a| self.start_params(a, &binding.params));
@@ -864,11 +878,15 @@ impl ShortcutsPlugin {
     fn editor_props(&self) -> Value {
         let Some(e) = &self.editor else { return json!({"editor-open": false}) };
         let listed = self.shown_actions(&e.query);
-        let mut controls: Vec<String> = listed.iter().map(|a| format!("{}: {}", a.group, a.label)).collect();
-        let mut control = e.action.as_deref().and_then(|id| listed.iter().position(|a| a.id == id)).map_or(-1, |i| i as i64);
+        let rows = Self::control_rows(&listed);
+        let mut controls: Vec<String> = rows.iter().map(|(t, _)| t.clone()).collect();
+        let mut headings: Vec<bool> = rows.iter().map(|(_, a)| a.is_none()).collect();
+        let picked = e.action.as_deref().and_then(|id| listed.iter().position(|a| a.id == id));
+        let mut control = picked.and_then(|i| rows.iter().position(|(_, a)| *a == Some(i))).map_or(-1, |r| r as i64);
         if let (Some(id), true, -1) = (e.action.as_deref(), e.query.is_empty(), control) {
             // An action this version doesn't have: kept
             controls.push(tr("Unknown ({action})").replace("{action}", id));
+            headings.push(false);
             control = controls.len() as i64 - 1;
         }
         let action = e.action.as_deref().and_then(|id| self.action(id)).map(|(_, a)| a);
@@ -903,6 +921,7 @@ impl ShortcutsPlugin {
             "editor-open": true,
             "query": e.query,
             "controls": controls,
+            "control-headings": headings,
             "control": control,
             "params": params,
             "keys-text": keys::native_keys(&e.keys),
@@ -1053,7 +1072,9 @@ impl ShortcutsPlugin {
             }
             "control-picked" => {
                 let query = self.editor.as_ref().map(|e| e.query.clone()).unwrap_or_default();
-                let id = usize::try_from(int(0)).ok().and_then(|i| self.shown_actions(&query).get(i).map(|a| a.id.clone()));
+                let listed = self.shown_actions(&query);
+                let row = usize::try_from(int(0)).ok().and_then(|r| Self::control_rows(&listed).get(r).and_then(|(_, a)| *a));
+                let id = row.map(|i| listed[i].id.clone());
                 if let Some(id) = id {
                     self.pick_action(&id);
                 }
@@ -1365,8 +1386,19 @@ mod tests {
         plugin.on_ui(host, &UiEvent { ui: SECTION.into(), callback: callback.into(), args });
     }
 
+    /// The Control list's rows, a group's heading as "# GROUP".
     fn controls(plugin: &ShortcutsPlugin) -> Vec<String> {
-        serde_json::from_value(plugin.section_props()["controls"].clone()).unwrap()
+        let props = plugin.section_props();
+        let rows: Vec<String> = serde_json::from_value(props["controls"].clone()).unwrap();
+        let headings: Vec<bool> = serde_json::from_value(props["control-headings"].clone()).unwrap();
+        rows.into_iter().zip(headings).map(|(r, h)| if h { format!("# {r}") } else { r }).collect()
+    }
+
+    /// The row of the action with this label under this group's heading.
+    fn row_of(plugin: &ShortcutsPlugin, group: &str, label: &str) -> usize {
+        let rows = controls(plugin);
+        let start = rows.iter().position(|r| *r == format!("# {}", group.to_uppercase())).unwrap();
+        start + rows[start..].iter().position(|r| r == label).unwrap()
     }
 
     #[test]
@@ -1377,7 +1409,7 @@ mod tests {
         assert_eq!(seen.lock().unwrap().suspended, [true], "global keys let go while one is being picked");
         let props = plugin.section_props();
         assert_eq!(props["editor-open"], json!(true));
-        let mute = controls(&plugin).iter().position(|c| c == "Microphone: Mute").unwrap();
+        let mute = row_of(&plugin, "Microphone", "Mute");
         ui(&mut plugin, &mut host, "control-picked", json!([mute]));
         assert_eq!(plugin.section_props()["problem"], json!("Press a key, with Ctrl, Alt, Shift or Meta if you like."));
         ui(&mut plugin, &mut host, "param-picked", json!([0, 3]));
@@ -1441,10 +1473,10 @@ mod tests {
         ui(&mut plugin, &mut host, "add", json!([]));
         assert!(controls(&plugin).len() > 3);
         ui(&mut plugin, &mut host, "search", json!(["zo"]));
-        assert_eq!(controls(&plugin), ["Transforms: Zoom"]);
-        assert_eq!(plugin.section_props()["control"], json!(0), "the only match is picked");
+        assert_eq!(controls(&plugin), ["# TRANSFORMS", "Zoom"]);
+        assert_eq!(plugin.section_props()["control"], json!(1), "the only match is picked");
         ui(&mut plugin, &mut host, "search", json!(["talk"]));
-        assert_eq!(controls(&plugin), ["Microphone: Mute"]);
+        assert_eq!(controls(&plugin), ["# MICROPHONE", "Mute"]);
         ui(&mut plugin, &mut host, "search", json!(["nothing like it"]));
         let props = plugin.section_props();
         assert_eq!((props["control"].clone(), props["problem"].clone()), (json!(-1), json!("No control matches that search.")));
@@ -1790,7 +1822,8 @@ mod tests {
         plugin.on_event(&mut host, &Event::TimerFired { owner: "shortcuts".into(), token: FROM_MENU.into() });
         let props = plugin.section_props();
         assert_eq!(props["editor-open"], json!(true));
-        assert_eq!(controls(&plugin)[props["control"].as_i64().unwrap() as usize], "Camera: Torch");
+        let control = props["control"].as_i64().unwrap() as usize;
+        assert_eq!(control, row_of(&plugin, "Camera", "Torch"));
         // A saved one opens as it is; an action that isn't there does nothing
         plugin.on_ui(&mut host, &event("edit", "a"));
         plugin.on_event(&mut host, &Event::TimerFired { owner: "shortcuts".into(), token: FROM_MENU.into() });

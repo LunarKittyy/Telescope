@@ -181,6 +181,8 @@ export component ShortcutsSettings inherits VerticalLayout {
     in property <bool> editor-open;
     in property <string> query;
     in property <[string]> controls;
+    // Which rows are a group's heading rather than a control
+    in property <[bool]> control-headings;
     in property <int> control: -1;
     in property <[ParamRow]> params;
     in property <string> keys-text;
@@ -295,6 +297,7 @@ export component ShortcutsSettings inherits VerticalLayout {
                         y: (parent.height - self.height) / 2;
                         caption: @tr("Control");
                         items: controls;
+                        headings: control-headings;
                         current: control;
                         picked(i) => { root.control-picked(i); }
                     }

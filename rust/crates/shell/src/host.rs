@@ -317,6 +317,12 @@ impl HostUi for Ctx<'_> {
     fn refresh_actions(&mut self) {
         self.state.effects.push(Effect::RefreshActions(self.me.clone()));
     }
+    fn open_window(&mut self, id: &str, window: &telescope_core::ui::WindowSpec) {
+        self.state.effects.push(Effect::OpenWindow { plugin: self.me.clone(), id: id.into(), window: window.clone() });
+    }
+    fn close_window(&mut self, id: &str) {
+        self.state.effects.push(Effect::CloseWindow { plugin: self.me.clone(), id: id.into() });
+    }
 }
 
 impl HostView for Ctx<'_> {

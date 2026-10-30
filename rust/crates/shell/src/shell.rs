@@ -75,6 +75,9 @@ pub enum Effect {
     Image { plugin: String, ui: String, prop: String, picture: Picture },
     /// Host::refresh_actions: plugin's actions are asked for again.
     RefreshActions(String),
+    /// HostUi::open_window and close_window: a window of the plugin's own.
+    OpenWindow { plugin: String, id: String, window: telescope_core::ui::WindowSpec },
+    CloseWindow { plugin: String, id: String },
     Tray(TrayAction),
     FrameStep(String),
     OpenSettings(String),

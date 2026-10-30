@@ -106,11 +106,21 @@ export component ChoiceField inherits Rectangle {
     in property <color> icon-tint: Theme.text-dim;
     in property <bool> bold;
     in property <[string]> items;
+    // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
+    in property <[bool]> headings;
     in-out property <int> current;
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback picked(int);
+    // The row the arrows move to from current, or current when there's none that way
+    function step(by: int) -> int {
+        let next = current + by;
+        let past = next + by;
+        if (next >= 0 && next < items.length && !headings[next]) { return next; }
+        if (headings[next] && past >= 0 && past < items.length && !headings[past]) { return past; }
+        return current;
+    }
     height: compact ? 32px : 48px;
     horizontal-stretch: 1;
     min-width: 0px;
@@ -128,8 +138,8 @@ export component ChoiceField inherits Rectangle {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == Key.UpArrow && current > 0) { current -= 1; picked(current); return accept; }
-            if (e.text == Key.DownArrow && current < items.length - 1) { current += 1; picked(current); return accept; }
+            if (e.text == Key.UpArrow && step(-1) != current) { current = step(-1); picked(current); return accept; }
+            if (e.text == Key.DownArrow && step(1) != current) { current = step(1); picked(current); return accept; }
             if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
             reject
         }
@@ -150,7 +160,7 @@ export component ChoiceField inherits Rectangle {
         accessible-role: none;
     }
     if compact: VerticalLayout {
-        padding-left: has-icon ? 33px : 12px; // the phone picker's 32px padding sits inside its border
+        padding-left: has-icon ? 33px : 11px; // the phone picker's 32px padding sits inside its border
         padding-right: 30px;
         alignment: center;
         Text {
@@ -206,21 +216,28 @@ export component ChoiceField inherits Rectangle {
             VerticalLayout {
                 padding: 4px;
                 for item[i] in items: Rectangle {
-                    height: 26px;
+                    height: headings[i] ? 32px : 26px;
                     border-radius: 5px;
-                    background: i == current ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                    background: headings[i] ? transparent : i == current ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                    if headings[i]: Rectangle {
+                        y: 2px;
+                        height: parent.height - 3px;
+                        background: Theme.accent.with-alpha(0.12);
+                    }
                     item-touch := TouchArea {
+                        enabled: !headings[i];
                         clicked => {
                             current = i;
                             picked(i);
                         }
                     }
                     Text {
-                        x: 8px;
+                        x: headings[i] ? 10px : 8px;
                         text: item;
                         font-family: Theme.font;
-                        font-size: Theme.body;
-                        color: i == current ? white : Theme.text;
+                        font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
+                        font-weight: headings[i] ? 700 : 400;
+                        color: headings[i] ? Theme.accent : i == current ? white : Theme.text;
                         vertical-alignment: center;
                     }
                 }

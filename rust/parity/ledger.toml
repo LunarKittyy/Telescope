@@ -5343,8 +5343,8 @@
 "banner-plugins-failed" = { status = "todo" }
 "banner-plugins-failed-many" = { status = "todo" }
 "banner-plugins-off" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"banner-plugins-off-several" = { status = "todo" }
-"banner-plugins-off-two" = { status = "todo" }
+"banner-plugins-off-several" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"banner-plugins-off-two" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "banner-settings-reset" = { status = "todo" }
 "camera-off-no-mic" = { status = "todo" }
 "camera-off-not-a-phone" = { status = "todo" }

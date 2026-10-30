@@ -336,6 +336,13 @@ pub trait HostUi {
     fn set_ui_image(&mut self, _ui: &str, _prop: &str, _frame: &Frame) {}
     /// This plugin's actions changed (a list a param offers, say): the host asks Plugin::actions again.
     fn refresh_actions(&mut self) {}
+    /// Opens a window of this plugin's own beside the main one (a dialog that isn't modal, like Composite's Edit picture), or
+    /// brings it forward when it's open. window.ui's component inherits Window and sets its title. It goes by id as a piece of UI: set_ui_props(id)
+    /// reaches it, its callbacks come to Plugin::on_ui with ui = id, and "closed" comes once it's closed. A host with no window
+    /// ignores it.
+    fn open_window(&mut self, _id: &str, _window: &crate::ui::WindowSpec) {}
+    /// Closes this plugin's window with this id, if it's open ("closed" still comes).
+    fn close_window(&mut self, _id: &str) {}
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.

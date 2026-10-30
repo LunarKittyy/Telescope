@@ -24,6 +24,14 @@ pub struct UiSpec {
     pub props: Value,
 }
 
+/// A window of a plugin's own (HostUi::open_window): its UI, whose component inherits Window and sets its own title, and its
+/// size in logical px.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WindowSpec {
+    pub ui: UiSpec,
+    pub size: [f32; 2],
+}
+
 /// Something happened in a plugin's UI: a callback the component declared fired (with its arguments), or "shown".
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UiEvent {

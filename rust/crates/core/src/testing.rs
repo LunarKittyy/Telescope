@@ -405,6 +405,12 @@ impl HostUi for FakeHost {
     fn refresh_actions(&mut self) {
         self.note("refresh_actions");
     }
+    fn open_window(&mut self, id: &str, window: &crate::ui::WindowSpec) {
+        self.note(format!("open_window {id} {}", window.ui.component));
+    }
+    fn close_window(&mut self, id: &str) {
+        self.note(format!("close_window {id}"));
+    }
 }
 
 impl HostView for FakeHost {

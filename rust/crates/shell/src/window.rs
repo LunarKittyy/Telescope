@@ -82,6 +82,8 @@ pub struct Window {
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
+    plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
 }
 
@@ -228,6 +230,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
@@ -705,7 +708,89 @@ impl Window {
         done
     }
 
+    /// HostUi::open_window: builds the plugin's window and shows it, or shows it again when it's open.
+    fn open_plugin_window(self: &Rc<Self>, plugin: &str, id: &str, spec: &telescope_core::ui::WindowSpec) {
+        if let Some((_, _, open)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id) {
+            let _ = open.show();
+            return;
+        }
+        let (file, text) = source_of(plugin, id, &spec.ui);
+        let component = &spec.ui.component;
+        // Its file goes through the loader as a card's does, so its texts are translated
+        let doc = format!("export {{ {component} }} from \"{file}\";\n");
+        let files = match &spec.ui.source {
+            SlintSource::Text(_) => vec![(file.clone(), text.clone())],
+            SlintSource::File(_) => Vec::new(),
+        };
+        let built = crate::compile::compile(&format!("{plugin}-{id}-window.slint"), &doc, files, component)
+            .and_then(|d| d.create().map_err(|e| e.to_string()));
+        let ui = match built {
+            Ok(ui) => ui,
+            Err(e) => {
+                log::error!("{plugin}'s window {id} didn't build: {e}");
+                return;
+            }
+        };
+        ui.window().set_size(slint::LogicalSize::new(spec.size[0], spec.size[1]));
+        for cb in scan(&text, component).callbacks {
+            let (plugin, id, weak) = (plugin.to_string(), id.to_string(), Rc::downgrade(self));
+            let callback = cb.clone();
+            let _ = ui.set_callback(&cb, move |args| {
+                if let Some(w) = weak.upgrade() {
+                    let event = UiEvent { ui: id.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                    w.state.borrow_mut().ui_event(&plugin, event);
+                    w.process();
+                }
+                SValue::Void
+            });
+        }
+        let (p, i, weak) = (plugin.to_string(), id.to_string(), Rc::downgrade(self));
+        ui.window().on_close_requested(move || {
+            let (p, i, weak) = (p.clone(), i.clone(), weak.clone());
+            // After the close request returns, since dropping the window inside its own handler isn't safe
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(w) = weak.upgrade() {
+                    w.close_plugin_window(&p, &i);
+                }
+            });
+            slint::CloseRequestResponse::HideWindow
+        });
+        Self::set_window_props(&ui, plugin, id, &spec.ui.props);
+        let _ = ui.show();
+        self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
+    }
+
+    /// A plugin's own window while it's open.
+    pub fn plugin_window(&self, plugin: &str, id: &str) -> Option<ComponentInstance> {
+        self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id).map(|(_, _, w)| w.clone_strong())
+    }
+
+    /// HostUi::close_window, or the person closed it: gone, and the plugin hears "closed".
+    fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
+        let gone = {
+            let mut windows = self.plugin_windows.borrow_mut();
+            windows.iter().position(|(p, i, _)| p == plugin && i == id).map(|at| windows.remove(at))
+        };
+        let Some((_, _, ui)) = gone else { return };
+        let _ = ui.hide();
+        drop(ui);
+        self.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: "closed".into(), args: Vec::new() });
+        self.process();
+    }
+
+    fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
+        for (k, v) in props.as_object().into_iter().flatten() {
+            let like = ui.get_property(k).unwrap_or(SValue::Void);
+            if let Err(e) = ui.set_property(k, to_slint(v, &like)) {
+                log::warn!("{plugin} set {k} on its window {id}: {e:?}");
+            }
+        }
+    }
+
     fn set_props(&self, plugin: &str, ui: &str, props: &Value) {
+        if let Some((_, _, window)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == ui) {
+            return Self::set_window_props(window, plugin, ui, props);
+        }
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
             // Not a card or a header: one of its settings sections, if the settings window has been built
             if let Some(settings) = crate::settings::current() {
@@ -728,6 +813,12 @@ impl Window {
             log::warn!("{plugin} gave its {ui} a {:?} picture, which can't be shown", picture.format);
             return;
         };
+        if let Some((_, _, window)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == ui) {
+            if let Err(e) = window.set_property(prop, SValue::Image(image)) {
+                log::warn!("{plugin} set {prop} on its window {ui}: {e:?}");
+            }
+            return;
+        }
         match self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) {
             Some(r) => {
                 if let Err(e) = self.ui.set_property(&format!("{}-{prop}", r.id), SValue::Image(image)) {
@@ -746,6 +837,8 @@ impl Window {
         match effect {
             Effect::Props { plugin, ui, props } => self.set_props(&plugin, &ui, &props),
             Effect::Image { plugin, ui, prop, picture } => self.set_image(&plugin, &ui, &prop, &picture.0),
+            Effect::OpenWindow { plugin, id, window } => self.open_plugin_window(&plugin, &id, &window),
+            Effect::CloseWindow { plugin, id } => self.close_plugin_window(&plugin, &id),
             Effect::RefreshActions(plugin) => {
                 let mut state = self.state.borrow_mut();
                 if let Some(i) = state.index(&plugin) {
