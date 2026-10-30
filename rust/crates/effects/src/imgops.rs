@@ -161,6 +161,51 @@ fn linear(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Ve
     out
 }
 
+/// The two taps of OpenCV's INTER_LINEAR along an axis for 8-bit pictures: (first source, second source, their weights out of 2048).
+fn linear_taps(n: usize, m: usize) -> Vec<(usize, usize, i64, i64)> {
+    let scale = n as f64 / m as f64;
+    (0..m).map(|d| {
+        let mut f = ((d as f64 + 0.5) * scale - 0.5) as f32;
+        let mut s = f.floor() as i64;
+        f -= s as f32;
+        if s < 0 {
+            f = 0.0;
+            s = 0;
+        }
+        if s >= n as i64 - 1 {
+            f = 0.0;
+            s = n as i64 - 1;
+        }
+        let (p, q) = ((1.0f32 - f) * 2048.0f32, f * 2048.0f32);
+        (s as usize, (s as usize + 1).min(n - 1), p.round_ties_even() as i64, q.round_ties_even() as i64)
+    }).collect()
+}
+
+/// cv2.resize(INTER_LINEAR) of an 8-bit picture with `ch` channels the way OpenCV does it: weights in 11 bits and whole-number sums,
+/// so the result matches its bytes (the float `linear` above can be a level off).
+pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Vec<u8> {
+    if (w2, h2) == (w, h) {
+        return src.to_vec();
+    }
+    let (xs, ys) = (linear_taps(w, w2), linear_taps(h, h2));
+    let mut across = vec![0i64; h * w2 * ch];
+    for y in 0..h {
+        for (dx, &(x0, x1, p, q)) in xs.iter().enumerate() {
+            for c in 0..ch {
+                across[(y * w2 + dx) * ch + c] = src[(y * w + x0) * ch + c] as i64 * p + src[(y * w + x1) * ch + c] as i64 * q;
+            }
+        }
+    }
+    let mut out = vec![0u8; w2 * h2 * ch];
+    for (dy, &(y0, y1, p, q)) in ys.iter().enumerate() {
+        for i in 0..w2 * ch {
+            let v = (((across[y0 * w2 * ch + i] >> 4) * p) >> 16) + (((across[y1 * w2 * ch + i] >> 4) * q) >> 16);
+            out[dy * w2 * ch + i] = ((v + 2) >> 2) as u8;
+        }
+    }
+    out
+}
+
 /// cv2.resize(INTER_NEAREST): each output pixel takes the source pixel its left edge falls in.
 fn nearest(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Vec<u8> {
     let mut out = vec![0u8; w2 * h2 * ch];
@@ -186,6 +231,11 @@ impl Rgb {
 
     pub fn linear(&self, w: usize, h: usize) -> Rgb {
         Rgb { w, h, data: linear(&self.data, self.w, self.h, 3, w, h) }
+    }
+
+    /// cv2.resize(INTER_LINEAR) to the byte.
+    pub fn linear_exact(&self, w: usize, h: usize) -> Rgb {
+        Rgb { w, h, data: resize_linear_fixed(&self.data, self.w, self.h, 3, w, h) }
     }
 
     pub fn nearest(&self, w: usize, h: usize) -> Rgb {
@@ -234,6 +284,11 @@ impl Gray {
 
     pub fn linear(&self, w: usize, h: usize) -> Gray {
         Gray { w, h, data: linear(&self.data, self.w, self.h, 1, w, h) }
+    }
+
+    /// cv2.resize(INTER_LINEAR) to the byte.
+    pub fn linear_exact(&self, w: usize, h: usize) -> Gray {
+        Gray { w, h, data: resize_linear_fixed(&self.data, self.w, self.h, 1, w, h) }
     }
 
     /// cv2.GaussianBlur(mask, (0, 0), sigma).

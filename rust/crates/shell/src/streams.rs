@@ -713,6 +713,18 @@ impl Window {
         self.streams.workers.borrow().iter().find(|x| Rc::as_ptr(x) as *const () == Rc::as_ptr(w) as *const ()).cloned()
     }
 
+    /// The phone sensors follow the stream the panels show (SensorHub.follow), and tell the plugins when its readings change.
+    fn follow_sensors(&self, source: &SourceRef, state: &Value) {
+        let st = self.state.borrow();
+        let Some(sensors) = st.link.as_ref().and_then(|l| l.sensors()) else { return };
+        let bus = st.bus.sender();
+        sensors.set_on_change(Box::new(move |id| bus.emit(Event::SensorsChanged { source_id: id.to_string() })));
+        match source.kind.as_phone().and_then(|p| p.still_target()) {
+            Some((base, phone)) => sensors.follow(Some(source.id_str()), Some(&base), Some(&phone), Some(state)),
+            None => sensors.follow(Some(source.id_str()), None, None, Some(state)),
+        }
+    }
+
     /// _apply_state: the phone's state, to the plugins that hear about its stream.
     fn apply_state(self: &Rc<Self>, source: &SourceRef, session_id: u64, state: Value) {
         if source.session().is_none_or(|s| s.id != session_id) {
@@ -724,6 +736,7 @@ impl Window {
             stills.note_state(Some(source.id_str()), &state);
         }
         if focused {
+            self.follow_sensors(source, &state);
             let mut st = self.state.borrow_mut();
             st.streams.phone_state = Some(state.clone());
             st.bus.emit(Event::PhoneStateUpdated { state: state.clone() });

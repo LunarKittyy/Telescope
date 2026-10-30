@@ -237,6 +237,10 @@ pub struct State {
     pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
     /// The pick under way on the preview, and the warp a plugin moving the picture told it about.
     pub overlays: crate::overlays::Overlays,
+    /// What plugins put on the preview besides shapes (tint, analyse, paint), by owner.
+    pub passes: Vec<(String, Arc<dyn telescope_core::preview::PreviewPass>)>,
+    /// A pass asked for the preview to be drawn again (refresh_preview, or an analysis that finished).
+    pub preview_dirty: Arc<std::sync::atomic::AtomicBool>,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -252,6 +256,8 @@ pub struct State {
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
+    /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
+    pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
     pub window_active: bool,
     /// The Microphone card's (enabled, muted), for the tray's tooltip.
@@ -291,6 +297,8 @@ impl State {
             colour: ColourPipeline::new(),
             colour_before: Arc::default(),
             overlays: Default::default(),
+            passes: Vec::new(),
+            preview_dirty: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,
@@ -298,6 +306,7 @@ impl State {
             off: Vec::new(),
             builtins: Vec::new(),
             problems: BTreeMap::new(),
+            frames: None,
             keep_in_tray: false,
             link: None,
             window_active: false,

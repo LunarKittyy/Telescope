@@ -17,6 +17,7 @@ pub mod names;
 pub mod output;
 pub mod plugin;
 pub mod pose;
+pub mod preview;
 pub mod qr;
 pub mod services;
 pub mod shader;

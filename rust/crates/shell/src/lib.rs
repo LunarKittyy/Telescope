@@ -9,6 +9,7 @@ pub mod flow;
 pub mod layout;
 pub mod offscreen;
 pub mod overlays;
+pub mod preview_passes;
 pub mod plugins;
 pub mod preview;
 pub mod plugins_tab;

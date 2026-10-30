@@ -252,52 +252,52 @@
 "Tolerance" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
 "Without it there's no Chroma key card and a green screen stays green." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"4 × 4" = { status = "todo" }
-"Can't reach the phone's motion sensors." = { status = "todo" }
-"Centre cross" = { status = "todo" }
-"Cinema tools" = { status = "todo" }
-"Clipped" = { status = "todo" }
-"Colour the picture by how bright it is" = { status = "todo" }
-"Crushed" = { status = "todo" }
-"False colour" = { status = "todo" }
-"Focus peaking" = { status = "todo" }
-"Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon." = { status = "todo" }
-"Golden ratio" = { status = "todo" }
-"Guides" = { status = "todo" }
-"Higher outlines softer edges too" = { status = "todo" }
-"Histogram" = { status = "todo" }
-"How bright something has to be to get stripes" = { status = "todo" }
-"Large" = { status = "todo" }
-"Level" = { status = "todo" }
-"Lines to help frame the shot" = { status = "todo" }
-"Medium" = { status = "todo" }
-"Middle grey" = { status = "todo" }
-"Nearly clipped" = { status = "todo" }
-"Only on the preview. Apps never see these." = { status = "todo" }
-"Outline what's sharp" = { status = "todo" }
-"Peaking colour" = { status = "todo" }
-"Peaking sensitivity" = { status = "todo" }
-"RGB parade" = { status = "todo" }
+"4 × 4" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Can't reach the phone's motion sensors." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Centre cross" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Cinema tools" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Colour the picture by how bright it is" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Crushed" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"False colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Focus peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon." = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Golden ratio" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Higher outlines softer edges too" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Histogram" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"How bright something has to be to get stripes" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Large" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Lines to help frame the shot" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Medium" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Middle grey" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Nearly clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Only on the preview. Apps never see these." = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Outline what's sharp" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Peaking colour" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Peaking sensitivity" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"RGB parade" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
 "Red" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
-"Scope" = { status = "todo" }
-"Scope size" = { status = "todo" }
-"Show the horizon from the phone's motion sensors" = { status = "todo" }
-"Skin" = { status = "todo" }
-"Small" = { status = "todo" }
-"Stripe what's about to clip to white" = { status = "todo" }
-"The level needs a phone's motion sensors." = { status = "todo" }
-"The level works with the phone's own cameras, not an external one." = { status = "todo" }
-"Thirds" = { status = "todo" }
-"This phone has no motion sensor for the level." = { status = "todo" }
-"Too dark" = { status = "todo" }
-"Update Telescope on the phone to use the level." = { status = "todo" }
-"Vectorscope" = { status = "todo" }
-"Waveform" = { status = "todo" }
-"White" = { status = "todo" }
-"Without it there's no Cinema tools card and the preview shows just the picture." = { status = "todo" }
-"Zebras" = { status = "todo" }
-"Zebras from" = { status = "todo" }
-"search|focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing" = { status = "todo" }
+"Scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Scope size" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Show the horizon from the phone's motion sensors" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Skin" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Small" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Stripe what's about to clip to white" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"The level needs a phone's motion sensors." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"The level works with the phone's own cameras, not an external one." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Thirds" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"This phone has no motion sensor for the level." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Too dark" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Update Telescope on the phone to use the level." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Vectorscope" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Waveform" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"White" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Without it there's no Cinema tools card and the preview shows just the picture." = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Zebras from" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"search|focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour
 "Line {line} of the file can't be read." = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
 "Line {line} of the file isn't a colour (three numbers)." = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
@@ -371,21 +371,21 @@
 "{file} is already there. Replace it?" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "{wheel} colour" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 # ── composite
-"A layout you saved in the editor" = { status = "todo" }
-"Edit picture…" = { status = "todo" }
-"Goes out on {camera}." = { status = "todo" }
-"It goes out on {camera} once the stream there sends a picture." = { status = "todo" }
-"It goes out on {camera}, and no stream goes there now." = { status = "todo" }
-"It takes over once two of its streams are running." = { status = "todo" }
-"Layout" = { status = "todo" }
-"Not saved" = { status = "todo" }
-"Nothing's in the picture yet. Put streams in it with Edit picture." = { status = "todo" }
-"One picture" = { status = "todo" }
-"Picture layout" = { status = "todo" }
-"Puts the streams you run side by side or one inside another, out on one virtual camera." = { status = "todo" }
-"Send the streams out as one picture" = { status = "todo" }
-"Several cameras in one picture" = { status = "todo" }
-"Without it there's no One picture card and each stream only goes to its own camera." = { status = "todo" }
+"A layout you saved in the editor" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Edit picture…" = { status = "ported", rust = "rust/crates/effects/ui/composite.slint", note = "the button stays hidden until the editor window is ported" }
+"Goes out on {camera}." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"It goes out on {camera} once the stream there sends a picture." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"It goes out on {camera}, and no stream goes there now." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"It takes over once two of its streams are running." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Layout" = { status = "ported", rust = "rust/crates/effects/ui/composite.slint" }
+"Not saved" = { status = "ported", rust = "rust/crates/effects/ui/composite.slint" }
+"Nothing's in the picture yet. Put streams in it with Edit picture." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"One picture" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Picture layout" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Puts the streams you run side by side or one inside another, out on one virtual camera." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Send the streams out as one picture" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Several cameras in one picture" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Without it there's no One picture card and each stream only goes to its own camera." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 # ── connection
 "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>." = { status = "todo" }
 "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
@@ -2379,32 +2379,32 @@
 "test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
 "test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
 # ── cinema
-"test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "todo" }
-"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "todo" }
-"test_cinema.py::test_diagnostics_say_what_is_on" = { status = "todo" }
-"test_cinema.py::test_every_guide_in_the_list_has_lines" = { status = "todo" }
-"test_cinema.py::test_false_colour_marks_crushed_middle_grey_skin_and_clipped" = { status = "todo" }
-"test_cinema.py::test_guides_alone_put_the_layer_on_and_leave_the_picture_alone" = { status = "todo" }
-"test_cinema.py::test_jitter_near_level_stays_level_and_green" = { status = "todo" }
-"test_cinema.py::test_level_has_a_margin_either_way" = { status = "todo" }
-"test_cinema.py::test_peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" = { status = "todo" }
-"test_cinema.py::test_pointing_straight_up_has_no_roll_but_keeps_pitch" = { status = "todo" }
-"test_cinema.py::test_readings_reach_the_layer_as_shown" = { status = "todo" }
-"test_cinema.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "todo" }
-"test_cinema.py::test_the_filter_follows_a_change_gradually" = { status = "todo" }
-"test_cinema.py::test_the_filter_goes_the_short_way_round_past_180" = { status = "todo" }
-"test_cinema.py::test_the_guide_paints_without_trouble" = { status = "todo" }
-"test_cinema.py::test_the_guides_draw_where_they_should" = { status = "todo" }
-"test_cinema.py::test_the_layer_is_on_the_preview_only_while_a_tool_is" = { status = "todo" }
-"test_cinema.py::test_the_layer_tints_its_copy_and_only_analyses_with_a_scope" = { status = "todo" }
-"test_cinema.py::test_the_level_switch_asks_for_the_sensors_only_while_on" = { status = "todo" }
-"test_cinema.py::test_the_line_turns_clockwise_for_a_positive_roll" = { status = "todo" }
-"test_cinema.py::test_the_roll_as_shown_follows_the_views_flip_and_rotation" = { status = "todo" }
-"test_cinema.py::test_the_sensors_stop_while_nothing_draws_the_guide" = { status = "todo" }
-"test_cinema.py::test_the_settings_window_changes_what_the_layer_draws" = { status = "todo" }
-"test_cinema.py::test_the_tools_judge_the_picture_before_any_of_them_paints" = { status = "todo" }
-"test_cinema.py::test_why_the_level_cant_show_is_on_the_card" = { status = "todo" }
-"test_cinema.py::test_zebras_stripe_only_what_is_bright_enough" = { status = "todo" }
+"test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::a_big_preview_is_judged_small_and_marked_at_its_own_size" }
+"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::a_frozen_horizon_isnt_drawn" }
+"test_cinema.py::test_diagnostics_say_what_is_on" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::diagnostics_say_what_is_on" }
+"test_cinema.py::test_every_guide_in_the_list_has_lines" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::every_guide_in_the_list_has_lines" }
+"test_cinema.py::test_false_colour_marks_crushed_middle_grey_skin_and_clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::false_colour_marks_crushed_middle_grey_skin_and_clipped" }
+"test_cinema.py::test_guides_alone_put_the_layer_on_and_leave_the_picture_alone" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::guides_alone_put_the_layer_on_and_leave_the_picture_alone" }
+"test_cinema.py::test_jitter_near_level_stays_level_and_green" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::jitter_near_level_stays_level_and_green" }
+"test_cinema.py::test_level_has_a_margin_either_way" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::level_has_a_margin_either_way" }
+"test_cinema.py::test_peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" }
+"test_cinema.py::test_pointing_straight_up_has_no_roll_but_keeps_pitch" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::pointing_straight_up_has_no_roll_but_keeps_pitch" }
+"test_cinema.py::test_readings_reach_the_layer_as_shown" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::readings_reach_the_layer_as_shown" }
+"test_cinema.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::settings_round_trip_and_bad_values_fall_back" }
+"test_cinema.py::test_the_filter_follows_a_change_gradually" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_filter_follows_a_change_gradually" }
+"test_cinema.py::test_the_filter_goes_the_short_way_round_past_180" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_filter_goes_the_short_way_round_past_180" }
+"test_cinema.py::test_the_guide_paints_without_trouble" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_guide_paints_without_trouble" }
+"test_cinema.py::test_the_guides_draw_where_they_should" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_guides_draw_where_they_should" }
+"test_cinema.py::test_the_layer_is_on_the_preview_only_while_a_tool_is" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_layer_is_on_the_preview_only_while_a_tool_is" }
+"test_cinema.py::test_the_layer_tints_its_copy_and_only_analyses_with_a_scope" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_layer_tints_its_copy_and_only_analyses_with_a_scope" }
+"test_cinema.py::test_the_level_switch_asks_for_the_sensors_only_while_on" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_level_switch_asks_for_the_sensors_only_while_on" }
+"test_cinema.py::test_the_line_turns_clockwise_for_a_positive_roll" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_line_turns_clockwise_for_a_positive_roll" }
+"test_cinema.py::test_the_roll_as_shown_follows_the_views_flip_and_rotation" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_roll_as_shown_follows_the_views_flip_and_rotation" }
+"test_cinema.py::test_the_sensors_stop_while_nothing_draws_the_guide" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_sensors_stop_while_nothing_draws_the_guide" }
+"test_cinema.py::test_the_settings_window_changes_what_the_layer_draws" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_settings_window_changes_what_the_layer_draws" }
+"test_cinema.py::test_the_tools_judge_the_picture_before_any_of_them_paints" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_tools_judge_the_picture_before_any_of_them_paints" }
+"test_cinema.py::test_why_the_level_cant_show_is_on_the_card" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::why_the_level_cant_show_is_on_the_card" }
+"test_cinema.py::test_zebras_stripe_only_what_is_bright_enough" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::zebras_stripe_only_what_is_bright_enough" }
 # ── collapse
 "test_collapse.py::test_a_card_is_only_made_collapsible_once" = { status = "todo" }
 "test_collapse.py::test_a_card_that_goes_and_comes_back_is_folded_as_it_was" = { status = "todo" }
@@ -2508,68 +2508,68 @@
 "test_colour_grading.py::test_the_ends_of_a_tone_curve_stay_at_the_edges" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
 "test_colour_grading.py::test_tone_points_keep_their_order_while_dragged" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
 # ── composite
-"test_composite.py::test_a_border_goes_inside_the_box_in_its_colour" = { status = "todo" }
-"test_composite.py::test_a_box_of_another_shape_cuts_evenly_from_the_middle" = { status = "todo" }
-"test_composite.py::test_a_box_the_streams_shape_shows_all_of_it" = { status = "todo" }
-"test_composite.py::test_a_closed_editor_is_freed" = { status = "todo" }
-"test_composite.py::test_a_covered_stream_stays_covered_while_it_stalls" = { status = "todo" }
-"test_composite.py::test_a_cropped_stream_scales_with_its_crop" = { status = "todo" }
-"test_composite.py::test_a_frame_seen_before_isnt_scaled_again" = { status = "todo" }
-"test_composite.py::test_a_key_picks_a_saved_layout" = { status = "todo" }
-"test_composite.py::test_a_layout_goes_through_settings_unchanged" = { status = "todo" }
-"test_composite.py::test_a_layout_saved_before_crop_and_stretch_still_loads_and_looks_the_same" = { status = "todo" }
-"test_composite.py::test_a_missing_background_picture_is_read_again_once_its_there" = { status = "todo" }
-"test_composite.py::test_a_moved_box_stays_in_the_picture" = { status = "todo" }
-"test_composite.py::test_a_name_that_only_matches_once_tidied_up_still_asks_first" = { status = "todo" }
-"test_composite.py::test_a_plain_drag_scales_the_stream_keeping_its_shape" = { status = "todo" }
-"test_composite.py::test_a_stream_that_isnt_running_is_left_out" = { status = "todo" }
-"test_composite.py::test_a_stretched_or_cropped_stream_is_drawn_that_way" = { status = "todo" }
-"test_composite.py::test_alt_crops_the_side_being_dragged_and_leaves_the_rest_in_place" = { status = "todo" }
-"test_composite.py::test_big_and_small_shrinks_upright_phones_so_the_stack_fits" = { status = "todo" }
-"test_composite.py::test_box_px_rounds_and_stays_inside_the_picture" = { status = "todo" }
-"test_composite.py::test_bringing_forward_and_sending_back_change_the_order" = { status = "todo" }
-"test_composite.py::test_broken_crop_values_still_leave_some_of_the_stream" = { status = "todo" }
-"test_composite.py::test_broken_values_are_fixed_rather_than_dropped" = { status = "todo" }
-"test_composite.py::test_corner_masks_are_worked_out_once_per_radius" = { status = "todo" }
-"test_composite.py::test_cropping_outwards_brings_back_only_what_was_cut_off" = { status = "todo" }
-"test_composite.py::test_ctrl_stops_snapping" = { status = "todo" }
-"test_composite.py::test_dragging_a_corner_keeps_the_shape" = { status = "todo" }
-"test_composite.py::test_dragging_a_stream_moves_it_and_snaps_to_the_middle" = { status = "todo" }
-"test_composite.py::test_each_stream_lands_in_its_box_over_the_background_back_to_front" = { status = "todo" }
-"test_composite.py::test_edges_snap_to_the_picture_and_other_streams" = { status = "todo" }
-"test_composite.py::test_fit_box_keeps_the_streams_shape_inside_its_cell" = { status = "todo" }
-"test_composite.py::test_fitting_its_shape_undoes_stretch_crop_and_zoom" = { status = "todo" }
-"test_composite.py::test_four_1080p_streams_draw_quickly_even_on_a_busy_runner" = { status = "todo" }
-"test_composite.py::test_layouts_are_saved_picked_renamed_and_deleted" = { status = "todo" }
-"test_composite.py::test_moving_a_tile_doesnt_scale_the_background_picture_again" = { status = "todo" }
-"test_composite.py::test_renaming_onto_another_layouts_name_asks_first" = { status = "todo" }
-"test_composite.py::test_resizing_from_a_corner_moves_only_its_edges" = { status = "todo" }
-"test_composite.py::test_resizing_with_the_shape_kept_holds_its_aspect_and_fits" = { status = "todo" }
-"test_composite.py::test_rounded_corners_show_the_background_and_blend_at_the_curve" = { status = "todo" }
-"test_composite.py::test_saved_layouts_need_a_name_each" = { status = "todo" }
-"test_composite.py::test_scrolling_over_a_stream_zooms_into_it" = { status = "todo" }
-"test_composite.py::test_settings_and_presets_bring_the_picture_back" = { status = "todo" }
-"test_composite.py::test_shift_stretches_and_alt_crops_from_the_editor" = { status = "todo" }
-"test_composite.py::test_shift_stretches_the_stream_to_the_new_box" = { status = "todo" }
-"test_composite.py::test_shrinking_goes_in_halves_then_the_rest" = { status = "todo" }
-"test_composite.py::test_something_that_isnt_a_layout_is_none_or_empty" = { status = "todo" }
-"test_composite.py::test_starting_from_a_layout_and_saving_it" = { status = "todo" }
-"test_composite.py::test_stretching_a_centre_cropped_stream_keeps_what_it_showed" = { status = "todo" }
-"test_composite.py::test_stretching_or_cropping_a_stream_thats_off_only_moves_the_box" = { status = "todo" }
-"test_composite.py::test_the_background_picture_covers_the_picture" = { status = "todo" }
-"test_composite.py::test_the_clock_rests_while_no_stream_goes_to_the_telescope_camera" = { status = "todo" }
-"test_composite.py::test_the_picked_streams_border_corners_and_order_change_from_the_side" = { status = "todo" }
-"test_composite.py::test_the_picture_goes_out_on_the_main_stream_only" = { status = "todo" }
-"test_composite.py::test_the_picture_goes_out_on_the_telescope_camera_at_its_size" = { status = "todo" }
-"test_composite.py::test_the_stall_clock_draws_nothing_without_another_stream_or_a_frame" = { status = "todo" }
-"test_composite.py::test_the_starting_layouts_fill_the_picture_sensibly" = { status = "todo" }
-"test_composite.py::test_the_streams_list_puts_streams_in_and_takes_them_out" = { status = "todo" }
-"test_composite.py::test_through_real_workers_a_covered_stream_stays_covered_while_it_stalls" = { status = "todo" }
-"test_composite.py::test_through_real_workers_the_main_stream_sends_the_picture_and_the_other_its_own" = { status = "todo" }
-"test_composite.py::test_while_the_telescope_stream_stalls_the_others_keep_moving" = { status = "todo" }
-"test_composite.py::test_with_one_stream_running_or_switched_off_frames_go_through" = { status = "todo" }
-"test_composite.py::test_zooming_in_shows_less_and_the_centre_stays_inside_the_frame" = { status = "todo" }
-"test_composite.py::test_zooming_stays_inside_the_crop" = { status = "todo" }
+"test_composite.py::test_a_border_goes_inside_the_box_in_its_colour" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_border_goes_inside_the_box_in_its_colour" }
+"test_composite.py::test_a_box_of_another_shape_cuts_evenly_from_the_middle" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_box_of_another_shape_cuts_evenly_from_the_middle" }
+"test_composite.py::test_a_box_the_streams_shape_shows_all_of_it" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_box_the_streams_shape_shows_all_of_it" }
+"test_composite.py::test_a_closed_editor_is_freed" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_a_covered_stream_stays_covered_while_it_stalls" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::a_covered_stream_stays_covered_while_it_stalls" }
+"test_composite.py::test_a_cropped_stream_scales_with_its_crop" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_cropped_stream_scales_with_its_crop" }
+"test_composite.py::test_a_frame_seen_before_isnt_scaled_again" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_frame_seen_before_isnt_scaled_again" }
+"test_composite.py::test_a_key_picks_a_saved_layout" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::a_key_picks_a_saved_layout" }
+"test_composite.py::test_a_layout_goes_through_settings_unchanged" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_layout_goes_through_settings_unchanged" }
+"test_composite.py::test_a_layout_saved_before_crop_and_stretch_still_loads_and_looks_the_same" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_layout_saved_before_crop_and_stretch_still_loads_and_looks_the_same" }
+"test_composite.py::test_a_missing_background_picture_is_read_again_once_its_there" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_missing_background_picture_is_read_again_once_its_there" }
+"test_composite.py::test_a_moved_box_stays_in_the_picture" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_moved_box_stays_in_the_picture" }
+"test_composite.py::test_a_name_that_only_matches_once_tidied_up_still_asks_first" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_a_plain_drag_scales_the_stream_keeping_its_shape" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_plain_drag_scales_the_stream_keeping_its_shape" }
+"test_composite.py::test_a_stream_that_isnt_running_is_left_out" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_stream_that_isnt_running_is_left_out" }
+"test_composite.py::test_a_stretched_or_cropped_stream_is_drawn_that_way" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_stretched_or_cropped_stream_is_drawn_that_way" }
+"test_composite.py::test_alt_crops_the_side_being_dragged_and_leaves_the_rest_in_place" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::alt_crops_the_side_being_dragged_and_leaves_the_rest_in_place" }
+"test_composite.py::test_big_and_small_shrinks_upright_phones_so_the_stack_fits" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::big_and_small_shrinks_upright_phones_so_the_stack_fits" }
+"test_composite.py::test_box_px_rounds_and_stays_inside_the_picture" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::box_px_rounds_and_stays_inside_the_picture" }
+"test_composite.py::test_bringing_forward_and_sending_back_change_the_order" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::bringing_forward_and_sending_back_change_the_order" }
+"test_composite.py::test_broken_crop_values_still_leave_some_of_the_stream" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::broken_crop_values_still_leave_some_of_the_stream" }
+"test_composite.py::test_broken_values_are_fixed_rather_than_dropped" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::broken_values_are_fixed_rather_than_dropped" }
+"test_composite.py::test_corner_masks_are_worked_out_once_per_radius" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::corner_masks_are_worked_out_once_per_radius" }
+"test_composite.py::test_cropping_outwards_brings_back_only_what_was_cut_off" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::cropping_outwards_brings_back_only_what_was_cut_off" }
+"test_composite.py::test_ctrl_stops_snapping" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_dragging_a_corner_keeps_the_shape" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_dragging_a_stream_moves_it_and_snaps_to_the_middle" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_each_stream_lands_in_its_box_over_the_background_back_to_front" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::each_stream_lands_in_its_box_over_the_background_back_to_front" }
+"test_composite.py::test_edges_snap_to_the_picture_and_other_streams" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::edges_snap_to_the_picture_and_other_streams" }
+"test_composite.py::test_fit_box_keeps_the_streams_shape_inside_its_cell" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::fit_box_keeps_the_streams_shape_inside_its_cell" }
+"test_composite.py::test_fitting_its_shape_undoes_stretch_crop_and_zoom" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::fitting_its_shape_undoes_stretch_crop_and_zoom" }
+"test_composite.py::test_four_1080p_streams_draw_quickly_even_on_a_busy_runner" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::four_1080p_streams_draw_quickly_even_on_a_busy_runner" }
+"test_composite.py::test_layouts_are_saved_picked_renamed_and_deleted" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::layouts_are_saved_picked_renamed_and_deleted" }
+"test_composite.py::test_moving_a_tile_doesnt_scale_the_background_picture_again" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::moving_a_tile_doesnt_scale_the_background_picture_again" }
+"test_composite.py::test_renaming_onto_another_layouts_name_asks_first" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_resizing_from_a_corner_moves_only_its_edges" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::resizing_from_a_corner_moves_only_its_edges" }
+"test_composite.py::test_resizing_with_the_shape_kept_holds_its_aspect_and_fits" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::resizing_with_the_shape_kept_holds_its_aspect_and_fits" }
+"test_composite.py::test_rounded_corners_show_the_background_and_blend_at_the_curve" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::rounded_corners_show_the_background_and_blend_at_the_curve" }
+"test_composite.py::test_saved_layouts_need_a_name_each" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::saved_layouts_need_a_name_each" }
+"test_composite.py::test_scrolling_over_a_stream_zooms_into_it" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_settings_and_presets_bring_the_picture_back" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::settings_and_presets_bring_the_picture_back" }
+"test_composite.py::test_shift_stretches_and_alt_crops_from_the_editor" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_shift_stretches_the_stream_to_the_new_box" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::shift_stretches_the_stream_to_the_new_box" }
+"test_composite.py::test_shrinking_goes_in_halves_then_the_rest" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::shrinking_goes_in_halves_then_the_rest" }
+"test_composite.py::test_something_that_isnt_a_layout_is_none_or_empty" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::something_that_isnt_a_layout_is_none_or_empty" }
+"test_composite.py::test_starting_from_a_layout_and_saving_it" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_stretching_a_centre_cropped_stream_keeps_what_it_showed" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::stretching_a_centre_cropped_stream_keeps_what_it_showed" }
+"test_composite.py::test_stretching_or_cropping_a_stream_thats_off_only_moves_the_box" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::stretching_or_cropping_a_stream_thats_off_only_moves_the_box" }
+"test_composite.py::test_the_background_picture_covers_the_picture" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::the_background_picture_covers_the_picture" }
+"test_composite.py::test_the_clock_rests_while_no_stream_goes_to_the_telescope_camera" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::the_clock_rests_while_no_stream_goes_to_the_telescope_camera" }
+"test_composite.py::test_the_picked_streams_border_corners_and_order_change_from_the_side" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_the_picture_goes_out_on_the_main_stream_only" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::the_picture_goes_out_on_the_main_stream_only" }
+"test_composite.py::test_the_picture_goes_out_on_the_telescope_camera_at_its_size" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::the_picture_goes_out_on_the_telescope_camera_at_its_size" }
+"test_composite.py::test_the_stall_clock_draws_nothing_without_another_stream_or_a_frame" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::the_stall_clock_draws_nothing_without_another_stream_or_a_frame" }
+"test_composite.py::test_the_starting_layouts_fill_the_picture_sensibly" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::the_starting_layouts_fill_the_picture_sensibly" }
+"test_composite.py::test_the_streams_list_puts_streams_in_and_takes_them_out" = { status = "todo", note = "the editor window (widgets/composite_editor.py): plugins can't open a window of their own yet, which needs a host service in core and the shell" }
+"test_composite.py::test_through_real_workers_a_covered_stream_stays_covered_while_it_stalls" = { status = "ported", rust = "rust/app/tests/composite_parity.rs::through_real_workers_a_covered_stream_stays_covered_while_it_stalls" }
+"test_composite.py::test_through_real_workers_the_main_stream_sends_the_picture_and_the_other_its_own" = { status = "ported", rust = "rust/app/tests/composite_parity.rs::through_real_workers_the_main_stream_sends_the_picture_and_the_other_its_own" }
+"test_composite.py::test_while_the_telescope_stream_stalls_the_others_keep_moving" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::while_the_telescope_stream_stalls_the_others_keep_moving" }
+"test_composite.py::test_with_one_stream_running_or_switched_off_frames_go_through" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin_tests.rs::with_one_stream_running_or_switched_off_frames_go_through" }
+"test_composite.py::test_zooming_in_shows_less_and_the_centre_stays_inside_the_frame" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_in_shows_less_and_the_centre_stays_inside_the_frame" }
+"test_composite.py::test_zooming_stays_inside_the_crop" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_stays_inside_the_crop" }
 # ── config
 "test_config.py::test_a_backup_of_a_bad_config_is_private" = { status = "todo" }
 "test_config.py::test_a_briefly_locked_config_is_read_again_not_reset" = { status = "todo" }
@@ -3791,13 +3791,13 @@
 # ── release_checklist
 "test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "todo" }
 # ── scopes
-"test_scopes.py::test_a_brighter_spot_glows_more" = { status = "todo" }
-"test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "todo" }
-"test_scopes.py::test_grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" = { status = "todo" }
-"test_scopes.py::test_histogram_counts_every_pixel_at_its_level" = { status = "todo" }
-"test_scopes.py::test_parade_has_red_green_and_blue_in_that_order" = { status = "todo" }
-"test_scopes.py::test_shrink_keeps_the_shape_and_never_grows" = { status = "todo" }
-"test_scopes.py::test_waveform_puts_bright_columns_at_the_top" = { status = "todo" }
+"test_scopes.py::test_a_brighter_spot_glows_more" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::a_brighter_spot_glows_more" }
+"test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::every_scope_makes_a_bgra_picture" }
+"test_scopes.py::test_grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" }
+"test_scopes.py::test_histogram_counts_every_pixel_at_its_level" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::histogram_counts_every_pixel_at_its_level" }
+"test_scopes.py::test_parade_has_red_green_and_blue_in_that_order" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::parade_has_red_green_and_blue_in_that_order" }
+"test_scopes.py::test_shrink_keeps_the_shape_and_never_grows" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::shrink_keeps_the_shape_and_never_grows" }
+"test_scopes.py::test_waveform_puts_bright_columns_at_the_top" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::waveform_puts_bright_columns_at_the_top" }
 # ── sensors
 "test_sensors.py::test_a_dropped_stream_is_opened_again" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::a_dropped_stream_is_opened_again" }
 "test_sensors.py::test_a_kind_nobody_wants_any_more_leaves_the_reading" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::a_kind_nobody_wants_any_more_leaves_the_reading" }
@@ -5474,16 +5474,16 @@
 "device.chroma_key.spill" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "device.chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"global.cinema.false_colour" = { status = "todo" }
-"global.cinema.guides" = { status = "todo" }
-"global.cinema.level" = { status = "todo" }
-"global.cinema.peaking" = { status = "todo" }
-"global.cinema.peaking_colour" = { status = "todo" }
-"global.cinema.peaking_level" = { status = "todo" }
-"global.cinema.scope" = { status = "todo" }
-"global.cinema.scope_size" = { status = "todo" }
-"global.cinema.zebra_level" = { status = "todo" }
-"global.cinema.zebras" = { status = "todo" }
+"global.cinema.false_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking_level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.scope_size" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.zebra_level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour_grading
 "device.colour_grading.contrast" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "device.colour_grading.curves" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -5501,9 +5501,9 @@
 "device.colour_grading.tint" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "device.colour_grading.wheels" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 # ── composite
-"global.composite.layout" = { status = "todo" }
-"global.composite.layouts" = { status = "todo" }
-"global.composite.on" = { status = "todo" }
+"global.composite.layout" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs::set_config" }
+"global.composite.layouts" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs::set_config" }
+"global.composite.on" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs::set_config" }
 # ── connection
 "global.connection.computer_id" = { status = "ported", rust = "rust/crates/link/src/connection.rs::get_config", note = "the Connection plugin owns its section (get_config/set_config), not core::source::Phones" }
 "global.connection.computer_name" = { status = "ported", rust = "rust/crates/link/src/connection.rs::get_config", note = "the Connection plugin owns its section (get_config/set_config), not core::source::Phones" }
@@ -5693,12 +5693,12 @@
 "chroma_key.screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"cinema.false_colour" = { status = "todo" }
-"cinema.guides" = { status = "todo" }
-"cinema.level" = { status = "todo" }
-"cinema.peaking" = { status = "todo" }
-"cinema.scope" = { status = "todo" }
-"cinema.zebras" = { status = "todo" }
+"cinema.false_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour_grading
 "colour_grading.compare" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }
 "colour_grading.contrast" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }
@@ -5707,8 +5707,8 @@
 "colour_grading.temperature" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }
 "colour_grading.tint" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }
 # ── composite
-"composite.layout" = { status = "todo" }
-"composite.on" = { status = "todo" }
+"composite.layout" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs::actions" }
+"composite.on" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs::actions" }
 # ── connection
 "phone.pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::run_action" }
 # ── desk
