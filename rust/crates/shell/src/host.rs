@@ -324,7 +324,7 @@ impl HostView for Ctx<'_> {
         self.state.view.clone()
     }
     fn view_aspect(&self) -> f32 {
-        0.0
+        self.state.view_aspect()
     }
     fn set_view(&mut self, change: ViewChange) {
         let st = &mut *self.state;

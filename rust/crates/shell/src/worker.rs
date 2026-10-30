@@ -100,6 +100,8 @@ pub struct WorkerSetup {
 pub struct VisionFeed {
     pub service: Arc<dyn telescope_core::vision::VisionService>,
     pub upright: Arc<Mutex<telescope_core::vision::Upright>>,
+    /// Where each stream says how big its frames are before the view.
+    pub frame_sizes: Arc<Mutex<std::collections::HashMap<String, (u32, u32)>>>,
 }
 
 /// StreamSource::waiting_text, asked each time opening the stream fails.
@@ -602,6 +604,13 @@ impl Shared {
             (None, None) => frame,
             _ => stretch(&frame, rw.unwrap_or(frame.width), rh.unwrap_or(frame.height)),
         };
+        if let Some(feed) = &self.vision {
+            let size = (frame.width, frame.height);
+            let mut sizes = feed.frame_sizes.lock().unwrap();
+            if sizes.get(&self.source_id) != Some(&size) {
+                sizes.insert(self.source_id.clone(), size);
+            }
+        }
         // vision looks for people in the frame before the view (view_controller.process_frame)
         if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
             let upright = *feed.upright.lock().unwrap();
