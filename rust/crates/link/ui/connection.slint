@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -16,7 +16,11 @@ export struct PhoneRow {
     name: string,
     sub: string,
     renamable: bool,
+    // Screen readers' names for its buttons
+    rename-label: string,
+    remove-label: string,
     // The question Remove asks first, filled in
+    confirm-title: string,
     confirm: string,
 }
 
@@ -65,6 +69,85 @@ component QrCode inherits Rectangle {
     }
 }
 
+// A QScrollArea: as tall as what's in it up to cap, then a scroll bar. gutter keeps room for the bar beside the rows; it
+// can't follow the height, which follows the rows' width.
+component ScrollList inherits Rectangle {
+    in property <length> cap;
+    in property <length> gap;
+    in property <bool> gutter;
+    out property <length> wanted: rows.preferred-height;
+    out property <bool> scrolls: wanted > cap;
+    height: min(wanted, cap);
+    changed wanted => {
+        flick.viewport-y = max(flick.viewport-y, min(0px, cap - wanted));
+    }
+    flick := Flickable {
+        viewport-height: wanted;
+        rows := VerticalLayout {
+            width: flick.width - (gutter ? 14px : 0px);
+            spacing: gap;
+            alignment: start;
+            @children
+        }
+    }
+    if scrolls: Rectangle {
+        property <length> room: flick.height - self.height;
+        x: parent.width - self.width;
+        y: room * flick.viewport-y / (flick.height - flick.viewport-height);
+        width: 6px;
+        height: max(24px, flick.height * flick.height / flick.viewport-height);
+        border-radius: 3px;
+        background: drag.has-hover || drag.pressed ? Theme.border-hover : Theme.border-strong;
+        drag := TouchArea {
+            moved => {
+                if (self.pressed) {
+                    flick.viewport-y = clamp(flick.viewport-y - (self.mouse-y - self.pressed-y) * (flick.viewport-height - flick.height) / room,
+                                             flick.height - flick.viewport-height, 0px);
+                }
+            }
+        }
+    }
+}
+
+// Add phone's Pair buttons: scrolling past four, so a pile of phones can't grow the dialog.
+export component UsbPicks inherits ScrollList {
+    in property <[UsbPick]> picks;
+    callback pick(string);
+    cap: 4 * 32px + 3 * 6px;
+    gap: 6px;
+    gutter: picks.length > 4;
+    for p in picks: HorizontalLayout {
+        alignment: start;
+        Button { text: p.label; enabled: p.enabled; clicked => { root.pick(p.serial); } }
+    }
+}
+
+// Your phones' strips: about six, then a scroll bar instead of a dialog that grows off the screen (_PhoneRows).
+export component PhoneList inherits ScrollList {
+    in property <[PhoneRow]> rows-shown;
+    callback rename(PhoneRow);
+    callback remove(PhoneRow);
+    cap: 320px;
+    gap: 8px;
+    gutter: rows-shown.length > 6;
+    for row in rows-shown: SettingRow {
+        title: row.name;
+        sub: row.sub;
+        if row.renamable: IconButton {
+            icon: Icons.pencil;
+            label: row.rename-label;
+            tip: @tr("Rename");
+            clicked => { root.rename(row); }
+        }
+        IconButton {
+            icon: Icons.trash;
+            label: row.remove-label;
+            tip: @tr("Remove");
+            clicked => { root.remove(row); }
+        }
+    }
+}
+
 export component ConnectionCard inherits Card {
     // The link block: how the phone is doing, over what, and what to do about it
     in property <string> status-text;
@@ -98,12 +181,15 @@ export component ConnectionCard inherits Card {
     in property <string> usb-text;
     in property <string> usb-kind: "status_dim";
     in property <string> usb-action;
+    // A second way out next to it: pick an adb already here
+    in property <string> usb-pick-action;
     in property <[UsbPick]> picks;
     in property <string> result-text;
     in property <bool> paired;
     callback add-closed;
     callback pick(string);
     callback usb-action-clicked;
+    callback usb-pick-clicked;
 
     // The question before the virtual camera's password prompt
     in property <bool> vcam-open;
@@ -283,11 +369,13 @@ export component ConnectionCard inherits Card {
                     Note { text: usb-text; kind: usb-kind; }
                     if usb-action != "": HorizontalLayout {
                         alignment: start;
+                        spacing: 8px;
                         Button { text: usb-action; clicked => { root.usb-action-clicked(); } }
+                        if usb-pick-action != "": Button { text: usb-pick-action; clicked => { root.usb-pick-clicked(); } }
                     }
-                    for p in picks: HorizontalLayout {
-                        alignment: start;
-                        Button { text: p.label; enabled: p.enabled; clicked => { root.pick(p.serial); } }
+                    if picks.length > 0: UsbPicks {
+                        picks: root.picks;
+                        pick(serial) => { root.pick(serial); }
                     }
                 }
             }
@@ -374,10 +462,25 @@ export component PhonePicker inherits HorizontalLayout {
     callback remove(string);
     callback rename-computer(string);
     callback add-phone;
+    // The picker's list opened or closed
+    in property <[bool]> gone;
+    callback picker-open(bool);
 
-    property <string> renaming;
-    property <string> confirming;
+    // _ask_name: whose name it asks for ("" for this computer's)
+    property <string> naming;
+    property <string> name-title;
+    property <string> name-label;
+    property <string> name-text;
+    // The row Remove asks about
+    property <PhoneRow> removing;
     spacing: 8px;
+
+    function ask-name(id: string, title: string, label: string, text: string) {
+        naming = id;
+        name-title = title;
+        name-label = label;
+        name-text = text;
+    }
 
     changed phones-open => {
         if (self.phones-open) {
@@ -400,10 +503,12 @@ export component PhonePicker inherits HorizontalLayout {
         icon-tint: Theme.plugin-hue("streaming");
         caption: names.length == 0 ? @tr("No phone yet") : "";
         items: names;
+        gone: root.gone;
         current <=> root.current;
         accessible-label: @tr("Phone");
         accessible-description: @tr("Which phone to stream from");
         picked(i) => { root.picked(i); }
+        changed open => { root.picker-open(self.open); }
     }
     Button {
         width: 34px;
@@ -426,68 +531,118 @@ export component PhonePicker inherits HorizontalLayout {
         DialogFrame {
             title: @tr("Your phones");
             subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
-            if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
-            for row in rows: HorizontalLayout {
-                spacing: 8px;
-                if renaming == row.id: TextField {
-                    horizontal-stretch: 1;
-                    text: row.name;
-                    accepted => {
-                        root.rename(row.id, self.text);
-                        root.renaming = "";
+            Card {
+                title: @tr("Phones");
+                icon: Icons.phone;
+                hue: Theme.plugin-hue("streaming");
+                has-action: true;
+                action-icon: Icons.plus;
+                action-text: @tr("Add phone");
+                action-label: @tr("Pair another phone");
+                action => { root.add-phone(); }
+                if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
+                if rows.length > 0: PhoneList {
+                    rows-shown: rows;
+                    rename(row) => {
+                        root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
+                        name-popup.show();
                     }
-                    escape-empty => { root.renaming = ""; }
-                }
-                if renaming != row.id: VerticalLayout {
-                    horizontal-stretch: 1;
-                    Text { text: row.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; overflow: elide; }
-                    if row.sub != "": Note { text: row.sub; }
-                }
-                if row.renamable && renaming != row.id: Button {
-                    text: @tr("Rename");
-                    role: "quiet";
-                    clicked => { root.renaming = row.id; }
-                }
-                if confirming != row.id: Button {
-                    text: @tr("Remove");
-                    role: "quiet";
-                    clicked => { root.confirming = row.id; }
+                    remove(row) => {
+                        root.removing = row;
+                        confirm-popup.show();
+                    }
                 }
             }
-            for row in rows: VerticalLayout {
-                visible: confirming == row.id;
-                height: confirming == row.id ? self.preferred-height : 0px;
-                spacing: 6px;
-                Note { text: row.confirm; kind: "status_warn"; }
-                HorizontalLayout {
-                    alignment: end;
-                    spacing: 8px;
-                    Button { text: @tr("Cancel"); clicked => { root.confirming = ""; } }
+            Card {
+                title: @tr("This computer");
+                icon: Icons.monitor;
+                hue: Theme.plugin-hue("streaming");
+                SettingRow {
+                    title: computer-name;
+                    sub: @tr("What your phones call it");
                     Button {
-                        text: @tr("Remove");
-                        role: "primary";
+                        text: @tr("Change name");
+                        tip: @tr("The name your phones show for this computer");
+                        accessible-label: @tr("Change this computer's name");
                         clicked => {
-                            root.remove(row.id);
-                            root.confirming = "";
+                            root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
+                            name-popup.show();
                         }
                     }
                 }
             }
-            Rectangle { height: 1px; background: Theme.border; }
-            FormRow {
-                label: @tr("This computer");
-                TextField {
-                    horizontal-stretch: 1;
-                    text: computer-name;
-                    accessible-description: @tr("What phones call this computer");
-                    accepted => { root.rename-computer(self.text); }
+            HorizontalLayout {
+                alignment: end;
+                padding-top: 4px;
+                Button { width: 96px; height: 32px; text: @tr("Close"); clicked => { root.phones-closed(); } }
+            }
+
+            // Inside this one: showing a popup closes any other under the same parent
+            name-popup := PopupWindow {
+                close-policy: no-auto-close;
+                x: 30px;
+                y: 140px;
+                width: 400px;
+                DialogFrame {
+                    border-width: 1px;
+                    border-color: Theme.border-strong;
+                    border-radius: 12px;
+                    title: name-title;
+                    Note { text: name-label; kind: ""; }
+                    name-field := TextField {
+                        text: name-text;
+                        label: name-label;
+                        init => { self.focus-all(); }
+                        accepted => { ok.clicked(); }
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        Button { width: 96px; height: 32px; text: @tr("Cancel"); clicked => { name-popup.close(); } }
+                        ok := Button {
+                            width: 96px;
+                            height: 32px;
+                            text: @tr("OK");
+                            role: "primary";
+                            clicked => {
+                                if (naming == "") {
+                                    root.rename-computer(name-field.text);
+                                } else {
+                                    root.rename(naming, name-field.text);
+                                }
+                                name-popup.close();
+                            }
+                        }
+                    }
                 }
             }
-            HorizontalLayout {
-                spacing: 8px;
-                Button { text: @tr("Add phone"); has-icon: true; icon: Icons.v-plus; clicked => { root.add-phone(); } }
-                Rectangle { horizontal-stretch: 1; }
-                Button { text: @tr("Close"); clicked => { root.phones-closed(); } }
+
+            confirm-popup := PopupWindow {
+                close-policy: no-auto-close;
+                x: 30px;
+                y: 140px;
+                width: 400px;
+                DialogFrame {
+                    border-width: 1px;
+                    border-color: Theme.border-strong;
+                    border-radius: 12px;
+                    title: removing.confirm-title;
+                    Note { text: removing.confirm; kind: ""; }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        Button {
+                            width: 96px;
+                            height: 32px;
+                            text: @tr("Yes");
+                            clicked => {
+                                root.remove(removing.id);
+                                confirm-popup.close();
+                            }
+                        }
+                        Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; clicked => { confirm-popup.close(); } }
+                    }
+                }
             }
         }
     }

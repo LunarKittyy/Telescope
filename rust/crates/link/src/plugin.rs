@@ -13,8 +13,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 use telescope_core::event::{Event, RememberedSource, SourceName};
-use telescope_core::host::{Host, Poster};
-use telescope_core::i18n::tr;
+use telescope_core::host::{FileDialog, FileDialogKind, Host, Poster, RequestId};
+use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::link::{Link, PairingOffer, PhoneStatus, Resolution, RoutePreference, UsbDevice};
 use telescope_core::output::{Outputs, SetupAction, SetupResult, SETUP_CANCELLED, V4L2_PHONE_DEV};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
@@ -54,6 +54,7 @@ struct AddPhone {
     usb_text: String,
     usb_kind: &'static str,
     usb_action: String,
+    usb_pick_action: String,
     usb_states: Vec<UsbDevice>,
     chosen: Option<String>,
     last_offer: HashMap<String, Instant>,
@@ -90,6 +91,9 @@ pub struct ConnectionPlugin {
     same_phone: Option<SamePhone>,
     /// Ids in the picker's order, phones then sources.
     picker_ids: Vec<String>,
+    /// Its list is open, and what changed under it waits for it to close.
+    picker_open: bool,
+    picker_stale: bool,
     /// set_config has no host: the card catches up on the next hook.
     stale: bool,
     adb_available: bool,
@@ -100,6 +104,8 @@ pub struct ConnectionPlugin {
     outputs: Option<Arc<dyn Outputs>>,
     /// What the Start waiting for the virtual camera's setup starts again.
     vcam_source: Option<String>,
+    /// The file dialog asking for an adb the person has already.
+    adb_asked: Option<RequestId>,
 }
 
 /// rust/parity's pair script: in a dev profile with TELESCOPE_PARITY_OFFER set, Add phone opens from
@@ -115,8 +121,8 @@ impl ConnectionPlugin {
         ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
             updating_phone: false, update_note: None, add: None, phones_open: false, same_phone: None, picker_ids: Vec::new(),
-            stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
-            outputs: None, vcam_source: None,
+            picker_open: false, picker_stale: false, stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
+            outputs: None, vcam_source: None, adb_asked: None,
         }
     }
 
@@ -193,8 +199,15 @@ impl ConnectionPlugin {
             let current = ids.iter().position(|i| Some(i) == c.selected_id.as_ref()).map_or(-1, |i| i as i64);
             (names, ids, current, c.phones.len() as u32)
         };
-        self.picker_ids = ids;
-        host.set_ui_props("header", &json!({"names": names, "current": current}));
+        if self.picker_open {
+            // The open list isn't rebuilt under the pointer, but what went away can't be picked
+            let gone: Vec<bool> = self.picker_ids.iter().map(|id| !ids.contains(id)).collect();
+            self.picker_stale = true;
+            host.set_ui_props("header", &json!({"gone": gone}));
+        } else {
+            self.picker_ids = ids;
+            host.set_ui_props("header", &json!({"names": names, "current": current, "gone": []}));
+        }
         host.emit(Event::PhonesChanged { count });
         if self.phones_open {
             self.refresh_phones_dialog(host);
@@ -388,9 +401,18 @@ impl ConnectionPlugin {
         self.update_note = None;
         self.render(host);
         let link = self.link.clone();
-        self.spawn(P_UPDATED, move || match link.install_app(&serial, &apk) {
-            Ok(()) => json!({"ok": true}),
-            Err(detail) => json!({"ok": false, "detail": detail}),
+        self.spawn(P_UPDATED, move || {
+            // Always report back, or the card stays on "Updating…" for good
+            let installed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| link.install_app(&serial, &apk)));
+            match installed {
+                Ok(Ok(())) => json!({"ok": true}),
+                Ok(Err(detail)) => json!({"ok": false, "detail": detail}),
+                Err(panic) => {
+                    let error = panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned());
+                    log::error!("Phone app install failed: {error:?}");
+                    json!({"ok": false, "detail": tr("Couldn't update the phone app: {error}").replace("{error}", &error.unwrap_or_default())})
+                }
+            }
         });
     }
 
@@ -471,7 +493,7 @@ impl ConnectionPlugin {
         };
         let mut add = AddPhone {
             offer: None, qr: (Vec::new(), 0), wifi_text: String::new(), usb_text: String::new(), usb_kind: "status_dim",
-            usb_action: String::new(), usb_states: Vec::new(), chosen: None, last_offer: HashMap::new(), paired: None,
+            usb_action: String::new(), usb_pick_action: String::new(), usb_states: Vec::new(), chosen: None, last_offer: HashMap::new(), paired: None,
             confirming: false,
         };
         match self.link.pair(&cid, &cname) {
@@ -506,6 +528,7 @@ impl ConnectionPlugin {
         self.adb_available = adb;
         let Some(add) = self.add.as_mut() else { return };
         add.usb_action.clear();
+        add.usb_pick_action.clear();
         if self.downloader.running() {
             // Reopened mid-download: its progress shows on the next step
             add.usb_text = tr("Getting adb from Google…");
@@ -515,7 +538,8 @@ impl ConnectionPlugin {
             host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
             self.poll_usb();
         } else if crate::platform::windows() {
-            add.usb_text = tr("Needs adb, which Telescope can get from Google. Wi-Fi works without it.");
+            // A button stands in for Python's link, which Slint's Text can't show
+            add.usb_text = without_links(&tr("Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it."));
             add.usb_action = tr("Get adb from Google");
         } else {
             add.usb_text = tr("Needs adb, which isn't installed. Wi-Fi works without it.");
@@ -540,7 +564,7 @@ impl ConnectionPlugin {
             "add-open": open,
             "add-subtitle": if paired { tr("You can start streaming now.") } else { tr("Open Telescope on the phone first.") },
             "qr-cells": add.qr.0, "qr-size": add.qr.1,
-            "wifi-text": add.wifi_text, "usb-text": add.usb_text, "usb-kind": add.usb_kind, "usb-action": add.usb_action,
+            "wifi-text": add.wifi_text, "usb-text": add.usb_text, "usb-kind": add.usb_kind, "usb-action": add.usb_action, "usb-pick-action": add.usb_pick_action,
             "picks": picks, "paired": paired,
             "result-text": add.paired.as_ref().map(|n| tr("Paired with {name}").replace("{name}", n)).unwrap_or_default(),
         }));
@@ -617,9 +641,37 @@ impl ConnectionPlugin {
         }
         add.confirming = false;
         add.usb_action.clear();
+        add.usb_pick_action.clear();
         add.usb_text = tr("Getting adb from Google…");
+        self.run_adb_job(None);
+        self.render_add(host, true);
+    }
+
+    /// Pick an adb.exe or platform-tools zip instead, after a download that failed (pick_and_start).
+    fn pick_adb(&mut self, host: &mut dyn Host) {
+        if self.downloader.running() {
+            return;
+        }
+        self.adb_asked = host.pick_file(&FileDialog {
+            kind: FileDialogKind::Open, title: tr("Pick adb.exe or the platform-tools zip"), start: String::new(),
+            filters: vec![tr("adb.exe or platform-tools zip (adb.exe *.zip)")],
+        });
+    }
+
+    fn adb_picked(&mut self, host: &mut dyn Host, path: &str) {
+        let Some(add) = self.add.as_mut() else { return };
+        add.usb_text = tr("Copying adb…");
+        add.usb_kind = "status_dim";
+        add.usb_action.clear();
+        add.usb_pick_action.clear();
+        let path = std::path::PathBuf::from(path);
+        self.run_adb_job(Some(Arc::new(move |_| adb_download::use_own_adb(&path, None))));
+        self.render_add(host, true);
+    }
+
+    fn run_adb_job(&self, job: Option<adb_download::DownloadJob>) {
         let (progress_poster, done_poster) = (self.poster.clone(), self.poster.clone());
-        self.downloader.start(None, Box::new(move |msg| {
+        self.downloader.start(job, Box::new(move |msg| {
             if let Some(p) = &progress_poster {
                 p.post(P_ADB_PROGRESS, json!(msg));
             }
@@ -631,7 +683,6 @@ impl ConnectionPlugin {
                 });
             }
         }));
-        self.render_add(host, true);
     }
 
     fn on_adb(&mut self, host: &mut dyn Host, data: &Value) {
@@ -643,9 +694,12 @@ impl ConnectionPlugin {
         if data["ok"].as_bool() == Some(true) {
             self.start_usb(host);
         } else if let Some(add) = self.add.as_mut() {
+            // Python's two links, as buttons
+            let links = tr("<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>.");
             add.usb_text = data["detail"].as_str().unwrap_or_default().to_string();
             add.usb_kind = "status_err";
-            add.usb_action = tr("Try again");
+            add.usb_action = link_label(&links, "{get}").unwrap_or_else(|| tr("Try again"));
+            add.usb_pick_action = link_label(&links, "{pick}").map(|l| capitalised(&l)).unwrap_or_default();
             add.confirming = true; // they agreed already
         }
         self.render_add(host, true);
@@ -968,7 +1022,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         let live = c.streaming && c.connected && !c.lost;
         let text = match &ctx.source {
             None => tr("No phone yet"),
-            Some(_) if c.streaming && live => tr("Streaming"),
+            Some(_) if c.streaming && live => tr_ctx("status", "Streaming"),
             Some(source) if c.streaming => tr("Waiting for {source}…").replace("{source}", source),
             Some(source) => tr("{source}, no phone needed").replace("{source}", source),
         };
@@ -990,7 +1044,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
             ("", match c.stream_route() {
                 Some(r) if is_usb(&r) => tr("Streaming over USB"),
                 Some(_) => tr("Streaming over Wi-Fi"),
-                None => tr("Streaming"),
+                None => tr_ctx("status", "Streaming"),
             })
         } else {
             ("status_dim", tr("Connecting…"))
@@ -1054,6 +1108,31 @@ fn fix_does(fix: Fix, source_id: &str) -> IssueDoes {
     }
 }
 
+/// Text with its <a href="..."> tags taken out.
+fn without_links(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('<') {
+        out.push_str(&rest[..start]);
+        let Some(end) = rest[start..].find('>') else { return out + &rest[start..] };
+        rest = &rest[start + end + 1..];
+    }
+    out + rest
+}
+
+/// What the link to target says, in a text with <a href="target"> in it.
+fn link_label(text: &str, target: &str) -> Option<String> {
+    let open = format!("<a href=\"{target}\">");
+    let start = text.find(&open)? + open.len();
+    Some(text[start..].split("</a>").next()?.to_string())
+}
+
+/// The first letter in capitals: a link from the middle of a sentence, shown as a button.
+fn capitalised(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map_or_else(String::new, |c| c.to_uppercase().collect::<String>() + chars.as_str())
+}
+
 /// A banner button that copies command (copy_action).
 fn copy_action(command: &str) -> IssueAction {
     IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: format!("copy:{command}") } }
@@ -1067,12 +1146,17 @@ pub fn phone_rows(phones: &[PairedPhone], remembered: &[RememberedSource]) -> Ve
         let sub = if ip.is_empty() { tr("Phone") } else { tr("Phone · {ip}").replace("{ip}", &ip) };
         let confirm = tr("Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it.")
             .replace("{name}", &phone.name);
-        rows.push(json!({"id": phone.id, "name": phone.name, "sub": sub, "renamable": true, "confirm": confirm}));
+        rows.push(json!({"id": phone.id, "name": phone.name, "sub": sub, "renamable": true,
+                         "rename-label": tr("Rename {name}").replace("{name}", &phone.name),
+                         "remove-label": tr("Remove {name}").replace("{name}", &phone.name),
+                         "confirm-title": tr("Remove phone"), "confirm": confirm}));
     }
     for source in remembered {
         let confirm = tr("Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults.")
             .replace("{name}", &source.name);
-        rows.push(json!({"id": source.id, "name": source.name, "sub": source.detail, "renamable": false, "confirm": confirm}));
+        rows.push(json!({"id": source.id, "name": source.name, "sub": source.detail, "renamable": false,
+                         "remove-label": tr("Remove {name}").replace("{name}", &source.name),
+                         "confirm-title": tr("Remove browser"), "confirm": confirm}));
     }
     rows
 }
@@ -1128,6 +1212,12 @@ impl Plugin for ConnectionPlugin {
         match event {
             Event::Posted { owner, token, data } if owner == NAME => self.on_posted(host, token, data),
             Event::TimerFired { owner, token } if owner == NAME => self.on_timer(host, token),
+            Event::RequestDone { request, ok, data, .. } if self.adb_asked == Some(*request) => {
+                self.adb_asked = None;
+                if let (true, Some(path)) = (*ok, data["path"].as_str().filter(|p| !p.is_empty())) {
+                    self.adb_picked(host, path);
+                }
+            }
             Event::StreamConnected { source_id } => {
                 let shows = self.shows(host, source_id);
                 self.conn().on_stream_connected(shows);
@@ -1191,7 +1281,7 @@ impl Plugin for ConnectionPlugin {
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ConnectionSettings".into(), props: json!({"udp": self.conn().udp}) },
             order: 0,
             tab_title: String::new(),
-            keywords: tr("udp tcp transport network lag freezes stutter wifi"),
+            keywords: tr_ctx("search", "udp tcp transport network lag freezes stutter wifi"),
             footer: None,
         }]
     }
@@ -1278,6 +1368,7 @@ impl Plugin for ConnectionPlugin {
             ("card", "add-closed") => self.close_add(host),
             ("card", "pick") => self.pick_usb(host, &s(0)),
             ("card", "usb-action-clicked") => self.get_adb(host),
+            ("card", "usb-pick-clicked") => self.pick_adb(host),
             ("card", "vcam-answered") => {
                 let answer = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
                 self.answer_vcam(host, answer(0), answer(1));
@@ -1288,6 +1379,12 @@ impl Plugin for ConnectionPlugin {
                     self.select(host, Some(&pid), false, true);
                 }
             }
+            ("header", "picker-open") => {
+                self.picker_open = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                if !self.picker_open && std::mem::take(&mut self.picker_stale) {
+                    self.refresh_picker(host);
+                }
+            }
             ("header", "manage") => {
                 self.phones_open = true;
                 self.refresh_phones_dialog(host);
@@ -1296,8 +1393,8 @@ impl Plugin for ConnectionPlugin {
                 self.phones_open = false;
                 host.set_ui_props("header", &json!({"phones-open": false}));
             }
-            ("header", "rename") => self.rename_phone(host, &s(0), &s(1)),
-            ("header", "rename-computer") => self.set_computer_name(host, &s(0)),
+            ("header", "rename") if !s(1).trim().is_empty() => self.rename_phone(host, &s(0), s(1).trim()),
+            ("header", "rename-computer") if !s(0).trim().is_empty() => self.set_computer_name(host, s(0).trim()),
             ("header", "remove") => {
                 let pid = s(0);
                 if self.remembered.iter().any(|r| r.id == pid) {
@@ -1442,6 +1539,7 @@ mod tests {
         answer: Mutex<Resolution>,
         unpaired: Mutex<Vec<String>>,
         install: Mutex<Result<(), String>>,
+        install_panics: Mutex<bool>,
         offer: Mutex<Option<Arc<FakeOffer>>>,
         adb: Mutex<bool>,
         offline: Mutex<bool>,
@@ -1451,7 +1549,7 @@ mod tests {
         fn new() -> Arc<FakeLink> {
             Arc::new(FakeLink {
                 answer: Mutex::new(Resolution::new(PhoneStatus::Unreachable)), unpaired: Mutex::default(),
-                install: Mutex::new(Ok(())), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
+                install: Mutex::new(Ok(())), install_panics: Mutex::default(), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
             })
         }
 
@@ -1514,6 +1612,7 @@ mod tests {
             *self.adb.lock().unwrap()
         }
         fn install_app(&self, _serial: &str, _apk: &str) -> Result<(), String> {
+            assert!(!*self.install_panics.lock().unwrap(), "no space left");
             self.install.lock().unwrap().clone()
         }
     }
@@ -1847,6 +1946,8 @@ mod tests {
         assert_eq!(rows.as_array().unwrap().len(), 2);
         assert_eq!(rows[0]["sub"], "Phone · 10.0.0.5");
         assert!(rows[0]["confirm"].as_str().unwrap().starts_with("Remove \"Pixel\"?"));
+        assert_eq!((&rows[0]["rename-label"], &rows[0]["remove-label"], &rows[0]["confirm-title"]),
+                   (&json!("Rename Pixel"), &json!("Remove Pixel"), &json!("Remove phone")));
         e.ui("header", "remove", vec![json!("id-b")]);
         assert_eq!(e.props("header")["rows"].as_array().unwrap().len(), 1);
     }
@@ -2014,6 +2115,37 @@ mod tests {
         e.settle();
         assert_eq!(e.props("card")["note-text"], "The phone said no");
         assert_eq!(e.props("card")["note-kind"], "status_err");
+    }
+
+    #[test]
+    fn a_phone_update_that_blows_up_still_reports_back() {
+        let mut e = env();
+        e.link.answer(Resolution { route: Some(usb()), ..Resolution::new(PhoneStatus::PhoneOutdated) });
+        *e.link.install_panics.lock().unwrap() = true;
+        e.add("id-a", "Pixel");
+        e.ui("card", "update", vec![]);
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert_eq!(e.props("card")["note-text"], "Couldn't update the phone app: no space left");
+        assert!(!e.plugin.updating_phone);
+    }
+
+    #[test]
+    fn sources_changing_while_the_picker_is_open_wait_for_it_to_close() {
+        let mut e = env();
+        let source = |id: &str, name: &str| telescope_core::event::SourceName { id: id.into(), name: name.into() };
+        e.add("id-a", "Pixel");
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:a", "HD Webcam")] });
+        e.ui("header", "picker-open", vec![json!(true)]);
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:b", "Brio")] });
+        // The open list isn't rebuilt under the pointer, and the unplugged one can't be picked
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "HD Webcam"]));
+        assert_eq!(e.props("header")["gone"], json!([false, true]));
+
+        e.ui("header", "picker-open", vec![json!(false)]);
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "Brio"]));
+        assert_eq!(e.props("header")["gone"], json!([]));
+        assert_eq!(e.props("header")["current"], json!(0));
     }
 
     fn browser_camera_offered(e: &mut Env) {
@@ -2315,6 +2447,26 @@ mod tests {
         assert_eq!(e.props("card")["usb-text"], "Couldn't reach Google.");
         assert_eq!(e.props("card")["usb-kind"], "status_err");
         assert_eq!(e.props("card")["usb-action"], "Try again");
+        assert_eq!(e.props("card")["usb-pick-action"], "Pick one you already have");
+
+        // An adb.exe the person has already, which doesn't work out here
+        e.ui("card", "usb-pick-clicked", vec![]);
+        assert!(e.called("pick_file Open Pick adb.exe or the platform-tools zip"));
+        let request = e.plugin.adb_asked.unwrap();
+        e.plugin.on_event(&mut e.host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": "/nonexistent/adb.exe"}) });
+        assert!(e.host.calls.iter().any(|c| c.contains("Copying adb…")));
+        assert_eq!(e.props("card")["usb-action"], "");
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert_eq!(e.props("card")["usb-kind"], "status_err");
+    }
+
+    #[test]
+    fn links_become_plain_text_and_button_labels() {
+        let text = "Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it.";
+        assert_eq!(without_links(text), "Needs adb, which Telescope can get from Google. Wi-Fi works without it.");
+        assert_eq!(link_label(text, "{link}").as_deref(), Some("get from Google"));
+        assert_eq!(link_label(text, "{pick}"), None);
     }
 
     fn held_downloader() -> (adb_download::AdbDownloader, std::sync::mpsc::Sender<()>) {
