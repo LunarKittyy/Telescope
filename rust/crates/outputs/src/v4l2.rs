@@ -14,8 +14,7 @@ const VIDIOC_S_PARM: libc::c_ulong = 0xc0cc_5616; // _IOWR('V', 22, struct v4l2_
 
 /// Where the kernel lists video devices; tests point it elsewhere.
 pub const SYSFS: &str = "/sys/class/video4linux";
-/// Slot 0's node, as the Linux setup makes it (platform/linux.py V4L2_PHONE_DEV).
-pub const PHONE_DEV: &str = "/dev/video11";
+pub use telescope_core::output::V4L2_PHONE_DEV as PHONE_DEV;
 /// The other node the setup makes, for OBS.
 pub const OBS_DEV: &str = "/dev/video10";
 /// Its card_label, which is how other apps list it.

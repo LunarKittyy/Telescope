@@ -154,6 +154,11 @@ pub trait Plugin: Send {
     /// A banner button with IssueDoes::Plugin, or "dismiss" for an Issue with tell_dismiss.
     fn on_issue_action(&mut self, _host: &mut dyn Host, _key: &str, _id: &str) {}
 
+    /// At Start, before source_id gets ready (None: the picked one): whether the virtual camera can take a stream. False
+    /// ends this Start, and this plugin has said why or is asking the person, who can start again from there.
+    fn ensure_virtual_camera(&mut self, _host: &mut dyn Host, _interactive: bool, _source_id: Option<&str>) -> bool {
+        true
+    }
     /// A stream is about to open the virtual camera; anything holding it while idle lets go now.
     fn on_stream_starting(&mut self, _host: &mut dyn Host) {}
     /// The stream this plugin hears about started, or came back after a drop.

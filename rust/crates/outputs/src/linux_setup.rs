@@ -18,8 +18,7 @@ pub const PARAMS: [(&str, &str); 4] = [
 ];
 
 pub const NO_PROMPT: &str = n_("Telescope couldn't ask for your password here. Run this in a terminal, then try again.");
-/// Compared, never shown, so it stays as it is.
-pub const CANCELLED: &str = "Cancelled.";
+pub use telescope_core::output::SETUP_CANCELLED as CANCELLED;
 
 /// What the setup reads and runs, so tests can stand in for the system.
 pub trait System {
