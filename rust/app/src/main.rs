@@ -62,6 +62,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
         tray: if tray { telescope_system::system_tray().map(std::sync::Mutex::new) } else { None },
+        plugin_problems: Default::default(),
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage

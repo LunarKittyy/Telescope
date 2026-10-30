@@ -136,6 +136,7 @@ fn services(link: SceneLink) -> Arc<Services> {
         notifier: None,
         autostart: None,
         updater: None,
+        plugin_problems: Default::default(),
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
             vec![
