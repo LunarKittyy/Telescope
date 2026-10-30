@@ -7,6 +7,7 @@
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
+//!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
 //!
@@ -16,6 +17,7 @@
 
 mod cli;
 mod confirm;
+mod dev;
 mod scenes;
 
 use std::path::PathBuf;
@@ -84,7 +86,12 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
             let browser_mics = Arc::new(browser.mics());
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
-                Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone())),
+                Box::new({
+                    let mut setup = telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone());
+                    // Open log is there once the desktop log is (diagnostics.events.path)
+                    setup.log_path = telescope_core::diagnostics::events().path().map(|p| p.display().to_string());
+                    setup
+                }),
                 Box::new(connection.connection_plugin().with_outputs(outputs.clone())),
                 Box::new(browser),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
@@ -121,13 +128,14 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
 /// Log lines from every crate to stderr, at the level RUST_LOG names; when unset, warnings from this app's crates and
 /// only errors from libraries (wgpu warns about every Vulkan driver it skips).
 struct Stderr {
+    level: log::LevelFilter,
     quiet_libraries: bool,
 }
 
 impl log::Log for Stderr {
     fn enabled(&self, meta: &log::Metadata) -> bool {
         let floor = if self.quiet_libraries && !meta.target().starts_with("telescope") { log::Level::Error } else { log::Level::Trace };
-        meta.level() <= log::max_level() && meta.level() <= floor
+        meta.level() <= self.level && meta.level() <= floor
     }
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
@@ -137,13 +145,37 @@ impl log::Log for Stderr {
     fn flush(&self) {}
 }
 
-fn start_logging() {
-    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse().ok());
-    let level = asked.unwrap_or(log::LevelFilter::Warn);
-    let logger: &'static Stderr = Box::leak(Box::new(Stderr { quiet_libraries: asked.is_none() }));
-    if log::set_logger(logger).is_ok() {
-        log::set_max_level(level);
+/// The terminal and the desktop log (Copy diagnostics shows its latest lines), which wants Info from this app's crates.
+struct Both {
+    stderr: Stderr,
+    events: &'static telescope_core::diagnostics::EventLog,
+}
+
+impl log::Log for Both {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        self.stderr.enabled(meta) || self.events.enabled(meta)
     }
+    fn log(&self, record: &log::Record) {
+        self.stderr.log(record);
+        self.events.log(record);
+    }
+    fn flush(&self) {}
+}
+
+fn start_logging() {
+    let asked = std::env::var("RUST_LOG").ok().and_then(|v| v.parse::<log::LevelFilter>().ok());
+    let level = asked.unwrap_or(log::LevelFilter::Warn);
+    let stderr = Stderr { level, quiet_libraries: asked.is_none() };
+    let logger: &'static Both = Box::leak(Box::new(Both { stderr, events: telescope_core::diagnostics::events() }));
+    if log::set_logger(logger).is_ok() {
+        log::set_max_level(level.max(log::LevelFilter::Info));
+    }
+}
+
+/// Log to the desktop log file and keep panics in it (diagnostics.install), once the profile is settled.
+fn start_diagnostics() {
+    let version = telescope_system::version::display_version();
+    telescope_core::diagnostics::start(telescope_core::diagnostics::events(), &telescope_core::diagnostics::log_dir(), Some(&app_dir()), &version);
 }
 
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
@@ -240,11 +272,59 @@ fn started_fine() {
 /// --moved-from: the unzipped folder this installed copy replaced.
 static MOVED_FROM: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
 
+/// A word from the command line taken out, true if it was there.
+fn take_flag(words: &mut Vec<String>, name: &str) -> bool {
+    let found = words.iter().position(|w| w == name);
+    found.map(|i| words.remove(i)).is_some()
+}
+
+/// An option and its value taken out, None if it wasn't there or had no value.
+fn take_value(words: &mut Vec<String>, name: &str) -> Option<String> {
+    let i = words.iter().position(|w| w == name)?;
+    words.remove(i);
+    (i < words.len()).then(|| words.remove(i))
+}
+
+/// main.py's own options (parse_args), taken out of the words; what's left is for the commands.
+#[derive(Debug, Default, PartialEq)]
+struct Launch {
+    minimized: bool,
+    /// Started by an update: the old copy may still hold the lock.
+    after_update: bool,
+    restarted: bool,
+    /// The unzipped folder the installed copy replaced, which it removes once it has started fine.
+    moved_from: Option<PathBuf>,
+}
+
+fn take_launch(words: &mut Vec<String>) -> Launch {
+    Launch {
+        minimized: take_flag(words, "--minimized"),
+        after_update: take_flag(words, "--after-update"),
+        restarted: take_flag(words, "--restarted"),
+        moved_from: take_value(words, "--moved-from").map(PathBuf::from),
+    }
+}
+
 fn main() {
+    // Before the decoder and the stream start their threads, which would each get a pool of their own
+    telescope_system::memory::limit_malloc_arenas(4);
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
+    #[cfg(windows)]
+    {
+        use telescope_system::winapp;
+        // Run from inside a zip it would lose its files with the temp folder; installed, it takes the Start menu entry's id
+        if winapp::running_from_archive(&app_dir(), &std::env::temp_dir()) {
+            winapp::warn_running_from_archive();
+            std::process::exit(1);
+        }
+        winapp::use_installed_app_id(&app_dir());
+    }
     let mut words: Vec<String> = std::env::args().skip(1).collect();
+    if words.first().map(String::as_str) == Some("dev") {
+        std::process::exit(dev::run(&words[1..]));
+    }
     // --action takes every word after it
     let action = words.iter().position(|w| w == "--action").map(|i| words.split_off(i).split_off(1));
     let list_actions = words.iter().any(|w| w == "--list-actions");
@@ -252,15 +332,7 @@ fn main() {
         use_own_profile();
         std::process::exit(run_action(action));
     }
-    let flag = |words: &mut Vec<String>, name: &str| -> bool {
-        let found = words.iter().position(|w| w == name);
-        found.map(|i| words.remove(i)).is_some()
-    };
-    let value = |words: &mut Vec<String>, name: &str| -> Option<String> {
-        let i = words.iter().position(|w| w == name)?;
-        words.remove(i);
-        (i < words.len()).then(|| words.remove(i))
-    };
+    let (flag, value) = (take_flag, take_value);
     let args = cli::Args {
         usb: flag(&mut words, "--usb"),
         vaapi: flag(&mut words, "--vaapi"),
@@ -274,11 +346,10 @@ fn main() {
         autostart: flag(&mut words, "--autostart"),
         quit_after: value(&mut words, "--quit-after").and_then(|s| s.parse().ok()),
     };
-    let minimized = flag(&mut words, "--minimized");
-    let wait_for_lock = flag(&mut words, "--after-update") | flag(&mut words, "--restarted");
-    let _ = MOVED_FROM.set(value(&mut words, "--moved-from").map(PathBuf::from));
+    let launch = take_launch(&mut words);
+    let (minimized, wait_for_lock, after_update) = (launch.minimized, launch.after_update || launch.restarted, launch.after_update);
+    let _ = MOVED_FROM.set(launch.moved_from);
     let remote = telescope_system::shortcuts::RemoteActions::default();
-    let after_update = std::env::args().any(|a| a == "--after-update");
     // Before the window: an update cut short is finished, or one that never started is rolled back
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
@@ -301,6 +372,7 @@ fn main() {
     }
     if command != Some("config-snapshot") {
         use_own_profile();
+        start_diagnostics();
     }
     let result = match command {
         Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
@@ -325,5 +397,20 @@ fn main() {
     if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // test_move_to_installed.py::test_main_takes_the_moved_from_folder
+    #[test]
+    fn main_takes_the_moved_from_folder() {
+        let mut words: Vec<String> = ["--after-update", "--moved-from", r"C:\Users\l\Downloads\Telescope", "-style", "x"].map(String::from).to_vec();
+        let launch = take_launch(&mut words);
+        assert!(launch.after_update && !launch.restarted && !launch.minimized);
+        assert_eq!(launch.moved_from, Some(PathBuf::from(r"C:\Users\l\Downloads\Telescope")));
+        assert_eq!(words, ["-style", "x"]);
     }
 }

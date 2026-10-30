@@ -5673,6 +5673,7 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "i-slint-backend-testing",
+ "libc",
  "log",
  "qrcode",
  "serde_json",
@@ -5721,6 +5722,7 @@ dependencies = [
  "libc",
  "log",
  "qrcode",
+ "regex",
  "serde",
  "serde_json",
  "unicode-bidi",

@@ -12,7 +12,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use telescope_core::audio::{AudioFeed, AudioPacket, MicLevel, MicSettings, MicStream};
 use telescope_core::i18n::tr;
-use telescope_core::media::FeedEnd;
+use telescope_core::media::{FeedEnd, FeedStopper};
 
 pub const RETRY: Duration = Duration::from_secs(3);
 
@@ -51,6 +51,8 @@ struct Shared {
     route: Mutex<Route>,
     /// The connection whose audio goes into the buffer; others let go.
     current: AtomicU64,
+    /// Ends a read stuck on the connection going into the buffer.
+    reading: Mutex<Option<Box<dyn FeedStopper>>>,
     wakes: Mutex<Vec<Wake>>,
     signal: Condvar,
     retry: Duration,
@@ -64,6 +66,14 @@ impl Shared {
 
     fn stopped(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
+    }
+
+    /// feed is what's read from now; the connection before it lets go of a read it's stuck in.
+    fn read_from(&self, feed: &dyn AudioFeed) {
+        let last = std::mem::replace(&mut *self.reading.lock().unwrap_or_else(|e| e.into_inner()), feed.stopper());
+        if let Some(last) = last {
+            last.stop();
+        }
     }
 
     /// Waits up to d for a stop or a wake; true once stopped.
@@ -104,6 +114,7 @@ impl AudioWorker {
                 on_status,
                 route: Mutex::new(Route { url: url.into(), open }),
                 current: AtomicU64::new(0),
+                reading: Mutex::new(None),
                 wakes: Mutex::new(Vec::new()),
                 signal: Condvar::new(),
                 retry,
@@ -141,6 +152,10 @@ impl AudioWorker {
         self.shared.stop.store(true, Ordering::SeqCst);
         self.shared.current.store(u64::MAX, Ordering::SeqCst);
         self.shared.signal.notify_all();
+        let reading = self.shared.reading.lock().unwrap_or_else(|e| e.into_inner()).take();
+        if let Some(reading) = reading {
+            reading.stop();
+        }
         for t in self.threads.drain(..) {
             let _ = t.join();
         }
@@ -249,6 +264,7 @@ fn read_loop(s: &Arc<Shared>) {
                     }
                     s.measure.lock().unwrap_or_else(|e| e.into_inner()).reset();
                     running = Some(next_id);
+                    s.read_from(&*feed);
                     let (s2, id) = (s.clone(), next_id);
                     let _ = std::thread::Builder::new().name("mic-read".into()).spawn(move || pump(s2, id, feed, Some(first)));
                 }
@@ -291,6 +307,7 @@ fn read_loop(s: &Arc<Shared>) {
                     }
                     s.measure.lock().unwrap_or_else(|e| e.into_inner()).reset();
                     running = Some(next_id);
+                    s.read_from(&*feed);
                     let (s2, id) = (s.clone(), next_id);
                     let _ = std::thread::Builder::new().name("mic-read".into()).spawn(move || pump(s2, id, feed, None));
                 }
@@ -565,6 +582,61 @@ pub(crate) mod tests {
         let before = sink.data.lock().unwrap().len();
         assert!(until(|| sink.data.lock().unwrap().len() > before + 2000, 3.0)); // still playing
         assert!(!statuses.lock().unwrap().iter().any(|(k, _)| k == "err"));
+        w.stop();
+    }
+
+    /// A connection that stays open and silent until something stops it.
+    #[derive(Clone, Default)]
+    struct Silent {
+        stopped: Arc<AtomicBool>,
+        reading: Arc<AtomicBool>,
+    }
+
+    struct StopSilent(Arc<AtomicBool>);
+
+    impl FeedStopper for StopSilent {
+        fn stop(&self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    impl AudioFeed for Silent {
+        fn read(&mut self) -> Result<AudioPacket, FeedEnd> {
+            self.reading.store(true, Ordering::SeqCst);
+            while !self.stopped.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(FeedEnd::Stopped)
+        }
+
+        fn stopper(&self) -> Option<Box<dyn FeedStopper>> {
+            Some(Box::new(StopSilent(self.stopped.clone())))
+        }
+    }
+
+    fn silent(feed: &Silent) -> Opener {
+        let feed = feed.clone();
+        Arc::new(move || Ok(Box::new(feed.clone()) as Box<dyn AudioFeed>))
+    }
+
+    #[test]
+    fn stopping_ends_a_read_on_a_silent_connection() {
+        let feed = Silent::default();
+        let (mut w, _) = worker("browser:/audio", silent(&feed), sink_opener(&Sink::default()));
+        w.start();
+        assert!(until(|| feed.reading.load(Ordering::SeqCst), 3.0));
+        w.stop();
+        assert!(until(|| feed.stopped.load(Ordering::SeqCst), 2.0));
+    }
+
+    #[test]
+    fn a_hand_over_ends_the_old_connections_silent_read() {
+        let feed = Silent::default();
+        let (mut w, _) = worker("https://wifi/v1/audio", silent(&feed), sink_opener(&Sink::default()));
+        w.start();
+        assert!(until(|| feed.reading.load(Ordering::SeqCst), 3.0));
+        w.hand_over("https://usb/v1/audio", endless(200, &Arc::new(AtomicBool::new(false))));
+        assert!(until(|| feed.stopped.load(Ordering::SeqCst), 2.0));
         w.stop();
     }
 

@@ -356,7 +356,7 @@ mod real {
                                                std::ptr::null_mut(), instance, std::ptr::null_mut());
                     if !hwnd.is_null() {
                         // The app's own icon (resource 1) when the build has one, else Windows' generic one
-                        let mut icon = LoadIconW(instance, 1 as *const u16);
+                        let mut icon = LoadIconW(instance, std::ptr::without_provenance::<u16>(1));
                         if icon.is_null() {
                             icon = LoadIconW(std::ptr::null_mut(), IDI_APPLICATION as *const u16);
                         }

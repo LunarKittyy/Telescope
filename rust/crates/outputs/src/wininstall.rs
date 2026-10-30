@@ -309,57 +309,87 @@ pub fn app_dir() -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_default()
 }
 
+/// UnityCapture's DLLs for the copy of Telescope that runs from app (unitycapture_dir).
+pub fn unitycapture_dir_in(app: &Path) -> PathBuf {
+    app.join("unitycapture")
+}
+
+/// The Windows 11 camera's DLL for the copy that runs from app (mf_camera_dir).
+pub fn mf_camera_dir_in(app: &Path) -> PathBuf {
+    app.join("virtualcamera")
+}
+
+pub fn unitycapture_dir() -> PathBuf {
+    unitycapture_dir_in(&app_dir())
+}
+
+pub fn mf_camera_dir() -> PathBuf {
+    mf_camera_dir_in(&app_dir())
+}
+
+/// A file's SHA-256 as lower-case hex, read in pieces, or None when it can't be read (_sha256).
+pub fn sha256_file(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = file.read(&mut buf).ok()?;
+        if n == 0 {
+            break;
+        }
+        ctx.update(&buf[..n]);
+    }
+    Some(ctx.finish().as_ref().iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// The PowerShell that runs the admin script: Windows' own, from its system folder rather than PATH (_powershell).
+pub fn powershell_path(system_dir: Option<&Path>) -> String {
+    match system_dir {
+        Some(dir) => dir.join("WindowsPowerShell").join("v1.0").join("powershell.exe").to_string_lossy().into_owned(),
+        None => "powershell".into(),
+    }
+}
+
 #[cfg(windows)]
 pub use real::Windows;
 
 #[cfg(windows)]
 mod real {
     use super::*;
-    use crate::wincam::{self, Registry};
-    use std::io::Read;
+    use crate::wincam;
     use std::os::windows::process::CommandExt;
     use std::time::{Duration, Instant};
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const ADMIN_TIMEOUT: Duration = Duration::from_secs(60);
-    const CONSENT: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam";
 
     /// The real thing: this computer's registry, disk and network.
     pub struct Windows;
 
     impl InstallSys for Windows {
         fn mf_installable(&self) -> bool {
-            wincam::mf_allowed(&wincam::System) && self.mf_dir().join(MF_DLL).is_file()
+            wincam::mf_installable(&wincam::System, &self.mf_dir())
         }
         fn mf_registered(&self) -> bool {
             wincam::mf_registered(&wincam::System, 0)
         }
         fn camera_access_off(&self) -> bool {
-            wincam::System.machine_string(CONSENT, "Value").as_deref() == Some("Deny")
+            wincam::camera_access_off(&wincam::System)
         }
         fn mf_dir(&self) -> PathBuf {
-            app_dir().join("virtualcamera")
+            mf_camera_dir()
         }
         fn uc_dir(&self) -> PathBuf {
-            app_dir().join("unitycapture")
+            unitycapture_dir()
         }
         fn uc_user_folder(&self) -> Option<PathBuf> {
             // Telescope before 3.1.2 registered it from beside the app; the script only touches a copy that checks out
-            let dir = self.uc_dir();
-            dir.join(UC_SHA256[1].0).is_file().then_some(dir)
+            let (_, folder) = wincam::uc_registration(&wincam::System, &self.uc_dir())?;
+            (folder != wincam::protected_dir(&wincam::System, "UnityCapture")).then_some(folder)
         }
         fn sha256(&self, path: &Path) -> Option<String> {
-            let mut file = std::fs::File::open(path).ok()?;
-            let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
-            let mut buf = vec![0u8; 1 << 20];
-            loop {
-                let n = file.read(&mut buf).ok()?;
-                if n == 0 {
-                    break;
-                }
-                ctx.update(&buf[..n]);
-            }
-            Some(ctx.finish().as_ref().iter().map(|b| format!("{b:02x}")).collect())
+            sha256_file(path)
         }
         fn remove(&self, path: &Path) {
             let _ = std::fs::remove_file(path);
@@ -379,9 +409,7 @@ mod real {
             std::fs::rename(from, to).map_err(|e| e.to_string())
         }
         fn run_as_admin(&self, script: &str) -> Result<i32, String> {
-            // Windows' own PowerShell, from its system folder rather than PATH
-            let powershell = crate::win::system_dir().map(|d| d.join(r"WindowsPowerShell\v1.0\powershell.exe"))
-                .unwrap_or_else(|| PathBuf::from("powershell"));
+            let powershell = powershell_path(crate::win::system_dir().as_deref());
             let mut child = std::process::Command::new(powershell).args(["-NoProfile", "-Command", &elevate_command(script)])
                 .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
                 .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| e.to_string())?;
@@ -416,6 +444,8 @@ mod tests {
         exit_codes: RefCell<Vec<i32>>,
         scripts: RefCell<Vec<String>>,
         steps: RefCell<Vec<String>>,
+        /// The admin run fails to start or time out with this instead of exiting.
+        admin_error: Option<String>,
     }
 
     impl InstallSys for Fake {
@@ -441,6 +471,9 @@ mod tests {
         }
         fn run_as_admin(&self, script: &str) -> Result<i32, String> {
             self.scripts.borrow_mut().push(script.to_string());
+            if let Some(why) = &self.admin_error {
+                return Err(why.clone());
+            }
             Ok(self.exit_codes.borrow_mut().remove(0))
         }
     }
@@ -509,5 +542,186 @@ mod tests {
         assert!(script.contains("$from = Join-Path 'C:\\old' $name"));
         assert!(script.starts_with("$ErrorActionPreference = 'Stop'\n# Anything unexpected"));
         assert!(script.trim_end().ends_with("exit 0"));
+    }
+
+    /// Where the pieces of the Windows 11 camera sit in the Python app's virtualcamera folder.
+    fn virtualcamera() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/virtualcamera")
+    }
+
+    fn both_dlls_there(fake: &Fake) {
+        for (name, digest) in UC_SHA256 {
+            fake.files.borrow_mut().insert(PathBuf::from("C:/app/unitycapture").join(name), digest.to_string());
+        }
+    }
+
+    // test_platform_windows.py::test_unitycapture_dir_frozen_and_source
+    #[test]
+    fn unitycapture_dir_frozen_and_source() {
+        assert_eq!(unitycapture_dir_in(Path::new("/app")), Path::new("/app").join("unitycapture"));
+        assert_eq!(unitycapture_dir(), app_dir().join("unitycapture"));
+    }
+
+    // test_platform_windows.py::test_mf_camera_dir_frozen_and_source
+    #[test]
+    fn mf_camera_dir_frozen_and_source() {
+        assert_eq!(mf_camera_dir_in(Path::new("/app")), Path::new("/app").join("virtualcamera"));
+        assert_eq!(mf_camera_dir(), app_dir().join("virtualcamera"));
+    }
+
+    // test_platform_windows.py::test_sha256_reads_entire_file
+    #[test]
+    fn sha256_reads_entire_file() {
+        let dir = telescope_core::testing::scratch_dir("sha");
+        let data = vec![b'a'; (1 << 20) + 17];
+        std::fs::write(dir.join("large.bin"), &data).unwrap();
+        let whole: String = ring::digest::digest(&ring::digest::SHA256, &data).as_ref().iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(sha256_file(&dir.join("large.bin")), Some(whole));
+        assert_eq!(sha256_file(&dir.join("missing.bin")), None);
+    }
+
+    // test_platform_windows.py::test_download_unitycapture_verifies_both_files
+    #[test]
+    fn download_unitycapture_verifies_both_files() {
+        let fake = Fake { served: good_downloads(), ..Default::default() };
+        let progress = RefCell::new(Vec::new());
+        assert_eq!(download_unitycapture(&fake, &|m| progress.borrow_mut().push(m.to_string())), (true, "Downloaded".into()));
+        assert_eq!(*progress.borrow(), ["Downloading UnityCaptureFilter32.dll...", "Downloading UnityCaptureFilter64.dll..."]);
+        assert!(fake.files.borrow().contains_key(&PathBuf::from("C:/app/unitycapture/UnityCaptureFilter64.dll")));
+    }
+
+    // test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures
+    #[test]
+    fn download_unitycapture_handles_network_and_checksum_failures() {
+        let offline = Fake::default();
+        let (ok, msg) = download_unitycapture(&offline, &|_| {});
+        assert!(!ok && msg.contains("404"), "{msg}");
+        let wrong = Fake { served: UC_SHA256.iter().map(|(n, _)| (n.to_string(), "wrong".to_string())).collect(), ..Default::default() };
+        let (ok, msg) = download_unitycapture(&wrong, &|_| {});
+        assert!(!ok && msg.contains("checksum"), "{msg}");
+        assert!(wrong.files.borrow().is_empty(), "nothing is left behind");
+    }
+
+    // test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again
+    #[test]
+    fn register_drops_a_tampered_file_so_a_retry_downloads_it_again() {
+        let fake = Fake::default();
+        let path = PathBuf::from("C:/app/unitycapture/UnityCaptureFilter32.dll");
+        fake.files.borrow_mut().insert(path.clone(), "half".into());
+        assert!(!register_unitycapture(&fake, 1, false).0);
+        assert!(!fake.files.borrow().contains_key(&path));
+    }
+
+    // test_platform_windows.py::test_register_refuses_missing_or_tampered_files
+    #[test]
+    fn register_refuses_missing_or_tampered_files() {
+        let fake = Fake::default();
+        let (ok, msg) = register_unitycapture(&fake, 1, false);
+        assert!(!ok && msg.contains("checksum"), "{msg}");
+        assert!(fake.scripts.borrow().is_empty());
+    }
+
+    // test_platform_windows.py::test_register_names_what_failed_as_admin
+    #[test]
+    fn register_names_what_failed_as_admin() {
+        for (code, words) in [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder"), (5, "hit an error")] {
+            let fake = Fake { exit_codes: RefCell::new(vec![code]), ..Default::default() };
+            both_dlls_there(&fake);
+            let (ok, msg) = register_unitycapture(&fake, 1, false);
+            assert!(!ok && msg.contains(words), "{code}: {msg}");
+        }
+    }
+
+    // test_platform_windows.py::test_register_normalizes_process_failures
+    #[test]
+    fn register_normalizes_process_failures() {
+        let denied = Fake { exit_codes: RefCell::new(vec![1]), ..Default::default() };
+        both_dlls_there(&denied);
+        assert_eq!(register_unitycapture(&denied, 1, false), (false, "Registration failed (cancelled or denied?)".into()));
+        for why in ["Timed out", "powershell missing"] {
+            let broken = Fake { admin_error: Some(why.into()), ..Default::default() };
+            both_dlls_there(&broken);
+            assert_eq!(register_unitycapture(&broken, 1, false), (false, why.into()));
+        }
+    }
+
+    // test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder
+    #[test]
+    fn the_first_powershell_comes_from_the_system_folder() {
+        let system = Path::new("C:/Windows/System32");
+        assert_eq!(powershell_path(Some(system)), system.join("WindowsPowerShell").join("v1.0").join("powershell.exe").to_string_lossy());
+        assert_eq!(powershell_path(None), "powershell");
+    }
+
+    // test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture
+    #[test]
+    fn a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture() {
+        for code in [Some(1), None, Some(EXIT_UNSAFE_FOLDER)] {
+            let fake = Fake {
+                mf_installable: true,
+                served: good_downloads(),
+                exit_codes: RefCell::new(code.into_iter().collect()),
+                admin_error: code.is_none().then(|| "denied".to_string()),
+                ..Default::default()
+            };
+            let (ok, msg) = install_camera(&fake, 1, false, &|_| {});
+            assert!(!ok && !msg.is_empty(), "{code:?}");
+            assert_eq!(fake.scripts.borrow().len(), 1, "{code:?}: UnityCapture isn't tried");
+            assert!(fake.steps.borrow().is_empty(), "{code:?}: and nothing is downloaded");
+        }
+    }
+
+    // test_platform_windows.py::test_windows_10_installs_unitycapture
+    #[test]
+    fn windows_10_installs_unitycapture() {
+        let fake = Fake { served: good_downloads(), exit_codes: RefCell::new(vec![0]), ..Default::default() };
+        assert_eq!(install_camera(&fake, 1, true, &|_| {}), (true, "Installed".into()));
+        assert_eq!(*fake.steps.borrow(), ["download UnityCaptureFilter32.dll", "download UnityCaptureFilter64.dll"]);
+        let scripts = fake.scripts.borrow();
+        assert_eq!(scripts.len(), 1);
+        assert!(scripts[0].contains("'/s', '/u', $dll"), "going back to one camera unregisters first");
+    }
+
+    // test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture
+    #[test]
+    fn windows_11_installs_its_own_camera_and_never_downloads_unitycapture() {
+        let fake = Fake { mf_installable: true, served: good_downloads(), exit_codes: RefCell::new(vec![0]), ..Default::default() };
+        let progress = RefCell::new(Vec::new());
+        assert_eq!(install_camera(&fake, 4, false, &|m| progress.borrow_mut().push(m.to_string())), (true, "Installed".into()));
+        assert_eq!(*progress.borrow(), ["Registering (admin access required)..."]);
+        assert!(fake.steps.borrow().is_empty(), "nothing downloaded");
+        assert_eq!(fake.scripts.borrow().len(), 1);
+        assert!(fake.scripts.borrow()[0].contains("'/s', '/n', '/i:4'"));
+    }
+
+    // test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way
+    #[test]
+    fn an_update_renames_a_loaded_dll_out_of_the_way() {
+        let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
+        let rename = script.find("Move-Item -LiteralPath $target").unwrap();
+        assert!(script.find("'*.old'").unwrap() < rename && rename < script.find("Copy-Item").unwrap());
+    }
+
+    // test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy
+    #[test]
+    fn unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy() {
+        let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, Some(Path::new("C:/app/unitycapture")));
+        let (copy, check) = (script.find("Copy-Item -LiteralPath $from").unwrap(), script.find("Get-Sha256 $copy").unwrap());
+        assert!(script.find("'/n', '/i:1'").unwrap() < copy && copy < check && check < script.rfind("'/u'").unwrap());
+        assert!(script.contains(UC_SHA256[1].1));
+        assert!(!mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None).contains("$from"));
+    }
+
+    // test_platform_windows.py::test_the_clsids_and_version_match_the_dll
+    #[test]
+    fn the_clsids_and_version_match_the_dll() {
+        let dllmain = std::fs::read_to_string(virtualcamera().join("dllmain.cpp")).unwrap();
+        for clsid in crate::wincam::MF_CLSIDS {
+            let parts: Vec<&str> = clsid.trim_matches(['{', '}']).split('-').collect();
+            let line = format!("{{0x{}, 0x{}, 0x{}, {{0x{}, 0x{}", parts[0], parts[1], parts[2], &parts[3][..2], &parts[3][2..]);
+            assert!(dllmain.contains(&line), "{clsid} isn't in dllmain.cpp");
+        }
+        let camera = std::fs::read_to_string(virtualcamera().join("camera.h")).unwrap();
+        assert!(camera.contains(&format!("kCameraVersion = {};", crate::wincam::MF_VERSION)));
     }
 }

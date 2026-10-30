@@ -59,6 +59,22 @@ extern "system" {
     fn SetEvent(handle: Handle) -> i32;
 }
 
+#[repr(C)]
+struct Guid(u32, u16, u16, [u8; 8]);
+
+/// FOLDERID_ProgramFiles
+const PROGRAM_FILES: Guid = Guid(0x905e63b6, 0xc1bf, 0x494e, [0xb2, 0x9c, 0x65, 0xb7, 0x32, 0xd3, 0xd2, 0x1a]);
+
+#[link(name = "shell32")]
+extern "system" {
+    fn SHGetKnownFolderPath(folder: *const Guid, flags: u32, token: Handle, path: *mut *mut u16) -> i32;
+}
+
+#[link(name = "ole32")]
+extern "system" {
+    fn CoTaskMemFree(memory: *mut c_void);
+}
+
 #[link(name = "advapi32")]
 extern "system" {
     fn RegOpenKeyExW(key: HKey, sub: *const u16, options: u32, access: u32, out: *mut HKey) -> i32;
@@ -185,6 +201,21 @@ pub fn system_dir() -> Option<std::path::PathBuf> {
     // SAFETY: the buffer's length is passed with it
     let n = unsafe { GetSystemDirectoryW(buf.as_mut_ptr(), buf.len() as u32) } as usize;
     (n > 0 && n < buf.len()).then(|| std::path::PathBuf::from(String::from_utf16_lossy(&buf[..n])))
+}
+
+/// Program Files from Windows' own setting (SHGetKnownFolderPath), not %ProgramFiles%, which whoever starts Telescope can point anywhere.
+pub fn program_files() -> Option<std::path::PathBuf> {
+    let mut out: *mut u16 = std::ptr::null_mut();
+    // SAFETY: Windows allocates the string it answers with, which is read to its end and freed once
+    unsafe {
+        if SHGetKnownFolderPath(&PROGRAM_FILES, 0, std::ptr::null_mut(), &mut out) != 0 || out.is_null() {
+            return None;
+        }
+        let len = (0..).take_while(|&i| *out.add(i) != 0).count();
+        let path = String::from_utf16_lossy(std::slice::from_raw_parts(out, len));
+        CoTaskMemFree(out as *mut c_void);
+        Some(std::path::PathBuf::from(path))
+    }
 }
 
 /// Windows' build number (22000 and up is Windows 11), 0 if it can't be told.

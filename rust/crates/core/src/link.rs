@@ -85,6 +85,9 @@ pub trait PairingOffer: Send + Sync {
     fn offer_to(&self, _serial: &str, _package: &str) -> bool {
         false
     }
+    /// Takes the offer back now, whoever still holds it: its credentials stop working and nothing more is sent to a
+    /// phone. Never waits for adb; a thread stuck in offer_to doesn't hold this up.
+    fn revoke(&self) {}
 }
 
 pub trait Link: Send + Sync {

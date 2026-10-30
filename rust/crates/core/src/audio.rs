@@ -36,6 +36,10 @@ pub trait MicStream: Send {
 /// Encoded audio from a phone, read on the audio thread.
 pub trait AudioFeed: Send {
     fn read(&mut self) -> Result<AudioPacket, crate::media::FeedEnd>;
+    /// What ends a blocked read from another thread; None when reads come back by themselves.
+    fn stopper(&self) -> Option<Box<dyn crate::media::FeedStopper>> {
+        None
+    }
 }
 
 /// The microphones of stream sources that aren't phones (a browser's), by source id.

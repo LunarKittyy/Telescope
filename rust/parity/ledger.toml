@@ -2571,41 +2571,41 @@
 "test_composite.py::test_zooming_in_shows_less_and_the_centre_stays_inside_the_frame" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_in_shows_less_and_the_centre_stays_inside_the_frame" }
 "test_composite.py::test_zooming_stays_inside_the_crop" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::zooming_stays_inside_the_crop" }
 # ── config
-"test_config.py::test_a_backup_of_a_bad_config_is_private" = { status = "todo" }
-"test_config.py::test_a_briefly_locked_config_is_read_again_not_reset" = { status = "todo" }
-"test_config.py::test_a_config_nested_too_deep_is_backed_up_not_fatal" = { status = "todo" }
-"test_config.py::test_a_config_saved_with_a_byte_order_mark_still_loads" = { status = "todo" }
-"test_config.py::test_a_config_that_is_not_utf8_is_backed_up_not_fatal" = { status = "todo" }
-"test_config.py::test_a_filesystem_that_refuses_chmod_still_saves" = { status = "todo" }
-"test_config.py::test_a_numpy_value_saves_as_plain_and_a_bad_one_keeps_the_saved_file" = { status = "todo" }
-"test_config.py::test_a_reset_is_reported_once_with_where_the_copy_went" = { status = "todo" }
-"test_config.py::test_config_missing_version_resets_to_empty" = { status = "todo" }
-"test_config.py::test_config_older_than_current_version_resets_to_empty" = { status = "todo" }
-"test_config.py::test_current_version_config_keeps_custom_keys_and_fills_in_missing_sections" = { status = "todo" }
-"test_config.py::test_devices_section_with_non_dict_entry_resets_alone" = { status = "todo" }
-"test_config.py::test_fresh_config_is_empty_current_version" = { status = "todo" }
-"test_config.py::test_fresh_install_is_not_backed_up" = { status = "todo" }
-"test_config.py::test_future_version_config_is_preserved" = { status = "todo" }
-"test_config.py::test_invalid_top_level_config_shapes_fall_back_to_empty" = { status = "todo" }
-"test_config.py::test_linux_config_path_uses_xdg_or_home_fallback" = { status = "todo" }
-"test_config.py::test_loading_a_bad_config_again_before_saving_backs_it_up_once" = { status = "todo" }
-"test_config.py::test_malformed_devices_section_resets_alone" = { status = "todo" }
-"test_config.py::test_malformed_json_falls_back_to_empty" = { status = "todo" }
-"test_config.py::test_malformed_json_is_backed_up_before_reset" = { status = "todo" }
-"test_config.py::test_malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" = { status = "todo" }
-"test_config.py::test_malformed_plugin_configs_section_resets_alone" = { status = "todo" }
-"test_config.py::test_malformed_selected_device_resets_alone" = { status = "todo" }
-"test_config.py::test_save_and_reload_roundtrip" = { status = "todo" }
-"test_config.py::test_save_failure_returns_false_and_sets_version" = { status = "todo" }
-"test_config.py::test_save_is_atomic_no_leftover_tmp_file" = { status = "todo" }
-"test_config.py::test_saved_config_is_private_whatever_the_umask" = { status = "todo" }
-"test_config.py::test_saving_tightens_a_config_left_readable_by_others" = { status = "todo" }
-"test_config.py::test_stale_version_config_is_backed_up_before_reset" = { status = "todo" }
-"test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "todo" }
-"test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "todo" }
-"test_config.py::test_windows_config_path_uses_appdata" = { status = "todo" }
-"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "todo" }
-"test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "todo" }
+"test_config.py::test_a_backup_of_a_bad_config_is_private" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_backup_of_a_bad_config_is_private" }
+"test_config.py::test_a_briefly_locked_config_is_read_again_not_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_briefly_locked_config_is_read_again_not_reset" }
+"test_config.py::test_a_config_nested_too_deep_is_backed_up_not_fatal" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_nested_too_deep_is_backed_up_not_fatal" }
+"test_config.py::test_a_config_saved_with_a_byte_order_mark_still_loads" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_saved_with_a_byte_order_mark_still_loads" }
+"test_config.py::test_a_config_that_is_not_utf8_is_backed_up_not_fatal" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_config_that_is_not_utf8_is_backed_up_not_fatal" }
+"test_config.py::test_a_filesystem_that_refuses_chmod_still_saves" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_filesystem_that_refuses_chmod_still_saves" }
+"test_config.py::test_a_numpy_value_saves_as_plain_and_a_bad_one_keeps_the_saved_file" = { status = "dropped", reason = "Python numpy values and objects that JSON can't hold don't exist in Rust: settings are serde_json values, always plain JSON, and a save that fails (save_failure_returns_false_and_sets_version) already leaves the old file" }
+"test_config.py::test_a_reset_is_reported_once_with_where_the_copy_went" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::a_reset_is_reported_once_with_where_the_copy_went" }
+"test_config.py::test_config_missing_version_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::config_missing_version_resets_to_empty" }
+"test_config.py::test_config_older_than_current_version_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::config_older_than_current_version_resets_to_empty" }
+"test_config.py::test_current_version_config_keeps_custom_keys_and_fills_in_missing_sections" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::current_version_config_keeps_custom_keys_and_fills_in_missing_sections" }
+"test_config.py::test_devices_section_with_non_dict_entry_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::devices_section_with_non_dict_entry_resets_alone" }
+"test_config.py::test_fresh_config_is_empty_current_version" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::fresh_config_is_empty_current_version" }
+"test_config.py::test_fresh_install_is_not_backed_up" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::fresh_install_is_not_backed_up" }
+"test_config.py::test_future_version_config_is_preserved" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::future_version_config_is_preserved" }
+"test_config.py::test_invalid_top_level_config_shapes_fall_back_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::invalid_top_level_config_shapes_fall_back_to_empty" }
+"test_config.py::test_linux_config_path_uses_xdg_or_home_fallback" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::linux_config_path_uses_xdg_or_home_fallback" }
+"test_config.py::test_loading_a_bad_config_again_before_saving_backs_it_up_once" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::loading_a_bad_config_again_before_saving_backs_it_up_once" }
+"test_config.py::test_malformed_devices_section_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_devices_section_resets_alone" }
+"test_config.py::test_malformed_json_falls_back_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_json_falls_back_to_empty" }
+"test_config.py::test_malformed_json_is_backed_up_before_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_json_is_backed_up_before_reset" }
+"test_config.py::test_malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_legacy_device_entry_does_not_crash_and_resets_to_empty" }
+"test_config.py::test_malformed_plugin_configs_section_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_plugin_configs_section_resets_alone" }
+"test_config.py::test_malformed_selected_device_resets_alone" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::malformed_selected_device_resets_alone" }
+"test_config.py::test_save_and_reload_roundtrip" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_and_reload_roundtrip" }
+"test_config.py::test_save_failure_returns_false_and_sets_version" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_failure_returns_false_and_sets_version" }
+"test_config.py::test_save_is_atomic_no_leftover_tmp_file" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::save_is_atomic_no_leftover_tmp_file" }
+"test_config.py::test_saved_config_is_private_whatever_the_umask" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::saved_config_is_private_whatever_the_umask" }
+"test_config.py::test_saving_tightens_a_config_left_readable_by_others" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::saving_tightens_a_config_left_readable_by_others" }
+"test_config.py::test_stale_version_config_is_backed_up_before_reset" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::stale_version_config_is_backed_up_before_reset" }
+"test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" }
+"test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::valid_current_version_config_round_trips_through_migrate" }
+"test_config.py::test_windows_config_path_uses_appdata" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::windows_config_path_uses_appdata" }
+"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::config_level_parts_match_every_fixture", note = "Settings and sections are compared in Rust; each plugin's own settings are compared by parity/compare_config.py as their settings get ported" }
+"test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::there_is_a_fixture_for_each_kind_of_file" }
 # ── connection
 "test_connection.py::test_a_cable_that_is_not_used_gets_explained" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_cable_that_is_not_used_gets_explained", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
 "test_connection.py::test_a_check_slower_than_the_poll_still_lands" = { status = "ported", rust = "rust/crates/link/src/connection.rs::a_check_slower_than_the_poll_still_lands", note = "logic in connection.rs; the card's half goes with the Connection plugin's UI" }
@@ -2780,32 +2780,32 @@
 "test_desk.py::test_the_warp_is_worked_out_once_until_something_changes" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::the_warp_is_worked_out_once_until_something_changes" }
 "test_desk.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/desk_tests.rs::without_a_stream_the_card_says_to_start_one" }
 # ── dev_profile
-"test_dev_profile.py::test_a_dev_profile_keeps_everything_apart_from_the_real_app" = { status = "todo" }
-"test_dev_profile.py::test_setting_up_the_dev_mic_never_unloads_the_real_one" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away" = { status = "todo" }
-"test_dev_profile.py::test_the_launcher_stops_the_app_when_it_is_stopped" = { status = "todo" }
-"test_dev_profile.py::test_without_a_profile_nothing_changes" = { status = "todo" }
+"test_dev_profile.py::test_a_dev_profile_keeps_everything_apart_from_the_real_app" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::a_dev_profile_keeps_everything_apart_from_the_real_app" }
+"test_dev_profile.py::test_setting_up_the_dev_mic_never_unloads_the_real_one" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::setting_up_the_dev_mic_never_unloads_the_real_one" }
+"test_dev_profile.py::test_the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked", note = "The launcher starts the app again on its exit codes 75 and 76; the window still has to exit with them when plugin files change (shell's restart is not there yet)" }
+"test_dev_profile.py::test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away", note = "The launcher is `telescope-rs dev`; dev_desktop.py keeps starting the Python app" }
+"test_dev_profile.py::test_the_launcher_stops_the_app_when_it_is_stopped" = { status = "ported", rust = "rust/app/src/dev.rs::the_launcher_stops_the_app_when_it_is_stopped" }
+"test_dev_profile.py::test_without_a_profile_nothing_changes" = { status = "ported", rust = "rust/app/tests/dev_profile.rs::without_a_profile_nothing_changes" }
 # ── diagnostics
-"test_diagnostics.py::test_a_log_that_cant_be_rotated_keeps_being_written" = { status = "todo" }
-"test_diagnostics.py::test_describe_exception_has_no_full_path" = { status = "todo" }
-"test_diagnostics.py::test_file_lines_are_sanitized" = { status = "todo" }
-"test_diagnostics.py::test_install_records_thread_crashes_and_keeps_old_hooks" = { status = "todo" }
-"test_diagnostics.py::test_keeps_telescope_info_but_only_warnings_from_libraries" = { status = "todo" }
-"test_diagnostics.py::test_link_log" = { status = "todo" }
-"test_diagnostics.py::test_link_log_leaves_a_real_file_alone" = { status = "todo" }
-"test_diagnostics.py::test_repeats_collapse_into_a_count" = { status = "todo" }
-"test_diagnostics.py::test_report" = { status = "todo" }
-"test_diagnostics.py::test_report_is_bounded" = { status = "todo" }
-"test_diagnostics.py::test_report_without_problems" = { status = "todo" }
-"test_diagnostics.py::test_rotates_and_keeps_one_previous_file" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_hides_home" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_keeps_ordinary_text" = { status = "todo" }
-"test_diagnostics.py::test_sanitize_removes_addresses_and_secrets" = { status = "todo" }
-"test_diagnostics.py::test_ticking_status_collapses_into_a_count" = { status = "todo" }
-"test_diagnostics.py::test_windows_11_is_named_from_the_build_number" = { status = "todo" }
-"test_diagnostics.py::test_without_a_file_it_keeps_the_last_lines_in_memory" = { status = "todo" }
-"test_diagnostics.py::test_writes_to_the_file_and_reads_it_back_after_a_restart" = { status = "todo" }
+"test_diagnostics.py::test_a_log_that_cant_be_rotated_keeps_being_written" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::a_log_that_cant_be_rotated_keeps_being_written" }
+"test_diagnostics.py::test_describe_exception_has_no_full_path" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::describe_exception_has_no_full_path", note = "A panic stands in for the exception" }
+"test_diagnostics.py::test_file_lines_are_sanitized" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::file_lines_are_sanitized" }
+"test_diagnostics.py::test_install_records_thread_crashes_and_keeps_old_hooks" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::install_records_thread_crashes_and_keeps_old_hooks", note = "One panic hook for every thread, so the thread hook has no separate part" }
+"test_diagnostics.py::test_keeps_telescope_info_but_only_warnings_from_libraries" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::keeps_telescope_info_but_only_warnings_from_libraries", note = "A log record with an error stands in for the logged exception" }
+"test_diagnostics.py::test_link_log" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::link_log_makes_and_repoints_the_shortcut" }
+"test_diagnostics.py::test_link_log_leaves_a_real_file_alone" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::link_log_leaves_a_real_file_alone" }
+"test_diagnostics.py::test_repeats_collapse_into_a_count" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::repeats_collapse_into_a_count" }
+"test_diagnostics.py::test_report" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report", note = "The windowing line says Slint where Python said Qt; the shell still has to call report_for from Host::diagnostics_report" }
+"test_diagnostics.py::test_report_is_bounded" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report_is_bounded" }
+"test_diagnostics.py::test_report_without_problems" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::report_without_problems" }
+"test_diagnostics.py::test_rotates_and_keeps_one_previous_file" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::rotates_and_keeps_one_previous_file" }
+"test_diagnostics.py::test_sanitize_hides_home" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_hides_home" }
+"test_diagnostics.py::test_sanitize_keeps_ordinary_text" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_keeps_ordinary_text" }
+"test_diagnostics.py::test_sanitize_removes_addresses_and_secrets" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::sanitize_removes_addresses_and_secrets", note = "Also compared with diagnostics.py's own answers in sanitize_gives_what_diagnostics_py_gives" }
+"test_diagnostics.py::test_ticking_status_collapses_into_a_count" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::ticking_status_collapses_into_a_count" }
+"test_diagnostics.py::test_windows_11_is_named_from_the_build_number" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::windows_11_is_named_from_the_build_number" }
+"test_diagnostics.py::test_without_a_file_it_keeps_the_last_lines_in_memory" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::without_a_file_it_keeps_the_last_lines_in_memory" }
+"test_diagnostics.py::test_writes_to_the_file_and_reads_it_back_after_a_restart" = { status = "ported", rust = "rust/crates/core/src/diagnostics_tests.rs::writes_to_the_file_and_reads_it_back_after_a_restart" }
 # ── face_exposure
 "test_face_exposure.py::test_a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::a_lens_that_can_only_meter_gets_a_meter_point_and_focus_is_left_alone" }
 "test_face_exposure.py::test_a_point_picked_by_hand_wins_until_switched_off_and_on" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::a_point_picked_by_hand_wins_until_switched_off_and_on" }
@@ -3070,38 +3070,38 @@
 "test_motion.py::test_zones_are_cleaned_up" = { status = "todo" }
 "test_motion.py::test_zones_follow_the_phones_share_of_the_zoom" = { status = "todo" }
 # ── move_to_installed
-"test_move_to_installed.py::test_a_copy_on_a_usb_stick_or_a_share_stays_where_it_is" = { status = "todo" }
-"test_move_to_installed.py::test_a_damaged_pending_move_note_is_ignored_and_removed" = { status = "todo" }
-"test_move_to_installed.py::test_a_desktop_shortcut_to_the_old_copy_gets_the_installed_one_s_in_its_place" = { status = "todo" }
-"test_move_to_installed.py::test_a_downloaded_adb_isn_t_replaced_by_an_old_copy_s" = { status = "todo" }
-"test_move_to_installed.py::test_a_failed_install_leaves_this_copy_as_it_is" = { status = "todo" }
-"test_move_to_installed.py::test_a_folder_it_can_t_look_into_keeps_the_exe" = { status = "todo" }
-"test_move_to_installed.py::test_a_pending_move_is_finished_at_a_later_start_and_then_forgotten" = { status = "todo" }
-"test_move_to_installed.py::test_a_pending_move_to_a_folder_that_s_gone_is_forgotten" = { status = "todo" }
-"test_move_to_installed.py::test_a_shortcut_stays_while_the_old_exe_does" = { status = "todo" }
-"test_move_to_installed.py::test_a_user_s_own_platform_tools_isn_t_taken_as_telescope_s_adb" = { status = "todo" }
-"test_move_to_installed.py::test_a_zip_unpacked_into_downloads_only_loses_telescope_s_files" = { status = "todo" }
-"test_move_to_installed.py::test_an_installed_folder_without_the_exe_is_an_error" = { status = "todo" }
-"test_move_to_installed.py::test_an_old_copy_s_bundled_adb_is_kept_for_the_installed_one" = { status = "todo" }
-"test_move_to_installed.py::test_files_still_held_by_the_exiting_copy_are_tried_again" = { status = "todo" }
-"test_move_to_installed.py::test_installed_over_this_same_folder_deletes_nothing" = { status = "todo" }
-"test_move_to_installed.py::test_it_refuses_anything_that_isnt_an_unzipped_telescope" = { status = "todo" }
-"test_move_to_installed.py::test_lib_folders_without_a_build_number_or_without_qt_stay" = { status = "todo" }
-"test_move_to_installed.py::test_main_takes_the_moved_from_folder" = { status = "todo" }
-"test_move_to_installed.py::test_no_desktop_shortcut_means_no_desktop_icon" = { status = "todo" }
-"test_move_to_installed.py::test_once_the_installed_copy_is_started_the_old_one_holds_that_build_back" = { status = "todo" }
-"test_move_to_installed.py::test_only_the_packaged_windows_app_counts_as_unzipped" = { status = "todo" }
-"test_move_to_installed.py::test_shortcuts_are_found_whatever_the_case_and_encoding_of_the_path" = { status = "todo" }
-"test_move_to_installed.py::test_symlinks_in_the_unzipped_copy_are_never_followed" = { status = "todo" }
-"test_move_to_installed.py::test_the_app_id_matches_the_installer_script" = { status = "todo" }
-"test_move_to_installed.py::test_the_exe_goes_last_so_a_cut_short_clean_up_still_runs" = { status = "todo" }
-"test_move_to_installed.py::test_the_installed_location_comes_from_the_setup_s_uninstall_entry" = { status = "todo" }
-"test_move_to_installed.py::test_the_move_clears_the_installed_folder_s_old_journal_and_notes_the_old_copy" = { status = "todo" }
-"test_move_to_installed.py::test_the_pending_move_note_is_written_whole" = { status = "todo" }
-"test_move_to_installed.py::test_the_setup_installing_over_the_unzipped_folder_notes_no_move" = { status = "todo" }
-"test_move_to_installed.py::test_the_setup_runs_silently_and_the_installed_copy_takes_over" = { status = "todo" }
-"test_move_to_installed.py::test_the_unzipped_copy_goes_once_the_installed_one_runs" = { status = "todo" }
-"test_move_to_installed.py::test_the_user_s_own_folders_with_telescope_like_names_stay" = { status = "todo" }
+"test_move_to_installed.py::test_a_copy_on_a_usb_stick_or_a_share_stays_where_it_is" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_copy_on_a_usb_stick_or_a_share_stays_where_it_is" }
+"test_move_to_installed.py::test_a_damaged_pending_move_note_is_ignored_and_removed" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_damaged_pending_move_note_is_ignored_and_removed" }
+"test_move_to_installed.py::test_a_desktop_shortcut_to_the_old_copy_gets_the_installed_one_s_in_its_place" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_desktop_shortcut_to_the_old_copy_gets_the_installed_one_s_in_its_place" }
+"test_move_to_installed.py::test_a_downloaded_adb_isn_t_replaced_by_an_old_copy_s" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_downloaded_adb_isn_t_replaced_by_an_old_copy_s" }
+"test_move_to_installed.py::test_a_failed_install_leaves_this_copy_as_it_is" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_failed_install_leaves_this_copy_as_it_is" }
+"test_move_to_installed.py::test_a_folder_it_can_t_look_into_keeps_the_exe" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_folder_it_can_t_look_into_keeps_the_exe" }
+"test_move_to_installed.py::test_a_pending_move_is_finished_at_a_later_start_and_then_forgotten" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_pending_move_is_finished_at_a_later_start_and_then_forgotten" }
+"test_move_to_installed.py::test_a_pending_move_to_a_folder_that_s_gone_is_forgotten" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_pending_move_to_a_folder_that_s_gone_is_forgotten" }
+"test_move_to_installed.py::test_a_shortcut_stays_while_the_old_exe_does" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_shortcut_stays_while_the_old_exe_does" }
+"test_move_to_installed.py::test_a_user_s_own_platform_tools_isn_t_taken_as_telescope_s_adb" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_user_s_own_platform_tools_isn_t_taken_as_telescope_s_adb" }
+"test_move_to_installed.py::test_a_zip_unpacked_into_downloads_only_loses_telescope_s_files" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::a_zip_unpacked_into_downloads_only_loses_telescope_s_files" }
+"test_move_to_installed.py::test_an_installed_folder_without_the_exe_is_an_error" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::an_installed_folder_without_the_exe_is_an_error" }
+"test_move_to_installed.py::test_an_old_copy_s_bundled_adb_is_kept_for_the_installed_one" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::an_old_copy_s_bundled_adb_is_kept_for_the_installed_one" }
+"test_move_to_installed.py::test_files_still_held_by_the_exiting_copy_are_tried_again" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::files_still_held_by_the_exiting_copy_are_tried_again" }
+"test_move_to_installed.py::test_installed_over_this_same_folder_deletes_nothing" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::installed_over_this_same_folder_deletes_nothing" }
+"test_move_to_installed.py::test_it_refuses_anything_that_isnt_an_unzipped_telescope" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::it_refuses_anything_that_isnt_an_unzipped_telescope" }
+"test_move_to_installed.py::test_lib_folders_without_a_build_number_or_without_qt_stay" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::lib_folders_without_a_build_number_or_without_qt_stay" }
+"test_move_to_installed.py::test_main_takes_the_moved_from_folder" = { status = "ported", rust = "rust/app/src/main.rs::main_takes_the_moved_from_folder" }
+"test_move_to_installed.py::test_no_desktop_shortcut_means_no_desktop_icon" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::no_desktop_shortcut_means_no_desktop_icon" }
+"test_move_to_installed.py::test_once_the_installed_copy_is_started_the_old_one_holds_that_build_back" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::once_the_installed_copy_is_started_the_old_one_holds_that_build_back" }
+"test_move_to_installed.py::test_only_the_packaged_windows_app_counts_as_unzipped" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::only_the_packaged_windows_app_counts_as_unzipped", note = "Packaged means the exe is in the folder here, since the Rust app is always compiled" }
+"test_move_to_installed.py::test_shortcuts_are_found_whatever_the_case_and_encoding_of_the_path" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::shortcuts_are_found_whatever_the_case_and_encoding_of_the_path" }
+"test_move_to_installed.py::test_symlinks_in_the_unzipped_copy_are_never_followed" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::symlinks_in_the_unzipped_copy_are_never_followed" }
+"test_move_to_installed.py::test_the_app_id_matches_the_installer_script" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_app_id_matches_the_installer_script" }
+"test_move_to_installed.py::test_the_exe_goes_last_so_a_cut_short_clean_up_still_runs" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_exe_goes_last_so_a_cut_short_clean_up_still_runs" }
+"test_move_to_installed.py::test_the_installed_location_comes_from_the_setup_s_uninstall_entry" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_installed_location_comes_from_the_setup_s_uninstall_entry", note = "Read through reg.exe on Windows (compile-checked), behind the same trait the test fills" }
+"test_move_to_installed.py::test_the_move_clears_the_installed_folder_s_old_journal_and_notes_the_old_copy" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_move_clears_the_installed_folder_s_old_journal_and_notes_the_old_copy" }
+"test_move_to_installed.py::test_the_pending_move_note_is_written_whole" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_pending_move_note_is_written_whole" }
+"test_move_to_installed.py::test_the_setup_installing_over_the_unzipped_folder_notes_no_move" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_setup_installing_over_the_unzipped_folder_notes_no_move" }
+"test_move_to_installed.py::test_the_setup_runs_silently_and_the_installed_copy_takes_over" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_setup_runs_silently_and_the_installed_copy_takes_over" }
+"test_move_to_installed.py::test_the_unzipped_copy_goes_once_the_installed_one_runs" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_unzipped_copy_goes_once_the_installed_one_runs" }
+"test_move_to_installed.py::test_the_user_s_own_folders_with_telescope_like_names_stay" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::the_user_s_own_folders_with_telescope_like_names_stay" }
 # ── name_tag
 "test_name_tag.py::test_a_long_name_is_cut_to_fit_the_width" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_long_name_is_cut_to_fit_the_width" }
 "test_name_tag.py::test_a_read_only_frame_is_copied" = { status = "ported", rust = "rust/crates/effects/src/tag_tests.rs::a_frame_somebody_else_holds_is_copied" }
@@ -3425,42 +3425,42 @@
 "test_platform_linux.py::test_setup_leaves_someone_elses_boot_config_alone" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_leaves_someone_elses_boot_config_alone" }
 "test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_with_persist_writes_the_boot_config_in_the_same_prompt" }
 "test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::sudo_is_never_run_where_it_could_ask_for_a_password" }
-"test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "todo" }
+"test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" }
 "test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "todo" }
-"test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "todo" }
-"test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "todo" }
-"test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "todo" }
+"test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_registration_from_the_app_folder_is_flagged" }
+"test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_slot_streams_to_the_windows_11_camera_once_its_registered" }
+"test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::an_older_windows_11_camera_is_outdated_when_a_newer_dll_is_here" }
+"test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::an_update_renames_a_loaded_dll_out_of_the_way" }
 "test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "todo" }
-"test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "todo" }
+"test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_handles_network_and_checksum_failures" }
+"test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_verifies_both_files" }
 "test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "todo" }
-"test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "todo" }
-"test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "todo" }
-"test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "todo" }
-"test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "todo" }
+"test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::it_installs_only_with_the_dll_bundled" }
+"test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_camera_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
+"test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::only_the_installed_copy_takes_the_start_menu_entrys_app_id" }
+"test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_folder_comes_from_the_known_folder_not_the_environment" }
+"test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_drops_a_tampered_file_so_a_retry_downloads_it_again" }
 "test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "todo" }
-"test_platform_windows.py::test_register_normalizes_process_failures" = { status = "todo" }
-"test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "todo" }
+"test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_names_what_failed_as_admin" }
+"test_platform_windows.py::test_register_normalizes_process_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_normalizes_process_failures", note = "The test stands in for the process; the real admin run is Windows-only and compile-checked" }
+"test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_refuses_missing_or_tampered_files" }
 "test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "todo" }
+"test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::registered_name_reads_the_filter_key_and_skips_the_property_page" }
 "test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "todo" }
-"test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "todo" }
-"test_platform_windows.py::test_sha256_reads_entire_file" = { status = "todo" }
-"test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "todo" }
-"test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "todo" }
-"test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "todo" }
+"test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_ignores_folders_outside_temp" }
+"test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_spots_zip_tools_temp_folders" }
+"test_platform_windows.py::test_sha256_reads_entire_file" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::sha256_reads_entire_file" }
+"test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_cameras_windows_has_are_read_from_their_device_interfaces" }
+"test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_clsids_and_version_match_the_dll" }
+"test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_first_powershell_comes_from_the_system_folder" }
 "test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "todo" }
-"test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "todo" }
-"test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "todo" }
+"test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_windows_11_camera_needs_windows_11" }
+"test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_is_registered_scans_registry_and_handles_absence" }
+"test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
 "test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "todo" }
-"test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "todo" }
-"test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "todo" }
+"test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" }
+"test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_10_installs_unitycapture" }
+"test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_11_installs_its_own_camera_and_never_downloads_unitycapture" }
 # ── plugin
 "test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_plugin_api_only_changes_on_purpose", note = "freezes HOST_API, HOOKS, Lua globals, events and permissions in tests/plugin_api.txt" }
 "test_plugin_i18n.py::test_a_broken_file_leaves_the_plugin_in_english_and_still_loading" = { status = "ported", rust = "rust/crates/plugin-host/tests/i18n.rs::a_broken_file_leaves_the_plugin_in_english_and_still_loading" }
@@ -5661,10 +5661,10 @@
 "collapsed" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "devices" = { status = "ported", rust = "rust/crates/shell/src/profiles.rs" }
 "output_slots" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"plugin_configs" = { status = "todo" }
+"plugin_configs" = { status = "ported", rust = "rust/crates/core/src/config.rs" }
 "plugins" = { status = "ported", rust = "rust/crates/shell/src/switches.rs" }
 "selected_device" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"version" = { status = "todo" }
+"version" = { status = "ported", rust = "rust/crates/core/src/config.rs" }
 
 [action]
 # shortcut action ids, which --action also takes
@@ -5868,14 +5868,14 @@
 "folder:telescope/plugins/colour_grading.py:_export:Path.home" = { status = "todo" }
 "folder:telescope/plugins/colour_grading.py:_start_folder:Path.home" = { status = "todo" }
 # ── config
-"env:APPDATA" = { status = "todo" }
-"env:XDG_CONFIG_HOME" = { status = "todo" }
-"folder:telescope/config.py:config_path:Path.home" = { status = "todo" }
+"env:APPDATA" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
+"env:XDG_CONFIG_HOME" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
+"folder:telescope/config.py:config_path:Path.home" = { status = "ported", rust = "rust/crates/core/src/config.rs::PathEnv" }
 # ── diagnostics
-"env:XDG_CURRENT_DESKTOP" = { status = "todo" }
-"env:XDG_SESSION_TYPE" = { status = "todo" }
-"folder:telescope/diagnostics.py:log_dir:tempfile.gettempdir" = { status = "todo" }
-"folder:telescope/diagnostics.py:sanitize:Path.home" = { status = "todo" }
+"env:XDG_CURRENT_DESKTOP" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::system_lines" }
+"env:XDG_SESSION_TYPE" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::system_lines" }
+"folder:telescope/diagnostics.py:log_dir:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::log_dir", note = "Compared with diagnostics.py on Linux and Windows" }
+"folder:telescope/diagnostics.py:sanitize:Path.home" = { status = "ported", rust = "rust/crates/core/src/diagnostics.rs::sanitize" }
 # ── main
 "env:OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT" = { status = "todo" }
 "env:QT_MEDIA_BACKEND" = { status = "todo" }
@@ -5895,20 +5895,20 @@
 "folder:telescope/plugins/photos.py:default_folder:QStandardPaths.writableLocation" = { status = "ported", rust = "rust/crates/effects/src/photos.rs" }
 "run:telescope/plugins/photos.py:_open_folder:QDesktopServices.openUrl:<QUrl.fromLocalFile(folder)>" = { status = "ported", rust = "rust/crates/effects/src/photos.rs" }
 # ── platform
-"dbus:org.freedesktop.DBus.Properties" = { status = "todo" }
-"dbus:org.freedesktop.host.portal.Registry" = { status = "todo" }
-"dbus:org.freedesktop.portal.Desktop" = { status = "todo" }
-"dbus:org.freedesktop.portal.GlobalShortcuts" = { status = "todo" }
-"dbus:org.freedesktop.portal.Request" = { status = "todo" }
-"dbus:org.freedesktop.portal.Session" = { status = "todo" }
-"dbus:org.kde.KGlobalAccel" = { status = "todo" }
-"dbus:org.kde.kglobalaccel" = { status = "todo" }
-"dbus:org.kde.kglobalaccel.Component" = { status = "todo" }
-"env:DBUS_SESSION_BUS_ADDRESS" = { status = "todo" }
-"env:LOCALAPPDATA" = { status = "todo" }
-"env:XDG_DATA_DIRS" = { status = "todo" }
-"env:XDG_DATA_HOME" = { status = "todo" }
-"env:XDG_RUNTIME_DIR" = { status = "todo" }
+"dbus:org.freedesktop.DBus.Properties" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.host.portal.Registry" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Desktop" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.GlobalShortcuts" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Request" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Session" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.KGlobalAccel" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.kglobalaccel" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.kglobalaccel.Component" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"env:DBUS_SESSION_BUS_ADDRESS" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"env:LOCALAPPDATA" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs::default_install_dir" }
+"env:XDG_DATA_DIRS" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"env:XDG_DATA_HOME" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"env:XDG_RUNTIME_DIR" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
 "folder:telescope/platform/adb_download.py:_clear_leftovers:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::clear_leftovers" }
 "folder:telescope/platform/adb_download.py:_download:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
 "folder:telescope/platform/adb_download.py:_download:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
@@ -5921,13 +5921,13 @@
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::clear_old_tries" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::new_folder" }
-"path:/dev/video10" = { status = "todo" }
-"path:/dev/video11" = { status = "todo" }
-"path:/etc/modprobe.d/*.conf" = { status = "todo" }
-"path:/etc/modprobe.d/99-telescope-v4l2loopback.conf" = { status = "todo" }
-"path:/etc/modules-load.d/99-telescope-v4l2loopback.conf" = { status = "todo" }
-"path:/usr/local/share:/usr/share" = { status = "todo" }
-"path:C:\\Program Files" = { status = "todo" }
+"path:/dev/video10" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/dev/video11" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/etc/modprobe.d/*.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::conflicting_confs" }
+"path:/etc/modprobe.d/99-telescope-v4l2loopback.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/etc/modules-load.d/99-telescope-v4l2loopback.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/usr/local/share:/usr/share" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"path:C:\\Program Files" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "platform:__init__.py:adb_available" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::available" }
 "platform:__init__.py:adb_broadcast_pair" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::broadcast_pair" }
 "platform:__init__.py:adb_device_models" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_models" }
@@ -5975,24 +5975,24 @@
 "platform:hotkeys_portal.py:to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_trigger" }
 "platform:hotkeys_windows.py:WindowsHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys" }
 "platform:hotkeys_windows.py:to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_windows" }
-"platform:linux.py:PrivResult" = { status = "todo" }
-"platform:linux.py:limit_malloc_arenas" = { status = "todo" }
-"platform:linux.py:manual_command" = { status = "todo" }
-"platform:linux.py:release_freed_memory" = { status = "todo" }
-"platform:linux.py:result_parts" = { status = "todo" }
-"platform:linux.py:v4l2_add_devices" = { status = "todo" }
-"platform:linux.py:v4l2_devices_ready" = { status = "todo" }
-"platform:linux.py:v4l2_is_loaded" = { status = "todo" }
-"platform:linux.py:v4l2_load" = { status = "todo" }
-"platform:linux.py:v4l2_module_installed" = { status = "todo" }
-"platform:linux.py:v4l2_module_loaded" = { status = "todo" }
-"platform:linux.py:v4l2_persist_disable" = { status = "todo" }
-"platform:linux.py:v4l2_persist_enable" = { status = "todo" }
-"platform:linux.py:v4l2_persist_status" = { status = "todo" }
-"platform:linux.py:v4l2_reload" = { status = "todo" }
-"platform:linux.py:v4l2_remove_devices" = { status = "todo" }
-"platform:linux.py:v4l2_setup" = { status = "todo" }
-"platform:linux.py:v4l2_unload" = { status = "todo" }
+"platform:linux.py:PrivResult" = { status = "ported", rust = "rust/crates/core/src/output.rs::SetupResult" }
+"platform:linux.py:limit_malloc_arenas" = { status = "ported", rust = "rust/crates/system/src/memory.rs::limit_malloc_arenas" }
+"platform:linux.py:manual_command" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::manual_command" }
+"platform:linux.py:release_freed_memory" = { status = "ported", rust = "rust/crates/system/src/memory.rs::release_freed_memory" }
+"platform:linux.py:result_parts" = { status = "ported", rust = "rust/crates/core/src/output.rs::SetupResult" }
+"platform:linux.py:v4l2_add_devices" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::add_devices" }
+"platform:linux.py:v4l2_devices_ready" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::devices_ready" }
+"platform:linux.py:v4l2_is_loaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::is_loaded" }
+"platform:linux.py:v4l2_load" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup" }
+"platform:linux.py:v4l2_module_installed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_installed" }
+"platform:linux.py:v4l2_module_loaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_loaded" }
+"platform:linux.py:v4l2_persist_disable" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_disable" }
+"platform:linux.py:v4l2_persist_enable" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_enable" }
+"platform:linux.py:v4l2_persist_status" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_status" }
+"platform:linux.py:v4l2_reload" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::reload" }
+"platform:linux.py:v4l2_remove_devices" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::remove_devices" }
+"platform:linux.py:v4l2_setup" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup" }
+"platform:linux.py:v4l2_unload" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::unload" }
 "platform:virtual_mic.py:download_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
 "platform:virtual_mic.py:fifo_path" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::fifo_path" }
 "platform:virtual_mic.py:find_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::find_vb_cable" }
@@ -6001,48 +6001,48 @@
 "platform:virtual_mic.py:linux_tools_missing" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_tools_missing" }
 "platform:virtual_mic.py:remove_stale_source" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
 "platform:virtual_mic.py:run_vb_cable_setup" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::run_vb_cable_setup" }
-"platform:windows.py:camera_access_off" = { status = "todo" }
-"platform:windows.py:camera_installed" = { status = "todo" }
-"platform:windows.py:download_unitycapture" = { status = "todo" }
-"platform:windows.py:install_camera" = { status = "todo" }
-"platform:windows.py:mf_allowed" = { status = "todo" }
-"platform:windows.py:mf_camera_dir" = { status = "todo" }
-"platform:windows.py:mf_installable" = { status = "todo" }
-"platform:windows.py:mf_outdated" = { status = "todo" }
-"platform:windows.py:mf_registered" = { status = "todo" }
-"platform:windows.py:protected_mf_dir" = { status = "todo" }
-"platform:windows.py:protected_unitycapture_dir" = { status = "todo" }
-"platform:windows.py:register_mf_camera" = { status = "todo" }
-"platform:windows.py:register_unitycapture" = { status = "todo" }
-"platform:windows.py:running_from_archive" = { status = "todo" }
-"platform:windows.py:uc_in_app_folder" = { status = "todo" }
-"platform:windows.py:uc_is_registered" = { status = "todo" }
-"platform:windows.py:uc_registered_name" = { status = "todo" }
-"platform:windows.py:unitycapture_dir" = { status = "todo" }
-"platform:windows.py:unitycapture_downloaded" = { status = "todo" }
-"platform:windows.py:use_installed_app_id" = { status = "todo" }
-"platform:windows.py:use_mf" = { status = "todo" }
-"platform:windows.py:warn_running_from_archive" = { status = "todo" }
-"platform:windows.py:windows_build" = { status = "todo" }
+"platform:windows.py:camera_access_off" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_access_off", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:camera_installed" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_installed", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:download_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:install_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::install_camera", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_allowed" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_allowed", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_camera_dir" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_camera_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_installable" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_installable", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_outdated" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_outdated", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_registered", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:protected_mf_dir" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:protected_unitycapture_dir" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:register_mf_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_install_script", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:register_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_unitycapture", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:running_from_archive" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_in_app_folder" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_in_app_folder", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_is_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_is_registered", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_registered_name" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_registered_name", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:unitycapture_dir" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:unitycapture_downloaded" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::install_camera", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:use_installed_app_id" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::use_installed_app_id", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:use_mf" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::use_mf", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:warn_running_from_archive" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::warn_running_from_archive", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:windows_build" = { status = "ported", rust = "rust/crates/outputs/src/win.rs::windows_build", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "platform:winjob.py:kill_with_us" = { status = "ported", rust = "rust/crates/link/src/winjob.rs::kill_with_us", note = "Windows only, not compiled for Windows yet" }
 "port:telescope/platform/__init__.py:ADB_PORT=5037" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ADB_PORT" }
-"registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "todo" }
-"registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "todo" }
-"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "todo" }
+"registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_access_off", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_cameras", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "ported", rust = "rust/crates/system/src/autostart.rs", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "run:telescope/platform/__init__.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run" }
 "run:telescope/platform/__init__.py:adb_device_models:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_models" }
 "run:telescope/platform/__init__.py:adb_device_states:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_states" }
 "run:telescope/platform/__init__.py:adb_install:_run:<adb_exe()> install" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::install" }
 "run:telescope/platform/__init__.py:adb_model:_run:<adb_exe()> shell" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::model" }
 "run:telescope/platform/__init__.py:ensure_adb_server:popen:<exe> nodaemon" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ensure_adb_server" }
-"run:telescope/platform/linux.py:_privileged:_run:pkexec sh" = { status = "todo" }
-"run:telescope/platform/linux.py:_privileged:_run:sudo sh" = { status = "todo" }
-"run:telescope/platform/linux.py:v4l2_module_installed:_run:modinfo v4l2loopback" = { status = "todo" }
+"run:telescope/platform/linux.py:_privileged:_run:pkexec sh" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::privileged" }
+"run:telescope/platform/linux.py:_privileged:_run:sudo sh" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::privileged" }
+"run:telescope/platform/linux.py:v4l2_module_installed:_run:modinfo v4l2loopback" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_installed" }
 "run:telescope/platform/virtual_mic.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::run" }
 "run:telescope/platform/virtual_mic.py:linux_setup:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup" }
 "run:telescope/platform/virtual_mic.py:linux_teardown:run:pactl unload-module" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_teardown" }
 "run:telescope/platform/virtual_mic.py:remove_stale_source:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
-"run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "todo" }
+"run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 # ── plugin_loader
 "folder:telescope/plugin_loader.py:_clear_caches:shutil.rmtree" = { status = "dropped", reason = "no __pycache__ to clear for Lua plugins" }
 "folder:telescope/plugin_loader.py:install_zip:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/package.rs" }

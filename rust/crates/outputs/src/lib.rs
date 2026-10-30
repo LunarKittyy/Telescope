@@ -277,9 +277,18 @@ impl Outputs for VirtualCameras {
         #[cfg(windows)]
         {
             let reg = wincam::System;
+            let (uc_dir, mf_dir) = (wininstall::unitycapture_dir(), wininstall::mf_camera_dir());
             let mf = wincam::use_mf(&reg, 0);
             let ready = mf || !wincam::uc_names(&reg).is_empty();
-            return SetupStatus { installed: ready, loaded: ready, ready, windows_camera: mf, ..SetupStatus::default() };
+            let dll_here = mf_dir.join(wincam::MF_DLL).is_file();
+            return SetupStatus {
+                installed: ready, loaded: ready, ready, windows_camera: mf,
+                outdated: wincam::mf_outdated(&reg, dll_here),
+                registered_name: wincam::uc_registered_name(&reg, &uc_dir).unwrap_or_default(),
+                in_app_folder: wincam::uc_in_app_folder(&reg, &uc_dir),
+                installable: wincam::mf_installable(&reg, &mf_dir),
+                ..SetupStatus::default()
+            };
         }
         #[cfg(not(any(target_os = "linux", windows)))]
         SetupStatus::default()
@@ -315,17 +324,9 @@ impl Outputs for VirtualCameras {
         }
         #[cfg(windows)]
         {
-            let (devices, reset) = match action {
-                SetupAction::Install { devices, reset } => (devices, reset),
-                SetupAction::AddSlots => (MAX_SLOTS, false),
-                SetupAction::RemoveSlots => {
-                    let _released = self.release_devices();
-                    (1, true)
-                }
-                _ => return SetupResult { ok: false, message: "Windows installs the camera instead".into(), command: None },
-            };
-            let (ok, message) = wininstall::install_camera(&wininstall::Windows, devices.max(1), reset, _progress);
-            return SetupResult { ok, message, command: None };
+            return install_for(action, || self.release_devices(), |devices, reset| {
+                wininstall::install_camera(&wininstall::Windows, devices, reset, _progress)
+            });
         }
         #[cfg(not(any(target_os = "linux", windows)))]
         {
@@ -354,6 +355,19 @@ impl VirtualCameras {
             pace: wait_screen::Pace::default(),
         }
     }
+}
+
+/// Windows: a setup action through install(devices, reset). Removing cameras lets go of them for the whole install.
+#[cfg(any(windows, test))]
+fn install_for(action: SetupAction, release: impl FnOnce() -> Released, install: impl FnOnce(u32, bool) -> (bool, String)) -> SetupResult {
+    let (devices, reset, _released) = match action {
+        SetupAction::Install { devices, reset } => (devices, reset, None),
+        SetupAction::AddSlots => (MAX_SLOTS, false, None),
+        SetupAction::RemoveSlots => (1, true, Some(release())),
+        _ => return SetupResult { ok: false, message: "Windows installs the camera instead".into(), command: None },
+    };
+    let (ok, message) = install(devices.max(1), reset);
+    SetupResult { ok, message, command: None }
 }
 
 /// Windows: what tells the wait screen an app has opened slot's camera, so it sends right away, or None.
@@ -434,6 +448,19 @@ mod tests {
         let why = opened.lock().unwrap()[0].clone();
         assert!(why.contains(&slot_label(2)) || why.is_empty(), "{why}");
         assert!(!asked.lock().unwrap().is_empty());
+    }
+
+    // app.py's remove_extra_cameras: with vcam.device_released() around install_camera
+    #[test]
+    fn removing_extra_cameras_keeps_them_let_go_until_the_install_is_done() {
+        let resumed = Arc::new(AtomicBool::new(false));
+        let r = resumed.clone();
+        let result = install_for(SetupAction::RemoveSlots, move || Released::new(move || r.store(true, Ordering::SeqCst)), |devices, reset| {
+            assert_eq!((devices, reset), (1, true));
+            assert!(!resumed.load(Ordering::SeqCst), "the held cameras came back before the installer ran");
+            (true, "done".into())
+        });
+        assert!(result.ok && resumed.load(Ordering::SeqCst));
     }
 
     #[test]
