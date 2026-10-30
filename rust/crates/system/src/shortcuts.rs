@@ -165,6 +165,8 @@ pub struct ShortcutsPlugin {
     started: bool,
     /// Binding id: where it was pressed, while held.
     held: HashMap<String, Source>,
+    /// Binding id: the scan code of the key that pressed it inside Telescope (0 when the system gave none).
+    held_scan: HashMap<String, u32>,
     /// The shortcut editor is open: keys are being pressed to pick one.
     editing: bool,
     /// What the system was last handed, so a same list isn't rebound.
@@ -190,7 +192,7 @@ impl ShortcutsPlugin {
     pub fn with_backend(remote: RemoteActions, factory: BackendFactory) -> ShortcutsPlugin {
         ShortcutsPlugin {
             remote, factory: Some(factory), poster: None, bindings: Vec::new(), notify: false, actions: Vec::new(),
-            backend: None, started: false, held: HashMap::new(), editing: false, last_global: None, recent: HashMap::new(),
+            backend: None, started: false, held: HashMap::new(), held_scan: HashMap::new(), editing: false, last_global: None, recent: HashMap::new(),
             editor: None, section_made: false, note_override: None, menu: None, from_menu: None,
         }
     }
@@ -281,7 +283,7 @@ impl ShortcutsPlugin {
         self.action(&b.action).is_some().then_some(b)
     }
 
-    fn press(&mut self, host: &mut dyn Host, id: &str, source: Source, repeat: bool) -> Option<String> {
+    fn press(&mut self, host: &mut dyn Host, id: &str, source: Source, repeat: bool, scan: u32) -> Option<String> {
         let binding = self.bindings.iter().find(|b| b.id == id)?.clone();
         if source == Source::Global && self.editing {
             // The user is pressing keys to pick one, not to run them
@@ -302,6 +304,7 @@ impl ShortcutsPlugin {
         self.recent.insert(id.into(), (source, now));
         if !repeat {
             self.held.insert(id.into(), source);
+            self.held_scan.insert(id.into(), scan);
         }
         let params = Value::Object(params);
         let said = match &owner {
@@ -327,6 +330,7 @@ impl ShortcutsPlugin {
     }
 
     fn release(&mut self, host: &mut dyn Host, id: &str) {
+        self.held_scan.remove(id);
         if self.held.remove(id).is_none() {
             return;
         }
@@ -337,12 +341,14 @@ impl ShortcutsPlugin {
         }
     }
 
-    /// Keys held inside Telescope come up: the ones on this key (whatever the modifiers), or all of them.
-    fn release_app_keys(&mut self, host: &mut dyn Host, key: Option<&str>) {
+    /// Keys held inside Telescope come up: the ones on this key (whatever the modifiers) or with this scan code (a shifted key can come
+    /// up as another key once Shift is let go first), or all of them (focus moved away).
+    fn release_app_keys(&mut self, host: &mut dyn Host, key: Option<&str>, scan: u32) {
         let ids: Vec<String> = self.held.iter().filter(|(_, s)| **s == Source::App).map(|(id, _)| id.clone()).collect();
         for id in ids {
             let on_key = |b: &Binding| key.is_none_or(|k| keys::parse(&b.keys).is_some_and(|c| c.key.eq_ignore_ascii_case(k)));
-            if self.bindings.iter().find(|b| b.id == id).is_none_or(on_key) {
+            let same_scan = scan != 0 && self.held_scan.get(&id) == Some(&scan);
+            if self.bindings.iter().find(|b| b.id == id).is_none_or(on_key) || same_scan {
                 self.release(host, &id);
             }
         }
@@ -354,9 +360,10 @@ impl ShortcutsPlugin {
         let keys = keys::keys_from_slint(&key.text, key.ctrl, key.alt, key.shift, key.meta);
         if key.released {
             if !key.repeat {
+                // A key with no name of ours (Shift on its own) lets go of nothing by its name
                 let name = keys::parse(&keys).map(|c| c.key);
-                if let Some(name) = name {
-                    self.release_app_keys(host, Some(&name));
+                if name.is_some() || key.scan != 0 {
+                    self.release_app_keys(host, Some(name.as_deref().unwrap_or("")), key.scan);
                 }
             }
             return false;
@@ -371,7 +378,7 @@ impl ShortcutsPlugin {
             return false;
         }
         let id = binding.id.clone();
-        let said = self.press(host, &id, Source::App, key.repeat);
+        let said = self.press(host, &id, Source::App, key.repeat, key.scan);
         // A binding that couldn't run (its control greyed out) leaves the key to the control with focus
         said.is_some() || self.is_held(&id)
     }
@@ -389,7 +396,7 @@ impl ShortcutsPlugin {
         let id = data["id"].as_str().unwrap_or("");
         match data["kind"].as_str() {
             Some("pressed") => {
-                self.press(host, id, Source::Global, false);
+                self.press(host, id, Source::Global, false, 0);
             }
             Some("released") => self.release(host, id),
             Some("changed") => self.refresh(host),
@@ -1194,7 +1201,7 @@ impl Plugin for ShortcutsPlugin {
     }
 
     fn on_keys_lost(&mut self, host: &mut dyn Host) {
-        self.release_app_keys(host, None);
+        self.release_app_keys(host, None, 0);
     }
 
     fn get_config(&self) -> Value {
@@ -1206,6 +1213,7 @@ impl Plugin for ShortcutsPlugin {
         self.notify = cfg["notify"] == true;
         if self.started {
             self.held.clear();
+            self.held_scan.clear();
             self.apply_backend();
         }
         Ok(())
@@ -1633,6 +1641,31 @@ mod tests {
         plugin.on_key(&mut host, &key(" ", true, false));
         plugin.on_keys_lost(&mut host);
         assert_eq!(ran(&host).len(), 4);
+    }
+
+    #[test]
+    fn a_shifted_key_let_go_after_shift_comes_up_by_its_scan_code() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Shift+!", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);
+        plugin.on_key(&mut host, &KeyInput { shift: true, scan: 10, ..key("!", false, false) });
+        assert_eq!(ran(&host).len(), 1);
+        // Shift comes up first, so the key is now a plain "1" (the shift key itself has no text of ours)
+        plugin.on_key(&mut host, &KeyInput { released: true, scan: 50, ..key("\u{10}", false, false) });
+        assert_eq!(ran(&host).len(), 1, "Shift coming up is not the held key");
+        plugin.on_key(&mut host, &KeyInput { released: true, scan: 10, ..key("1", false, false) });
+        assert_eq!(ran(&host).len(), 2);
+        assert!(ran(&host)[1].starts_with("release_action"));
+    }
+
+    #[test]
+    fn a_release_without_a_scan_code_still_matches_by_key() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Space", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);
+        plugin.on_key(&mut host, &key(" ", true, false));
+        plugin.on_key(&mut host, &KeyInput { released: true, ..key(" ", false, false) });
+        assert_eq!(ran(&host).len(), 2);
+        // A different key's scan code lets nothing go
+        plugin.on_key(&mut host, &KeyInput { scan: 7, ..key(" ", true, false) });
+        plugin.on_key(&mut host, &KeyInput { released: true, scan: 8, ..key("q", false, false) });
+        assert_eq!(ran(&host).len(), 3);
     }
 
     #[test]

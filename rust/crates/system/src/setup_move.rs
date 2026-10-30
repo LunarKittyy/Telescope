@@ -1,0 +1,611 @@
+//! Moving an unzipped Windows copy to an installed one (updates.py, "Moving an unzipped copy to an installed one (Windows)").
+//!
+//! Updating an unzipped copy runs the release's TelescopeSetup.exe instead of swapping files in place: the installed copy starts, and
+//! once it has started fine it removes the folder it replaced. What decides this is plain data (`Place`), so the rules can be checked
+//! from any system; only gathering that data and running the installer is Windows-only.
+
+use crate::update_guard::{self, EXE_NAME, FAILED_EXE_NAME, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR};
+use crate::updates::{InstallResult, UpdateError};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use telescope_core::i18n::tr;
+
+/// installer/Telescope.iss; never changes.
+pub const SETUP_APP_ID: &str = "{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}";
+/// Tells the installed copy which unzipped folder it replaced.
+pub const MOVED_FROM: &str = "--moved-from";
+/// The same, kept in the installed folder until that folder is gone.
+pub const PENDING_MOVE: &str = ".moved-from";
+/// How long the installer may take.
+pub const SETUP_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// The facts is_unzipped_copy goes by.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Place {
+    pub windows: bool,
+    /// The packaged app (its exe is in the folder) rather than a build run from a source checkout.
+    pub packaged: bool,
+    /// The folder the setup installs to.
+    pub is_install_dir: bool,
+    /// On a removable or network drive.
+    pub carried_around: bool,
+    /// An unins*.exe sits in the folder: the installer made it.
+    pub has_uninstaller: bool,
+}
+
+/// The packaged Windows app, run from a folder someone unzipped rather than one the installer made.
+pub fn is_unzipped_copy(place: &Place) -> bool {
+    // Unzipped where the setup installs: running the setup would close this copy mid-update
+    place.windows && place.packaged && !place.is_install_dir
+        // On a USB stick or a share it's portable on purpose: moving it would empty the stick
+        && !place.carried_around && !place.has_uninstaller
+}
+
+/// Whether updating goes through the installer: an unzipped copy, not kept portable, with a setup to use. An older version registered
+/// the camera driver from this folder, so deleting it would take the camera away: until Advanced's reinstall fixes that, this copy
+/// updates in place.
+pub fn moves_on_update(keep_portable: bool, setup_offered: bool, unzipped: bool, driver_in_app_folder: impl FnOnce() -> bool) -> bool {
+    if keep_portable || !setup_offered || !unzipped {
+        return false;
+    }
+    !driver_in_app_folder()
+}
+
+/// Where TelescopeSetup.exe installs for one user (%LOCALAPPDATA%\Programs\Telescope).
+pub fn default_install_dir(local_app_data: Option<&str>) -> Option<PathBuf> {
+    local_app_data.filter(|v| !v.is_empty()).map(|v| Path::new(v).join("Programs").join("Telescope"))
+}
+
+fn normal(path: &Path) -> String {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()).to_string_lossy().to_lowercase()
+}
+
+/// Whether two folders are the same place (case does not matter, as on Windows).
+pub fn same_place(a: &Path, b: Option<&Path>) -> bool {
+    b.is_some_and(|b| normal(a) == normal(b))
+}
+
+fn has_uninstaller(directory: &Path) -> bool {
+    std::fs::read_dir(directory).is_ok_and(|list| {
+        list.flatten().any(|e| {
+            let name = e.file_name().to_string_lossy().to_lowercase();
+            name.starts_with("unins") && name.ends_with(".exe")
+        })
+    })
+}
+
+#[cfg(windows)]
+fn carried_around(directory: &Path) -> bool {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetDriveTypeW(root: *const u16) -> u32;
+    }
+    let full = std::fs::canonicalize(directory).unwrap_or_else(|_| directory.to_path_buf()).to_string_lossy().into_owned();
+    let full = full.strip_prefix(r"\\?\UNC\").map(|rest| format!(r"\\{rest}")).unwrap_or_else(|| full.trim_start_matches(r"\\?\").to_string());
+    if full.starts_with(r"\\") {
+        return true; // \\server\share
+    }
+    let root: Vec<u16> = full.chars().take(2).chain(std::iter::once('\\')).map(|c| c as u16).chain(std::iter::once(0)).collect();
+    // 2: removable, 4: network
+    matches!(unsafe { GetDriveTypeW(root.as_ptr()) }, 2 | 4)
+}
+
+#[cfg(not(windows))]
+fn carried_around(_directory: &Path) -> bool {
+    false
+}
+
+impl Place {
+    /// directory: the folder this copy runs from.
+    pub fn of(directory: &Path) -> Place {
+        let windows = cfg!(windows);
+        let local = std::env::var("LOCALAPPDATA").ok();
+        Place {
+            windows,
+            packaged: directory.join(EXE_NAME).is_file(),
+            is_install_dir: same_place(directory, default_install_dir(local.as_deref()).as_deref()),
+            carried_around: windows && carried_around(directory),
+            has_uninstaller: has_uninstaller(directory),
+        }
+    }
+}
+
+// ── Where the installer put it ───────────────────────────────────────────────
+
+pub fn uninstall_key() -> String {
+    format!(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1")
+}
+
+/// The value out of `reg query KEY /v InstallLocation`'s answer ("    InstallLocation    REG_SZ    <folder>").
+pub fn parse_install_location(output: &str) -> Option<PathBuf> {
+    output.lines().find_map(|line| {
+        let rest = line.trim_start().strip_prefix("InstallLocation")?;
+        let value = rest.trim_start().strip_prefix("REG_SZ")?.trim().to_string();
+        (!value.is_empty()).then(|| PathBuf::from(value))
+    })
+}
+
+/// Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed.
+#[cfg(windows)]
+pub fn installed_location() -> Option<PathBuf> {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("reg").args(["query", &uninstall_key(), "/v", "InstallLocation"]).creation_flags(0x0800_0000).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    parse_install_location(&String::from_utf8_lossy(&out.stdout))
+}
+
+#[cfg(not(windows))]
+pub fn installed_location() -> Option<PathBuf> {
+    None
+}
+
+/// The DLL paths the UnityCapture camera filters are registered with are in this folder: an older Telescope registered the driver
+/// straight from the app's folder (windows.uc_in_app_folder), which Program Files' copy is not.
+pub fn driver_registered_here(registered: &[String], app_dir: &Path) -> bool {
+    let ours = app_dir.join("unitycapture").join("UnityCaptureFilter64.dll").to_string_lossy().to_lowercase();
+    registered.iter().any(|p| p.to_lowercase().replace('/', "\\") == ours.replace('/', "\\"))
+}
+
+/// The same check against this computer's registry: the DLL each of the camera filters Telescope registers points to.
+#[cfg(windows)]
+pub fn driver_in_app_folder(app_dir: &Path) -> bool {
+    use std::os::windows::process::CommandExt;
+    let mut found = Vec::new();
+    for num in 0..4u32 {
+        let last = 0x10 + num + u32::from(num != 0);
+        let key = format!(r"HKCR\CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{last:02X}}}\InprocServer32");
+        let Ok(out) = std::process::Command::new("reg").args(["query", &key, "/ve"]).creation_flags(0x0800_0000).output() else { continue };
+        let text = String::from_utf8_lossy(&out.stdout);
+        found.extend(text.lines().filter_map(|l| l.split_once("REG_SZ").map(|(_, v)| v.trim().to_string())));
+    }
+    driver_registered_here(&found, app_dir)
+}
+
+#[cfg(not(windows))]
+pub fn driver_in_app_folder(_app_dir: &Path) -> bool {
+    false
+}
+
+// ── Desktop shortcuts to the copy that goes away ─────────────────────────────
+
+/// Where Windows keeps desktop shortcuts for this user: the profile's Desktop, and OneDrive's when it backs that up.
+pub fn desktop_folders() -> Vec<PathBuf> {
+    ["USERPROFILE", "OneDrive"].iter().filter_map(|name| std::env::var(name).ok().filter(|v| !v.is_empty()))
+        .map(|base| Path::new(&base).join("Desktop")).filter(|p| p.is_dir()).collect()
+}
+
+fn utf16_text(bytes: &[u8]) -> String {
+    let units: Vec<u16> = bytes.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+    String::from_utf16_lossy(&units).to_lowercase()
+}
+
+/// Desktop shortcuts (.lnk) that start exe. A .lnk keeps its target's path as text (ANSI in its link info, UTF-16 in its strings), so a
+/// plain search for it is enough to tell, without reading the format.
+pub fn shortcuts_to(exe: &Path, folders: &[PathBuf]) -> Vec<PathBuf> {
+    let target = exe.to_string_lossy().to_lowercase();
+    let mut found = Vec::new();
+    for folder in folders {
+        let Ok(list) = std::fs::read_dir(folder) else { continue };
+        for link in list.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk"))) {
+            let Ok(mut data) = std::fs::read(&link) else { continue };
+            data.truncate(64 * 1024);
+            let odd = data.get(1..).unwrap_or_default();
+            let texts = [utf16_text(&data), utf16_text(odd), String::from_utf8_lossy(&data).to_lowercase()];
+            if texts.iter().any(|t| t.contains(&target)) {
+                found.push(link);
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+// ── Running the installer ────────────────────────────────────────────────────
+
+/// How a run of the installer ended.
+#[derive(Debug)]
+pub enum SetupRun {
+    Exited(i32),
+    TimedOut,
+    CouldNotStart(io::Error),
+}
+
+/// Starts argv without a window and waits for it, up to `timeout`.
+pub fn run_setup(argv: &[String], timeout: Duration) -> SetupRun {
+    let Some((program, args)) = argv.split_first() else { return SetupRun::CouldNotStart(io::ErrorKind::InvalidInput.into()) };
+    let mut cmd = std::process::Command::new(program);
+    cmd.args(args);
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => return SetupRun::CouldNotStart(e),
+    };
+    let started = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return SetupRun::Exited(status.code().unwrap_or(-1)),
+            Ok(None) if started.elapsed() >= timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return SetupRun::TimedOut;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(200)),
+            Err(e) => return SetupRun::CouldNotStart(e),
+        }
+    }
+}
+
+/// What install_with_setup needs from the computer, so a test can stand in for it.
+pub struct SetupEnv<'a> {
+    pub run: &'a dyn Fn(&[String]) -> SetupRun,
+    pub locate: &'a dyn Fn() -> Option<PathBuf>,
+    /// Where desktop shortcuts are.
+    pub folders: &'a [PathBuf],
+}
+
+/// Runs the downloaded installer silently for this user; the result starts the installed copy, which tidies away old_dir once it has
+/// started fine (it's noted in that folder too, see pending_move). This copy is left as it is until then, so a failed install loses
+/// nothing. A desktop shortcut to this copy, which won't work once its folder goes, gets the installed copy's desktop icon in its place.
+pub fn install_with_setup(setup: &Path, old_dir: &Path, env: &SetupEnv) -> Result<InstallResult, UpdateError> {
+    let mut argv: Vec<String> = [setup.to_string_lossy().as_ref(), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"].map(String::from).to_vec();
+    if !shortcuts_to(&old_dir.join(EXE_NAME), env.folders).is_empty() {
+        argv.push("/MERGETASKS=desktopicon".into()); // installer/Telescope.iss [Tasks]
+    }
+    match (env.run)(&argv) {
+        SetupRun::TimedOut => return Err(UpdateError(tr("The installer took too long, so this copy stays as it is."))),
+        SetupRun::CouldNotStart(e) => {
+            return Err(UpdateError(tr("Couldn't start the installer: {error}").replace("{error}", &e.to_string())));
+        }
+        SetupRun::Exited(0) => {}
+        SetupRun::Exited(code) => {
+            return Err(UpdateError(tr("The installer stopped (code {code}), so this copy stays as it is.").replace("{code}", &code.to_string())));
+        }
+    }
+    let Some(location) = (env.locate)().filter(|l| l.join(EXE_NAME).is_file()) else {
+        return Err(UpdateError(tr("Telescope was installed, but its folder wasn't where expected. Open it from the Start menu.")));
+    };
+    let mut relaunch = vec![location.join(EXE_NAME).to_string_lossy().into_owned(), "--after-update".into()];
+    if std::fs::canonicalize(&location).ok() != std::fs::canonicalize(old_dir).ok() {
+        relaunch.extend([MOVED_FROM.into(), old_dir.to_string_lossy().into_owned()]);
+        // A journal from that folder's own in-app updates is about files the setup just replaced; left there, the first start would
+        // "roll back" the fresh install to them
+        if update_guard::clear_journal(&location).is_err() {
+            log::warn!("Couldn't clear the installed copy's old update journal");
+        }
+        // The argument alone is lost if the first start doesn't get as far as tidying up (a crash, a later reopen)
+        let part = location.join(format!("{PENDING_MOVE}.tmp"));
+        let noted = std::fs::write(&part, old_dir.to_string_lossy().as_bytes()).and_then(|()| std::fs::rename(&part, location.join(PENDING_MOVE)));
+        if noted.is_err() {
+            log::warn!("Couldn't note the old copy for the installed one");
+        }
+    }
+    Ok(InstallResult { relaunch, skipped: Vec::new() })
+}
+
+/// Called once the installed copy has been started from here. Should it not start, this copy is opened again and shouldn't offer that
+/// build straight back (Try again in Updates does); once it has, it deletes this folder and the marker with it.
+pub fn mark_started_elsewhere(build: i64, old_dir: &Path) {
+    if build != 0 {
+        let _ = std::fs::write(old_dir.join(update_guard::FAILED), serde_json::json!({"build": build}).to_string());
+    }
+}
+
+// ── Tidying away the replaced copy ───────────────────────────────────────────
+
+/// The unzipped folder this installed copy replaced and hasn't removed yet, or None.
+pub fn pending_move(directory: &Path) -> Option<PathBuf> {
+    let marker = directory.join(PENDING_MOVE);
+    let text = std::fs::read(&marker).ok().map(|b| String::from_utf8_lossy(&b).trim().to_string()).unwrap_or_default();
+    if marker.exists() && !text.is_empty() && !text.contains('\0') && Path::new(&text).is_absolute() {
+        return Some(PathBuf::from(text));
+    }
+    // Nothing to finish, and it would fail the same way at every start
+    let _ = std::fs::remove_file(&marker);
+    None
+}
+
+/// What an unzipped copy holds that's unmistakably Telescope's. A zip unpacked straight into Downloads shares that folder with the
+/// user's own things, which may include a platform-tools from Google's SDK or a lib-something folder, so a folder only counts as
+/// Telescope's when its name and its contents both match.
+fn ours(entry: &Path) -> bool {
+    const FILES: [&str; 8] = [OLD_EXE_NAME, FAILED_EXE_NAME, update_guard::JOURNAL, ".update.json.tmp", update_guard::FAILED,
+                              "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log"];
+    let folders: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::from([
+        ("platform-tools", BTreeSet::from(["adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll", "NOTICE"])),
+        ("unitycapture", BTreeSet::from(["UnityCaptureFilter32.dll", "UnityCaptureFilter64.dll", "LICENSE"])),
+        ("virtualcamera", BTreeSet::from(["TelescopeCamera.dll"])),
+    ]);
+    let name = entry.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let Ok(meta) = std::fs::symlink_metadata(entry) else { return false };
+    if meta.file_type().is_symlink() {
+        return name == "telescope.log"; // the log shortcut; never follow anything else
+    }
+    if meta.is_file() {
+        return FILES.contains(&name.as_str());
+    }
+    if !meta.is_dir() {
+        return false;
+    }
+    if name == STAGING_DIR || name == PREVIOUS_DIR {
+        return true; // only Telescope's updater makes these dot-folders
+    }
+    if let Some(allowed) = folders.get(name.as_str()) {
+        let inside: BTreeSet<String> = std::fs::read_dir(entry).map(|l| l.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect()).unwrap_or_default();
+        return inside.iter().all(|n| allowed.contains(n.as_str()));
+    }
+    // The Python app's libraries: lib-<build>, with the Qt it can't run without
+    name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir()
+}
+
+/// Deletes the unzipped copy this one replaced: only entries that are unmistakably Telescope's, the exe last so a copy cut short still
+/// runs, then the folder if that left it empty. Refuses anything that isn't an unzipped copy of Telescope. True once Telescope's part
+/// of it is gone.
+pub fn remove_unzipped_copy(old_dir: &Path, current_dir: &Path, tries: u32, pause: Duration, folders: &[PathBuf]) -> bool {
+    let exe = old_dir.join(EXE_NAME);
+    let same = std::fs::canonicalize(old_dir).ok() == std::fs::canonicalize(current_dir).ok();
+    if same || !exe.is_file() || std::fs::symlink_metadata(&exe).is_ok_and(|m| m.file_type().is_symlink()) || has_uninstaller(old_dir) {
+        return false; // an installed copy removes itself with its own uninstaller
+    }
+    let dead_links = shortcuts_to(&exe, folders); // read before the exe goes; the setup put a working one beside them
+    let mut left: Vec<String> = Vec::new();
+    for attempt in 0..tries {
+        left.clear();
+        let entries: Vec<PathBuf> = match std::fs::read_dir(old_dir) {
+            Ok(list) => list.flatten().map(|e| e.path()).filter(|p| p != &exe && ours(p)).collect(),
+            Err(_) => {
+                left.push(old_dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
+                Vec::new() // couldn't look inside, so the exe stays too
+            }
+        };
+        for entry in entries.iter().chain(exe.exists().then_some(&exe)) {
+            if entry == &exe && !left.is_empty() {
+                break; // keep the exe until the rest has gone, so what's left can still start
+            }
+            if update_guard::remove(entry).is_err() {
+                left.push(entry.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
+            }
+        }
+        if left.is_empty() {
+            let _ = std::fs::remove_dir(old_dir); // only if empty
+            for link in &dead_links {
+                let _ = std::fs::remove_file(link); // they started the exe that just went
+            }
+            return true;
+        }
+        if attempt + 1 < tries {
+            std::thread::sleep(pause); // the old copy may still be exiting and holding its files
+        }
+    }
+    log::warn!("Couldn't remove the old unzipped copy's {}", left.join(", "));
+    false
+}
+
+/// Remove the replaced unzipped copy; forget it once its exe is gone (or it was never one), else try again at the next start, when
+/// whatever held its files has let go.
+pub fn finish_move(old_dir: &Path, current_dir: &Path, folders: &[PathBuf]) -> bool {
+    let done = remove_unzipped_copy(old_dir, current_dir, 20, Duration::from_millis(500), folders);
+    if done || !old_dir.join(EXE_NAME).is_file() {
+        let _ = std::fs::remove_file(current_dir.join(PENDING_MOVE));
+    }
+    done
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    fn tmp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("telescope-move-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write(path: &Path, data: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, data).unwrap();
+    }
+
+    fn unzipped() -> Place {
+        Place { windows: true, packaged: true, ..Place::default() }
+    }
+
+    #[test]
+    fn only_a_packaged_windows_copy_in_an_ordinary_folder_counts_as_unzipped() {
+        assert!(is_unzipped_copy(&unzipped()));
+        assert!(!is_unzipped_copy(&Place { windows: false, ..unzipped() }), "Linux never moves");
+        assert!(!is_unzipped_copy(&Place { packaged: false, ..unzipped() }), "a source checkout");
+        assert!(!is_unzipped_copy(&Place { is_install_dir: true, ..unzipped() }), "unzipped where the setup installs");
+        assert!(!is_unzipped_copy(&Place { carried_around: true, ..unzipped() }), "on a stick or a share");
+        assert!(!is_unzipped_copy(&Place { has_uninstaller: true, ..unzipped() }), "the installer made it");
+    }
+
+    #[test]
+    fn a_move_needs_a_setup_an_unzipped_copy_and_no_driver_in_this_folder() {
+        assert!(moves_on_update(false, true, true, || false));
+        assert!(!moves_on_update(true, true, true, || false), "kept portable");
+        assert!(!moves_on_update(false, false, true, || false), "a release from before the installer");
+        assert!(!moves_on_update(false, true, false, || false), "an installed copy");
+        assert!(!moves_on_update(false, true, true, || true), "deleting this folder would take the camera");
+    }
+
+    #[test]
+    fn the_driver_check_is_asked_last() {
+        let asked = RefCell::new(0);
+        assert!(!moves_on_update(true, true, true, || { *asked.borrow_mut() += 1; false }));
+        assert_eq!(*asked.borrow(), 0, "the registry is only read when it matters");
+    }
+
+    #[test]
+    fn the_per_user_install_folder_comes_from_localappdata() {
+        assert_eq!(default_install_dir(Some(r"C:\Users\l\AppData\Local")), Some(Path::new(r"C:\Users\l\AppData\Local").join("Programs").join("Telescope")));
+        assert_eq!(default_install_dir(Some("")), None);
+        assert_eq!(default_install_dir(None), None);
+    }
+
+    #[test]
+    fn a_registered_driver_in_the_app_folder_is_found_whatever_the_case() {
+        let app = Path::new("C:\\Users\\l\\Downloads\\Telescope");
+        let here = app.join("unitycapture").join("UnityCaptureFilter64.dll").to_string_lossy().to_uppercase();
+        assert!(driver_registered_here(&[here], app));
+        assert!(!driver_registered_here(&[r"C:\Program Files\Telescope\UnityCapture\UnityCaptureFilter64.dll".into()], app));
+        assert!(!driver_registered_here(&[], app));
+    }
+
+    #[test]
+    fn the_install_location_is_read_from_the_uninstall_entry() {
+        let out = "\r\nHKEY_CURRENT_USER\\Software\\X\r\n    InstallLocation    REG_SZ    C:\\Users\\l\\AppData\\Local\\Programs\\Telescope\\\r\n\r\n";
+        assert_eq!(parse_install_location(out), Some(PathBuf::from("C:\\Users\\l\\AppData\\Local\\Programs\\Telescope\\")));
+        assert_eq!(parse_install_location("    InstallLocation    REG_SZ    \r\n"), None);
+        assert_eq!(parse_install_location(""), None);
+        assert!(uninstall_key().ends_with("{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1"));
+    }
+
+    /// An unzipped copy at root/old and an installed one at root/new.
+    fn two_copies(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let root = tmp(name);
+        let (old, new) = (root.join("old"), root.join("new"));
+        write(&old.join(EXE_NAME), "old exe");
+        write(&new.join(EXE_NAME), "new exe");
+        (root, old, new)
+    }
+
+    #[test]
+    fn the_installer_runs_silently_and_the_installed_copy_is_started() {
+        let (root, old, new) = two_copies("setup");
+        write(&new.join(update_guard::JOURNAL), "{}"); // from that folder's own in-app updates
+        let seen = RefCell::new(Vec::new());
+        let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
+        let locate = || Some(new.clone());
+        let result = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: &[] }).unwrap();
+        assert_eq!(*seen.borrow(), ["Setup.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"]);
+        assert_eq!(result.relaunch, [new.join(EXE_NAME).to_string_lossy().into_owned(), "--after-update".into(), MOVED_FROM.into(), old.to_string_lossy().into_owned()]);
+        assert!(!new.join(update_guard::JOURNAL).exists(), "the fresh install must not be rolled back to an old journal");
+        assert_eq!(pending_move(&new), Some(old.clone()));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_desktop_shortcut_to_the_old_copy_asks_for_the_new_ones_icon() {
+        let (root, old, new) = two_copies("setup-icon");
+        let desktop = root.join("Desktop");
+        let target = old.join(EXE_NAME).to_string_lossy().into_owned();
+        write(&desktop.join("Telescope.lnk"), &format!("....{target}...."));
+        write(&desktop.join("Other.lnk"), "something else");
+        let seen = RefCell::new(Vec::new());
+        let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
+        let locate = || Some(new.clone());
+        install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: &[desktop.clone()] }).unwrap();
+        assert_eq!(seen.borrow().last().map(String::as_str), Some("/MERGETASKS=desktopicon"));
+        assert_eq!(shortcuts_to(&old.join(EXE_NAME), &[desktop]).len(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_shortcut_with_the_path_in_utf16_is_found_too() {
+        let root = tmp("lnk16");
+        let exe = root.join("Åsa").join(EXE_NAME);
+        let bytes: Vec<u8> = std::iter::once(0u8).chain(exe.to_string_lossy().encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        std::fs::write(root.join("a.lnk"), bytes).unwrap();
+        assert_eq!(shortcuts_to(&exe, &[root.clone()]).len(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_failed_installer_leaves_this_copy_alone_and_says_why() {
+        let (root, old, new) = two_copies("setup-fail");
+        let locate = || Some(new.clone());
+        let fail = |run: &dyn Fn(&[String]) -> SetupRun| install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run, locate: &locate, folders: &[] }).unwrap_err().0;
+        assert!(fail(&|_| SetupRun::TimedOut).contains("took too long"));
+        assert!(fail(&|_| SetupRun::CouldNotStart(io::Error::other("no such file"))).contains("Couldn't start the installer: no such file"));
+        assert!(fail(&|_| SetupRun::Exited(5)).contains("code 5"));
+        assert!(!new.join(PENDING_MOVE).exists());
+        let nowhere = || None;
+        let e = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &nowhere, folders: &[] }).unwrap_err();
+        assert!(e.0.contains("wasn't where expected"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn installing_over_the_same_folder_moves_nothing() {
+        let (root, old, _new) = two_copies("setup-same");
+        let locate = || Some(old.clone());
+        let result = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &locate, folders: &[] }).unwrap();
+        assert_eq!(result.relaunch.len(), 2);
+        assert!(!old.join(PENDING_MOVE).exists());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_marker_that_names_nothing_usable_is_dropped() {
+        let root = tmp("pending");
+        write(&root.join(PENDING_MOVE), "relative/path");
+        assert_eq!(pending_move(&root), None);
+        assert!(!root.join(PENDING_MOVE).exists());
+        assert_eq!(pending_move(&root), None);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_replaced_copy_goes_but_a_users_own_files_stay() {
+        let (root, old, new) = two_copies("remove");
+        write(&old.join("Telescope.apk"), "apk");
+        write(&old.join("platform-tools/adb.exe"), "adb");
+        write(&old.join("platform-tools/mine.txt"), "a SDK file");
+        write(&old.join("lib-12/PyQt6/qt.dll"), "qt");
+        write(&old.join("lib-project/main.rs"), "the user's");
+        write(&old.join("notes.txt"), "the user's");
+        write(&new.join(PENDING_MOVE), &old.to_string_lossy());
+        let done = remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[]);
+        assert!(done, "Telescope's part of it is gone, the rest is left to the user");
+        assert!(!old.join("Telescope.apk").exists() && !old.join("lib-12").exists());
+        assert!(old.join("platform-tools/mine.txt").exists() && old.join("lib-project/main.rs").exists() && old.join("notes.txt").exists());
+        // Once the exe is gone there is nothing left to try again, so the marker goes
+        assert!(!old.join(EXE_NAME).exists() && new.join(PENDING_MOVE).exists());
+        assert!(!finish_move(&old, &new, &[]));
+        assert!(!new.join(PENDING_MOVE).exists());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_copy_with_only_telescope_in_it_is_removed_whole() {
+        let (root, old, new) = two_copies("remove-all");
+        write(&old.join("Telescope.apk"), "apk");
+        write(&old.join(".update-staging/x"), "x");
+        let desktop = root.join("Desktop");
+        write(&desktop.join("Telescope.lnk"), &old.join(EXE_NAME).to_string_lossy());
+        assert!(remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[desktop.clone()]));
+        assert!(!old.exists());
+        assert!(!desktop.join("Telescope.lnk").exists(), "it started the exe that just went");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn nothing_that_is_not_an_unzipped_copy_is_removed() {
+        let (root, old, new) = two_copies("refuse");
+        assert!(!remove_unzipped_copy(&new, &new, 1, Duration::ZERO, &[]), "this very folder");
+        write(&old.join("unins000.exe"), "uninstaller");
+        assert!(!remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[]), "an installed copy has its own uninstaller");
+        assert!(old.join(EXE_NAME).exists());
+        let empty = root.join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(!remove_unzipped_copy(&empty, &new, 1, Duration::ZERO, &[]), "no Telescope in it");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_marker_in_the_old_copy_stops_it_being_offered_the_same_build_again() {
+        let (root, old, _new) = two_copies("marker");
+        mark_started_elsewhere(0, &old);
+        assert!(!old.join(update_guard::FAILED).exists());
+        mark_started_elsewhere(131, &old);
+        assert_eq!(update_guard::failed_build(&old), Some(131));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+}

@@ -7,6 +7,28 @@ use slint_interpreter::Value as SValue;
 use std::rc::Rc;
 use telescope_core::ui::KeyInput;
 
+thread_local! {
+    /// The scan code of the key winit last reported, which Slint's KeyEvent leaves out.
+    static LAST_SCAN: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// The scan code the system gives a physical key, 0 when it gives none.
+fn scan_code(key: slint::winit_030::winit::keyboard::PhysicalKey) -> u32 {
+    use slint::winit_030::winit::platform::scancode::PhysicalKeyExtScancode;
+    key.to_scancode().unwrap_or(0)
+}
+
+/// Makes the scan code of each key event available to key_input: winit's event comes first, then Slint's own KeyEvent for it.
+pub fn watch_scan_codes(window: &slint::Window) {
+    use slint::winit_030::{winit::event::WindowEvent, EventResult, WinitWindowAccessor};
+    window.on_winit_window_event(|_, event| {
+        if let WindowEvent::KeyboardInput { event, .. } = event {
+            LAST_SCAN.with(|s| s.set(scan_code(event.physical_key)));
+        }
+        EventResult::Propagate
+    });
+}
+
 /// The window's KeyEvent as core's KeyInput.
 pub fn key_input(event: &SValue, released: bool, typing: bool, modal: bool) -> KeyInput {
     let SValue::Struct(e) = event else { return KeyInput::default() };
@@ -16,7 +38,7 @@ pub fn key_input(event: &SValue, released: bool, typing: bool, modal: bool) -> K
         Some(SValue::Struct(m)) => (flag(m, "control"), flag(m, "alt"), flag(m, "shift"), flag(m, "meta")),
         _ => (false, false, false, false),
     };
-    KeyInput { text, ctrl, alt, shift, meta, repeat: flag(e, "repeat"), released, typing, modal }
+    KeyInput { text, ctrl, alt, shift, meta, repeat: flag(e, "repeat"), released, typing, modal, scan: LAST_SCAN.with(|s| s.get()) }
 }
 
 impl Window {

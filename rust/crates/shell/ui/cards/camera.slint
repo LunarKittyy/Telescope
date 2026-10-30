@@ -7,18 +7,14 @@ export struct Lens {
     number: string,
     unit: string,
     rest: string,
+    name: string,
 }
 
-global Fmt {
-    // One decimal with its sign, like the Qt card's "+0.0 EV"
-    public pure function signed1(v: float) -> string {
-        let tenths = round(abs(v) * 10);
-        (v < -0.05 ? "-" : "+") + floor(tenths / 10) + "." + mod(tenths, 10)
-    }
-
-    public pure function shutter(ns: float) -> string {
-        ns >= 500000000 ? round(ns / 100000000) / 10 + " s" : "1/" + round(1000000000 / ns)
-    }
+// A switch tile as the card holds it: on or off, usable, and why not.
+export struct TileState {
+    checked: bool,
+    enabled: bool,
+    tip: string,
 }
 
 component LensTile inherits Rectangle {
@@ -33,7 +29,7 @@ component LensTile inherits Rectangle {
     background: on ? hue.with-alpha(0.12) : touch.has-hover ? #2c333e : Theme.surface-raise;
     border-color: on ? hue : touch.has-hover ? Theme.border-hover : Theme.border-strong;
     accessible-role: button;
-    accessible-label: lens.number + lens.unit + " " + lens.rest;
+    accessible-label: lens.name;
     accessible-checked: on;
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     VerticalLayout {
@@ -72,45 +68,76 @@ component LensTile inherits Rectangle {
 
 export component CameraCard inherits Card {
     in property <bool> active;
+    // A source that isn't a phone is picked: the card has nothing to do then
+    in property <bool> phone-only-hidden;
     in property <[Lens]> lenses;
-    in-out property <int> current-lens;
-    in-out property <int> exposure-mode;
-    in-out property <float> iso-pos: 0.3;
-    in-out property <float> shutter-pos: 0.4;
-    in-out property <float> ae-comp;
+    in property <int> current-lens: -1;
+    in property <string> lens-placeholder;
+    // What the lens can do, quietly in the header ("Full manual control"), with the details for a tooltip
+    in property <string> info;
+    in property <string> info-tip;
+    in property <int> exposure-mode;
+    in property <[bool]> exposure-disabled: [false, false];
+    in property <bool> show-manual-exposure;
+    in property <float> iso-pos;
+    in property <string> iso-text;
+    in property <bool> iso-enabled;
+    in property <float> shutter-pos;
+    in property <string> shutter-text;
+    in property <bool> shutter-enabled;
+    in property <int> ae-comp;
     in property <int> ae-min: -8;
     in property <int> ae-max: 8;
-    in property <float> ae-step: 0.167;
-    in-out property <int> wb-mode;
-    // The lens takes manual white balance (supportsManualWB); Qt's button is enabled until a lens says it can't
-    in property <bool> manual-wb-ok: true;
-    in-out property <float> kelvin: 5500;
-    in-out property <float> tint: 0;
-    in-out property <int> focus-mode;
-    in-out property <float> focus-pos;
-    in property <bool> point-focus;
-    in-out property <bool> ois: true;
-    in-out property <bool> black-level-lock;
-    in-out property <bool> torch;
-    in-out property <int> noise-reduction: 1;
-    in-out property <int> sharpening: 1;
+    in property <string> ae-text: "0.0 EV";
+    in property <int> wb-mode;
+    in property <[bool]> wb-disabled: [false, false];
+    in property <bool> show-manual-wb;
+    in property <int> kelvin: 5500;
+    in property <string> kelvin-text: "5500 K";
+    in property <int> tint;
+    in property <string> tint-text: "+0";
+    in property <bool> wb-enabled;
+    in property <int> focus-mode;
+    in property <[bool]> focus-disabled: [false, true, false];
+    in property <bool> show-manual-focus;
+    in property <int> focus-pos;
+    in property <string> focus-text: "∞";
+    in property <bool> focus-enabled;
+    in property <TileState> ois: { checked: true, enabled: true };
+    in property <TileState> low-light;
+    in property <bool> show-low-light;
+    in property <TileState> black-level-lock: { enabled: true };
+    in property <TileState> torch: { enabled: true };
+    in property <int> noise-reduction: 1;
+    in property <int> sharpening: 1;
 
-    callback lens-picked(string);
-    callback control(string, float);
-    callback manual-exposure(float, float);
-    callback manual-wb(float, float);
-
-    property <float> iso: 50 * pow(6400 / 50, iso-pos);
-    property <float> shutter-ns: 100000 * pow(10000, shutter-pos);
+    callback lens-picked(int);
+    callback exposure-picked(int);
+    callback iso-moved(float);
+    callback shutter-moved(float);
+    callback ae-moved(float);
+    callback wb-picked(int);
+    callback kelvin-moved(float);
+    callback tint-moved(float);
+    callback focus-picked(int);
+    callback focus-moved(float);
+    callback ois-toggled(bool);
+    callback low-light-toggled(bool);
+    callback bll-toggled(bool);
+    callback torch-toggled(bool);
+    callback nr-picked(int);
+    callback edge-picked(int);
 
     title: @tr("Camera");
     icon: Icons.camera;
+    note: info;
     // dim_until_paired: faded and disabled until there's a phone
     opacity: active ? 1 : 0.4;
     enabled: active;
+    visible: !phone-only-hidden;
 
     if lenses.length == 0: Text {
-        text: @tr("Start streaming to load lenses");
+        text: lens-placeholder;
         font-family: Theme.font;
         font-size: Theme.body;
         color: Theme.text-dim;
@@ -123,10 +150,7 @@ export component CameraCard inherits Card {
             lens: lens;
             hue: root.hue;
             on: i == current-lens;
-            clicked => {
-                current-lens = i;
-                lens-picked(lens.id);
-            }
+            clicked => { lens-picked(i); }
         }
     }
 
@@ -140,39 +164,37 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("Exposure");
                 items: [@tr("Auto"), @tr("Manual")];
-                disabled: [!active, !active];
-                current <=> exposure-mode;
-                picked(i) => {
-                    if (i == 0) { control("auto", 0); } else { manual-exposure(iso, shutter-ns); }
-                }
+                disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
+                current: exposure-mode;
+                picked(i) => { exposure-picked(i); }
             }
         }
-        if exposure-mode == 1: FormRow {
-            label: @tr("ISO");
+        if show-manual-exposure: FormRow {
+            label: "ISO";
             Slider {
-                label: @tr("ISO");
+                label: "ISO";
                 hue: root.hue;
-                enabled: active;
+                enabled: active && iso-enabled;
                 minimum: 0;
-                maximum: 1;
-                step: 0.01;
-                value <=> iso-pos;
-                readout: "ISO " + round(iso);
-                released => { manual-exposure(iso, shutter-ns); }
+                maximum: 2000;
+                step: 20;
+                value: iso-pos;
+                readout: iso-text;
+                moved(v) => { iso-moved(v); }
             }
         }
-        if exposure-mode == 1: FormRow {
+        if show-manual-exposure: FormRow {
             label: @tr("Shutter");
             Slider {
                 label: @tr("Shutter");
                 hue: root.hue;
-                enabled: active;
+                enabled: active && shutter-enabled;
                 minimum: 0;
-                maximum: 1;
-                step: 0.01;
-                value <=> shutter-pos;
-                readout: Fmt.shutter(shutter-ns);
-                released => { manual-exposure(iso, shutter-ns); }
+                maximum: 2000;
+                step: 20;
+                value: shutter-pos;
+                readout: shutter-text;
+                moved(v) => { shutter-moved(v); }
             }
         }
         FormRow {
@@ -184,9 +206,12 @@ export component CameraCard inherits Card {
                 minimum: ae-min;
                 maximum: ae-max;
                 step: 1;
-                value <=> ae-comp;
-                readout: Fmt.signed1(ae-comp * ae-step) + " EV";
-                released(v) => { control("ae_comp", v); }
+                value: ae-comp;
+                readout: ae-text;
+                marks: [0];
+                has-default: true;
+                default-value: 0;
+                moved(v) => { ae-moved(v); }
             }
         }
         FormRow {
@@ -194,39 +219,41 @@ export component CameraCard inherits Card {
             Segmented {
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
-                disabled: [!active, !active || !manual-wb-ok];
-                current <=> wb-mode;
-                picked(i) => {
-                    if (i == 0) { control("wb_auto", 0); } else { manual-wb(kelvin, tint); }
-                }
+                disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
+                current: wb-mode;
+                picked(i) => { wb-picked(i); }
             }
         }
-        if wb-mode == 1: FormRow {
+        if show-manual-wb: FormRow {
             label: @tr("Temperature");
             Slider {
                 label: @tr("Temperature");
                 hue: root.hue;
-                enabled: active;
+                enabled: active && wb-enabled;
                 minimum: 2000;
                 maximum: 10000;
                 step: 100;
-                value <=> kelvin;
-                readout: round(kelvin) + " K";
-                released => { manual-wb(kelvin, tint); }
+                value: kelvin;
+                readout: kelvin-text;
+                has-default: true;
+                default-value: 5500;
+                moved(v) => { kelvin-moved(v); }
             }
         }
-        if wb-mode == 1: FormRow {
+        if show-manual-wb: FormRow {
             label: @tr("Tint G–M");
             Slider {
                 label: @tr("Tint G–M");
                 hue: root.hue;
-                enabled: active;
+                enabled: active && wb-enabled;
                 minimum: -150;
                 maximum: 150;
                 step: 1;
-                value <=> tint;
-                readout: (tint >= 0 ? "+" : "") + round(tint);
-                released => { manual-wb(kelvin, tint); }
+                value: tint;
+                readout: tint-text;
+                has-default: true;
+                default-value: 0;
+                moved(v) => { tint-moved(v); }
             }
         }
     }
@@ -240,24 +267,24 @@ export component CameraCard inherits Card {
             label: @tr("Focus");
             Segmented {
                 label: @tr("Focus");
-                items: [@tr("Auto"), @tr("Tap a point"), @tr("Manual")];
-                disabled: [!active, !active || !point-focus, !active];
-                current <=> focus-mode;
-                picked(i) => { control("focus_mode", i == 2 ? 1 : 0); }
+                items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];
+                disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
+                current: focus-mode;
+                picked(i) => { focus-picked(i); }
             }
         }
-        if focus-mode == 2: FormRow {
+        if show-manual-focus: FormRow {
             label: @tr("Distance");
             Slider {
                 label: @tr("Distance");
                 hue: root.hue;
-                enabled: active;
+                enabled: active && focus-enabled;
                 minimum: 0;
-                maximum: 1;
-                step: 0.01;
-                value <=> focus-pos;
-                readout: focus-pos < 0.005 ? "∞" : round(100 / (focus-pos * 10)) + " cm";
-                released(v) => { control("focus_distance", v * 10); }
+                maximum: 1000;
+                step: 10;
+                value: focus-pos;
+                readout: focus-text;
+                moved(v) => { focus-moved(v); }
             }
         }
     }
@@ -267,24 +294,64 @@ export component CameraCard inherits Card {
         title: @tr("Image");
         icon: Icons.image;
         scope: root.fold-key;
-        GridLayout {
+        // Two tiles a row, closing the gap when the phone has no low light mode
+        if show-low-light: GridLayout {
             spacing: 8px;
             Row {
                 SwitchTile {
                     icon: Icons.stabilize;
                     text: @tr("Stabilization");
                     hue: root.hue;
-                    enabled: active;
-                    checked <=> ois;
-                    toggled(on) => { control("ois", on ? 1 : 0); }
+                    enabled: active && ois.enabled;
+                    checked: ois.checked;
+                    toggled(on) => { ois-toggled(on); }
+                }
+                SwitchTile {
+                    icon: Icons.moon;
+                    text: @tr("Low light");
+                    hue: root.hue;
+                    enabled: active && low-light.enabled;
+                    checked: low-light.checked;
+                    toggled(on) => { low-light-toggled(on); }
+                }
+            }
+            Row {
+                SwitchTile {
+                    icon: Icons.lock;
+                    text: @tr("Black level lock");
+                    hue: root.hue;
+                    enabled: active && black-level-lock.enabled;
+                    checked: black-level-lock.checked;
+                    toggled(on) => { bll-toggled(on); }
+                }
+                SwitchTile {
+                    icon: Icons.torch;
+                    text: @tr("Torch");
+                    hue: root.hue;
+                    enabled: active && torch.enabled;
+                    checked: torch.checked;
+                    toggled(on) => { torch-toggled(on); }
+                }
+            }
+        }
+        if !show-low-light: GridLayout {
+            spacing: 8px;
+            Row {
+                SwitchTile {
+                    icon: Icons.stabilize;
+                    text: @tr("Stabilization");
+                    hue: root.hue;
+                    enabled: active && ois.enabled;
+                    checked: ois.checked;
+                    toggled(on) => { ois-toggled(on); }
                 }
                 SwitchTile {
                     icon: Icons.lock;
                     text: @tr("Black level lock");
                     hue: root.hue;
-                    enabled: active;
-                    checked <=> black-level-lock;
-                    toggled(on) => { control("black_level_lock", on ? 1 : 0); }
+                    enabled: active && black-level-lock.enabled;
+                    checked: black-level-lock.checked;
+                    toggled(on) => { bll-toggled(on); }
                 }
             }
             Row {
@@ -293,9 +360,9 @@ export component CameraCard inherits Card {
                     icon: Icons.torch;
                     text: @tr("Torch");
                     hue: root.hue;
-                    enabled: active;
-                    checked <=> torch;
-                    toggled(on) => { control("torch", on ? 1 : 0); }
+                    enabled: active && torch.enabled;
+                    checked: torch.checked;
+                    toggled(on) => { torch-toggled(on); }
                 }
             }
         }
@@ -303,17 +370,17 @@ export component CameraCard inherits Card {
             spacing: 8px;
             ChoiceField {
                 caption: @tr("Noise reduction");
-                items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;
-                current <=> noise-reduction;
-                picked(i) => { control("nr_mode", i); }
+                current: noise-reduction;
+                picked(i) => { nr-picked(i); }
             }
             ChoiceField {
                 caption: @tr("Sharpening");
-                items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;
-                current <=> sharpening;
-                picked(i) => { control("edge_mode", i); }
+                current: sharpening;
+                picked(i) => { edge-picked(i); }
             }
         }
     }

@@ -59,7 +59,7 @@ mod tests {
         let good = testenc::jpeg(120, 64, 48);
         let f = dec.decode_jpeg(&good).unwrap();
         assert_eq!((f.width, f.height), (64, 48));
-        assert!((f.data[0] as i32 - 120).abs() <= 3, "full-range JPEG grey keeps its value: {}", f.data[0]);
+        assert!((f.data[0] as i32 - 119).abs() <= 3, "a full-range JPEG grey of 120 is 119 in the limited range: {}", f.data[0]);
         assert!(dec.decode_jpeg(&patch_size(&good, 32767, 32767)).is_none());
     }
 

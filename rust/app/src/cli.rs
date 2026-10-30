@@ -34,7 +34,7 @@ impl Args {
         StreamRequest { width: self.width, height: self.height, fps: self.fps }
     }
 
-    pub fn window(&self, snapshot: Option<String>, minimized: bool) -> WindowOptions {
+    pub fn window(&self, snapshot: Option<String>, minimized: bool, on_shown: Option<telescope_shell::ShownHook>) -> WindowOptions {
         WindowOptions {
             prefs: self.prefs(),
             request: self.request(),
@@ -44,6 +44,7 @@ impl Args {
             quit_after: self.quit_after,
             snapshot,
             minimized,
+            on_shown,
         }
     }
 }

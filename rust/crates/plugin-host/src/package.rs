@@ -610,4 +610,4 @@ mod unix_users {
 
 #[cfg(test)]
 #[path = "package_tests.rs"]
-mod tests;
+pub(crate) mod tests;

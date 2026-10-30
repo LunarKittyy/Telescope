@@ -6,6 +6,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde_json::{json, Value};
 use telescope_core::event::Event;
@@ -14,6 +15,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
+use crate::setup_move;
 use crate::updates::{self, Asset, InstallResult, Manifest, Updates, Web};
 use crate::version;
 
@@ -48,6 +50,21 @@ pub trait Backend: Send + Sync {
     fn threaded(&self) -> bool {
         true
     }
+    /// An unzipped Windows copy, whose update can go through the installer (setup_move::is_unzipped_copy).
+    fn is_unzipped_copy(&self) -> bool {
+        false
+    }
+    /// An older Telescope registered the camera driver from this folder, so removing the folder would take the camera.
+    fn driver_in_app_folder(&self) -> bool {
+        false
+    }
+    /// install(), but with the release's TelescopeSetup.exe: it installs for this user and the result starts that copy.
+    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+        -> Result<(i64, InstallResult), String> {
+        self.install(manifest, asset, progress, cancelled)
+    }
+    /// The installed copy is being started from here (mark_started_elsewhere).
+    fn started_elsewhere(&self, _build: i64) {}
 }
 
 /// This copy, in the folder it runs from.
@@ -55,11 +72,14 @@ pub struct RealBackend {
     pub directory: PathBuf,
     pub build: i64,
     pub channel: String,
+    /// Run before the installer, which can't replace a folder a running adb.exe holds (stop_adb_server).
+    pub before_setup: Option<Arc<dyn Fn() + Send + Sync>>,
+    unzipped: std::sync::OnceLock<bool>,
 }
 
 impl Default for RealBackend {
     fn default() -> Self {
-        RealBackend { directory: crate::app_dir(), build: version::build(), channel: version::channel().into() }
+        RealBackend { directory: crate::app_dir(), build: version::build(), channel: version::channel().into(), before_setup: None, unzipped: Default::default() }
     }
 }
 
@@ -91,6 +111,36 @@ impl Backend for RealBackend {
 
     fn blocker(&self) -> Option<String> {
         updates::self_update_blocker(&self.directory, &self.channel)
+    }
+
+    fn is_unzipped_copy(&self) -> bool {
+        *self.unzipped.get_or_init(|| setup_move::is_unzipped_copy(&setup_move::Place::of(&self.directory)))
+    }
+
+    fn driver_in_app_folder(&self) -> bool {
+        setup_move::driver_in_app_folder(&self.directory)
+    }
+
+    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+        -> Result<(i64, InstallResult), String> {
+        let folder = (0..100).map(|n| std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id())))
+            .find(|p| std::fs::create_dir(p).is_ok()).ok_or_else(|| tr("The update failed."))?;
+        let done = self.with(|u| u.download_update(manifest, asset, &folder, &mut |d, t| progress(Some((d, t))), cancelled)).and_then(|(selected, setup)| {
+            progress(None);
+            if let Some(stop) = &self.before_setup {
+                stop();
+            }
+            let run = |argv: &[String]| setup_move::run_setup(argv, setup_move::SETUP_TIMEOUT);
+            let folders = setup_move::desktop_folders();
+            let env = setup_move::SetupEnv { run: &run, locate: &setup_move::installed_location, folders: &folders };
+            setup_move::install_with_setup(&setup, &self.directory, &env).map(|r| (selected.build, r))
+        });
+        let _ = std::fs::remove_dir_all(&folder);
+        done.map_err(|e| e.0)
+    }
+
+    fn started_elsewhere(&self, build: i64) {
+        setup_move::mark_started_elsewhere(build, &self.directory);
     }
 
     fn is_newer(&self, manifest: Option<&Manifest>) -> bool {
@@ -155,6 +205,10 @@ pub struct UpdatesPlugin {
     cancel: Arc<AtomicBool>,
     done: Arc<Mutex<Vec<Done>>>,
     poster: Option<Arc<dyn Poster>>,
+    /// The build being installed, for the folder it replaces to remember if the new copy never starts.
+    install_build: i64,
+    /// When the camera driver was last looked for in this folder, and what was found: reading the registry once is enough for a while.
+    driver_here: Mutex<Option<(std::time::Instant, bool)>>,
 }
 
 impl Default for UpdatesPlugin {
@@ -190,6 +244,8 @@ impl UpdatesPlugin {
             cancel: Arc::new(AtomicBool::new(false)),
             done: Arc::new(Mutex::new(Vec::new())),
             poster: None,
+            install_build: 0,
+            driver_here: Mutex::new(None),
         }
     }
 
@@ -202,9 +258,23 @@ impl UpdatesPlugin {
         self.checking || self.phase != Phase::Idle
     }
 
-    /// Updating goes through the installer (an unzipped Windows copy); not in this build yet, so it always updates in place.
+    /// Whether updating goes through the installer: an unzipped copy, not kept portable, with a setup to use.
     fn moves_on_update(&self) -> bool {
-        false
+        let setup_offered = self.available.as_ref().is_some_and(|m| updates::setup_asset(m).is_some());
+        setup_move::moves_on_update(self.keep_portable, setup_offered, self.backend.is_unzipped_copy(), || self.driver_in_app_folder())
+    }
+
+    /// The backend's answer, remembered for half a minute since one refresh of the window asks more than once.
+    fn driver_in_app_folder(&self) -> bool {
+        let mut seen = self.driver_here.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((at, here)) = *seen {
+            if at.elapsed() <= Duration::from_secs(30) {
+                return here;
+            }
+        }
+        let here = self.backend.driver_in_app_folder();
+        *seen = Some((std::time::Instant::now(), here));
+        here
     }
 
     /// Why updating has to go through the release page, or None.
@@ -237,7 +307,10 @@ impl UpdatesPlugin {
             return (self.error.clone(), "status_err");
         }
         if let Some(m) = &self.available {
-            let text = with_version("Telescope {version} is available.", m);
+            let mut text = with_version("Telescope {version} is available.", m);
+            if self.moves_on_update() {
+                text = format!("{text} {}", tr("Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."));
+            }
             if let Some(blocker) = self.update_blocker() {
                 return (format!("{text} {blocker}"), "status_warn");
             }
@@ -282,7 +355,7 @@ impl UpdatesPlugin {
             "channels": CHANNEL_LABELS.iter().map(|(_, label)| tr(label)).collect::<Vec<_>>(),
             "channel": CHANNEL_LABELS.iter().position(|(key, _)| *key == self.channel).unwrap_or(0),
             "auto": self.auto_check,
-            "portable-shown": false,
+            "portable-shown": self.backend.is_unzipped_copy(),
             "portable": self.keep_portable,
             "status-text": status,
             "status-kind": kind,
@@ -420,7 +493,9 @@ impl UpdatesPlugin {
             self.refresh(host);
             return;
         }
-        let Some(asset) = updates::platform_asset(&manifest).cloned() else { return };
+        let via_setup = self.moves_on_update();
+        let chosen = if via_setup { updates::setup_asset(&manifest) } else { updates::platform_asset(&manifest) };
+        let Some(asset) = chosen.cloned() else { return };
         self.phase = Phase::Downloading;
         self.progress = (0, asset.size);
         self.error.clear();
@@ -429,14 +504,18 @@ impl UpdatesPlugin {
         let (backend, cancel) = (self.backend.clone(), self.cancel.clone());
         self.run(host, move |push| {
             let mut progress = |p: Option<(u64, u64)>| push(p.map_or(Done::Installing, |(d, t)| Done::Progress(d, t)));
-            let result = backend.install(&manifest, &asset, &mut progress, &|| cancel.load(Ordering::SeqCst));
+            let cancelled = || cancel.load(Ordering::SeqCst);
+            let result = if via_setup { backend.install_via_setup(&manifest, &asset, &mut progress, &cancelled) } else { backend.install(&manifest, &asset, &mut progress, &cancelled) };
             push(Done::Installed(result));
         });
     }
 
     fn on_installed(&mut self, host: &mut dyn Host, result: Result<(i64, InstallResult), String>) {
         let result = match result {
-            Ok((_, r)) => r,
+            Ok((build, r)) => {
+                self.install_build = build;
+                r
+            }
             Err(error) => {
                 self.phase = Phase::Idle;
                 self.error = error;
@@ -475,6 +554,10 @@ impl UpdatesPlugin {
             self.error = tr("Updated. Close and reopen Telescope to finish.");
             self.refresh(host);
             return;
+        }
+        if argv.iter().any(|a| a == setup_move::MOVED_FROM) {
+            // The installed copy is starting now
+            self.backend.started_elsewhere(self.install_build);
         }
         host.quit_app();
     }
@@ -619,6 +702,12 @@ mod tests {
         blocker: Mutex<Option<String>>,
         opened: Mutex<Vec<String>>,
         failed: Mutex<Option<i64>>,
+        unzipped: AtomicBool,
+        driver_here: AtomicBool,
+        driver_asked: Mutex<u32>,
+        /// (asset name, through the installer) for each install.
+        asked_for: Mutex<Vec<(String, bool)>>,
+        started_from: Mutex<Vec<i64>>,
     }
 
     impl Backend for Fake {
@@ -626,8 +715,9 @@ mod tests {
             self.channels.lock().unwrap().push(channel.into());
             self.result.lock().unwrap().clone().unwrap_or_else(|| Ok(Some(newer())))
         }
-        fn install(&self, _m: &Manifest, _a: &Asset, _p: &mut dyn FnMut(Option<(u64, u64)>), _c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+        fn install(&self, _m: &Manifest, a: &Asset, _p: &mut dyn FnMut(Option<(u64, u64)>), _c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
             *self.installs.lock().unwrap() += 1;
+            self.asked_for.lock().unwrap().push((a.name.clone(), false));
             self.installed.lock().unwrap().take().unwrap_or_else(|| Ok((200, InstallResult { relaunch: vec!["start.sh".into(), "--after-update".into()], skipped: vec![] })))
         }
         fn blocker(&self) -> Option<String> {
@@ -654,6 +744,21 @@ mod tests {
         }
         fn threaded(&self) -> bool {
             false
+        }
+        fn is_unzipped_copy(&self) -> bool {
+            self.unzipped.load(Ordering::SeqCst)
+        }
+        fn driver_in_app_folder(&self) -> bool {
+            *self.driver_asked.lock().unwrap() += 1;
+            self.driver_here.load(Ordering::SeqCst)
+        }
+        fn install_via_setup(&self, m: &Manifest, a: &Asset, p: &mut dyn FnMut(Option<(u64, u64)>), c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            let result = self.install(m, a, p, c);
+            self.asked_for.lock().unwrap().last_mut().unwrap().1 = true;
+            result
+        }
+        fn started_elsewhere(&self, build: i64) {
+            self.started_from.lock().unwrap().push(build);
         }
     }
 
@@ -754,6 +859,107 @@ mod tests {
         plugin.update_now(&mut host);
         assert_eq!(*fake.relaunched.lock().unwrap(), vec![vec!["start.sh".to_string(), "--after-update".into()]]);
         assert_eq!(quits(&host), 1);
+    }
+
+    // An unzipped Windows copy updates through the installer (plugins/updates.py's moves_on_update)
+
+    fn with_setup() -> Manifest {
+        let mut m = newer();
+        m.assets.insert(updates::WINDOWS_SETUP_ASSET.into(), asset(updates::WINDOWS_SETUP_ASSET));
+        m
+    }
+
+    /// An unzipped copy whose camera driver is in Program Files, with a release that has the setup.
+    fn unzipped_env() -> (UpdatesPlugin, FakeHost, Arc<Fake>) {
+        let (plugin, host, fake) = env();
+        fake.unzipped.store(true, Ordering::SeqCst);
+        *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
+        (plugin, host, fake)
+    }
+
+    #[test]
+    fn an_unzipped_copy_updates_through_the_installer_and_says_so() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        plugin.check(&mut host, false);
+        assert!(plugin.moves_on_update());
+        assert!(plugin.status_text(&host).0.contains("installs it for your user"));
+        // The installer needs no writable folder, so a move has no blocker
+        *fake.blocker.lock().unwrap() = Some("Telescope's folder isn't writable.".into());
+        assert_eq!(plugin.update_blocker(), None);
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.asked_for.lock().unwrap(), vec![(updates::WINDOWS_SETUP_ASSET.to_string(), true)]);
+    }
+
+    #[test]
+    fn keeping_it_portable_updates_in_place_with_the_zip() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        plugin.check(&mut host, false);
+        plugin.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "portable-toggled".into(), args: vec![json!(true)] });
+        assert!(plugin.keep_portable && !plugin.moves_on_update());
+        assert!(!plugin.status_text(&host).0.contains("installs it for your user"));
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.asked_for.lock().unwrap(), vec![(updates::platform_asset(&newer()).unwrap().name.clone(), false)]);
+    }
+
+    #[test]
+    fn no_move_without_a_setup_or_with_the_driver_in_this_folder() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        *fake.result.lock().unwrap() = Some(Ok(Some(newer()))); // from before the installer
+        plugin.check(&mut host, false);
+        assert!(!plugin.moves_on_update());
+        *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
+        plugin.check(&mut host, false);
+        fake.driver_here.store(true, Ordering::SeqCst); // deleting this folder would take the camera
+        plugin.driver_here = Mutex::new(None);
+        assert!(!plugin.moves_on_update());
+        plugin.update_now(&mut host);
+        assert!(!fake.asked_for.lock().unwrap()[0].1);
+    }
+
+    #[test]
+    fn an_installed_copy_never_moves_and_hides_the_portable_switch() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        fake.unzipped.store(false, Ordering::SeqCst);
+        plugin.check(&mut host, false);
+        assert!(!plugin.moves_on_update());
+        assert_eq!(last_props(&host, SECTION)["portable-shown"], false);
+        fake.unzipped.store(true, Ordering::SeqCst);
+        plugin.refresh(&mut host);
+        assert_eq!(last_props(&host, SECTION)["portable-shown"], true);
+    }
+
+    #[test]
+    fn the_camera_driver_check_is_remembered_for_half_a_minute() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        plugin.check(&mut host, false);
+        let before = *fake.driver_asked.lock().unwrap();
+        assert!(plugin.moves_on_update() && plugin.moves_on_update());
+        assert_eq!(*fake.driver_asked.lock().unwrap(), before.max(1), "asked once for both");
+        let asked = *fake.driver_asked.lock().unwrap();
+        *plugin.driver_here.lock().unwrap() = Some((std::time::Instant::now() - Duration::from_secs(31), false));
+        plugin.moves_on_update();
+        assert_eq!(*fake.driver_asked.lock().unwrap(), asked + 1);
+    }
+
+    #[test]
+    fn the_installed_copy_starting_marks_the_old_folder_with_the_build() {
+        let (mut plugin, mut host, fake) = unzipped_env();
+        plugin.check(&mut host, false);
+        *fake.installed.lock().unwrap() = Some(Ok((200, InstallResult {
+            relaunch: vec!["new/TelescopeDesktop.exe".into(), "--after-update".into(), setup_move::MOVED_FROM.into(), "old".into()],
+            skipped: vec![],
+        })));
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.started_from.lock().unwrap(), vec![200]);
+        assert_eq!(quits(&host), 1);
+    }
+
+    #[test]
+    fn an_in_place_update_marks_nothing() {
+        let (mut plugin, mut host, fake) = env();
+        plugin.check(&mut host, false);
+        plugin.update_now(&mut host);
+        assert!(fake.started_from.lock().unwrap().is_empty());
     }
 
     #[test]

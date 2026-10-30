@@ -404,6 +404,13 @@ pub fn launch(argv: &[String]) -> io::Result<()> {
     cmd.spawn().map(|_| ())
 }
 
+/// A lib-<build> folder of the Python app, which holds the Qt it can't run without. A folder only counts when its name and its contents
+/// both match (updates._ours), since a portable copy unpacked into Downloads shares it with the user's own things.
+fn is_python_build_lib(p: &Path) -> bool {
+    let digits = p.file_name().and_then(|n| n.to_str()).and_then(|n| n.strip_prefix(LIB_PREFIX)).unwrap_or("");
+    is_real_dir(p) && !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()) && p.join("PyQt6").is_dir()
+}
+
 /// Deletes what earlier versions left behind (updates.clean_up_after_update): the old and failed exes, the staging
 /// folder, .previous and the Python build's lib-<build> folders (this app has none of its own). Best effort: what's
 /// still held is tried again next start. this_build: a copy rolled back while it was still starting leaves them.
@@ -417,7 +424,7 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
     let mut leftovers: Vec<PathBuf> = [OLD_EXE_NAME, FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR].iter().map(|n| directory.join(n)).collect();
     if let Ok(list) = std::fs::read_dir(directory) {
         leftovers.extend(list.filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| is_real_dir(p) && p.file_name().is_some_and(|n| n.to_string_lossy().starts_with(LIB_PREFIX))));
+            .filter(|p| is_python_build_lib(p)));
     }
     for p in leftovers {
         let _ = remove(&p);
@@ -466,6 +473,7 @@ mod tests {
     fn windows_app(dir: &Path) -> PathBuf {
         let app = dir.join("app");
         write(&app.join("lib-130/python311.dll"), "py 130");
+        write(&app.join("lib-130/PyQt6/qt.dll"), "qt 130");
         write(&app.join(EXE_NAME), "exe 130");
         write(&app.join("Telescope.apk"), "apk 130");
         app
@@ -581,6 +589,22 @@ mod tests {
         // The old version's clean-up takes the failed one's leftovers, lib folders and all
         clean_up_after_update(&app, Some(130));
         assert!(!app.join(FAILED_EXE_NAME).exists() && !app.join("lib-131").exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn clean_up_leaves_other_lib_folders_alone() {
+        let base = root("lib-others");
+        let app = base.join("app");
+        write(&app.join(EXE_NAME), "exe");
+        write(&app.join("lib-project/main.rs"), "a user's own folder");
+        write(&app.join("lib-130/python311.dll"), "no Qt in here");
+        write(&app.join("lib-x1/PyQt6/qt.dll"), "not a build number");
+        write(&app.join("lib-129/PyQt6/qt.dll"), "an old build");
+        clean_up_after_update(&app, None);
+        assert_eq!(read(&app.join("lib-project/main.rs")), "a user's own folder");
+        assert!(app.join("lib-130").exists() && app.join("lib-x1").exists());
+        assert!(!app.join("lib-129").exists());
         std::fs::remove_dir_all(&base).unwrap();
     }
 
