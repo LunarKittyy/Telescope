@@ -13,7 +13,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use telescope_core::web::{Certificate, PageHandler, Reply, Request, Serve, ServerStats, Step, Web, WebServer};
+use telescope_core::web::{Certificate, PageHandler, Reply, Request, Serve, ServerStats, Socket, Step, Upgrade, Web, WebServer};
 
 /// Browsers refuse certificates valid for more than 398 days, so it's renewed a month before it runs out.
 const CERT_DAYS: i64 = 397;
@@ -425,10 +425,75 @@ fn connection(tcp: TcpStream, config: Arc<rustls::ServerConfig>, handler: &dyn P
         }
     }
     let mut stream = BufReader::new(rustls::StreamOwned::new(tls, tcp));
-    while serve_request(&mut stream, handler, stats) {}
+    let upgrade = loop {
+        match serve_request(&mut stream, handler, stats) {
+            Served::Again => {}
+            Served::Done => break None,
+            Served::Upgrade(upgrade) => break Some(upgrade),
+        }
+    };
+    if let Some(upgrade) = upgrade {
+        let mut socket = Taken(stream);
+        if switch_protocols(&mut socket, &upgrade.headers) {
+            let run = upgrade.run;
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || run(Box::new(socket))));
+        }
+        return;
+    }
     let tls = stream.get_mut();
     tls.conn.send_close_notify();
     let _ = tls.flush();
+}
+
+/// A connection a page took over: what was read ahead stays in the buffer, so nothing the other end sent is lost.
+struct Taken(BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>);
+
+impl Read for Taken {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.0.read(buf)
+    }
+}
+
+impl Write for Taken {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.get_mut().write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.get_mut().flush()
+    }
+}
+
+impl Socket for Taken {
+    fn set_read_timeout(&mut self, timeout: Option<Duration>) -> std::io::Result<()> {
+        self.0.get_ref().sock.set_read_timeout(timeout)
+    }
+}
+
+impl Drop for Taken {
+    fn drop(&mut self) {
+        let tls = self.0.get_mut();
+        tls.conn.send_close_notify();
+        let _ = tls.flush();
+    }
+}
+
+/// The 101 answer an upgrade starts with; false when the other end is gone.
+fn switch_protocols(out: &mut impl Write, headers: &[(String, String)]) -> bool {
+    let mut text = String::from("HTTP/1.1 101 Switching Protocols\r\nServer: Telescope\r\n");
+    text.push_str(&format!("Date: {}\r\n", http_date(unix_now())));
+    for (k, v) in headers {
+        text.push_str(&format!("{k}: {v}\r\n"));
+    }
+    text.push_str("\r\n");
+    out.write_all(text.as_bytes()).and_then(|_| out.flush()).is_ok()
+}
+
+/// What one request left the connection to do.
+enum Served {
+    Again,
+    Done,
+    Upgrade(Upgrade),
 }
 
 /// The line up to its newline without it, or None when the connection ended or the line is past `MAX_LINE` (Err(true)).
@@ -447,23 +512,32 @@ fn read_line(stream: &mut impl BufRead) -> Result<Option<String>, bool> {
     Ok(Some(String::from_utf8_lossy(&line).into_owned()))
 }
 
-/// One request and its answer; whether the connection stays for another.
-fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> bool {
+/// One request and its answer: another request after it, the connection's end, or a page taking it over.
+fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Served {
+    match serve_one(stream, handler, stats) {
+        Ok(true) => Served::Again,
+        Ok(false) => Served::Done,
+        Err(upgrade) => Served::Upgrade(upgrade),
+    }
+}
+
+/// serve_request, with an upgrade as the error so the early returns stay plain bools.
+fn serve_one<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Result<bool, Upgrade> {
     let line = match read_line(stream) {
         Ok(Some(line)) if !line.is_empty() => line,
-        Ok(Some(_)) => return false,
-        Ok(None) | Err(false) => return false,
-        Err(true) => return refuse(stream.get_mut(), 414, "Request-URI Too Long"),
+        Ok(Some(_)) => return Ok(false),
+        Ok(None) | Err(false) => return Ok(false),
+        Err(true) => return Ok(refuse(stream.get_mut(), 414, "Request-URI Too Long")),
     };
     let words: Vec<&str> = line.split_whitespace().collect();
     let [method, target, version] = words.as_slice() else {
-        return refuse(stream.get_mut(), 400, "Bad request syntax");
+        return Ok(refuse(stream.get_mut(), 400, "Bad request syntax"));
     };
     let Some((major, minor)) = version.strip_prefix("HTTP/").and_then(|v| v.split_once('.')).and_then(|(a, b)| Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?))) else {
-        return refuse(stream.get_mut(), 400, "Bad request version");
+        return Ok(refuse(stream.get_mut(), 400, "Bad request version"));
     };
     if major >= 2 {
-        return refuse(stream.get_mut(), 505, "Invalid HTTP version");
+        return Ok(refuse(stream.get_mut(), 505, "Invalid HTTP version"));
     }
     let mut headers = Vec::new();
     loop {
@@ -471,14 +545,14 @@ fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageH
             Ok(Some(l)) if l.is_empty() => break,
             Ok(Some(l)) => {
                 if headers.len() >= MAX_HEADERS {
-                    return refuse(stream.get_mut(), 431, "Too many headers");
+                    return Ok(refuse(stream.get_mut(), 431, "Too many headers"));
                 }
                 if let Some((k, v)) = l.split_once(':') {
                     headers.push((k.trim().to_string(), v.trim().to_string()));
                 }
             }
-            Ok(None) | Err(false) => return false,
-            Err(true) => return refuse(stream.get_mut(), 431, "Line too long"),
+            Ok(None) | Err(false) => return Ok(false),
+            Err(true) => return Ok(refuse(stream.get_mut(), 431, "Line too long")),
         }
     }
     let request = Request { method: method.to_string(), target: target.to_string(), headers };
@@ -487,17 +561,20 @@ fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageH
     let keep = if (major, minor) >= (1, 1) { connection != "close" } else { connection == "keep-alive" };
     if !matches!(request.method.as_str(), "GET" | "HEAD") {
         let text = format!("Unsupported method ('{}')", request.method);
-        return refuse(stream.get_mut(), 501, &text);
+        return Ok(refuse(stream.get_mut(), 501, &text));
     }
     let head = request.method == "HEAD";
+    if let Ok(Some(upgrade)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler.upgrade(&request, stats))) {
+        return Err(upgrade);
+    }
     let reply = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler.handle(&request, stats)));
-    match reply {
+    Ok(match reply {
         Ok(reply) => answer(stream.get_mut(), head, reply, false) && keep,
         Err(_) => {
             log::error!("A page handler failed");
             refuse(stream.get_mut(), 500, "Something went wrong")
         }
-    }
+    })
 }
 
 /// An error that ends the connection (send_error); always false, so a caller can return it.
