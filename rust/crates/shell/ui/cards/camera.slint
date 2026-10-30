@@ -74,6 +74,10 @@ export component CameraCard inherits Card {
     in property <int> current-lens: -1;
     // Up to five tiles in a row, more lenses in rows as even as they can be
     in property <int> lens-columns: 1;
+    // Why a segment can't be picked, shown when it's hovered
+    in property <[string]> exposure-tips;
+    in property <[string]> wb-tips;
+    in property <[string]> focus-tips;
     in property <string> lens-placeholder;
     // What the lens can do, quietly in the header ("Full manual control"), with the details for a tooltip
     in property <string> info;
@@ -171,6 +175,7 @@ export component CameraCard inherits Card {
                 label: @tr("Exposure");
                 items: [@tr("Auto"), @tr("Manual")];
                 disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
+                tips: exposure-tips;
                 current: exposure-mode;
                 picked(i) => { exposure-picked(i); }
             }
@@ -226,6 +231,7 @@ export component CameraCard inherits Card {
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
                 disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
+                tips: wb-tips;
                 current: wb-mode;
                 picked(i) => { wb-picked(i); }
             }
@@ -275,6 +281,7 @@ export component CameraCard inherits Card {
                 label: @tr("Focus");
                 items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];
                 disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
+                tips: focus-tips;
                 current: focus-mode;
                 picked(i) => { focus-picked(i); }
             }
@@ -307,6 +314,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.stabilize;
                     text: @tr("Stabilization");
+                    tip: ois.tip;
                     hue: root.hue;
                     enabled: active && ois.enabled;
                     checked: ois.checked;
@@ -315,6 +323,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.moon;
                     text: @tr("Low light");
+                    tip: low-light.tip;
                     hue: root.hue;
                     enabled: active && low-light.enabled;
                     checked: low-light.checked;
@@ -325,6 +334,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.lock;
                     text: @tr("Black level lock");
+                    tip: black-level-lock.tip;
                     hue: root.hue;
                     enabled: active && black-level-lock.enabled;
                     checked: black-level-lock.checked;
@@ -333,6 +343,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.torch;
                     text: @tr("Torch");
+                    tip: torch.tip;
                     hue: root.hue;
                     enabled: active && torch.enabled;
                     checked: torch.checked;
@@ -346,6 +357,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.stabilize;
                     text: @tr("Stabilization");
+                    tip: ois.tip;
                     hue: root.hue;
                     enabled: active && ois.enabled;
                     checked: ois.checked;
@@ -354,6 +366,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     icon: Icons.lock;
                     text: @tr("Black level lock");
+                    tip: black-level-lock.tip;
                     hue: root.hue;
                     enabled: active && black-level-lock.enabled;
                     checked: black-level-lock.checked;
@@ -365,6 +378,7 @@ export component CameraCard inherits Card {
                     col: 0;
                     icon: Icons.torch;
                     text: @tr("Torch");
+                    tip: torch.tip;
                     hue: root.hue;
                     enabled: active && torch.enabled;
                     checked: torch.checked;

@@ -1163,6 +1163,9 @@ impl CameraControl {
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
+        props["exposure-tips"] = json!(self.exp.tips);
+        props["wb-tips"] = json!(self.wb.tips);
+        props["focus-tips"] = json!(self.focus.tips);
         props
     }
 

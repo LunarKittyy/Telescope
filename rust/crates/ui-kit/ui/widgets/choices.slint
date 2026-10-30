@@ -4,11 +4,14 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { TipBody } from "tip.slint";
 
 // segmented_row: equal segments in one track, the picked one a filled pill.
 export component Segmented inherits Rectangle {
     in property <[string]> items;
     in property <[bool]> disabled;
+    // What to say on hover over each item, where there's something to say (why it can't be picked)
+    in property <[string]> tips;
     // A 13px line icon before each item's text, where has-icons says so
     in property <[image]> icons;
     in property <[bool]> has-icons;
@@ -50,7 +53,8 @@ export component Segmented inherits Rectangle {
             property <bool> on: i == current;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            min-width: 0px;
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end
+            min-width: bold-width.preferred-width + 16px;
             preferred-width: 0px;
             border-radius: 6px;
             background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
@@ -59,6 +63,8 @@ export component Segmented inherits Rectangle {
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
+            if tips[i] != "": Tooltip { TipBody { says: tips[i]; } }
+            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
                 clicked => {

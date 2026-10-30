@@ -65,6 +65,8 @@ export component SwitchTile inherits Rectangle {
     in property <color> hue: Theme.accent;
     in-out property <bool> checked;
     in property <bool> enabled: true;
+    // A tooltip for the whole tile, say why it can't be used
+    in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback toggled(bool);
@@ -82,6 +84,7 @@ export component SwitchTile inherits Rectangle {
         clicked => { sw.checked = !sw.checked; sw.toggled(sw.checked); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if root.tip != "": Tooltip { TipBody { says: root.tip; } }
     // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
         padding-left: 11px;

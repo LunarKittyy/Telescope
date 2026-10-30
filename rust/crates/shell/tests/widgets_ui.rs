@@ -32,6 +32,7 @@ export component Test inherits Window {
         }
         SwitchTile { text: "Notify"; icon: Icons.bell; checked <=> notify; }
         tag := Tag { text: "Experimental"; }
+        Rectangle { width: 200px; height: 40px; Segmented { label: "Seg"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         HorizontalLayout {
             spacing: 6px;
             Button { text: "Light"; clicked => { pressed = "Light"; } }
@@ -46,6 +47,8 @@ export component Test inherits Window {
     out property <length> short-tip-height: short-tip.preferred-height;
     out property <length> long-tip-width: long-tip.preferred-width;
     out property <length> long-tip-height: long-tip.preferred-height;
+    out property <length> bold-width: bold-measure.preferred-width;
+    bold-measure := Text { text: "Tap a point"; font-size: Theme.body; font-weight: 600; font-family: Theme.font; visible: false; }
     tag-measure := Text { text: "Experimental"; font-size: 11px; font-weight: 600; font-family: Theme.font; visible: false; }
 }
 "#;
@@ -171,4 +174,12 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     assert!(long_w <= 470.0 + 16.0 + 1.0 && long_w > short_w, "{long_w} wide");
     assert!(short_w < 120.0, "a short one hugs its text: {short_w}");
     assert!(long_h >= short_h + 2.0 * 15.0, "several lines: {long_h} against {short_h}");
+}
+
+// test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text
+#[test]
+fn a_picked_segment_keeps_room_for_its_bold_text() {
+    let ui = rig();
+    let segment = labelled(&ui, "Seg: Tap a point").into_iter().next().expect("the middle segment");
+    assert!(segment.size().width as f64 >= num(&ui, "bold-width") + 16.0, "{} against {}", segment.size().width, num(&ui, "bold-width") + 16.0);
 }
