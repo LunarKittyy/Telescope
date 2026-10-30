@@ -76,6 +76,12 @@ pub struct FakeHost {
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
+    /// What view_aspect() answers.
+    pub aspect: f32,
+    /// What took the view ("" for nobody): take_view fails for anyone else, as the real host's does.
+    pub view_owner: String,
+    /// Every steer_view, as (zoom, pan_x, pan_y).
+    pub steered: Vec<(f32, f32, f32)>,
     /// Timers pending from Host::schedule, as (after_ms, token), oldest first.
     pub scheduled: Vec<(u64, String)>,
     /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
@@ -97,6 +103,8 @@ pub struct FakeHost {
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
     pub vision: Option<String>,
+    /// What vision_pack() answers.
+    pub vision_pack: crate::vision::VisionPack,
     /// What packets_problem() answers instead of "".
     pub packets_problem: String,
     /// The newest frame of each stream, as frames() hands them out.
@@ -412,7 +420,7 @@ impl HostView for FakeHost {
         self.view.clone()
     }
     fn view_aspect(&self) -> f32 {
-        0.0
+        self.aspect
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
@@ -428,13 +436,21 @@ impl HostView for FakeHost {
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));
+        if !self.view_owner.is_empty() && self.view_owner != owner {
+            return false;
+        }
+        self.view_owner = owner.to_string();
         true
     }
     fn steer_view(&mut self, owner: &str, zoom: f32, pan_x: f32, pan_y: f32) {
         self.note(format!("steer_view {owner} {zoom} {pan_x} {pan_y}"));
+        self.steered.push((zoom, pan_x, pan_y));
     }
     fn release_view(&mut self, owner: &str) {
         self.note(format!("release_view {owner}"));
+        if self.view_owner == owner {
+            self.view_owner.clear();
+        }
     }
 }
 
@@ -447,6 +463,12 @@ impl HostVision for FakeHost {
     }
     fn tracked_people(&self, _source_id: Option<&str>) -> (Vec<Value>, u32) {
         (Vec::new(), 0)
+    }
+    fn vision_pack(&self) -> crate::vision::VisionPack {
+        self.vision_pack.clone()
+    }
+    fn download_vision(&mut self) {
+        self.note("download_vision");
     }
 }
 
