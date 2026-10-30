@@ -4823,9 +4823,11 @@ name = "telescope-app"
 version = "0.1.0"
 dependencies = [
  "flate2",
+ "i-slint-backend-testing",
  "log",
  "qrcode",
  "serde_json",
+ "slint-interpreter",
  "telescope-audio",
  "telescope-core",
  "telescope-effects",
@@ -4966,10 +4968,9 @@ dependencies = [
  "slint",
  "slint-interpreter",
  "telescope-core",
- "telescope-effects",
- "telescope-system",
  "telescope-ui-kit",
  "unicode-normalization",
+ "windows",
  "zbus",
 ]
 
