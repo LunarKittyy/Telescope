@@ -780,30 +780,20 @@ impl State {
         }
     }
 
-    /// Every device-local plugin's settings as `id`'s.
-    fn device_sections(&self, cfg: &Value, id: &str) -> Vec<PluginSection> {
-        let saved = profiles::device_plugin_configs(cfg, Some(id));
-        (0..self.slots.len()).filter(|&i| self.slots[i].info.device_local && !self.slots[i].info.name.is_empty())
-            .filter_map(|i| {
-                let name = &self.slots[i].info.name;
-                self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id.into()), config })
-            }).collect()
-    }
-
     /// _profile_key: whose settings a plugin has now, the picked source's, or for one that doesn't follow the panels, the main
     /// stream's.
-    fn profile_key(&self, i: usize) -> Option<String> {
+    fn profile_key(&self, i: usize, picked: Option<&str>) -> Option<String> {
         match &self.streams.main {
             Some((main, _)) if !self.slots[i].info.follows_focus => Some(main.clone()),
-            _ => self.selected.clone(),
+            _ => picked.filter(|p| !p.is_empty()).map(String::from),
         }
     }
 
-    /// Every device-local plugin's settings as those of whoever they belong to now.
-    fn profile_sections(&self, cfg: &Value) -> Vec<PluginSection> {
+    /// Every device-local plugin's settings as those of whoever they belong to now, with `picked` as the picked source.
+    fn profile_sections(&self, cfg: &Value, picked: Option<&str>) -> Vec<PluginSection> {
         (0..self.slots.len()).filter(|&i| self.slots[i].info.device_local && !self.slots[i].info.name.is_empty())
             .filter_map(|i| {
-                let id = self.profile_key(i)?;
+                let id = self.profile_key(i, picked)?;
                 let saved = profiles::device_plugin_configs(cfg, Some(&id));
                 let name = &self.slots[i].info.name;
                 self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id), config })
@@ -824,7 +814,7 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
-        sections.extend(self.profile_sections(&cfg));
+        sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.output_slots.clone() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
@@ -854,11 +844,9 @@ impl State {
     pub fn switch_device(&mut self, prev: Option<&str>, new: Option<&str>) {
         let loaded = self.file.load_strict().ok();
         if let Some(mut cfg) = loaded.clone() {
-            if let Some(prev) = prev.filter(|p| !p.is_empty()) {
-                let sections = self.device_sections(&cfg, prev);
-                let window = WindowState::from_config(&cfg);
-                merge_for_save(&mut cfg, &window, &sections);
-            }
+            let sections = self.profile_sections(&cfg, prev);
+            let window = WindowState::from_config(&cfg);
+            merge_for_save(&mut cfg, &window, &sections);
             profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
             cfg["selected_device"] = new.map_or(Value::Null, |n| json!(n));
             self.file.save(&mut cfg);
@@ -1196,6 +1184,30 @@ mod tests {
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
         assert_eq!(s.effects, vec![Effect::StopAll, Effect::Start { interactive: true }]);
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
+    }
+
+    #[test]
+    fn a_switch_files_a_plugin_that_stays_with_the_main_stream_under_that_stream() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        struct Stays;
+        impl Plugin for Stays {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "mic".into(), device_local: true, follows_focus: false, ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                json!({"gain": 3})
+            }
+        }
+        s.register(stub("transforms", json!({"zoom": 2.0}), true).0).unwrap();
+        s.register(Box::new(Stays)).unwrap();
+        s.selected = Some("B".into());
+        s.streams.main = Some(("A".into(), "Phone A".into()));
+        s.switch_device(Some("B"), Some("C"));
+        let cfg = s.file.load_strict().unwrap();
+        assert_eq!(cfg["devices"]["B"]["plugin_configs"]["transforms"]["zoom"], json!(2.0));
+        assert_eq!(cfg["devices"]["A"]["plugin_configs"]["mic"]["gain"], json!(3));
+        assert!(cfg["devices"]["B"]["plugin_configs"].get("mic").is_none(), "A's mic isn't B's");
     }
 
     #[test]
