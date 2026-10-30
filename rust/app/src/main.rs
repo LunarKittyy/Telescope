@@ -84,7 +84,12 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         plugins: Box::new(move || {
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
-                Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone())),
+                Box::new({
+                    let mut setup = telescope_setup::setup::SetupPlugin::new(outputs.clone(), mic_link.clone(), setup_media.clone(), &telescope_system::version::display_version(), languages.clone());
+                    // Open log is there once the desktop log is (diagnostics.events.path)
+                    setup.log_path = telescope_core::diagnostics::events().path().map(|p| p.display().to_string());
+                    setup
+                }),
                 Box::new(connection.connection_plugin()),
                 Box::new(browser_camera(browser_media.clone())),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
