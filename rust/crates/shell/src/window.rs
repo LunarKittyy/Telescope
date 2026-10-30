@@ -89,6 +89,9 @@ pub struct Window {
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
+export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
+export struct LayerText { x: length, y: length, text: string, color: color, size: length }
+
 export component PreviewPopout inherits Window {
     title: @tr("Telescope - Video Preview");
     min-width: 320px;
@@ -103,9 +106,12 @@ export component PreviewPopout inherits Window {
     in property <float> marker-u;
     in property <float> marker-v;
     in property <color> marker-colour;
+    in property <[LayerPath]> layer-paths;
+    in property <[LayerText]> layer-texts;
+    in property <string> layer-font;
     property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : root.width / max(1px, root.height);
-    property <length> pic-width: min(root.width, root.height * aspect);
-    property <length> pic-height: pic-width / max(aspect, 0.01);
+    out property <length> pic-width: min(root.width, root.height * aspect);
+    out property <length> pic-height: pic-width / max(aspect, 0.01);
     property <length> pic-x: (root.width - pic-width) / 2;
     property <length> pic-y: (root.height - pic-height) / 2;
     callback view-pointer(string, float, float, float, float);
@@ -123,6 +129,31 @@ export component PreviewPopout inherits Window {
         source: overlay;
         image-fit: contain;
         image-rendering: smooth;
+    }
+    if has-frame && (layer-paths.length > 0 || layer-texts.length > 0): Rectangle {
+        x: pic-x;
+        y: pic-y;
+        width: pic-width;
+        height: pic-height;
+        for shape in layer-paths: Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: shape.commands;
+            stroke: shape.stroke;
+            stroke-width: shape.width;
+            fill: shape.fill;
+            fill-rule: shape.evenodd ? FillRule.evenodd : FillRule.nonzero;
+        }
+        for t in layer-texts: Text {
+            x: t.x;
+            y: t.y;
+            text: t.text;
+            color: t.color;
+            font-family: layer-font;
+            font-size: t.size;
+        }
     }
     // The card's stage, as it's the same FrameLabel in Qt
     if has-frame: TouchArea {
@@ -545,7 +576,7 @@ impl Window {
 
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
     /// open, else of the card's stage when the card shows one.
-    fn paint_preview(self: &Rc<Self>) {
+    pub fn paint_preview(self: &Rc<Self>) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
         let prop = |name: &str| self.ui.get_property(&format!("{}-{name}", r.id)).ok();
         let on = |name: &str| prop(name) == Some(SValue::Bool(true));
@@ -645,10 +676,13 @@ impl Window {
     }
 
     /// The shapes plugins draw on the preview card's picture (add_preview_layer), at the picture's size now.
-    fn paint_layers(&self) {
+    pub fn paint_layers(&self) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
-        let name = |n: &str| format!("{}-{n}", r.id);
-        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        // On the pop-out while it's open: the card is hidden then
+        let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        let target = popout.as_ref().unwrap_or(&self.ui);
+        let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
+        let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
         let drawing = crate::overlays::layer_drawing(&self.state.borrow().layers, number("pic-width"), number("pic-height"));
         if *self.layers_drawn.borrow() == drawing {
             return;
@@ -675,8 +709,8 @@ impl Window {
                 ("size".to_string(), SValue::Number(t.size as f64)),
             ]))
         }).collect();
-        let _ = self.ui.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
-        let _ = self.ui.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
+        let _ = target.set_property(&name("layer-paths"), SValue::Model(ModelRc::new(VecModel::from(paths))));
+        let _ = target.set_property(&name("layer-texts"), SValue::Model(ModelRc::new(VecModel::from(texts))));
         *self.layers_drawn.borrow_mut() = drawing;
     }
 
@@ -732,8 +766,12 @@ impl Window {
                     if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
                         let _ = p.set_property("marker-colour", accent);
                     }
+                    if let Ok(font) = self.ui.get_global_property("Theme", "font") {
+                        let _ = p.set_property("layer-font", font);
+                    }
                     let _ = p.show();
                     *self.popout.borrow_mut() = Some(p);
+                    self.layers_drawn.take();
                     self.painted.set(0);
                 }
                 Err(e) => log::error!("The preview couldn't pop out: {e}"),
@@ -743,6 +781,7 @@ impl Window {
             if let Some(p) = self.popout.borrow_mut().take() {
                 let _ = p.hide();
             }
+            self.layers_drawn.take();
             self.painted.set(0);
         } else if open && asks != self.popout_asks.get() {
             self.popout_asks.set(asks);
@@ -785,6 +824,11 @@ impl Window {
         let done = self.ui.invoke(&format!("{}-{callback}", r.id), &[]).is_ok();
         self.process();
         done
+    }
+
+    /// The preview's pop-out window, while it's open.
+    pub fn popout_window(&self) -> Option<ComponentInstance> {
+        self.popout.borrow().as_ref().map(|p| p.clone_strong())
     }
 
     /// HostUi::open_window: builds the plugin's window and shows it, or shows it again when it's open.

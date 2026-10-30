@@ -1,12 +1,13 @@
 // A plugin's window of its own (HostUi::open_window) through the real window, on Slint's testing backend.
 use serde_json::{json, Value};
 use slint_interpreter::{ComponentHandle, Value as SValue};
+use slint::Model;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::{Event, SourceName};
-use telescope_core::host::{Host, RequestId};
+use telescope_core::host::{Host, PreviewLayer, RequestId, Shape};
 use telescope_core::frame::PixelFormat;
 use telescope_core::link::{Link, PairingOffer, PhoneSensors, PhoneSession, RoutePrefs, Unreachable};
 use telescope_core::media::{Codec, VideoFeed};
@@ -360,4 +361,39 @@ fn a_real_click_on_the_stage_comes_out_as_a_focus_point() {
     assert_eq!(heard.len(), 1, "{heard:?}");
     assert!((0.0..=1.0).contains(&heard[0].0) && (0.0..=1.0).contains(&heard[0].1), "{heard:?}");
     assert_eq!(w.ui.get_property("p1-marker-shown").unwrap(), SValue::Bool(true));
+}
+
+/// Keeps an outline on the preview, as QR codes does.
+struct Outlines;
+
+impl Plugin for Outlines {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "outlines".into(), title: "Outlines".into(), ..Default::default() }
+    }
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        let points = vec![[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
+        host.add_preview_layer("outlines", PreviewLayer { shapes: vec![Shape::Polygon { points, stroke: "#5fc98c".into(), width: 3.0, fill: None }] });
+    }
+}
+
+#[test]
+fn a_layer_on_the_preview_moves_to_the_pop_out() {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-layers");
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| {
+        vec![Box::new(Outlines) as Box<dyn Plugin>, Box::new(telescope_shell::plugins::preview::Preview::default())]
+    }, None, None).unwrap();
+    w.ui.window().set_size(slint::LogicalSize::new(1200.0, 800.0));
+    w.process();
+    w.paint_layers();
+    let paths = |ui: &slint_interpreter::ComponentInstance, name: &str| match ui.get_property(name) {
+        Ok(SValue::Model(m)) => m.row_count(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(paths(&w.ui, "p1-layer-paths"), 1);
+    assert!(w.call_ui("preview", "card", "pop-out"));
+    w.paint_preview();
+    w.paint_layers();
+    let popout = w.popout_window().expect("it opened");
+    assert_eq!(paths(&popout, "layer-paths"), 1);
 }
