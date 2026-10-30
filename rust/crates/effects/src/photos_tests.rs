@@ -230,7 +230,7 @@ fn take_photo_sends_the_options_with_the_views_rotation() {
     rig.ui("take-clicked", vec![]);
     let (options, folder) = rig.host.stills_taken[0].clone();
     assert!(folder == "/tmp/photos" && options["rotation"] == 270 && options["format"] == "jpeg");
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "waiting", "countdown_ms": 2400}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("3 s"));
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "capturing", "shots": 5, "taken": 1}) });
@@ -250,7 +250,7 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
     let mut rig = Rig::new(Some(full_json()), true);
     rig.host.window_active = true;
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/IMG_1.jpg"]}) });
     assert_eq!(rig.props()["status"], "Saved IMG_1.jpg");
     assert!(!rig.host.calls.iter().any(|c| c.starts_with("send_notification")));
@@ -260,13 +260,13 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
 fn a_failed_photo_shows_why() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "error": "The phone's camera is off."}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("camera is off"));
     assert_eq!(rig.props()["status-kind"], "status_err");
     // With no reason at all
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
     assert_eq!(rig.props()["status"], "The phone couldn't take the photo.");
 }
@@ -392,4 +392,23 @@ fn the_folder_is_picked_in_a_dialog_and_opened_from_the_last_photo() {
 #[test]
 fn exposures_read_like_the_python_app() {
     assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Like the video", "0.5 s", "8 s"));
+}
+
+#[test]
+fn a_second_phones_photo_does_not_cost_the_first_its_end() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.ui("take-clicked", vec![]);
+    let first = *rig.plugin.taking.last().unwrap();
+    // Another phone is shown now and takes its own photo while the first is still going
+    rig.ui("take-clicked", vec![]);
+    let second = *rig.plugin.taking.last().unwrap();
+    assert_ne!(first, second);
+    rig.event(Event::RequestProgress { request: first, data: json!({"state": "capturing", "shots": 5, "taken": 1}) });
+    assert!(rig.props()["status"].as_str().unwrap().contains("2 of 5"));
+    rig.event(Event::RequestDone { request: first, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/A.jpg"]}) });
+    assert_eq!(rig.props()["status"], "Saved A.jpg");
+    assert!(rig.host.calls.iter().any(|c| c == "send_notification Photo saved"));
+    rig.event(Event::RequestDone { request: second, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/B.jpg"]}) });
+    assert_eq!(rig.props()["status"], "Saved B.jpg");
+    assert!(rig.plugin.taking.is_empty());
 }

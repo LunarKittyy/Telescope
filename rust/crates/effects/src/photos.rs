@@ -279,8 +279,8 @@ pub struct PhotosPlugin {
     caps_raw: Option<Value>,
     busy: bool,
     last_saved: Vec<String>,
-    /// The photo being taken, and the folder dialog being shown.
-    taking: Option<RequestId>,
+    /// The photos being taken (one per phone, each with its own end) and the folder dialog being shown.
+    taking: Vec<RequestId>,
     asked: Option<RequestId>,
     status: (String, &'static str),
     paired: Paired,
@@ -303,7 +303,7 @@ impl PhotosPlugin {
             caps_raw: None,
             busy: false,
             last_saved: Vec::new(),
-            taking: None,
+            taking: Vec::new(),
             asked: None,
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
@@ -484,7 +484,7 @@ impl PhotosPlugin {
         let options = build_options(&caps, &self.choices, Self::rotation(host));
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
-                self.taking = Some(id);
+                self.taking.push(id);
                 self.show_status(host, tr("Taking the photo…"), "status_dim");
                 self.refresh(host);
             }
@@ -578,9 +578,9 @@ impl Plugin for PhotosPlugin {
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
             | Event::StillBusyChanged { .. } => self.refresh(host),
-            Event::RequestProgress { request, data } if Some(*request) == self.taking => self.progress(host, data),
-            Event::RequestDone { request, data, .. } if Some(*request) == self.taking => {
-                self.taking = None;
+            Event::RequestProgress { request, data } if self.taking.contains(request) => self.progress(host, data),
+            Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
+                self.taking.retain(|r| r != request);
                 self.done(host, data);
             }
             Event::RequestDone { request, ok, data, .. } if Some(*request) == self.asked => {
