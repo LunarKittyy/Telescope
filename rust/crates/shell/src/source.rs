@@ -4,7 +4,7 @@
 use serde_json::{Map, Value as Json};
 use slint::{Model, ModelRc, SharedString, VecModel};
 use slint_interpreter::{Struct, Value};
-use telescope_core::i18n::tr;
+use telescope_core::i18n::{tr, tr_ctx};
 
 /// What the shell can reach on a plugin's component: what it may set and the callbacks it forwards as UiEvents.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -16,8 +16,8 @@ pub struct Interface {
     pub callbacks: Vec<String>,
 }
 
-/// Every `@tr("...")` msgid swapped for its translation, so the interpreter needs no gettext of its own. Contexts and
-/// plurals are left alone.
+/// Every `@tr("...")` and `@tr("context" => "...")` swapped for its translation, so the interpreter needs no gettext of its
+/// own. Plurals are left alone (no card has one: `trn` is for texts built in Rust).
 pub fn translate(source: &str) -> String {
     let mut out = String::with_capacity(source.len());
     let mut rest = source;
@@ -29,7 +29,15 @@ pub fn translate(source: &str) -> String {
         rest = trimmed;
         let Some((msgid, len)) = string_literal(rest) else { continue };
         let after = rest[len..].trim_start();
-        if after.starts_with("=>") || after.starts_with('|') {
+        if after.starts_with('|') {
+            continue;
+        }
+        if let Some(text) = after.strip_prefix("=>") {
+            // @tr("ctx" => "text"): the text after the arrow, looked up under its context, comes out without one
+            let text = text.trim_start();
+            let Some((english, text_len)) = string_literal(text) else { continue };
+            out.push_str(&quote(&tr_ctx(&msgid, &english)));
+            rest = &text[text_len..];
             continue;
         }
         out.push_str(&quote(&tr(&msgid)));
@@ -367,10 +375,15 @@ export component CameraCard inherits Card {
 
     #[test]
     fn texts_go_through_the_translator() {
-        telescope_core::i18n::set_translator(|m| (m == "Camera").then(|| "Kamera \"x\"".to_string()));
+        telescope_core::i18n::set_translator(|m| match m {
+            "Camera" => Some("Kamera \"x\"".to_string()),
+            "ctx\u{4}Camera" => Some("Kamera (ctx)".to_string()),
+            _ => None,
+        });
         let out = translate(CARD);
         assert!(out.contains(r#"title: @tr("Kamera \"x\"");"#), "{out}");
-        assert_eq!(translate(r#"@tr("ctx" => "Camera") @tr("{n} a" | "{n} b" % n)"#), r#"@tr("ctx" => "Camera") @tr("{n} a" | "{n} b" % n)"#);
+        // A text with a context is looked up under it, and one with nothing for that context stays English
+        assert_eq!(translate(r#"@tr("ctx" => "Camera") @tr("other" => "Camera") @tr("{n} a" | "{n} b" % n)"#), r#"@tr("Kamera (ctx)") @tr("Camera") @tr("{n} a" | "{n} b" % n)"#);
         telescope_core::i18n::set_translator(|_| None);
     }
 

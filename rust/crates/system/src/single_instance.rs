@@ -60,10 +60,16 @@ fn uid() -> u32 {
 
 /// Who is running this copy, so a shared port (Windows) never raises another user's window.
 pub fn user_token() -> String {
-    let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_else(|_| {
+    // An empty variable counts as unset, as Python's `or` does
+    let set = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+    let user = set("USERNAME").or_else(|| set("USER")).unwrap_or_else(|| {
         if cfg!(unix) { uid().to_string() } else { String::new() }
     });
-    let session = windows_session();
+    token_of(&user, &windows_session())
+}
+
+/// The first 16 hex digits of sha256("user\0session").
+fn token_of(user: &str, session: &str) -> String {
     let digest = ring::digest::digest(&ring::digest::SHA256, format!("{user}\0{session}").as_bytes());
     hex(digest.as_ref())[..16].to_string()
 }
@@ -477,6 +483,16 @@ mod tests {
         // The old copy lets go within the wait: the new one gets the lock
         assert!(matches!(acquire(&address, Duration::from_secs(5)), Acquired::Lock(_)));
         silent.join().unwrap();
+    }
+
+    // What Python's user_token() makes of the same names (sha256 of "user\0session", 16 hex digits), so either app's raise is the other's
+    #[test]
+    fn the_user_token_is_the_one_python_makes() {
+        assert_eq!(token_of("alice", ""), "bfebef88e4b36874");
+        assert_eq!(token_of("win", ""), "20ac7ff5c3b32ba5");
+        assert_eq!(token_of("bob", ""), "fa73b451489b2b37");
+        // A Windows session number goes in after a NUL, as Python's f"{user}\0{session}" has it
+        assert_ne!(token_of("alice", "1"), token_of("alice", ""));
     }
 
     #[test]

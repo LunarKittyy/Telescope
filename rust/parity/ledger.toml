@@ -69,7 +69,7 @@
 "Telescope: streaming the mic, camera off (muted)" = { status = "todo" }
 "That failed; Copy diagnostics has the details." = { status = "todo" }
 "The phone got hot and lowered the frame rate to {fps} fps for now." = { status = "todo" }
-"The phone sent data this version can't read. Update both apps to the same version." = { status = "todo" }
+"The phone sent data this version can't read. Update both apps to the same version." = { status = "ported", rust = "rust/crates/shell/src/streams.rs::apply_state", note = "The check is core::models (12 tests); the status line in apply_state has no window-level test of its own" }
 "The phone's camera is making fewer frames than asked for. Dim light slows it down." = { status = "todo" }
 "The stream from {name} stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "The stream stopped unexpectedly" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
@@ -652,9 +652,9 @@
 "VHS" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 "Without it there's no Fun pack card and the picture has no effects." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 # ── i18n
-", " = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
-"percentage|{n}%" = { status = "todo" }
-"{items} and {last}" = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
+", " = { status = "ported", rust = "rust/crates/core/src/i18n.rs::and_list" }
+"percentage|{n}%" = { status = "ported", rust = "rust/crates/core/src/i18n.rs::percent" }
+"{items} and {last}" = { status = "ported", rust = "rust/crates/core/src/i18n.rs::and_list" }
 # ── microphone
 "<a href=\"{url}\">Donate or read more</a>" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Apps hear silence, but the microphone stays connected." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
@@ -1393,16 +1393,16 @@
 "{name} has to be a number, not {value}." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "{value} (not there now)" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 # ── single_instance
-"Telescope can't start" = { status = "todo" }
-"Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "todo" }
-"Telescope couldn't write the key --action needs next to its settings when it started. Restart it." = { status = "todo" }
-"Telescope didn't understand that. Is it an older version? Update it to use --action." = { status = "todo" }
-"Telescope is already running" = { status = "todo" }
-"Telescope is already running for another user on this computer. Close it there, then open it again here." = { status = "todo" }
-"Telescope isn't running." = { status = "todo" }
-"Telescope turned that down: it didn't come from this user's Telescope command." = { status = "todo" }
-"a local socket" = { status = "todo" }
-"port {port}" = { status = "todo" }
+"Telescope can't start" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice", note = "Shown in a window of its own (shell::notice), as Python's QMessageBox" }
+"Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope couldn't write the key --action needs next to its settings when it started. Restart it." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::answer" }
+"Telescope didn't understand that. Is it an older version? Update it to use --action." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::send_action" }
+"Telescope is already running" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope is already running for another user on this computer. Close it there, then open it again here." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"Telescope isn't running." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::send_action" }
+"Telescope turned that down: it didn't come from this user's Telescope command." = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::answer" }
+"a local socket" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
+"port {port}" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::notice" }
 # ── sources
 "Another app on the phone is using the camera" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "Can't reach {name}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
@@ -1426,10 +1426,10 @@
 "{phone} is streaming to {computer}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "{phone} stopped streaming" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 # ── splash
-"Extract Telescope first" = { status = "todo" }
-"Starting Telescope…" = { status = "todo" }
-"Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder." = { status = "todo" }
-"This can take a minute while Windows runs a security scan." = { status = "todo" }
+"Extract Telescope first" = { status = "ported", rust = "rust/crates/system/src/splash.rs::extract_first", note = "The box winapp::warn_running_from_archive shows, in the person's language" }
+"Starting Telescope…" = { status = "ported", rust = "rust/crates/system/src/splash.rs::show_text", note = "Drawn by splash_windows.rs on Windows (type-checked only, never run)" }
+"Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder." = { status = "ported", rust = "rust/crates/system/src/splash.rs::extract_first" }
+"This can take a minute while Windows runs a security scan." = { status = "ported", rust = "rust/crates/system/src/splash.rs::show_text" }
 # ── startup
 "Automatic streaming" = { status = "ported", rust = "rust/crates/system/ui/startup.slint" }
 "How long no app can use the camera before the stream stops." = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
@@ -2003,10 +2003,10 @@
 "test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_worker_that_cant_hand_over_lets_go_of_the_route_at_once", note = "the host answers from the streams snapshot (can_hand_over) before asking link, so there's no route to let go" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "todo" }
 "test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
-"test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open", note = "Python mocks the sockets; here a real Linux socket that's bound and never listens, and no socket is left open" }
 "test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
-"test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "todo" }
+"test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open" }
 "test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
 "test_app.py::test_an_action_reaches_the_running_copy_with_its_key" = { status = "todo" }
 "test_app.py::test_an_action_when_the_key_couldnt_be_written" = { status = "todo" }
@@ -2161,12 +2161,12 @@
 "test_app.py::test_worker_fps_and_idle_status" = { status = "todo" }
 "test_app.py::test_worker_status_updates_status_label" = { status = "todo" }
 # ── architecture
-"test_architecture.py::test_a_plugin_calls_nothing_private_on_its_host" = { status = "todo" }
-"test_architecture.py::test_a_plugin_imports_neither_the_window_nor_the_sessions" = { status = "todo" }
-"test_architecture.py::test_a_plugin_imports_no_other_plugin" = { status = "todo" }
-"test_architecture.py::test_sessions_needs_no_qt" = { status = "todo" }
-"test_architecture.py::test_status_kinds_are_ones_the_theme_styles" = { status = "todo" }
-"test_architecture.py::test_the_pieces_the_window_drives_dont_import_it" = { status = "todo" }
+"test_architecture.py::test_a_plugin_calls_nothing_private_on_its_host" = { status = "dropped", reason = "A Rust plugin only sees the methods dyn Host declares, so there is no private one to reach and the compiler enforces the rule" }
+"test_architecture.py::test_a_plugin_imports_neither_the_window_nor_the_sessions" = { status = "ported", rust = "rust/app/tests/architecture.rs::a_plugin_uses_neither_the_window_nor_the_sessions" }
+"test_architecture.py::test_a_plugin_imports_no_other_plugin" = { status = "ported", rust = "rust/app/tests/architecture.rs::a_plugin_uses_no_other_plugin", note = "Found Background and Privacy blur using Fun pack's mask_of; moved it to effects::shared" }
+"test_architecture.py::test_sessions_needs_no_qt" = { status = "ported", rust = "rust/app/tests/architecture.rs::sessions_needs_no_toolkit" }
+"test_architecture.py::test_status_kinds_are_ones_the_theme_styles" = { status = "ported", rust = "rust/app/tests/architecture.rs::status_kinds_are_ones_the_cards_style" }
+"test_architecture.py::test_the_pieces_the_window_drives_dont_import_it" = { status = "ported", rust = "rust/app/tests/architecture.rs::the_pieces_the_window_drives_dont_use_it" }
 # ── audio
 "test_audio.py::test_a_hand_over_that_cant_connect_keeps_the_old_route" = { status = "ported", rust = "rust/crates/audio/src/worker.rs::a_hand_over_that_cant_connect_keeps_the_old_route" }
 "test_audio.py::test_a_shared_or_linked_fallback_folder_is_refused" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::a_shared_or_linked_fallback_folder_is_refused" }
@@ -2239,7 +2239,7 @@
 "test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 "test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
 # ── bench_frames
-"test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "todo", note = "times the effects plugins as well; a Rust benchmark fits once the effects are ported (media has an ignored decode_speed bench in h264.rs)" }
+"test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "dropped", reason = "scripts/bench_frames.py times the Python app's frame pipeline and stays in Python; the Rust pipeline is timed with rust/tools/measure.py (rust/FINDINGS.md)" }
 # ── browser_camera
 "test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" }
 "test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_stopped_here_leaves_room_for_another" }
@@ -2947,25 +2947,25 @@
 "test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::presses_and_watches_for_the_release" }
 "test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::registers_and_reports" }
 # ── i18n
-"test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "todo" }
-"test_i18n.py::test_a_field_can_have_any_name" = { status = "todo" }
-"test_i18n.py::test_a_first_draft_says_so" = { status = "todo" }
-"test_i18n.py::test_a_language_with_three_plural_forms" = { status = "todo" }
-"test_i18n.py::test_a_list_reads_naturally" = { status = "todo" }
-"test_i18n.py::test_a_text_keeps_its_english_when_another_is_translated_alike" = { status = "todo" }
-"test_i18n.py::test_a_translation_is_used_with_its_fields_and_plural_forms" = { status = "todo" }
-"test_i18n.py::test_an_unreadable_catalog_leaves_english" = { status = "todo" }
-"test_i18n.py::test_each_language_has_the_template_and_working_fields" = { status = "todo" }
-"test_i18n.py::test_english_is_what_the_code_says" = { status = "todo" }
-"test_i18n.py::test_every_text_can_be_found" = { status = "todo" }
-"test_i18n.py::test_nothing_is_translated_at_import_time" = { status = "todo" }
-"test_i18n.py::test_po_files_keep_what_they_hold" = { status = "todo" }
-"test_i18n.py::test_shown_numbers_follow_the_language" = { status = "todo" }
-"test_i18n.py::test_the_language_follows_the_system_unless_set" = { status = "todo" }
-"test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system" = { status = "todo" }
-"test_i18n.py::test_the_pseudo_language_can_be_picked_to_try_a_layout" = { status = "todo" }
-"test_i18n.py::test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" = { status = "todo" }
-"test_i18n.py::test_the_template_has_every_text_in_the_code" = { status = "todo" }
+"test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_broken_or_unfinished_translation_shows_the_english" }
+"test_i18n.py::test_a_field_can_have_any_name" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_field_can_have_any_name" }
+"test_i18n.py::test_a_first_draft_says_so" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_first_draft_says_so" }
+"test_i18n.py::test_a_language_with_three_plural_forms" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_language_with_three_plural_forms" }
+"test_i18n.py::test_a_list_reads_naturally" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_list_reads_naturally" }
+"test_i18n.py::test_a_text_keeps_its_english_when_another_is_translated_alike" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_text_keeps_its_english_when_another_is_translated_alike", note = "Python's tr() returns a text that remembers its English; Rust code that saves under a key holds the English itself, and english() looks any other text up (the first English for two texts translated alike)" }
+"test_i18n.py::test_a_translation_is_used_with_its_fields_and_plural_forms" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_translation_is_used_with_its_fields_and_plural_forms" }
+"test_i18n.py::test_an_unreadable_catalog_leaves_english" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::an_unreadable_catalog_leaves_english" }
+"test_i18n.py::test_each_language_has_the_template_and_working_fields" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::each_language_has_the_template_and_working_fields" }
+"test_i18n.py::test_english_is_what_the_code_says" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::english_is_what_the_code_says" }
+"test_i18n.py::test_every_text_can_be_found" = { status = "ported", rust = "rust/app/tests/texts_in_code.rs::no_text_is_built_from_pieces", note = "The Rust analogue: no text is built with format!() where an extractor can't see it" }
+"test_i18n.py::test_nothing_is_translated_at_import_time" = { status = "dropped", reason = "Rust has no import time: tr() isn't const, so a const or static can't call it, and main loads the language before any plugin or window exists" }
+"test_i18n.py::test_po_files_keep_what_they_hold" = { status = "dropped", reason = "Writing .po files is scripts/i18n.py's job (the extractor), which stays in Python; the app only reads them, and core::i18n::po::read_po is checked on all 16 real catalogs against Python's reading of them" }
+"test_i18n.py::test_shown_numbers_follow_the_language" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::shown_numbers_follow_the_language", note = "Spin boxes follow the language in Qt (QLocale.setDefault); Rust number boxes are Slint's own and read the language through number()" }
+"test_i18n.py::test_the_language_follows_the_system_unless_set" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_language_follows_the_system_unless_set" }
+"test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_language_picked_in_settings_wins_over_the_system" }
+"test_i18n.py::test_the_pseudo_language_can_be_picked_to_try_a_layout" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_pseudo_language_can_be_picked_to_try_a_layout" }
+"test_i18n.py::test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" }
+"test_i18n.py::test_the_template_has_every_text_in_the_code" = { status = "ported", rust = "rust/app/tests/texts_in_code.rs::every_text_in_the_code_is_in_the_template", note = "Checks the Rust code against the template; the other way round (every template text is shown somewhere) is the ledger's text list" }
 # ── ip_utils
 "test_ip_utils.py::test_classify_ip" = { status = "ported", rust = "rust/crates/link/src/net.rs::classify_ip_cases" }
 "test_ip_utils.py::test_looks_like_vpn_interface" = { status = "ported", rust = "rust/crates/link/src/net.rs::looks_like_vpn_interface_cases" }
@@ -3042,18 +3042,18 @@
 "test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::reads_authenticated_frames_in_order_then_reports_eof" }
 "test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::returns_a_frame_without_waiting_for_the_next_one" }
 # ── models
-"test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "todo" }
-"test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_bool_where_int_expected" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_missing_field" = { status = "todo" }
-"test_models.py::test_camera_capabilities_rejects_wrong_type" = { status = "todo" }
-"test_models.py::test_phone_state_decodes_full_valid_payload" = { status = "todo" }
-"test_models.py::test_phone_state_empty_dict_is_not_an_error" = { status = "todo" }
-"test_models.py::test_phone_state_optional_iso_and_shutter_default_to_none" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_malformed_camera_entry" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_missing_required_field" = { status = "todo" }
-"test_models.py::test_phone_state_rejects_non_list_cameras" = { status = "todo" }
+"test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_from_dict_round_trips_all_fields" }
+"test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_reads_phone_zoom_fields_and_defaults_them" }
+"test_models.py::test_camera_capabilities_rejects_bool_where_int_expected" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_bool_where_int_expected" }
+"test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_lens_zooms_that_arent_numbers" }
+"test_models.py::test_camera_capabilities_rejects_missing_field" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_missing_field" }
+"test_models.py::test_camera_capabilities_rejects_wrong_type" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_rejects_wrong_type" }
+"test_models.py::test_phone_state_decodes_full_valid_payload" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_decodes_full_valid_payload" }
+"test_models.py::test_phone_state_empty_dict_is_not_an_error" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_empty_dict_is_not_an_error" }
+"test_models.py::test_phone_state_optional_iso_and_shutter_default_to_none" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_optional_iso_and_shutter_default_to_none" }
+"test_models.py::test_phone_state_rejects_malformed_camera_entry" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_malformed_camera_entry" }
+"test_models.py::test_phone_state_rejects_missing_required_field" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_missing_required_field" }
+"test_models.py::test_phone_state_rejects_non_list_cameras" = { status = "ported", rust = "rust/crates/core/src/models.rs::phone_state_rejects_non_list_cameras" }
 # ── motion
 "test_motion.py::test_a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" }
 "test_motion.py::test_a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" }
@@ -3274,10 +3274,10 @@
 "test_people.py::test_tracking_is_kept_per_stream_and_forgets_what_stopped" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_tracking_is_kept_per_stream_and_forgets_what_stopped" }
 "test_people.py::test_two_skeletons_on_one_person_count_once" = { status = "ported", rust = "rust/crates/core/src/people_tests.rs::test_two_skeletons_on_one_person_count_once" }
 # ── phone_check
-"test_phone_check.py::test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay" = { status = "todo" }
-"test_phone_check.py::test_gap_measurement_includes_the_last_frame_before_the_operation" = { status = "todo" }
-"test_phone_check.py::test_handover_uses_automatic_discovery_and_keeps_the_worker" = { status = "todo" }
-"test_phone_check.py::test_lag_is_the_first_frame_that_clearly_changed" = { status = "todo" }
+"test_phone_check.py::test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_gap_measurement_includes_the_last_frame_before_the_operation" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_handover_uses_automatic_discovery_and_keeps_the_worker" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
+"test_phone_check.py::test_lag_is_the_first_frame_that_clearly_changed" = { status = "dropped", reason = "scripts/phone_check.py is the Python desktop's device QA tool: it drives that app's Qt classes against a real phone and stays in Python. The Rust app is checked with parity/phone_session.py and tools/fake_phone.py" }
 # ── phone_client
 "test_phone_client.py::test_a_lost_request_gives_up_in_the_end" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::a_lost_request_gives_up_in_the_end" }
 "test_phone_client.py::test_a_lost_request_gives_way_to_a_newer_value" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::a_lost_request_gives_way_to_a_newer_value" }
@@ -3310,12 +3310,12 @@
 "test_phone_client.py::test_settings_the_phone_lost_are_found" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::settings_the_phone_lost_are_found" }
 "test_phone_client.py::test_worker_skips_stale_pending_key" = { status = "ported", rust = "rust/crates/link/src/phone_client.rs::worker_skips_stale_pending_key" }
 # ── phone_texts
-"test_phone_texts.py::test_camera_error_is_worded_from_the_code" = { status = "todo" }
-"test_phone_texts.py::test_codec_error_falls_back_to_the_english_text" = { status = "todo" }
-"test_phone_texts.py::test_codec_error_is_worded_from_the_code_and_size" = { status = "todo" }
-"test_phone_texts.py::test_lens_label_from_fields_matches_the_one_cut_from_the_english_label" = { status = "todo" }
-"test_phone_texts.py::test_lens_names_are_worded_in_the_language_but_keep_their_english_key" = { status = "todo" }
-"test_phone_texts.py::test_mic_refusal_is_worded_from_the_code" = { status = "todo" }
+"test_phone_texts.py::test_camera_error_is_worded_from_the_code" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::camera_error_is_worded_from_the_code" }
+"test_phone_texts.py::test_codec_error_falls_back_to_the_english_text" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::codec_error_falls_back_to_the_english_text" }
+"test_phone_texts.py::test_codec_error_is_worded_from_the_code_and_size" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::codec_error_is_worded_from_the_code_and_size" }
+"test_phone_texts.py::test_lens_label_from_fields_matches_the_one_cut_from_the_english_label" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::lens_label_from_fields_matches_the_one_cut_from_the_english_label" }
+"test_phone_texts.py::test_lens_names_are_worded_in_the_language_but_keep_their_english_key" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::lens_names_are_worded_in_the_language_but_keep_their_english_key" }
+"test_phone_texts.py::test_mic_refusal_is_worded_from_the_code" = { status = "ported", rust = "rust/app/tests/phone_texts.rs::mic_refusal_is_worded_from_the_code", note = "Through a real 403 from a local server rather than a built HTTPError" }
 # ── phones
 "test_phones.py::test_a_different_phone_on_usb_is_not_mistaken_for_ours" = { status = "ported", rust = "rust/crates/link/src/phones.rs::a_different_phone_on_usb_is_not_mistaken_for_ours" }
 "test_phones.py::test_a_newer_phone_app_asks_for_a_desktop_update" = { status = "ported", rust = "rust/crates/link/src/phones.rs::a_newer_phone_app_asks_for_a_desktop_update" }
@@ -3789,7 +3789,7 @@
 "test_qr_reader.py::test_what_goes_to_the_clipboard" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::what_goes_to_the_clipboard" }
 "test_qr_reader.py::test_wifi_codes_are_read_with_their_escapes" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::wifi_codes_are_read_with_their_escapes" }
 # ── release_checklist
-"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "todo" }
+"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "dropped", reason = ".github/checklist_due.py is the release process's own tool (it maps repo files to checklist sections) and stays Python. It needs rust/ and the new workflows mapped before the rewrite merges: it fails on this branch for every file under rust/" }
 # ── scopes
 "test_scopes.py::test_a_brighter_spot_glows_more" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::a_brighter_spot_glows_more" }
 "test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::every_scope_makes_a_bgra_picture" }
@@ -3954,7 +3954,7 @@
 "test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys" }
 "test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::global_presses_are_ignored_while_the_editor_records_a_key" }
-"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "dropped", reason = "Slint gives no scan codes; a held binding comes back when its key comes up whatever its case, or when Telescope loses focus" }
+"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_comes_back_by_scan_code_when_the_key_changes_on_release" }
 "test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
 "test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
 "test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
@@ -3973,7 +3973,7 @@
 "test_shortcuts_plugin.py::test_the_key_filter_follows_focus_instead_of_watching_the_whole_app" = { status = "dropped", reason = "No event filter on Qt widgets: the shell calls Plugin::on_key" }
 "test_shortcuts_plugin.py::test_without_a_backend_global_bindings_still_work_inside" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::without_a_backend_global_bindings_still_work_inside" }
 # ── smoke_check
-"test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "todo" }
+"test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "dropped", reason = "scripts/smoke_check.py is the release's packaging smoke check, run against a built bundle: it constructs the Python app's Qt window, probes adb and the virtual camera and does an MJPEG round trip. It stays Python; the Rust packages need a smoke run of their own once they're built (not written yet)" }
 # ── sources
 "test_sources.py::test_a_camera_that_stays_off_says_so" = { status = "todo" }
 "test_sources.py::test_a_phone_stopped_meanwhile_gets_a_banner_whose_start_starts_it_again" = { status = "todo" }
@@ -3990,9 +3990,9 @@
 "test_sources.py::test_wake_progress_only_counts_while_the_host_is_waking" = { status = "todo" }
 "test_sources.py::test_with_others_streaming_the_banner_names_the_phone" = { status = "todo" }
 # ── splash
-"test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "todo" }
-"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "todo" }
-"test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "todo" }
+"test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_line_about_the_scan_waits_until_the_start_is_slow" }
+"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language" }
+"test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "ported", rust = "rust/crates/system/src/splash.rs::without_the_packaged_build_nothing_happens" }
 # ── startup
 "test_startup.py::test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" }
 "test_startup.py::test_a_failed_start_does_not_mark_the_next_manual_stream" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_failed_start_does_not_mark_the_next_manual_stream" }
@@ -4050,9 +4050,9 @@
 "test_startup.py::test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left" }
 "test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" }
 # ── state_example
-"test_state_example.py::test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends" = { status = "todo" }
-"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "todo" }
-"test_state_example.py::test_the_desktop_reads_the_phones_state" = { status = "todo" }
+"test_state_example.py::test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends" = { status = "ported", rust = "rust/app/tests/state_example.rs::every_state_field_the_desktop_asks_for_is_one_the_phone_sends" }
+"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "ported", rust = "rust/app/tests/state_example.rs::nested_camera_and_control_consumers_read_the_same_contract", note = "Python's ContractDict makes a mistyped field fail in the consumers themselves; serde values can't, so the last test scans the sources for the names they ask for" }
+"test_state_example.py::test_the_desktop_reads_the_phones_state" = { status = "ported", rust = "rust/app/tests/state_example.rs::the_desktop_reads_the_phones_state" }
 # ── stills
 "test_stills.py::test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" }
 "test_stills.py::test_a_folder_that_cant_be_made_fails_cleanly" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_folder_that_cant_be_made_fails_cleanly" }
@@ -4146,27 +4146,27 @@
 "test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
 # ── text_fit
-"test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "todo" }
-"test_text_fit.py::test_a_column_as_wide_before_the_pick_isnt_put_down_to_it" = { status = "todo" }
-"test_text_fit.py::test_a_column_pushed_wider_than_it_shows_is_one_finding" = { status = "todo" }
-"test_text_fit.py::test_a_finding_matches_its_known_line_wherever_it_shows" = { status = "todo" }
-"test_text_fit.py::test_a_label_too_narrow_for_its_text_is_cut_off" = { status = "todo" }
-"test_text_fit.py::test_a_readout_column_widens_for_the_words_it_can_show" = { status = "todo" }
-"test_text_fit.py::test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it" = { status = "todo" }
-"test_text_fit.py::test_an_app_text_cut_short_is_found_but_a_name_is_cut_on_purpose" = { status = "todo" }
-"test_text_fit.py::test_english_left_in_the_pseudo_language_is_found" = { status = "todo" }
-"test_text_fit.py::test_every_text_fits" = { status = "todo" }
-"test_text_fit.py::test_japanese_wraps_between_letters_so_no_sentence_counts_as_one_long_word" = { status = "todo" }
-"test_text_fit.py::test_one_known_line_covers_every_stop_of_a_readout" = { status = "todo" }
-"test_text_fit.py::test_text_a_widget_draws_past_its_box_is_found" = { status = "todo" }
-"test_text_fit.py::test_text_that_fits_is_left_alone" = { status = "todo" }
-"test_text_fit.py::test_walking_a_card_finds_a_readout_only_one_slider_stop_shows" = { status = "todo" }
+"test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_column_as_wide_before_the_pick_isnt_put_down_to_it" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_column_pushed_wider_than_it_shows_is_one_finding" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_finding_matches_its_known_line_wherever_it_shows" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_label_too_narrow_for_its_text_is_cut_off" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_readout_column_widens_for_the_words_it_can_show" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_an_app_text_cut_short_is_found_but_a_name_is_cut_on_purpose" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_english_left_in_the_pseudo_language_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_every_text_fits" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_japanese_wraps_between_letters_so_no_sentence_counts_as_one_long_word" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_one_known_line_covers_every_stop_of_a_readout" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_text_a_widget_draws_past_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_text_that_fits_is_left_alone" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
+"test_text_fit.py::test_walking_a_card_finds_a_readout_only_one_slider_stop_shows" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
 # ── text_fits
-"test_text_fits.py::test_add_phone_and_phones_dialog_button_text_fits" = { status = "todo" }
-"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "todo" }
-"test_text_fits.py::test_layout_widths_grow_with_the_font" = { status = "todo" }
-"test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "todo" }
-"test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "todo" }
+"test_text_fits.py::test_add_phone_and_phones_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_layout_widths_grow_with_the_font" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
 # ── tooltips
 "test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_long_tooltip_wraps_and_a_short_one_stays_on_one_line" }
 "test_tooltips.py::test_a_tip_stays_while_the_mouse_is_on_its_control" = { status = "todo" }
@@ -4241,102 +4241,102 @@
 "test_transforms.py::test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop" = { status = "ported", rust = "rust/crates/core/src/view.rs::zoom_past_what_the_phone_allows_is_finished_on_the_desktop" }
 "test_transforms.py::test_zoom_preserves_shape_for_all_pan_extremes" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
 # ── translation_account
-"test_translation_account.py::test_anonymisation_covers_current_base_archived_and_approval_authors" = { status = "todo" }
-"test_translation_account.py::test_erasure_keeps_submission_but_removes_identity_profile_role_and_version_credits" = { status = "todo" }
-"test_translation_account.py::test_recent_verified_github_identity_is_accepted" = { status = "todo" }
-"test_translation_account.py::test_unverified_identity_never_opens_privileged_store" = { status = "todo" }
-"test_translation_account.py::test_valid_identity_from_another_firebase_project_is_rejected" = { status = "todo" }
-"test_translation_account.py::test_wrong_identity_old_auth_and_other_provider_are_rejected" = { status = "todo" }
+"test_translation_account.py::test_anonymisation_covers_current_base_archived_and_approval_authors" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_account.py::test_erasure_keeps_submission_but_removes_identity_profile_role_and_version_credits" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_account.py::test_recent_verified_github_identity_is_accepted" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_account.py::test_unverified_identity_never_opens_privileged_store" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_account.py::test_valid_identity_from_another_firebase_project_is_rejected" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_account.py::test_wrong_identity_old_auth_and_other_provider_are_rejected" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_firestore
-"test_translation_firestore.py::test_admin_approval_is_one_batch_that_closes_the_submission" = { status = "todo" }
-"test_translation_firestore.py::test_admin_can_dismiss_but_not_rewrite_a_submission" = { status = "todo" }
-"test_translation_firestore.py::test_admin_review_closes_both_the_submission_and_the_suggestion" = { status = "todo" }
-"test_translation_firestore.py::test_approval_name_must_match_its_language_and_text" = { status = "todo" }
-"test_translation_firestore.py::test_clients_cannot_write_approvals_roles_or_catalogue" = { status = "todo" }
-"test_translation_firestore.py::test_contributors_can_add_languages_until_admin_disables_creation" = { status = "todo" }
-"test_translation_firestore.py::test_forged_or_invalid_approvals_are_denied" = { status = "todo" }
-"test_translation_firestore.py::test_forged_or_invalid_submissions_are_denied" = { status = "todo" }
-"test_translation_firestore.py::test_missing_submission_can_be_checked_for_retry" = { status = "todo" }
-"test_translation_firestore.py::test_one_vote_per_person_and_only_your_own" = { status = "todo" }
-"test_translation_firestore.py::test_only_admin_can_publish_platform_version" = { status = "todo" }
-"test_translation_firestore.py::test_only_owner_can_grant_or_revoke_admin" = { status = "todo" }
-"test_translation_firestore.py::test_own_github_submission_waits_for_approval" = { status = "todo" }
-"test_translation_firestore.py::test_private_backup_and_identity_are_not_readable_by_other_contributors" = { status = "todo" }
-"test_translation_firestore.py::test_profile_accepts_languages_outside_the_translation_catalogue" = { status = "todo" }
-"test_translation_firestore.py::test_public_profile_is_written_only_under_your_own_username" = { status = "todo" }
-"test_translation_firestore.py::test_submission_quota_cannot_be_skipped_reset_or_reused_for_a_batch" = { status = "todo" }
-"test_translation_firestore.py::test_suggestions_are_public_and_tied_to_a_private_submission" = { status = "todo" }
+"test_translation_firestore.py::test_admin_approval_is_one_batch_that_closes_the_submission" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_admin_can_dismiss_but_not_rewrite_a_submission" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_admin_review_closes_both_the_submission_and_the_suggestion" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_approval_name_must_match_its_language_and_text" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_clients_cannot_write_approvals_roles_or_catalogue" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_contributors_can_add_languages_until_admin_disables_creation" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_forged_or_invalid_approvals_are_denied" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_forged_or_invalid_submissions_are_denied" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_missing_submission_can_be_checked_for_retry" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_one_vote_per_person_and_only_your_own" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_only_admin_can_publish_platform_version" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_only_owner_can_grant_or_revoke_admin" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_own_github_submission_waits_for_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_private_backup_and_identity_are_not_readable_by_other_contributors" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_profile_accepts_languages_outside_the_translation_catalogue" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_public_profile_is_written_only_under_your_own_username" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_submission_quota_cannot_be_skipped_reset_or_reused_for_a_batch" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_firestore.py::test_suggestions_are_public_and_tied_to_a_private_submission" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_hosted
-"test_translation_hosted.py::test_busy_project_worker_is_rejected_without_queueing_more_work" = { status = "todo" }
-"test_translation_hosted.py::test_deleted_identity_cannot_be_recreated_by_an_old_job" = { status = "todo" }
-"test_translation_hosted.py::test_deployment_stage_contains_only_runtime_files" = { status = "todo" }
-"test_translation_hosted.py::test_external_origin_is_rejected_before_work" = { status = "todo" }
-"test_translation_hosted.py::test_failed_identity_never_queues_a_privileged_task" = { status = "todo" }
-"test_translation_hosted.py::test_hosted_catalogue_has_shared_mode_without_local_admin" = { status = "todo" }
-"test_translation_hosted.py::test_identity_sync_only_persists_verified_github_username" = { status = "todo" }
-"test_translation_hosted.py::test_internal_task_endpoint_does_not_accept_public_requests" = { status = "todo" }
-"test_translation_hosted.py::test_local_approval_endpoint_cannot_write_in_hosted_mode" = { status = "todo" }
-"test_translation_hosted.py::test_project_actions_run_in_a_bounded_worker" = { status = "todo" }
-"test_translation_hosted.py::test_render_failure_does_not_expose_stack_traces" = { status = "todo" }
-"test_translation_hosted.py::test_signed_task_runs_erasure_and_account_request_is_async" = { status = "todo" }
-"test_translation_hosted.py::test_the_custom_domain_can_use_the_api" = { status = "todo" }
+"test_translation_hosted.py::test_busy_project_worker_is_rejected_without_queueing_more_work" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_deleted_identity_cannot_be_recreated_by_an_old_job" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_deployment_stage_contains_only_runtime_files" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_external_origin_is_rejected_before_work" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_failed_identity_never_queues_a_privileged_task" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_hosted_catalogue_has_shared_mode_without_local_admin" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_identity_sync_only_persists_verified_github_username" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_internal_task_endpoint_does_not_accept_public_requests" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_local_approval_endpoint_cannot_write_in_hosted_mode" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_project_actions_run_in_a_bounded_worker" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_render_failure_does_not_expose_stack_traces" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_signed_task_runs_erasure_and_account_request_is_async" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_hosted.py::test_the_custom_domain_can_use_the_api" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_preview
-"test_translation_preview.py::test_a_language_only_in_the_shared_project_can_send_every_text" = { status = "todo" }
-"test_translation_preview.py::test_a_wording_too_long_for_its_space_is_tied_to_its_text" = { status = "todo" }
-"test_translation_preview.py::test_bad_fields_are_rejected_before_render_or_export" = { status = "todo" }
-"test_translation_preview.py::test_disappearing_region_fails_even_when_another_scene_has_it" = { status = "todo" }
-"test_translation_preview.py::test_draft_changes_real_qt_image_and_keeps_exact_identity" = { status = "todo" }
-"test_translation_preview.py::test_editor_from_an_older_checkout_is_rejected" = { status = "todo" }
-"test_translation_preview.py::test_every_scene_belongs_to_a_section_and_the_sample_renders_something" = { status = "todo" }
-"test_translation_preview.py::test_every_text_has_a_scene_except_plurals" = { status = "todo" }
-"test_translation_preview.py::test_export_round_trips_without_touching_catalog" = { status = "todo" }
-"test_translation_preview.py::test_extreme_format_width_is_rejected_before_it_can_allocate_memory" = { status = "todo" }
-"test_translation_preview.py::test_invalid_input_is_rejected" = { status = "todo" }
-"test_translation_preview.py::test_language_progress_ignores_fuzzy_missing_partial_and_obsolete_entries" = { status = "todo" }
-"test_translation_preview.py::test_menus_dialogs_and_lists_are_mapped_to_their_own_items" = { status = "todo" }
-"test_translation_preview.py::test_new_text_is_reported_without_updating_a_manifest" = { status = "todo" }
-"test_translation_preview.py::test_new_text_outside_the_scenes_also_fails" = { status = "todo" }
-"test_translation_preview.py::test_other_websites_cannot_submit_preview_requests" = { status = "todo" }
-"test_translation_preview.py::test_placeholder_preview_and_long_word_fit_warning" = { status = "todo" }
-"test_translation_preview.py::test_reused_render_process_leaves_nothing_behind" = { status = "todo" }
-"test_translation_preview.py::test_sampled_scenes_still_show_what_the_record_says" = { status = "todo" }
-"test_translation_preview.py::test_settings_scenes_match_the_pages_the_window_has" = { status = "todo" }
-"test_translation_preview.py::test_the_fit_check_starts_with_the_narrowest_window" = { status = "todo" }
-"test_translation_preview.py::test_whole_record_matches_every_scene" = { status = "todo" }
-"test_translation_preview.py::test_widget_adapters_are_exercised" = { status = "todo" }
+"test_translation_preview.py::test_a_language_only_in_the_shared_project_can_send_every_text" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_a_wording_too_long_for_its_space_is_tied_to_its_text" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_bad_fields_are_rejected_before_render_or_export" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_disappearing_region_fails_even_when_another_scene_has_it" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_draft_changes_real_qt_image_and_keeps_exact_identity" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_editor_from_an_older_checkout_is_rejected" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_every_scene_belongs_to_a_section_and_the_sample_renders_something" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_every_text_has_a_scene_except_plurals" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_export_round_trips_without_touching_catalog" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_extreme_format_width_is_rejected_before_it_can_allocate_memory" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_invalid_input_is_rejected" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_language_progress_ignores_fuzzy_missing_partial_and_obsolete_entries" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_menus_dialogs_and_lists_are_mapped_to_their_own_items" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_new_text_is_reported_without_updating_a_manifest" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_new_text_outside_the_scenes_also_fails" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_other_websites_cannot_submit_preview_requests" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_placeholder_preview_and_long_word_fit_warning" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_reused_render_process_leaves_nothing_behind" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_sampled_scenes_still_show_what_the_record_says" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_settings_scenes_match_the_pages_the_window_has" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_the_fit_check_starts_with_the_narrowest_window" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_whole_record_matches_every_scene" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_preview.py::test_widget_adapters_are_exercised" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_project
-"test_translation_project.py::test_both_sides_editing_wording_requires_resolution" = { status = "todo" }
-"test_translation_project.py::test_export_does_not_include_private_account_identifiers" = { status = "todo" }
-"test_translation_project.py::test_export_only_approved_platform_edits_and_roundtrips_state" = { status = "todo" }
-"test_translation_project.py::test_firestore_approvals_fold_once_and_skip_changed_sources" = { status = "todo" }
-"test_translation_project.py::test_git_addition_preserves_ahead_platform_approval" = { status = "todo" }
-"test_translation_project.py::test_git_adds_blank_catalogue_for_a_language_already_started_on_platform" = { status = "todo" }
-"test_translation_project.py::test_import_rejects_extreme_plural_indices_before_parsing" = { status = "todo" }
-"test_translation_project.py::test_line_moves_keep_approval" = { status = "todo" }
-"test_translation_project.py::test_new_language_plural_rules" = { status = "todo" }
-"test_translation_project.py::test_new_platform_language_survives_git_update_and_exports_valid_po" = { status = "todo" }
-"test_translation_project.py::test_projection_tells_people_drafts_from_the_machine_wording" = { status = "todo" }
-"test_translation_project.py::test_removed_strings_are_archived" = { status = "todo" }
-"test_translation_project.py::test_repeated_repository_import_is_idempotent" = { status = "todo" }
-"test_translation_project.py::test_snapshot_rejects_extreme_plural_header" = { status = "todo" }
-"test_translation_project.py::test_source_note_change_invalidates_approval_without_losing_wording" = { status = "todo" }
-"test_translation_project.py::test_unresolved_conflicts_block_next_import" = { status = "todo" }
+"test_translation_project.py::test_both_sides_editing_wording_requires_resolution" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_export_does_not_include_private_account_identifiers" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_export_only_approved_platform_edits_and_roundtrips_state" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_firestore_approvals_fold_once_and_skip_changed_sources" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_git_addition_preserves_ahead_platform_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_git_adds_blank_catalogue_for_a_language_already_started_on_platform" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_import_rejects_extreme_plural_indices_before_parsing" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_line_moves_keep_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_new_language_plural_rules" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_new_platform_language_survives_git_update_and_exports_valid_po" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_projection_tells_people_drafts_from_the_machine_wording" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_removed_strings_are_archived" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_repeated_repository_import_is_idempotent" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_snapshot_rejects_extreme_plural_header" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_source_note_change_invalidates_approval_without_losing_wording" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_project.py::test_unresolved_conflicts_block_next_import" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_review
-"test_translation_review.py::test_admin_approval_writes_exact_wording_and_server_reviewer" = { status = "todo" }
-"test_translation_review.py::test_approval_survives_line_moves" = { status = "todo" }
-"test_translation_review.py::test_changes_cannot_keep_stale_approval" = { status = "todo" }
-"test_translation_review.py::test_empty_cannot_be_approved" = { status = "todo" }
-"test_translation_review.py::test_import_records_author_but_does_not_approve" = { status = "todo" }
-"test_translation_review.py::test_machine_is_pending_until_admin_approval" = { status = "todo" }
-"test_translation_review.py::test_malformed_import_changes_nothing" = { status = "todo" }
-"test_translation_review.py::test_manual_http_cannot_approve_or_import" = { status = "todo" }
-"test_translation_review.py::test_missing_state_never_implies_approval" = { status = "todo" }
-"test_translation_review.py::test_repository_state_files_have_valid_fingerprints" = { status = "todo" }
+"test_translation_review.py::test_admin_approval_writes_exact_wording_and_server_reviewer" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_approval_survives_line_moves" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_changes_cannot_keep_stale_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_empty_cannot_be_approved" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_import_records_author_but_does_not_approve" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_machine_is_pending_until_admin_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_malformed_import_changes_nothing" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_manual_http_cannot_approve_or_import" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_missing_state_never_implies_approval" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_review.py::test_repository_state_files_have_valid_fingerprints" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── translation_sync
-"test_translation_sync.py::test_firestore_timestamps_match_the_browser_format" = { status = "todo" }
-"test_translation_sync.py::test_push_folds_site_approvals_and_keeps_private_backup" = { status = "todo" }
-"test_translation_sync.py::test_push_publishes_and_pull_writes_approved_wording" = { status = "todo" }
-"test_translation_sync.py::test_stale_push_publishes_nothing" = { status = "todo" }
+"test_translation_sync.py::test_firestore_timestamps_match_the_browser_format" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_sync.py::test_push_folds_site_approvals_and_keeps_private_backup" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_sync.py::test_push_publishes_and_pull_writes_approved_wording" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
+"test_translation_sync.py::test_stale_push_publishes_nothing" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 # ── udp_reader
 "test_udp_reader.py::test_a_frame_that_never_comes_freezes_until_a_keyframe" = { status = "ported", rust = "rust/crates/link/src/udp.rs::a_frame_that_never_comes_freezes_until_a_keyframe" }
 "test_udp_reader.py::test_a_keyframe_can_replace_a_full_backlog" = { status = "ported", rust = "rust/crates/link/src/udp.rs::a_keyframe_can_replace_a_full_backlog" }
@@ -4596,9 +4596,9 @@
 "test_wait_screen.py::test_the_main_camera_shows_it_while_only_extra_ones_stream" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_main_camera_shows_it_while_only_extra_ones_stream" }
 "test_wait_screen.py::test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" }
 # ── web
-"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "todo" }
-"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "todo" }
-"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "todo" }
+"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_rustls_certificate_error_counts_as_a_certificate_failure", note = "Each download words it where it fails: link and audio match rustls' certificate errors, system's update check matches their text" }
+"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "The update check and plugin updates used the bundled roots; they use the system's now, as Python's do" }
+"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "rustls always checks the name; the system's store is what RootCerts::PlatformVerifier asks for" }
 # ── webcam
 "test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_whose_settings_cant_be_reached_shows_none" }
 "test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_replugged_webcam_gets_a_fresh_handle_on_its_settings" }
@@ -6066,8 +6066,8 @@
 # ── shortcuts
 "run:telescope/plugins/shortcuts.py:open_system_settings:subprocess.Popen:<cmd>" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::open_system_settings" }
 # ── single_instance
-"env:USER" = { status = "todo" }
-"env:USERNAME" = { status = "todo" }
+"env:USER" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
+"env:USERNAME" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::user_token" }
 # ── update_guard
 "folder:update_guard.py:finish_swap:shutil.rmtree" = { status = "todo" }
 "folder:update_guard.py:remove:shutil.rmtree" = { status = "todo" }

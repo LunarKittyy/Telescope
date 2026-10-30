@@ -904,6 +904,11 @@ impl Window {
         if source.session().is_none_or(|s| s.id != session_id) {
             return; // a session stopped or switched since the fetch began: its state isn't this stream's
         }
+        if let Err(e) = telescope_core::models::PhoneState::from_value(&state) {
+            log::error!("Phone sent a malformed /v1/state response - not applying it: {e}");
+            self.set_status(&tr("The phone sent data this version can't read. Update both apps to the same version."), "err");
+            return;
+        }
         let focused = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
         self.state.borrow().bus.emit(Event::StreamState { source_id: source.id_str().into(), state: state.clone() });
         // What each lens can take, from every stream's state and not only the shown one's

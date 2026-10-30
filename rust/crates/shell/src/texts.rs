@@ -1,19 +1,13 @@
-//! Text helpers from telescope.i18n that core::i18n doesn't have yet: plurals, lists and filling in named blanks.
+//! Text helpers from telescope.i18n: plurals, lists and filling in named blanks.
 
-use telescope_core::i18n::tr;
-
-/// The form that fits n, with {n} filled in. Only the English plural rule until core's translator knows plurals.
+/// The form that fits n in the current language's plural rule, with {n} filled in (and the rest left to the caller).
 pub fn trn(singular: &str, plural: &str, n: usize) -> String {
-    tr(if n == 1 { singular } else { plural }).replace("{n}", &n.to_string())
+    telescope_core::i18n::trn_open(singular, plural, n as i64)
 }
 
 /// ["A", "B", "C"] as "A, B and C" in the current language.
 pub fn and_list(words: &[String]) -> String {
-    match words {
-        [] => String::new(),
-        [one] => one.clone(),
-        [rest @ .., last] => fill(&tr("{items} and {last}"), &[("items", &rest.join(&tr(", "))), ("last", last)]),
-    }
+    telescope_core::i18n::and_list(words)
 }
 
 /// Fills in {name} blanks, as tr(text, name=value) does.

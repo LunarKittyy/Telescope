@@ -56,9 +56,9 @@ pub fn warn_running_from_archive() {
         fn MessageBoxW(window: *mut std::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
     }
     let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
-    let text = wide("Telescope is running from inside the zip, so it can't keep its files or update itself.\n\n\
-                     Right-click the zip, choose Extract All, and open Telescope from the extracted folder.");
-    let caption = wide("Extract Telescope first");
+    // The launcher's words in the person's language (the language is loaded by now)
+    let (title, text) = crate::splash::extract_first();
+    let (text, caption) = (wide(&text), wide(&title));
     // SAFETY: both strings are NUL-terminated and outlive the call; 0x30 is MB_ICONWARNING
     unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x30) };
 }

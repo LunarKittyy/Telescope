@@ -10,6 +10,7 @@ pub mod file_dialog;
 pub mod flow;
 pub mod handover;
 pub mod layout;
+pub mod notice;
 pub mod offscreen;
 pub mod overlays;
 pub mod preview_passes;

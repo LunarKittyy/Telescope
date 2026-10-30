@@ -3,9 +3,15 @@
 
 use serde_json::Value;
 use std::sync::Arc;
-use telescope_core::frame::Frame;
+use telescope_core::frame::{Frame, FrameContext};
 use telescope_core::media::Media;
 use telescope_core::Event;
+
+/// The person mask of this frame as a picture of its own size, when the stream has one that fits.
+pub(crate) fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<crate::imgops::Gray> {
+    let m = ctx.person_mask(frame)?;
+    (m.len() == (frame.width * frame.height) as usize).then(|| crate::imgops::Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
+}
 
 /// Reads a picture file (a PNG, JPEG, WebP or BMP) into a frame. The binary makes one from its Media.
 pub type PictureReader = Arc<dyn Fn(&str) -> Result<Frame, String> + Send + Sync>;

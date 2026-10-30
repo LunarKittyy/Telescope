@@ -20,6 +20,11 @@ mod confirm;
 mod dev;
 mod scenes;
 
+/// The translations built into the program (build.rs).
+mod locale {
+    include!(concat!(env!("OUT_DIR"), "/locale.rs"));
+}
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use telescope_core::config::DEV_PROFILE_ENV;
@@ -36,11 +41,61 @@ fn use_own_profile() {
     std::env::set_var(DEV_PROFILE_ENV, folder);
 }
 
+/// The language picked in Settings > General ("" for the system's), read before any window exists (main.py's _chosen_language).
+fn chosen_language() -> String {
+    let cfg = telescope_core::config::ConfigFile::default().load();
+    cfg["plugin_configs"]["setup"]["language"].as_str().unwrap_or_default().to_string()
+}
+
+/// Loads the language before any window or dialog is built, from the catalogs in the program (TELESCOPE_LOCALE_DIR names a folder of
+/// .po files to try instead), once the profile is settled.
+fn start_language() {
+    register_languages();
+    telescope_core::i18n::start(&chosen_language());
+}
+
+fn register_languages() {
+    telescope_core::i18n::use_source(telescope_core::i18n::Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS });
+}
+
+type Splash = Arc<dyn telescope_system::splash::SplashWindow>;
+
+/// The Windows start-up splash with its text in the person's language, for a start with a window; none elsewhere (main.py's splash.show_text).
+fn start_splash() -> Option<Splash> {
+    #[cfg(windows)]
+    {
+        use telescope_system::{splash, splash_windows};
+        use_own_profile();
+        register_languages();
+        let window: Splash = splash_windows::Splash::open()?;
+        splash::show_text(Some(window.clone()), chosen_language, splash_windows::since_launch(), splash::WHY_AFTER);
+        Some(window)
+    }
+    #[cfg(not(windows))]
+    None
+}
+
+fn close_splash(splash: &Option<Splash>) {
+    if let Some(splash) = splash {
+        splash.close();
+    }
+}
+
 /// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
 fn refresh_sign_in_entry(source_build: bool, command: &[String], place: &telescope_system::autostart::Place) -> bool {
+    owns_the_entries(source_build) && telescope_system::autostart::refresh(command, place)
+}
+
+/// Linux: the app menu entry follows this copy too, under the same rule (main.py's update_menu_entry). data is the data home, None for the real one.
+fn refresh_menu_entry(source_build: bool, command: &[String], data: Option<&std::path::Path>) -> bool {
+    owns_the_entries(source_build) && telescope_system::autostart::refresh_menu_entry(command, data)
+}
+
+/// Only a release build on the real profile may repoint the sign-in and menu entries.
+fn owns_the_entries(source_build: bool) -> bool {
     // The own profile counts as a dev profile, so it has to be chosen before asking
     use_own_profile();
-    !source_build && telescope_core::config::dev_profile().is_none() && telescope_system::autostart::refresh(command, place)
+    !source_build && telescope_core::config::dev_profile().is_none()
 }
 
 /// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
@@ -64,10 +119,10 @@ fn browser_camera(media: Arc<dyn telescope_core::media::Media>) -> telescope_lin
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
-    // Added plugins can't take a built-in's name; "en" until the shell loads languages
+    // Added plugins can't take a built-in's name
     let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
-    let added = telescope_plugin_host::load::factory(reserved, "en".into(), problems.clone());
+    let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let browser_media = media.clone();
@@ -76,9 +131,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
     let sign_outputs = outputs.clone();
     let setup_media = media.clone();
-    // Until the app ships its own translations, a dev build lists the Python app's
-    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale"));
-    let languages = telescope_setup::setup::Language::found(&[locale]);
+    let languages = telescope_setup::setup::Language::found(&[]);
     Arc::new(Services {
         link,
         media,
@@ -235,13 +288,18 @@ fn run_action(words: Option<Vec<String>>) -> i32 {
 
 /// The single-instance lock for the window, or None after the running copy was asked to show itself (main.py's
 /// acquire_single_instance, write_control_key and listen_for_raise). The lock's thread answers later launches.
-fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) -> Option<()> {
+fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, splash: &Option<Splash>) -> Option<()> {
     use telescope_system::single_instance as si;
     let address = si::Address::current();
     let acquired = si::acquire(&address, std::time::Duration::from_secs(if wait { 15 } else { 0 }));
     let si::Acquired::Lock(lock) = acquired else {
+        close_splash(splash);
         if let Some((title, text)) = si::notice(&acquired, &address) {
+            // Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
             eprintln!("{title}: {text}");
+            if let Err(e) = telescope_shell::notice::show(&title, &text) {
+                log::warn!("Couldn't show the message: {e}");
+            }
         }
         return None;
     };
@@ -333,6 +391,9 @@ fn main() {
         use telescope_system::winapp;
         // Run from inside a zip it would lose its files with the temp folder; installed, it takes the Start menu entry's id
         if winapp::running_from_archive(&app_dir(), &std::env::temp_dir()) {
+            // Its words are in the person's language
+            use_own_profile();
+            start_language();
             winapp::warn_running_from_archive();
             std::process::exit(1);
         }
@@ -347,6 +408,7 @@ fn main() {
     let list_actions = words.iter().any(|w| w == "--list-actions");
     if action.is_some() || list_actions {
         use_own_profile();
+        start_language();
         std::process::exit(run_action(action));
     }
     let (flag, value) = (take_flag, take_value);
@@ -371,9 +433,12 @@ fn main() {
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
     }
+    // Once an update is settled, and before the rest loads, which is most of a first start's wait
+    let splash = if words.is_empty() { start_splash() } else { None };
     if words.is_empty() {
         use telescope_system::autostart;
         let source_build = cfg!(debug_assertions) || telescope_system::version::channel() == "dev";
+        refresh_menu_entry(source_build, &autostart::launch_command(&app_dir(), false), None);
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
@@ -390,6 +455,7 @@ fn main() {
     if command != Some("config-snapshot") {
         use_own_profile();
         start_diagnostics();
+        start_language();
     }
     let result = match command {
         Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
@@ -401,16 +467,23 @@ fn main() {
             telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
-        None => match take_lock(wait_for_lock, &remote) {
+        None => match take_lock(wait_for_lock, &remote, &splash) {
             Some(()) => {
                 let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
                 confirm::run_confirming(STARTED_FINE, confirm, |shown| {
+                    // The splash goes once the window shows (or is put in the tray)
+                    let (inner, gone) = (shown.0.clone(), splash.clone());
+                    let shown = telescope_shell::ShownHook(Arc::new(move || {
+                        close_splash(&gone);
+                        inner();
+                    }));
                     telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized, Some(shown)))
                 })
             }
             None => Ok(()),
         },
     };
+    close_splash(&splash);
     if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
@@ -452,6 +525,47 @@ mod tests {
         assert!(refresh_sign_in_entry(false, &rust, &place));
         assert!(entry().contains("/opt/rs/telescope-rs") && !entry().contains("start.sh"));
         own.iter().for_each(|name| std::env::remove_var(name));
+        #[cfg(target_os = "linux")]
+        the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile();
+    }
+
+    // main.py writes the app menu entry only where it repoints the sign-in one: never for a source build, a dev profile or the own profile
+    // (run by the sign-in entry's test, since both set the profile in the environment)
+    #[cfg(target_os = "linux")]
+    fn the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile() {
+        let own = [DEV_PROFILE_ENV, "TELESCOPE_RS_PROFILE", "TELESCOPE_RS_REAL_CONFIG"];
+        let data = telescope_core::testing::scratch_dir("menu");
+        let menu = telescope_system::autostart::menu_file(Some(&data));
+        let command = vec!["/opt/rs/telescope-rs".to_string()];
+        own.iter().for_each(|name| std::env::remove_var(name));
+        // The own profile (the default) and a source build leave the real app's entry alone
+        std::env::set_var("TELESCOPE_RS_PROFILE", data.join("profile"));
+        assert!(!refresh_menu_entry(false, &command, Some(&data)));
+        own.iter().for_each(|name| std::env::remove_var(name));
+        std::env::set_var("TELESCOPE_RS_REAL_CONFIG", "1");
+        assert!(!refresh_menu_entry(true, &command, Some(&data)));
+        assert!(!menu.exists());
+        // A release build on the real profile writes the entry and its icon
+        assert!(refresh_menu_entry(false, &command, Some(&data)));
+        assert!(std::fs::read_to_string(&menu).unwrap().contains("Exec=/opt/rs/telescope-rs\n"));
+        assert!(telescope_system::autostart::icon_file(Some(&data)).exists());
+        own.iter().for_each(|name| std::env::remove_var(name));
+    }
+
+    // A shipped build has no folder of catalogs: they're in the program, all of them, and they read like the files do
+    #[test]
+    fn the_translations_are_in_the_program() {
+        use telescope_core::i18n::Source;
+        let embedded = Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS };
+        let folder = Source::Folder(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale")).to_path_buf());
+        assert_eq!(embedded.available(), folder.available());
+        assert_eq!(embedded.available().len(), 16);
+        for lang in embedded.available().iter().map(String::as_str).chain(["pseudo"]) {
+            let (a, b) = (embedded.catalog(lang).unwrap(), folder.catalog(lang).unwrap());
+            assert_eq!(a.len(), b.len(), "{lang}");
+            assert!(a.len() > 1700, "{lang} has only {} texts", a.len());
+            assert_eq!(embedded.is_draft(lang), folder.is_draft(lang), "{lang}");
+        }
     }
 
     // test_move_to_installed.py::test_main_takes_the_moved_from_folder

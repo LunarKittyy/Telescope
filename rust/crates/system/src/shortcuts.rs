@@ -23,7 +23,7 @@ use telescope_core::actions;
 use telescope_core::event::Event;
 use telescope_core::fuzzy::{self, Doc};
 use telescope_core::host::{Host, Poster};
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, ShortcutEntry, SlintSource, UiEvent, UiSpec};
 
@@ -1310,10 +1310,10 @@ impl Plugin for ShortcutsPlugin {
             order: 0,
             tab_title: String::new(),
             keywords: [
-                tr("hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"),
-                tr("global system wide hotkeys background other apps"),
-                tr("global hotkeys portal kde plasma gnome desktop keys rebind"),
-                tr("notification notify toast confirmation popup"),
+                tr_ctx("search", "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"),
+                tr_ctx("search", "global system wide hotkeys background other apps"),
+                tr_ctx("search", "global hotkeys portal kde plasma gnome desktop keys rebind"),
+                tr_ctx("search", "notification notify toast confirmation popup"),
             ].join(" "),
             footer: None,
         }]
@@ -1794,6 +1794,18 @@ mod tests {
         plugin.on_key(&mut host, &KeyInput { released: true, scan: 50, ..key("\u{10}", false, false) });
         assert_eq!(ran(&host).len(), 1, "Shift coming up is not the held key");
         plugin.on_key(&mut host, &KeyInput { released: true, scan: 10, ..key("1", false, false) });
+        assert_eq!(ran(&host).len(), 2);
+        assert!(ran(&host)[1].starts_with("release_action"));
+    }
+
+    // test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release
+    #[test]
+    fn hold_comes_back_by_scan_code_when_the_key_changes_on_release() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Shift+1", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);
+        plugin.press(&mut host, "a", Source::App, false, 10);
+        assert_eq!(ran(&host).len(), 1);
+        // Shift came up first, so the key that comes up is "!" and not the binding's "1"
+        plugin.release_app_keys(&mut host, Some("!"), 10);
         assert_eq!(ran(&host).len(), 2);
         assert!(ran(&host)[1].starts_with("release_action"));
     }

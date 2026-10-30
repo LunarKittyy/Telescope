@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
@@ -622,10 +622,10 @@ impl Plugin for UpdatesPlugin {
             order: 0,
             tab_title: String::new(),
             keywords: [
-                tr("update upgrade new version release download install latest"),
-                tr("current build number"),
-                tr("stable nightly beta release track builds testing"),
-                tr("automatic updates auto check every day background"),
+                tr_ctx("search", "update upgrade new version release download install latest"),
+                tr_ctx("search", "current build number"),
+                tr_ctx("search", "stable nightly beta release track builds testing"),
+                tr_ctx("search", "automatic updates auto check every day background"),
             ].join(" "),
             footer: None,
         }]

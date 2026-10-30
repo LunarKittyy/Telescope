@@ -2,7 +2,7 @@
 
 use crate::compositor::cover;
 use crate::cpu::Rgb;
-use crate::fun_pack::mask_of;
+use crate::shared::mask_of;
 use crate::imgops::{blur_f32, compose, Gray};
 use crate::shared::{no_pictures, Paired, PictureReader};
 use crate::vision_row;
