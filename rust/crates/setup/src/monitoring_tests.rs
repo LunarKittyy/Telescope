@@ -109,6 +109,40 @@ fn monitoring_does_not_warn_again_when_the_same_stream_reconnects() {
 }
 
 #[test]
+fn monitoring_does_not_warn_again_when_a_stream_hands_over_to_another_route() {
+    let mut r = Rig::new();
+    r.start("https://192.168.1.5:8080/v1/video.h264");
+    r.check(15, false, 30.0);
+    r.start("https://127.0.0.1:41000/v1/video.h264");
+    assert_eq!(r.plugin.shown.as_deref(), Some("https://127.0.0.1:41000/v1/video.h264"));
+    r.check(10, false, 30.0);
+    assert_eq!(r.host.notifications.len(), 1);
+}
+
+#[test]
+fn monitoring_keeps_what_it_warned_about_a_stream_that_handed_over_behind_the_panels() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.start("https://192.168.1.5:8080/v1/video.h264");
+    r.check(15, false, 30.0);
+    r.plugin.on_focus_lost(&mut r.host);
+    r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone-a".into(), url: "https://127.0.0.1:41000/v1/video.h264".into() });
+    r.check(10, false, 30.0);
+    assert_eq!(r.host.notifications.len(), 1);
+}
+
+#[test]
+fn monitoring_warns_afresh_after_a_stop_and_a_new_start() {
+    let mut r = Rig::new();
+    r.start("url");
+    r.check(15, false, 30.0);
+    r.plugin.on_stream_stop(&mut r.host);
+    r.start("url");
+    r.check(10, false, 30.0);
+    assert_eq!(r.host.notifications.len(), 2);
+}
+
+#[test]
 fn monitoring_watches_a_stream_behind_the_panels_by_its_own_settings() {
     let mut r = Rig::new();
     r.streaming();

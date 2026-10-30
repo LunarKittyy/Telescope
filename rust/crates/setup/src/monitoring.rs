@@ -95,14 +95,14 @@ pub struct MonitoringPlugin {
     pub battery_stop: bool,
     pub temp_notify: bool,
     pub temp_stop: bool,
-    /// The shown stream's url while there is one (Python's ctrl).
+    /// The shown stream's url while there is one (Python's ctrl). It moves with a hand-over, so it doesn't tell streams
+    /// apart: a stop clears it, and that's what ends a stream here.
     pub shown: Option<String>,
     /// The shown stream's source.
     pub sid: Option<String>,
     pub warned: Warned,
-    /// What's been warned about for streams the panels don't show, with the url of the one left behind (None when it was
-    /// first read from behind).
-    pub others: HashMap<String, (Option<String>, Warned)>,
+    /// What's been warned about for streams the panels don't show, until they stop.
+    pub others: HashMap<String, Warned>,
     /// Source id (None: a source without one): what was started anyway, not stopped again until that's fine.
     pub allowed: HashMap<Option<String>, HashSet<&'static str>>,
     /// Banner key: (source, low, hot) of a stop that Start anyway would undo.
@@ -239,10 +239,10 @@ impl MonitoringPlugin {
             return; // stopped, or the panels show it now
         };
         let Some((level, charging, temp)) = reading(state) else { return };
-        let (url, mut warned) = self.others.remove(sid).unwrap_or_default();
+        let mut warned = self.others.remove(sid).unwrap_or_default();
         let cfg = Thresholds::from_saved(&host.device_config(Some(sid), NAME));
         self.alert(host, &mut warned, level, charging, temp, &cfg, Some(sid), &name);
-        self.others.insert(sid.to_string(), (url, warned));
+        self.others.insert(sid.to_string(), warned);
     }
 
     pub fn update_display(&mut self, host: &mut dyn Host, level: i64, charging: bool, temp_c: f64) {
@@ -472,7 +472,8 @@ impl Plugin for MonitoringPlugin {
 
     fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.start_polling(host);
-        if self.shown.as_deref() == Some(stream.url.as_str()) && self.sid == host.focused_source_id() {
+        if self.shown.is_some() && self.sid == host.focused_source_id() {
+            self.shown = Some(stream.url.clone());
             return; // a reconnect of the same stream: keep the reading shown and don't warn about it again
         }
         self.show_stream(host, &stream.url, None);
@@ -481,7 +482,6 @@ impl Plugin for MonitoringPlugin {
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.start_polling(host);
         let kept = host.focused_source_id().and_then(|sid| self.others.remove(&sid));
-        let kept = kept.filter(|(url, _)| url.as_deref() == Some(stream.url.as_str())).map(|(_, w)| w);
         self.show_stream(host, &stream.url, kept);
     }
 
@@ -498,8 +498,8 @@ impl Plugin for MonitoringPlugin {
 
     fn on_focus_lost(&mut self, host: &mut dyn Host) {
         // The panels moved on: it's watched from behind
-        if let (Some(url), Some(sid)) = (self.shown.clone(), self.sid.clone()) {
-            self.others.insert(sid, (Some(url), self.warned.clone()));
+        if let (Some(_), Some(sid)) = (&self.shown, self.sid.clone()) {
+            self.others.insert(sid, self.warned.clone());
         }
         self.forget_shown(host);
     }

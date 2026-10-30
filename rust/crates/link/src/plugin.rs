@@ -64,6 +64,15 @@ struct AddPhone {
     confirming: bool,
 }
 
+impl Drop for AddPhone {
+    fn drop(&mut self) {
+        // Revoked here: a broadcast thread can hold on to the offer for as long as adb stalls
+        if let Some(offer) = &self.offer {
+            offer.revoke();
+        }
+    }
+}
+
 /// A phone that paired with a new id but may be an earlier one again, waiting for the person to say.
 struct SamePhone {
     phone: PairedPhone,
@@ -707,8 +716,7 @@ impl ConnectionPlugin {
 
     fn close_add(&mut self, host: &mut dyn Host) {
         log::debug!("Add phone closed");
-        // Dropping the offer stops the pairing server and takes down its adb reverses
-        self.add = None;
+        self.add = None; // revokes the offer
         host.cancel_schedule(T_PAIR_POLL);
         host.cancel_schedule(T_PAIR_USB);
         host.set_ui_props("card", &json!({"add-open": false}));
@@ -723,6 +731,7 @@ impl ConnectionPlugin {
         };
         log::info!("Paired with {} ({})", phone.name, phone.id);
         add.paired = Some(phone.name.clone());
+        offer.revoke();
         add.offer = None;
         host.cancel_schedule(T_PAIR_USB);
         self.render_add(host, true);
@@ -1563,6 +1572,7 @@ mod tests {
         paired: Mutex<Option<PairedPhone>>,
         offline: bool,
         offered: Mutex<Vec<String>>,
+        revoked: std::sync::atomic::AtomicBool,
     }
 
     impl PairingOffer for FakeOffer {
@@ -1584,6 +1594,9 @@ mod tests {
         fn offer_to(&self, serial: &str, _package: &str) -> bool {
             self.offered.lock().unwrap().push(serial.to_string());
             true
+        }
+        fn revoke(&self) {
+            self.revoked.store(true, std::sync::atomic::Ordering::SeqCst);
         }
     }
 
@@ -2364,11 +2377,19 @@ mod tests {
         e.ui("card", "add-phone", vec![]);
         let held = offer(&e);
         e.ui("card", "add-closed", vec![]);
-        // Only the test holds the offer now: dropping it is what stops the server
-        assert_eq!(Arc::strong_count(&held), 2);
-        *e.link.offer.lock().unwrap() = None;
-        assert_eq!(Arc::strong_count(&held), 1);
+        // Revoked while something else still holds the offer, as a stalled USB broadcast would
+        assert!(held.revoked.load(std::sync::atomic::Ordering::SeqCst));
         assert!(!e.host.is_scheduled(T_PAIR_POLL) && !e.host.is_scheduled(T_PAIR_USB));
+    }
+
+    #[test]
+    fn pairing_revokes_the_offer() {
+        let mut e = env();
+        e.ui("card", "add-phone", vec![]);
+        let held = offer(&e);
+        *held.paired.lock().unwrap() = Some(phone("id-a", "Pixel"));
+        e.plugin.on_event(&mut e.host, &Event::TimerFired { owner: NAME.into(), token: T_PAIR_POLL.into() });
+        assert!(held.revoked.load(std::sync::atomic::Ordering::SeqCst));
     }
 
     #[test]
