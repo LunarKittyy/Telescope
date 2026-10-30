@@ -98,11 +98,11 @@ fn owns_the_entries(source_build: bool) -> bool {
     !source_build && telescope_core::config::dev_profile().is_none()
 }
 
-/// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
+/// The Updates plugin, with the adb server stopped before an install replaces the folder it runs from.
 fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
     use telescope_system::updates_plugin::{RealBackend, UpdatesPlugin};
     let mut backend = RealBackend::default();
-    backend.before_setup = Some(Arc::new(telescope_link::adb::stop_adb_server));
+    backend.stop_adb = Some(Arc::new(telescope_link::adb::stop_adb_server));
     UpdatesPlugin::new(Arc::new(backend), telescope_system::version::channel())
 }
 
@@ -310,6 +310,12 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, sp
     Some(())
 }
 
+/// Linux: only the copy holding the lock gets here, so the source it finds is never a running one's.
+fn remove_stale_mic() {
+    #[cfg(target_os = "linux")]
+    telescope_audio::virtual_mic::remove_stale_source(&|cmd| telescope_audio::virtual_mic::run_within(cmd, std::time::Duration::from_secs(2)));
+}
+
 /// The folder this program runs from, which an update replaces (main.py's APP_DIR).
 fn app_dir() -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(PathBuf::from)).unwrap_or_default()
@@ -325,14 +331,45 @@ fn started_fine() {
         let dir = app_dir();
         telescope_system::update_guard::confirm(&dir);
         // Every start, not just after an update: an old version's files can still be locked the first time
-        telescope_system::update_guard::clean_up_after_update(&dir, None);
+        telescope_system::update_guard::clean_up_after_update(&dir, Some(telescope_system::version::build()));
+        telescope_system::setup_move::note_installed_version(&dir);
         // Only now: had this copy failed to start, the old one would still be there to use
         let moved_from = MOVED_FROM.get().cloned().flatten().or_else(|| telescope_system::setup_move::pending_move(&dir));
         if let Some(old) = moved_from {
-            // Not detached from the process, so quitting straight away still lets it finish (a few seconds at most)
-            let _ = std::thread::spawn(move || {
+            // Waited for at the end of main, so quitting straight away still lets it finish (a few seconds at most)
+            let tidying = std::thread::spawn(move || {
                 telescope_system::setup_move::finish_move(&old, &dir, &telescope_system::setup_move::desktop_folders());
             });
+            *TIDYING.lock().unwrap_or_else(|e| e.into_inner()) = Some(tidying);
+        }
+    });
+}
+
+/// Removing the replaced copy, which a process that's quitting has to wait for (a non-daemon thread in Python).
+static TIDYING: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
+
+/// The first thing a copy does as the only one running (main.py, right after write_control_key). Nothing here may run for a command or a
+/// duplicate launch, whose lock is held by the copy that owns this state: Linux drops a virtual mic source a crashed run left.
+fn own_the_lock(take: impl FnOnce() -> Option<()>, clean_up: impl FnOnce()) -> Option<()> {
+    let owned = take()?;
+    clean_up();
+    Some(owned)
+}
+
+/// dev_desktop.py --plugin: calls changed when one of the plugin's files is saved, so the change shows right away (_watch_dev_plugins).
+fn watch_dev_plugins(folders: Vec<PathBuf>, every: std::time::Duration, changed: impl FnOnce() + Send + 'static) {
+    use telescope_core::dev_profile::files_stamp;
+    if folders.is_empty() {
+        return;
+    }
+    let last = files_stamp(&folders);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(every);
+        if files_stamp(&folders) != last {
+            let names: Vec<String> = folders.iter().filter_map(|f| f.file_name()).map(|n| n.to_string_lossy().into_owned()).collect();
+            eprintln!("Saw a change in {}", names.join(", "));
+            changed();
+            return;
         }
     });
 }
@@ -348,6 +385,10 @@ fn take_flag(words: &mut Vec<String>, name: &str) -> bool {
 
 /// An option and its value taken out, None if it wasn't there or had no value.
 fn take_value(words: &mut Vec<String>, name: &str) -> Option<String> {
+    let joined = format!("{name}=");
+    if let Some(i) = words.iter().position(|w| w.starts_with(&joined)) {
+        return Some(words.remove(i).split_off(joined.len()));
+    }
     let i = words.iter().position(|w| w == name)?;
     words.remove(i);
     (i < words.len()).then(|| words.remove(i))
@@ -467,8 +508,9 @@ fn main() {
             telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
-        None => match take_lock(wait_for_lock, &remote, &splash) {
+        None => match own_the_lock(|| take_lock(wait_for_lock, &remote, &splash), remove_stale_mic) {
             Some(()) => {
+                watch_dev_plugins(telescope_plugin_host::package::dev_plugin_folders(), std::time::Duration::from_millis(700), telescope_shell::window::restart);
                 let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
                 confirm::run_confirming(STARTED_FINE, confirm, |shown| {
                     // The splash goes once the window shows (or is put in the tray)
@@ -484,6 +526,10 @@ fn main() {
         },
     };
     close_splash(&splash);
+    let tidying = TIDYING.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(tidying) = tidying {
+        let _ = tidying.join();
+    }
     if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
@@ -566,6 +612,39 @@ mod tests {
             assert!(a.len() > 1700, "{lang} has only {} texts", a.len());
             assert_eq!(embedded.is_draft(lang), folder.is_draft(lang), "{lang}");
         }
+    }
+
+    // test_main.py: a command or a duplicate launch changes nothing, and the one that gets the lock cleans up only after it has it
+    #[test]
+    fn only_the_copy_with_the_lock_touches_what_the_running_copy_owns() {
+        let cleaned = std::cell::Cell::new(false);
+        assert_eq!(own_the_lock(|| None, || cleaned.set(true)), None);
+        assert!(!cleaned.get(), "a duplicate launch leaves it alone");
+        let owned = std::cell::Cell::new(false);
+        assert_eq!(own_the_lock(|| { owned.set(true); Some(()) }, || { assert!(owned.get()); cleaned.set(true); }), Some(()));
+        assert!(cleaned.get());
+    }
+
+    #[test]
+    fn saving_a_plugins_file_restarts_the_dev_copy() {
+        let dir = telescope_core::testing::scratch_dir("dev-plugin");
+        std::fs::write(dir.join("plugin.lua"), "one").unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        watch_dev_plugins(vec![dir.clone()], std::time::Duration::from_millis(10), move || tx.send(()).unwrap());
+        assert!(rx.recv_timeout(std::time::Duration::from_millis(100)).is_err(), "nothing changed yet");
+        std::fs::write(dir.join("plugin.lua"), "changed").unwrap();
+        rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        // No folders, no watching
+        watch_dev_plugins(Vec::new(), std::time::Duration::from_millis(1), || panic!("nothing to watch"));
+    }
+
+    #[test]
+    fn minimized_and_moved_from_come_off_the_words_like_argparse_takes_them() {
+        let mut words: Vec<String> = ["--minimized", "--moved-from=/old/Telescope", "-platform", "x"].map(String::from).to_vec();
+        let launch = take_launch(&mut words);
+        assert!(launch.minimized);
+        assert_eq!(launch.moved_from, Some(PathBuf::from("/old/Telescope")));
+        assert_eq!(words, ["-platform", "x"]);
     }
 
     // test_move_to_installed.py::test_main_takes_the_moved_from_folder

@@ -19,6 +19,11 @@ pub fn raise() {
     let _ = slint::invoke_from_event_loop(|| with_window(|w| w.show_window()));
 }
 
+/// Starts this copy again, from any thread (win.restart_app()).
+pub fn restart() {
+    let _ = slint::invoke_from_event_loop(|| with_window(|w| w.restart_app()));
+}
+
 /// The tray's tooltip for what's streaming (_show_tray_state).
 pub fn tooltip(streaming: bool, camera_on: bool, mic: (bool, bool)) -> String {
     let mic = match mic {

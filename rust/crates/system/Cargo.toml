@@ -23,3 +23,8 @@ zbus.workspace = true
 [dev-dependencies]
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
+
+# Its own main: confirm_on_terminate has to run before any other thread starts, as at the top of the app's main
+[[test]]
+name = "terminate"
+harness = false

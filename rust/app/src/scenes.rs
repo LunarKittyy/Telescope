@@ -241,7 +241,7 @@ impl Backend for NoUpdates {
     fn fetch(&self, _channel: &str) -> Result<Option<Manifest>, String> {
         Ok(None)
     }
-    fn install(&self, _m: &Manifest, _a: &Asset, _p: &mut dyn FnMut(Option<(u64, u64)>), _c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+    fn install(&self, _m: &Manifest, _a: &Asset, _p: telescope_system::updates_plugin::Progress, _c: &dyn Fn() -> bool, _s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
         Err(String::new())
     }
     fn blocker(&self) -> Option<String> {

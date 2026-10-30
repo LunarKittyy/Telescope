@@ -270,11 +270,13 @@ pub fn roll_back(directory: &Path, journal: &Value, remember: bool, mv: Mover) -
 /// Whether another copy holds the real app's lock. legacy: also a Linux copy from before the per-user lock, which
 /// holds the port; only right after an update, as another program could hold that port for good.
 pub fn another_copy_running(legacy: bool) -> bool {
-    use crate::single_instance::{held_elsewhere, Address, INSTANCE_PORT};
-    if held_elsewhere(&Address::current()) {
-        return true;
-    }
-    legacy && cfg!(unix) && std::net::TcpListener::bind(("127.0.0.1", INSTANCE_PORT)).is_err()
+    use crate::single_instance::{Address, INSTANCE_PORT};
+    copy_running_at(&Address::current(), (legacy && cfg!(unix)).then_some(INSTANCE_PORT))
+}
+
+/// Whether the lock at address is held, or (legacy_port) that port on 127.0.0.1.
+fn copy_running_at(address: &crate::single_instance::Address, legacy_port: Option<u16>) -> bool {
+    crate::single_instance::held_elsewhere(address) || legacy_port.is_some_and(|port| std::net::TcpListener::bind(("127.0.0.1", port)).is_err())
 }
 
 fn now() -> f64 {
@@ -398,7 +400,14 @@ pub fn launch(argv: &[String]) -> io::Result<()> {
     let mut cmd = std::process::Command::new(program);
     cmd.args(args).stdin(std::process::Stdio::null());
     #[cfg(unix)]
-    std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+    {
+        use std::os::unix::process::CommandExt;
+        // A session of its own (start_new_session), so a closing terminal or this process's group going takes nothing with it
+        // SAFETY: setsid only touches the child's own session and is safe between fork and exec
+        unsafe {
+            cmd.pre_exec(|| if libc::setsid() < 0 { Err(io::Error::last_os_error()) } else { Ok(()) });
+        }
+    }
     #[cfg(windows)]
     std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0000_0008 | 0x0000_0200);
     cmd.spawn().map(|_| ())
@@ -808,6 +817,43 @@ mod tests {
         assert!(!another_copy_running(false));
         std::env::remove_var(telescope_core::config::DEV_PROFILE_ENV);
         std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    // test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts
+    #[cfg(unix)]
+    #[test]
+    fn right_after_an_update_a_copy_from_before_the_per_user_lock_counts() {
+        use crate::single_instance::Address;
+        let address = Address::Abstract(format!("telescope-guard-legacy-{}", std::process::id()));
+        let holder = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = holder.local_addr().unwrap().port();
+        assert!(!copy_running_at(&address, None), "only right after an update does the old port count");
+        assert!(copy_running_at(&address, Some(port)));
+        drop(holder);
+        assert!(!copy_running_at(&address, Some(port)));
+    }
+
+    // subprocess.Popen(start_new_session=True): the new copy has to outlive this one and its terminal
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn launching_starts_a_session_of_its_own() {
+        let base = root("session");
+        let out = base.join("stat");
+        let script = format!("cat /proc/self/stat > '{0}.tmp' && mv '{0}.tmp' '{0}'", out.display());
+        launch(&["/bin/sh".to_string(), "-c".to_string(), script]).unwrap();
+        let waited = Instant::now();
+        while !out.exists() {
+            assert!(waited.elapsed() < Duration::from_secs(10));
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let stat = read(&out);
+        let fields: Vec<&str> = stat.rsplit(')').next().unwrap().split_whitespace().collect();
+        // After the name: state, parent, group, session; cat runs in the shell's session, which is the shell's own number
+        assert_eq!(fields[2], fields[3], "its group leads the session");
+        let mine = std::fs::read_to_string("/proc/self/stat").unwrap();
+        let my_session = mine.rsplit(')').next().unwrap().split_whitespace().nth(3).unwrap().to_string();
+        assert_ne!(fields[3], my_session);
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

@@ -98,6 +98,7 @@ export component UpdatesSettings inherits Card {
             items: channels;
             current: channel;
             enabled: !busy;
+            tip: @tr("Nightly: built from every change. Fixes first, less tested.");
             picked(i) => { root.channel-picked(i); }
         }
     }
@@ -121,6 +122,7 @@ export component UpdatesSettings inherits Card {
                 y: (parent.height - self.height) / 2;
                 checked: portable;
                 label: @tr("Keep this copy where it is");
+                tip: @tr("Updates this unzipped folder in place instead of installing Telescope for your user.");
                 toggled(on) => { root.portable-toggled(on); }
             }
             Note { text: @tr("Keep this copy where it is"); kind: ""; }
