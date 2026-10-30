@@ -106,6 +106,72 @@ pub fn update_menu_entry(save_icon: impl FnOnce(&Path) -> bool, command: &[Strin
     })
 }
 
+/// The app icon (create_app_icon): an accent-coloured disc with a dark centre, as PNG bytes, edges smoothed by 4x4 sampling.
+pub fn app_icon_png(size: u32) -> Vec<u8> {
+    use std::io::Write;
+    const ACCENT: [f64; 3] = [0xaa as f64, 0x9c as f64, 0xf5 as f64];
+    const BG: [f64; 3] = [0x0f as f64, 0x12 as f64, 0x16 as f64];
+    let s = size as f64;
+    let margin = s / 22.0;
+    let (outer_r, inner_r, c) = ((s - 2.0 * margin) / 2.0, s * 8.0 / 22.0 / 2.0, s / 2.0);
+    let mut raw = Vec::with_capacity((size * (size * 4 + 1)) as usize);
+    for y in 0..size {
+        raw.push(0); // no filter
+        for x in 0..size {
+            let (mut accent, mut dark) = (0u32, 0u32);
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let (px, py) = (x as f64 + (sx as f64 + 0.5) / 4.0 - c, y as f64 + (sy as f64 + 0.5) / 4.0 - c);
+                    let d = (px * px + py * py).sqrt();
+                    if d <= inner_r {
+                        dark += 1;
+                    } else if d <= outer_r {
+                        accent += 1;
+                    }
+                }
+            }
+            let covered = accent + dark;
+            if covered == 0 {
+                raw.extend_from_slice(&[0, 0, 0, 0]);
+                continue;
+            }
+            let mix = |i: usize| ((ACCENT[i] * accent as f64 + BG[i] * dark as f64) / covered as f64).round() as u8;
+            raw.extend_from_slice(&[mix(0), mix(1), mix(2), (covered as f64 * 255.0 / 16.0).round() as u8]);
+        }
+    }
+    let mut zlib = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    let _ = zlib.write_all(&raw);
+    let data = zlib.finish().unwrap_or_default();
+    fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], body: &[u8]) {
+        out.extend_from_slice(&(body.len() as u32).to_be_bytes());
+        let start = out.len();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(body);
+        let mut crc = 0xffff_ffffu32;
+        for &b in &out[start..] {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 };
+            }
+        }
+        out.extend_from_slice(&(!crc).to_be_bytes());
+    }
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut header = Vec::new();
+    header.extend_from_slice(&size.to_be_bytes());
+    header.extend_from_slice(&size.to_be_bytes());
+    header.extend_from_slice(&[8, 6, 0, 0, 0]); // 8 bit RGBA
+    chunk(&mut png, b"IHDR", &header);
+    chunk(&mut png, b"IDAT", &data);
+    chunk(&mut png, b"IEND", &[]);
+    png
+}
+
+/// Linux: update_menu_entry with the app icon (main.py's call). Returns whether the entry was written.
+pub fn refresh_menu_entry(command: &[String], data: Option<&Path>) -> bool {
+    cfg!(target_os = "linux") && update_menu_entry(|path| std::fs::write(path, app_icon_png(256)).is_ok(), command, data)
+}
+
 fn has_entry(app_id: &str, data: Option<&Path>) -> bool {
     let system = std::env::var("XDG_DATA_DIRS").ok().filter(|v| !v.is_empty()).unwrap_or_else(|| "/usr/local/share:/usr/share".into());
     std::iter::once(data_home(data))
@@ -310,6 +376,22 @@ mod tests {
         assert!(update_menu_entry(save_icon, &argv(&["/elsewhere/start.sh"]), Some(&dir)));
         assert!(std::fs::read_to_string(dir.join("applications/telescope.desktop")).unwrap().contains("Exec=/elsewhere/start.sh\n"));
         assert_eq!(icons.borrow().len(), 1);
+    }
+
+    #[test]
+    fn the_app_icon_is_an_accent_disc_with_a_dark_centre() {
+        use std::io::Read;
+        let png = app_icon_png(256);
+        assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+        assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 256);
+        let len = u32::from_be_bytes(png[33..37].try_into().unwrap()) as usize;
+        assert_eq!(&png[37..41], b"IDAT");
+        let mut raw = Vec::new();
+        flate2::read::ZlibDecoder::new(&png[41..41 + len]).read_to_end(&mut raw).unwrap();
+        let at = |x: usize, y: usize| -> [u8; 4] { raw[y * (256 * 4 + 1) + 1 + x * 4..][..4].try_into().unwrap() };
+        assert_eq!(at(128, 128), [0x0f, 0x12, 0x16, 255]);
+        assert_eq!(at(128, 20), [0xaa, 0x9c, 0xf5, 255]);
+        assert_eq!(at(0, 0)[3], 0);
     }
 
     #[test]

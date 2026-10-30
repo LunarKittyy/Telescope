@@ -38,9 +38,19 @@ fn use_own_profile() {
 
 /// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
 fn refresh_sign_in_entry(source_build: bool, command: &[String], place: &telescope_system::autostart::Place) -> bool {
+    owns_the_entries(source_build) && telescope_system::autostart::refresh(command, place)
+}
+
+/// Linux: the app menu entry follows this copy too, under the same rule (main.py's update_menu_entry). data is the data home, None for the real one.
+fn refresh_menu_entry(source_build: bool, command: &[String], data: Option<&std::path::Path>) -> bool {
+    owns_the_entries(source_build) && telescope_system::autostart::refresh_menu_entry(command, data)
+}
+
+/// Only a release build on the real profile may repoint the sign-in and menu entries.
+fn owns_the_entries(source_build: bool) -> bool {
     // The own profile counts as a dev profile, so it has to be chosen before asking
     use_own_profile();
-    !source_build && telescope_core::config::dev_profile().is_none() && telescope_system::autostart::refresh(command, place)
+    !source_build && telescope_core::config::dev_profile().is_none()
 }
 
 /// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
@@ -374,6 +384,7 @@ fn main() {
     if words.is_empty() {
         use telescope_system::autostart;
         let source_build = cfg!(debug_assertions) || telescope_system::version::channel() == "dev";
+        refresh_menu_entry(source_build, &autostart::launch_command(&app_dir(), false), None);
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
@@ -451,6 +462,31 @@ mod tests {
         // Only a release build on the real profile repoints it
         assert!(refresh_sign_in_entry(false, &rust, &place));
         assert!(entry().contains("/opt/rs/telescope-rs") && !entry().contains("start.sh"));
+        own.iter().for_each(|name| std::env::remove_var(name));
+        #[cfg(target_os = "linux")]
+        the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile();
+    }
+
+    // main.py writes the app menu entry only where it repoints the sign-in one: never for a source build, a dev profile or the own profile
+    // (run by the sign-in entry's test, since both set the profile in the environment)
+    #[cfg(target_os = "linux")]
+    fn the_menu_entry_is_the_real_apps_to_write_only_on_the_real_profile() {
+        let own = [DEV_PROFILE_ENV, "TELESCOPE_RS_PROFILE", "TELESCOPE_RS_REAL_CONFIG"];
+        let data = telescope_core::testing::scratch_dir("menu");
+        let menu = telescope_system::autostart::menu_file(Some(&data));
+        let command = vec!["/opt/rs/telescope-rs".to_string()];
+        own.iter().for_each(|name| std::env::remove_var(name));
+        // The own profile (the default) and a source build leave the real app's entry alone
+        std::env::set_var("TELESCOPE_RS_PROFILE", data.join("profile"));
+        assert!(!refresh_menu_entry(false, &command, Some(&data)));
+        own.iter().for_each(|name| std::env::remove_var(name));
+        std::env::set_var("TELESCOPE_RS_REAL_CONFIG", "1");
+        assert!(!refresh_menu_entry(true, &command, Some(&data)));
+        assert!(!menu.exists());
+        // A release build on the real profile writes the entry and its icon
+        assert!(refresh_menu_entry(false, &command, Some(&data)));
+        assert!(std::fs::read_to_string(&menu).unwrap().contains("Exec=/opt/rs/telescope-rs\n"));
+        assert!(telescope_system::autostart::icon_file(Some(&data)).exists());
         own.iter().for_each(|name| std::env::remove_var(name));
     }
 

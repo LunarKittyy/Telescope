@@ -1798,6 +1798,18 @@ mod tests {
         assert!(ran(&host)[1].starts_with("release_action"));
     }
 
+    // test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release
+    #[test]
+    fn hold_comes_back_by_scan_code_when_the_key_changes_on_release() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Shift+1", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);
+        plugin.press(&mut host, "a", Source::App, false, 10);
+        assert_eq!(ran(&host).len(), 1);
+        // Shift came up first, so the key that comes up is "!" and not the binding's "1"
+        plugin.release_app_keys(&mut host, Some("!"), 10);
+        assert_eq!(ran(&host).len(), 2);
+        assert!(ran(&host)[1].starts_with("release_action"));
+    }
+
     #[test]
     fn a_release_without_a_scan_code_still_matches_by_key() {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Space", "microphone.mute", json!({"mode": "hold"}), false)]), false, true);

@@ -3954,7 +3954,7 @@
 "test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys" }
 "test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::global_presses_are_ignored_while_the_editor_records_a_key" }
-"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "dropped", reason = "Slint gives no scan codes; a held binding comes back when its key comes up whatever its case, or when Telescope loses focus" }
+"test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_comes_back_by_scan_code_when_the_key_changes_on_release" }
 "test_shortcuts_plugin.py::test_hold_inside_telescope_comes_back_when_the_key_is_let_go" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_inside_telescope_comes_back_when_the_key_is_let_go" }
 "test_shortcuts_plugin.py::test_holding_a_key_repeats_steps_but_not_toggles" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::holding_a_key_repeats_steps_but_not_toggles" }
 "test_shortcuts_plugin.py::test_keys_inside_telescope_run_bindings_and_skip_text_boxes" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
