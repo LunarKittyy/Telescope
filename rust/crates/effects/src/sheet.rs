@@ -193,29 +193,87 @@ pub fn invert(m: &M3) -> M3 {
     out
 }
 
-/// cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE): every pixel of the result samples the picture
-/// where the inverse matrix says. OpenCV looks up in 1/32 pixels, which this doesn't.
+/// cv2.invert(m) for a 3 x 3 of doubles, which OpenCV does by cofactors times the reciprocal of the determinant (zeros when singular).
+fn invert_like_opencv(m: &M3) -> M3 {
+    let d = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    if d == 0.0 {
+        return [[0.0; 3]; 3];
+    }
+    let d = 1.0 / d;
+    [
+        [
+            (m[1][1] * m[2][2] - m[1][2] * m[2][1]) * d,
+            (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * d,
+            (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * d,
+        ],
+        [
+            (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * d,
+            (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * d,
+            (m[0][2] * m[1][0] - m[0][0] * m[1][2]) * d,
+        ],
+        [
+            (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * d,
+            (m[0][1] * m[2][0] - m[0][0] * m[2][1]) * d,
+            (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * d,
+        ],
+    ]
+}
+
+/// Positions are looked up in 1/32 pixels (INTER_BITS 5) and blended with 15-bit weights (INTER_REMAP_COEF_BITS).
+const TAB_BITS: u32 = 5;
+const TAB_SIZE: i32 = 1 << TAB_BITS;
+const COEF_BITS: u32 = 15;
+
+/// cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE) on an 8-bit, 3-channel picture, the way OpenCV does it:
+/// the inverse matrix is applied in blocks of at most 32 x 32 pixels (so the sums round as they do there), each position is taken to
+/// the nearest 1/32 pixel, and the four pixels around it are blended with whole-number weights.
 pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, rh: usize) -> Vec<u8> {
-    let inv = invert(matrix);
+    let inv = invert_like_opencv(matrix);
+    let m = [inv[0][0], inv[0][1], inv[0][2], inv[1][0], inv[1][1], inv[1][2], inv[2][0], inv[2][1], inv[2][2]];
     let mut out = vec![0u8; rw * rh * 3];
-    let (mw, mh) = ((w - 1) as f64, (h - 1) as f64);
-    for y in 0..rh {
-        for x in 0..rw {
-            let (fx, fy) = (x as f64, y as f64);
-            let d = inv[2][0] * fx + inv[2][1] * fy + inv[2][2];
-            let d = if d != 0.0 { 1.0 / d } else { 0.0 };
-            let sx = ((inv[0][0] * fx + inv[0][1] * fy + inv[0][2]) * d).clamp(0.0, mw);
-            let sy = ((inv[1][0] * fx + inv[1][1] * fy + inv[1][2]) * d).clamp(0.0, mh);
-            let (x0, y0) = (sx.floor() as usize, sy.floor() as usize);
-            let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(h - 1));
-            let (ax, ay) = ((sx - x0 as f64) as f32, (sy - y0 as f64) as f32);
-            for c in 0..3 {
-                let at = |xx: usize, yy: usize| src[(yy * w + xx) * 3 + c] as f32;
-                let top = at(x0, y0) * (1.0 - ax) + at(x1, y0) * ax;
-                let bottom = at(x0, y1) * (1.0 - ax) + at(x1, y1) * ax;
-                out[(y * rw + x) * 3 + c] = (top * (1.0 - ay) + bottom * ay).round() as u8;
+    // OpenCV's block: 32 x 32 = 1024 pixels, 16 rows tall when the picture allows
+    let bh0 = 16.min(rh);
+    let bw0 = (1024 / bh0).min(rw);
+    let bh0 = (1024 / bw0).min(rh);
+    let (last_x, last_y) = (w as i64 - 1, h as i64 - 1);
+    let mut y = 0;
+    while y < rh {
+        let bh = bh0.min(rh - y);
+        let mut x = 0;
+        while x < rw {
+            let bw = bw0.min(rw - x);
+            for y1 in 0..bh {
+                let row = (y + y1) as f64;
+                let x0 = m[0] * x as f64 + m[1] * row + m[2];
+                let y0 = m[3] * x as f64 + m[4] * row + m[5];
+                let w0 = m[6] * x as f64 + m[7] * row + m[8];
+                for x1 in 0..bw {
+                    let step = x1 as f64;
+                    let wd = w0 + m[6] * step;
+                    let wd = if wd != 0.0 { TAB_SIZE as f64 / wd } else { 0.0 };
+                    let fx = ((x0 + m[0] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64);
+                    let fy = ((y0 + m[3] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64);
+                    let (fx, fy) = (fx.round_ties_even() as i32, fy.round_ties_even() as i32);
+                    // The position as a short, and what is left of it in 1/32 pixels
+                    let sx = (fx >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
+                    let sy = (fy >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
+                    let (ax, ay) = ((fx & (TAB_SIZE - 1)) as i32, (fy & (TAB_SIZE - 1)) as i32);
+                    // The weights are exact: products of two 1/32 steps, in units of 1/32768
+                    let weights = [(TAB_SIZE - ay) * (TAB_SIZE - ax), (TAB_SIZE - ay) * ax, ay * (TAB_SIZE - ax), ay * ax].map(|v| v << (COEF_BITS - 2 * TAB_BITS));
+                    // BORDER_REPLICATE: a pixel outside the picture is the nearest one in it
+                    let (x_a, x_b) = (sx.clamp(0, last_x) as usize, (sx + 1).clamp(0, last_x) as usize);
+                    let (y_a, y_b) = (sy.clamp(0, last_y) as usize, (sy + 1).clamp(0, last_y) as usize);
+                    for c in 0..3 {
+                        let at = |xx: usize, yy: usize| src[(yy * w + xx) * 3 + c] as i32;
+                        let sum = at(x_a, y_a) * weights[0] + at(x_b, y_a) * weights[1] + at(x_a, y_b) * weights[2] + at(x_b, y_b) * weights[3];
+                        out[((y + y1) * rw + x + x1) * 3 + c] = ((sum + (1 << (COEF_BITS - 1))) >> COEF_BITS).clamp(0, 255) as u8;
+                    }
+                }
             }
+            x += bw0;
         }
+        y += bh0;
     }
     out
 }
