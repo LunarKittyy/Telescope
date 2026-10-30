@@ -148,6 +148,8 @@ pub struct FakeHost {
     pub report: String,
     /// What set_plugin_hues last said (None until it's called).
     pub plugin_hues: Option<bool>,
+    /// What set_power_saving last said (None until it's called).
+    pub power_saving: Option<bool>,
     next_request: u64,
 }
 
@@ -449,6 +451,10 @@ impl HostView for FakeHost {
 }
 
 impl HostVision for FakeHost {
+    fn set_power_saving(&mut self, on: bool) {
+        self.note(format!("set_power_saving {on}"));
+        self.power_saving = Some(on);
+    }
     fn vision_state(&self) -> String {
         self.vision.clone().unwrap_or_else(|| "off".into())
     }

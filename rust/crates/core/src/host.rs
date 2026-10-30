@@ -359,6 +359,8 @@ pub trait HostVision {
     fn want_people(&mut self, owner: &str, on: bool);
     /// (Track records, how many people) on source_id's stream, as the last people_tracked said.
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32);
+    /// Power-saving effects (Settings > Video): the models run less often. A host without vision ignores it.
+    fn set_power_saving(&mut self, _on: bool) {}
     /// Where the vision pack's download is, for the card's status row (crate::vision::status_text).
     fn vision_pack(&self) -> crate::vision::VisionPack {
         crate::vision::VisionPack::default()
