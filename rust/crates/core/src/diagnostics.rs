@@ -1,5 +1,6 @@
 //! The desktop log and Copy diagnostics (diagnostics.py): every line is sanitized first, so no tokens, addresses or home paths.
 
+use regex::bytes::Regex as Bytes;
 use regex::Regex;
 use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
@@ -17,8 +18,70 @@ fn pattern(cell: &'static OnceLock<Regex>, source: &str) -> &'static Regex {
     cell.get_or_init(|| Regex::new(source).expect("a fixed pattern"))
 }
 
+fn ascii_pattern(cell: &'static OnceLock<Bytes>, source: &str) -> &'static Bytes {
+    cell.get_or_init(|| Bytes::new(source).expect("a fixed pattern"))
+}
+
+/// Python's `\w`: letters, numbers and "_" (Rust's also takes marks, joiners and connectors, which Python's doesn't).
 fn is_word(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    static WORD: OnceLock<Regex> = OnceLock::new();
+    if c.is_ascii() { c.is_ascii_alphanumeric() || c == '_' } else { pattern(&WORD, r"^[\p{L}\p{N}_]$").is_match(c.encode_utf8(&mut [0; 4])) }
+}
+
+/// Python's `\d`: decimal digits of any script.
+fn is_digit(c: char) -> bool {
+    static DIGIT: OnceLock<Regex> = OnceLock::new();
+    if c.is_ascii() { c.is_ascii_digit() } else { pattern(&DIGIT, r"^\p{Nd}$").is_match(c.encode_utf8(&mut [0; 4])) }
+}
+
+/// What a pattern needs told apart in the text it reads.
+#[derive(Clone, Copy, PartialEq)]
+enum View {
+    /// Letters, where Python's ignore-case also takes four letters of other scripts.
+    Letters,
+    /// Digits of any script.
+    Digits,
+    /// Only whether a character is one of [A-Za-z0-9_].
+    Plain,
+}
+
+/// One ASCII byte for c, so the patterns below see word characters, spaces and digits as Python's `\w`, `\s` and `\d` do.
+fn project(c: char, view: View) -> u8 {
+    if c.is_ascii() {
+        return match c {
+            '\x1c'..='\x1f' => b'\t',
+            _ if view == View::Plain && (c.is_ascii_alphanumeric() || c == '_') => b'a',
+            _ => c as u8,
+        };
+    }
+    match c {
+        _ if c.is_whitespace() => b'\t',
+        _ if !is_word(c) => b'~',
+        '\u{130}' | '\u{131}' if view == View::Letters => b'i',
+        '\u{17f}' if view == View::Letters => b's',
+        '\u{212a}' if view == View::Letters => b'k',
+        _ if view == View::Digits && is_digit(c) => b'0',
+        _ => b'_',
+    }
+}
+
+/// Replaces what re finds in text as seen through `view` (a byte per character, so a match maps back to the text); with `keep`
+/// set, the text up to the end of that group stays in front of the replacement.
+fn replace_in(text: &str, view: View, re: &Bytes, keep: Option<usize>, with: &str) -> String {
+    let seen: Vec<u8> = text.chars().map(|c| project(c, view)).collect();
+    let starts: Vec<usize> = text.char_indices().map(|(i, _)| i).chain([text.len()]).collect();
+    let (mut out, mut last) = (String::with_capacity(text.len()), 0);
+    for caps in re.captures_iter(&seen) {
+        let whole = caps.get(0).expect("the whole match");
+        out.push_str(&text[last..starts[whole.start()]]);
+        if let Some(group) = keep {
+            out.push_str(&text[starts[whole.start()]..starts[caps.get(group).expect("a group in every match").end()]]);
+        }
+        out.push_str(with);
+        last = starts[whole.end()];
+    }
+    out.push_str(&text[last..]);
+    out
 }
 
 /// Strip what shouldn't end up in a public issue: URLs, IPs, tokens and the user's home path.
@@ -28,19 +91,21 @@ pub fn sanitize(text: &str) -> String {
 
 /// sanitize with the home folder given, so a test can choose it.
 pub fn sanitize_at(text: &str, home: Option<&Path>) -> String {
-    static URL: OnceLock<Regex> = OnceLock::new();
-    static BEARER: OnceLock<Regex> = OnceLock::new();
-    static IPV4: OnceLock<Regex> = OnceLock::new();
-    static LONG_SECRET: OnceLock<Regex> = OnceLock::new();
+    static URL: OnceLock<Bytes> = OnceLock::new();
+    static BEARER: OnceLock<Bytes> = OnceLock::new();
+    static IPV4: OnceLock<Bytes> = OnceLock::new();
+    static LONG_SECRET: OnceLock<Bytes> = OnceLock::new();
     let mut text = text.to_string();
     if let Some(home) = home.map(|h| h.to_string_lossy().into_owned()).filter(|h| h.chars().count() > 1) {
         text = text.replace(&home, "~");
     }
-    let text = pattern(&URL, r"(?i)\b[a-z][a-z0-9+.-]*://\S+").replace_all(&text, "<url>");
-    let text = pattern(&BEARER, r#"(?i)(bearer|token|nonce|secret)(["'=: ]+)[^\s"',}]+"#).replace_all(&text, "${1}${2}<redacted>");
-    let text = pattern(&IPV4, r"\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b").replace_all(&text, "<ip>");
+    // The patterns are the Python ones, ASCII only: `project` has already made the text say what Python's classes would
+    let text = replace_in(&text, View::Letters, ascii_pattern(&URL, r"(?i-u)\b[a-z][a-z0-9+.-]*://\S+"), None, "<url>");
+    let text = replace_in(&text, View::Letters, ascii_pattern(&BEARER, r#"(?i-u)(bearer|token|nonce|secret)(["'=: ]+)[^\s"',}]+"#), Some(2), "<redacted>");
+    let text = replace_in(&text, View::Digits, ascii_pattern(&IPV4, r"(?-u)\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b"), None, "<ip>");
     let text = replace_ipv6(&text);
-    pattern(&LONG_SECRET, r"\b[A-Za-z0-9_\-+/]{24,}={0,2}").replace_all(&text, "<redacted>").into_owned()
+    // [A-Za-z0-9_] is all one letter here, so any other word character can't be taken for one
+    replace_in(&text, View::Plain, ascii_pattern(&LONG_SECRET, r"(?-u)\b[a\-+/]{24,}={0,2}"), None, "<redacted>")
 }
 
 /// An IPv6 address standing alone, in full or with "::": only a whole run of hex digits and colons can be one.

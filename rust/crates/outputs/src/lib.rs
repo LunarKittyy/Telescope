@@ -277,19 +277,7 @@ impl Outputs for VirtualCameras {
         }
         #[cfg(windows)]
         {
-            let reg = wincam::System;
-            let (uc_dir, mf_dir) = (wininstall::unitycapture_dir(), wininstall::mf_camera_dir());
-            let mf = wincam::use_mf(&reg, 0);
-            let ready = mf || !wincam::uc_names(&reg).is_empty();
-            let dll_here = mf_dir.join(wincam::MF_DLL).is_file();
-            return SetupStatus {
-                installed: ready, loaded: ready, ready, windows_camera: mf,
-                outdated: wincam::mf_outdated(&reg, dll_here),
-                registered_name: wincam::uc_registered_name(&reg, &uc_dir).unwrap_or_default(),
-                in_app_folder: wincam::uc_in_app_folder(&reg, &uc_dir),
-                installable: wincam::mf_installable(&reg, &mf_dir),
-                ..SetupStatus::default()
-            };
+            return wincam::setup_status(&wincam::System, &wininstall::unitycapture_dir(), &wininstall::mf_camera_dir());
         }
         #[cfg(not(any(target_os = "linux", windows)))]
         SetupStatus::default()

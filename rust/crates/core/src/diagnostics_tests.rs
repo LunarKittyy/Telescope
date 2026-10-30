@@ -338,3 +338,46 @@ fn sanitize_gives_what_diagnostics_py_gives() {
         assert_eq!(sanitize_at(text, Some(Path::new("/home/someone"))), want, "{text:?}");
     }
 }
+
+/// What Python's sanitize() did with text around zero-width, combining and other odd characters (parity/record_sanitize.py).
+fn recorded() -> serde_json::Value {
+    serde_json::from_str(include_str!("../fixtures/sanitize.json")).unwrap()
+}
+
+#[test]
+fn sanitize_gives_what_python_recorded() {
+    let fixture = recorded();
+    let home = Path::new(fixture["home"].as_str().unwrap());
+    let cases = fixture["cases"].as_array().unwrap();
+    let wrong: Vec<String> = cases.iter().filter_map(|case| {
+        let (text, want) = (case[0].as_str().unwrap(), case[1].as_str().unwrap());
+        let got = sanitize_at(text, Some(home));
+        (got != want).then(|| format!("{text:?}: want {want:?}, got {got:?}"))
+    }).collect();
+    assert!(wrong.is_empty(), "{} of {} differ, first:\n{}", wrong.len(), cases.len(), wrong.iter().take(5).cloned().collect::<Vec<_>>().join("\n"));
+}
+
+#[test]
+fn word_digit_and_space_characters_are_the_ones_python_names() {
+    let fixture = recorded();
+    let listed = |key: &str| -> Vec<(u32, u32)> {
+        fixture[key].as_array().unwrap().iter().map(|r| (r[0].as_u64().unwrap() as u32, r[1].as_u64().unwrap() as u32)).collect()
+    };
+    let (word, digit, space) = (listed("word"), listed("digit"), listed("space"));
+    let has = |ranges: &[(u32, u32)], c: char| ranges.iter().any(|(lo, hi)| (*lo..=*hi).contains(&(c as u32)));
+    let mut wrong = Vec::new();
+    for c in (0..=char::MAX as u32).filter_map(char::from_u32) {
+        let is_space = matches!(project(c, View::Letters), b'\t' | b'\n' | 0x0b | 0x0c | b'\r' | b' ');
+        if is_word(c) != has(&word, c) || is_digit(c) != has(&digit, c) || is_space != has(&space, c) {
+            wrong.push(format!("U+{:04X}", c as u32));
+        }
+    }
+    assert!(wrong.is_empty(), "{} differ from Python's {}, first: {:?}", wrong.len(), fixture["unicode"], &wrong[..wrong.len().min(10)]);
+}
+
+#[test]
+fn a_zero_width_joiner_doesnt_hide_a_secret() {
+    assert_eq!(sanitize_at("code=\u{200d}AbCdEfGhIjKlMnOpQrStUvWx", None), "code=\u{200d}<redacted>");
+    assert_eq!(sanitize_at("at \u{200d}10.0.0.5\u{200d}", None), "at \u{200d}<ip>\u{200d}");
+    assert_eq!(sanitize_at("see x\u{200d}http://host/p", None), "see x\u{200d}<url>");
+}

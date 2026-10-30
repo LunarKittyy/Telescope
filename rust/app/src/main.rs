@@ -36,6 +36,13 @@ fn use_own_profile() {
     std::env::set_var(DEV_PROFILE_ENV, folder);
 }
 
+/// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
+fn refresh_sign_in_entry(source_build: bool, command: &[String], place: &telescope_system::autostart::Place) -> bool {
+    // The own profile counts as a dev profile, so it has to be chosen before asking
+    use_own_profile();
+    !source_build && telescope_core::config::dev_profile().is_none() && telescope_system::autostart::refresh(command, place)
+}
+
 /// The Updates plugin, with the adb server stopped before an installer replaces the folder it runs from.
 fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
     use telescope_system::updates_plugin::{RealBackend, UpdatesPlugin};
@@ -361,10 +368,10 @@ fn main() {
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
     }
-    // A debug build or a dev profile mustn't repoint the installed app's sign-in entry at itself
-    if words.is_empty() && !cfg!(debug_assertions) && telescope_core::config::dev_profile().is_none() {
+    if words.is_empty() {
         use telescope_system::autostart;
-        autostart::refresh(&autostart::launch_command(&app_dir(), true), &autostart::here());
+        let source_build = cfg!(debug_assertions) || telescope_system::version::channel() == "dev";
+        refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
         Box::new(GpuPreview { gpu: telescope_media::gpu::Gpu::on_device(device, queue), pictures: [None, None], next: 0 })
@@ -414,6 +421,35 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // main.py: no refresh for a dev checkout or a dev profile, and this app is on a profile of its own unless asked not to be
+    #[test]
+    fn the_sign_in_entry_is_the_real_apps_to_repoint_only_on_the_real_profile() {
+        use telescope_system::autostart::{desktop_file, enable, Place};
+        let own = [DEV_PROFILE_ENV, "TELESCOPE_RS_PROFILE", "TELESCOPE_RS_REAL_CONFIG"];
+        let home = telescope_core::testing::scratch_dir("signin");
+        let (python, rust) = (vec!["/opt/telescope/start.sh".to_string(), "--minimized".to_string()], vec!["/opt/rs/telescope-rs".to_string()]);
+        let entry = || std::fs::read_to_string(desktop_file(&home)).unwrap();
+        let reset = || {
+            own.iter().for_each(|name| std::env::remove_var(name));
+            enable(&python, &Place::Xdg(home.clone())).unwrap();
+        };
+        let place = Place::Xdg(home.clone());
+        // On its own profile (the default), a release build leaves the Python install's entry alone
+        reset();
+        std::env::set_var("TELESCOPE_RS_PROFILE", home.join("profile"));
+        assert!(!refresh_sign_in_entry(false, &rust, &place));
+        assert!(entry().contains("/opt/telescope/start.sh"), "{}", entry());
+        // A source build leaves it alone on the real profile too
+        reset();
+        std::env::set_var("TELESCOPE_RS_REAL_CONFIG", "1");
+        assert!(!refresh_sign_in_entry(true, &rust, &place));
+        assert!(entry().contains("/opt/telescope/start.sh"));
+        // Only a release build on the real profile repoints it
+        assert!(refresh_sign_in_entry(false, &rust, &place));
+        assert!(entry().contains("/opt/rs/telescope-rs") && !entry().contains("start.sh"));
+        own.iter().for_each(|name| std::env::remove_var(name));
+    }
 
     // test_move_to_installed.py::test_main_takes_the_moved_from_folder
     #[test]

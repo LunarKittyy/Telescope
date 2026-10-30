@@ -223,6 +223,13 @@ impl ShortcutsPlugin {
         self.apply(host);
     }
 
+    /// The actions as the plugins give them now: a range can move while this runs (Max zoom), and Python reads it live.
+    fn sync_actions(&mut self, host: &dyn Host) {
+        if self.started {
+            self.actions = all_actions(host);
+        }
+    }
+
     fn action(&self, id: &str) -> Option<&(Option<String>, ActionSpec)> {
         self.actions.iter().find(|(_, a)| a.id == id)
     }
@@ -305,6 +312,7 @@ impl ShortcutsPlugin {
             // The user is pressing keys to pick one, not to run them
             return None;
         }
+        self.sync_actions(host);
         let (owner, action) = self.action(&binding.action)?.clone();
         let params = clean_full_params(&action, &binding.params);
         if repeat && !repeats(&action, &params) {
@@ -350,6 +358,7 @@ impl ShortcutsPlugin {
         if self.held.remove(id).is_none() {
             return;
         }
+        self.sync_actions(host);
         let Some(binding) = self.bindings.iter().find(|b| b.id == id) else { return };
         let Some((Some(plugin), action)) = self.action(&binding.action).cloned() else { return };
         if action.on_release {
@@ -544,11 +553,7 @@ fn clean_value(p: &Value, given: Option<&Value>) -> Value {
         let lo = p["minimum"].as_f64().unwrap_or(f64::NEG_INFINITY);
         let hi = p["maximum"].as_f64().unwrap_or(f64::INFINITY).max(lo);
         let n = n.clamp(lo, hi);
-        let n = match p["decimals"].as_u64() {
-            Some(d) => (n * 10f64.powi(d as i32)).round() / 10f64.powi(d as i32),
-            None => n,
-        };
-        return json!(n);
+        return json!(actions::round_to(n, p["decimals"].as_u64().unwrap_or(0) as usize));
     }
     if choices(p).iter().any(|(v, _)| Value::String(v.clone()) == *given) {
         return given.clone();
@@ -1059,6 +1064,7 @@ impl ShortcutsPlugin {
     }
 
     fn refresh(&mut self, host: &mut dyn Host) {
+        self.sync_actions(host);
         if self.section_made {
             host.set_ui_props(SECTION, &self.section_props());
         }
@@ -1078,6 +1084,7 @@ impl ShortcutsPlugin {
 
     /// A right-click menu's item: a new shortcut for an action ("add") or a saved one ("edit"), in Settings' editor.
     fn on_menu(&mut self, host: &mut dyn Host, callback: &str, args: &[Value]) {
+        self.sync_actions(host);
         let id = args.first().and_then(Value::as_str).unwrap_or_default();
         let binding = match callback {
             "add" if self.action(id).is_some() => {
@@ -1121,6 +1128,7 @@ impl ShortcutsPlugin {
     }
 
     fn on_section(&mut self, host: &mut dyn Host, callback: &str, args: &[Value]) {
+        self.sync_actions(host);
         let int = |i: usize| args.get(i).and_then(Value::as_i64).unwrap_or(-1);
         let text = |i: usize| args.get(i).and_then(Value::as_str).unwrap_or("").to_string();
         let flag = |i: usize| args.get(i).and_then(Value::as_bool).unwrap_or(false);
@@ -1567,7 +1575,7 @@ mod tests {
     #[test]
     fn editor_search_narrows_the_controls_and_uses_keywords() {
         let (mut plugin, mut host, _) = make(json!([]), false, true);
-        plugin.actions[3].1.keywords = "push to talk".into();
+        host.actions[0].1.keywords = "push to talk".into();
         plugin.settings_sections();
         ui(&mut plugin, &mut host, "add", json!([]));
         assert!(controls(&plugin).len() > 3);
@@ -1882,6 +1890,35 @@ mod tests {
         assert_eq!(full_params(&spec, &params(json!({"op": "set", "value": "400"})))["value"], json!(400.0));
         let text = list_text(&[(Some("camera_control".into()), spec)]);
         assert_eq!(text, "camera.iso  (Camera: ISO)\n    op=up | set  (default up)\n    value=<number 50 to 3200>");
+    }
+
+    // Param.clean: round(value, decimals), whose halves go to the even neighbour and which reads the number's exact value
+    #[test]
+    fn a_number_is_rounded_the_way_pythons_round_does() {
+        let number = |decimals: Option<u64>| {
+            let mut p = json!({"name": "value", "kind": "number", "default": null, "minimum": 0, "maximum": 1000});
+            if let Some(d) = decimals {
+                p["decimals"] = json!(d);
+            }
+            p
+        };
+        for (given, decimals, want) in [(100.5, Some(0), 100.0), (101.5, Some(0), 102.0), (100.5, None, 100.0), (0.125, Some(2), 0.12),
+                                        (0.375, Some(2), 0.38), (2.675, Some(2), 2.67), (1.005, Some(2), 1.0), (7.25, Some(1), 7.2)] {
+            assert_eq!(clean_value(&number(decimals), Some(&json!(given))), json!(want), "{given} to {decimals:?} places");
+        }
+    }
+
+    #[test]
+    fn a_bound_that_moves_after_start_is_the_one_a_key_press_cleans_to() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Z", "transforms.zoom", json!({"op": "set", "value": 15}), false)]), false, true);
+        plugin.on_key(&mut host, &key("z", false, false));
+        assert!(ran(&host)[0].ends_with(r#""value":15.0}"#), "{:?}", ran(&host));
+        // Max zoom comes down while Telescope runs (the bounds are read live, as Param.bounds does)
+        host.actions[2].1.params[2]["maximum"] = json!(10);
+        host.calls.clear();
+        plugin.on_key(&mut host, &key("z", false, false));
+        assert!(ran(&host)[0].ends_with(r#""value":10.0}"#), "{:?}", ran(&host));
+        assert!(handle_remote(&mut host, &json!({"list": true}))["text"].as_str().unwrap().contains("value=<number 0 to 10%>"));
     }
 
     #[test]

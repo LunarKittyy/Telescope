@@ -11,8 +11,19 @@ const STOP_WORDS: &[&str] = &[
 ];
 const MIN_SCORE: f64 = 18.0;
 
+/// str.casefold() as far as it shows after the rest of normalize: lowercase, plus the folds lowercase doesn't make (ß is "ss").
+fn casefold(text: &str) -> String {
+    text.chars().flat_map(|c| match c {
+        'ß' | 'ẞ' => vec!['s', 's'],
+        // a combining mark that folds to a letter, so it stays
+        '\u{345}' => vec!['\u{3b9}'],
+        _ => c.to_lowercase().collect(),
+    }).collect()
+}
+
 pub fn normalize(text: &str) -> String {
-    let folded: String = text.to_lowercase().nfkd().filter(|c| !unicode_normalization::char::is_combining_mark(*c)).collect();
+    // unicodedata.combining: has a combining class, which not every mark does
+    let folded: String = casefold(text).nfkd().filter(|c| unicode_normalization::char::canonical_combining_class(*c) == 0).collect();
     let mut out = String::new();
     let mut gap = false;
     for c in folded.chars() {
@@ -161,6 +172,30 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What Python's matcher made of these (parity/record_fuzzy.py).
+    fn recorded() -> serde_json::Value {
+        serde_json::from_str(include_str!("../fixtures/fuzzy.json")).unwrap()
+    }
+
+    #[test]
+    fn normalize_gives_what_python_recorded() {
+        for case in recorded()["normalize"].as_array().unwrap() {
+            let (text, want) = (case[0].as_str().unwrap(), case[1].as_str().unwrap());
+            assert_eq!(normalize(text), want, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn scores_are_the_ones_python_recorded() {
+        let fixture = recorded();
+        let weights: Vec<(&str, f64)> = vec![("name", fixture["weights"]["name"].as_f64().unwrap()), ("keywords", fixture["weights"]["keywords"].as_f64().unwrap())];
+        for case in fixture["scores"].as_array().unwrap() {
+            let (name, keywords, query) = (case["name"].as_str().unwrap(), case["keywords"].as_str().unwrap(), case["query"].as_str().unwrap());
+            let got = Doc::new(&[("name", name), ("keywords", keywords)]).score(query, &weights, case["partial"].as_bool().unwrap());
+            assert!((got - case["score"].as_f64().unwrap()).abs() < 1e-9, "{query:?} in {name:?}: want {}, got {got}", case["score"]);
+        }
+    }
 
     #[test]
     fn typos_are_forgiven_and_word_starts_are_wanted() {

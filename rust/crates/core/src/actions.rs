@@ -107,9 +107,10 @@ pub fn slider_action(s: &SliderSpec, current: f64) -> ActionSpec {
     }
 }
 
-fn round_to(v: f64, decimals: usize) -> f64 {
-    let k = 10f64.powi(decimals as i32);
-    round_half_even(v * k) / k
+/// Python's round(v, decimals): v's exact value rounded to that many places (a half goes to the even neighbour), which a
+/// multiply and round gets wrong for a number like 2.675 that is just under its half.
+pub fn round_to(v: f64, decimals: usize) -> f64 {
+    format!("{v:.decimals$}").parse().unwrap_or(v)
 }
 
 /// The slider's steps after a key with these params, from where it is (`current`), or None when there's nothing to do (a
