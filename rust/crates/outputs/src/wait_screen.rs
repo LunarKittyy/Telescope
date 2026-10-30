@@ -161,7 +161,7 @@ fn find_font(display: bool) -> Option<telescope_core::text::FontArc> {
 
 /// text centred across the pixmap with its top at top, px high, letters spaced apart by spacing px.
 fn draw_text(pm: &mut tiny_skia::Pixmap, font: &telescope_core::text::FontArc, text: &str, top: f32, px: f32, spacing: f32, rgb: [u8; 3]) {
-    let face = telescope_core::text::Face::tall(font.clone(), px).with_fallbacks();
+    let face = telescope_core::text::Face::em(font.clone(), px);
     let line = face.layout(text, spacing);
     let (w, h) = (pm.width() as i32, pm.height() as i32);
     let data = pm.data_mut();
@@ -970,5 +970,58 @@ mod tests {
         let (k, (cx, _), _) = screen_layout(1920, 1080);
         assert_eq!(cx, 960.0);
         assert!((k - (1080.0 * 0.82 / 654.0)).abs() < 1e-4);
+    }
+
+    /// Where the lettering is: the (first row, last row, first column, last column) of what differs from the lens alone, in the
+    /// rows of the name and then in the rows of the note under it.
+    fn lettering(width: u32, height: u32) -> [Option<(usize, usize, usize, usize)>; 2] {
+        let full = default_screen(width, height);
+        let (k, centre, _) = screen_layout(width, height);
+        let mut pm = tiny_skia::Pixmap::new(width, height).unwrap();
+        pm.fill(tiny_skia::Color::from_rgba8(BG[0], BG[1], BG[2], 255));
+        paint_lens(&mut pm, centre, k);
+        let top = centre.1 + SCREEN_NAME_TOP * k;
+        let (name_from, name_to) = (top as i64 - 5, (top + 74.0 * k) as i64 - 5);
+        let mut boxes: [Option<(usize, usize, usize, usize)>; 2] = [None, None];
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                let i = y * width as usize + x;
+                let differs = (0..3).any(|c| (full.data[i * 3 + c] as i32 - pm.data()[i * 4 + c] as i32).abs() > 30);
+                let band = if (name_from..name_to).contains(&(y as i64)) { 0 } else if y as f32 > top { 1 } else { continue };
+                if differs {
+                    let b = boxes[band].get_or_insert((y, y, x, x));
+                    *b = (b.0.min(y), b.1.max(y), b.2.min(x), b.3.max(x));
+                }
+            }
+        }
+        boxes
+    }
+
+    // Measured by painting vcam._default_screen with Qt (Inter Display Bold for the name, Inter for the note): the name's size is
+    // the em, so its capital T stands cap-height tall above a baseline `ascent` under the top of the text box
+    #[test]
+    fn the_lettering_sits_where_qt_puts_it() {
+        if telescope_core::text::font_named(&["InterDisplay-Bold.ttf"]).is_none() || telescope_core::text::font_named(&["Inter-Regular.ttf"]).is_none() {
+            eprintln!("Inter is not installed: the Qt comparison is skipped");
+            return;
+        }
+        // (size, name rows, name columns, note rows, note columns)
+        let qt = [
+            ((1280, 720), (564, 610, 526, 753), (623, 641, 550, 728)),
+            ((1920, 1080), (847, 917, 791, 1129), (934, 963, 828, 1089)),
+        ];
+        for ((w, h), name, note) in qt {
+            let [got_name, got_note] = lettering(w, h);
+            for (what, got, want) in [("name", got_name, name), ("note", got_note, note)] {
+                let got = got.unwrap_or_else(|| panic!("no {what} at {w}x{h}"));
+                // Qt rounds each glyph advance to whole pixels here (default hinting), which shifts the ends by a pixel or two
+                let (close, near) = (|a: usize, b: usize| a.abs_diff(b) <= 1, |a: usize, b: usize| a.abs_diff(b) <= 3);
+                assert!(
+                    close(got.0, want.0) && close(got.1, want.1) && near(got.2, want.2) && near(got.3, want.3),
+                    "{what} at {w}x{h}: rows {}..{} columns {}..{}, Qt has rows {}..{} columns {}..{}",
+                    got.0, got.1, got.2, got.3, want.0, want.1, want.2, want.3
+                );
+            }
+        }
     }
 }

@@ -9,6 +9,8 @@ use std::sync::Arc;
 struct Loaded {
     outlines: ab_glyph::FontArc,
     bytes: Box<[u8]>,
+    /// Which font of a collection (.ttc) this is.
+    index: u32,
     shaper: ShaperData,
     instance: ShaperInstance,
 }
@@ -31,12 +33,17 @@ pub struct Shaped {
 impl FontArc {
     /// A font from its bytes (a collection gives its first font); a variable one is set to this weight, else its default look.
     pub fn from_bytes(bytes: Vec<u8>, weight: f32) -> Option<FontArc> {
-        let mut outlines = FontVec::try_from_vec(bytes.clone()).ok()?;
+        FontArc::from_bytes_at(bytes, 0, weight)
+    }
+
+    /// The font at this index of a collection (.ttc), else the font itself; a variable one is set to this weight.
+    pub fn from_bytes_at(bytes: Vec<u8>, index: u32, weight: f32) -> Option<FontArc> {
+        let mut outlines = FontVec::try_from_vec_and_index(bytes.clone(), index).ok()?;
         outlines.set_variation(b"wght", weight);
-        let font = FontRef::from_index(&bytes, 0).ok()?;
+        let font = FontRef::from_index(&bytes, index).ok()?;
         let shaper = ShaperData::new(&font);
         let instance = ShaperInstance::from_variations(&font, [Variation { tag: Tag::new(b"wght"), value: weight }]);
-        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes: bytes.into_boxed_slice(), shaper, instance })))
+        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes: bytes.into_boxed_slice(), index, shaper, instance })))
     }
 
     /// Whether both are the same loaded font.
@@ -47,7 +54,7 @@ impl FontArc {
     /// Shapes `text[range]` as one run in one direction; clusters are offsets into `text`. Ligatures are off when `plain` is set
     /// (Qt does the same once letters are spaced apart).
     pub fn shape(&self, text: &str, range: Range<usize>, rtl: bool, plain: bool) -> Vec<Shaped> {
-        let Ok(font) = FontRef::from_index(&self.0.bytes, 0) else { return Vec::new() };
+        let Ok(font) = FontRef::from_index(&self.0.bytes, self.0.index) else { return Vec::new() };
         let shaper: Shaper = self.0.shaper.shaper(&font).instance(Some(&self.0.instance)).build();
         let mut buffer = UnicodeBuffer::new();
         for (i, ch) in text[range.clone()].char_indices() {
