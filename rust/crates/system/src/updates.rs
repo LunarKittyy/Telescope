@@ -483,8 +483,10 @@ pub fn install_linux(archive: &Path, directory: &Path, build: i64, mv: Mover) ->
         return err("The download doesn't contain Telescope, so it wasn't installed.");
     }
     let previous = directory.join(PREVIOUS_DIR);
-    if previous.exists() {
-        let _ = update_guard::remove(&previous);
+    // A stale copy left in place would be what a roll-back restores, so the update stops here (shutil.rmtree raising)
+    if previous.exists() && update_guard::remove(&previous).is_err() {
+        let _ = std::fs::remove_dir_all(&staging);
+        return err("The update failed.");
     }
     let added: Vec<&String> = entries.iter().filter(|n| !directory.join(n).exists()).collect();
     swap(directory, json!({"platform": "linux", "to_build": build, "entries": entries, "added": added}), mv)?;
@@ -1001,6 +1003,28 @@ mod tests {
         assert!(app.join("telescope/gone.py").exists());
         assert_eq!(std::fs::read_to_string(app.join("start.sh")).unwrap(), "old");
         assert!(!app.join("requirements.txt").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linux_install_stops_when_an_old_previous_folder_cannot_be_removed() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let root = tmp("linux-stale-previous");
+        if std::fs::metadata(&root).unwrap().uid() == 0 {
+            return; // root removes anything
+        }
+        let app = linux_app(&root);
+        let stuck = app.join(".previous/stuck");
+        std::fs::create_dir_all(&stuck).unwrap();
+        std::fs::write(stuck.join("main.py"), "a stale copy").unwrap();
+        std::fs::set_permissions(&stuck, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let result = install_linux(&tarball(&root.join("l.tar.gz"), &NEW_LINUX), &app, 0, &mut rename());
+        std::fs::set_permissions(&stuck, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // Carrying on would back up nothing new and a roll-back would restore the stale copy
+        assert!(result.is_err(), "installed over a stale .previous");
+        assert_eq!(std::fs::read_to_string(app.join("main.py")).unwrap(), "old");
+        assert!(update_guard::read_journal(&app).is_none());
+        assert!(!app.join(STAGING_DIR).exists());
     }
 
     #[test]
