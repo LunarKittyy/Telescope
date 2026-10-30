@@ -185,12 +185,14 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             picture
         }
         Page::Settings(tab) => {
-            let settings = crate::settings::build(&w)?;
-            settings.show_tab(tab);
-            // As settings::open does: the search box has focus when the window opens
-            let _ = settings.ui.show();
+            // Opened as the window opens it, so its sections hear "shown" and look at the system
+            crate::settings::open(&w, tab);
+            let settings = crate::settings::current().ok_or("no settings window")?;
             let _ = settings.ui.invoke("focus-search", &[]);
-            crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale)
+            settle(&w);
+            let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
+            crate::settings::forget();
+            picture
         }
     };
     w.shut_down();

@@ -106,6 +106,55 @@ impl Outputs for SceneOutputs {
     }
 }
 
+/// What Setup's checks find: translation_scenes_setup.fake_linux's machine, with v4l2loopback not loaded.
+struct SetupOutputs;
+
+impl Outputs for SetupOutputs {
+    fn slots(&self) -> Vec<Slot> {
+        Vec::new()
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        Vec::new()
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no virtual camera in scenes".into())
+    }
+    fn setup_status(&self) -> telescope_core::output::SetupStatus {
+        telescope_core::output::SetupStatus::default()
+    }
+}
+
+/// translation_scenes_setup.advanced's phone app: adb is found, and no apk came with this copy.
+struct SetupLink;
+
+impl Link for SetupLink {
+    fn new_identity(&self) -> (String, String) {
+        (String::new(), String::new())
+    }
+    fn resolve(&self, _phone: &PairedPhone, _prefs: RoutePrefs) -> Result<Box<dyn PhoneSession>, Unreachable> {
+        Err(Unreachable::NoAnswer)
+    }
+    fn pair(&self, _cid: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
+        Err("no pairing here".into())
+    }
+    fn adb_available(&self) -> bool {
+        true
+    }
+}
+
+/// translation_scenes_setup.about makes the log file; the other scenes have none, so no Open log.
+static HAS_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Setup as the scenes have it.
+fn setup_plugin() -> telescope_setup::setup::SetupPlugin {
+    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale"));
+    let mut plugin = telescope_setup::setup::SetupPlugin::new(Arc::new(SetupOutputs), Arc::new(SetupLink), Arc::new(telescope_media::FfmpegMedia),
+                                                              &telescope_system::version::display_version(),
+                                                              telescope_setup::setup::Language::found(&[locale]));
+    plugin.log_path = HAS_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| "/tmp/telescope.log".into());
+    plugin
+}
+
 struct NoTunnels;
 
 impl telescope_link::connection::Tunnels for NoTunnels {
@@ -135,6 +184,7 @@ impl telescope_audio::backend::MicBackend for SceneMic {
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
+    HAS_LOG.store(false, std::sync::atomic::Ordering::Relaxed);
     let link: Arc<dyn Link> = Arc::new(link);
     let connection = link.clone();
     Arc::new(Services {
@@ -153,7 +203,9 @@ fn services(link: SceneLink) -> Arc<Services> {
             let pictures = telescope_effects::shared::picture_reader(Arc::new(telescope_media::FfmpegMedia));
             // The effects as main.rs has them; the ones that reach this computer's desktop or cameras are left out
             vec![
-                Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
+                Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
+                Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
+                Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures)),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
@@ -360,6 +412,14 @@ pub fn all() -> Vec<Scene> {
         },
         ..Setup::window(Some(services(quiet())), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1)
     }));
+    // translation_scenes_setup's pages: the settings window on a tab as Setup leaves it
+    for (id, tab) in [("setup-about", "about"), ("setup-module-not-loaded", "devices")] {
+        scenes.push(Scene::new(id, move || {
+            let services = services(quiet());
+            HAS_LOG.store(id == "setup-about", std::sync::atomic::Ordering::Relaxed);
+            Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1) }
+        }));
+    }
     for &tab in SETTINGS_PAGES {
         scenes.push(Scene::new(format!("settings-{tab}"), move || Setup {
             page: Page::Settings(tab.into()),

@@ -5107,7 +5107,7 @@
 "warm" = { status = "todo" }
 # ── settings
 "settings-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"settings-audio" = { status = "todo" }
+"settings-audio" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-devices" = { status = "todo" }
 "settings-general" = { status = "todo" }
 "settings-on_air" = { status = "todo" }
@@ -5221,7 +5221,7 @@
 "setup-module-loaded" = { status = "todo" }
 "setup-module-no-password" = { status = "todo" }
 "setup-module-not-installed" = { status = "todo" }
-"setup-module-not-loaded" = { status = "todo" }
+"setup-module-not-loaded" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "setup-module-not-ours" = { status = "todo" }
 "setup-module-other-config" = { status = "todo" }
 "setup-module-refused" = { status = "todo" }

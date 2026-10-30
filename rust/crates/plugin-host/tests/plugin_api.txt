@@ -50,6 +50,7 @@ event stream_lost
 event stream_sources_changed
 event stream_start_failed
 event stream_started
+event stream_state
 event stream_stopped
 event stream_transport_changed
 event streams_changed

@@ -393,6 +393,7 @@ impl SetupPlugin {
     pub fn mic_props(&self) -> Value {
         let gain = MAX_GAIN_CHOICES.iter().position(|g| *g == self.max_gain_i32() as i64).unwrap_or(0);
         json!({
+            "card-group": "sound",
             "gain-items": MAX_GAIN_CHOICES.iter().map(|db| format!("+{db} dB")).collect::<Vec<_>>(),
             "gain-current": gain,
             "limiter-checked": self.limiter,

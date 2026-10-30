@@ -6,7 +6,7 @@ import { Theme, Icons, Icon, FocusRing, Button, Card, SectionHeading, Switch, Se
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.dim : Theme.text
     }
 }
 
@@ -20,10 +20,19 @@ component Note inherits Text {
     line-height-factor: Theme.line-factor(self.font-size);
 }
 
+// A button in a setting_row: as wide as its words, plain until it's the primary one
+component StripButton inherits Button {
+    strip: true;
+    font-weight: self.role == "primary" ? 600 : 400;
+    gap: 6px;
+}
+
 // setting_row's raised strip: what goes in it is the top row (StripTop) and anything below it
 component Strip inherits Rectangle {
     in property <string> title;
     in property <string> sub;
+    // strip.setToolTip
+    in property <string> tip;
     min-height: 46px;
     border-radius: 9px;
     border-width: 1px;
@@ -33,6 +42,7 @@ component Strip inherits Rectangle {
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
+    if tip != "": Tooltip { TipBody { says: tip; } }
     VerticalLayout {
         padding-left: 13px;
         padding-right: 13px;
@@ -47,8 +57,11 @@ component Strip inherits Rectangle {
 component StripTop inherits HorizontalLayout {
     in property <string> title;
     in property <string> sub;
-    in property <string> sub-kind: "status_dim";
+    in property <string> sub-kind;
     in property <bool> enabled: true;
+    // A row with a control is as tall as Qt's 32px controls, a heading over segments as tall as its text
+    in property <bool> bare;
+    min-height: bare ? 0px : 32px;
     spacing: 12px;
     VerticalLayout {
         horizontal-stretch: 1;
@@ -64,11 +77,11 @@ component StripTop inherits HorizontalLayout {
         }
         Text {
             visible: sub != "";
-            height: sub != "" ? self.preferred-height : 0px;
+            height: sub != "" ? max(self.preferred-height, 16px) : 0px;
             text: sub;
             font-family: Theme.font;
             font-size: Theme.small;
-            color: !enabled ? Theme.text-disabled : sub-kind == "status_dim" ? Theme.text-dim : Status.color(sub-kind);
+            color: !enabled ? Theme.text-disabled : sub-kind == "" ? Theme.text-dim : Status.color(sub-kind);
             wrap: word-wrap;
             line-height-factor: Theme.line-factor(self.font-size);
         }
@@ -87,8 +100,6 @@ component StripTop inherits HorizontalLayout {
 component CommandBox inherits HorizontalLayout {
     in property <string> command;
     callback copy(string);
-    visible: command != "";
-    height: command != "" ? self.preferred-height : 0px;
     spacing: 8px;
     Text {
         horizontal-stretch: 1;
@@ -116,7 +127,7 @@ component CommandBox inherits HorizontalLayout {
     }
 }
 
-// NoScrollSpinBox#chip_spin: an 80x30 number box with its suffix, stepped by the arrows, the keys or the wheel. What's
+// NoScrollSpinBox#chip_spin: an 80x32 number box with its suffix and no arrows drawn, stepped by the keys or the wheel. What's
 // typed is said on Enter or when the box is left.
 component SpinChip inherits Rectangle {
     in-out property <string> text;
@@ -126,7 +137,7 @@ component SpinChip inherits Rectangle {
     callback committed(string);
     callback step(int);
     width: 80px;
-    height: 30px;
+    height: 32px;
     border-radius: 7px;
     border-width: 1px;
     background: Theme.bg;
@@ -148,7 +159,7 @@ component SpinChip inherits Rectangle {
     if tip != "": Tooltip { TipBody { says: tip; } }
     input := TextInput {
         x: 11px;
-        width: parent.width - 11px - 22px;
+        width: parent.width - 22px;
         height: parent.height;
         text <=> root.text;
         enabled: root.enabled;
@@ -166,26 +177,11 @@ component SpinChip inherits Rectangle {
             reject
         }
     }
-    // Qt's up and down buttons at the right
-    for arrow[i] in [1, -1]: TouchArea {
-        x: parent.width - 21px;
-        y: i == 0 ? 2px : parent.height / 2;
-        width: 19px;
-        height: parent.height / 2 - 2px;
-        enabled: root.enabled;
-        clicked => { root.step(arrow); }
-        Path {
-            width: 7px;
-            height: 4px;
-            commands: arrow > 0 ? "M 0 4 L 3.5 0 L 7 4" : "M 0 0 L 3.5 4 L 7 0";
-            stroke: root.enabled ? Theme.text-dim : Theme.text-disabled;
-            stroke-width: 1.3px;
-        }
-    }
 }
 
 // A switch with its words before it (common.Switch with text): the whole row toggles it
 component LabelledSwitch inherits HorizontalLayout {
+    horizontal-stretch: 1;
     in-out property <bool> checked;
     in property <string> text;
     in property <string> tip;
@@ -194,8 +190,9 @@ component LabelledSwitch inherits HorizontalLayout {
     in property <bool> dim;
     callback toggled(bool);
     spacing: 8px;
-    height: 24px;
+    height: 32px;
     Text {
+        horizontal-stretch: 1;
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;

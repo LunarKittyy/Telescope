@@ -48,19 +48,16 @@ export component VirtualCameraSettings inherits Card {
     if linux: Strip {
         title: @tr("Kernel module");
         sub: v4l-text;
+        tip: @tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.");
         StripTop {
             title: @tr("Kernel module");
             sub: v4l-text;
             sub-kind: v4l-kind;
-            Button { text: @tr("Check"); clicked => { root.check-clicked(); } }
-            Button { text: @tr("Load"); tip: load-tip; clicked => { root.load-clicked(); } }
-            Button { text: @tr("Unload"); tip: load-tip; clicked => { root.unload-clicked(); } }
+            StripButton { text: @tr("Check"); clicked => { root.check-clicked(); } }
+            StripButton { text: @tr("Load"); tip: load-tip; clicked => { root.load-clicked(); } }
+            StripButton { text: @tr("Unload"); tip: load-tip; clicked => { root.unload-clicked(); } }
         }
-        CommandBox { command: v4l-command; copy(c) => { root.copy(c); } }
-        TouchArea {
-            height: 0px;
-            Tooltip { TipBody { says: @tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status."); } }
-        }
+        if v4l-command != "": CommandBox { command: v4l-command; copy(c) => { root.copy(c); } }
     }
     if linux: Strip {
         title: @tr("Load when the computer starts");
@@ -77,7 +74,7 @@ export component VirtualCameraSettings inherits Card {
                 toggled(on) => { root.persist-toggled(on); }
             }
         }
-        CommandBox { command: persist-command; copy(c) => { root.copy(c); } }
+        if persist-command != "": CommandBox { command: persist-command; copy(c) => { root.copy(c); } }
     }
     if !linux: Strip {
         title: @tr("Driver");
@@ -86,7 +83,7 @@ export component VirtualCameraSettings inherits Card {
             title: @tr("Driver");
             sub: uc-text;
             sub-kind: uc-kind;
-            Button { text: uc-button; tip: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
+            StripButton { text: uc-button; tip: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
         }
     }
     if !linux: Strip {
@@ -98,14 +95,14 @@ export component VirtualCameraSettings inherits Card {
             sub-kind: adb-kind;
             // Not bundled (Google's licence doesn't allow passing it on), so it's fetched from Google when asked, or one got
             // another way is picked
-            if adb-row: Button {
+            if adb-row: StripButton {
                 text: adb-button;
                 role: "primary";
                 enabled: adb-enabled;
                 tip: @tr("Downloads adb from Google, for pairing and installing over USB");
                 clicked => { root.adb-clicked(); }
             }
-            if adb-row: Button {
+            if adb-row: StripButton {
                 text: @tr("Use my own adb…");
                 enabled: adb-enabled;
                 tip: @tr("Pick an adb.exe or platform-tools zip you already have");
@@ -121,7 +118,7 @@ export component VirtualCameraSettings inherits Card {
             title: @tr("Extra cameras");
             sub: extras-text;
             sub-kind: extras-kind;
-            if extras-button: Button { text: @tr("Remove"); tip: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
+            if extras-button: StripButton { text: @tr("Remove"); tip: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
         }
     }
 }
@@ -207,7 +204,7 @@ export component VideoSettings inherits Card {
             title: @tr("Canvas size");
             // The row fits the dialog; the list opens as wide as it needs
             ChoiceField {
-                width: 220px;
+                width: 244px;
                 compact: true;
                 caption: @tr("Canvas size");
                 items: root.canvas-items;
@@ -247,15 +244,16 @@ export component VideoSettings inherits Card {
             }
             VerticalLayout {
                 alignment: start;
-                Button { text: apply-text; tip: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
+                StripButton { text: apply-text; tip: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
             }
         }
-        CommandBox { command: canvas-command; copy(c) => { root.copy(c); } }
+        if canvas-command != "": CommandBox { command: canvas-command; copy(c) => { root.copy(c); } }
     }
 }
 
 // Microphone, on Audio: the Gain slider's reach and the limiter
 export component MicrophoneLimits inherits Card {
+    in property <string> card-group: "sound";
     in property <[string]> gain-items;
     in-out property <int> gain-current;
     in-out property <bool> limiter-checked: true;
@@ -268,17 +266,14 @@ export component MicrophoneLimits inherits Card {
 
     Strip {
         title: @tr("Max gain");
-        StripTop { title: @tr("Max gain"); }
+        tip: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.");
+        StripTop { title: @tr("Max gain"); bare: true; }
         Segmented {
             margin: 0px;
             label: @tr("Max gain");
             items: root.gain-items;
             current <=> root.gain-current;
             picked(i) => { root.gain-picked(i); }
-        }
-        TouchArea {
-            height: 0px;
-            Tooltip { TipBody { says: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."); } }
         }
     }
     Strip {
@@ -320,7 +315,7 @@ export component PhoneAppSettings inherits Card {
             title: "Telescope.apk";
             sub: apk-text;
             sub-kind: apk-kind;
-            Button {
+            StripButton {
                 text: apk-button;
                 has-icon: true;
                 icon: Icons.download;
@@ -374,17 +369,15 @@ export component LookSettings inherits Card {
 
     Strip {
         title: @tr("Card colours");
-        StripTop { title: @tr("Card colours"); }
+        tip: @tr("Every card in the main window gets its own colour.");
+        StripTop { title: @tr("Card colours"); bare: true; }
         Segmented {
             margin: 0px;
             label: @tr("Card colours");
+            // Qt has this on the Colourful segment alone; the kit's segments have no tooltips of their own
             items: [@tr("Colourful"), @tr("Monochrome")];
             current <=> root.hues-current;
             picked(i) => { root.hues-picked(i); }
-        }
-        TouchArea {
-            height: 0px;
-            Tooltip { TipBody { says: @tr("Every card in the main window gets its own colour."); } }
         }
     }
     Strip {
@@ -392,7 +385,7 @@ export component LookSettings inherits Card {
         StripTop {
             title: @tr("Language");
             ChoiceField {
-                width: 220px;
+                width: 221px;
                 compact: true;
                 caption: @tr("Language");
                 items: root.lang-items;
@@ -404,7 +397,7 @@ export component LookSettings inherits Card {
         HorizontalLayout {
             spacing: 8px;
             Note { horizontal-stretch: 1; text: help-text; vertical-alignment: center; }
-            Button {
+            StripButton {
                 y: (parent.height - self.height) / 2;
                 height: 30px;
                 role: "quiet";
@@ -421,7 +414,7 @@ export component LookSettings inherits Card {
         if lang-restart: HorizontalLayout {
             spacing: 8px;
             Note { horizontal-stretch: 1; kind: "status_warn"; text: @tr("Restart Telescope to switch to it."); vertical-alignment: center; }
-            Button {
+            StripButton {
                 y: (parent.height - self.height) / 2;
                 height: 30px;
                 role: "quiet";
@@ -464,6 +457,7 @@ export component AboutSettings inherits Card {
             sub: version-text;
             // A credit, not a Tab stop
             HorizontalLayout {
+                alignment: end;
                 Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
                 Text {
                     text: made-link;
@@ -472,6 +466,8 @@ export component AboutSettings inherits Card {
                     color: Theme.accent;
                     vertical-alignment: center;
                     TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.author-clicked(); } }
+                    // Qt underlines a link
+                    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent; }
                 }
                 Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
             }
@@ -484,8 +480,8 @@ export component AboutSettings inherits Card {
             title: @tr("Bug reports");
             sub: @tr("Paste the diagnostics into the report.");
             // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
-            if log-shown: Button { text: @tr("Open log"); tip: @tr("The full log, in the temp folder (the system clears it)."); clicked => { root.log-clicked(); } }
-            Button {
+            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("The full log, in the temp folder (the system clears it)."); clicked => { root.log-clicked(); } }
+            StripButton {
                 text: diag-text;
                 has-icon: true;
                 icon: Icons.copy;
@@ -493,7 +489,7 @@ export component AboutSettings inherits Card {
                 tip: @tr("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.");
                 clicked => { root.diag-clicked(); }
             }
-            Button { text: @tr("Report a bug"); tip: @tr("Copies the diagnostics and opens the bug form on GitHub."); clicked => { root.bug-clicked(); } }
+            StripButton { text: @tr("Report a bug"); tip: @tr("Copies the diagnostics and opens the bug form on GitHub."); clicked => { root.bug-clicked(); } }
         }
     }
     Strip {
@@ -502,7 +498,7 @@ export component AboutSettings inherits Card {
         StripTop {
             title: @tr("Need help?");
             sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
-            Button { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
+            StripButton { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
         }
     }
 }
