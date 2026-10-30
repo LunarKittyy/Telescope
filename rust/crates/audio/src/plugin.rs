@@ -11,7 +11,7 @@ use crate::worker::{AudioWorker, OnStatus, OpenSink, Opener};
 use serde_json::{json, Value};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use telescope_core::audio::{AudioFeed, AudioPacket};
+use telescope_core::audio::{AudioFeed, AudioPacket, SourceAudio};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx};
@@ -130,6 +130,23 @@ impl AudioRoutes for LinkAudio {
             }
         });
         Some((key, open))
+    }
+}
+
+/// A source's own mic when it has one, a phone's route otherwise.
+struct WithSources {
+    sources: Arc<dyn SourceAudio>,
+    rest: Option<Arc<dyn AudioRoutes>>,
+}
+
+impl AudioRoutes for WithSources {
+    fn audio(&self, source_id: &str) -> Option<(String, Opener)> {
+        if !self.sources.has(source_id) {
+            return self.rest.as_ref()?.audio(source_id);
+        }
+        let (sources, sid) = (self.sources.clone(), source_id.to_string());
+        let open: Opener = Arc::new(move || sources.open(&sid).unwrap_or_else(|| Err(tr("That source has gone."))));
+        Some((self.sources.key(source_id), open))
     }
 }
 
@@ -341,6 +358,12 @@ impl MicrophonePlugin {
     /// The app's: the default backend, audio through the link.
     pub fn with_link(link: Arc<dyn Link>) -> MicrophonePlugin {
         MicrophonePlugin::new(default_backend(), Some(Arc::new(LinkAudio(link))))
+    }
+
+    /// Sources that aren't phones bring their own mic (a browser's).
+    pub fn with_source_audio(mut self, sources: Arc<dyn SourceAudio>) -> Self {
+        self.routes = Some(Arc::new(WithSources { sources, rest: self.routes.take() }));
+        self
     }
 
     /// Stand-ins for tests and scenes.
