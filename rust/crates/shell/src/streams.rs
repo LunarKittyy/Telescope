@@ -22,6 +22,9 @@ use telescope_core::media::FrameSlot;
 use telescope_core::source::{RouteSpec, StreamSource};
 use telescope_core::ui::{Issue, IssueAction, IssueDoes};
 
+/// How long a stream going behind the panels waits for its LUT, which no later refresh brings it.
+const COLOUR_SETTLE: Duration = Duration::from_secs(1);
+
 /// A running worker as the flow sees it.
 pub struct ShellWorker {
     pub id: u64,
@@ -201,7 +204,11 @@ impl Window {
             }
         }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
+        self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
+            if !w.live.get() {
+                self.state.borrow().colour.settle(COLOUR_SETTLE); // no later refresh reaches a stream behind the panels
+            }
             let steps = self.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }
@@ -1292,6 +1299,7 @@ impl FlowHost for Host<'_> {
     }
     fn freeze_steps(&mut self, source: &SourceRef) {
         if let Some(w) = self.w.worker_of(source) {
+            self.w.state.borrow().colour.settle(COLOUR_SETTLE); // no later refresh reaches a stream behind the panels
             let steps = self.w.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }

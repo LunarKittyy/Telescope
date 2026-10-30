@@ -141,7 +141,7 @@ fn the_grade_makes_the_same_picture_as_python() {
     for case in colours["cases"].as_array().unwrap() {
         let mut plugin = ColourGradingPlugin::new();
         plugin.set_config(&with_fixtures(&case["config"])).unwrap();
-        let mut pipeline = ColourPipeline::new();
+        let mut pipeline = ColourPipeline::inline();
         pipeline.set_stage(OWNER, plugin.stage(), 0, None);
         let steps: Vec<StagedStep> = pipeline.step(None).map(|s| StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: FrameStep::Shader(s) }).into_iter().collect();
         let kind = pipeline.lut(None).map(|l| l.kind()).unwrap_or_else(|| "none".into());

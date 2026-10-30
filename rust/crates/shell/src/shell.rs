@@ -345,7 +345,14 @@ impl State {
             streams: Streams::default(),
             view: View::default(),
             vc: crate::view_control::ViewController::new(),
-            colour: ColourPipeline::new(),
+            colour: {
+                let mut colour = ColourPipeline::new();
+                // Python's frames pick a new LUT up by themselves; here the steps are made again for it
+                colour.set_on_baked(Arc::new(|| {
+                    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.refresh_frame_steps()));
+                }));
+                colour
+            },
             colour_before: Arc::default(),
             overlays: Default::default(),
             passes: Vec::new(),
@@ -1064,6 +1071,7 @@ impl State {
         if !added.is_empty() {
             lines.push(("Added plugins".into(), added.join(", ")));
         }
+        lines.extend(self.colour.diagnostics());
         for i in 0..self.slots.len() {
             if let Some(p) = self.slots[i].plugin.as_ref() {
                 match catch_unwind(AssertUnwindSafe(|| p.diagnostics())) {
@@ -1122,7 +1130,9 @@ mod tests {
     }
 
     fn state() -> State {
-        State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")))
+        let mut s = State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")));
+        s.colour = ColourPipeline::inline();
+        s
     }
 
     #[test]
