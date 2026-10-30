@@ -5,6 +5,7 @@ use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::{SlintSource, UiSpec};
 use telescope_effects::chroma_key::ChromaKeyPlugin;
+use telescope_effects::cinema::CinemaPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::desk::DeskPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
@@ -63,9 +64,15 @@ fn has_what_the_plugin_uses(plugin: &mut dyn Plugin, callbacks: &[&str]) {
 /// The same for any piece of UI a plugin hands over (a header button, a settings section).
 fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     let SlintSource::Text(source) = ui.source.clone() else { panic!("source text") };
+    // A file with two exported components (a card and its settings) hands over only the last one, so ask for this one by name
+    let doc = format!("import {{ {c} }} from \"plugin/card.slint\";\nexport {{ {c} }}", c = ui.component);
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
-    let result = spin_on(compiler.build_from_source(source, Path::new("/root/card.slint").to_path_buf()));
+    compiler.set_file_loader(move |path: &Path| {
+        let found = path.ends_with("plugin/card.slint").then(|| Ok(source.clone()));
+        Box::pin(async move { found })
+    });
+    let result = spin_on(compiler.build_from_source(doc, Path::new("/root/card.slint").to_path_buf()));
     let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
     let instance = result.component(&ui.component).expect("the component").create().expect("an instance");
@@ -102,6 +109,12 @@ fn the_cards_have_what_their_plugins_use() {
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);
+    // Cinema tools has a card, and its colours and sliders in the Video tab
+    let mut cinema = CinemaPlugin::new();
+    compile(&mut cinema);
+    has_what_the_plugin_uses(&mut cinema, &["tool-toggled", "guide-picked", "scope-picked"]);
+    let section = cinema.settings_sections().remove(0);
+    ui_has(&section.ui, &["colour-picked", "peaking-moved", "zebra-moved", "size-picked"]);
     // On Air has no card: a button in the header and its tab in Settings
     let mut on_air = OnAirPlugin::new(std::sync::Arc::new(telescope_core::testing::FakeWeb::default()), None);
     ui_has(&on_air.header_widget().expect("a header button"), &["clicked"]);
