@@ -45,7 +45,9 @@ def qt_render(id: str, scale: float, plugins: list) -> tuple:
         settle = QApplication.processEvents
         QApplication.processEvents = staticmethod(lambda *args: [settle(*args) for _ in range(5)][-1])
         everything = builtins.builtin_plugins
-        builtins.builtin_plugins = lambda: [p for p in everything() if p.name in plugins]
+        # A plugin with a window of its own: its scenes show that window, so it stays out of every other scene's cards
+        wanted = plugins + ["composite"] if id.startswith("composite-editor") else plugins
+        builtins.builtin_plugins = lambda: [p for p in everything() if p.name in wanted]
         result = preview.render({"lang": "en", "scene": id})
         return id, base64.b64decode(result["image"]), None
     except Exception as exc:  # noqa: BLE001

@@ -33,7 +33,8 @@ pub enum Page {
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
     /// A window of a plugin's own, opened as its card opens it (plugin, the card's callback, the window's id).
-    PluginWindow { plugin: String, open: String, id: String },
+    /// `click`: a press and release on its "pointer" callback, as a fraction of its picture.
+    PluginWindow { plugin: String, open: String, id: String, click: Option<(f32, f32)> },
 }
 
 thread_local! {
@@ -177,12 +178,22 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
                 crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)
             })
         }
-        Page::PluginWindow { plugin, open, id } => {
+        Page::PluginWindow { plugin, open, id, click } => {
             if !w.call_ui(plugin, "card", open) {
                 return Err(format!("{plugin}'s card has no {open}"));
             }
             settle(&w);
             let shown = w.plugin_window(plugin, id).ok_or("the window didn't open")?;
+            if let Some((u, v)) = click {
+                use slint_interpreter::Value::{Bool, Number, String as Text};
+                let (width, height) = (800.0, 450.0);
+                for kind in ["down", "up"] {
+                    let args = [Text(kind.into()), Number(f64::from(*u) * width), Number(f64::from(*v) * height), Number(width), Number(height),
+                                Bool(false), Bool(false), Bool(false), Bool(false)];
+                    shown.invoke("pointer", &args).map_err(|e| e.to_string())?;
+                }
+                settle(&w);
+            }
             crate::offscreen::draw(shown.window(), setup.width, setup.height, scale)
         }
         Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w.ui, &p, frame, owner, scale)),

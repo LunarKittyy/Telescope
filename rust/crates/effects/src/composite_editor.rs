@@ -149,6 +149,7 @@ impl CompositePlugin {
         host.schedule(PREVIEW_MS, T_PREVIEW);
     }
 
+    #[cfg(test)]
     pub(super) fn editor_open(&self) -> bool {
         self.editor.is_some()
     }
