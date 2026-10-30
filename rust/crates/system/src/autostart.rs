@@ -106,17 +106,15 @@ pub fn update_menu_entry(save_icon: impl FnOnce(&Path) -> bool, command: &[Strin
     })
 }
 
-/// The app icon (create_app_icon): an accent-coloured disc with a dark centre, as PNG bytes, edges smoothed by 4x4 sampling.
-pub fn app_icon_png(size: u32) -> Vec<u8> {
-    use std::io::Write;
+/// The app icon (create_app_icon): an accent-coloured disc with a dark centre, as straight RGBA rows, edges smoothed by 4x4 sampling.
+pub fn app_icon_rgba(size: u32) -> Vec<u8> {
     const ACCENT: [f64; 3] = [0xaa as f64, 0x9c as f64, 0xf5 as f64];
     const BG: [f64; 3] = [0x0f as f64, 0x12 as f64, 0x16 as f64];
     let s = size as f64;
     let margin = s / 22.0;
     let (outer_r, inner_r, c) = ((s - 2.0 * margin) / 2.0, s * 8.0 / 22.0 / 2.0, s / 2.0);
-    let mut raw = Vec::with_capacity((size * (size * 4 + 1)) as usize);
+    let mut raw = Vec::with_capacity((size * size * 4) as usize);
     for y in 0..size {
-        raw.push(0); // no filter
         for x in 0..size {
             let (mut accent, mut dark) = (0u32, 0u32);
             for sy in 0..4 {
@@ -139,6 +137,14 @@ pub fn app_icon_png(size: u32) -> Vec<u8> {
             raw.extend_from_slice(&[mix(0), mix(1), mix(2), (covered as f64 * 255.0 / 16.0).round() as u8]);
         }
     }
+    raw
+}
+
+/// app_icon_rgba as PNG bytes.
+pub fn app_icon_png(size: u32) -> Vec<u8> {
+    use std::io::Write;
+    // Each row starts with the filter byte 0 (none)
+    let raw: Vec<u8> = app_icon_rgba(size).chunks((size * 4) as usize).flat_map(|row| std::iter::once(0u8).chain(row.iter().copied())).collect();
     let mut zlib = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
     let _ = zlib.write_all(&raw);
     let data = zlib.finish().unwrap_or_default();

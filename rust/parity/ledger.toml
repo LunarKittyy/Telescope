@@ -1426,10 +1426,10 @@
 "{phone} is streaming to {computer}" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "{phone} stopped streaming" = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 # ── splash
-"Extract Telescope first" = { status = "todo" }
-"Starting Telescope…" = { status = "todo" }
-"Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder." = { status = "todo" }
-"This can take a minute while Windows runs a security scan." = { status = "todo" }
+"Extract Telescope first" = { status = "ported", rust = "rust/crates/system/src/splash.rs::extract_first", note = "The box winapp::warn_running_from_archive shows, in the person's language" }
+"Starting Telescope…" = { status = "ported", rust = "rust/crates/system/src/splash.rs::show_text", note = "Drawn by splash_windows.rs on Windows (type-checked only, never run)" }
+"Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder." = { status = "ported", rust = "rust/crates/system/src/splash.rs::extract_first" }
+"This can take a minute while Windows runs a security scan." = { status = "ported", rust = "rust/crates/system/src/splash.rs::show_text" }
 # ── startup
 "Automatic streaming" = { status = "ported", rust = "rust/crates/system/ui/startup.slint" }
 "How long no app can use the camera before the stream stops." = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
@@ -3990,9 +3990,9 @@
 "test_sources.py::test_wake_progress_only_counts_while_the_host_is_waking" = { status = "todo" }
 "test_sources.py::test_with_others_streaming_the_banner_names_the_phone" = { status = "todo" }
 # ── splash
-"test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "todo" }
-"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "todo" }
-"test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "todo" }
+"test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_line_about_the_scan_waits_until_the_start_is_slow" }
+"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language" }
+"test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "ported", rust = "rust/crates/system/src/splash.rs::without_the_packaged_build_nothing_happens" }
 # ── startup
 "test_startup.py::test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" }
 "test_startup.py::test_a_failed_start_does_not_mark_the_next_manual_stream" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_failed_start_does_not_mark_the_next_manual_stream" }

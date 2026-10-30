@@ -10,9 +10,15 @@ pub mod memory;
 pub mod shortcuts;
 pub mod setup_move;
 pub mod single_instance;
+pub mod splash;
+// The tray's window declares some of the same functions with its own handle types
+#[cfg(windows)]
+#[allow(clashing_extern_declarations)]
+pub mod splash_windows;
 pub mod startup;
 #[cfg(target_os = "linux")]
 pub mod tray;
+#[allow(clashing_extern_declarations)]
 pub mod tray_windows;
 #[cfg(all(test, target_os = "linux"))]
 mod test_bus;

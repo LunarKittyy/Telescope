@@ -50,8 +50,35 @@ fn chosen_language() -> String {
 /// Loads the language before any window or dialog is built, from the catalogs in the program (TELESCOPE_LOCALE_DIR names a folder of
 /// .po files to try instead), once the profile is settled.
 fn start_language() {
-    telescope_core::i18n::use_source(telescope_core::i18n::Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS });
+    register_languages();
     telescope_core::i18n::start(&chosen_language());
+}
+
+fn register_languages() {
+    telescope_core::i18n::use_source(telescope_core::i18n::Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS });
+}
+
+type Splash = Arc<dyn telescope_system::splash::SplashWindow>;
+
+/// The Windows start-up splash with its text in the person's language, for a start with a window; none elsewhere (main.py's splash.show_text).
+fn start_splash() -> Option<Splash> {
+    #[cfg(windows)]
+    {
+        use telescope_system::{splash, splash_windows};
+        use_own_profile();
+        register_languages();
+        let window: Splash = splash_windows::Splash::open()?;
+        splash::show_text(Some(window.clone()), chosen_language, splash_windows::since_launch(), splash::WHY_AFTER);
+        Some(window)
+    }
+    #[cfg(not(windows))]
+    None
+}
+
+fn close_splash(splash: &Option<Splash>) {
+    if let Some(splash) = splash {
+        splash.close();
+    }
 }
 
 /// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
@@ -261,11 +288,12 @@ fn run_action(words: Option<Vec<String>>) -> i32 {
 
 /// The single-instance lock for the window, or None after the running copy was asked to show itself (main.py's
 /// acquire_single_instance, write_control_key and listen_for_raise). The lock's thread answers later launches.
-fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions) -> Option<()> {
+fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, splash: &Option<Splash>) -> Option<()> {
     use telescope_system::single_instance as si;
     let address = si::Address::current();
     let acquired = si::acquire(&address, std::time::Duration::from_secs(if wait { 15 } else { 0 }));
     let si::Acquired::Lock(lock) = acquired else {
+        close_splash(splash);
         if let Some((title, text)) = si::notice(&acquired, &address) {
             // Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
             eprintln!("{title}: {text}");
@@ -363,6 +391,9 @@ fn main() {
         use telescope_system::winapp;
         // Run from inside a zip it would lose its files with the temp folder; installed, it takes the Start menu entry's id
         if winapp::running_from_archive(&app_dir(), &std::env::temp_dir()) {
+            // Its words are in the person's language
+            use_own_profile();
+            start_language();
             winapp::warn_running_from_archive();
             std::process::exit(1);
         }
@@ -402,6 +433,8 @@ fn main() {
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
     }
+    // Once an update is settled, and before the rest loads, which is most of a first start's wait
+    let splash = if words.is_empty() { start_splash() } else { None };
     if words.is_empty() {
         use telescope_system::autostart;
         let source_build = cfg!(debug_assertions) || telescope_system::version::channel() == "dev";
@@ -434,16 +467,23 @@ fn main() {
             telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
-        None => match take_lock(wait_for_lock, &remote) {
+        None => match take_lock(wait_for_lock, &remote, &splash) {
             Some(()) => {
                 let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
                 confirm::run_confirming(STARTED_FINE, confirm, |shown| {
+                    // The splash goes once the window shows (or is put in the tray)
+                    let (inner, gone) = (shown.0.clone(), splash.clone());
+                    let shown = telescope_shell::ShownHook(Arc::new(move || {
+                        close_splash(&gone);
+                        inner();
+                    }));
                     telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized, Some(shown)))
                 })
             }
             None => Ok(()),
         },
     };
+    close_splash(&splash);
     if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
