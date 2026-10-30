@@ -96,9 +96,9 @@ fn false_colour_lut() -> [[u8; 3]; 256] {
     let mut lo = 0usize;
     for (upper, colour, _) in FALSE_COLOURS {
         let hi = 255.min((upper as f64 / 100.0 * 255.0).round_ties_even() as usize);
-        for level in lo..=hi {
+        for (level, slot) in lut.iter_mut().enumerate().take(hi + 1).skip(lo) {
             // the grey a little flatter
-            lut[level] = colour.unwrap_or_else(|| [(level as f64 * 0.8 + 20.0) as u8; 3]);
+            *slot = colour.unwrap_or([(level as f64 * 0.8 + 20.0) as u8; 3]);
         }
         lo = hi + 1;
     }
@@ -123,7 +123,7 @@ pub fn false_colour(frame: &Rgb, luma: Option<&Gray>) -> Rgb {
     };
     let lut = false_lut();
     let mut out = Rgb::new(frame.w, frame.h);
-    for (o, &v) in out.data.chunks_exact_mut(3).zip(&y.data) {
+    for (o, &v) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(&y.data) {
         o.copy_from_slice(&lut[v as usize]);
     }
     out
@@ -165,7 +165,7 @@ pub fn peaking_mask(frame: &Rgb, sensitivity: i64) -> Vec<bool> {
 
 /// Whether the zebras' diagonal stripes cover a pixel; phase moves them along.
 pub fn stripe(x: usize, y: usize, phase: usize) -> bool {
-    ((x + phase % ZEBRA_PERIOD + y) / (ZEBRA_PERIOD / 2)) % 2 == 0
+    ((x + phase % ZEBRA_PERIOD + y) / (ZEBRA_PERIOD / 2)).is_multiple_of(2)
 }
 
 /// The brightness (0..255) that zebras start at, for a level in %.
@@ -282,7 +282,7 @@ pub fn tint(look: &Look, frame: &mut Rgb, phase: &mut usize) {
 }
 
 fn paint(frame: &mut Rgb, mask: &[bool], colour: [u8; 3]) {
-    for (p, &m) in frame.data.chunks_exact_mut(3).zip(mask) {
+    for (p, &m) in frame.data.as_chunks_mut::<3>().0.iter_mut().zip(mask) {
         if m {
             p.copy_from_slice(&colour);
         }

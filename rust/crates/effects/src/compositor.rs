@@ -154,12 +154,8 @@ fn linear(src: Region, w2: usize, h2: usize) -> Vec<u8> {
     let vec16 = n / 16 * 16;
     let vec_end = if (vec16 as i64) < n as i64 - 8 { vec16 + 8 } else { vec16 };
     for (dy, &(y0, y1, b0, b1)) in ys.iter().enumerate() {
-        if !rows.contains_key(&y0) {
-            rows.insert(y0, row(y0));
-        }
-        if !rows.contains_key(&y1) {
-            rows.insert(y1, row(y1));
-        }
+        rows.entry(y0).or_insert_with(|| row(y0));
+        rows.entry(y1).or_insert_with(|| row(y1));
         rows.retain(|k, _| *k >= y0);
         let (s0, s1) = (&rows[&y0], &rows[&y1]);
         let line = &mut out[dy * n..(dy + 1) * n];
@@ -387,17 +383,19 @@ struct Plan {
 }
 
 type ScaleKey = (u64, (i64, i64, i64, i64), usize, usize, usize, usize, Kind);
+type ScaledPlanes = Vec<Vec<u8>>;
+type BackgroundKey = (String, String, usize, usize);
 
 /// composite.Compositor: prepare() on the host thread (it may read the background picture), render() on a stream's thread.
 pub struct Compositor {
     plan: Option<Arc<Plan>>,
     /// Tile index: the scaled stream for a frame seen before.
-    scaled: HashMap<usize, (ScaleKey, Arc<Vec<Vec<u8>>>)>,
+    scaled: HashMap<usize, (ScaleKey, Arc<ScaledPlanes>)>,
     reader: PictureReader,
     /// The picture as read, so moving a tile doesn't read it again.
     pictures: Option<(String, Arc<Rgb>)>,
     /// (picture, colour, size): the background drawn, so moving a tile reuses it.
-    backgrounds: Option<((String, String, usize, usize), Arc<Rgb>)>,
+    backgrounds: Option<(BackgroundKey, Arc<Rgb>)>,
     /// The background in the planes last drawn in.
     planes: Option<(usize, Kind, Arc<Vec<u8>>)>,
     /// The sizes a background picture was scaled to, for the tests.

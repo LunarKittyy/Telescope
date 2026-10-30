@@ -337,7 +337,7 @@ fn stick_figure_lines_come_from_the_pose_through_the_view() {
     let person = Person::from_value(&json!({"points": {
         "left_shoulder": [0.4, 0.4, 1.0], "right_shoulder": [0.6, 0.4, 1.0], "left_hip": [0.42, 0.7, 1.0], "nose": [0.5, 0.25, 1.0],
         "left_eye": [0.48, 0.24, 1.0], "right_eye": [0.52, 0.24, 1.0], "right_hip": [0.58, 0.7, 0.1]}})).unwrap();
-    let (lines, heads) = stick_figure(&[person.clone()], &|x, y| (x, y), 16.0 / 9.0);
+    let (lines, heads) = stick_figure(std::slice::from_ref(&person), &|x, y| (x, y), 16.0 / 9.0);
     assert!(lines.contains(&((0.4, 0.4), (0.6, 0.4))) && lines.contains(&((0.4, 0.4), (0.42, 0.7))));
     // not sure enough about that hip
     assert!(!lines.iter().any(|l| l.0 == (0.58, 0.7) || l.1 == (0.58, 0.7)));

@@ -105,11 +105,14 @@ pub enum Shape {
     Dim { points: Vec<[f32; 2]>, color: String },
 }
 
+/// The function inside a StageFn.
+pub type StageFnBox = Arc<dyn Fn(&mut [f32]) + Send + Sync>;
+
 /// How to work a colour stage out exactly at any colours: RGB triples 0..1 in, the changed ones out in place (colour.ColourStage.fn).
 /// A stage that has one is evaluated at the previous stage's output when stages are put one after the other; one that doesn't
 /// (a plugin in another process) is read off its baked lattice.
 #[derive(Clone, Default)]
-pub struct StageFn(pub Option<Arc<dyn Fn(&mut [f32]) + Send + Sync>>);
+pub struct StageFn(pub Option<StageFnBox>);
 
 impl std::fmt::Debug for StageFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

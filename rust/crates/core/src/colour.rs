@@ -84,7 +84,7 @@ fn run(stage: &ColourStage, rgb: &mut [f32]) {
         }
         return;
     }
-    for px in rgb.chunks_exact_mut(3) {
+    for px in rgb.as_chunks_mut::<3>().0 {
         let at = [px[0], px[1], px[2]];
         let out = match &stage.table {
             Some(table) => sample_table(table, at),
@@ -205,7 +205,7 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
 /// An RGBA picture w x h with each value of `values` (RGB triples, 0..1) as 16 bits: the high bytes and the low bytes.
 fn pictures(values: &[f32], w: u32, h: u32) -> (Frame, Frame) {
     let (mut hi, mut lo) = (Vec::with_capacity(values.len() / 3 * 4), Vec::with_capacity(values.len() / 3 * 4));
-    for px in values.chunks_exact(3) {
+    for px in values.as_chunks::<3>().0 {
         for v in px {
             let q = (v.clamp(0.0, 1.0) * 65535.0).round() as u32;
             hi.push((q >> 8) as u8);
@@ -250,10 +250,13 @@ struct Entry {
     stage: ColourStage,
 }
 
+/// A stage's baked 1D table, when it has one.
+type Table = Option<Arc<Vec<f32>>>;
+
 /// What a stage is told apart by when baking again would give the same LUT: the data it holds. The Arcs are kept, so a freed
 /// stage's address can't be taken by another one and pass for it (colour.py keys on the stage objects themselves).
 #[derive(Clone)]
-struct Identity(Vec<(Arc<Vec<f32>>, Option<Arc<Vec<f32>>>)>);
+struct Identity(Vec<(Arc<Vec<f32>>, Table)>);
 
 impl Identity {
     fn of(stages: &[&ColourStage]) -> Identity {
@@ -458,7 +461,7 @@ mod tests {
     fn a_3d_lut_is_interpolated_trilinearly() {
         let warm = |size: usize| {
             let mut rgb = lattice(size);
-            for px in rgb.chunks_exact_mut(3) {
+            for px in rgb.as_chunks_mut::<3>().0 {
                 let (r, g, b) = (px[0], px[1], px[2]);
                 px.copy_from_slice(&[r.powf(0.8), g * 0.9 + b * 0.1, b.sqrt()]);
             }

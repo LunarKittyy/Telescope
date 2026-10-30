@@ -51,7 +51,7 @@ impl Scaler for PreviewScaler {
     fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
         if let Some(gpu) = self.gpu.get_or_insert_with(gpu::Gpu::shared) {
             match gpu.rgba(frame, width, height) {
-                Ok(rgba) => return rgba.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect(),
+                Ok(rgba) => return rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect(),
                 Err(why) => {
                     log::warn!("The preview can't be drawn on the graphics card ({why}); drawing it on the processor");
                     self.gpu = Some(None);

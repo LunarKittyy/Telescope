@@ -4,10 +4,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use telescope_core::output::VideoOutput;
 use telescope_core::testing::{scratch_dir, FakeHost};
 
+/// A screen shown: (slot, size, picture, mirrored).
+type Shown = (u32, (u32, u32), Option<String>, bool);
+
 /// What the fake screens were told, as (slot, what).
 #[derive(Default)]
 struct Log {
-    shown: Vec<(u32, (u32, u32), Option<String>, bool)>,
+    shown: Vec<Shown>,
     stops: Vec<u32>,
     watched: Vec<(u32, bool)>,
 }
@@ -54,12 +57,14 @@ impl Held for FakeWatch {
     }
 }
 
+type OnChange = Box<dyn Fn(bool) + Send + Sync>;
+
 #[derive(Default)]
 struct FakeOutputs {
     log: Arc<Mutex<Log>>,
     watch: FakeWatch,
     /// What the watch thread would call when an app opens or closes the camera.
-    on_change: Mutex<Option<Box<dyn Fn(bool) + Send + Sync>>>,
+    on_change: Mutex<Option<OnChange>>,
 }
 
 impl Outputs for FakeOutputs {
@@ -643,14 +648,14 @@ fn a_slow_wait_screen_never_holds_up_the_stream() {
     let started = Instant::now();
     step.process(&mut out, &Ctx);
     assert!(started.elapsed() < Duration::from_millis(500));
-    assert!(out.data.chunks_exact(4).all(|p| p[..3] == [0, 0, 0]), "black until it's made, never the camera's picture");
+    assert!(out.data.as_chunks::<4>().0.iter().all(|p| p[..3] == [0, 0, 0]), "black until it's made, never the camera's picture");
     {
         let (open, cv) = &*release;
         *open.lock().unwrap() = true;
         cv.notify_all();
     }
     let done = covered(&mut r.plugin, &frame);
-    assert!(done.data.chunks_exact(4).all(|p| p[..3] == [200, 200, 200]));
+    assert!(done.data.as_chunks::<4>().0.iter().all(|p| p[..3] == [200, 200, 200]));
 }
 
 // test_wait_screen.py::test_a_wait_screen_that_wont_load_is_not_retried_on_every_frame

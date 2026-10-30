@@ -392,7 +392,10 @@ fn inode(_meta: &std::fs::Metadata) -> u64 {
 }
 
 /// Opens a node and asks it (caps, modes); None if it can't be opened.
-pub type OpenNode = Box<dyn Fn(&str) -> Option<(Option<(String, String, bool)>, Vec<Mode>)> + Send>;
+pub type OpenNode = Box<dyn Fn(&str) -> Option<NodeInfo> + Send>;
+
+/// What tells a node apart from itself later: (real sysfs path, inode, the dev file's text).
+type NodeIdent = (String, u64, String);
 
 /// Lists webcams from sysfs, opening each node only when it first shows up (opening wakes a sleeping camera).
 pub struct LinuxScanner {
@@ -402,7 +405,7 @@ pub struct LinuxScanner {
     pub allow_loopback: bool,
     pub open: OpenNode,
     pub stable_keys: Box<dyn Fn() -> HashMap<String, String> + Send>,
-    known: HashMap<String, ((String, u64, String), Option<Device>)>,
+    known: HashMap<String, (NodeIdent, Option<Device>)>,
 }
 
 impl LinuxScanner {
@@ -472,9 +475,12 @@ impl LinuxScanner {
     }
 }
 
+/// What a node says about itself: (driver, card, can capture) when it answers, and its modes.
+pub type NodeInfo = (Option<(String, String, bool)>, Vec<Mode>);
+
 /// Opens a V4L2 node for a moment and asks it what it is.
 #[cfg(target_os = "linux")]
-pub fn open_node(path: &str) -> Option<(Option<(String, String, bool)>, Vec<Mode>)> {
+pub fn open_node(path: &str) -> Option<NodeInfo> {
     use std::os::unix::fs::OpenOptionsExt;
     let file = std::fs::OpenOptions::new().read(true).write(true).custom_flags(libc::O_NONBLOCK).open(path).ok()?;
     let io = crate::webcam_capture::Fd(&file);

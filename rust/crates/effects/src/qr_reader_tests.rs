@@ -1,6 +1,7 @@
 use super::*;
 use crate::pixels::gaussian_blur;
 use std::sync::Mutex;
+use telescope_core::frame::PixelFormat;
 use telescope_core::testing::FakeHost;
 
 fn wifi(ssid: &str, password: &str, security: &str, hidden: bool) -> Option<Wifi> {
