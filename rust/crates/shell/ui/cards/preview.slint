@@ -45,6 +45,13 @@ export component PreviewCard inherits Rectangle {
     out property <length> pic-height: pic-width / max(aspect, 0.01);
     property <length> pic-x: (surface.width - pic-width) / 2;
     property <length> pic-y: (surface.height - pic-height) / 2;
+    // Clicks and drags on the picture (FrameLabel): what the mouse would do here, and the square where it last focused
+    in property <string> stage-cursor;
+    in property <bool> marker-shown;
+    in property <float> marker-u;
+    in property <float> marker-v;
+    callback view-pointer(string, float, float, float, float);
+    callback view-wheel(float, float, float);
     callback pick-pointer(string, float, float, float, float);
     callback pick-key(string);
     callback toggle;
@@ -123,6 +130,36 @@ export component PreviewCard inherits Rectangle {
                     font-size: camera-off ? 15px : 13px;
                     color: camera-off ? Theme.accent-soft : Theme.text-faint;
                 }
+            }
+            if has-frame: TouchArea {
+                mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
+                pointer-event(e) => {
+                    let kind = e.kind == PointerEventKind.cancel ? "cancel"
+                        : e.kind == PointerEventKind.move ? (self.pressed ? "move" : "")
+                        : e.button != PointerEventButton.left ? ""
+                        : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
+                    if kind != "" {
+                        root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+                    }
+                }
+                scroll-event(e) => {
+                    let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                    let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                    if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
+                        return reject;
+                    }
+                    root.view-wheel(u, v, e.delta-y / 60px); // a notch of the wheel is 60 px here
+                    accept
+                }
+            }
+            if has-frame && marker-shown: Rectangle {
+                x: pic-x + marker-u * pic-width - 22px;
+                y: pic-y + marker-v * pic-height - 22px;
+                width: 44px;
+                height: 44px;
+                border-width: 2px;
+                border-color: Theme.accent-soft;
+                border-radius: 6px;
             }
             if picking: Rectangle {
                 x: pic-x;

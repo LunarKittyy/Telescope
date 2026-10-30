@@ -98,6 +98,18 @@ export component PreviewPopout inherits Window {
     in property <bool> has-frame;
     in property <image> overlay;
     in property <bool> has-overlay;
+    in property <string> stage-cursor;
+    in property <bool> marker-shown;
+    in property <float> marker-u;
+    in property <float> marker-v;
+    in property <color> marker-colour;
+    property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : root.width / max(1px, root.height);
+    property <length> pic-width: min(root.width, root.height * aspect);
+    property <length> pic-height: pic-width / max(aspect, 0.01);
+    property <length> pic-x: (root.width - pic-width) / 2;
+    property <length> pic-y: (root.height - pic-height) / 2;
+    callback view-pointer(string, float, float, float, float);
+    callback view-wheel(float, float, float);
     if has-frame: Image {
         width: parent.width;
         height: parent.height;
@@ -111,6 +123,37 @@ export component PreviewPopout inherits Window {
         source: overlay;
         image-fit: contain;
         image-rendering: smooth;
+    }
+    // The card's stage, as it's the same FrameLabel in Qt
+    if has-frame: TouchArea {
+        mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
+        pointer-event(e) => {
+            let kind = e.kind == PointerEventKind.cancel ? "cancel"
+                : e.kind == PointerEventKind.move ? (self.pressed ? "move" : "")
+                : e.button != PointerEventButton.left ? ""
+                : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
+            if kind != "" {
+                root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+            }
+        }
+        scroll-event(e) => {
+            let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+            let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+            if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
+                return reject;
+            }
+            root.view-wheel(u, v, e.delta-y / 60px);
+            accept
+        }
+    }
+    if has-frame && marker-shown: Rectangle {
+        x: pic-x + marker-u * pic-width - 22px;
+        y: pic-y + marker-v * pic-height - 22px;
+        width: 44px;
+        height: 44px;
+        border-width: 2px;
+        border-color: marker-colour;
+        border-radius: 6px;
     }
 }
 "#;
@@ -508,6 +551,13 @@ impl Window {
         let on = |name: &str| prop(name) == Some(SValue::Bool(true));
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        if let Some(p) = &popout {
+            for name in ["stage-cursor", "marker-shown", "marker-u", "marker-v"] {
+                if let Some(value) = prop(name) {
+                    let _ = p.set_property(name, value);
+                }
+            }
+        }
         let card = on("visible-card") && on("showing");
         let window = self.ui.window();
         let seen = window.is_visible() && !window.is_minimized();
@@ -668,6 +718,20 @@ impl Window {
                         });
                         slint::CloseRequestResponse::HideWindow
                     });
+                    for callback in ["view-pointer", "view-wheel"] {
+                        let weak = Rc::downgrade(self);
+                        let _ = p.set_callback(callback, move |args| {
+                            if let Some(w) = weak.upgrade() {
+                                let event = UiEvent { ui: "card".into(), callback: callback.into(), args: args.iter().map(to_json).collect() };
+                                w.state.borrow_mut().ui_event("preview", event);
+                                w.process();
+                            }
+                            SValue::Void
+                        });
+                    }
+                    if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
+                        let _ = p.set_property("marker-colour", accent);
+                    }
                     let _ = p.show();
                     *self.popout.borrow_mut() = Some(p);
                     self.painted.set(0);
@@ -1107,4 +1171,13 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.shut_down();
     WINDOW.with(|w| *w.borrow_mut() = None);
     Ok(())
+}
+
+#[cfg(test)]
+mod popout_tests {
+    #[test]
+    fn the_pop_out_compiles() {
+        i_slint_backend_testing::init_no_event_loop();
+        crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap();
+    }
 }

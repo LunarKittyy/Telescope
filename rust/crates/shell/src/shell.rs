@@ -1171,6 +1171,30 @@ mod tests {
     }
 
     #[test]
+    fn a_click_on_a_warped_preview_focuses_on_what_shows_under_the_mouse() {
+        struct Hears(Arc<Mutex<Vec<Event>>>);
+        impl Plugin for Hears {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "hears".into(), title: "Hears".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Hears(heard.clone()))).unwrap();
+        s.register(Box::new(crate::plugins::preview::Preview::default())).unwrap();
+        s.bus.emit(Event::FocusPointAvailable { available: true });
+        s.deliver_events();
+        s.overlays.set_warp("Desk", Some([1.0, 0.0, 0.25, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]));
+        for kind in ["down", "up"] {
+            s.ui_event("preview", UiEvent { ui: "card".into(), callback: "view-pointer".into(), args: vec![json!(kind), json!(0.75), json!(0.5), json!(400.0), json!(200.0)] });
+        }
+        assert!(heard.lock().unwrap().contains(&Event::FocusPointPicked { x: 0.5, y: 0.5 }));
+    }
+
+    #[test]
     fn a_saved_config_that_wont_load_keeps_the_fields_that_do() {
         let mut s = state();
         s.register(stub("setup", json!({"zoom": 1, "canvas": "auto"}), false).0).unwrap();

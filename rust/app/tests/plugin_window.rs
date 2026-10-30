@@ -1,6 +1,6 @@
 // A plugin's window of its own (HostUi::open_window) through the real window, on Slint's testing backend.
 use serde_json::{json, Value};
-use slint_interpreter::Value as SValue;
+use slint_interpreter::{ComponentHandle, Value as SValue};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -319,4 +319,45 @@ fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in()
     w.start_source(Some("browser:a".into()));
     w.process();
     assert_eq!(*heard.lock().unwrap(), ["select browser:a", "started browser:"]);
+}
+
+/// Hears the points the preview picks.
+struct Focus(Arc<Mutex<Vec<(f32, f32)>>>);
+
+impl Plugin for Focus {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "focus".into(), title: "Focus".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        if let Event::FocusPointPicked { x, y } = event {
+            self.0.lock().unwrap().push((*x, *y));
+        }
+    }
+}
+
+#[test]
+fn a_real_click_on_the_stage_comes_out_as_a_focus_point() {
+    use slint::platform::{PointerEventButton, WindowEvent};
+    use slint::{LogicalPosition, LogicalSize};
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-focus");
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| {
+        vec![Box::new(Focus(h)) as Box<dyn Plugin>, Box::new(telescope_shell::plugins::preview::Preview::default())]
+    }, None, None).unwrap();
+    w.ui.window().set_size(LogicalSize::new(1200.0, 800.0));
+    w.ui.set_property("p1-has-frame", SValue::Bool(true)).unwrap();
+    w.state.borrow_mut().bus.emit(Event::FocusPointAvailable { available: true });
+    w.process();
+    let at = LogicalPosition::new(600.0, 300.0);
+    let window = w.ui.window();
+    window.dispatch_event(WindowEvent::PointerMoved { position: at });
+    window.dispatch_event(WindowEvent::PointerPressed { position: at, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position: at, button: PointerEventButton::Left });
+    w.process();
+    let heard = heard.lock().unwrap();
+    assert_eq!(heard.len(), 1, "{heard:?}");
+    assert!((0.0..=1.0).contains(&heard[0].0) && (0.0..=1.0).contains(&heard[0].1), "{heard:?}");
+    assert_eq!(w.ui.get_property("p1-marker-shown").unwrap(), SValue::Bool(true));
 }

@@ -442,6 +442,9 @@ impl HostPreview for Ctx<'_> {
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
         self.state.overlays.set_warp(owner, matrix);
     }
+    fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
+        self.state.overlays.unwarp(u, v)
+    }
 }
 
 impl Ctx<'_> {

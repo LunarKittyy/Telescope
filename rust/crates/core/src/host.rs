@@ -404,6 +404,10 @@ pub trait HostPreview {
     fn cancel_pick(&mut self, owner: &str);
     /// A 3 x 3 homography (row-major) from the frame as shown to what comes out, or None once it stops.
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>);
+    /// A point on the preview back to the frame as shown, past a warp.
+    fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
+        (u, v)
+    }
 }
 
 /// Full-quality photos taken on the phone.

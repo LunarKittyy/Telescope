@@ -166,7 +166,7 @@ component PictureView inherits Rectangle {
             if (!self.has-hover) { root.pointer("leave", 0, 0, area-w, area-h, false, false, false, false); }
         }
         scroll-event(e) => {
-            root.wheel(self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.delta-y / 1px);
+            root.wheel(self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.delta-y / 0.5px); // 60 px a notch here, Qt's 120 there
             accept
         }
     }
