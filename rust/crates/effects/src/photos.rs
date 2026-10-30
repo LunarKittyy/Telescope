@@ -220,29 +220,66 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     Value::Object(opts)
 }
 
-/// Where photos go unless told otherwise: Pictures/Telescope (QStandardPaths' PicturesLocation, or the home folder when that is
-/// empty).
+/// Where photos go unless told otherwise: Pictures/Telescope (QStandardPaths' PicturesLocation), written the way pathlib joins it.
 pub fn default_folder() -> String {
-    pictures().join("Telescope").display().to_string()
+    pictures().join("Telescope").components().collect::<PathBuf>().display().to_string()
 }
 
+/// The user's Pictures folder: the known folder on Windows (so a redirected or OneDrive one counts), user-dirs.dirs elsewhere.
 fn pictures() -> PathBuf {
     let home = std::env::home_dir().unwrap_or_default();
     #[cfg(windows)]
     {
-        std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or(home).join("Pictures")
+        known_pictures().unwrap_or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or(home).join("Pictures"))
     }
     #[cfg(not(windows))]
     {
         let config = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| home.join(".config"));
-        let from_file = std::fs::read_to_string(config.join("user-dirs.dirs")).ok().and_then(|text| {
-            let line = text.lines().map(str::trim).find(|l| l.starts_with("XDG_PICTURES_DIR="))?;
-            let value = line.split_once('=')?.1.trim().trim_matches('"');
-            let value = value.strip_prefix("$HOME").map_or_else(|| PathBuf::from(value), |rest| home.join(rest.trim_start_matches('/')));
-            Some(value).filter(|p| p != &home)
-        });
-        from_file.unwrap_or_else(|| home.join("Pictures"))
+        let file = std::fs::read(config.join("user-dirs.dirs")).ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+        pictures_in(&home, file.as_deref())
     }
+}
+
+/// SHGetKnownFolderPath(FOLDERID_Pictures), which is what Qt asks for and which follows a folder moved to another drive or OneDrive.
+#[cfg(windows)]
+fn known_pictures() -> Option<PathBuf> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::{FOLDERID_Pictures, SHGetKnownFolderPath, KF_FLAG_DONT_VERIFY};
+    // SAFETY: the call hands back a string it allocated, which is copied and freed here
+    unsafe {
+        let path = SHGetKnownFolderPath(&FOLDERID_Pictures, KF_FLAG_DONT_VERIFY, None).ok()?;
+        let text = path.to_string().ok();
+        CoTaskMemFree(Some(path.0 as *const _));
+        text.filter(|t| !t.is_empty()).map(PathBuf::from)
+    }
+}
+
+/// Qt's reading of XDG_PICTURES_DIR in a user-dirs.dirs file (the last such line, with its quotes taken off, $HOME filled in and one
+/// trailing slash dropped), ~/Pictures when there's none. The home folder itself is a fine answer.
+#[cfg_attr(windows, allow(dead_code))]
+fn pictures_in(home: &Path, user_dirs: Option<&str>) -> PathBuf {
+    let mut value = String::new();
+    for line in user_dirs.unwrap_or("").lines() {
+        let Some(rest) = line.strip_prefix("XDG_") else { continue };
+        // The pattern is ^XDG_(.*)_DIR=(.*)$, greedy
+        let Some(at) = rest.rfind("_DIR=") else { continue };
+        if &rest[..at] == "PICTURES" {
+            value = rest[at + "_DIR=".len()..].to_string();
+        }
+    }
+    if value.chars().count() > 2 && value.starts_with('"') && value.ends_with('"') {
+        value = value[1..value.len() - 1].to_string();
+    }
+    if value.is_empty() {
+        return home.join("Pictures");
+    }
+    if let Some(rest) = value.strip_prefix("$HOME") {
+        value = format!("{}{rest}", home.display());
+    }
+    if value.len() > 1 && value.ends_with('/') {
+        value.pop();
+    }
+    PathBuf::from(value)
 }
 
 /// "Like the video" for none, else the seconds (8 s, 0.5 s).

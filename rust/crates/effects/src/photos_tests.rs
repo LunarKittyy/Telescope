@@ -412,3 +412,25 @@ fn a_second_phones_photo_does_not_cost_the_first_its_end() {
     assert_eq!(rig.props()["status"], "Saved B.jpg");
     assert!(rig.plugin.taking.is_empty());
 }
+
+// Python (QStandardPaths.PicturesLocation) under a made-up home, for each user-dirs.dirs
+#[test]
+fn the_pictures_folder_is_read_the_way_qt_reads_it() {
+    let home = Path::new("/home/me");
+    let folder = |text: Option<&str>| pictures_in(home, text).display().to_string();
+    assert_eq!(folder(None), "/home/me/Pictures");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/Bilder\"\n")), "/home/me/Bilder");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME\"\n")), "/home/me");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/\"\n")), "/home/me");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"/data/pics\"\n")), "/data/pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"/data/pics/\"\n")), "/data/pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"\"\n")), "\"\"");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"pics\"\n")), "pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=$HOME/Q\n")), "/home/me/Q");
+    assert_eq!(folder(Some("  XDG_PICTURES_DIR=\"$HOME/Ind\"\n")), "/home/me/Pictures");
+    assert_eq!(folder(Some("# XDG_PICTURES_DIR=\"$HOME/No\"\nXDG_PICTURES_DIR=\"$HOME/Yes\"\n")), "/home/me/Yes");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/One\"\nXDG_PICTURES_DIR=\"$HOME/Two\"\n")), "/home/me/Two");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOMEx/y\"\n")), "/home/mex/y");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR = \"$HOME/Sp\"\n")), "/home/me/Pictures");
+    assert_eq!(folder(Some("XDG_MUSIC_DIR=\"$HOME/Tunes\"\n")), "/home/me/Pictures");
+}
