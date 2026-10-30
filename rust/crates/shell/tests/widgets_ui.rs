@@ -42,6 +42,7 @@ export component Test inherits Window {
         Segmented { label: "Bound mode"; items: ["a", "b", "c"]; current: mode; }
         tag := Tag { text: "Experimental"; }
         Rectangle { width: 200px; height: 40px; Segmented { label: "Seg"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
+        Rectangle { width: 400px; height: 40px; Segmented { label: "Wide"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         HorizontalLayout {
             spacing: 6px;
             Button { text: "Light"; clicked => { pressed = "Light"; } }
@@ -193,6 +194,14 @@ fn a_picked_segment_keeps_room_for_its_bold_text() {
     let ui = rig();
     let segment = labelled(&ui, "Seg: Tap a point").into_iter().next().expect("the middle segment");
     assert!(segment.size().width as f64 >= num(&ui, "bold-width") + 16.0, "{} against {}", segment.size().width, num(&ui, "bold-width") + 16.0);
+}
+
+// Qt's equal stretches: three segments of different lengths come out as wide as each other
+#[test]
+fn segments_share_their_row_equally_when_their_text_fits() {
+    let ui = rig();
+    let widths: Vec<f32> = ["Auto", "Tap a point", "Manual"].iter().map(|s| labelled(&ui, &format!("Wide: {s}"))[0].size().width).collect();
+    assert!((widths[0] - widths[1]).abs() < 1.0 && (widths[1] - widths[2]).abs() < 1.0, "{widths:?}");
 }
 
 fn value_of(ui: &ComponentInstance, label: &str) -> String {

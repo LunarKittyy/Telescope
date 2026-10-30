@@ -141,7 +141,7 @@ export component FramingCard inherits Card {
             text: @tr("Widen for something in your hand");
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Theme.text;
+            color: active ? Theme.text : Theme.text-disabled;
             vertical-alignment: center;
             horizontal-stretch: 1;
             TouchArea {

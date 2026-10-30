@@ -52,6 +52,7 @@ export component TransformsCard inherits Card {
             items: [@tr("Mirror"), @tr("Upside down")];
             icons: [Icons.mirror, Icons.upside-down];
             checked: flips;
+            enabled: active;
             label: @tr("Flip");
             toggled(i, on) => { root.flip-toggled(i, on); }
         }
@@ -80,7 +81,7 @@ export component TransformsCard inherits Card {
                     height: parent.height;
                     has-readout: false;
                     hue: root.hue;
-                    enabled: zoom-free;
+                    enabled: active && zoom-free;
                     label: @tr("Zoom");
                     minimum: 1;
                     maximum: zoom-max;
@@ -115,7 +116,7 @@ export component TransformsCard inherits Card {
                         font-family: Theme.font;
                         font-size: Theme.body;
                         font-weight: 600;
-                        color: zoom-free ? root.hue : Theme.text-disabled;
+                        color: !active ? Theme.accent-soft : zoom-free ? root.hue : Theme.text-disabled;
                         horizontal-alignment: right;
                         vertical-alignment: center;
                     }
@@ -132,7 +133,7 @@ export component TransformsCard inherits Card {
             PanPad {
                 pan-x: root.pan-x;
                 pan-y: root.pan-y;
-                enabled: pan-enabled;
+                enabled: active && pan-enabled;
                 hue: root.hue;
                 tip: root.pan-tip;
                 label: @tr("Pan");
@@ -146,7 +147,7 @@ export component TransformsCard inherits Card {
                 font-family: Theme.font;
                 font-size: Theme.body;
                 font-weight: 600;
-                color: pan-enabled ? root.hue : Theme.text-disabled;
+                color: !active ? Theme.accent-soft : pan-enabled ? root.hue : Theme.text-disabled;
                 horizontal-alignment: right;
                 vertical-alignment: center;
             }

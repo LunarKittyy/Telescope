@@ -128,7 +128,8 @@ export component PhotosCard inherits Card {
 
     HorizontalLayout {
         spacing: 8px;
-        Button { text: take-text; tip: take-tip; role: "primary"; enabled: take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
+        // action_button: 160 wide
+        Button { width: 160px; text: take-text; tip: take-tip; role: "primary"; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
         Rectangle { horizontal-stretch: 1; }
         if open-shown: Button { text: open-text; tip: open-tip; clicked => { root.open-clicked(); } }
     }
@@ -221,6 +222,7 @@ export component PhotosCard inherits Card {
         label: @tr("Timer");
         Segmented {
             items: timer-items;
+            disabled: [!active, !active, !active];
             label: @tr("Timer");
             current: timer-current;
             shortcut: "photos.timer";
@@ -272,13 +274,13 @@ export component PhotosCard inherits Card {
                     text: folder-name;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    color: active ? Theme.text : Theme.text-disabled;
                     vertical-alignment: center;
                     overflow: elide;
                 }
                 Tooltip { TipBody { says: root.folder-tip; } }
             }
-            Button { text: change-text; tip: folder-tip-text; clicked => { root.folder-clicked(); } }
+            Button { enabled: active; text: change-text; tip: folder-tip-text; clicked => { root.folder-clicked(); } }
         }
     }
     // Nothing to touch until a phone is paired

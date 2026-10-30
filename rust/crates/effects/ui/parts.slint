@@ -32,7 +32,8 @@ component LabelRow inherits HorizontalLayout {
         width: label-width;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        // QLabel#form_label outranks QLabel:disabled in the theme
+        color: Theme.text-dim;
         vertical-alignment: center;
     }
     @children

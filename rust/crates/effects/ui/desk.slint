@@ -51,7 +51,7 @@ export component DeskCard inherits Card {
 
     HorizontalLayout {
         spacing: 8px;
-        if !picking: Button { text: mark-text; tip: mark-tip; clicked => { root.mark-clicked(); } }
+        if !picking: Button { enabled: active; text: mark-text; tip: mark-tip; clicked => { root.mark-clicked(); } }
         if picking: Button { text: done-text; clicked => { root.done-clicked(); } }
         if picking: Button { text: cancel-text; clicked => { root.cancel-clicked(); } }
         Rectangle { horizontal-stretch: 1; }

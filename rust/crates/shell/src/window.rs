@@ -269,7 +269,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
             cards.push(CardPlace {
                 piece: Piece { id: id.clone(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
                 region: Region::from_name(&card.region),
-                fold_key: format!("{name}/{title}"),
+                fold_key: format!("{name}/{}", crate::source::heading(&text, &card.ui.component).unwrap_or(title)),
                 category: slot.info.category.clone(),
             });
             files.push((file, text));

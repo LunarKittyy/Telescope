@@ -34,6 +34,7 @@ export component Segmented inherits Rectangle {
     callback picked(int);
     height: 32px + 2 * margin;
     horizontal-stretch: 1;
+    preferred-width: 0px;
     forward-focus: focus;
     accessible-role: tab-list;
     accessible-label: label;
@@ -63,9 +64,10 @@ export component Segmented inherits Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end.
+            // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
             min-width: bold-width.preferred-width + 16px;
-            preferred-width: 0px;
+            preferred-width: 1000px;
             border-radius: 6px;
             background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
                 : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
@@ -151,9 +153,9 @@ export component ChoiceField inherits Rectangle {
     preferred-width: 0px;
     border-radius: compact ? 7px : 10px;
     border-width: 1px;
-    background: touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
+    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
     // Qt's plain combo box has the strong border; the tile its quiet one
-    border-color: touch.has-hover && enabled ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
+    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[current];

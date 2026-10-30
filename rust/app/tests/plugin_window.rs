@@ -453,3 +453,14 @@ fn removing_the_picked_source_picks_the_next_through_connection_first() {
     assert_eq!(heard.lock().unwrap().as_slice(), ["select browser:b"]);
     assert_eq!(w.state.borrow().selected.as_deref(), Some("browser:b"));
 }
+
+#[test]
+fn the_phone_cards_warnings_fold_away_under_the_cards_own_heading() {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-warnings");
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| vec![Box::new(telescope_setup::monitoring::MonitoringPlugin::new()) as Box<dyn Plugin>], None, None).unwrap();
+    w.ui.show().unwrap();
+    let heading = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w.ui, "Warnings").find(|e| e.accessible_checkable() == Some(true)).expect("Warnings folds");
+    heading.invoke_accessible_default_action();
+    assert_eq!(w.state.borrow().collapse.keys(), ["monitoring/Phone/Warnings"]);
+}

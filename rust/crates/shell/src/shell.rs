@@ -787,30 +787,20 @@ impl State {
         }
     }
 
-    /// Every device-local plugin's settings as `id`'s.
-    fn device_sections(&self, cfg: &Value, id: &str) -> Vec<PluginSection> {
-        let saved = profiles::device_plugin_configs(cfg, Some(id));
-        (0..self.slots.len()).filter(|&i| self.slots[i].info.device_local && !self.slots[i].info.name.is_empty())
-            .filter_map(|i| {
-                let name = &self.slots[i].info.name;
-                self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id.into()), config })
-            }).collect()
-    }
-
     /// _profile_key: whose settings a plugin has now, the picked source's, or for one that doesn't follow the panels, the main
     /// stream's.
-    fn profile_key(&self, i: usize) -> Option<String> {
+    fn profile_key(&self, i: usize, picked: Option<&str>) -> Option<String> {
         match &self.streams.main {
             Some((main, _)) if !self.slots[i].info.follows_focus => Some(main.clone()),
-            _ => self.selected.clone(),
+            _ => picked.filter(|p| !p.is_empty()).map(String::from),
         }
     }
 
-    /// Every device-local plugin's settings as those of whoever they belong to now.
-    fn profile_sections(&self, cfg: &Value) -> Vec<PluginSection> {
+    /// Every device-local plugin's settings as those of whoever they belong to now, with `picked` as the picked source.
+    fn profile_sections(&self, cfg: &Value, picked: Option<&str>) -> Vec<PluginSection> {
         (0..self.slots.len()).filter(|&i| self.slots[i].info.device_local && !self.slots[i].info.name.is_empty())
             .filter_map(|i| {
-                let id = self.profile_key(i)?;
+                let id = self.profile_key(i, picked)?;
                 let saved = profiles::device_plugin_configs(cfg, Some(&id));
                 let name = &self.slots[i].info.name;
                 self.config_of(i, saved.get(name)).map(|config| PluginSection { plugin: name.clone(), device: Some(id), config })
@@ -831,7 +821,7 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
-        sections.extend(self.profile_sections(&cfg));
+        sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.output_slots.clone() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
@@ -861,11 +851,9 @@ impl State {
     pub fn switch_device(&mut self, prev: Option<&str>, new: Option<&str>) {
         let loaded = self.file.load_strict().ok();
         if let Some(mut cfg) = loaded.clone() {
-            if let Some(prev) = prev.filter(|p| !p.is_empty()) {
-                let sections = self.device_sections(&cfg, prev);
-                let window = WindowState::from_config(&cfg);
-                merge_for_save(&mut cfg, &window, &sections);
-            }
+            let sections = self.profile_sections(&cfg, prev);
+            let window = WindowState::from_config(&cfg);
+            merge_for_save(&mut cfg, &window, &sections);
             profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
             cfg["selected_device"] = new.map_or(Value::Null, |n| json!(n));
             self.file.save(&mut cfg);
@@ -939,9 +927,12 @@ impl State {
                 if let Event::VisionDownloadFinished { error, switch_on } = &event {
                     // the optional plugin that waited for the download goes on, with no dialog open (VisionDownload._done)
                     if error.is_empty() && !switch_on.is_empty() {
-                        if let Ok(mut cfg) = self.file.load_strict() {
+                        let saved = self.file.load_strict().and_then(|mut cfg| {
                             crate::switches::set_optional_on(&mut cfg, switch_on, true);
-                            self.file.save(&mut cfg);
+                            self.file.try_save(&mut cfg)
+                        });
+                        if let (Err(e), Some(vision)) = (saved, &self.vision) {
+                            vision.download_failed(&format!("The download worked but the switch couldn't be saved: {e}"), switch_on);
                         }
                     }
                 }
@@ -1206,6 +1197,82 @@ mod tests {
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
         assert_eq!(s.effects, vec![Effect::StopAll, Effect::Start { interactive: true }]);
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
+    }
+
+    #[test]
+    fn a_switch_files_a_plugin_that_stays_with_the_main_stream_under_that_stream() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        struct Stays;
+        impl Plugin for Stays {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "mic".into(), device_local: true, follows_focus: false, ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                json!({"gain": 3})
+            }
+        }
+        s.register(stub("transforms", json!({"zoom": 2.0}), true).0).unwrap();
+        s.register(Box::new(Stays)).unwrap();
+        s.selected = Some("B".into());
+        s.streams.main = Some(("A".into(), "Phone A".into()));
+        s.switch_device(Some("B"), Some("C"));
+        let cfg = s.file.load_strict().unwrap();
+        assert_eq!(cfg["devices"]["B"]["plugin_configs"]["transforms"]["zoom"], json!(2.0));
+        assert_eq!(cfg["devices"]["A"]["plugin_configs"]["mic"]["gain"], json!(3));
+        assert!(cfg["devices"]["B"]["plugin_configs"].get("mic").is_none(), "A's mic isn't B's");
+    }
+
+    #[derive(Default)]
+    struct Pack(std::sync::Mutex<(String, String)>);
+
+    impl telescope_core::vision::VisionService for Pack {
+        fn attach(&self, _bus: telescope_core::BusSender) {}
+        fn state(&self) -> String {
+            String::new()
+        }
+        fn load(&self) {}
+        fn person_mask(&self, _source_id: &str, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn want_people(&self, _owner: &str, _on: bool) {}
+        fn wants_people(&self) -> bool {
+            false
+        }
+        fn feed_raw(&self, _source_id: &str, _frame: &telescope_core::Frame, _upright: telescope_core::vision::Upright) {}
+        fn tracked_people(&self, _source_id: &str) -> (Vec<Value>, u32) {
+            (Vec::new(), 0)
+        }
+        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn drop_stream(&self, _source_id: &str) {}
+        fn set_power_saving(&self, _on: bool) {}
+        fn diagnostics(&self) -> Vec<(String, String)> {
+            Vec::new()
+        }
+        fn shutdown(&self) {}
+        fn pack(&self) -> telescope_core::vision::VisionPack {
+            Default::default()
+        }
+        fn download(&self, _switch_on: &str) {}
+        fn cancel_download(&self) {}
+        fn remove_pack(&self) {}
+        fn download_failed(&self, error: &str, plugin: &str) {
+            *self.0.lock().unwrap() = (error.to_string(), plugin.to_string());
+        }
+    }
+
+    #[test]
+    fn a_download_that_worked_says_so_when_the_switch_couldnt_be_saved() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        let pack = Arc::new(Pack::default());
+        s.vision = Some(pack.clone());
+        std::fs::create_dir(s.file.path().with_extension("json.tmp")).unwrap();
+        s.bus.emit(Event::VisionDownloadFinished { error: String::new(), switch_on: "framing".into() });
+        s.deliver_events();
+        let (error, plugin) = pack.0.lock().unwrap().clone();
+        assert!(error.starts_with("The download worked but the switch couldn't be saved: "), "{error}");
+        assert_eq!(plugin, "framing");
     }
 
     #[test]

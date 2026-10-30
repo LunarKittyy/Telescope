@@ -193,6 +193,7 @@ export component MicrophoneCard inherits Card {
     title: @tr("Microphone");
     icon: Icons.v-mic;
     opacity: active ? 1 : 0.4;
+    enabled: active;
     // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use
     has-action: here;
     action-text: mute-text;

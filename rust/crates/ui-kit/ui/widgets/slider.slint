@@ -78,6 +78,14 @@ export component Slider inherits HorizontalLayout {
             border-radius: 2px;
             background: enabled ? Theme.border-strong : Theme.surface-raise;
         }
+        // QSlider::sub-page: the same as the groove until the groove goes dark on a disabled slider
+        if !enabled: Rectangle {
+            x: track.inset;
+            width: track.fraction * (parent.width - 2 * track.inset);
+            height: 4px;
+            border-radius: 2px;
+            background: Theme.border-hover;
+        }
         for mark in marks: Rectangle {
             x: track.inset - 2.5px + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
             y: (parent.height - 5px) / 2;
