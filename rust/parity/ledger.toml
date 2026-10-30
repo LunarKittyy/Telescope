@@ -3632,7 +3632,7 @@
 "test_plugins.py::test_stream_output_saved_resolution_wins_over_default_and_live" = { status = "todo" }
 "test_plugins.py::test_stream_quality_and_bitrate_reset_on_a_double_click" = { status = "todo" }
 "test_plugins.py::test_switching_away_from_a_phone_without_an_encoder_keeps_the_next_ones_light" = { status = "todo" }
-"test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
+"test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired", note = "Monitoring's half; the test also runs on Stream output, which its port checks separately or not at all" }
 "test_plugins.py::test_without_a_known_size_the_start_leaves_it_to_the_phone" = { status = "todo" }
 # ── plugins_panel
 "test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }

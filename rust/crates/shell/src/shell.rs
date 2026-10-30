@@ -992,6 +992,19 @@ mod tests {
     }
 
     #[test]
+    fn the_canvas_comes_from_setups_own_settings() {
+        use telescope_core::host::HostStreams;
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "720p 16:9 - 1280 x 720", "custom_canvas_w": 900, "custom_canvas_h": 600}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((Some(1280), Some(720))));
+        let mut s = state();
+        s.register(stub("setup", json!({"canvas_preset": "Auto (from first frame)"}), false).0).unwrap();
+        s.register(stub("wait_screen", json!({}), false).0).unwrap();
+        assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((None, None)));
+    }
+
+    #[test]
     fn save_config_separates_global_and_device_local_plugins() {
         let mut s = state();
         s.register(stub("setup", json!({"canvas": "auto"}), false).0).unwrap();
