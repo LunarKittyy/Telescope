@@ -19,17 +19,27 @@ pub const FORCE_ENV: &str = "TELESCOPE_VCAM";
 pub const UC_NAME: &str = "Telescope";
 pub const UC_DEFAULT_NAME: &str = "Unity Video Capture";
 const KSCATEGORY_VIDEO_CAMERA: &str = r"SYSTEM\CurrentControlSet\Control\DeviceClasses\{e5323777-f976-4f5b-9b55-b94699c46e44}";
+/// Windows' camera access switch, for the whole computer.
+const CONSENT: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam";
+pub const UC_DLL_64: &str = "UnityCaptureFilter64.dll";
+
+use std::path::{Path, PathBuf};
 
 /// What these checks read from Windows.
 pub trait Registry: Send + Sync {
     /// A string value under HKEY_CLASSES_ROOT ("" names the default value).
     fn classes_string(&self, path: &str, name: &str) -> Option<String>;
     fn classes_number(&self, path: &str, name: &str) -> Option<i64>;
+    /// The names of the keys under a path in HKEY_CLASSES_ROOT.
+    fn classes_subkeys(&self, path: &str) -> Vec<String>;
     fn machine_subkeys(&self, path: &str) -> Vec<String>;
     fn machine_string(&self, path: &str, name: &str) -> Option<String>;
     fn file_exists(&self, path: &str) -> bool;
     fn build(&self) -> u32;
     fn env(&self, name: &str) -> Option<String>;
+    /// Program Files as Windows itself has it (SHGetKnownFolderPath), unlike %ProgramFiles%, which whoever starts Telescope can
+    /// point anywhere.
+    fn program_files(&self) -> Option<PathBuf>;
 }
 
 /// What apps list slot's camera as on Windows. UnityCapture numbers the extra devices it registers "Telescope #2" on.
@@ -116,19 +126,56 @@ pub fn mf_outdated(reg: &dyn Registry, dll_here: bool) -> bool {
     mf_registration(reg, 0).is_some_and(|(_, v)| mf_allowed(reg) && dll_here && v < MF_VERSION)
 }
 
-/// The name Telescope's UnityCapture filter is registered under, or None: the first registration whose DLL is one of
-/// dlls (lower case paths to UnityCaptureFilter64.dll).
-pub fn uc_registered_name(reg: &dyn Registry, clsids: &[String], dlls: &[String]) -> Option<String> {
-    for clsid in clsids {
-        let Some(path) = reg.classes_string(&format!(r"CLSID\{clsid}\InprocServer32"), "") else { continue };
-        if dlls.contains(&path.to_lowercase()) {
-            let name = reg.classes_string(&format!(r"CLSID\{clsid}"), "").unwrap_or_default();
-            if !name.ends_with(" Configuration") {
-                return Some(if name.is_empty() { UC_DEFAULT_NAME.into() } else { name });
-            }
+/// Program Files\Telescope\folder: only an admin can write there, unlike the app's folder, so nothing can swap a DLL between the
+/// hash check and every later load (protected_unitycapture_dir, protected_mf_dir).
+pub fn protected_dir(reg: &dyn Registry, folder: &str) -> PathBuf {
+    reg.program_files().unwrap_or_else(|| PathBuf::from(r"C:\Program Files")).join("Telescope").join(folder)
+}
+
+/// (name apps list it as, folder its DLL is in) for Telescope's UnityCapture filter, or None if it isn't registered. uc_dir is the
+/// folder beside the app, where an older Telescope registered it from.
+pub fn uc_registration(reg: &dyn Registry, uc_dir: &Path) -> Option<(String, PathBuf)> {
+    let folders = [uc_dir.to_path_buf(), protected_dir(reg, "UnityCapture")];
+    for clsid in reg.classes_subkeys("CLSID") {
+        let Some(value) = reg.classes_string(&format!(r"CLSID\{clsid}\InprocServer32"), "") else { continue };
+        let Some(folder) = folders.iter().find(|f| f.join(UC_DLL_64).to_string_lossy().to_lowercase() == value.to_lowercase()) else { continue };
+        // The filter's own key carries its display name as the default value
+        let name = reg.classes_string(&format!(r"CLSID\{clsid}"), "").unwrap_or_default();
+        // The property page shares the DLL
+        if !name.ends_with(" Configuration") {
+            return Some((if name.is_empty() { UC_DEFAULT_NAME.into() } else { name }, folder.clone()));
         }
     }
     None
+}
+
+/// The name Telescope's UnityCapture filter is registered under, or None if it isn't registered.
+pub fn uc_registered_name(reg: &dyn Registry, uc_dir: &Path) -> Option<String> {
+    uc_registration(reg, uc_dir).map(|(name, _)| name)
+}
+
+/// Registered by an older Telescope straight from the app's folder, which this user's programs can write to.
+pub fn uc_in_app_folder(reg: &dyn Registry, uc_dir: &Path) -> bool {
+    uc_registration(reg, uc_dir).is_some_and(|(_, folder)| folder != protected_dir(reg, "UnityCapture"))
+}
+
+pub fn uc_is_registered(reg: &dyn Registry, uc_dir: &Path) -> bool {
+    uc_registered_name(reg, uc_dir).is_some()
+}
+
+/// Whether apps can see a Telescope camera, either kind.
+pub fn camera_installed(reg: &dyn Registry, uc_dir: &Path) -> bool {
+    use_mf(reg, 0) || uc_is_registered(reg, uc_dir)
+}
+
+/// Whether installing the camera here sets up the Windows 11 one: allowed, and its DLL in mf_dir.
+pub fn mf_installable(reg: &dyn Registry, mf_dir: &Path) -> bool {
+    mf_allowed(reg) && mf_dir.join(MF_DLL).is_file()
+}
+
+/// Whether Windows' camera access switch is off for the whole computer, which also stops cameras being removed.
+pub fn camera_access_off(reg: &dyn Registry) -> bool {
+    reg.machine_string(CONSENT, "Value").as_deref() == Some("Deny")
 }
 
 /// The registry as it is.
@@ -142,6 +189,9 @@ impl Registry for System {
     }
     fn classes_number(&self, path: &str, name: &str) -> Option<i64> {
         crate::win::classes_number(path, name)
+    }
+    fn classes_subkeys(&self, path: &str) -> Vec<String> {
+        crate::win::classes_subkeys(path)
     }
     fn machine_subkeys(&self, path: &str) -> Vec<String> {
         crate::win::machine_subkeys(path)
@@ -157,6 +207,9 @@ impl Registry for System {
     }
     fn env(&self, name: &str) -> Option<String> {
         std::env::var(name).ok()
+    }
+    fn program_files(&self) -> Option<PathBuf> {
+        crate::win::program_files()
     }
 }
 
@@ -174,6 +227,8 @@ pub(crate) mod tests {
         pub files: Mutex<Vec<String>>,
         pub build: u32,
         pub env: Option<String>,
+        pub program_files: Option<PathBuf>,
+        pub class_keys: Mutex<Vec<String>>,
     }
 
     impl FakeRegistry {
@@ -211,6 +266,10 @@ pub(crate) mod tests {
         fn classes_number(&self, path: &str, name: &str) -> Option<i64> {
             self.classes_string(path, name)?.parse().ok()
         }
+        fn classes_subkeys(&self, path: &str) -> Vec<String> {
+            assert_eq!(path, "CLSID");
+            self.class_keys.lock().unwrap().clone()
+        }
         fn machine_subkeys(&self, path: &str) -> Vec<String> {
             self.machine.lock().unwrap().get(path).cloned().unwrap_or_default()
         }
@@ -225,6 +284,9 @@ pub(crate) mod tests {
         }
         fn env(&self, _name: &str) -> Option<String> {
             self.env.clone()
+        }
+        fn program_files(&self) -> Option<PathBuf> {
+            self.program_files.clone()
         }
     }
 
@@ -266,5 +328,148 @@ pub(crate) mod tests {
         assert!(mf_outdated(&reg, true) && !mf_outdated(&reg, false));
         reg.classes.lock().unwrap().insert((format!(r"CLSID\{}", MF_CLSIDS[0]), "TelescopeVersion".into()), MF_VERSION.to_string());
         assert!(!mf_outdated(&reg, true));
+    }
+
+    fn put_class(reg: &FakeRegistry, path: &str, value: &str) {
+        reg.classes.lock().unwrap().insert((path.to_string(), String::new()), value.to_string());
+    }
+
+    // test_platform_windows.py::test_the_windows_11_camera_needs_windows_11
+    #[test]
+    fn the_windows_11_camera_needs_windows_11() {
+        for (build, forced, allowed) in [(22000, "", true), (26200, "", true), (19045, "", false), (0, "", false), (22621, "UnityCapture", false)] {
+            let reg = FakeRegistry { build, env: Some(forced.into()), ..FakeRegistry::default() };
+            assert_eq!(mf_allowed(&reg), allowed, "build {build}, forced {forced:?}");
+        }
+    }
+
+    // test_platform_windows.py::test_it_installs_only_with_the_dll_bundled
+    #[test]
+    fn it_installs_only_with_the_dll_bundled() {
+        let dir = telescope_core::testing::scratch_dir("mf-dll");
+        let reg = FakeRegistry { build: 22631, ..FakeRegistry::default() };
+        assert!(!mf_installable(&reg, &dir));
+        std::fs::write(dir.join(MF_DLL), "dll").unwrap();
+        assert!(mf_installable(&reg, &dir));
+        assert!(!mf_installable(&FakeRegistry { build: 19045, ..FakeRegistry::default() }, &dir), "Windows 10 keeps UnityCapture");
+    }
+
+    // test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered
+    #[test]
+    fn a_slot_streams_to_the_windows_11_camera_once_its_registered() {
+        let mut reg = FakeRegistry::default().with_mf(&[1]);
+        let dll = reg.files.lock().unwrap().remove(0);
+        // Registered, but its DLL is gone
+        assert!(!use_mf(&reg, 1));
+        reg.files.lock().unwrap().push(dll);
+        assert!(use_mf(&reg, 1) && !use_mf(&reg, 0));
+        // Windows refused the camera, or it was removed some other way: the registration alone isn't enough
+        let cameras = reg.machine.lock().unwrap().clone();
+        reg.machine.lock().unwrap().clear();
+        assert!(!use_mf(&reg, 1));
+        *reg.machine.lock().unwrap() = cameras;
+        assert!(use_mf(&reg, 1));
+        // Windows 10 keeps UnityCapture whatever the registry says
+        reg.build = 19045;
+        assert!(!use_mf(&reg, 1));
+    }
+
+    // test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces
+    #[test]
+    fn the_cameras_windows_has_are_read_from_their_device_interfaces() {
+        let ours = r"##?#SWD#VCAMDEVAPI#2B26#{e5323777-f976-4f5b-9b55-b94699c46e44}";
+        let webcam = r"##?#USB#VID_046D#{e5323777-f976-4f5b-9b55-b94699c46e44}";
+        let reference = "#{FCEBBA03-9D13-4C13-9940-CC84FCD132D1}";
+        let reg = FakeRegistry::default();
+        {
+            let mut keys = reg.machine.lock().unwrap();
+            keys.insert(KSCATEGORY_VIDEO_CAMERA.into(), vec![webcam.into(), ours.into()]);
+            keys.insert(format!(r"{KSCATEGORY_VIDEO_CAMERA}\{ours}"), vec![reference.into()]);
+            keys.insert(format!(r"{KSCATEGORY_VIDEO_CAMERA}\{webcam}"), vec![]);
+        }
+        reg.machine_values.lock().unwrap().insert(
+            (format!(r"{KSCATEGORY_VIDEO_CAMERA}\{ours}\{reference}\Device Parameters"), "CustomCaptureSourceClsid".into()),
+            MF_CLSIDS[0].to_lowercase());
+        assert_eq!(mf_cameras(&reg), [MF_CLSIDS[0]]);
+        reg.machine.lock().unwrap().insert(KSCATEGORY_VIDEO_CAMERA.into(), vec![webcam.into()]);
+        assert!(mf_cameras(&reg).is_empty());
+    }
+
+    // test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment
+    #[test]
+    fn protected_folder_comes_from_the_known_folder_not_the_environment() {
+        let reg = FakeRegistry { env: Some("/somewhere/the/environment/says".into()), program_files: Some(PathBuf::from(r"D:\Programs")), ..FakeRegistry::default() };
+        assert_eq!(protected_dir(&reg, "UnityCapture"), PathBuf::from(r"D:\Programs").join("Telescope").join("UnityCapture"));
+        // Without the system's answer, the usual place
+        assert_eq!(protected_dir(&FakeRegistry::default(), "VirtualCamera"), PathBuf::from(r"C:\Program Files").join("Telescope").join("VirtualCamera"));
+    }
+
+    // test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence
+    #[test]
+    fn uc_is_registered_scans_registry_and_handles_absence() {
+        let uc = Path::new("/app/unitycapture");
+        let reg = FakeRegistry::default();
+        *reg.class_keys.lock().unwrap() = vec!["first".into(), "second".into()];
+        put_class(&reg, r"CLSID\first\InprocServer32", "other.dll");
+        put_class(&reg, r"CLSID\second\InprocServer32", &uc.join(UC_DLL_64).to_string_lossy());
+        assert!(uc_is_registered(&reg, uc));
+        assert!(!uc_is_registered(&FakeRegistry::default(), uc), "no registry");
+    }
+
+    fn filter_registry(dll: &Path, name: Option<&str>) -> FakeRegistry {
+        let reg = FakeRegistry::default();
+        *reg.class_keys.lock().unwrap() = vec!["{other}".into(), "{props}".into(), "{filter}".into()];
+        let dll = dll.to_string_lossy().into_owned();
+        put_class(&reg, r"CLSID\{props}\InprocServer32", &dll);
+        put_class(&reg, r"CLSID\{props}", "Unity Video Capture Configuration");
+        put_class(&reg, r"CLSID\{filter}\InprocServer32", &dll);
+        if let Some(name) = name {
+            put_class(&reg, r"CLSID\{filter}", name);
+        }
+        reg
+    }
+
+    // test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page
+    #[test]
+    fn registered_name_reads_the_filter_key_and_skips_the_property_page() {
+        let uc = Path::new("/app/unitycapture");
+        let dll = uc.join(UC_DLL_64);
+        // Paths are compared whatever their case
+        let upper = PathBuf::from(dll.to_string_lossy().to_uppercase());
+        assert_eq!(uc_registered_name(&filter_registry(&upper, Some("Telescope")), uc).as_deref(), Some("Telescope"));
+        assert_eq!(uc_registered_name(&filter_registry(&dll, Some("Unity Video Capture")), uc).as_deref(), Some("Unity Video Capture"));
+        // No name stored: UnityCapture's default
+        assert_eq!(uc_registered_name(&filter_registry(&dll, None), uc).as_deref(), Some(UC_DEFAULT_NAME));
+    }
+
+    // test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged
+    #[test]
+    fn a_registration_from_the_app_folder_is_flagged() {
+        let (app, protected) = (PathBuf::from("/app/unitycapture"), PathBuf::from("/pf/Telescope/UnityCapture"));
+        for protected_install in [true, false] {
+            let dll = if protected_install { protected.join(UC_DLL_64) } else { app.join(UC_DLL_64) };
+            let reg = FakeRegistry { program_files: Some(PathBuf::from("/pf")), ..filter_registry(&dll, Some("Telescope")) };
+            // Still works either way, so the camera keeps working
+            assert_eq!(uc_registered_name(&reg, &app).as_deref(), Some("Telescope"));
+            assert_eq!(uc_in_app_folder(&reg, &app), !protected_install);
+        }
+    }
+
+    #[test]
+    fn a_camera_is_installed_when_apps_can_see_either_kind() {
+        let uc = Path::new("/app/unitycapture");
+        assert!(camera_installed(&FakeRegistry::default().with_mf(&[0]), uc));
+        assert!(camera_installed(&filter_registry(&uc.join(UC_DLL_64), Some("Telescope")), uc));
+        assert!(!camera_installed(&FakeRegistry::default(), uc));
+    }
+
+    #[test]
+    fn camera_access_is_off_when_windows_says_deny() {
+        let reg = FakeRegistry::default();
+        assert!(!camera_access_off(&reg));
+        reg.machine_values.lock().unwrap().insert((CONSENT.into(), "Value".into()), "Deny".into());
+        assert!(camera_access_off(&reg));
+        reg.machine_values.lock().unwrap().insert((CONSENT.into(), "Value".into()), "Allow".into());
+        assert!(!camera_access_off(&reg));
     }
 }

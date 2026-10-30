@@ -3425,42 +3425,42 @@
 "test_platform_linux.py::test_setup_leaves_someone_elses_boot_config_alone" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_leaves_someone_elses_boot_config_alone" }
 "test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_with_persist_writes_the_boot_config_in_the_same_prompt" }
 "test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::sudo_is_never_run_where_it_could_ask_for_a_password" }
-"test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "todo" }
+"test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" }
 "test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "todo" }
-"test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "todo" }
-"test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "todo" }
-"test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "todo" }
+"test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_registration_from_the_app_folder_is_flagged" }
+"test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_slot_streams_to_the_windows_11_camera_once_its_registered" }
+"test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::an_older_windows_11_camera_is_outdated_when_a_newer_dll_is_here" }
+"test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::an_update_renames_a_loaded_dll_out_of_the_way" }
 "test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "todo" }
-"test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "todo" }
+"test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_handles_network_and_checksum_failures" }
+"test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_verifies_both_files" }
 "test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "todo" }
-"test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "todo" }
-"test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "todo" }
-"test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "todo" }
-"test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "todo" }
+"test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::it_installs_only_with_the_dll_bundled" }
+"test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_camera_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
+"test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::only_the_installed_copy_takes_the_start_menu_entrys_app_id" }
+"test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_folder_comes_from_the_known_folder_not_the_environment" }
+"test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_drops_a_tampered_file_so_a_retry_downloads_it_again" }
 "test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "todo" }
-"test_platform_windows.py::test_register_normalizes_process_failures" = { status = "todo" }
-"test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "todo" }
+"test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_names_what_failed_as_admin" }
+"test_platform_windows.py::test_register_normalizes_process_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_normalizes_process_failures", note = "The test stands in for the process; the real admin run is Windows-only and compile-checked" }
+"test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_refuses_missing_or_tampered_files" }
 "test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "todo" }
+"test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::registered_name_reads_the_filter_key_and_skips_the_property_page" }
 "test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "todo" }
-"test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "todo" }
-"test_platform_windows.py::test_sha256_reads_entire_file" = { status = "todo" }
-"test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "todo" }
-"test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "todo" }
-"test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "todo" }
+"test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_ignores_folders_outside_temp" }
+"test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_spots_zip_tools_temp_folders" }
+"test_platform_windows.py::test_sha256_reads_entire_file" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::sha256_reads_entire_file" }
+"test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_cameras_windows_has_are_read_from_their_device_interfaces" }
+"test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_clsids_and_version_match_the_dll" }
+"test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_first_powershell_comes_from_the_system_folder" }
 "test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "todo" }
-"test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "todo" }
-"test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "todo" }
+"test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_windows_11_camera_needs_windows_11" }
+"test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_is_registered_scans_registry_and_handles_absence" }
+"test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
 "test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
-"test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "todo" }
-"test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "todo" }
-"test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "todo" }
+"test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" }
+"test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_10_installs_unitycapture" }
+"test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_11_installs_its_own_camera_and_never_downloads_unitycapture" }
 # ── plugin
 "test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_plugin_api_only_changes_on_purpose", note = "freezes HOST_API, HOOKS, Lua globals, events and permissions in tests/plugin_api.txt" }
 "test_plugin_i18n.py::test_a_broken_file_leaves_the_plugin_in_english_and_still_loading" = { status = "ported", rust = "rust/crates/plugin-host/tests/i18n.rs::a_broken_file_leaves_the_plugin_in_english_and_still_loading" }
@@ -5895,20 +5895,20 @@
 "folder:telescope/plugins/photos.py:default_folder:QStandardPaths.writableLocation" = { status = "ported", rust = "rust/crates/effects/src/photos.rs" }
 "run:telescope/plugins/photos.py:_open_folder:QDesktopServices.openUrl:<QUrl.fromLocalFile(folder)>" = { status = "ported", rust = "rust/crates/effects/src/photos.rs" }
 # ── platform
-"dbus:org.freedesktop.DBus.Properties" = { status = "todo" }
-"dbus:org.freedesktop.host.portal.Registry" = { status = "todo" }
-"dbus:org.freedesktop.portal.Desktop" = { status = "todo" }
-"dbus:org.freedesktop.portal.GlobalShortcuts" = { status = "todo" }
-"dbus:org.freedesktop.portal.Request" = { status = "todo" }
-"dbus:org.freedesktop.portal.Session" = { status = "todo" }
-"dbus:org.kde.KGlobalAccel" = { status = "todo" }
-"dbus:org.kde.kglobalaccel" = { status = "todo" }
-"dbus:org.kde.kglobalaccel.Component" = { status = "todo" }
-"env:DBUS_SESSION_BUS_ADDRESS" = { status = "todo" }
-"env:LOCALAPPDATA" = { status = "todo" }
-"env:XDG_DATA_DIRS" = { status = "todo" }
-"env:XDG_DATA_HOME" = { status = "todo" }
-"env:XDG_RUNTIME_DIR" = { status = "todo" }
+"dbus:org.freedesktop.DBus.Properties" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.host.portal.Registry" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Desktop" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.GlobalShortcuts" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Request" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.freedesktop.portal.Session" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.KGlobalAccel" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.kglobalaccel" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"dbus:org.kde.kglobalaccel.Component" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"env:DBUS_SESSION_BUS_ADDRESS" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
+"env:LOCALAPPDATA" = { status = "ported", rust = "rust/crates/system/src/setup_move.rs::default_install_dir" }
+"env:XDG_DATA_DIRS" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"env:XDG_DATA_HOME" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"env:XDG_RUNTIME_DIR" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs" }
 "folder:telescope/platform/adb_download.py:_clear_leftovers:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::clear_leftovers" }
 "folder:telescope/platform/adb_download.py:_download:shutil.rmtree" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::Work" }
 "folder:telescope/platform/adb_download.py:_download:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::work_folder" }
@@ -5921,13 +5921,13 @@
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:shutil.rmtree" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::clear_old_tries" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.gettempdir" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
 "folder:telescope/platform/virtual_mic.py:download_vb_cable:tempfile.mkdtemp" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::new_folder" }
-"path:/dev/video10" = { status = "todo" }
-"path:/dev/video11" = { status = "todo" }
-"path:/etc/modprobe.d/*.conf" = { status = "todo" }
-"path:/etc/modprobe.d/99-telescope-v4l2loopback.conf" = { status = "todo" }
-"path:/etc/modules-load.d/99-telescope-v4l2loopback.conf" = { status = "todo" }
-"path:/usr/local/share:/usr/share" = { status = "todo" }
-"path:C:\\Program Files" = { status = "todo" }
+"path:/dev/video10" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/dev/video11" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/etc/modprobe.d/*.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::conflicting_confs" }
+"path:/etc/modprobe.d/99-telescope-v4l2loopback.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/etc/modules-load.d/99-telescope-v4l2loopback.conf" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs" }
+"path:/usr/local/share:/usr/share" = { status = "ported", rust = "rust/crates/system/src/autostart.rs" }
+"path:C:\\Program Files" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "platform:__init__.py:adb_available" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::available" }
 "platform:__init__.py:adb_broadcast_pair" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::broadcast_pair" }
 "platform:__init__.py:adb_device_models" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_models" }
@@ -5975,24 +5975,24 @@
 "platform:hotkeys_portal.py:to_trigger" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_trigger" }
 "platform:hotkeys_windows.py:WindowsHotkeys" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::WindowsHotkeys" }
 "platform:hotkeys_windows.py:to_windows" = { status = "ported", rust = "rust/crates/system/src/keys.rs::to_windows" }
-"platform:linux.py:PrivResult" = { status = "todo" }
-"platform:linux.py:limit_malloc_arenas" = { status = "todo" }
-"platform:linux.py:manual_command" = { status = "todo" }
-"platform:linux.py:release_freed_memory" = { status = "todo" }
-"platform:linux.py:result_parts" = { status = "todo" }
-"platform:linux.py:v4l2_add_devices" = { status = "todo" }
-"platform:linux.py:v4l2_devices_ready" = { status = "todo" }
-"platform:linux.py:v4l2_is_loaded" = { status = "todo" }
-"platform:linux.py:v4l2_load" = { status = "todo" }
-"platform:linux.py:v4l2_module_installed" = { status = "todo" }
-"platform:linux.py:v4l2_module_loaded" = { status = "todo" }
-"platform:linux.py:v4l2_persist_disable" = { status = "todo" }
-"platform:linux.py:v4l2_persist_enable" = { status = "todo" }
-"platform:linux.py:v4l2_persist_status" = { status = "todo" }
-"platform:linux.py:v4l2_reload" = { status = "todo" }
-"platform:linux.py:v4l2_remove_devices" = { status = "todo" }
-"platform:linux.py:v4l2_setup" = { status = "todo" }
-"platform:linux.py:v4l2_unload" = { status = "todo" }
+"platform:linux.py:PrivResult" = { status = "ported", rust = "rust/crates/core/src/output.rs::SetupResult" }
+"platform:linux.py:limit_malloc_arenas" = { status = "ported", rust = "rust/crates/system/src/memory.rs::limit_malloc_arenas" }
+"platform:linux.py:manual_command" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::manual_command" }
+"platform:linux.py:release_freed_memory" = { status = "ported", rust = "rust/crates/system/src/memory.rs::release_freed_memory" }
+"platform:linux.py:result_parts" = { status = "ported", rust = "rust/crates/core/src/output.rs::SetupResult" }
+"platform:linux.py:v4l2_add_devices" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::add_devices" }
+"platform:linux.py:v4l2_devices_ready" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::devices_ready" }
+"platform:linux.py:v4l2_is_loaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::is_loaded" }
+"platform:linux.py:v4l2_load" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup" }
+"platform:linux.py:v4l2_module_installed" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_installed" }
+"platform:linux.py:v4l2_module_loaded" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_loaded" }
+"platform:linux.py:v4l2_persist_disable" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_disable" }
+"platform:linux.py:v4l2_persist_enable" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_enable" }
+"platform:linux.py:v4l2_persist_status" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::persist_status" }
+"platform:linux.py:v4l2_reload" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::reload" }
+"platform:linux.py:v4l2_remove_devices" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::remove_devices" }
+"platform:linux.py:v4l2_setup" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup" }
+"platform:linux.py:v4l2_unload" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::unload" }
 "platform:virtual_mic.py:download_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::download_vb_cable" }
 "platform:virtual_mic.py:fifo_path" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::fifo_path" }
 "platform:virtual_mic.py:find_vb_cable" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::find_vb_cable" }
@@ -6001,48 +6001,48 @@
 "platform:virtual_mic.py:linux_tools_missing" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_tools_missing" }
 "platform:virtual_mic.py:remove_stale_source" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
 "platform:virtual_mic.py:run_vb_cable_setup" = { status = "ported", rust = "rust/crates/audio/src/vb_cable.rs::run_vb_cable_setup" }
-"platform:windows.py:camera_access_off" = { status = "todo" }
-"platform:windows.py:camera_installed" = { status = "todo" }
-"platform:windows.py:download_unitycapture" = { status = "todo" }
-"platform:windows.py:install_camera" = { status = "todo" }
-"platform:windows.py:mf_allowed" = { status = "todo" }
-"platform:windows.py:mf_camera_dir" = { status = "todo" }
-"platform:windows.py:mf_installable" = { status = "todo" }
-"platform:windows.py:mf_outdated" = { status = "todo" }
-"platform:windows.py:mf_registered" = { status = "todo" }
-"platform:windows.py:protected_mf_dir" = { status = "todo" }
-"platform:windows.py:protected_unitycapture_dir" = { status = "todo" }
-"platform:windows.py:register_mf_camera" = { status = "todo" }
-"platform:windows.py:register_unitycapture" = { status = "todo" }
-"platform:windows.py:running_from_archive" = { status = "todo" }
-"platform:windows.py:uc_in_app_folder" = { status = "todo" }
-"platform:windows.py:uc_is_registered" = { status = "todo" }
-"platform:windows.py:uc_registered_name" = { status = "todo" }
-"platform:windows.py:unitycapture_dir" = { status = "todo" }
-"platform:windows.py:unitycapture_downloaded" = { status = "todo" }
-"platform:windows.py:use_installed_app_id" = { status = "todo" }
-"platform:windows.py:use_mf" = { status = "todo" }
-"platform:windows.py:warn_running_from_archive" = { status = "todo" }
-"platform:windows.py:windows_build" = { status = "todo" }
+"platform:windows.py:camera_access_off" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_access_off", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:camera_installed" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_installed", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:download_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:install_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::install_camera", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_allowed" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_allowed", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_camera_dir" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_camera_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_installable" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_installable", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_outdated" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_outdated", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:mf_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_registered", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:protected_mf_dir" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:protected_unitycapture_dir" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:register_mf_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_install_script", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:register_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_unitycapture", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:running_from_archive" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_in_app_folder" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_in_app_folder", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_is_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_is_registered", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:uc_registered_name" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_registered_name", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:unitycapture_dir" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_dir", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:unitycapture_downloaded" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::install_camera", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:use_installed_app_id" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::use_installed_app_id", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:use_mf" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::use_mf", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:warn_running_from_archive" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::warn_running_from_archive", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"platform:windows.py:windows_build" = { status = "ported", rust = "rust/crates/outputs/src/win.rs::windows_build", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "platform:winjob.py:kill_with_us" = { status = "ported", rust = "rust/crates/link/src/winjob.rs::kill_with_us", note = "Windows only, not compiled for Windows yet" }
 "port:telescope/platform/__init__.py:ADB_PORT=5037" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ADB_PORT" }
-"registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "todo" }
-"registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "todo" }
-"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "todo" }
+"registry:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::camera_access_off", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"registry:SYSTEM\\CurrentControlSet\\Control\\DeviceClasses\\{e5323777-f976-4f5b-9b55-b94699c46e44}" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::mf_cameras", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
+"registry:Software\\Microsoft\\Windows\\CurrentVersion\\Run" = { status = "ported", rust = "rust/crates/system/src/autostart.rs", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 "run:telescope/platform/__init__.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run" }
 "run:telescope/platform/__init__.py:adb_device_models:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_models" }
 "run:telescope/platform/__init__.py:adb_device_states:_run:<adb_exe()> devices" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::device_states" }
 "run:telescope/platform/__init__.py:adb_install:_run:<adb_exe()> install" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::install" }
 "run:telescope/platform/__init__.py:adb_model:_run:<adb_exe()> shell" = { status = "ported", rust = "rust/crates/link/src/adb.rs::Adb::model" }
 "run:telescope/platform/__init__.py:ensure_adb_server:popen:<exe> nodaemon" = { status = "ported", rust = "rust/crates/link/src/adb.rs::ensure_adb_server" }
-"run:telescope/platform/linux.py:_privileged:_run:pkexec sh" = { status = "todo" }
-"run:telescope/platform/linux.py:_privileged:_run:sudo sh" = { status = "todo" }
-"run:telescope/platform/linux.py:v4l2_module_installed:_run:modinfo v4l2loopback" = { status = "todo" }
+"run:telescope/platform/linux.py:_privileged:_run:pkexec sh" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::privileged" }
+"run:telescope/platform/linux.py:_privileged:_run:sudo sh" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::privileged" }
+"run:telescope/platform/linux.py:v4l2_module_installed:_run:modinfo v4l2loopback" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::module_installed" }
 "run:telescope/platform/virtual_mic.py:_run:subprocess.run:<cmd>" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::run" }
 "run:telescope/platform/virtual_mic.py:linux_setup:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_setup" }
 "run:telescope/platform/virtual_mic.py:linux_teardown:run:pactl unload-module" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::linux_teardown" }
 "run:telescope/platform/virtual_mic.py:remove_stale_source:run:pactl list" = { status = "ported", rust = "rust/crates/audio/src/virtual_mic.rs::remove_stale_source" }
-"run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "todo" }
+"run:telescope/platform/windows.py:_run_as_admin:subprocess.run:<_powershell()>" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs", note = "Windows-only parts are compile-checked, the decisions are tested on Linux" }
 # ── plugin_loader
 "folder:telescope/plugin_loader.py:_clear_caches:shutil.rmtree" = { status = "dropped", reason = "no __pycache__ to clear for Lua plugins" }
 "folder:telescope/plugin_loader.py:install_zip:shutil.rmtree" = { status = "ported", rust = "rust/crates/plugin-host/src/package.rs" }

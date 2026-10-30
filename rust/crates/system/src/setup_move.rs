@@ -67,7 +67,7 @@ pub fn same_place(a: &Path, b: Option<&Path>) -> bool {
     b.is_some_and(|b| normal(a) == normal(b))
 }
 
-fn has_uninstaller(directory: &Path) -> bool {
+pub(crate) fn has_uninstaller(directory: &Path) -> bool {
     std::fs::read_dir(directory).is_ok_and(|list| {
         list.flatten().any(|e| {
             let name = e.file_name().to_string_lossy().to_lowercase();

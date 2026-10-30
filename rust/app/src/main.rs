@@ -263,9 +263,21 @@ fn started_fine() {
 static MOVED_FROM: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
 
 fn main() {
+    // Before the decoder and the stream start their threads, which would each get a pool of their own
+    telescope_system::memory::limit_malloc_arenas(4);
     // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
+    #[cfg(windows)]
+    {
+        use telescope_system::winapp;
+        // Run from inside a zip it would lose its files with the temp folder; installed, it takes the Start menu entry's id
+        if winapp::running_from_archive(&app_dir(), &std::env::temp_dir()) {
+            winapp::warn_running_from_archive();
+            std::process::exit(1);
+        }
+        winapp::use_installed_app_id(&app_dir());
+    }
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     if words.first().map(String::as_str) == Some("dev") {
         std::process::exit(dev::run(&words[1..]));
