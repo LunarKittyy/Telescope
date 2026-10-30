@@ -60,6 +60,7 @@ pub fn is_usb(route: &RouteSpec) -> bool {
     matches!(route, RouteSpec::Usb { .. })
 }
 
+type Discover = Box<dyn Fn(&str) -> Vec<String> + Send + Sync>;
 type Forward = Box<dyn Fn(&str, u16) -> Option<u16> + Send + Sync>;
 type Unforward = Box<dyn Fn(&str, u16) + Send + Sync>;
 
@@ -133,7 +134,7 @@ pub struct RouteResolver {
     pub adb_device_states: Box<dyn Fn() -> Vec<(String, String)> + Send + Sync>,
     pub tunnels: Arc<UsbTunnels>,
     /// Phone id to its current LAN addresses from mDNS.
-    pub discover: Box<dyn Fn(&str) -> Vec<String> + Send + Sync>,
+    pub discover: Discover,
     pub client: ClientFactory,
     pub wifi_timeout: Duration,
 }

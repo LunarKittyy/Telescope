@@ -256,3 +256,55 @@ fn grey_is_opencvs_fixed_point_not_the_float_weights() {
     let sheet = [138, 167, 72, 48, 17, 212, 125, 233, 161];
     assert_eq!(grey_plane(&sheet), vec![148, 48, 193]);
 }
+
+fn warp_test_picture(w: usize, h: usize) -> Vec<u8> {
+    let mut data = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            data.extend([((x * 37 + y * 11) % 256) as u8, ((x * 5 + y * 29) % 256) as u8, (((x * x + y * y) * 3) % 256) as u8]);
+        }
+    }
+    data
+}
+
+fn fnv(data: &[u8]) -> u64 {
+    data.iter().fold(0xcbf29ce484222325u64, |h, b| (h ^ *b as u64).wrapping_mul(0x100000001b3))
+}
+
+// cv2.warpPerspective(.., INTER_LINEAR, BORDER_REPLICATE) of warp_test_picture: (size, result size, matrix, hash of the result, and
+// the pixels at (0, 0), (5, 3) and the last one)
+#[test]
+fn the_warp_looks_up_in_32nds_of_a_pixel_like_opencv() {
+    type Case = ((usize, usize), (usize, usize), M3, u64, [[u8; 3]; 3]);
+    let cases: [Case; 3] = [
+        ((40, 30), (40, 30), [[1.0, 0.0, 0.02], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], 0x5caa3d48b01daa4b, [[0, 0, 0], [217, 112, 101], [225, 12, 175]]),
+        ((90, 60), (150, 12), [[1.9227442123928928, 0.598187088300011, -18.372889140643196], [-0.026636633889970875, 0.2930029727896795, -1.2519217928286301],
+            [-0.00018783942446650215, 0.002574203685722635, 1.0]], 0xd3ab746232e21044, [[95, 185, 11], [190, 233, 128], [219, 165, 94]]),
+        ((70, 50), (50, 40), [[0.7904950606589203, 0.11528052967942588, -7.443828487871499], [-0.16649802215128506, 0.7769907700393304, 4.772943301670171],
+            [-0.0012219616807996674, -0.0007910917507711327, 1.0]], 0x9d34a1d0e9e53c4b, [[114, 50, 44], [71, 105, 90], [95, 171, 71]]),
+    ];
+    for ((w, h), (rw, rh), matrix, hash, pixels) in cases {
+        let out = warp_perspective(&warp_test_picture(w, h), w, h, &matrix, rw, rh);
+        let at = |x: usize, y: usize| [out[(y * rw + x) * 3], out[(y * rw + x) * 3 + 1], out[(y * rw + x) * 3 + 2]];
+        assert_eq!([at(0, 0), at(5.min(rw - 1), 3.min(rh - 1)), at(rw - 1, rh - 1)], pixels, "{w}x{h} to {rw}x{rh}");
+        assert_eq!(fnv(&out), hash, "{w}x{h} to {rw}x{rh}");
+    }
+}
+
+/// Dev check against cv2: WARP_CASES names a JSON file of {w, h, rw, rh, image, matrix, expected} made with warp_gen.py.
+#[test]
+#[ignore]
+fn warp_perspective_matches_cv2_on_recorded_cases() {
+    let Some(path) = std::env::var_os("WARP_CASES") else { return };
+    let cases: Vec<serde_json::Value> = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let bytes = |v: &serde_json::Value| v["image"].as_array().unwrap().iter().map(|n| n.as_u64().unwrap() as u8).collect::<Vec<u8>>();
+    for (n, case) in cases.iter().enumerate() {
+        let size = |k: &str| case[k].as_u64().unwrap() as usize;
+        let m: Vec<f64> = case["matrix"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+        let matrix = [[m[0], m[1], m[2]], [m[3], m[4], m[5]], [m[6], m[7], m[8]]];
+        let want: Vec<u8> = case["expected"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u8).collect();
+        let got = warp_perspective(&bytes(case), size("w"), size("h"), &matrix, size("rw"), size("rh"));
+        let wrong = got.iter().zip(&want).filter(|(a, b)| a != b).count();
+        assert_eq!(wrong, 0, "case {n}: {wrong} of {} values differ (first at {:?})", want.len(), got.iter().zip(&want).position(|(a, b)| a != b));
+    }
+}

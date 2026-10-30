@@ -220,29 +220,66 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     Value::Object(opts)
 }
 
-/// Where photos go unless told otherwise: Pictures/Telescope (QStandardPaths' PicturesLocation, or the home folder when that is
-/// empty).
+/// Where photos go unless told otherwise: Pictures/Telescope (QStandardPaths' PicturesLocation), written the way pathlib joins it.
 pub fn default_folder() -> String {
-    pictures().join("Telescope").display().to_string()
+    pictures().join("Telescope").components().collect::<PathBuf>().display().to_string()
 }
 
+/// The user's Pictures folder: the known folder on Windows (so a redirected or OneDrive one counts), user-dirs.dirs elsewhere.
 fn pictures() -> PathBuf {
     let home = std::env::home_dir().unwrap_or_default();
     #[cfg(windows)]
     {
-        std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or(home).join("Pictures")
+        known_pictures().unwrap_or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or(home).join("Pictures"))
     }
     #[cfg(not(windows))]
     {
         let config = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| home.join(".config"));
-        let from_file = std::fs::read_to_string(config.join("user-dirs.dirs")).ok().and_then(|text| {
-            let line = text.lines().map(str::trim).find(|l| l.starts_with("XDG_PICTURES_DIR="))?;
-            let value = line.split_once('=')?.1.trim().trim_matches('"');
-            let value = value.strip_prefix("$HOME").map_or_else(|| PathBuf::from(value), |rest| home.join(rest.trim_start_matches('/')));
-            Some(value).filter(|p| p != &home)
-        });
-        from_file.unwrap_or_else(|| home.join("Pictures"))
+        let file = std::fs::read(config.join("user-dirs.dirs")).ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+        pictures_in(&home, file.as_deref())
     }
+}
+
+/// SHGetKnownFolderPath(FOLDERID_Pictures), which is what Qt asks for and which follows a folder moved to another drive or OneDrive.
+#[cfg(windows)]
+fn known_pictures() -> Option<PathBuf> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::{FOLDERID_Pictures, SHGetKnownFolderPath, KF_FLAG_DONT_VERIFY};
+    // SAFETY: the call hands back a string it allocated, which is copied and freed here
+    unsafe {
+        let path = SHGetKnownFolderPath(&FOLDERID_Pictures, KF_FLAG_DONT_VERIFY, None).ok()?;
+        let text = path.to_string().ok();
+        CoTaskMemFree(Some(path.0 as *const _));
+        text.filter(|t| !t.is_empty()).map(PathBuf::from)
+    }
+}
+
+/// Qt's reading of XDG_PICTURES_DIR in a user-dirs.dirs file (the last such line, with its quotes taken off, $HOME filled in and one
+/// trailing slash dropped), ~/Pictures when there's none. The home folder itself is a fine answer.
+#[cfg_attr(windows, allow(dead_code))]
+fn pictures_in(home: &Path, user_dirs: Option<&str>) -> PathBuf {
+    let mut value = String::new();
+    for line in user_dirs.unwrap_or("").lines() {
+        let Some(rest) = line.strip_prefix("XDG_") else { continue };
+        // The pattern is ^XDG_(.*)_DIR=(.*)$, greedy
+        let Some(at) = rest.rfind("_DIR=") else { continue };
+        if &rest[..at] == "PICTURES" {
+            value = rest[at + "_DIR=".len()..].to_string();
+        }
+    }
+    if value.chars().count() > 2 && value.starts_with('"') && value.ends_with('"') {
+        value = value[1..value.len() - 1].to_string();
+    }
+    if value.is_empty() {
+        return home.join("Pictures");
+    }
+    if let Some(rest) = value.strip_prefix("$HOME") {
+        value = format!("{}{rest}", home.display());
+    }
+    if value.len() > 1 && value.ends_with('/') {
+        value.pop();
+    }
+    PathBuf::from(value)
 }
 
 /// "Like the video" for none, else the seconds (8 s, 0.5 s).
@@ -268,6 +305,30 @@ fn index_of(list: &[&str], value: &str) -> usize {
     list.iter().position(|v| *v == value).unwrap_or(0)
 }
 
+/// What a QSpinBox makes of the text typed into it: whether it's a value in range, could still become one, or the box won't take it.
+#[derive(Debug, PartialEq, Eq)]
+enum Typed {
+    Acceptable(i64),
+    Intermediate,
+    Invalid,
+}
+
+fn typed_number(text: &str, min: i64, max: i64) -> Typed {
+    if text.is_empty() {
+        return Typed::Intermediate;
+    }
+    if !text.bytes().all(|b| b.is_ascii_digit()) {
+        return Typed::Invalid;
+    }
+    // More digits than any i64 holds are far past the largest allowed
+    let value = text.parse::<i64>().unwrap_or(i64::MAX);
+    match value {
+        v if (min..=max).contains(&v) => Typed::Acceptable(v),
+        v if v > max || min == max => Typed::Invalid,
+        _ => Typed::Intermediate,
+    }
+}
+
 /// The kinds of choice the card sends back: which list a pick came from.
 const PICKS: [&str; 6] = ["mode", "format", "shots", "exposure_s", "bracket", "distortion"];
 
@@ -279,13 +340,16 @@ pub struct PhotosPlugin {
     caps_raw: Option<Value>,
     busy: bool,
     last_saved: Vec<String>,
-    /// The photo being taken, and the folder dialog being shown.
-    taking: Option<RequestId>,
+    /// The photos being taken (one per phone, each with its own end) and the folder dialog being shown.
+    taking: Vec<RequestId>,
     asked: Option<RequestId>,
     status: (String, &'static str),
     paired: Paired,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
+    /// What the How many and Steps boxes show while they're being typed in (None: the value), and how often each was put back.
+    typing: [Option<String>; 2],
+    sync: [i64; 2],
 }
 
 impl Default for PhotosPlugin {
@@ -303,11 +367,13 @@ impl PhotosPlugin {
             caps_raw: None,
             busy: false,
             last_saved: Vec::new(),
-            taking: None,
+            taking: Vec::new(),
             asked: None,
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
             pending: false,
+            typing: [None, None],
+            sync: [0, 0],
         }
     }
 
@@ -341,6 +407,58 @@ impl PhotosPlugin {
         list.iter().map(|k| labels.iter().find(|(key, _)| key == k).map_or_else(|| k.to_string(), |(_, t)| tr(t))).collect()
     }
 
+    /// The range of the How many (0) and Steps (1) boxes.
+    fn number_range(&self, which: usize) -> (i64, i64) {
+        let burst_max = self.effective_caps().burst_max;
+        if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.min(30).max(2)) }
+    }
+
+    /// What the box shows for the value it holds.
+    fn number_text(&self, which: usize) -> String {
+        let (min, max) = self.number_range(which);
+        let (key, default) = if which == 0 { ("burst", 5) } else { ("focus_steps", 5) };
+        int(&self.choices, key, default).clamp(min, max).to_string()
+    }
+
+    /// Puts a box back to `text`, as a QSpinBox does with a key it refuses or text it can't keep.
+    fn restore_number(&mut self, host: &mut dyn Host, which: usize, text: String) {
+        self.sync[which] += 1;
+        let name = if which == 0 { "burst" } else { "focus" };
+        host.set_ui_props("card", &json!({format!("{name}-restore"): text, format!("{name}-sync"): self.sync[which]}));
+    }
+
+    /// Both boxes show their values again (the lens or the settings changed under them).
+    fn sync_numbers(&mut self, host: &mut dyn Host) {
+        for which in 0..2 {
+            self.typing[which] = None;
+            let text = self.number_text(which);
+            self.restore_number(host, which, text);
+        }
+    }
+
+    fn number_edited(&mut self, host: &mut dyn Host, which: usize, text: &str) {
+        let which = which.min(1);
+        let (min, max) = self.number_range(which);
+        match typed_number(text, min, max) {
+            Typed::Acceptable(value) => {
+                self.typing[which] = Some(text.to_string());
+                self.pick_value(host, if which == 0 { "burst" } else { "focus_steps" }, json!(value));
+            }
+            Typed::Intermediate => self.typing[which] = Some(text.to_string()),
+            Typed::Invalid => {
+                let back = self.typing[which].clone().unwrap_or_else(|| self.number_text(which));
+                self.restore_number(host, which, back);
+            }
+        }
+    }
+
+    fn number_left(&mut self, host: &mut dyn Host, which: usize) {
+        let which = which.min(1);
+        self.typing[which] = None;
+        let text = self.number_text(which);
+        self.restore_number(host, which, text);
+    }
+
     /// The controls for what this lens offers, keeping the picks it can't do for another lens (_show_choices).
     fn choice_props(&self) -> Value {
         let caps = self.effective_caps();
@@ -352,16 +470,16 @@ impl PhotosPlugin {
         let extension = EXTENSIONS.contains(&mode);
         let exposure = pick_number(number(c, "exposure_s", 0.0), &can.exposures);
         let quality = int(c, "quality", 95).clamp(50, 100);
-        let burst_max = caps.burst_max.max(2);
-        let focus_max = caps.burst_max.min(30).max(2);
+        let (burst_text, focus_text) = (self.number_text(0), self.number_text(1));
         json!({
+            "burst-restore": burst_text, "burst-sync": self.sync[0], "focus-restore": focus_text, "focus-sync": self.sync[1],
             "mode-items": Self::labelled(&can.modes, &MODES), "mode-current": index_of(&can.modes, mode), "mode-shown": can.modes.len() > 1,
             "format-items": Self::labelled(&can.formats, &FORMATS), "format-current": index_of(&can.formats, format), "format-shown": can.formats.len() > 1,
             "quality": quality, "quality-text": quality.to_string(), "quality-shown": format != "raw",
             "shots-items": Self::labelled(&can.shots, &SHOTS), "shots-current": index_of(&can.shots, shots), "shots-shown": can.shots.len() > 1,
-            "burst-text": int(c, "burst", 5).clamp(2, burst_max).to_string(), "burst-shown": shots == "burst",
+            "burst-text": burst_text, "burst-shown": shots == "burst",
             "bracket-current": BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0), "bracket-shown": shots == "bracket",
-            "focus-text": int(c, "focus_steps", 5).clamp(2, focus_max).to_string(), "focus-shown": shots == "focus",
+            "focus-text": focus_text, "focus-shown": shots == "focus",
             "exposure-items": can.exposures.iter().map(|s| exposure_text(*s)).collect::<Vec<_>>(),
             "exposure-current": can.exposures.iter().position(|s| *s == exposure).unwrap_or(0), "exposure-shown": can.exposures.len() > 1,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
@@ -420,6 +538,7 @@ impl PhotosPlugin {
             self.caps = raw.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok());
             self.caps_raw = raw;
             self.show_choices(host);
+            self.sync_numbers(host);
         }
         self.busy = host.still_busy(None);
         host.set_ui_props("card", &self.state_props(host));
@@ -429,6 +548,7 @@ impl PhotosPlugin {
         if self.pending {
             self.pending = false;
             self.refresh(host);
+            self.sync_numbers(host);
             host.set_ui_props("card", &self.all_props(host));
         }
     }
@@ -484,7 +604,7 @@ impl PhotosPlugin {
         let options = build_options(&caps, &self.choices, Self::rotation(host));
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
-                self.taking = Some(id);
+                self.taking.push(id);
                 self.show_status(host, tr("Taking the photo…"), "status_dim");
                 self.refresh(host);
             }
@@ -578,9 +698,9 @@ impl Plugin for PhotosPlugin {
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
             | Event::StillBusyChanged { .. } => self.refresh(host),
-            Event::RequestProgress { request, data } if Some(*request) == self.taking => self.progress(host, data),
-            Event::RequestDone { request, data, .. } if Some(*request) == self.taking => {
-                self.taking = None;
+            Event::RequestProgress { request, data } if self.taking.contains(request) => self.progress(host, data),
+            Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
+                self.taking.retain(|r| r != request);
                 self.done(host, data);
             }
             Event::RequestDone { request, ok, data, .. } if Some(*request) == self.asked => {
@@ -621,18 +741,8 @@ impl Plugin for PhotosPlugin {
                 host.set_ui_props("card", &json!({"quality-text": value.to_string()}));
                 self.pick_value(host, "quality", json!(value));
             }
-            "number-edited" => {
-                // A spin box takes what's typed once it's a number in range
-                let typed = event.args.get(1).and_then(Value::as_str).unwrap_or("").trim().parse::<i64>();
-                let caps = self.effective_caps();
-                if let Ok(value) = typed {
-                    match index(0) {
-                        0 if (2..=caps.burst_max.max(2)).contains(&value) => self.pick_value(host, "burst", json!(value)),
-                        1 if (2..=caps.burst_max.min(30).max(2)).contains(&value) => self.pick_value(host, "focus_steps", json!(value)),
-                        _ => {}
-                    }
-                }
-            }
+            "number-edited" => self.number_edited(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
+            "number-left" => self.number_left(host, index(0)),
             "timer-picked" => {
                 if let Some(seconds) = TIMERS.get(index(0)) {
                     self.pick_value(host, "timer", json!(seconds));

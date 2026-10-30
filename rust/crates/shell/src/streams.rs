@@ -1067,7 +1067,8 @@ impl FlowHost for Host<'_> {
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
-                                  plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text() };
+                                  plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
+                                  vision: self.w.state.borrow().vision_feed() };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
@@ -1088,6 +1089,9 @@ impl FlowHost for Host<'_> {
         let Some(w) = self.w.shell_worker(&worker) else { return };
         self.w.streams.workers.borrow_mut().retain(|x| x.id != w.id);
         let inner = w.inner.clone();
+        if let (Some(vision), Some(id)) = (self.w.state.borrow().vision.clone(), inner.source_id()) {
+            vision.drop_stream(id);
+        }
         // Off the UI thread, so a stalled read can't freeze the window.
         std::thread::spawn(move || inner.stop());
     }

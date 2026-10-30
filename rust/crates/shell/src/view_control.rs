@@ -72,6 +72,11 @@ impl ViewController {
         ViewController { manual: View::default(), desktop: (1.0, 0.0, 0.0), ..Default::default() }
     }
 
+    /// The share of the zoom the phone was last sent, if any (what feed_raw's frames already have cropped).
+    pub fn sent(&self) -> Option<telescope_core::view::PhoneZoom> {
+        self.sent
+    }
+
     /// The view the frame step draws: this computer's share of the zoom, the rest as asked.
     pub fn shown(&self, view: &View) -> View {
         View { zoom: self.desktop.0 as f32, pan_x: self.desktop.1 as f32, pan_y: self.desktop.2 as f32, ..view.clone() }

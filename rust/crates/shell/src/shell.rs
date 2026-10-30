@@ -263,6 +263,10 @@ pub struct State {
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
     /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
     pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
+    /// Person masks and people (HostVision), None without the vision crate.
+    pub vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
+    /// How the workers turn frames upright for vision, kept up with the view.
+    pub upright: Arc<std::sync::Mutex<telescope_core::vision::Upright>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
     pub window_active: bool,
     /// The Microphone card's (enabled, muted), for the tray's tooltip.
@@ -313,6 +317,8 @@ impl State {
             builtins: Vec::new(),
             problems: BTreeMap::new(),
             frames: None,
+            vision: None,
+            upright: Arc::default(),
             keep_in_tray: false,
             link: None,
             window_active: false,
@@ -556,6 +562,12 @@ impl State {
     /// A stream hook on the named plugins, in registration order.
     pub fn call_hook(&mut self, names: &[String], hook: &crate::stream_flow::Hook) {
         use crate::stream_flow::Hook;
+        if let Hook::FocusGained(info) = hook {
+            // The panels are on this stream now: what's shown says so before the plugins hear of it, as in Python,
+            // where on_focus_gained reads the live focus (streams.rs syncs the rest once the flow is through)
+            self.streams.source_id = Some(info.source_id.clone());
+            self.streams.url = Some(info.url.clone());
+        }
         if names.iter().any(|n| n == "view") {
             let (vc, view, now) = (&mut self.vc, &self.view, now_s());
             let said = match hook {
@@ -584,11 +596,37 @@ impl State {
     }
 
     /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
+    /// What a new worker hands the vision service.
+    pub fn vision_feed(&self) -> Option<crate::worker::VisionFeed> {
+        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone() })
+    }
+
+    /// The view turned or the phone's share changed: frames for vision are turned to match, and tracked people move with it.
+    fn follow_view_for_vision(&mut self) {
+        use telescope_core::vision::Turn;
+        let turn = Turn { flip_h: self.view.flip_h, flip_v: self.view.flip_v, rotation: self.view.rotation };
+        let sent = telescope_core::view::phone_window(self.vc.sent().as_ref());
+        let old = {
+            let mut upright = self.upright.lock().unwrap();
+            let old = upright.turn;
+            *upright = telescope_core::vision::Upright { turn, sent };
+            old
+        };
+        if let Some(vision) = self.vision.as_ref().filter(|_| old != turn) {
+            vision.view_turned(old, turn);
+        }
+    }
+
     pub fn apply_said(&mut self, said: Vec<crate::view_control::Said>) {
         use crate::view_control::Said;
         for s in said {
             match s {
-                Said::Emit(event) => self.bus.emit(event),
+                Said::Emit(event) => {
+                    if matches!(event, Event::ViewChanged { .. }) {
+                        self.follow_view_for_vision();
+                    }
+                    self.bus.emit(event)
+                }
                 Said::Zoom(p) => self.effects.push(Effect::PhoneControl { source_id: None, body: crate::view_control::zoom_body(&p) }),
                 Said::Restep => {
                     if !self.effects.contains(&Effect::FrameStep("view".into())) {
@@ -765,6 +803,15 @@ impl State {
                 if matches!(event, Event::StreamStopped) {
                     self.let_go_of_photos(None);
                 }
+                if let Event::VisionDownloadFinished { error, switch_on } = &event {
+                    // the optional plugin that waited for the download goes on, with no dialog open (VisionDownload._done)
+                    if error.is_empty() && !switch_on.is_empty() {
+                        if let Ok(mut cfg) = self.file.load_strict() {
+                            crate::switches::set_optional_on(&mut cfg, switch_on, true);
+                            self.file.save(&mut cfg);
+                        }
+                    }
+                }
                 self.each(|p, host| p.on_event(host, &event));
             }
             if budget == 0 && !self.bus.is_empty() {
@@ -893,6 +940,9 @@ impl State {
                     Err(_) => lines.push((self.slots[i].info.name.clone(), "couldn't read (panic)".into())),
                 }
             }
+        }
+        if let Some(vision) = &self.vision {
+            lines.extend(vision.diagnostics());
         }
         lines
     }

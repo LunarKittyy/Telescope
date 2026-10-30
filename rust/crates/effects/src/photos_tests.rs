@@ -230,7 +230,7 @@ fn take_photo_sends_the_options_with_the_views_rotation() {
     rig.ui("take-clicked", vec![]);
     let (options, folder) = rig.host.stills_taken[0].clone();
     assert!(folder == "/tmp/photos" && options["rotation"] == 270 && options["format"] == "jpeg");
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "waiting", "countdown_ms": 2400}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("3 s"));
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "capturing", "shots": 5, "taken": 1}) });
@@ -250,7 +250,7 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
     let mut rig = Rig::new(Some(full_json()), true);
     rig.host.window_active = true;
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/IMG_1.jpg"]}) });
     assert_eq!(rig.props()["status"], "Saved IMG_1.jpg");
     assert!(!rig.host.calls.iter().any(|c| c.starts_with("send_notification")));
@@ -260,13 +260,13 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
 fn a_failed_photo_shows_why() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "error": "The phone's camera is off."}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("camera is off"));
     assert_eq!(rig.props()["status-kind"], "status_err");
     // With no reason at all
     rig.ui("take-clicked", vec![]);
-    let id = rig.plugin.taking.unwrap();
+    let id = *rig.plugin.taking.last().unwrap();
     rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
     assert_eq!(rig.props()["status"], "The phone couldn't take the photo.");
 }
@@ -392,4 +392,87 @@ fn the_folder_is_picked_in_a_dialog_and_opened_from_the_last_photo() {
 #[test]
 fn exposures_read_like_the_python_app() {
     assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Like the video", "0.5 s", "8 s"));
+}
+
+#[test]
+fn a_second_phones_photo_does_not_cost_the_first_its_end() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.ui("take-clicked", vec![]);
+    let first = *rig.plugin.taking.last().unwrap();
+    // Another phone is shown now and takes its own photo while the first is still going
+    rig.ui("take-clicked", vec![]);
+    let second = *rig.plugin.taking.last().unwrap();
+    assert_ne!(first, second);
+    rig.event(Event::RequestProgress { request: first, data: json!({"state": "capturing", "shots": 5, "taken": 1}) });
+    assert!(rig.props()["status"].as_str().unwrap().contains("2 of 5"));
+    rig.event(Event::RequestDone { request: first, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/A.jpg"]}) });
+    assert_eq!(rig.props()["status"], "Saved A.jpg");
+    assert!(rig.host.calls.iter().any(|c| c == "send_notification Photo saved"));
+    rig.event(Event::RequestDone { request: second, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/B.jpg"]}) });
+    assert_eq!(rig.props()["status"], "Saved B.jpg");
+    assert!(rig.plugin.taking.is_empty());
+}
+
+// Python (QStandardPaths.PicturesLocation) under a made-up home, for each user-dirs.dirs
+#[test]
+fn the_pictures_folder_is_read_the_way_qt_reads_it() {
+    let home = Path::new("/home/me");
+    let folder = |text: Option<&str>| pictures_in(home, text).display().to_string();
+    assert_eq!(folder(None), "/home/me/Pictures");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/Bilder\"\n")), "/home/me/Bilder");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME\"\n")), "/home/me");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/\"\n")), "/home/me");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"/data/pics\"\n")), "/data/pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"/data/pics/\"\n")), "/data/pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"\"\n")), "\"\"");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"pics\"\n")), "pics");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=$HOME/Q\n")), "/home/me/Q");
+    assert_eq!(folder(Some("  XDG_PICTURES_DIR=\"$HOME/Ind\"\n")), "/home/me/Pictures");
+    assert_eq!(folder(Some("# XDG_PICTURES_DIR=\"$HOME/No\"\nXDG_PICTURES_DIR=\"$HOME/Yes\"\n")), "/home/me/Yes");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOME/One\"\nXDG_PICTURES_DIR=\"$HOME/Two\"\n")), "/home/me/Two");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR=\"$HOMEx/y\"\n")), "/home/mex/y");
+    assert_eq!(folder(Some("XDG_PICTURES_DIR = \"$HOME/Sp\"\n")), "/home/me/Pictures");
+    assert_eq!(folder(Some("XDG_MUSIC_DIR=\"$HOME/Tunes\"\n")), "/home/me/Pictures");
+}
+
+// Typed into a QSpinBox in Python a key at a time: (keys, box 0 or 1, largest burst, value before, text after each key, text after
+// leaving, value after). The first key replaces the selected text.
+type Typing = (&'static str, usize, i64, i64, &'static [&'static str], &'static str, i64);
+const TYPED: [Typing; 14] = [
+    ("100", 0, 60, 5, &["1", "10", "10"], "10", 10),
+    ("1", 0, 60, 5, &["1"], "5", 5),
+    ("61", 0, 60, 5, &["6", "6"], "6", 6),
+    ("0", 0, 60, 5, &["0"], "5", 5),
+    ("a", 0, 60, 5, &["5"], "5", 5),
+    ("1x", 0, 60, 5, &["1", "1"], "5", 5),
+    ("007", 0, 60, 5, &["0", "00", "007"], "7", 7),
+    ("04", 0, 60, 5, &["0", "04"], "4", 4),
+    ("12", 1, 60, 5, &["1", "12"], "12", 12),
+    ("31", 1, 60, 5, &["3", "3"], "3", 3),
+    ("5", 0, 4, 3, &["3"], "3", 3),
+    ("1", 0, 4, 3, &["1"], "3", 3),
+    ("10", 0, 4, 3, &["1", "1"], "3", 3),
+    ("3", 0, 2, 2, &["2"], "2", 2),
+];
+
+#[test]
+fn the_number_boxes_take_keys_the_way_a_spin_box_does() {
+    for (keys, which, burst_max, before, shown, after, value) in TYPED {
+        let mut rig = Rig::new(Some(json!({"size": [1920, 1080], "burst_max": burst_max})), true);
+        rig.plugin.set_config(&json!({"folder": "/tmp/photos", "burst": before, "focus_steps": before})).unwrap();
+        rig.event(Event::PhoneStateUpdated { state: json!({}) });
+        let name = ["burst", "focus"][which];
+        let mut field = String::new();
+        for (n, key) in keys.chars().enumerate() {
+            let at = rig.plugin.sync[which];
+            let typed = if n == 0 { key.to_string() } else { format!("{field}{key}") };
+            rig.ui("number-edited", vec![json!(which), json!(typed)]);
+            field = if rig.plugin.sync[which] > at { rig.props()[format!("{name}-restore")].as_str().unwrap().to_string() } else { typed };
+            assert_eq!(field, shown[n], "{keys:?} after key {n}");
+        }
+        rig.ui("number-left", vec![json!(which)]);
+        assert_eq!(rig.props()[format!("{name}-restore")].as_str().unwrap(), after, "{keys:?} after leaving");
+        let key = ["burst", "focus_steps"][which];
+        assert_eq!(rig.plugin.get_config()[key], value, "{keys:?}");
+    }
 }

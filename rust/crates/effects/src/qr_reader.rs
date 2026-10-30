@@ -2,6 +2,8 @@
 //! one. The picture is looked at on a thread of its own a few times a second; a code only counts once it's been read several
 //! looks in a row at about the same place, and is outlined on the preview while it does.
 
+use crate::cpu::Rgb;
+use crate::imgops;
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -162,24 +164,78 @@ pub fn area_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<
     out
 }
 
-/// The frame as a grey picture the way a viewer sees it (cvtColor BGR2GRAY of what the decoder made): the video's luma stretched to
-/// the full range, or the channels weighted as OpenCV weighs them.
+/// The frame as a grey picture the way Python makes it: the picture the viewer sees (BGR, each channel clipped) and then cvtColor
+/// BGR2GRAY's 15-bit weights, so a dark, saturated video colour comes out as it does there and not as its luma alone.
 pub fn grey_of(frame: &Frame) -> Vec<u8> {
-    let (w, h) = (frame.width as usize, frame.height as usize);
-    match frame.format {
-        PixelFormat::I420 | PixelFormat::Nv12 => frame.data[..w * h].iter().map(|y| ((*y as f32 - 16.0) * 1.164_383).round().clamp(0.0, 255.0) as u8).collect(),
-        PixelFormat::Rgba => frame.data.chunks_exact(4).map(|p| ((4899 * p[0] as u32 + 9617 * p[1] as u32 + 1868 * p[2] as u32 + 8192) >> 14) as u8).collect(),
-        PixelFormat::Bgra => frame.data.chunks_exact(4).map(|p| ((4899 * p[2] as u32 + 9617 * p[1] as u32 + 1868 * p[0] as u32 + 8192) >> 14) as u8).collect(),
-        // A format added later that this can't read: nothing to look at
-        _ => Vec::new(),
+    // A format added later that this can't read: nothing to look at
+    let Some(rgb) = Rgb::from_frame(frame) else { return Vec::new() };
+    rgb.data.chunks_exact(3).map(|p| imgops::grey_of(p[0], p[1], p[2])).collect()
+}
+
+/// What a code's bytes came to once OpenCV had done with them: whatever bytes the decoder wrote, and whether a Kanji segment came first.
+#[derive(Default)]
+struct Payload {
+    bytes: Vec<u8>,
+    writes: usize,
+    kanji_first: bool,
+}
+
+impl std::io::Write for Payload {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        // rqrr writes a Kanji character as one Shift-JIS pair, a byte-mode character alone and Alphanumeric text as ASCII
+        if self.writes == 0 {
+            self.kanji_first = buf.len() == 2 && buf[0] >= 0x80;
+        }
+        self.writes += 1;
+        self.bytes.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
-/// (text, corners 0..1) of a QR code in a grey picture, "" for one seen but not read; None for no code. It looks at the picture as it
-/// is and at half its size, where a big code close up reads better.
-pub fn read_code(grey: &[u8], w: usize, h: usize) -> Option<(String, Corners)> {
+/// A code Python's look dies on (a UnicodeDecodeError in the thread): nothing is reported for it, not even a miss.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Unreadable;
+
+/// Whether OpenCV takes bytes for UTF-8: every lead byte has the continuation bytes it announces (it doesn't mind overlong forms,
+/// surrogates or values past U+10FFFF).
+fn looks_like_utf8(bytes: &[u8]) -> bool {
+    let mut rest = bytes;
+    while let Some((&lead, tail)) = rest.split_first() {
+        let extra = match lead {
+            0x00..=0x7F => 0,
+            0xC0..=0xDF => 1,
+            0xE0..=0xEF => 2,
+            0xF0..=0xF7 => 3,
+            _ => return false,
+        };
+        if tail.len() < extra || tail[..extra].iter().any(|b| b & 0xC0 != 0x80) {
+            return false;
+        }
+        rest = &tail[extra..];
+    }
+    true
+}
+
+/// The text cv2's detectAndDecode gives Python for a code's bytes: OpenCV keeps them when they look like UTF-8 (or open with Kanji,
+/// which it leaves as Shift-JIS) and otherwise reads them as Latin-1, the QR default; Python then takes them as strict UTF-8.
+fn python_text(payload: Payload) -> Result<String, Unreadable> {
+    let bytes = if payload.kanji_first || looks_like_utf8(&payload.bytes) {
+        payload.bytes
+    } else {
+        payload.bytes.iter().map(|b| *b as char).collect::<String>().into_bytes()
+    };
+    String::from_utf8(bytes).map_err(|_| Unreadable)
+}
+
+/// (text, corners 0..1) of a QR code in a grey picture, "" for one seen but not read; None for no code; Unreadable for one Python's
+/// look falls over on. It looks at the picture as it is and at half its size, where a big code close up reads better.
+pub fn try_read_code(grey: &[u8], w: usize, h: usize) -> Result<Option<(String, Corners)>, Unreadable> {
     if w == 0 || h == 0 || grey.len() < w * h {
-        return None;
+        return Ok(None);
     }
     let mut seen = None;
     let half = area_resize(grey, w, h, (w / 2).max(1), (h / 2).max(1));
@@ -197,13 +253,19 @@ pub fn read_code(grey: &[u8], w: usize, h: usize) -> Option<(String, Corners)> {
                 continue;
             }
             let corners: Corners = [0, 1, 2, 3].map(|i| [points[i][0] / iw as f64, points[i][1] / ih as f64]);
-            match grid.decode() {
-                Ok((_, text)) if !text.is_empty() => return Some((text, corners)),
+            let mut payload = Payload::default();
+            match grid.decode_to(&mut payload) {
+                Ok(_) if !payload.bytes.is_empty() => return Ok(Some((python_text(payload)?, corners))),
                 _ => seen = seen.or(Some((String::new(), corners))),
             }
         }
     }
-    seen
+    Ok(seen)
+}
+
+/// try_read_code, with a code Python falls over on counted as no code.
+pub fn read_code(grey: &[u8], w: usize, h: usize) -> Option<(String, Corners)> {
+    try_read_code(grey, w, h).ok().flatten()
 }
 
 /// Whether two quads (0..1) are about the same place: the centre moved less than the code's size.
@@ -301,13 +363,12 @@ impl CpuStep for Reader {
         self.shared.busy.store(true, Ordering::SeqCst);
         let (shared, poster, frame) = (self.shared.clone(), self.poster.clone(), frame.clone());
         let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || {
-            let found = look(&frame);
-            // A miss too, so a code that's gone stops being outlined
-            let data = match found {
-                Some((text, corners)) => json!({"text": text, "corners": corners}),
-                None => json!({"text": "", "corners": null}),
-            };
-            poster.post(POST_FOUND, data);
+            // A miss is reported too, so a code that's gone stops being outlined; a code Python can't read reports nothing
+            match look(&frame) {
+                Ok(Some((text, corners))) => poster.post(POST_FOUND, json!({"text": text, "corners": corners})),
+                Ok(None) => poster.post(POST_FOUND, json!({"text": "", "corners": null})),
+                Err(Unreadable) => {}
+            }
             shared.busy.store(false, Ordering::SeqCst);
         });
         if spawned.is_err() {
@@ -317,15 +378,15 @@ impl CpuStep for Reader {
 }
 
 /// The picture shrunk to `WIDTH` if it's wider, as a grey one, and what's in it.
-fn look(frame: &Frame) -> Option<(String, Corners)> {
+fn look(frame: &Frame) -> Result<Option<(String, Corners)>, Unreadable> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let grey = grey_of(frame);
     let scale = (WIDTH / w as f64).min(1.0);
     if scale < 1.0 {
         let (dw, dh) = ((w as f64 * scale).round() as usize, (h as f64 * scale).round() as usize);
-        read_code(&area_resize(&grey, w, h, dw.max(1), dh.max(1)), dw.max(1), dh.max(1))
+        try_read_code(&area_resize(&grey, w, h, dw.max(1), dh.max(1)), dw.max(1), dh.max(1))
     } else {
-        read_code(&grey, w, h)
+        try_read_code(&grey, w, h)
     }
 }
 

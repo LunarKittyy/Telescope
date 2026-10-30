@@ -19,3 +19,7 @@ ureq = { workspace = true, features = ["platform-verifier"] }
 [dev-dependencies]
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Photos asks for the Pictures known folder, as Qt does
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }

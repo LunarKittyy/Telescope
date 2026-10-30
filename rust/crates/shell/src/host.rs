@@ -356,11 +356,25 @@ impl HostView for Ctx<'_> {
 
 impl HostVision for Ctx<'_> {
     fn vision_state(&self) -> String {
-        "off".into()
+        self.state.vision.as_ref().map_or_else(|| telescope_core::vision::OFF.into(), |v| v.state())
     }
-    fn want_people(&mut self, _owner: &str, _on: bool) {}
-    fn tracked_people(&self, _source_id: Option<&str>) -> (Vec<Value>, u32) {
-        (Vec::new(), 0)
+    fn want_people(&mut self, owner: &str, on: bool) {
+        if let Some(vision) = &self.state.vision {
+            vision.want_people(owner, on);
+        }
+    }
+    fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
+        let Some(vision) = &self.state.vision else { return (Vec::new(), 0) };
+        let id = source_id.map(str::to_string).or_else(|| self.focused_source_id()).unwrap_or_default();
+        vision.tracked_people(&id)
+    }
+    fn vision_pack(&self) -> telescope_core::vision::VisionPack {
+        self.state.vision.as_ref().map(|v| v.pack()).unwrap_or_default()
+    }
+    fn download_vision(&mut self) {
+        if let Some(vision) = &self.state.vision {
+            vision.download("");
+        }
     }
 }
 

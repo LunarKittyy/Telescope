@@ -1,0 +1,24 @@
+[package]
+name = "telescope-vision"
+description = "People in the picture: the vision pack's download, MediaPipe from it, person masks and people for the plugins"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+serde_json.workspace = true
+# MediaPipe's own C library from the vision pack, the same one the Python app's MediaPipe calls
+libloading.workspace = true
+# The pack's checksum (vision_pack.tree_hash)
+ring.workspace = true
+zip.workspace = true
+ureq = { workspace = true, features = ["platform-verifier"] }
+
+# Giving a closed model's memory back to the system (malloc_trim), as the Python app does
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true

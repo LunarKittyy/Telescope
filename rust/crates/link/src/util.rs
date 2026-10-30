@@ -56,6 +56,23 @@ pub fn hostname() -> String {
     std::env::var("COMPUTERNAME").ok().filter(|n| !n.is_empty()).unwrap_or_else(|| "Computer".into())
 }
 
+/// Standard base64 with padding, how the USB pairing offer travels through adb.
+pub fn base64(data: &[u8]) -> String {
+    base64::engine::general_purpose::STANDARD.encode(data)
+}
+
+/// json.dumps(value): the bytes the Python app sends, so the phone traffic matches.
+pub fn python_json(value: &serde_json::Value) -> String {
+    use telescope_core::json::{dumps, Style};
+    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: true })
+}
+
+/// json.dumps(value, ensure_ascii=False), how control bodies go out.
+pub fn python_json_utf8(value: &serde_json::Value) -> String {
+    use telescope_core::json::{dumps, Style};
+    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: false })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,21 +106,4 @@ mod tests {
         assert_eq!(pairing_proof("tok-123", "nonce-abc", "phone-1", &"ab".repeat(32)),
                    "fabf87423641e2c832e78a0385ce388ccadc57e896fe2b028586b22c2873d915");
     }
-}
-
-/// Standard base64 with padding, how the USB pairing offer travels through adb.
-pub fn base64(data: &[u8]) -> String {
-    base64::engine::general_purpose::STANDARD.encode(data)
-}
-
-/// json.dumps(value): the bytes the Python app sends, so the phone traffic matches.
-pub fn python_json(value: &serde_json::Value) -> String {
-    use telescope_core::json::{dumps, Style};
-    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: true })
-}
-
-/// json.dumps(value, ensure_ascii=False), how control bodies go out.
-pub fn python_json_utf8(value: &serde_json::Value) -> String {
-    use telescope_core::json::{dumps, Style};
-    dumps(value, Style { indent: None, sort_keys: false, ensure_ascii: false })
 }
