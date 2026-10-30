@@ -8,3 +8,5 @@ pub mod ws;
 mod server_tests;
 #[cfg(test)]
 mod rtc_tests;
+#[cfg(test)]
+mod page_tests;

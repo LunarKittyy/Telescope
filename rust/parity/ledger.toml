@@ -118,47 +118,47 @@
 "Telescope can't open that picture." = { status = "todo" }
 "Without it there's no Background card and the background stays as the camera sees it." = { status = "todo" }
 # ── browser_camera
-"A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning." = { status = "todo" }
-"Address" = { status = "todo" }
-"Browser" = { status = "todo" }
-"Browser camera" = { status = "todo" }
-"Browser camera isn't available" = { status = "todo" }
-"Browser, last connected {date}" = { status = "todo" }
+"A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Address" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Browser camera" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Browser camera isn't available" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Browser, last connected {date}" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Can't keep up" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Cancel" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
-"Connected" = { status = "todo" }
-"Copy" = { status = "todo" }
-"Copy the link, to open it on a device that can't scan the code" = { status = "todo" }
-"Couldn't start: {error}" = { status = "todo" }
+"Connected" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Copy" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Copy the link, to open it on a device that can't scan the code" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Couldn't start: {error}" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Frame rate" = { status = "ported", rust = "rust/crates/outputs/ui/stream_output.slint" }
-"Keep the page open with the screen on: phones pause the camera when you leave the browser." = { status = "todo" }
-"Link" = { status = "todo" }
-"Make a new code; the old one stops working" = { status = "todo" }
-"Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt" = { status = "todo" }
-"Needs the cryptography package: pip install cryptography" = { status = "todo" }
-"New link" = { status = "todo" }
-"No microphone: {problem}" = { status = "todo" }
-"Nothing has reached this computer yet. Check that the device is on the same network as the address in the code, and that the firewall allows port {port}." = { status = "todo" }
+"Keep the page open with the screen on: phones pause the camera when you leave the browser." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Link" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Make a new code; the old one stops working" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt" = { status = "dropped", reason = "WebRTC is built into the Rust app (str0m)" }
+"Needs the cryptography package: pip install cryptography" = { status = "dropped", reason = "the certificate is made with ring, built into the Rust app" }
+"New link" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"No microphone: {problem}" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Nothing has reached this computer yet. Check that the device is on the same network as the address in the code, and that the firewall allows port {port}." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Resolution" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"Scan" = { status = "todo" }
-"Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects." = { status = "todo" }
-"Streaming from any device's web browser, by scanning a code." = { status = "todo" }
-"The browser is lowering the picture to fit the connection or the bitrate for this resolution." = { status = "todo" }
-"The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed." = { status = "todo" }
-"The device's browser can't send any faster." = { status = "todo" }
-"The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate." = { status = "todo" }
-"The size the browser sends; a camera that can't do it sends what it can" = { status = "todo" }
-"Try a lower resolution or frame rate on the Browser camera card." = { status = "todo" }
-"Waiting for a browser" = { status = "todo" }
-"Which of this computer's addresses the code points to" = { status = "todo" }
-"Without it Browser camera isn't in the phone picker and its card is gone too." = { status = "todo" }
-"not streaming" = { status = "todo" }
+"Scan" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Streaming from any device's web browser, by scanning a code." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"The browser is lowering the picture to fit the connection or the bitrate for this resolution." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"The device's browser can't send any faster." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"The size the browser sends; a camera that can't do it sends what it can" = { status = "todo", note = "a ChoiceField tooltip; ui-kit has no tip on ChoiceField yet" }
+"Try a lower resolution or frame rate on the Browser camera card." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Waiting for a browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Which of this computer's addresses the code points to" = { status = "todo", note = "a ChoiceField tooltip; ui-kit has no tip on ChoiceField yet" }
+"Without it Browser camera isn't in the phone picker and its card is gone too." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"not streaming" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "{label}: {value}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"{n} connected" = { status = "todo" }
-"{size} at {fps} fps" = { status = "todo" }
+"{n} connected" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"{size} at {fps} fps" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 # ── browser_server
-"This computer couldn't set up the video connection." = { status = "todo" }
-"Waiting for the browser. Scan the code on the Browser camera card and tap Start." = { status = "todo" }
+"This computer couldn't set up the video connection." = { status = "ported", rust = "rust/crates/link/src/browser/server.rs" }
+"Waiting for the browser. Scan the code on the Browser camera card and tap Start." = { status = "ported", rust = "rust/crates/link/src/browser/server.rs" }
 # ── camera_control
 "Auto" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
 "Black level lock" = { status = "ported", rust = "rust/crates/shell/ui/cards/camera.slint" }
@@ -2241,78 +2241,78 @@
 # ── bench_frames
 "test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "todo", note = "times the effects plugins as well; a Rust benchmark fits once the effects are ported (media has an ignored decode_speed bench in h264.rs)" }
 # ── browser_camera
-"test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "todo" }
-"test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "todo" }
-"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "todo" }
-"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "todo" }
-"test_browser_camera.py::test_a_new_link_ends_the_streams_it_cuts_off_without_starting_another" = { status = "todo" }
-"test_browser_camera.py::test_a_saved_source_selection_is_restored" = { status = "todo" }
-"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "todo" }
-"test_browser_camera.py::test_a_stopped_browser_waits_until_it_connects_again" = { status = "todo" }
-"test_browser_camera.py::test_a_streaming_browser_that_drops_stays_until_it_comes_back" = { status = "todo" }
-"test_browser_camera.py::test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" = { status = "todo" }
-"test_browser_camera.py::test_browsers_let_in_during_a_start_dont_outnumber_the_cameras" = { status = "todo" }
-"test_browser_camera.py::test_capture_settings_go_to_every_page_and_stream" = { status = "todo" }
-"test_browser_camera.py::test_card_shows_the_firewall_hint_once_the_wait_is_long" = { status = "todo" }
-"test_browser_camera.py::test_closing_the_waiting_tile_or_the_banner_hides_the_code" = { status = "todo" }
-"test_browser_camera.py::test_config_falls_back_on_bad_values" = { status = "todo" }
-"test_browser_camera.py::test_diagnostics_say_how_far_browsers_got_but_never_name_the_device" = { status = "todo" }
-"test_browser_camera.py::test_each_browser_streams_by_itself_to_a_camera_of_its_own" = { status = "todo" }
-"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "todo" }
-"test_browser_camera.py::test_falling_behind_points_at_its_own_resolution_and_frame_rate" = { status = "todo" }
-"test_browser_camera.py::test_feed_drops_frames_from_a_replaced_browser" = { status = "todo" }
-"test_browser_camera.py::test_no_room_means_no_feed" = { status = "todo" }
-"test_browser_camera.py::test_offers_a_picker_entry_that_waits_for_a_browser" = { status = "todo" }
-"test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked" = { status = "todo" }
-"test_browser_camera.py::test_picking_it_runs_the_server_and_shows_the_code" = { status = "todo" }
-"test_browser_camera.py::test_sending_text_says_codec_size_and_rate_once_known" = { status = "todo" }
-"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "todo" }
-"test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked" = { status = "todo" }
-"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "todo" }
-"test_browser_camera.py::test_the_card_shows_the_browser_the_panels_show" = { status = "todo" }
-"test_browser_camera.py::test_the_server_stays_up_while_a_browser_streams_behind_another" = { status = "todo" }
-"test_browser_camera.py::test_two_browsers_of_one_kind_are_told_apart_in_the_picker" = { status = "todo" }
-"test_browser_camera.py::test_waiting_hint_points_at_the_step_that_failed" = { status = "todo" }
-"test_browser_camera.py::test_without_aiortc_it_says_so_and_start_fails" = { status = "todo" }
-"test_browser_camera.py::test_without_cryptography_it_says_so_and_start_fails" = { status = "todo" }
+"test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" }
+"test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_stopped_here_leaves_room_for_another" }
+"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_a_new_link_ends_the_streams_it_cuts_off_without_starting_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_new_link_ends_the_streams_it_cuts_off_without_starting_another" }
+"test_browser_camera.py::test_a_saved_source_selection_is_restored" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_saved_source_selection_is_restored" }
+"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_a_stopped_browser_waits_until_it_connects_again" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_stopped_browser_waits_until_it_connects_again" }
+"test_browser_camera.py::test_a_streaming_browser_that_drops_stays_until_it_comes_back" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_streaming_browser_that_drops_stays_until_it_comes_back" }
+"test_browser_camera.py::test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" }
+"test_browser_camera.py::test_browsers_let_in_during_a_start_dont_outnumber_the_cameras" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::browsers_let_in_during_a_start_dont_outnumber_the_cameras" }
+"test_browser_camera.py::test_capture_settings_go_to_every_page_and_stream" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::capture_settings_go_to_every_page_and_stream" }
+"test_browser_camera.py::test_card_shows_the_firewall_hint_once_the_wait_is_long" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::card_shows_the_firewall_hint_once_the_wait_is_long" }
+"test_browser_camera.py::test_closing_the_waiting_tile_or_the_banner_hides_the_code" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::closing_the_waiting_tile_or_the_banner_hides_the_code" }
+"test_browser_camera.py::test_config_falls_back_on_bad_values" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::config_falls_back_on_bad_values" }
+"test_browser_camera.py::test_diagnostics_say_how_far_browsers_got_but_never_name_the_device" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::diagnostics_say_how_far_browsers_got_but_never_name_the_device" }
+"test_browser_camera.py::test_each_browser_streams_by_itself_to_a_camera_of_its_own" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::each_browser_streams_by_itself_to_a_camera_of_its_own" }
+"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_falling_behind_points_at_its_own_resolution_and_frame_rate" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::falling_behind_points_at_its_own_resolution_and_frame_rate" }
+"test_browser_camera.py::test_feed_drops_frames_from_a_replaced_browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::feed_drops_frames_from_a_replaced_browser" }
+"test_browser_camera.py::test_no_room_means_no_feed" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::no_room_means_no_feed" }
+"test_browser_camera.py::test_offers_a_picker_entry_that_waits_for_a_browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::offers_a_picker_entry_that_waits_for_a_browser" }
+"test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::phone_only_cards_hide_while_a_source_is_picked", note = "the Camera card's half; the Microphone card's is the audio crate's" }
+"test_browser_camera.py::test_picking_it_runs_the_server_and_shows_the_code" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::picking_it_runs_the_server_and_shows_the_code" }
+"test_browser_camera.py::test_sending_text_says_codec_size_and_rate_once_known" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::sending_text_says_codec_size_and_rate_once_known" }
+"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::sources_are_listed_after_the_phones_and_can_be_picked" }
+"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "todo", note = "needs the shell's stream flow with a plugin source (rust-shell's crate)" }
+"test_browser_camera.py::test_the_card_shows_the_browser_the_panels_show" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_card_shows_the_browser_the_panels_show" }
+"test_browser_camera.py::test_the_server_stays_up_while_a_browser_streams_behind_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_server_stays_up_while_a_browser_streams_behind_another" }
+"test_browser_camera.py::test_two_browsers_of_one_kind_are_told_apart_in_the_picker" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::two_browsers_of_one_kind_are_told_apart_in_the_picker" }
+"test_browser_camera.py::test_waiting_hint_points_at_the_step_that_failed" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::waiting_hint_points_at_the_step_that_failed" }
+"test_browser_camera.py::test_without_aiortc_it_says_so_and_start_fails" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::without_aiortc_it_says_so_and_start_fails", note = "WebRTC is built in; the test is a server that won't start" }
+"test_browser_camera.py::test_without_cryptography_it_says_so_and_start_fails" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::without_cryptography_it_says_so_and_start_fails", note = "the certificate is built in; the test is a server that can't be made" }
 # ── browser_page
-"test_browser_page.py::test_every_scenario_is_run" = { status = "todo" }
-"test_browser_page.py::test_page_scenario" = { status = "todo" }
+"test_browser_page.py::test_every_scenario_is_run" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::every_scenario_is_run" }
+"test_browser_page.py::test_page_scenario" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::page_scenario" }
 # ── browser_rtc
-"test_browser_rtc.py::test_a_browser_over_webrtc_reaches_the_reader_and_the_mic" = { status = "todo" }
-"test_browser_rtc.py::test_an_offer_without_a_codec_this_computer_decodes_is_refused" = { status = "todo" }
-"test_browser_rtc.py::test_answer_codec_is_the_first_video_codec" = { status = "todo" }
-"test_browser_rtc.py::test_max_kbps_follows_size_and_rate_within_bounds" = { status = "todo" }
-"test_browser_rtc.py::test_tune_answer_sets_the_bitrates_on_video_codecs_only" = { status = "todo" }
+"test_browser_rtc.py::test_a_browser_over_webrtc_reaches_the_reader_and_the_mic" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::a_browser_over_webrtc_reaches_the_reader_and_the_mic" }
+"test_browser_rtc.py::test_an_offer_without_a_codec_this_computer_decodes_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::an_offer_without_a_codec_this_computer_decodes_is_refused" }
+"test_browser_rtc.py::test_answer_codec_is_the_first_video_codec" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::answer_codec_is_the_first_video_codec" }
+"test_browser_rtc.py::test_max_kbps_follows_size_and_rate_within_bounds" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::max_kbps_follows_size_and_rate_within_bounds" }
+"test_browser_rtc.py::test_tune_answer_sets_the_bitrates_on_video_codecs_only" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::tune_answer_sets_the_bitrates_on_video_codecs_only" }
 # ── browser_server
-"test_browser_server.py::test_a_browser_with_no_room_is_told_every_camera_is_taken" = { status = "todo" }
-"test_browser_server.py::test_a_new_link_drops_the_browser_and_the_old_token" = { status = "todo" }
-"test_browser_server.py::test_a_new_offer_replaces_the_connection_before_it" = { status = "todo" }
-"test_browser_server.py::test_a_newer_browser_takes_over_and_the_older_is_told" = { status = "todo" }
-"test_browser_server.py::test_a_quiet_page_that_answers_pings_stays_and_one_that_doesnt_goes" = { status = "todo" }
-"test_browser_server.py::test_a_taken_port_is_logged_and_shown" = { status = "todo" }
-"test_browser_server.py::test_accept_key_matches_the_rfc_example" = { status = "todo" }
-"test_browser_server.py::test_an_offer_is_answered_and_the_browsers_video_and_mic_come_out" = { status = "todo" }
-"test_browser_server.py::test_an_offer_that_cant_be_answered_tells_the_page_and_the_card" = { status = "todo" }
-"test_browser_server.py::test_an_unreadable_certificate_is_replaced" = { status = "todo" }
-"test_browser_server.py::test_audio_worker_plays_the_browsers_mic" = { status = "todo" }
-"test_browser_server.py::test_capture_changes_reach_a_connected_page" = { status = "todo" }
-"test_browser_server.py::test_certificate_is_kept_until_it_nears_its_end" = { status = "todo" }
-"test_browser_server.py::test_each_browser_gets_a_feed_of_its_own" = { status = "todo" }
-"test_browser_server.py::test_fragmented_messages_and_pings_are_handled" = { status = "todo" }
-"test_browser_server.py::test_mic_is_refused_with_the_browsers_reason" = { status = "todo" }
-"test_browser_server.py::test_reader_waits_for_a_browser_and_says_what_its_waiting_for" = { status = "todo" }
-"test_browser_server.py::test_server_frames_use_the_right_length_encoding" = { status = "todo" }
-"test_browser_server.py::test_serves_the_page_and_its_script" = { status = "todo" }
-"test_browser_server.py::test_stats_count_each_step_a_browser_gets_to" = { status = "todo" }
-"test_browser_server.py::test_stop_ends_a_connected_browser" = { status = "todo" }
-"test_browser_server.py::test_stream_worker_sends_browser_frames_to_the_virtual_camera" = { status = "todo" }
-"test_browser_server.py::test_the_page_hears_which_camera_it_streams_to" = { status = "todo" }
-"test_browser_server.py::test_the_pages_stats_reach_the_card_cleaned_up" = { status = "todo" }
-"test_browser_server.py::test_the_reader_hands_over_only_the_newest_frame" = { status = "todo" }
-"test_browser_server.py::test_unmask_is_its_own_inverse_at_any_length" = { status = "todo" }
-"test_browser_server.py::test_url_carries_the_token_after_the_hash" = { status = "todo" }
-"test_browser_server.py::test_wrong_token_is_refused" = { status = "todo" }
+"test_browser_server.py::test_a_browser_with_no_room_is_told_every_camera_is_taken" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::a_browser_with_no_room_is_told_every_camera_is_taken" }
+"test_browser_server.py::test_a_new_link_drops_the_browser_and_the_old_token" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::a_new_link_drops_the_browser_and_the_old_token" }
+"test_browser_server.py::test_a_new_offer_replaces_the_connection_before_it" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::a_new_offer_replaces_the_connection_before_it" }
+"test_browser_server.py::test_a_newer_browser_takes_over_and_the_older_is_told" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::a_newer_browser_takes_over_and_the_older_is_told" }
+"test_browser_server.py::test_a_quiet_page_that_answers_pings_stays_and_one_that_doesnt_goes" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::a_quiet_page_that_answers_pings_stays_and_one_that_doesnt_goes" }
+"test_browser_server.py::test_a_taken_port_is_logged_and_shown" = { status = "ported", rust = "rust/crates/link/src/web_tests.rs::a_taken_port_falls_back_to_a_free_one" }
+"test_browser_server.py::test_accept_key_matches_the_rfc_example" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::accept_key_matches_the_rfc_example" }
+"test_browser_server.py::test_an_offer_is_answered_and_the_browsers_video_and_mic_come_out" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::an_offer_is_answered_and_the_browsers_video_and_mic_come_out" }
+"test_browser_server.py::test_an_offer_that_cant_be_answered_tells_the_page_and_the_card" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::an_offer_that_cant_be_answered_tells_the_page_and_the_card" }
+"test_browser_server.py::test_an_unreadable_certificate_is_replaced" = { status = "ported", rust = "rust/crates/link/src/web_tests.rs::an_unreadable_certificate_is_replaced" }
+"test_browser_server.py::test_audio_worker_plays_the_browsers_mic" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::audio_worker_plays_the_browsers_mic" }
+"test_browser_server.py::test_capture_changes_reach_a_connected_page" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::capture_changes_reach_a_connected_page" }
+"test_browser_server.py::test_certificate_is_kept_until_it_nears_its_end" = { status = "ported", rust = "rust/crates/link/src/web_tests.rs::the_certificate_is_kept_until_it_nears_its_end" }
+"test_browser_server.py::test_each_browser_gets_a_feed_of_its_own" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::each_browser_gets_a_feed_of_its_own" }
+"test_browser_server.py::test_fragmented_messages_and_pings_are_handled" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::fragmented_messages_and_pings_are_handled" }
+"test_browser_server.py::test_mic_is_refused_with_the_browsers_reason" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::mic_is_refused_with_the_browsers_reason" }
+"test_browser_server.py::test_reader_waits_for_a_browser_and_says_what_its_waiting_for" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::reader_waits_for_a_browser_and_says_what_its_waiting_for" }
+"test_browser_server.py::test_server_frames_use_the_right_length_encoding" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::server_frames_use_the_right_length_encoding" }
+"test_browser_server.py::test_serves_the_page_and_its_script" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::serves_the_page_and_its_script" }
+"test_browser_server.py::test_stats_count_each_step_a_browser_gets_to" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::stats_count_each_step_a_browser_gets_to" }
+"test_browser_server.py::test_stop_ends_a_connected_browser" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::stop_ends_a_connected_browser" }
+"test_browser_server.py::test_stream_worker_sends_browser_frames_to_the_virtual_camera" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::stream_worker_sends_browser_frames_to_the_virtual_camera" }
+"test_browser_server.py::test_the_page_hears_which_camera_it_streams_to" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::the_page_hears_which_camera_it_streams_to" }
+"test_browser_server.py::test_the_pages_stats_reach_the_card_cleaned_up" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::the_pages_stats_reach_the_card_cleaned_up" }
+"test_browser_server.py::test_the_reader_hands_over_only_the_newest_frame" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::the_reader_hands_over_only_the_newest_frame", note = "frames stay encoded in Rust, so a reader that falls behind starts again at the next keyframe instead" }
+"test_browser_server.py::test_unmask_is_its_own_inverse_at_any_length" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::unmask_is_its_own_inverse_at_any_length" }
+"test_browser_server.py::test_url_carries_the_token_after_the_hash" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::url_carries_the_token_after_the_hash" }
+"test_browser_server.py::test_wrong_token_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::wrong_token_is_refused" }
 # ── camera
 "test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads" = { status = "todo" }
 "test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "todo" }
@@ -5443,10 +5443,10 @@
 "device.background.mode" = { status = "todo" }
 "device.background.picture" = { status = "todo" }
 # ── browser_camera
-"global.browser_camera.address" = { status = "todo" }
-"global.browser_camera.fps" = { status = "todo" }
-"global.browser_camera.known" = { status = "todo" }
-"global.browser_camera.size" = { status = "todo" }
+"global.browser_camera.address" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"global.browser_camera.fps" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"global.browser_camera.known" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"global.browser_camera.size" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 # ── camera_control
 "device.camera_control.ae_comp" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "device.camera_control.bll" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
@@ -5861,7 +5861,7 @@
 # ── background
 "folder:telescope/plugins/background.py:_choose_picture:Path.home" = { status = "todo" }
 # ── browser_server
-"port:telescope/browser_server.py:BROWSER_PORT=8767" = { status = "todo" }
+"port:telescope/browser_server.py:BROWSER_PORT=8767" = { status = "ported", rust = "rust/crates/link/src/browser/server.rs" }
 # ── chroma_key
 "folder:telescope/plugins/chroma_key.py:_choose_picture:Path.home" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── colour_grading
