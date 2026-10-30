@@ -378,6 +378,8 @@ export component PluginsPanel inherits VerticalLayout {
     // Something has been added, so there are no instructions to show, and the update switches that go with it
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
+    // What each of All, On and Off is called to a screen reader ("Show: On")
+    in property <[string]> filter-names;
     callback switched(string, bool);
     callback removed(string);
     callback remove-pack;
@@ -439,7 +441,7 @@ export component PluginsPanel inherits VerticalLayout {
                     border-radius: 6px;
                     background: i == filter ? (seg.has-hover ? Theme.fill-hover : Theme.fill) : seg.has-hover ? Theme.surface-hover : transparent;
                     accessible-role: tab;
-                    accessible-label: label;
+                    accessible-label: filter-names[i];
                     accessible-checked: i == filter;
                     accessible-action-default => { filter = i; root.filter-changed(); }
                     seg := TouchArea { clicked => { filter = i; root.filter-changed(); } }

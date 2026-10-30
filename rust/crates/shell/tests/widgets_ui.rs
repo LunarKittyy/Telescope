@@ -7,7 +7,7 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, SwitchTile, Segmented, Slider, Tag, FormRow, Button } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, SwitchTile, Segmented, Slider, Tag, FormRow, Button, TipBody } from "@ui-kit/ui-kit.slint";
 export { Theme }
 export component Test inherits Window {
     width: 420px;
@@ -40,6 +40,12 @@ export component Test inherits Window {
         Button { text: "Frame rate"; clicked => { pressed = "Frame rate"; } }
         Button { text: "Bitrate"; clicked => { pressed = "Bitrate"; } }
     }
+    short-tip := TipBody { says: "Settings"; visible: false; }
+    long-tip := TipBody { says: "All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself"; visible: false; }
+    out property <length> short-tip-width: short-tip.preferred-width;
+    out property <length> short-tip-height: short-tip.preferred-height;
+    out property <length> long-tip-width: long-tip.preferred-width;
+    out property <length> long-tip-height: long-tip.preferred-height;
     tag-measure := Text { text: "Experimental"; font-size: 11px; font-weight: 600; font-family: Theme.font; visible: false; }
 }
 "#;
@@ -153,4 +159,16 @@ fn separator_and_all_known_vector_icons_are_constructible() {
         let image = slint::Image::load_from_path(&path).unwrap_or_else(|_| panic!("{file} doesn't load"));
         assert!(image.size().width > 0 && image.size().height > 0, "{file} is empty");
     }
+}
+
+// test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line
+#[test]
+fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
+    let ui = rig();
+    let (short_w, short_h) = (num(&ui, "short-tip-width"), num(&ui, "short-tip-height"));
+    let (long_w, long_h) = (num(&ui, "long-tip-width"), num(&ui, "long-tip-height"));
+    // About 64 characters to a line: the long one stops at a readable width and grows downwards, none of it cut off
+    assert!(long_w <= 470.0 + 16.0 + 1.0 && long_w > short_w, "{long_w} wide");
+    assert!(short_w < 120.0, "a short one hugs its text: {short_w}");
+    assert!(long_h >= short_h + 2.0 * 15.0, "several lines: {long_h} against {short_h}");
 }

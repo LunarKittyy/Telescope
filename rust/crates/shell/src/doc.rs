@@ -538,6 +538,7 @@ export component TelescopeSettings inherits Window {
     in property <string> footer-note;
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
+    in property <[string]> filter-names;
     callback plugin-switched(string, bool);
     callback plugin-removed(string);
     callback remove-pack;
@@ -629,6 +630,7 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
             columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
             has-added: root.has-added;
             update-rows: root.update-rows;
+            filter-names: root.filter-names;
             switched(name, on) => { root.plugin-switched(name, on); }
             removed(name) => { root.plugin-removed(name); }
             remove-pack => { root.remove-pack(); }

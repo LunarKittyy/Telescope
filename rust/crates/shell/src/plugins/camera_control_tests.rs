@@ -599,6 +599,40 @@ fn lens_labels_become_tiles() {
     assert_eq!(split_lens_label("Main"), ("Main".into(), String::new(), String::new()));
 }
 
+// tests/test_widgets.py::test_ns_to_display
+#[test]
+fn ns_to_display_reads_exposure_times() {
+    for (value, expected) in [(0, "?"), (-1, "?"), (1_000_000_000, "1.0 s"), (2_500_000_000, "2.5 s"), (500_000_000, "1/2"), (1_000_000, "1/1,000")] {
+        assert_eq!(ns_to_display(value), expected, "{value}");
+    }
+}
+
+// tests/test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal
+#[test]
+fn integer_log_slider_syncs_slider_spin_and_signal() {
+    let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
+    row.set_value(100.0);
+    assert!(close(row.get_value(), 100.0, 0.01));
+    assert_eq!(row.spin, 100.0);
+    assert_eq!(row.text(), "ISO 100");
+    row.pos = LOG_STEPS;
+    assert!(close(row.get_value(), 1000.0, 0.001));
+    assert_eq!(row.to_spin(row.get_value()), 1000.0);
+}
+
+// tests/test_widgets.py::test_log_slider_range_and_enabled_state
+#[test]
+fn log_slider_range_and_enabled_state() {
+    let mut row = LogRow::new(10.0, 1000.0, 1.0, false, false);
+    row.set_value(100.0);
+    row.set_range(20.0, 2000.0);
+    row.enabled = false;
+    assert_eq!((row.v_min, row.v_max), (20.0, 2000.0));
+    assert_eq!((row.to_spin(1.0), row.to_spin(1e9)), (20.0, 2000.0));
+    assert!(!row.enabled);
+    assert!(close(row.get_value(), 100.0, 0.01));
+}
+
 // tests/test_widgets.py::test_empty_lenses_show_a_placeholder
 #[test]
 fn empty_lenses_show_a_placeholder() {

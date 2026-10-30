@@ -518,9 +518,11 @@ impl Settings {
     pub fn entries(&self) -> Vec<Entry> {
         let mut out = Vec::new();
         for (t, (tab, name)) in self.tabs.iter().enumerate() {
+            // The Plugins tab and each of its groups are also found by what people call plugins
+            let words = if tab == "plugins" { plugins_tab::search_keywords() } else { String::new() };
             let base = Entry {
                 tab: tab.clone(), tab_name: name.clone(), card: String::new(), name: name.clone(), detail: String::new(),
-                keywords: String::new(), extra: String::new(), card_keywords: String::new(), tab_keywords: String::new(),
+                keywords: String::new(), extra: String::new(), card_keywords: String::new(), tab_keywords: words.clone(),
                 card_entry: true, tab_entry: true, target: (0.0, 0.0, 0.0, 0.0),
             };
             out.push(base.clone());
@@ -547,6 +549,8 @@ impl Settings {
                     card: if kind == "card" { label.clone() } else { card },
                     name: label,
                     detail: e.accessible_description().unwrap_or_default().to_string(),
+                    keywords: if kind == "card" { words.clone() } else { String::new() },
+                    card_keywords: words.clone(),
                     card_entry: kind == "card",
                     tab_entry: false,
                     target: r,
@@ -662,6 +666,8 @@ impl Settings {
                        &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
         ]).collect();
         let _ = self.ui.set_property("update-rows", model(rows));
+        let names: Vec<SValue> = ["All", "On", "Off"].iter().map(|w| s(&fill(&tr("Show: {which}"), &[("which", &telescope_core::i18n::tr_ctx("plugins", w))]))).collect();
+        let _ = self.ui.set_property("filter-names", model(names));
         let _ = self.plugins_tab;
     }
 
