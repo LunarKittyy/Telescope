@@ -338,10 +338,11 @@ fn user_name() -> String {
         unsafe {
             let uid = libc::getuid();
             let entry = libc::getpwuid(uid);
-            if !entry.is_null() {
-                return std::ffi::CStr::from_ptr((*entry).pw_name).to_string_lossy().into_owned();
+            if entry.is_null() {
+                uid.to_string()
+            } else {
+                std::ffi::CStr::from_ptr((*entry).pw_name).to_string_lossy().into_owned()
             }
-            return uid.to_string();
         }
     }
     #[cfg(not(unix))]

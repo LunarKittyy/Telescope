@@ -260,7 +260,7 @@ impl Worker {
             log::info!("Couldn't register with the desktop portal as {}: {e}", self.app_id);
         }
         let version = self.call(conn, BUS_NAME, PORTAL_PATH, "org.freedesktop.DBus.Properties", "Get", &(SHORTCUTS, "version"))
-            .and_then(|reply| reply.body().deserialize::<OwnedValue>().map_err(Into::into))
+            .and_then(|reply| reply.body().deserialize::<OwnedValue>())
             .ok()
             .and_then(|v| match &*v { Value::U32(n) => Some(*n), Value::Value(inner) => u32::try_from(inner.as_ref()).ok(), _ => None });
         let Some(version) = version else {
@@ -392,7 +392,7 @@ impl Worker {
     /// Plasma lists every shortcut a session ever bound, greyed out once none does: drop the ones no session has now.
     fn forget_unbound(&self, conn: &Connection) {
         let component = self.call(conn, KGLOBALACCEL, "/kglobalaccel", "org.kde.KGlobalAccel", "getComponent", &(self.app_id.as_str(),))
-            .and_then(|reply| reply.body().deserialize::<zbus::zvariant::OwnedObjectPath>().map_err(Into::into));
+            .and_then(|reply| reply.body().deserialize::<zbus::zvariant::OwnedObjectPath>());
         let done = component.and_then(|path| self.call(conn, KGLOBALACCEL, path.as_str(), "org.kde.kglobalaccel.Component", "cleanUp", &()));
         if let Err(e) = done {
             // Not Plasma, or nothing stored under this id yet
@@ -575,8 +575,8 @@ mod tests {
                 respond(&handle, 0, HashMap::from([("session_handle", Value::from(session))]));
             }
             "BindShortcuts" => {
-                let (_, shortcuts, _, opts): (ObjectPath, Vec<(String, HashMap<String, OwnedValue>)>, String, HashMap<String, OwnedValue>) =
-                    body.deserialize().unwrap();
+                type Bind<'a> = (ObjectPath<'a>, Vec<(String, HashMap<String, OwnedValue>)>, String, HashMap<String, OwnedValue>);
+                let (_, shortcuts, _, opts): Bind = body.deserialize().unwrap();
                 let handle = format!("{PORTAL_PATH}/request/{sender}/{}", text(&opts["handle_token"]).unwrap());
                 let first = shortcuts.first().map(|(id, p)| format!("{id} {} {}", text(&p["description"]).unwrap_or_default(),
                                                                     p.get("preferred_trigger").and_then(|v| text(v)).unwrap_or_default()));

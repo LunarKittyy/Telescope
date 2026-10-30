@@ -218,7 +218,7 @@ pub fn desktop_folders() -> Vec<PathBuf> {
 }
 
 fn utf16_text(bytes: &[u8]) -> String {
-    let units: Vec<u16> = bytes.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+    let units: Vec<u16> = bytes.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes(*c)).collect();
     String::from_utf16_lossy(&units).to_lowercase()
 }
 
@@ -655,7 +655,7 @@ mod tests {
         let seen = RefCell::new(Vec::new());
         let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
         let locate = || Some(new.clone());
-        install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: &[desktop.clone()] }).unwrap();
+        install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: std::slice::from_ref(&desktop) }).unwrap();
         assert_eq!(seen.borrow().last().map(String::as_str), Some("/MERGETASKS=desktopicon"));
         assert_eq!(shortcuts_to(&old.join(EXE_NAME), &[desktop]).len(), 1);
         std::fs::remove_dir_all(&root).unwrap();
@@ -667,7 +667,7 @@ mod tests {
         let exe = root.join("Åsa").join(EXE_NAME);
         let bytes: Vec<u8> = std::iter::once(0u8).chain(exe.to_string_lossy().encode_utf16().flat_map(u16::to_le_bytes)).collect();
         std::fs::write(root.join("a.lnk"), bytes).unwrap();
-        assert_eq!(shortcuts_to(&exe, &[root.clone()]).len(), 1);
+        assert_eq!(shortcuts_to(&exe, std::slice::from_ref(&root)).len(), 1);
         std::fs::remove_dir_all(&root).unwrap();
     }
 
@@ -734,7 +734,7 @@ mod tests {
         write(&old.join(".update-staging/x"), "x");
         let desktop = root.join("Desktop");
         write(&desktop.join("Telescope.lnk"), &old.join(EXE_NAME).to_string_lossy());
-        assert!(remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[desktop.clone()]));
+        assert!(remove_unzipped_copy(&old, &new, 1, Duration::ZERO, std::slice::from_ref(&desktop)));
         assert!(!old.exists());
         assert!(!desktop.join("Telescope.lnk").exists(), "it started the exe that just went");
         std::fs::remove_dir_all(&root).unwrap();

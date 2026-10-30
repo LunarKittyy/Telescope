@@ -422,7 +422,7 @@ fn a_desktop_shortcut_to_the_old_copy_gets_the_installed_one_s_in_its_place() {
     let dead = link_to(&desktop.join("TelescopeDesktop.exe - Shortcut.lnk"), &old.join(EXE_NAME).to_string_lossy().to_uppercase());
     let other = link_to(&desktop.join("Notes.lnk"), &root.join("notes.exe").to_string_lossy());
     let run = Run::ok();
-    install(&run, &root.join("s.exe"), &old, Some(inst.clone()), &[desktop.clone()]).unwrap();
+    install(&run, &root.join("s.exe"), &old, Some(inst.clone()), std::slice::from_ref(&desktop)).unwrap();
     assert_eq!(run.calls.borrow()[0].last().unwrap(), "/MERGETASKS=desktopicon");
     assert!(removing(&old, &inst, 20, &Held::new(&[]), &[desktop], root.join("adb")));
     assert!(!dead.exists() && other.exists());
@@ -434,7 +434,7 @@ fn no_desktop_shortcut_means_no_desktop_icon() {
     let (inst, old) = (installed(&root), root.join("Telescope"));
     std::fs::create_dir_all(&old).unwrap();
     let run = Run::ok();
-    install(&run, &root.join("s.exe"), &old, Some(inst), &[root.clone()]).unwrap();
+    install(&run, &root.join("s.exe"), &old, Some(inst), std::slice::from_ref(&root)).unwrap();
     assert!(!run.calls.borrow()[0].contains(&"/MERGETASKS=desktopicon".to_string()));
 }
 
@@ -465,8 +465,8 @@ fn shortcuts_are_found_whatever_the_case_and_encoding_of_the_path() {
         bytes.extend(encode(&exe.to_string_lossy().to_uppercase()));
         bytes.extend([0, 0]);
         write(&root.join("x.lnk"), &bytes);
-        assert_eq!(shortcuts_to(&exe, &[root.clone()]), [root.join("x.lnk")]);
-        assert!(shortcuts_to(&root.join("Other").join(EXE_NAME), &[root.clone()]).is_empty());
+        assert_eq!(shortcuts_to(&exe, std::slice::from_ref(&root)), [root.join("x.lnk")]);
+        assert!(shortcuts_to(&root.join("Other").join(EXE_NAME), std::slice::from_ref(&root)).is_empty());
     }
 }
 
