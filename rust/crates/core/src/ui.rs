@@ -135,6 +135,10 @@ pub struct KeyInput {
     pub typing: bool,
     /// A dialog or menu is open over the window.
     pub modal: bool,
+    /// The key's scan code where the system gives one, 0 when not. A shifted key can come up as another key once Shift is let go
+    /// first, so a release is matched to its press by this too.
+    #[serde(default)]
+    pub scan: u32,
 }
 
 /// A problem banner above the body (telescope.widgets.banner.Issue).

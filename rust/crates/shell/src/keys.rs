@@ -16,7 +16,7 @@ pub fn key_input(event: &SValue, released: bool, typing: bool, modal: bool) -> K
         Some(SValue::Struct(m)) => (flag(m, "control"), flag(m, "alt"), flag(m, "shift"), flag(m, "meta")),
         _ => (false, false, false, false),
     };
-    KeyInput { text, ctrl, alt, shift, meta, repeat: flag(e, "repeat"), released, typing, modal }
+    KeyInput { text, ctrl, alt, shift, meta, repeat: flag(e, "repeat"), released, typing, modal, scan: 0 }
 }
 
 impl Window {
