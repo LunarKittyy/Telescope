@@ -198,7 +198,7 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
     });
     let extra = if card.region == Region::Center { mode_expr(|m| format!("root.extra{}", place(m).0)) } else { "0px".into() };
     format!(
-        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: {key};\n                hue: Theme.plugin-hue({cat});\n            }}\n",
+        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n            }}\n",
         key = quote(&card.fold_key),
         cat = quote(&card.category),
     )
@@ -255,6 +255,8 @@ export component TelescopeWindow inherits Window {
     property <length> view-h: max(0px, root.height - 40px - body-top - 32px);
     property <length> body-w: max(0px, root.width - 32px);
     out property <length> content-height: max(col0-pref, max(col1-pref, col2-pref));
+    // False for a card shown on its own (the card scenes), which doesn't fold
+    in property <bool> card-folds: true;
     out property <length> view-top: body-top + 16px;
     out property <length> view-height: view-h;
 

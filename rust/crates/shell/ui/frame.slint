@@ -173,11 +173,11 @@ export component Footer inherits Rectangle {
     }
 }
 
-// QPushButton#banner_action.
+// QPushButton#banner_action: min-height 30px inside its 1px border.
 component BannerButton inherits Rectangle {
     in property <string> text;
     callback clicked;
-    height: 30px;
+    height: 32px;
     width: label.preferred-width + 26px;
     border-radius: 8px;
     border-width: 1px;

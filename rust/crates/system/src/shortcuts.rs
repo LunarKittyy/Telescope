@@ -894,6 +894,9 @@ impl ShortcutsPlugin {
             let items: Vec<String> = options.into_iter().map(|(_, l)| l).collect();
             Some(json!({"label": p["label"], "number": false, "items": items, "current": current.unwrap_or(0), "text": "", "shown": shown(p, &e.params)}))
         }).collect()).unwrap_or_default();
+        // Hidden ones are left out rather than shrunk (a shrunk row still gets the form's spacing); `at` keeps each one's place
+        let params: Vec<Value> = params.into_iter().enumerate().filter(|(_, p)| p["shown"] == true)
+            .map(|(i, mut p)| { p["at"] = json!(i); p }).collect();
         let (problem, blocking) = self.editor_problem(e, listed.len());
         let hold = e.params.get("mode").and_then(Value::as_str) == Some("hold");
         json!({

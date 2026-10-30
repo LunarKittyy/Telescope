@@ -171,11 +171,11 @@ fn services(link: SceneLink) -> Arc<Services> {
     })
 }
 
-/// translation_scenes_window.turned_off on the wide window.
+/// translation_scenes_window.turned_off on the wide window, started through load_plugins (loaded_window).
 fn turned_off(names: &[&str]) -> Setup {
     let mut config = main_window_config(true);
     config["plugins"] = json!({"off": names});
-    Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+    Setup { every_optional: false, ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0) }
 }
 
 /// Never checks: the scenes show the card before its first check.

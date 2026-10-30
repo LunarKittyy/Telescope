@@ -21,6 +21,8 @@ export struct ParamRow {
     current: int,
     text: string,
     shown: bool,
+    // Its place among the action's settings, which the callbacks name it by
+    at: int,
 }
 
 component Note inherits Text {
@@ -297,9 +299,7 @@ export component ShortcutsSettings inherits VerticalLayout {
                         picked(i) => { root.control-picked(i); }
                     }
                 }
-                for p[i] in params: FormRow {
-                    visible: p.shown;
-                    height: p.shown ? max(self.preferred-height, self.min-height) : 0px;
+                for p in params: FormRow {
                     label: p.label;
                     if !p.number: ChoiceField {
                         compact: true;
@@ -307,15 +307,15 @@ export component ShortcutsSettings inherits VerticalLayout {
                         caption: p.label;
                         items: p.items;
                         current: p.current;
-                        picked(c) => { root.param-picked(i, c); }
+                        picked(c) => { root.param-picked(p.at, c); }
                     }
                     if p.number: TextField {
                         y: (parent.height - self.height) / 2;
                         horizontal-stretch: 1;
                         text: p.text;
                         label: p.label;
-                        edited(t) => { root.param-edited(i, t); }
-                        step(d) => { root.param-step(i, d); }
+                        edited(t) => { root.param-edited(p.at, t); }
+                        step(d) => { root.param-step(p.at, d); }
                     }
                 }
                 FormRow {

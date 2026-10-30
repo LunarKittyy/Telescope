@@ -578,6 +578,7 @@ impl Window {
 
     /// Hides every card but plugin's, so it alone sits at the top of its column; false when the plugin has no card.
     pub fn only_card(&self, plugin: &str) -> bool {
+        let _ = self.ui.set_property("card-folds", SValue::Bool(false));
         let mut found = false;
         for r in self.pieces.iter().filter(|r| r.ui == "card") {
             found |= r.plugin == plugin;

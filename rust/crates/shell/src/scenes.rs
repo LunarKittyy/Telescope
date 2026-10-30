@@ -62,12 +62,15 @@ pub struct Setup {
     pub plugins: Option<fn(&telescope_core::BusSender) -> Vec<Box<dyn Plugin>>>,
     /// Called once the window has settled, to do what the Python scene does after building it.
     pub then: Option<Box<dyn FnOnce(&std::rc::Rc<window::Window>)>>,
+    /// Start every optional plugin, as translation_scenes.main_window registers them all; false for a scene built through
+    /// load_plugins (loaded_window), where only the ones switched on start.
+    pub every_optional: bool,
 }
 
 impl Setup {
     /// The main window at width with this config.
     pub fn window(services: Option<Arc<Services>>, config: Value, width: f32, height: f32) -> Setup {
-        Setup { services, config, width, height, page: Page::Window, plugins: None, then: None }
+        Setup { services, config, width, height, page: Page::Window, plugins: None, then: None, every_optional: true }
     }
 }
 
@@ -133,7 +136,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     std::fs::write(&path, serde_json::to_vec_pretty(&setup.config).unwrap_or_default()).map_err(|e| e.to_string())?;
     let services = setup.services.clone();
     let own = setup.plugins;
-    EVERY_OPTIONAL.with(|e| e.set(true));
+    EVERY_OPTIONAL.with(|e| e.set(setup.every_optional));
     let w = window::build(ConfigFile::at(path), |bus| {
         if let Some(own) = own {
             return own(bus);
