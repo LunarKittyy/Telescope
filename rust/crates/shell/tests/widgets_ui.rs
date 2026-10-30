@@ -7,12 +7,17 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, SwitchTile, Segmented, Slider, Tag, FormRow, Button, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, TipBody } from "@ui-kit/ui-kit.slint";
 export { Theme }
 export component Test inherits Window {
     width: 420px;
     height: 500px;
     in-out property <bool> notify;
+    // What a plugin says, bound one way into the widgets below
+    in property <float> zoom: 1;
+    in property <bool> flag;
+    in property <int> mode;
+    in property <bool> second-tile-on;
     in-out property <string> pressed;
     out property <length> tag-width: tag.width;
     out property <length> tag-label-width: tag-measure.preferred-width;
@@ -30,7 +35,11 @@ export component Test inherits Window {
             label: "Zoom";
             Slider { label: "Zoom"; readout: "1.0x"; }
         }
-        SwitchTile { text: "Notify"; icon: Icons.bell; checked <=> notify; }
+        SwitchTile { text: "Notify"; icon: Icons.bell; checked: notify; }
+        Slider { label: "Bound zoom"; minimum: 0; maximum: 10; value: zoom; width: 300px; }
+        Switch { label: "Bound flag"; checked: flag; }
+        SwitchTile { text: "Bound tile"; icon: Icons.bell; checked: second-tile-on; }
+        Segmented { label: "Bound mode"; items: ["a", "b", "c"]; current: mode; }
         tag := Tag { text: "Experimental"; }
         Rectangle { width: 200px; height: 40px; Segmented { label: "Seg"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         HorizontalLayout {
@@ -103,7 +112,7 @@ fn a_switch_toggles_from_anywhere_on_its_row() {
     window.dispatch_event(WindowEvent::PointerMoved { position });
     window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
     window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
-    assert_eq!(ui.get_property("notify").unwrap(), Value::Bool(true));
+    assert_eq!(tile.accessible_checked(), Some(true));
 }
 
 #[test]
@@ -124,7 +133,7 @@ fn tab_follows_the_layout_not_the_order_widgets_were_made() {
     let tab_to_light = ui.get_property("pressed").unwrap();
     let _ = tab_to_light;
     let mut order = Vec::new();
-    for _ in 0..8 {
+    for _ in 0..20 {
         ui.set_property("pressed", Value::String("".into())).unwrap();
         key(&ui, "\t");
         key(&ui, " ");
@@ -182,4 +191,84 @@ fn a_picked_segment_keeps_room_for_its_bold_text() {
     let ui = rig();
     let segment = labelled(&ui, "Seg: Tap a point").into_iter().next().expect("the middle segment");
     assert!(segment.size().width as f64 >= num(&ui, "bold-width") + 16.0, "{} against {}", segment.size().width, num(&ui, "bold-width") + 16.0);
+}
+
+fn value_of(ui: &ComponentInstance, label: &str) -> String {
+    labelled(ui, label).into_iter().find_map(|e| e.accessible_value()).map(|v| v.to_string()).unwrap_or_default()
+}
+
+fn click(ui: &ComponentInstance, e: &ElementHandle) {
+    let (p, s) = (e.absolute_position(), e.size());
+    let position = LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0);
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+    ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+}
+
+fn settle(ui: &ComponentInstance) {
+    slint::platform::update_timers_and_animations();
+    let _ = ui;
+}
+
+#[test]
+fn a_slider_dragged_by_hand_still_follows_the_value_bound_to_it() {
+    let ui = rig();
+    assert_eq!(value_of(&ui, "Bound zoom"), "1");
+    let slider = labelled(&ui, "Bound zoom").into_iter().find(|e| e.accessible_value().is_some()).unwrap();
+    let (p, s) = (slider.absolute_position(), slider.size());
+    let y = p.y + s.height / 2.0;
+    let window = ui.window();
+    for x in [p.x + 40.0, p.x + 90.0, p.x + 150.0] {
+        let position = LogicalPosition::new(x, y);
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+        if x == p.x + 40.0 {
+            window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+        }
+    }
+    window.dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(p.x + 150.0, y), button: PointerEventButton::Left });
+    settle(&ui);
+    let dragged: f64 = value_of(&ui, "Bound zoom").parse().unwrap();
+    assert!(dragged > 3.0, "the handle went with the hand: {dragged}");
+    // The plugin then says another value (a scroll zoom, a preset): the handle goes there
+    ui.set_property("zoom", Value::Number(2.0)).unwrap();
+    settle(&ui);
+    assert_eq!(value_of(&ui, "Bound zoom"), "2");
+    ui.set_property("zoom", Value::Number(9.0)).unwrap();
+    settle(&ui);
+    assert_eq!(value_of(&ui, "Bound zoom"), "9");
+}
+
+#[test]
+fn a_switch_clicked_by_hand_still_follows_the_value_bound_to_it() {
+    let ui = rig();
+    let switch = labelled(&ui, "Bound flag").into_iter().find(|e| e.accessible_checkable() == Some(true)).unwrap();
+    click(&ui, &switch);
+    assert_eq!(switch.accessible_checked(), Some(true));
+    ui.set_property("flag", Value::Bool(true)).unwrap();
+    settle(&ui);
+    ui.set_property("flag", Value::Bool(false)).unwrap();
+    settle(&ui);
+    assert_eq!(switch.accessible_checked(), Some(false));
+    // A tile the same
+    let tile = labelled(&ui, "Bound tile").into_iter().find(|e| e.accessible_checkable() == Some(true)).unwrap();
+    key(&ui, "\t");
+    click(&ui, &tile);
+    assert_eq!(tile.accessible_checked(), Some(true));
+    ui.set_property("second-tile-on", Value::Bool(true)).unwrap();
+    settle(&ui);
+    ui.set_property("second-tile-on", Value::Bool(false)).unwrap();
+    settle(&ui);
+    assert_eq!(tile.accessible_checked(), Some(false));
+}
+
+#[test]
+fn a_segment_picked_by_hand_still_follows_the_value_bound_to_it() {
+    let ui = rig();
+    let checked = |name: &str| labelled(&ui, name).into_iter().next().and_then(|e| e.accessible_checked());
+    assert_eq!(checked("Bound mode: a"), Some(true));
+    click(&ui, &labelled(&ui, "Bound mode: b").into_iter().next().unwrap());
+    assert_eq!((checked("Bound mode: a"), checked("Bound mode: b")), (Some(false), Some(true)));
+    ui.set_property("mode", Value::Number(2.0)).unwrap();
+    settle(&ui);
+    assert_eq!((checked("Bound mode: b"), checked("Bound mode: c")), (Some(false), Some(true)));
 }

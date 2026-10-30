@@ -16,7 +16,17 @@ export component Segmented inherits Rectangle {
     in property <[image]> icons;
     in property <[bool]> has-icons;
     in property <string> label;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
     in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
@@ -30,8 +40,8 @@ export component Segmented inherits Rectangle {
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
-            if (e.text == Key.LeftArrow && current > 0 && !disabled[current - 1]) { current -= 1; picked(current); return accept; }
-            if (e.text == Key.RightArrow && current < items.length - 1 && !disabled[current + 1]) { current += 1; picked(current); return accept; }
+            if (e.text == Key.LeftArrow && shown > 0 && !disabled[shown - 1]) { pick(shown - 1); return accept; }
+            if (e.text == Key.RightArrow && shown < items.length - 1 && !disabled[shown + 1]) { pick(shown + 1); return accept; }
             reject
         }
     }
@@ -50,7 +60,7 @@ export component Segmented inherits Rectangle {
         padding: 3px;
         spacing: 2px;
         for item[i] in items: seg := Rectangle {
-            property <bool> on: i == current;
+            property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
             // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end
@@ -69,8 +79,7 @@ export component Segmented inherits Rectangle {
                 mouse-cursor: off ? default : pointer;
                 clicked => {
                     if (!off) {
-                        current = i;
-                        picked(i);
+                        pick(i);
                     }
                 }
             }
