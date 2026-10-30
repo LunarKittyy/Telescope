@@ -19,6 +19,8 @@ pub enum Pressed {
 
 impl Banners {
     pub fn show(&mut self, key: &str, issue: Issue) {
+        let line = if issue.text.is_empty() { format!("Banner: {}", issue.title) } else { format!("Banner: {}. {}", issue.title, issue.text) };
+        telescope_core::diagnostics::events().note(&line);
         self.shown.retain(|(k, _)| k != key);
         self.shown.push((key.to_string(), issue));
     }

@@ -1195,6 +1195,34 @@ mod tests {
     }
 
     #[test]
+    fn copy_diagnostics_has_the_build_the_state_and_what_happened() {
+        use telescope_core::diagnostics::events;
+        use telescope_core::host::HostShell;
+        struct Reports;
+        impl Plugin for Reports {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "reports".into(), title: "Reports".into(), ..Default::default() }
+            }
+            fn diagnostics(&self) -> Vec<(String, String)> {
+                vec![("Reports".into(), "fine".into())]
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Reports)).unwrap();
+        s.register(stub("asks", json!({}), false).0).unwrap();
+        events().note("Status: a line from before");
+        s.banners.show("k", telescope_core::ui::Issue {
+            title: "Phone hot".into(), text: "Let it cool".into(), actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false,
+        });
+        let i = s.index("asks").unwrap();
+        let mut report = String::new();
+        s.call(i, |_, host| report = host.diagnostics_report());
+        assert!(report.starts_with("Telescope "), "{report}");
+        assert!(report.contains("Reports: fine") && report.contains("Status: a line from before"), "{report}");
+        assert!(report.contains("Banner: Phone hot. Let it cool"), "{report}");
+    }
+
+    #[test]
     fn a_saved_config_that_wont_load_keeps_the_fields_that_do() {
         let mut s = state();
         s.register(stub("setup", json!({"zoom": 1, "canvas": "auto"}), false).0).unwrap();

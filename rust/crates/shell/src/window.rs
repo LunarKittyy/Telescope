@@ -10,6 +10,7 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use telescope_core::config::ConfigFile;
@@ -1021,6 +1022,7 @@ impl Window {
             Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
             Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),
+            Effect::Restart => self.restart_app(),
             Effect::Tray(_) => self.refresh_tray_menu(),
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
@@ -1109,6 +1111,20 @@ impl Window {
         let _ = self.ui.set_property("streaming", SValue::Bool(true));
     }
 
+    /// restart_app: the launcher starts a supervised copy again from its exit code; any other starts a new copy of itself,
+    /// which waits for this one to let go.
+    fn restart_app(&self) {
+        if telescope_core::dev_profile::supervised() {
+            EXIT_CODE.store(restart_exit_code(self.is_streaming()), Ordering::SeqCst);
+            return self.quit("Restarting");
+        }
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned());
+        match exe.and_then(|exe| telescope_system::update_guard::launch(&[exe, "--restarted".to_string()])) {
+            Ok(()) => self.quit("Restarting"),
+            Err(e) => log::error!("Couldn't start Telescope again: {e}"),
+        }
+    }
+
     pub fn shut_down(self: &Rc<Self>) {
         self.stop_streams_for_quit();
         if self.save_timer.running() {
@@ -1138,6 +1154,29 @@ pub fn forget() {
 }
 
 /// The window, until it's closed.
+/// What the process should exit with once run() is back, for the dev launcher.
+static EXIT_CODE: AtomicI32 = AtomicI32::new(0);
+
+pub fn exit_code() -> i32 {
+    EXIT_CODE.load(Ordering::SeqCst)
+}
+
+fn restart_exit_code(streaming: bool) -> i32 {
+    use telescope_core::dev_profile::{RESTART_EXIT, RESTART_STREAMING};
+    if streaming { RESTART_STREAMING } else { RESTART_EXIT }
+}
+
+/// QApplication.platformName, for the diagnostics report.
+pub(crate) fn windowing() -> &'static str {
+    if cfg!(windows) {
+        "windows"
+    } else if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        "wayland"
+    } else {
+        "x11"
+    }
+}
+
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
     let window = build(ConfigFile::default(), |bus| {
@@ -1219,6 +1258,11 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
 
 #[cfg(test)]
 mod popout_tests {
+    #[test]
+    fn a_restart_tells_the_dev_launcher_whether_to_stream_again() {
+        assert_eq!((super::restart_exit_code(false), super::restart_exit_code(true)), (75, 76));
+    }
+
     #[test]
     fn the_pop_out_compiles() {
         i_slint_backend_testing::init_no_event_loop();

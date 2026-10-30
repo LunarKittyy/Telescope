@@ -587,6 +587,7 @@ impl Window {
 
     /// _set_status: only trouble gets a colour.
     pub fn set_status(&self, msg: &str, kind: &str) {
+        telescope_core::diagnostics::events().note(&format!("Status: {msg}"));
         if let Some((timer, _, _)) = self.streams.reconnecting.borrow().as_ref() {
             timer.stop();
         }
@@ -597,6 +598,7 @@ impl Window {
 
     /// Reconnecting status with its dots counting up once a second.
     fn start_reconnecting_animation(self: &Rc<Self>, base: &str) {
+        telescope_core::diagnostics::events().note(&format!("Status: {base}"));
         let render = |w: &Window, base: &str, dots: u32| {
             w.set("status-kind", "status_warn");
             w.set("status", format!("{base}{}", ".".repeat(dots as usize)));

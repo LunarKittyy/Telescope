@@ -7,6 +7,7 @@ publish.workspace = true
 
 [dependencies]
 telescope-core.workspace = true
+telescope-system.workspace = true
 serde_json.workspace = true
 log.workspace = true
 # unstable-wgpu-30 and femtovg on wgpu: the preview hands Slint textures media painted on its device; unstable-winit-030 for the keys' scan codes
