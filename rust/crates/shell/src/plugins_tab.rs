@@ -11,7 +11,9 @@ use std::sync::{Arc, Mutex};
 use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
 use telescope_core::vision::VisionService;
-use telescope_plugin_host::package::{InstallError, PluginFolder};
+use telescope_core::config::ConfigFile;
+use telescope_plugin_host::package::{dev_plugin_folders, InstallError, PluginFolder};
+use telescope_plugin_host::switches::Switches;
 use telescope_plugin_host::switches::{AUTO_UPDATE, CHECK_UPDATES};
 use telescope_plugin_host::updater::PluginUpdater;
 use telescope_plugin_host::updates::Release;
@@ -31,6 +33,13 @@ pub fn group_icon(group: &str) -> &'static str {
         "streaming" => "v_stream",
         _ => "plug",
     }
+}
+
+/// The names of the plugins in the plugins folder next to the settings file, and any being written: what isn't built in.
+pub fn added_names(config_file: &Path) -> BTreeSet<String> {
+    let folder = config_file.parent().map(|p| p.join("plugins")).unwrap_or_else(|| PathBuf::from("plugins"));
+    PluginFolder::new(folder, Switches::new(ConfigFile::at(config_file)), []).with_dev_folders(dev_plugin_folders())
+        .find_installed().into_iter().map(|i| i.name).collect()
 }
 
 /// The words the settings search finds the Plugins tab and its groups by.
