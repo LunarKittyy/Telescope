@@ -727,3 +727,38 @@ fn phone_only_cards_hide_while_a_source_is_picked() {
     r.event(Event::SourceSelected { source_id: String::new() });
     assert_eq!((r.props()["phone-only-hidden"].clone(), r.props()["active"].clone()), (json!(false), json!(false)));
 }
+
+// Sol's review, finding 1: the panels go A, B, A through the real window state, which tells the plugins about a focus
+// change before it updates its own picture of what's shown (streams.rs syncs it once the flow is through)
+#[test]
+fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
+    use crate::stream_flow::Hook;
+    let path = telescope_core::testing::scratch_dir("camera-focus").join("telescope_config.json");
+    let mut state = crate::shell::State::new(telescope_core::config::ConfigFile::at(&path));
+    state.register(Box::new(CameraControl::new())).unwrap();
+    let names = vec!["camera_control".to_string()];
+    let info = |sid: &str| StreamInfo { source_id: sid.into(), url: format!("http://{sid}/") };
+    let lens = |max: i64| json!({"cameras": [{"id": "0", "label": "Back", "current": true, "isoMin": 50, "isoMax": max}],
+                                 "auto": false, "iso": max});
+    let i = state.index("camera_control").unwrap();
+    (state.streams.streaming, state.streams.source_id) = (true, Some("A".into()));
+    state.call_hook(&names, &Hook::StreamStart(info("A")));
+    state.call(i, |p, host| p.on_phone_state(host, &lens(10000)));
+    // A to B: the window's snapshot still says A while both hooks run
+    state.call_hook(&names, &Hook::FocusLost);
+    state.call_hook(&names, &Hook::FocusGained(info("B")));
+    state.streams.source_id = Some("B".into());
+    state.call(i, |p, host| p.on_phone_state(host, &lens(6400)));
+    // B to A, the same way round
+    state.call_hook(&names, &Hook::FocusLost);
+    state.effects.clear();
+    state.call_hook(&names, &Hook::FocusGained(info("A")));
+    state.streams.source_id = Some("A".into());
+    let sent: Vec<String> = state.effects.iter().filter_map(|e| match e {
+        crate::shell::Effect::PhoneControl { body, .. } => Some(body.to_string()),
+        _ => None,
+    }).collect();
+    assert!(sent.is_empty(), "A still has its settings, yet these went: {sent:?}");
+    let iso = state.plugin_config("camera_control").unwrap()["iso"].as_f64().unwrap();
+    assert!(iso > 9000.0, "A's ISO came back clamped to B's range: {iso}");
+}

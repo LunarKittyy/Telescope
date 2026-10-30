@@ -550,6 +550,12 @@ impl State {
     /// A stream hook on the named plugins, in registration order.
     pub fn call_hook(&mut self, names: &[String], hook: &crate::stream_flow::Hook) {
         use crate::stream_flow::Hook;
+        if let Hook::FocusGained(info) = hook {
+            // The panels are on this stream now: what's shown says so before the plugins hear of it, as in Python,
+            // where on_focus_gained reads the live focus (streams.rs syncs the rest once the flow is through)
+            self.streams.source_id = Some(info.source_id.clone());
+            self.streams.url = Some(info.url.clone());
+        }
         if names.iter().any(|n| n == "view") {
             let (vc, view, now) = (&mut self.vc, &self.view, now_s());
             let said = match hook {
