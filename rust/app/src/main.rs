@@ -15,6 +15,7 @@
 //! the lock, --moved-from FOLDER is taken and ignored until the updater is ported.
 
 mod cli;
+mod confirm;
 mod scenes;
 
 use std::path::PathBuf;
@@ -264,18 +265,15 @@ fn main() {
         Some("control") => cli::control(&args, &services(None, remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
-            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false))
+            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
         None => match take_lock(wait_for_lock, &remote) {
             Some(()) => {
-                std::thread::spawn(|| {
-                    std::thread::sleep(STARTED_FINE);
-                    started_fine();
-                });
-                let result = telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized));
-                started_fine();
-                result
+                let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
+                confirm::run_confirming(STARTED_FINE, confirm, |shown| {
+                    telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized, Some(shown)))
+                })
             }
             None => Ok(()),
         },

@@ -22,6 +22,16 @@ use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
 use telescope_core::{BusSender, Frame, PixelFormat};
 
+/// Called once when the window has been shown (or put in the tray), before the event loop runs.
+#[derive(Clone)]
+pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
+
+impl std::fmt::Debug for ShownHook {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ShownHook")
+    }
+}
+
 /// How the window streams, from the command line.
 #[derive(Clone, Debug)]
 pub struct WindowOptions {
@@ -37,6 +47,8 @@ pub struct WindowOptions {
     pub snapshot: Option<String>,
     /// --minimized: start in the tray (minimized where there's none).
     pub minimized: bool,
+    /// Runs once the window is up, for the app to start counting towards confirming an update.
+    pub on_shown: Option<ShownHook>,
 }
 
 /// Which element of the document a plugin's piece of UI is.
@@ -819,6 +831,9 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.start_hidden();
     } else {
         window.show_window();
+    }
+    if let Some(hook) = &opts.on_shown {
+        (hook.0)();
     }
     let weak = Rc::downgrade(&window);
     window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));
