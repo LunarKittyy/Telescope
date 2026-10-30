@@ -11,6 +11,7 @@ pub mod compositor;
 pub mod cpu;
 pub mod cube;
 pub mod desk;
+pub mod face_exposure;
 pub mod framing;
 pub mod fun_effects;
 pub mod fun_pack;
