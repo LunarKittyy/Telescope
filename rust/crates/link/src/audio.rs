@@ -1,12 +1,12 @@
 //! The phone's microphone as it arrives (/v1/audio: 48 kHz mono s16le), for the audio crate's worker (audio.py's
 //! reading half), and the reason the phone gives when it won't send it.
 
-use crate::https::{PhoneAuth, Request, Response};
+use crate::https::{Aborter, PhoneAuth, Request, Response};
 use std::io::Read;
 use std::time::Duration;
 use telescope_core::audio::{AudioFeed, AudioPacket};
 use telescope_core::i18n::tr;
-use telescope_core::media::FeedEnd;
+use telescope_core::media::{FeedEnd, FeedStopper};
 
 const OPEN_TIMEOUT: Duration = Duration::from_secs(5);
 const READ_SIZE: usize = 4096;
@@ -24,6 +24,16 @@ impl AudioFeed for AudioStream {
             Ok(n) => Ok(AudioPacket { data: self.buf[..n].to_vec(), time_ns: telescope_core::time::monotonic_ns() }),
             Err(e) => Err(FeedEnd::Error(e.to_string())),
         }
+    }
+
+    fn stopper(&self) -> Option<Box<dyn FeedStopper>> {
+        Some(Box::new(self.resp.aborter()))
+    }
+}
+
+impl FeedStopper for Aborter {
+    fn stop(&self) {
+        self.abort();
     }
 }
 
@@ -67,6 +77,28 @@ mod tests {
     use super::*;
     use crate::https::testing::*;
     use std::sync::Arc;
+
+    #[test]
+    fn stopping_ends_a_read_on_a_silent_phone() {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().unwrap();
+            let _ = conn.read(&mut [0u8; 1024]);
+            conn.write_all(b"HTTP/1.1 200 OK\r\n\r\n").unwrap();
+            std::thread::sleep(Duration::from_secs(10));
+        });
+        let mut feed = open_audio(&format!("http://127.0.0.1:{port}/v1/audio"), &PhoneAuth::new("t", "")).unwrap();
+        let stopper = feed.stopper().unwrap();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            stopper.stop();
+        });
+        let started = std::time::Instant::now();
+        assert!(feed.read().is_err());
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
 
     #[test]
     fn the_microphone_streams_its_pcm_with_the_token() {
