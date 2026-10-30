@@ -4679,10 +4679,10 @@
 "test_widgets.py::test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin" = { status = "todo" }
 "test_widgets.py::test_eliding_label_keeps_its_full_text_available" = { status = "todo" }
 "test_widgets.py::test_empty_lenses_show_a_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::empty_lenses_show_a_placeholder" }
-"test_widgets.py::test_fit_on_screen_leaves_a_popup_that_fits_alone" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_shrinks_only_when_taller_than_the_screen" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_slides_popup_down_without_shrinking" = { status = "todo" }
-"test_widgets.py::test_fit_on_screen_slides_popup_up_off_the_bottom" = { status = "todo" }
+"test_widgets.py::test_fit_on_screen_leaves_a_popup_that_fits_alone" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_shrinks_only_when_taller_than_the_screen" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_slides_popup_down_without_shrinking" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
+"test_widgets.py::test_fit_on_screen_slides_popup_up_off_the_bottom" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
 "test_widgets.py::test_flow_layout_wraps_and_reports_height_for_width" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_focus_ring_shows_after_tab_and_not_after_a_click" = { status = "todo" }
 "test_widgets.py::test_form_labels_are_left_aligned" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
@@ -4708,7 +4708,7 @@
 "test_widgets.py::test_slider_fill_doesnt_stick_out_past_the_handle_at_zero" = { status = "todo" }
 "test_widgets.py::test_stretch_slider_sets_a_floor_not_a_fixed_width" = { status = "todo" }
 "test_widgets.py::test_tab_follows_the_layout_not_the_order_widgets_were_made" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::tab_follows_the_layout_not_the_order_widgets_were_made" }
-"test_widgets.py::test_tab_in_a_dialog_stops_on_every_option_of_a_group" = { status = "todo" }
+"test_widgets.py::test_tab_in_a_dialog_stops_on_every_option_of_a_group" = { status = "dropped", reason = "Qt only: Qt's own focus chain skips all but one button of an exclusive group, which the theme's style had to undo; a Slint item with a FocusScope is always a Tab stop" }
 "test_widgets.py::test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::turning_plugin_colours_off_repaints_every_card_in_the_app_purple" }
 "test_widgets.py::test_uniform_flow_divides_each_row_evenly" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_value_to_log_position_endpoints_and_invalid_values" = { status = "ported", rust = "rust/crates/core/src/actions.rs::value_to_log_position_endpoints_and_invalid_values" }
