@@ -311,7 +311,7 @@ fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in()
     let dir = telescope_core::testing::scratch_dir("window-try-again");
     let services = Arc::new(Services {
         link: Arc::new(SensorLink(Arc::default())), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(Cameras::default()), audio: None,
-        notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
+        plugin_admin: None, notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None, plugin_problems: Default::default(),
     });
     let heard = Arc::new(Mutex::new(Vec::new()));
     let h = heard.clone();
