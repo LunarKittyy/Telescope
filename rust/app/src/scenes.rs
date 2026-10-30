@@ -148,15 +148,33 @@ fn services(link: SceneLink) -> Arc<Services> {
         updater: None,
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
+            let pictures = telescope_effects::shared::picture_reader(Arc::new(telescope_media::FfmpegMedia));
+            // The effects as main.rs has them; the ones that reach this computer's desktop or cameras are left out
             vec![
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)) as Box<dyn telescope_core::plugin::Plugin>,
+                Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures)),
+                Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
+                Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+                Box::new(telescope_effects::transforms::TransformsPlugin::new()),
+                Box::new(telescope_effects::desk::DeskPlugin::new()),
+                Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
+                Box::new(telescope_effects::notes::NotesPlugin::new()),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(Box::new(String::new))),
                 Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
                 // No global shortcuts: the scenes stay away from this computer's desktop
                 Box::new(ShortcutsPlugin::with_backend(RemoteActions::default(), Box::new(|_| None))),
-                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(Box::new(String::new))),
+                Box::new(telescope_effects::photos::PhotosPlugin::new()),
+                Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
             ]
         }),
     })
+}
+
+/// translation_scenes_window.turned_off on the wide window.
+fn turned_off(names: &[&str]) -> Setup {
+    let mut config = main_window_config(true);
+    config["plugins"] = json!({"off": names});
+    Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
 }
 
 /// Never checks: the scenes show the card before its first check.
@@ -283,6 +301,10 @@ pub fn all() -> Vec<Scene> {
         Scene::new("main-wide", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)),
         Scene::new("main-medium", || Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_TWO_COL, 900.0)),
         Scene::new("main-narrow", || Setup::window(Some(services(quiet())), main_window_config(true), 560.0, 900.0)),
+        // translation_scenes_window.banner_plugins_off*: built-ins switched off in Plugins
+        Scene::new("banner-plugins-off", || turned_off(&["monitoring"])),
+        Scene::new("banner-plugins-off-two", || turned_off(&["monitoring", "transforms"])),
+        Scene::new("banner-plugins-off-several", || turned_off(&["monitoring", "transforms", "presets"])),
         // translation_scenes_audio.main_with_mic: the Pixel 8's settings have the mic on
         Scene::new("main-microphone", || {
             let mut config = main_window_config(true);

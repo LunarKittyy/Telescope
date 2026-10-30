@@ -34,6 +34,16 @@ pub enum Page {
     Card { plugin: String },
 }
 
+thread_local! {
+    static EVERY_OPTIONAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// While a scene's window is built: the translation scenes' main_window registers every plugin, optional ones as well, where
+/// Telescope starts only the optional ones switched on.
+pub fn every_optional() -> bool {
+    EVERY_OPTIONAL.with(|e| e.get())
+}
+
 /// The card scenes' widget: 480 px wide, the card inside it 16 px in from every edge.
 pub const CARD_WIDTH: f32 = 480.0;
 pub const CARD_MARGIN: f32 = 16.0;
@@ -123,6 +133,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     std::fs::write(&path, serde_json::to_vec_pretty(&setup.config).unwrap_or_default()).map_err(|e| e.to_string())?;
     let services = setup.services.clone();
     let own = setup.plugins;
+    EVERY_OPTIONAL.with(|e| e.set(true));
     let w = window::build(ConfigFile::at(path), |bus| {
         if let Some(own) = own {
             return own(bus);
@@ -132,7 +143,9 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             plugins.extend((s.plugins)());
         }
         crate::plugins::in_order(plugins)
-    }, setup.services, None)?;
+    }, setup.services, None);
+    EVERY_OPTIONAL.with(|e| e.set(false));
+    let w = w?;
     settle(&w);
     if let Some(then) = setup.then {
         then(&w);

@@ -384,7 +384,7 @@ impl State {
         for plugin in builtins {
             let info = plugin.info();
             self.builtins.push(info.clone());
-            if switches::starts(&cfg, &info.name, info.required, info.optional) {
+            if switches::starts(&cfg, &info.name, info.required, info.optional) || (info.optional && crate::scenes::every_optional()) {
                 if let Err(e) = self.register(plugin) {
                     log::error!("{e}");
                 }
