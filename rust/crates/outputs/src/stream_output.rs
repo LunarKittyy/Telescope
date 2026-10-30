@@ -315,6 +315,7 @@ impl StreamOutputPlugin {
             "res-items": res_items, "res-current": self.sizes.res_current, "res-enabled": self.sizes.enabled,
             "ar-items": ar_items, "ar-current": self.sizes.ar, "ar-enabled": self.sizes.enabled,
             "fps-items": FPS_CHOICES.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": self.fps_current,
+            "fps-gone": FPS_CHOICES.iter().map(|f| self.camera_max_fps != 0 && *f > self.camera_max_fps).collect::<Vec<_>>(),
             "fps-tip": tr("The phone's capture rate and the virtual camera's. Lower saves data and battery."),
             "h264": self.stream_format() == FORMAT_H264, "h264-enabled": self.h264_offered(),
             "light-tip": self.light_tip(), "heavy-tip": tr(HEAVY_TIP),
@@ -600,7 +601,7 @@ impl StreamOutputPlugin {
 
     fn wifi_text(&self) -> String {
         let (band, rssi, mbps) = &self.wifi;
-        let parts = [band.as_ref().map(|b| format!("{b} GHz")), rssi.map(|r| format!("{r} dBm")),
+        let parts = [band.as_ref().filter(|b| !b.is_empty()).map(|b| format!("{b} GHz")), rssi.map(|r| format!("{r} dBm")),
                      mbps.filter(|m| *m != 0).map(|m| format!("{m} Mbps link"))];
         parts.into_iter().flatten().collect::<Vec<_>>().join(", ")
     }
@@ -681,7 +682,7 @@ fn size_of(s: &Value) -> Option<(u32, u32)> {
 }
 
 fn dim(state: &Value, key: &str) -> Option<u32> {
-    state.get(key).filter(|v| v.is_i64()).and_then(Value::as_i64).map(|v| v as u32)
+    state.get(key).filter(|v| v.is_i64()).and_then(Value::as_i64).filter(|v| *v > 0).map(|v| v as u32)
 }
 
 /// Python's truthiness for a JSON value.
@@ -1019,7 +1020,7 @@ impl Plugin for StreamOutputPlugin {
             ("Bitrate".into(), format!("{}{}", if self.dynamic() { "Dynamic".to_string() } else if self.bitrate > 0 { format!("{} Mbps", self.bitrate) } else { "Auto".into() },
                                       if self.dynamic() && self.phone_dynamic == Some(false) { " (phone uses Auto)" } else { "" })),
         ];
-        if let Some(profile) = &self.h264_profile {
+        if let Some(profile) = self.h264_profile.as_ref().filter(|p| !p.is_empty()) {
             out.push(("H.264 profile".into(), profile.clone()));
             out.push(("H.264 refresh".into(), if self.intra_refresh { "intra refresh" } else { "keyframes" }.into()));
         }

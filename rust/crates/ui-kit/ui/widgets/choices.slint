@@ -134,6 +134,8 @@ export component ChoiceField inherits Rectangle {
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // A tooltip on the closed field
+    in property <string> tip;
     callback picked(int);
     // The row the arrows move to from current, or current when there's none that way
     function step(by: int) -> int {
@@ -155,6 +157,7 @@ export component ChoiceField inherits Rectangle {
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[current];
+    accessible-description: tip;
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
@@ -179,6 +182,7 @@ export component ChoiceField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if tip != "": Tooltip { TipBody { says: tip; } }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;
