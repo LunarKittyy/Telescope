@@ -44,12 +44,13 @@ component WheelCell inherits VerticalLayout {
         reset => { root.reset(); }
         key(k, shift) => { root.key(k, shift); }
     }
-    // QSlider's 20px; the Slider keeps its own row height, centred on that
+    // QSlider's 20px
     Rectangle {
         height: 20px;
         Slider {
             width: parent.width;
-            y: (parent.height - self.height) / 2;
+            height: parent.height;
+            row-height: parent.height;
             has-readout: false;
             hue: root.hue;
             label: root.name;

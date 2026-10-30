@@ -1,0 +1,541 @@
+// The One picture editor's window (desktop/telescope/widgets/composite_editor.py). Joined after parts.slint, which has the imports.
+
+export struct TileBox {
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    missing: bool,
+    name: string,
+    gone: string,
+    hover: bool,
+}
+
+export struct Grip {
+    x: float,
+    y: float,
+    corner: bool,
+    wide: bool,
+    hot: bool,
+}
+
+export struct StreamRow {
+    text: string,
+    dim: bool,
+    on: bool,
+}
+
+// _paint_chip: a small dark pill with text, for the drag's mode and the picked stream's name
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> accent;
+    width: label.preferred-width + 18px;
+    height: label.preferred-height + 6px;
+    border-radius: self.height / 2;
+    background: Theme.surface-sunk.with-alpha(0.82);
+    border-width: accent ? 1px : 0px;
+    border-color: Theme.accent;
+    label := Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: accent ? Theme.accent-soft : Theme.text;
+    }
+}
+
+// PictureView: the live preview on a dark stage, with the tiles' outlines on top to grab.
+component PictureView inherits Rectangle {
+    in property <image> picture;
+    in property <float> aspect: 16 / 9;
+    in property <[TileBox]> tiles;
+    in property <int> selected: -1;
+    in property <TileBox> selected-tile;
+    in property <[Grip]> grips;
+    in property <[float]> guide-xs;
+    in property <[float]> guide-ys;
+    in property <string> mode;
+    in property <string> cursor;
+    callback pointer(string, length, length, length, length, bool, bool, bool, bool);
+    callback wheel(length, length, length, length, float);
+    callback key(string, bool);
+    property <length> pad: 14px;
+    property <length> room-w: root.width - 2 * pad;
+    property <length> room-h: root.height - 2 * pad;
+    out property <length> area-w: round(min(room-w, room-h * aspect) / 1px) * 1px;
+    out property <length> area-h: round(area-w / aspect / 1px) * 1px;
+    property <length> area-x: round((root.width - area-w) / 2 / 1px) * 1px;
+    property <length> area-y: round((root.height - area-h) / 2 / 1px) * 1px;
+    min-width: 520px;
+    min-height: 320px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-sunk;
+    accessible-role: image;
+    accessible-label: @tr("Picture preview");
+    Rectangle {
+        x: area-x;
+        y: area-y;
+        width: area-w;
+        height: area-h;
+        clip: true;
+        Image { width: parent.width; height: parent.height; source: picture; image-fit: fill; }
+        for t in tiles: Rectangle {
+            x: t.x * parent.width;
+            y: t.y * parent.height;
+            width: t.w * parent.width;
+            height: t.h * parent.height;
+            background: t.missing ? Theme.surface-raise.with-alpha(0.75) : transparent;
+            border-width: t.missing ? 1px : t.hover ? 1.5px : 0px;
+            border-color: t.missing ? Theme.text-faint : Theme.accent.with-alpha(0.55);
+            if t.missing: Text {
+                width: parent.width - 12px;
+                text: t.gone;
+                wrap: word-wrap;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        for x in guide-xs: Rectangle { x: x * parent.width; width: 1px; height: parent.height; background: Theme.accent-soft; }
+        for y in guide-ys: Rectangle { y: y * parent.height; height: 1px; width: parent.width; background: Theme.accent-soft; }
+    }
+    Rectangle {
+        x: area-x - 1px;
+        y: area-y - 1px;
+        width: area-w + 2px;
+        height: area-h + 2px;
+        border-width: 1px;
+        border-color: Theme.border-strong;
+    }
+    if selected >= 0: Rectangle {
+        x: area-x + selected-tile.x * area-w;
+        y: area-y + selected-tile.y * area-h;
+        width: selected-tile.w * area-w;
+        height: selected-tile.h * area-h;
+        Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 3.5px; border-color: Theme.surface-sunk.with-alpha(0.7); }
+        Rectangle { border-width: 1.5px; border-color: Theme.accent; }
+        if selected-tile.name != "" && parent.height > 40px: Chip {
+            x: 6px;
+            y: 6px;
+            text: selected-tile.name;
+        }
+    }
+    for g in grips: Rectangle {
+        property <length> grow: g.hot ? 2px : 0px;
+        property <length> long: g.corner ? 10px + grow : 16px + grow;
+        property <length> short: g.corner ? 10px + grow : 6px + grow / 2;
+        width: g.corner || g.wide ? long : short;
+        height: g.corner || g.wide ? (g.corner ? long : short) : long;
+        x: area-x + g.x * area-w - self.width / 2;
+        y: area-y + g.y * area-h - self.height / 2;
+        border-radius: min(self.width, self.height) / 2;
+        border-width: 1.5px;
+        border-color: Theme.surface-sunk;
+        background: g.hot ? white : Theme.accent;
+    }
+    if mode != "": Chip {
+        x: area-x + 8px;
+        y: area-y + 8px;
+        text: mode;
+        accent: true;
+    }
+    keys := FocusScope {
+        key-pressed(e) => {
+            if (Keys.name(e.text) != "") {
+                root.key(Keys.name(e.text), e.modifiers.shift);
+                return accept;
+            }
+            reject
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: cursor == "move" ? MouseCursor.move : cursor == "ew" ? MouseCursor.ew-resize : cursor == "ns" ? MouseCursor.ns-resize
+            : cursor == "nwse" ? MouseCursor.nwse-resize : cursor == "nesw" ? MouseCursor.nesw-resize : MouseCursor.default;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { keys.focus(); }
+            let what = e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : e.kind == PointerEventKind.move ? "move" : "";
+            if (what != "") {
+                root.pointer(what, self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.button == PointerEventButton.right,
+                             e.modifiers.control, e.modifiers.shift, e.modifiers.alt);
+            }
+        }
+        changed has-hover => {
+            if (!self.has-hover) { root.pointer("leave", 0, 0, area-w, area-h, false, false, false, false); }
+        }
+        scroll-event(e) => {
+            root.wheel(self.mouse-x - area-x, self.mouse-y - area-y, area-w, area-h, e.delta-y / 1px);
+            accept
+        }
+    }
+}
+
+// A card as the editor's _card has it: not folding, hued like the group
+component SideCard inherits Card {
+    hue: Theme.plugin-hue("streaming");
+}
+
+// _swatch_row: a swatch showing a colour, which opens the sliders under it, and its code
+component SwatchRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> code;
+    in property <color> colour;
+    callback clicked;
+    spacing: 10px;
+    Rectangle {
+        width: 52px;
+        height: 30px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 7px;
+        border-width: 1px;
+        border-color: touch.has-hover ? Theme.border-hover : Theme.border-strong;
+        background: root.colour;
+        accessible-role: button;
+        accessible-label: label + ": " + code;
+        touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+        Tooltip { TipBody { says: root.label; } }
+    }
+    Text {
+        text: code;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+    }
+}
+
+export component CompositeEditor inherits Window {
+    title: @tr("Edit picture");
+    background: Theme.bg;
+    min-width: 960px;
+    min-height: 600px;
+    in property <image> picture;
+    in property <int> canvas-width: 1920;
+    in property <int> canvas-height: 1080;
+    in property <[string]> layout-items;
+    in property <int> layout-current: -1;
+    in property <bool> layout-enabled;
+    in property <bool> saved;
+    in property <bool> starts-enabled;
+    in property <[TileBox]> tiles;
+    in property <int> selected: -1;
+    in property <TileBox> selected-tile;
+    in property <[Grip]> handles;
+    in property <[float]> guide-xs;
+    in property <[float]> guide-ys;
+    in property <string> mode;
+    in property <string> cursor;
+    in property <[StreamRow]> streams;
+    in property <bool> few-streams;
+    in property <bool> tile-shown;
+    in property <float> zoom: 100;
+    in property <float> zoom-max: 400;
+    in property <string> zoom-text;
+    in property <float> border;
+    in property <float> border-max: 40;
+    in property <string> border-text;
+    in property <string> border-colour: "#ffffff";
+    in property <color> border-swatch;
+    in property <float> radius;
+    in property <float> radius-max: 200;
+    in property <string> radius-text;
+    in property <bool> fit-enabled;
+    in property <bool> back-enabled;
+    in property <bool> front-enabled;
+    in property <string> background-code: "#15151a";
+    in property <color> background-swatch;
+    in property <string> picture-name;
+    in property <bool> has-picture;
+    in property <string> colour-target;
+    in property <[int]> channels: [0, 0, 0];
+    in property <bool> asking-name;
+    in property <string> ask-title;
+    in property <string> ask-start;
+    in property <bool> confirming;
+    in property <string> confirm-text;
+    callback pointer(string, length, length, length, length, bool, bool, bool, bool);
+    callback wheel(length, length, length, length, float);
+    callback key(string, bool);
+    callback start-from(int);
+    callback layout-picked(int);
+    callback save-clicked;
+    callback rename-clicked;
+    callback delete-clicked;
+    callback name-entered(string);
+    callback name-cancelled;
+    callback replace-answered(bool);
+    callback stream-toggled(int, bool);
+    callback zoom-moved(float);
+    callback border-moved(float);
+    callback radius-moved(float);
+    callback fit-clicked;
+    callback restack(int);
+    callback colour-clicked(string);
+    callback channel-moved(int, float);
+    callback picture-clicked;
+    callback no-picture;
+    callback close-clicked;
+
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 18px;
+        padding-bottom: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            spacing: 2px;
+            Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: 19px; font-weight: 600; color: Theme.text; }
+            Text {
+                text: @tr("Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping.");
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
+                wrap: word-wrap;
+            }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            vertical-stretch: 1;
+            Card {
+                title: @tr("Picture");
+                icon: Icons.layout;
+                hue: Theme.plugin-hue("streaming");
+                horizontal-stretch: 1;
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: start;
+                    Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+                    for label[i] in [@tr("Side by side"), @tr("Big and small"), @tr("Grid")]: Button {
+                        text: label;
+                        role: "quiet";
+                        enabled: starts-enabled;
+                        tip: @tr("Start again with the running streams laid out like this");
+                        clicked => { root.start-from(i); }
+                    }
+                }
+                PictureView {
+                    vertical-stretch: 1;
+                    picture: root.picture;
+                    aspect: canvas-width / max(1, canvas-height);
+                    tiles: root.tiles;
+                    selected: root.selected;
+                    selected-tile: root.selected-tile;
+                    grips: root.handles;
+                    guide-xs: root.guide-xs;
+                    guide-ys: root.guide-ys;
+                    mode: root.mode;
+                    cursor: root.cursor;
+                    pointer(k, x, y, w, h, r, c, s, a) => { root.pointer(k, x, y, w, h, r, c, s, a); }
+                    wheel(x, y, w, h, d) => { root.wheel(x, y, w, h, d); }
+                    key(k, s) => { root.key(k, s); }
+                }
+            }
+            side := Flickable {
+                width: 384px;
+                viewport-height: column.preferred-height;
+                column := VerticalLayout {
+                    width: 374px;
+                    spacing: 12px;
+                    alignment: start;
+                    SideCard {
+                        title: @tr("Layout");
+                        icon: Icons.bookmark;
+                        has-action: true;
+                        action-icon: Icons.bookmark;
+                        action-text: @tr("Save as…");
+                        action-label: @tr("Keep this picture under a name");
+                        action => { root.save-clicked(); }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            ChoiceField {
+                                compact: true;
+                                y: (parent.height - self.height) / 2;
+                                caption: @tr("Layout");
+                                placeholder: @tr("Not saved");
+                                items: layout-items;
+                                current: layout-current;
+                                enabled: layout-enabled;
+                                picked(i) => { root.layout-picked(i); }
+                            }
+                            IconButton { icon: Icons.pencil; label: @tr("Rename…"); clicked => { if (saved) { root.rename-clicked(); } } }
+                            IconButton { icon: Icons.trash; label: @tr("Delete"); clicked => { if (saved) { root.delete-clicked(); } } }
+                        }
+                    }
+                    SideCard {
+                        title: @tr("Streams");
+                        icon: Icons.video;
+                        for row[i] in streams: HorizontalLayout {
+                            spacing: 12px;
+                            Text {
+                                text: row.text;
+                                font-family: Theme.font;
+                                font-size: Theme.body;
+                                color: row.dim ? Theme.text-faint : Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                            Rectangle {
+                                width: 36px;
+                                height: 32px;
+                                Switch {
+                                    y: 6px;
+                                    checked: row.on;
+                                    label: row.text;
+                                    toggled(on) => { root.stream-toggled(i, on); }
+                                }
+                            }
+                        }
+                        if few-streams: Note { text: @tr("Start two or more streams to put them together. The + next to Stop adds one."); }
+                    }
+                    SideCard {
+                        title: @tr("Picked stream");
+                        icon: Icons.crop;
+                        has-action: tile-shown;
+                        action-icon: Icons.reset;
+                        action-text: @tr("Fit its shape");
+                        action-label: @tr("Make the box the stream's own shape again, with nothing cropped or stretched");
+                        action-enabled: fit-enabled;
+                        action => { root.fit-clicked(); }
+                        if tile-shown: VerticalLayout {
+                            spacing: 2px;
+                            FormRow {
+                                label: @tr("Stream");
+                                Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                            }
+                            SliderRow {
+                                label: @tr("Zoom");
+                                tip: @tr("Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown");
+                                minimum: 100;
+                                maximum: zoom-max;
+                                value: zoom;
+                                readout: zoom-text;
+                                has-default: true;
+                                default-value: 100;
+                                moved(v) => { root.zoom-moved(v); }
+                            }
+                            SliderRow {
+                                label: @tr("Border");
+                                maximum: border-max;
+                                value: border;
+                                readout: border-text;
+                                has-default: true;
+                                default-value: 0;
+                                moved(v) => { root.border-moved(v); }
+                            }
+                            FormRow {
+                                label: @tr("Colour");
+                                SwatchRow {
+                                    label: @tr("Border colour");
+                                    code: border-colour;
+                                    colour: border-swatch;
+                                    clicked => { root.colour-clicked("border"); }
+                                }
+                            }
+                            if colour-target == "border": VerticalLayout {
+                                for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+                                    label: name;
+                                    minimum: 0;
+                                    maximum: 255;
+                                    value: channels[i];
+                                    readout: channels[i];
+                                    moved(v) => { root.channel-moved(i, v); }
+                                }
+                            }
+                            SliderRow {
+                                label: @tr("Corners");
+                                maximum: radius-max;
+                                value: radius;
+                                readout: radius-text;
+                                has-default: true;
+                                default-value: 0;
+                                moved(v) => { root.radius-moved(v); }
+                            }
+                            FormRow {
+                                label: @tr("Order");
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Button { y: 2px; text: @tr("Send back"); role: "quiet"; enabled: back-enabled; clicked => { root.restack(-1); } }
+                                    Button { y: 2px; text: @tr("Bring forward"); role: "quiet"; enabled: front-enabled; clicked => { root.restack(1); } }
+                                }
+                            }
+                        }
+                        if !tile-shown: Note { text: @tr("Click a stream in the picture to change it."); }
+                    }
+                    SideCard {
+                        title: @tr("Background");
+                        icon: Icons.image;
+                        FormRow {
+                            label: @tr("Colour");
+                            SwatchRow {
+                                label: @tr("Background colour");
+                                code: background-code;
+                                colour: background-swatch;
+                                clicked => { root.colour-clicked("background"); }
+                            }
+                        }
+                        if colour-target == "background": VerticalLayout {
+                            for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+                                label: name;
+                                minimum: 0;
+                                maximum: 255;
+                                value: channels[i];
+                                readout: channels[i];
+                                moved(v) => { root.channel-moved(i, v); }
+                            }
+                        }
+                        FormRow {
+                            label: @tr("Picture");
+                            Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                            Button { y: 2px; text: @tr("Picture…"); tip: @tr("Put a picture behind the streams instead of the colour"); clicked => { root.picture-clicked(); } }
+                            if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            alignment: end;
+            Button { width: 96px; text: @tr("Close"); clicked => { root.close-clicked(); } }
+        }
+    }
+
+    // QInputDialog and QMessageBox, inside the window: it's the window they belong to
+    if asking-name || confirming: Rectangle {
+        background: #00000080;
+        TouchArea { }
+        DialogFrame {
+            width: 420px;
+            height: self.preferred-height;
+            title: asking-name ? ask-title : @tr("Replace layout");
+            if asking-name: VerticalLayout {
+                spacing: 12px;
+                Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                name := TextField {
+                    text: ask-start;
+                    label: @tr("Name:");
+                    accepted => { root.name-entered(self.text); }
+                    init => { self.focus(); }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button { width: 96px; text: @tr("Cancel"); clicked => { root.name-cancelled(); } }
+                    Button { width: 96px; text: @tr("OK"); role: "primary"; clicked => { root.name-entered(name.text); } }
+                }
+            }
+            if confirming: VerticalLayout {
+                spacing: 12px;
+                Note { text: confirm-text; kind: ""; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button { width: 96px; text: @tr("No"); clicked => { root.replace-answered(false); } }
+                    Button { width: 96px; text: @tr("Yes"); role: "primary"; clicked => { root.replace-answered(true); } }
+                }
+            }
+        }
+    }
+}

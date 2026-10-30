@@ -236,6 +236,13 @@ fn camera_window(name: &str) -> (Rc<window::Window>, Arc<Cameras>, Arc<Mutex<Vec
     (w, cameras, heard)
 }
 
+/// How many streams run, and whether one starts again once the canvas restart is through.
+fn streams(w: &Rc<window::Window>) -> (usize, bool) {
+    let mut out = (0, false);
+    w.with_flow(|flow, _| out = (flow.sessions.streams.len(), flow.sessions.canvas_restart));
+    out
+}
+
 fn set_up_asked(cameras: &Cameras, action: SetupAction) -> bool {
     for _ in 0..200 {
         if cameras.asked.lock().unwrap().contains(&action) {
@@ -255,11 +262,10 @@ fn the_canvas_waits_until_only_one_camera_streams_and_then_the_cameras_reload() 
     w.process();
     assert_eq!(*heard.lock().unwrap(), [(false, "Stop all but one camera first, then apply again".to_string())]);
     assert!(cameras.asked.lock().unwrap().is_empty());
-    assert_eq!(w.streams.flow.borrow().sessions.streams.len(), 2, "both carry on");
+    assert_eq!(streams(&w), (2, false), "both carry on");
     w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:b")));
     w.restart_canvas("asks", RequestId(2));
-    assert!(w.streams.flow.borrow().sessions.streams.is_empty(), "it stops for the restart");
-    assert!(w.streams.flow.borrow().sessions.canvas_restart, "and it'll start again after");
+    assert_eq!(streams(&w), (0, true), "it stops for the restart, to start again after");
     if cfg!(target_os = "linux") {
         assert!(set_up_asked(&cameras, SetupAction::Reload));
     }

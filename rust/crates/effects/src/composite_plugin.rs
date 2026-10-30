@@ -11,7 +11,7 @@ use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, sam
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -187,6 +187,9 @@ impl Shared {
 }
 
 /// The step every stream gets; only the target stream's does anything.
+#[path = "composite_editor.rs"]
+mod editor;
+
 struct CompositeStep(Arc<Shared>);
 
 impl CpuStep for CompositeStep {
@@ -213,6 +216,10 @@ pub struct CompositePlugin {
     pending: bool,
     /// Where the switch was when a held key began.
     held: Option<bool>,
+    /// The background pictures' reader, for the editor's own compositor.
+    reader: PictureReader,
+    /// The editor's state while its window is open.
+    editor: Option<editor::Editor>,
 }
 
 impl Default for CompositePlugin {
@@ -231,12 +238,12 @@ impl CompositePlugin {
         let camera_label = outputs.map_or_else(|| "Telescope".to_string(), |o| o.slot_label(0));
         let hub = Hub {
             on: false, target: None, main_frame: None, handed: None, last_picture_at: None, fallback_key: None,
-            compositor: Compositor::new(reader), shut: false, ticks: 0,
+            compositor: Compositor::new(reader.clone()), shut: false, ticks: 0,
         };
         let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
-            clock: None, camera_label, note: String::new(), pending: false, held: None,
+            clock: None, camera_label, note: String::new(), pending: false, held: None, reader, editor: None,
         };
         plugin.prepare();
         plugin
@@ -382,7 +389,7 @@ impl CompositePlugin {
     // ── Card ──────────────────────────────────────────────────────────
 
     fn fixed_props() -> Value {
-        json!({"switch-name": tr("One picture"), "switch-help": tr(SWITCH_TIP), "layout-tip": tr(LAYOUT_TIP), "edit-shown": false})
+        json!({"switch-name": tr("One picture"), "switch-help": tr(SWITCH_TIP), "layout-tip": tr(LAYOUT_TIP), "edit-shown": true})
     }
 
     fn card_props(&self) -> Value {
@@ -418,6 +425,7 @@ impl CompositePlugin {
             tr("Goes out on {camera}.").replace("{camera}", camera)
         };
         host.set_ui_props("card", &self.card_props());
+        self.show_editor(host);
     }
 
     /// draw_stalled at now (monotonic nanoseconds): what the clock does while the target stream stalls.
@@ -495,6 +503,10 @@ impl Plugin for CompositePlugin {
         match event {
             Event::StreamsChanged { .. } => self.follow_camera(host),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),
+            Event::RequestDone { request, ok, data, .. } => {
+                self.editor_picked(host, *request, *ok, data);
+            }
             _ => {}
         }
     }
@@ -514,11 +526,15 @@ impl Plugin for CompositePlugin {
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        if event.ui == editor::WINDOW {
+            return self.editor_ui(host, event);
+        }
         if event.ui != "card" {
             return;
         }
         self.catch_up(host);
         match event.callback.as_str() {
+            "edit-clicked" => self.open_editor(host),
             "switch-toggled-by-hand" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.set_on(host, on);

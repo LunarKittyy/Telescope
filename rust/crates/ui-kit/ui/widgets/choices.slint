@@ -108,6 +108,8 @@ export component ChoiceField inherits Rectangle {
     in property <[string]> items;
     // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
     in property <[bool]> headings;
+    // Shown while nothing is picked (current is -1)
+    in property <string> placeholder;
     in-out property <int> current;
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
@@ -164,11 +166,11 @@ export component ChoiceField inherits Rectangle {
         padding-right: 30px;
         alignment: center;
         Text {
-            text: items[current];
+            text: current < 0 ? placeholder : items[current];
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: bold ? 600 : 400;
-            color: enabled ? Theme.text : Theme.text-disabled;
+            color: current < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
             overflow: elide;
         }
     }

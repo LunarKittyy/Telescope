@@ -354,3 +354,6 @@ fn the_card_says_where_the_picture_goes() {
     assert!(r.plugin.note.is_empty());
     assert_eq!(r.plugin.diagnostics(), [("One picture".to_string(), "off".to_string())]);
 }
+
+#[path = "composite_editor_tests.rs"]
+mod editor_tests;

@@ -32,6 +32,8 @@ pub enum Page {
     /// One plugin's card alone, CARD_WIDTH wide with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
+    /// A window of a plugin's own, opened as its card opens it (plugin, the card's callback, the window's id).
+    PluginWindow { plugin: String, open: String, id: String },
 }
 
 thread_local! {
@@ -174,6 +176,14 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
                 let m = CARD_MARGIN;
                 crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)
             })
+        }
+        Page::PluginWindow { plugin, open, id } => {
+            if !w.call_ui(plugin, "card", open) {
+                return Err(format!("{plugin}'s card has no {open}"));
+            }
+            settle(&w);
+            let shown = w.plugin_window(plugin, id).ok_or("the window didn't open")?;
+            crate::offscreen::draw(shown.window(), setup.width, setup.height, scale)
         }
         Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w.ui, &p, frame, owner, scale)),
         Page::SettingsDialog { tab, call, frame, owner } => {

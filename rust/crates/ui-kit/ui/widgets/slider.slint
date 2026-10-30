@@ -22,6 +22,8 @@ export component Slider inherits HorizontalLayout {
     // drag snaps, keys and clicks on the groove step freely
     in property <[float]> marks;
     in property <length> snap-px: 5px;
+    // The row it sits in: a control_row's 36px, or a bare QSlider's 20px
+    in property <length> row-height: 36px;
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
@@ -32,7 +34,7 @@ export component Slider inherits HorizontalLayout {
     track := Rectangle {
         horizontal-stretch: 1;
         min-width: 84px;
-        height: 36px;
+        height: row-height;
         property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
         property <float> fraction: (value - minimum) / max(0.0001, maximum - minimum);
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
