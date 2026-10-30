@@ -3,6 +3,7 @@
 pub mod actions;
 pub mod audio;
 pub mod bus;
+pub mod canvas;
 pub mod colour;
 pub mod config;
 pub mod event;

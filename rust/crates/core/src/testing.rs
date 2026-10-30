@@ -142,6 +142,12 @@ pub struct FakeHost {
     pub live: Vec<String>,
     /// What frames() hands out in place of stream_frames, for a test that changes the frames as it goes.
     pub frame_store: Option<Arc<dyn FrameStore>>,
+    /// What device_config() answers for a source id, as (source id, plugin) to settings; {} for the rest.
+    pub device_configs: HashMap<(String, String), Value>,
+    /// What diagnostics_report() answers.
+    pub report: String,
+    /// What set_plugin_hues last said (None until it's called).
+    pub plugin_hues: Option<bool>,
     next_request: u64,
 }
 
@@ -187,8 +193,8 @@ impl HostSettings for FakeHost {
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
     }
-    fn device_config(&self, _source_id: Option<&str>, _plugin_name: &str) -> Value {
-        json!({})
+    fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
+        source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))
     }
     fn has_device_settings(&self, _name: &str) -> bool {
         false
@@ -349,7 +355,7 @@ impl HostShell for FakeHost {
         false
     }
     fn diagnostics_report(&self) -> String {
-        String::new()
+        self.report.clone()
     }
     fn open_settings(&mut self, tab: &str) {
         self.note(format!("open_settings {tab}"));
@@ -381,6 +387,10 @@ impl HostShell for FakeHost {
     }
     fn open_url(&mut self, url: &str) {
         self.note(format!("open_url {url}"));
+    }
+    fn set_plugin_hues(&mut self, on: bool) {
+        self.note(format!("set_plugin_hues {on}"));
+        self.plugin_hues = Some(on);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));

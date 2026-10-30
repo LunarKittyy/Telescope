@@ -317,6 +317,9 @@ pub trait HostShell {
     /// under it; None takes it off. Its items come back to this plugin as on_ui with ui "shortcut-menu" and callback
     /// "add" (the action id) or "edit" (the binding id).
     fn set_shortcut_menu(&mut self, _bindings: Option<Vec<crate::ui::ShortcutEntry>>) {}
+    /// Whether every card gets its group's colour (true) or the accent colour (theme.set_plugin_hues). A host without a
+    /// window ignores it.
+    fn set_plugin_hues(&mut self, _on: bool) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
