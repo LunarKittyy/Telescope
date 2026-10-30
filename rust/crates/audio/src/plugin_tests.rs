@@ -853,3 +853,30 @@ fn the_question_names_vb_audio_and_says_what_they_ask() {
     r.ui("donate", vec![]);
     assert_eq!(*r.opened.lock().unwrap(), vec![VB_CABLE_URL.to_string()]);
 }
+
+/// A browser's mic as Browser camera offers it.
+struct Browsers;
+
+impl telescope_core::audio::SourceAudio for Browsers {
+    fn open(&self, source_id: &str) -> Option<Result<Box<dyn telescope_core::audio::AudioFeed>, String>> {
+        self.has(source_id).then(|| Err("The browser didn't allow the microphone.".to_string()))
+    }
+    fn has(&self, source_id: &str) -> bool {
+        source_id.starts_with("browser:")
+    }
+    fn key(&self, _source_id: &str) -> String {
+        "browser:/audio".into()
+    }
+}
+
+#[test]
+fn a_source_with_a_mic_of_its_own_comes_before_the_phones_routes() {
+    let phones = Arc::new(Routes(Mutex::default()));
+    phones.set("phone-1", "https://10.0.0.5/v1/audio");
+    let routes = WithSources { sources: Arc::new(Browsers), rest: Some(phones) };
+    let (key, open) = routes.audio("browser:b1").unwrap();
+    assert_eq!(key, "browser:/audio"); // what the jitter buffer takes for a browser
+    assert_eq!(open().err().as_deref(), Some("The browser didn't allow the microphone."));
+    assert_eq!(routes.audio("phone-1").unwrap().0, "https://10.0.0.5/v1/audio");
+    assert!(routes.audio("nobody").is_none());
+}

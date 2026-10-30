@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use telescope_core::audio::{AudioFeed, SourceAudio};
 use telescope_core::event::{Event, RememberedSource};
 use telescope_core::host::{Host, OutputChange, Poster};
 use telescope_core::i18n::{n_, tr};
@@ -121,6 +122,25 @@ fn ymd(unix: f64) -> String {
 }
 
 // ── What the plugin needs of the window ──────────────────────────────────────
+
+/// The browsers' mics, for the Microphone plugin.
+pub struct BrowserMics {
+    hub: Arc<BrowserHub>,
+}
+
+impl SourceAudio for BrowserMics {
+    fn open(&self, source_id: &str) -> Option<Result<Box<dyn AudioFeed>, String>> {
+        let bid = source_id.strip_prefix(BROWSER_PREFIX)?;
+        let Some(feed) = self.hub.feed(bid) else { return Some(Err(tr("The browser has gone."))) };
+        Some(feed.open_audio().map(|mic| Box::new(mic) as Box<dyn AudioFeed>))
+    }
+    fn has(&self, source_id: &str) -> bool {
+        source_id.starts_with(BROWSER_PREFIX)
+    }
+    fn key(&self, _source_id: &str) -> String {
+        "browser:/audio".into()
+    }
+}
 
 /// What the plugin asks of the window, so tests can stand in one that keeps its own list of streams.
 pub trait BrowserHost {
@@ -449,6 +469,11 @@ impl BrowserCameraPlugin {
             problem: String::new(), selected_id: String::new(), size: DEFAULT_SIZE.into(), fps: DEFAULT_FPS,
             address: String::new(), candidates: Vec::new(),
         }
+    }
+
+    /// Its browsers' mics, however many join: hand them to the Microphone plugin.
+    pub fn mics(&self) -> BrowserMics {
+        BrowserMics { hub: self.hub.clone() }
     }
 
     /// Picker entry and the source the host starts with Browser camera picked.

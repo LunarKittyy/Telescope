@@ -79,9 +79,6 @@ pub struct SetupResult {
     pub command: Option<String>,
 }
 
-/// SetupResult.message when the person said no at the password prompt: nothing to report.
-pub const CANCELLED: &str = "Cancelled.";
-
 /// Root operations on the virtual cameras: one password prompt (or Windows' admin prompt) each. Blocking: run them
 /// off the UI thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +101,11 @@ pub enum SetupAction {
     /// goes back to fewer.
     Install { devices: u32, reset: bool },
 }
+
+/// SetupResult::message when the person said no at the password prompt. Compared, never shown, so it stays as it is.
+pub const SETUP_CANCELLED: &str = "Cancelled.";
+/// Slot 0's node, as the Linux setup makes it (platform/linux.py V4L2_PHONE_DEV).
+pub const V4L2_PHONE_DEV: &str = "/dev/video11";
 
 /// How far the virtual camera is set up on this computer, for the setup checks.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

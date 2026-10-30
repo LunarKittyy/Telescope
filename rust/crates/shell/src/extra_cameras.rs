@@ -7,7 +7,7 @@ use slint_interpreter::{ComponentInstance, Value as SValue};
 use std::cell::RefCell;
 use std::rc::Rc;
 use telescope_core::i18n::tr;
-use telescope_core::output::{SetupAction, SetupResult, CANCELLED};
+use telescope_core::output::{SetupAction, SetupResult, SETUP_CANCELLED};
 use telescope_core::ui::{Issue, IssueAction, IssueDoes};
 
 const QUESTION: &str = r#"
@@ -141,7 +141,7 @@ impl Window {
             self.with_flow(move |flow, host| flow.slots_ready(host, waiting));
             return;
         }
-        if result.message != CANCELLED {
+        if result.message != SETUP_CANCELLED {
             let command = result.command.unwrap_or_default();
             let actions = (!command.is_empty()).then(|| IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: crate::host::copy_url(&command) } });
             self.state.borrow_mut().banners.show("vcam", Issue {

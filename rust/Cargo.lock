@@ -5676,6 +5676,7 @@ dependencies = [
  "log",
  "qrcode",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "telescope-audio",
  "telescope-core",
@@ -5687,6 +5688,7 @@ dependencies = [
  "telescope-setup",
  "telescope-shell",
  "telescope-system",
+ "telescope-ui-kit",
  "telescope-vision",
 ]
 

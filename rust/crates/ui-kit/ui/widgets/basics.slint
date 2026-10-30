@@ -118,6 +118,8 @@ export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <length> icon-size: 15px;
     in property <string> label;
+    // A tooltip, when there's something to say beyond the label
+    in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback clicked;
@@ -140,5 +142,6 @@ export component IconButton inherits Rectangle {
     FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if tip != "": Tooltip { TipBody { says: tip; } }
     Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
 }

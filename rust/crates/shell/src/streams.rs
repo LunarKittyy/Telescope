@@ -1102,6 +1102,11 @@ impl FlowHost for Host<'_> {
     fn can_start(&self) -> bool {
         self.w.services.is_some()
     }
+    fn camera_ready(&mut self, interactive: bool, source_id: Option<&str>) -> bool {
+        let mut state = self.w.state.borrow_mut();
+        let Some(i) = state.index("connection") else { return true };
+        state.call(i, |plugin, ctx| plugin.ensure_virtual_camera(ctx, interactive, source_id)).unwrap_or(true)
+    }
     fn selected_device(&self) -> Option<String> {
         self.w.services.as_ref().and_then(|s| s.link.picked_source()).or_else(|| self.w.state.borrow().selected.clone())
     }
