@@ -378,6 +378,8 @@ impl Lenses {
 }
 
 pub struct CameraControl {
+    /// The ranges and lenses the shortcut actions were last made from.
+    actions_made_from: String,
     phones: u32,
     /// A source that isn't a phone is picked: the card goes away then (dim_until_paired with phone_only).
     source: String,
@@ -451,7 +453,8 @@ impl CameraControl {
     pub fn new() -> CameraControl {
         let mut focus = Segments::new(3);
         focus.enabled[1] = false;
-        CameraControl {
+        let mut card = CameraControl {
+            actions_made_from: String::new(),
             phones: 0,
             source: String::new(),
             stream: None,
@@ -494,7 +497,9 @@ impl CameraControl {
             torch_on: false,
             held: [None; 4],
             out: Outbox::default(),
-        }
+        };
+        card.actions_made_from = card.actions_key();
+        card
     }
 
     fn send(&mut self, body: Value) {
@@ -1186,6 +1191,18 @@ impl CameraControl {
             host.schedule_save();
         }
         host.set_ui_props("card", &self.props());
+        // The sliders' ranges and the lens list move with the lens; a shortcut's bounds and choices go with them
+        let made_from = self.actions_key();
+        if made_from != self.actions_made_from {
+            self.actions_made_from = made_from;
+            host.refresh_actions();
+        }
+    }
+
+    /// What the shortcut actions are made from, besides what never changes.
+    fn actions_key(&self) -> String {
+        let lenses: Vec<String> = self.lenses.cameras.iter().map(|c| format!("{}={}", lens_value(c), lens_name(&lens_label(c)))).collect();
+        format!("{} {} {} {} {} {} {} {lenses:?}", self.iso.v_min, self.iso.v_max, self.shutter.v_min, self.shutter.v_max, self.ae.min, self.ae.max, self.ae_step)
     }
 
     // ── Shortcuts ──

@@ -797,10 +797,12 @@ impl Plugin for StreamOutputPlugin {
             }
             "fps-picked" => {
                 let Some(i) = arg(0).as_u64().map(|i| i as usize).filter(|i| *i < FPS_CHOICES.len()) else { return };
-                self.fps_current = i;
-                self.wanted_fps = self.fps();
-                self.apply_fps(host);
-                host.schedule_save();
+                if self.camera_max_fps == 0 || FPS_CHOICES[i] <= self.camera_max_fps {
+                    self.fps_current = i;
+                    self.wanted_fps = self.fps();
+                    self.apply_fps(host);
+                    host.schedule_save();
+                }
             }
             "format-picked" => {
                 host.clear_issue(Some("h264"), None);

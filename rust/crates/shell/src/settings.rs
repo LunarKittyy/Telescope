@@ -347,6 +347,13 @@ impl Settings {
             });
         };
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("key", move |args| {
+            let Some(w) = weak.upgrade().and_then(|s| s.window.upgrade()) else { return SValue::Bool(false) };
+            let (released, typing) = (args.get(1) == Some(&SValue::Bool(true)), args.get(2) == Some(&SValue::Bool(true)));
+            let input = crate::keys::key_input(&args[0], released, typing, w.modal());
+            SValue::Bool(w.key(&input))
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_global_callback("Reveal", "show", move |args| {
             if let (Some(st), [_, SValue::Number(y), _, SValue::Number(h)]) = (weak.upgrade(), args) {
                 st.reveal(*y as f32, *h as f32);

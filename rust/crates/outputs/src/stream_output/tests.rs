@@ -492,6 +492,9 @@ fn rates_past_the_lens_are_grayed_and_the_pick_comes_back_on_a_lens_that_can() {
     assert!(sent(&host).contains(&json!({"action": "fps_target", "value": 30})));
     assert!(host.calls.iter().rev().any(|c| c.contains("fps: Some(Some(30))")));
     assert_eq!(p.get_config()["fps"], 60);
+    pick_fps(&mut p, &mut host, 48); // greyed out: it can't be picked
+    assert_eq!(p.fps(), 30);
+    assert_eq!(p.get_config()["fps"], 60);
     p.on_phone_state(&mut host, &fps_state(json!(60)));
     assert_eq!(p.fps(), 60);
 }
