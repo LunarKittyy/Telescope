@@ -61,6 +61,14 @@ Runs `telescope-rs config-snapshot <folder>` for each fixture in `desktop/tests/
 python compare_config.py --binary "python3 stand_in_snapshot.py --set saved.version=4"
 ```
 
+## The log sanitiser
+
+```bash
+python record_sanitize.py
+```
+
+Rewrites `../crates/core/fixtures/sanitize.json`: what the Python app's `sanitize()` makes of text around zero-width, combining and other odd characters, and which characters Python's `re` counts as word, digit and space. `diagnostics_tests.rs` replays it. Run it again after changing the list of characters in the script, or when the desktop's patterns change.
+
 ## Screens
 
 ```bash
