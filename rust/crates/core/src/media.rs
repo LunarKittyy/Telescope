@@ -12,8 +12,10 @@ use std::time::Duration;
 pub enum Codec {
     /// Annex-B H.264, in chunks that needn't line up with access units.
     H264,
-    /// One JPEG per packet (Heavy streams and the Browser camera).
+    /// One JPEG per packet (Heavy streams).
     Mjpeg,
+    /// One VP8 frame per packet (the Browser camera, from a browser that has no H.264).
+    Vp8,
 }
 
 /// A piece of encoded video as it arrived.
@@ -60,6 +62,12 @@ pub struct Decoded {
     pub count: u32,
 }
 
+/// Encoded audio to 48 kHz mono s16le, the PCM the phone's /v1/audio sends.
+pub trait AudioDecoder: Send {
+    /// One packet's samples; empty when it doesn't decode.
+    fn decode(&mut self, packet: &[u8]) -> Vec<u8>;
+}
+
 pub trait Decoder: Send {
     fn decode(&mut self, packet: &Packet) -> Decoded;
     /// Whether it really ended up on the graphics card.
@@ -76,6 +84,10 @@ pub trait Scaler: Send {
 pub trait Media: Send + Sync {
     fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String>;
     fn scaler(&self) -> Box<dyn Scaler>;
+    /// Opus as WebRTC carries it (the Browser camera's mic).
+    fn opus_decoder(&self) -> Result<Box<dyn AudioDecoder>, String> {
+        Err("Opus decoding isn't in this build".into())
+    }
 
     /// A decoder whose H.264 goes through tap's packet steps first (StreamWorker.packets); other codecs ignore the tap.
     fn decoder_with_tap(&self, codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {

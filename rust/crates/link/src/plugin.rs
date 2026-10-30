@@ -1772,6 +1772,46 @@ mod tests {
         assert_eq!(e.props("card")["note-kind"], "status_err");
     }
 
+    fn browser_camera_offered(e: &mut Env) {
+        let sources = vec![telescope_core::event::SourceName { id: "browser".into(), name: "Browser camera".into() }];
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources });
+    }
+
+    fn picked(e: &Env) -> Option<String> {
+        e.host.events.iter().rev().find_map(|ev| match ev { Event::SourceSelected { source_id } => Some(source_id.clone()), _ => None })
+    }
+
+    // test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked
+    #[test]
+    fn sources_are_listed_after_the_phones_and_can_be_picked() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        browser_camera_offered(&mut e);
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "Browser camera"]));
+
+        e.ui("header", "picked", vec![json!(1)]);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("browser")); // its settings are kept apart from the phone's
+        assert!(e.called("switch_device Some(\"id-a\") Some(\"browser\")"));
+        assert_eq!(picked(&e).as_deref(), Some("browser"));
+        assert!(e.status().contains("no phone needed"), "{}", e.status());
+
+        e.ui("header", "picked", vec![json!(0)]);
+        assert_eq!(picked(&e).as_deref(), Some(""));
+    }
+
+    // test_browser_camera.py::test_a_saved_source_selection_is_restored
+    #[test]
+    fn a_saved_source_selection_is_restored() {
+        let mut e = env();
+        browser_camera_offered(&mut e);
+        e.add("id-a", "Pixel");
+        let mut cfg = e.plugin.get_config();
+        cfg["selected_phone"] = json!("browser");
+        e.plugin.set_config(&cfg).unwrap();
+        e.settle();
+        assert_eq!(e.shared.picked_source().as_deref(), Some("browser"));
+    }
+
     #[test]
     fn picking_another_phone_while_idle_does_not_start_it() {
         let mut e = env();

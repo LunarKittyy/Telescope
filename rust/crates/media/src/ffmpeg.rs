@@ -113,6 +113,11 @@ impl Codec {
         Codec::open(ff::AVCodecID::AV_CODEC_ID_MJPEG, None, false)
     }
 
+    /// VP8 in software, one whole frame per packet (the Browser camera from a browser without H.264).
+    pub fn vp8() -> Result<Codec, String> {
+        Codec::open(ff::AVCodecID::AV_CODEC_ID_VP8, None, false)
+    }
+
     fn open(id: ff::AVCodecID, hw: Option<Hw>, parse: bool) -> Result<Codec, String> {
         // SAFETY: plain libavcodec setup; every pointer is checked before use and freed in Drop
         unsafe {

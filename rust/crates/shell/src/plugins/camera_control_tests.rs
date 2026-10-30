@@ -715,3 +715,15 @@ fn a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts() {
     let switches: Vec<Value> = r.sent().into_iter().filter(|m| m["action"] == "camera").collect();
     assert_eq!(switches, [json!({"action": "camera", "id": "2"})]);
 }
+
+// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Camera card's part (the mic's is the
+// Microphone card's)
+#[test]
+fn phone_only_cards_hide_while_a_source_is_picked() {
+    let mut r = Rig { cam: CameraControl::new(), host: FakeHost::new() };
+    assert_eq!(r.props()["active"], false); // nothing paired yet
+    r.event(Event::SourceSelected { source_id: "browser".into() });
+    assert_eq!(r.props()["phone-only-hidden"], true);
+    r.event(Event::SourceSelected { source_id: String::new() });
+    assert_eq!((r.props()["phone-only-hidden"].clone(), r.props()["active"].clone()), (json!(false), json!(false)));
+}

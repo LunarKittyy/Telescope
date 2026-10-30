@@ -42,14 +42,24 @@ fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
     UpdatesPlugin::new(Arc::new(backend), telescope_system::version::channel())
 }
 
+/// Browser camera on this computer's addresses, with its certificate next to the settings file.
+fn browser_camera(media: Arc<dyn telescope_core::media::Media>) -> telescope_link::browser::plugin::BrowserCameraPlugin {
+    use telescope_core::web::Web;
+    let web: Arc<dyn Web> = Arc::new(telescope_link::web::SystemWeb);
+    let folder = telescope_core::config::config_path().parent().map(std::path::Path::to_path_buf).unwrap_or_default();
+    let server = telescope_link::browser::plugin::system_server(web, folder, media);
+    telescope_link::browser::plugin::BrowserCameraPlugin::new(server, || telescope_link::web::SystemWeb.addresses())
+}
+
 /// tray: the window's run, which shows the tray icon.
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into()], "en".into(), problems.clone());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into()], "en".into(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
+    let browser_media = media.clone();
     let connection = link.clone();
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
     let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
@@ -68,6 +78,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
                 Box::new(connection.connection_plugin()),
+                Box::new(browser_camera(browser_media.clone())),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures.clone())),

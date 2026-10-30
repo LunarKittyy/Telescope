@@ -41,6 +41,8 @@ libc = "0.2"
 base64 = "0.22"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ring = "0.17"
+# The Browser camera's WebRTC, sans-IO on our own UDP sockets, with pure-Rust DTLS and SRTP
+str0m = { version = "0.24.1", default-features = false, features = ["rust-crypto"] }
 mdns-sd = { version = "0.21", default-features = false }
 if-addrs = "0.15"
 ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
