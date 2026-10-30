@@ -762,3 +762,15 @@ fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
     let iso = state.plugin_config("camera_control").unwrap()["iso"].as_f64().unwrap();
     assert!(iso > 9000.0, "A's ISO came back clamped to B's range: {iso}");
 }
+
+// Sol's review, finding 6: ISO and shutter run over LogSliderRow's 2000 positions and manual focus over 1000, one at a
+// time as in Qt (the step also quantises a drag in ui-kit's Slider)
+#[test]
+fn iso_shutter_and_focus_move_a_position_at_a_time() {
+    let card = include_str!("../../ui/cards/camera.slint");
+    for label in ["label: \"ISO\";\n            Slider", "label: @tr(\"Shutter\");\n            Slider", "label: @tr(\"Distance\");\n            Slider"] {
+        let at = card.find(label).unwrap_or_else(|| panic!("no {label}"));
+        let slider = &card[at..at + card[at..].find("moved(v)").unwrap()];
+        assert!(slider.contains("step: 1;"), "{label}: {slider}");
+    }
+}
