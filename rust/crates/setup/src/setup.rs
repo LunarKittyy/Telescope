@@ -61,38 +61,32 @@ pub struct Language {
     pub draft: bool,
 }
 
-/// i18n.native_name's answers, where Qt has one.
-fn native_name(code: &str) -> String {
-    match code {
-        "en" => "English", "de" => "Deutsch", "es" => "Español", "fr" => "Français", "hi" => "हिन्दी", "id" => "Bahasa Indonesia",
-        "it" => "Italiano", "ja" => "日本語", "ko" => "한국어", "pl" => "Polski", "pt_BR" => "Português do Brasil", "ru" => "Русский",
-        "sv" => "Svenska", "tr" => "Türkçe", "uk" => "Українська", "vi" => "Tiếng Việt", "zh_CN" => "简体中文", other => other,
-    }.into()
-}
-
 impl Language {
-    /// English, then every <lang>.po in the first of folders that has any (i18n.available), sorted.
+    /// English, then every language with a catalog (i18n.available), sorted: the ones the program was given when folders is empty,
+    /// else those of the first folder of .po files that has any.
     pub fn found(folders: &[&Path]) -> Vec<Language> {
+        let list = |source: telescope_core::i18n::Source| -> Vec<Language> {
+            source.available().into_iter().map(|code| Language { name: native_name(&code), draft: source.is_draft(&code), code }).collect()
+        };
         let mut out = vec![Language { code: "en".into(), name: native_name("en"), draft: false }];
+        if folders.is_empty() {
+            out.extend(telescope_core::i18n::available().into_iter().map(|code| Language { name: native_name(&code), draft: telescope_core::i18n::is_draft(&code), code }));
+            return out;
+        }
         for folder in folders {
-            let Ok(entries) = std::fs::read_dir(folder) else { continue };
-            let mut found: Vec<Language> = entries.flatten().filter_map(|e| {
-                let path = e.path();
-                (path.extension()? == "po").then_some(())?;
-                let code = path.file_stem()?.to_string_lossy().into_owned();
-                // is_draft: the header's X-Telescope-Draft says yes
-                let text = std::fs::read_to_string(&path).unwrap_or_default();
-                let draft = text.lines().take(40).any(|l| l.trim_matches('"').to_ascii_lowercase().starts_with("x-telescope-draft: yes"));
-                Some(Language { name: native_name(&code), code, draft })
-            }).collect();
+            let found = list(telescope_core::i18n::Source::Folder(folder.to_path_buf()));
             if !found.is_empty() {
-                found.sort_by(|a, b| a.code.cmp(&b.code));
                 out.extend(found);
                 break;
             }
         }
         out
     }
+}
+
+/// i18n.native_name: a language's name in itself.
+fn native_name(code: &str) -> String {
+    telescope_core::i18n::native_name(code)
 }
 
 /// What a job on its own thread gets: posts reach the plugin on the host thread as Event::Posted.
@@ -994,29 +988,8 @@ fn current_language() -> String {
 
 /// i18n.resolve: the language to load for the one picked ("" is the system's); TELESCOPE_LANG wins over both.
 pub fn resolve(chosen: &str, languages: &[Language]) -> String {
-    let over = std::env::var("TELESCOPE_LANG").unwrap_or_default();
-    let wanted: Vec<String> = if !over.trim().is_empty() {
-        vec![over.trim().to_string()]
-    } else if !chosen.is_empty() {
-        vec![chosen.to_string()]
-    } else {
-        ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"].iter().filter_map(|k| std::env::var(k).ok()).filter(|v| !v.is_empty())
-            .flat_map(|v| v.split(':').map(|s| s.split(['.', '@']).next().unwrap_or("").to_string()).collect::<Vec<_>>()).collect()
-    };
-    for tag in wanted {
-        let tag = tag.replace('-', "_");
-        if tag == "C" || tag == "POSIX" {
-            continue;
-        }
-        if languages.iter().any(|l| l.code == tag) {
-            return tag;
-        }
-        let base = tag.split('_').next().unwrap_or("").to_string();
-        if languages.iter().any(|l| l.code == base) {
-            return base;
-        }
-    }
-    "en".into()
+    let have: Vec<String> = languages.iter().map(|l| l.code.clone()).collect();
+    telescope_core::i18n::lang::resolve(chosen, &have)
 }
 
 impl Plugin for SetupPlugin {

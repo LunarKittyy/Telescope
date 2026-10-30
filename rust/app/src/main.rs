@@ -20,6 +20,11 @@ mod confirm;
 mod dev;
 mod scenes;
 
+/// The translations built into the program (build.rs).
+mod locale {
+    include!(concat!(env!("OUT_DIR"), "/locale.rs"));
+}
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use telescope_core::config::DEV_PROFILE_ENV;
@@ -34,6 +39,19 @@ fn use_own_profile() {
         .unwrap_or_else(|| telescope_core::config::PathEnv::current().own_profile_folder());
     // Only this thread runs yet, so changing the environment can't race anything
     std::env::set_var(DEV_PROFILE_ENV, folder);
+}
+
+/// The language picked in Settings > General ("" for the system's), read before any window exists (main.py's _chosen_language).
+fn chosen_language() -> String {
+    let cfg = telescope_core::config::ConfigFile::default().load();
+    cfg["plugin_configs"]["setup"]["language"].as_str().unwrap_or_default().to_string()
+}
+
+/// Loads the language before any window or dialog is built, from the catalogs in the program (TELESCOPE_LOCALE_DIR names a folder of
+/// .po files to try instead), once the profile is settled.
+fn start_language() {
+    telescope_core::i18n::use_source(telescope_core::i18n::Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS });
+    telescope_core::i18n::start(&chosen_language());
 }
 
 /// Points the sign-in entry at this copy; a source build or a copy on a profile of its own mustn't repoint the real app's (main.py).
@@ -74,10 +92,10 @@ fn browser_camera(media: Arc<dyn telescope_core::media::Media>) -> telescope_lin
 fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
-    // Added plugins can't take a built-in's name; "en" until the shell loads languages
+    // Added plugins can't take a built-in's name
     let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
-    let added = telescope_plugin_host::load::factory(reserved, "en".into(), problems.clone());
+    let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let browser_media = media.clone();
@@ -86,9 +104,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
     let sign_outputs = outputs.clone();
     let setup_media = media.clone();
-    // Until the app ships its own translations, a dev build lists the Python app's
-    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale"));
-    let languages = telescope_setup::setup::Language::found(&[locale]);
+    let languages = telescope_setup::setup::Language::found(&[]);
     Arc::new(Services {
         link,
         media,
@@ -357,6 +373,7 @@ fn main() {
     let list_actions = words.iter().any(|w| w == "--list-actions");
     if action.is_some() || list_actions {
         use_own_profile();
+        start_language();
         std::process::exit(run_action(action));
     }
     let (flag, value) = (take_flag, take_value);
@@ -401,6 +418,7 @@ fn main() {
     if command != Some("config-snapshot") {
         use_own_profile();
         start_diagnostics();
+        start_language();
     }
     let result = match command {
         Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
@@ -488,6 +506,22 @@ mod tests {
         assert!(std::fs::read_to_string(&menu).unwrap().contains("Exec=/opt/rs/telescope-rs\n"));
         assert!(telescope_system::autostart::icon_file(Some(&data)).exists());
         own.iter().for_each(|name| std::env::remove_var(name));
+    }
+
+    // A shipped build has no folder of catalogs: they're in the program, all of them, and they read like the files do
+    #[test]
+    fn the_translations_are_in_the_program() {
+        use telescope_core::i18n::Source;
+        let embedded = Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS };
+        let folder = Source::Folder(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale")).to_path_buf());
+        assert_eq!(embedded.available(), folder.available());
+        assert_eq!(embedded.available().len(), 16);
+        for lang in embedded.available().iter().map(String::as_str).chain(["pseudo"]) {
+            let (a, b) = (embedded.catalog(lang).unwrap(), folder.catalog(lang).unwrap());
+            assert_eq!(a.len(), b.len(), "{lang}");
+            assert!(a.len() > 1700, "{lang} has only {} texts", a.len());
+            assert_eq!(embedded.is_draft(lang), folder.is_draft(lang), "{lang}");
+        }
     }
 
     // test_move_to_installed.py::test_main_takes_the_moved_from_folder

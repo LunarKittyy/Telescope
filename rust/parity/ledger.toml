@@ -652,9 +652,9 @@
 "VHS" = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 "Without it there's no Fun pack card and the picture has no effects." = { status = "ported", rust = "rust/crates/effects/src/fun_pack.rs" }
 # ── i18n
-", " = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
-"percentage|{n}%" = { status = "todo" }
-"{items} and {last}" = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
+", " = { status = "ported", rust = "rust/crates/core/src/i18n.rs::and_list" }
+"percentage|{n}%" = { status = "ported", rust = "rust/crates/core/src/i18n.rs::percent" }
+"{items} and {last}" = { status = "ported", rust = "rust/crates/core/src/i18n.rs::and_list" }
 # ── microphone
 "<a href=\"{url}\">Donate or read more</a>" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Apps hear silence, but the microphone stays connected." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
@@ -2947,25 +2947,25 @@
 "test_hotkeys.py::test_windows_backend_presses_and_watches_for_the_release" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::presses_and_watches_for_the_release" }
 "test_hotkeys.py::test_windows_backend_registers_and_reports" = { status = "ported", rust = "rust/crates/system/src/hotkeys_windows.rs::registers_and_reports" }
 # ── i18n
-"test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "todo" }
-"test_i18n.py::test_a_field_can_have_any_name" = { status = "todo" }
-"test_i18n.py::test_a_first_draft_says_so" = { status = "todo" }
-"test_i18n.py::test_a_language_with_three_plural_forms" = { status = "todo" }
-"test_i18n.py::test_a_list_reads_naturally" = { status = "todo" }
-"test_i18n.py::test_a_text_keeps_its_english_when_another_is_translated_alike" = { status = "todo" }
-"test_i18n.py::test_a_translation_is_used_with_its_fields_and_plural_forms" = { status = "todo" }
-"test_i18n.py::test_an_unreadable_catalog_leaves_english" = { status = "todo" }
-"test_i18n.py::test_each_language_has_the_template_and_working_fields" = { status = "todo" }
-"test_i18n.py::test_english_is_what_the_code_says" = { status = "todo" }
-"test_i18n.py::test_every_text_can_be_found" = { status = "todo" }
-"test_i18n.py::test_nothing_is_translated_at_import_time" = { status = "todo" }
-"test_i18n.py::test_po_files_keep_what_they_hold" = { status = "todo" }
-"test_i18n.py::test_shown_numbers_follow_the_language" = { status = "todo" }
-"test_i18n.py::test_the_language_follows_the_system_unless_set" = { status = "todo" }
-"test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system" = { status = "todo" }
-"test_i18n.py::test_the_pseudo_language_can_be_picked_to_try_a_layout" = { status = "todo" }
-"test_i18n.py::test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" = { status = "todo" }
-"test_i18n.py::test_the_template_has_every_text_in_the_code" = { status = "todo" }
+"test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_broken_or_unfinished_translation_shows_the_english" }
+"test_i18n.py::test_a_field_can_have_any_name" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_field_can_have_any_name" }
+"test_i18n.py::test_a_first_draft_says_so" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_first_draft_says_so" }
+"test_i18n.py::test_a_language_with_three_plural_forms" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_language_with_three_plural_forms" }
+"test_i18n.py::test_a_list_reads_naturally" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_list_reads_naturally" }
+"test_i18n.py::test_a_text_keeps_its_english_when_another_is_translated_alike" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_text_keeps_its_english_when_another_is_translated_alike", note = "Python's tr() returns a text that remembers its English; Rust code that saves under a key holds the English itself, and english() looks any other text up (the first English for two texts translated alike)" }
+"test_i18n.py::test_a_translation_is_used_with_its_fields_and_plural_forms" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::a_translation_is_used_with_its_fields_and_plural_forms" }
+"test_i18n.py::test_an_unreadable_catalog_leaves_english" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::an_unreadable_catalog_leaves_english" }
+"test_i18n.py::test_each_language_has_the_template_and_working_fields" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::each_language_has_the_template_and_working_fields" }
+"test_i18n.py::test_english_is_what_the_code_says" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::english_is_what_the_code_says" }
+"test_i18n.py::test_every_text_can_be_found" = { status = "ported", rust = "rust/app/tests/texts_in_code.rs::no_text_is_built_from_pieces", note = "The Rust analogue: no text is built with format!() where an extractor can't see it" }
+"test_i18n.py::test_nothing_is_translated_at_import_time" = { status = "dropped", reason = "Rust has no import time: tr() isn't const, so a const or static can't call it, and main loads the language before any plugin or window exists" }
+"test_i18n.py::test_po_files_keep_what_they_hold" = { status = "dropped", reason = "Writing .po files is scripts/i18n.py's job (the extractor), which stays in Python; the app only reads them, and core::i18n::po::read_po is checked on all 16 real catalogs against Python's reading of them" }
+"test_i18n.py::test_shown_numbers_follow_the_language" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::shown_numbers_follow_the_language", note = "Spin boxes follow the language in Qt (QLocale.setDefault); Rust number boxes are Slint's own and read the language through number()" }
+"test_i18n.py::test_the_language_follows_the_system_unless_set" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_language_follows_the_system_unless_set" }
+"test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_language_picked_in_settings_wins_over_the_system" }
+"test_i18n.py::test_the_pseudo_language_can_be_picked_to_try_a_layout" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_pseudo_language_can_be_picked_to_try_a_layout" }
+"test_i18n.py::test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" = { status = "ported", rust = "rust/crates/core/tests/i18n.rs::the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in" }
+"test_i18n.py::test_the_template_has_every_text_in_the_code" = { status = "ported", rust = "rust/app/tests/texts_in_code.rs::every_text_in_the_code_is_in_the_template", note = "Checks the Rust code against the template; the other way round (every template text is shown somewhere) is the ledger's text list" }
 # ── ip_utils
 "test_ip_utils.py::test_classify_ip" = { status = "ported", rust = "rust/crates/link/src/net.rs::classify_ip_cases" }
 "test_ip_utils.py::test_looks_like_vpn_interface" = { status = "ported", rust = "rust/crates/link/src/net.rs::looks_like_vpn_interface_cases" }
