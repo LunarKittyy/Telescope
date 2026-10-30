@@ -4,6 +4,7 @@
 use std::path::Path;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::{SlintSource, UiSpec};
+use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::cinema::CinemaPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
@@ -113,6 +114,9 @@ fn the_cards_have_what_their_plugins_use() {
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);
+    let mut background = BackgroundPlugin::new();
+    compile(&mut background);
+    has_what_the_plugin_uses(&mut background, &["mode-picked", "blur-moved", "edges-moved", "picture-clicked", "download-clicked"]);
     // Cinema tools has a card, and its colours and sliders in the Video tab
     let mut cinema = CinemaPlugin::new();
     compile(&mut cinema);

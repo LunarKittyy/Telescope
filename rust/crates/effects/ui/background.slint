@@ -1,0 +1,104 @@
+// The Background card (desktop/telescope/plugins/background.py). Joined after parts.slint and vision_row.slint.
+
+export component BackgroundCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <int> mode: 0;
+    in property <float> blur: 6;
+    in property <string> blur-text: "6";
+    in property <float> edges: 3;
+    in property <string> edges-text: "3";
+    in property <string> edges-tip;
+    in property <string> reset-hint;
+    in property <string> picture-text;
+    in property <string> picture-tip;
+    in property <string> picture-choose-tip;
+    in property <string> vision-text;
+    in property <bool> vision-download;
+    callback mode-picked(int);
+    callback blur-moved(float);
+    callback edges-moved(float);
+    callback picture-clicked;
+    callback download-clicked;
+
+    title: @tr("Background");
+    icon: Icons.image;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+
+    FormRow {
+        label: @tr("Background");
+        Segmented {
+            horizontal-stretch: 1;
+            items: [@tr("Off"), @tr("Blur"), @tr("Picture")];
+            disabled: [!active, !active, !active];
+            has-icons: [false, false, false];
+            icons: [Icons.image, Icons.image, Icons.image];
+            label: @tr("Background");
+            current: mode;
+            shortcut: "background.mode";
+            picked(i) => { root.mode-picked(i); }
+        }
+    }
+    if mode == 1: SliderRow {
+        enabled: active;
+        label: @tr("Blur");
+        // Qt's tooltip on a slider with a default and no tip of its own: just the hint
+        tip: reset-hint;
+        minimum: 1;
+        maximum: 10;
+        value: blur;
+        readout: blur-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 6;
+        moved(v) => { root.blur-moved(v); }
+    }
+    if mode == 2: FormRow {
+        label: @tr("Picture");
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                enabled: active;
+                text: @tr("Choose…");
+                tip: picture-choose-tip;
+                clicked => { root.picture-clicked(); }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: picture-text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
+            }
+        }
+    }
+    if mode != 0: SliderRow {
+        enabled: active;
+        label: @tr("Edges");
+        tip: edges-tip;
+        minimum: 0;
+        maximum: 10;
+        value: edges;
+        readout: edges-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 3;
+        hint: root.reset-hint;
+        moved(v) => { root.edges-moved(v); }
+    }
+    if vision-text != "": VisionRow {
+        text: vision-text;
+        download: vision-download;
+        download-clicked => { root.download-clicked(); }
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

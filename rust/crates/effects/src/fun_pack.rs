@@ -176,7 +176,7 @@ struct FunStep {
     own: Runner,
 }
 
-fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<Gray> {
+pub(crate) fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<Gray> {
     let m = ctx.person_mask(frame)?;
     (m.len() == (frame.width * frame.height) as usize).then(|| Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
 }
