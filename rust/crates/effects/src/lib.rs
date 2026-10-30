@@ -2,6 +2,9 @@
 //! LUT files (`cube`) are here too; the pixel work goes through core's shader steps and colour pipeline.
 
 pub mod chroma_key;
+pub mod cinema;
+pub mod cinema_paint;
+pub mod cinema_tools;
 pub mod composite;
 pub mod composite_plugin;
 pub mod compositor;
@@ -23,6 +26,7 @@ pub mod pixels;
 pub mod qr_reader;
 pub mod colour_grading;
 pub mod shared;
+pub mod scopes;
 pub mod sheet;
 pub mod tag;
 pub mod transforms;

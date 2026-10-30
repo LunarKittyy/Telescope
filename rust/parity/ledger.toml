@@ -252,52 +252,52 @@
 "Tolerance" = { status = "ported", rust = "rust/crates/effects/ui/chroma_key.slint" }
 "Without it there's no Chroma key card and a green screen stays green." = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"4 × 4" = { status = "todo" }
-"Can't reach the phone's motion sensors." = { status = "todo" }
-"Centre cross" = { status = "todo" }
-"Cinema tools" = { status = "todo" }
-"Clipped" = { status = "todo" }
-"Colour the picture by how bright it is" = { status = "todo" }
-"Crushed" = { status = "todo" }
-"False colour" = { status = "todo" }
-"Focus peaking" = { status = "todo" }
-"Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon." = { status = "todo" }
-"Golden ratio" = { status = "todo" }
-"Guides" = { status = "todo" }
-"Higher outlines softer edges too" = { status = "todo" }
-"Histogram" = { status = "todo" }
-"How bright something has to be to get stripes" = { status = "todo" }
-"Large" = { status = "todo" }
-"Level" = { status = "todo" }
-"Lines to help frame the shot" = { status = "todo" }
-"Medium" = { status = "todo" }
-"Middle grey" = { status = "todo" }
-"Nearly clipped" = { status = "todo" }
-"Only on the preview. Apps never see these." = { status = "todo" }
-"Outline what's sharp" = { status = "todo" }
-"Peaking colour" = { status = "todo" }
-"Peaking sensitivity" = { status = "todo" }
-"RGB parade" = { status = "todo" }
+"4 × 4" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Can't reach the phone's motion sensors." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Centre cross" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Cinema tools" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Colour the picture by how bright it is" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Crushed" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"False colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Focus peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon." = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Golden ratio" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Higher outlines softer edges too" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Histogram" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"How bright something has to be to get stripes" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Large" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Lines to help frame the shot" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Medium" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Middle grey" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Nearly clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Only on the preview. Apps never see these." = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Outline what's sharp" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Peaking colour" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Peaking sensitivity" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"RGB parade" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
 "Red" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
-"Scope" = { status = "todo" }
-"Scope size" = { status = "todo" }
-"Show the horizon from the phone's motion sensors" = { status = "todo" }
-"Skin" = { status = "todo" }
-"Small" = { status = "todo" }
-"Stripe what's about to clip to white" = { status = "todo" }
-"The level needs a phone's motion sensors." = { status = "todo" }
-"The level works with the phone's own cameras, not an external one." = { status = "todo" }
-"Thirds" = { status = "todo" }
-"This phone has no motion sensor for the level." = { status = "todo" }
-"Too dark" = { status = "todo" }
-"Update Telescope on the phone to use the level." = { status = "todo" }
-"Vectorscope" = { status = "todo" }
-"Waveform" = { status = "todo" }
-"White" = { status = "todo" }
-"Without it there's no Cinema tools card and the preview shows just the picture." = { status = "todo" }
-"Zebras" = { status = "todo" }
-"Zebras from" = { status = "todo" }
-"search|focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing" = { status = "todo" }
+"Scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Scope size" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Show the horizon from the phone's motion sensors" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Skin" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Small" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Stripe what's about to clip to white" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"The level needs a phone's motion sensors." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"The level works with the phone's own cameras, not an external one." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Thirds" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"This phone has no motion sensor for the level." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Too dark" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Update Telescope on the phone to use the level." = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Vectorscope" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Waveform" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"White" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
+"Without it there's no Cinema tools card and the preview shows just the picture." = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"Zebras from" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"search|focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour
 "Line {line} of the file can't be read." = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
 "Line {line} of the file isn't a colour (three numbers)." = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
@@ -2379,32 +2379,32 @@
 "test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
 "test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
 # ── cinema
-"test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "todo" }
-"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "todo" }
-"test_cinema.py::test_diagnostics_say_what_is_on" = { status = "todo" }
-"test_cinema.py::test_every_guide_in_the_list_has_lines" = { status = "todo" }
-"test_cinema.py::test_false_colour_marks_crushed_middle_grey_skin_and_clipped" = { status = "todo" }
-"test_cinema.py::test_guides_alone_put_the_layer_on_and_leave_the_picture_alone" = { status = "todo" }
-"test_cinema.py::test_jitter_near_level_stays_level_and_green" = { status = "todo" }
-"test_cinema.py::test_level_has_a_margin_either_way" = { status = "todo" }
-"test_cinema.py::test_peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" = { status = "todo" }
-"test_cinema.py::test_pointing_straight_up_has_no_roll_but_keeps_pitch" = { status = "todo" }
-"test_cinema.py::test_readings_reach_the_layer_as_shown" = { status = "todo" }
-"test_cinema.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "todo" }
-"test_cinema.py::test_the_filter_follows_a_change_gradually" = { status = "todo" }
-"test_cinema.py::test_the_filter_goes_the_short_way_round_past_180" = { status = "todo" }
-"test_cinema.py::test_the_guide_paints_without_trouble" = { status = "todo" }
-"test_cinema.py::test_the_guides_draw_where_they_should" = { status = "todo" }
-"test_cinema.py::test_the_layer_is_on_the_preview_only_while_a_tool_is" = { status = "todo" }
-"test_cinema.py::test_the_layer_tints_its_copy_and_only_analyses_with_a_scope" = { status = "todo" }
-"test_cinema.py::test_the_level_switch_asks_for_the_sensors_only_while_on" = { status = "todo" }
-"test_cinema.py::test_the_line_turns_clockwise_for_a_positive_roll" = { status = "todo" }
-"test_cinema.py::test_the_roll_as_shown_follows_the_views_flip_and_rotation" = { status = "todo" }
-"test_cinema.py::test_the_sensors_stop_while_nothing_draws_the_guide" = { status = "todo" }
-"test_cinema.py::test_the_settings_window_changes_what_the_layer_draws" = { status = "todo" }
-"test_cinema.py::test_the_tools_judge_the_picture_before_any_of_them_paints" = { status = "todo" }
-"test_cinema.py::test_why_the_level_cant_show_is_on_the_card" = { status = "todo" }
-"test_cinema.py::test_zebras_stripe_only_what_is_bright_enough" = { status = "todo" }
+"test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::a_big_preview_is_judged_small_and_marked_at_its_own_size" }
+"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::a_frozen_horizon_isnt_drawn" }
+"test_cinema.py::test_diagnostics_say_what_is_on" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::diagnostics_say_what_is_on" }
+"test_cinema.py::test_every_guide_in_the_list_has_lines" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::every_guide_in_the_list_has_lines" }
+"test_cinema.py::test_false_colour_marks_crushed_middle_grey_skin_and_clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::false_colour_marks_crushed_middle_grey_skin_and_clipped" }
+"test_cinema.py::test_guides_alone_put_the_layer_on_and_leave_the_picture_alone" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::guides_alone_put_the_layer_on_and_leave_the_picture_alone" }
+"test_cinema.py::test_jitter_near_level_stays_level_and_green" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::jitter_near_level_stays_level_and_green" }
+"test_cinema.py::test_level_has_a_margin_either_way" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::level_has_a_margin_either_way" }
+"test_cinema.py::test_peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::peaking_finds_sharp_edges_and_nothing_on_a_flat_picture" }
+"test_cinema.py::test_pointing_straight_up_has_no_roll_but_keeps_pitch" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::pointing_straight_up_has_no_roll_but_keeps_pitch" }
+"test_cinema.py::test_readings_reach_the_layer_as_shown" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::readings_reach_the_layer_as_shown" }
+"test_cinema.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::settings_round_trip_and_bad_values_fall_back" }
+"test_cinema.py::test_the_filter_follows_a_change_gradually" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_filter_follows_a_change_gradually" }
+"test_cinema.py::test_the_filter_goes_the_short_way_round_past_180" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_filter_goes_the_short_way_round_past_180" }
+"test_cinema.py::test_the_guide_paints_without_trouble" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_guide_paints_without_trouble" }
+"test_cinema.py::test_the_guides_draw_where_they_should" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_guides_draw_where_they_should" }
+"test_cinema.py::test_the_layer_is_on_the_preview_only_while_a_tool_is" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_layer_is_on_the_preview_only_while_a_tool_is" }
+"test_cinema.py::test_the_layer_tints_its_copy_and_only_analyses_with_a_scope" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_layer_tints_its_copy_and_only_analyses_with_a_scope" }
+"test_cinema.py::test_the_level_switch_asks_for_the_sensors_only_while_on" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_level_switch_asks_for_the_sensors_only_while_on" }
+"test_cinema.py::test_the_line_turns_clockwise_for_a_positive_roll" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::the_line_turns_clockwise_for_a_positive_roll" }
+"test_cinema.py::test_the_roll_as_shown_follows_the_views_flip_and_rotation" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_roll_as_shown_follows_the_views_flip_and_rotation" }
+"test_cinema.py::test_the_sensors_stop_while_nothing_draws_the_guide" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_sensors_stop_while_nothing_draws_the_guide" }
+"test_cinema.py::test_the_settings_window_changes_what_the_layer_draws" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::the_settings_window_changes_what_the_layer_draws" }
+"test_cinema.py::test_the_tools_judge_the_picture_before_any_of_them_paints" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::the_tools_judge_the_picture_before_any_of_them_paints" }
+"test_cinema.py::test_why_the_level_cant_show_is_on_the_card" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::why_the_level_cant_show_is_on_the_card" }
+"test_cinema.py::test_zebras_stripe_only_what_is_bright_enough" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::zebras_stripe_only_what_is_bright_enough" }
 # ── collapse
 "test_collapse.py::test_a_card_is_only_made_collapsible_once" = { status = "todo" }
 "test_collapse.py::test_a_card_that_goes_and_comes_back_is_folded_as_it_was" = { status = "todo" }
@@ -3791,13 +3791,13 @@
 # ── release_checklist
 "test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "todo" }
 # ── scopes
-"test_scopes.py::test_a_brighter_spot_glows_more" = { status = "todo" }
-"test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "todo" }
-"test_scopes.py::test_grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" = { status = "todo" }
-"test_scopes.py::test_histogram_counts_every_pixel_at_its_level" = { status = "todo" }
-"test_scopes.py::test_parade_has_red_green_and_blue_in_that_order" = { status = "todo" }
-"test_scopes.py::test_shrink_keeps_the_shape_and_never_grows" = { status = "todo" }
-"test_scopes.py::test_waveform_puts_bright_columns_at_the_top" = { status = "todo" }
+"test_scopes.py::test_a_brighter_spot_glows_more" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::a_brighter_spot_glows_more" }
+"test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::every_scope_makes_a_bgra_picture" }
+"test_scopes.py::test_grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::grey_sits_in_the_middle_of_the_vectorscope_and_red_up_and_left_of_it" }
+"test_scopes.py::test_histogram_counts_every_pixel_at_its_level" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::histogram_counts_every_pixel_at_its_level" }
+"test_scopes.py::test_parade_has_red_green_and_blue_in_that_order" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::parade_has_red_green_and_blue_in_that_order" }
+"test_scopes.py::test_shrink_keeps_the_shape_and_never_grows" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::shrink_keeps_the_shape_and_never_grows" }
+"test_scopes.py::test_waveform_puts_bright_columns_at_the_top" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::waveform_puts_bright_columns_at_the_top" }
 # ── sensors
 "test_sensors.py::test_a_dropped_stream_is_opened_again" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::a_dropped_stream_is_opened_again" }
 "test_sensors.py::test_a_kind_nobody_wants_any_more_leaves_the_reading" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::a_kind_nobody_wants_any_more_leaves_the_reading" }
@@ -5474,16 +5474,16 @@
 "device.chroma_key.spill" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "device.chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"global.cinema.false_colour" = { status = "todo" }
-"global.cinema.guides" = { status = "todo" }
-"global.cinema.level" = { status = "todo" }
-"global.cinema.peaking" = { status = "todo" }
-"global.cinema.peaking_colour" = { status = "todo" }
-"global.cinema.peaking_level" = { status = "todo" }
-"global.cinema.scope" = { status = "todo" }
-"global.cinema.scope_size" = { status = "todo" }
-"global.cinema.zebra_level" = { status = "todo" }
-"global.cinema.zebras" = { status = "todo" }
+"global.cinema.false_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.peaking_level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.scope_size" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.zebra_level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"global.cinema.zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour_grading
 "device.colour_grading.contrast" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "device.colour_grading.curves" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -5693,12 +5693,12 @@
 "chroma_key.screen" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 "chroma_key.tolerance" = { status = "ported", rust = "rust/crates/effects/src/chroma_key.rs" }
 # ── cinema
-"cinema.false_colour" = { status = "todo" }
-"cinema.guides" = { status = "todo" }
-"cinema.level" = { status = "todo" }
-"cinema.peaking" = { status = "todo" }
-"cinema.scope" = { status = "todo" }
-"cinema.zebras" = { status = "todo" }
+"cinema.false_colour" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.guides" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.level" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.peaking" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.scope" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
+"cinema.zebras" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 # ── colour_grading
 "colour_grading.compare" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }
 "colour_grading.contrast" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs::actions" }

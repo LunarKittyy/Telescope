@@ -32,6 +32,15 @@ impl FrameStore for NoFrames {
     }
 }
 
+/// The phone sensors' newest reading, readable from any thread.
+struct HubReader(Arc<dyn telescope_core::link::PhoneSensors>);
+
+impl SensorReader for HubReader {
+    fn reading(&self, source_id: Option<&str>) -> Option<Value> {
+        self.0.reading(source_id)
+    }
+}
+
 struct NoSensors;
 
 impl SensorReader for NoSensors {
@@ -364,8 +373,18 @@ impl HostMotion for Ctx<'_> {
 
 impl HostPreview for Ctx<'_> {
     fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
-    fn remove_preview_layer(&mut self, _owner: &str) {}
-    fn refresh_preview(&mut self) {}
+    fn remove_preview_layer(&mut self, owner: &str) {
+        self.state.passes.retain(|(o, _)| o != owner);
+        self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn refresh_preview(&mut self) {
+        self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn add_preview_pass(&mut self, owner: &str, pass: Arc<dyn telescope_core::preview::PreviewPass>) {
+        self.state.passes.retain(|(o, _)| o != owner);
+        self.state.passes.push((owner.to_string(), pass));
+        self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
     /// Only on a stream the preview card shows.
     fn pick_on_preview(&mut self, owner: &str, kind: PickKind, start: Option<[[f32; 2]; 4]>, hint: &str) -> bool {
         if !self.is_streaming() || !self.has_plugin("preview") {
@@ -439,12 +458,19 @@ impl HostColour for Ctx<'_> {
 }
 
 impl HostSensors for Ctx<'_> {
-    fn want_sensors(&mut self, _owner: &str, _kinds: &[String]) {}
-    fn sensor_status(&self, _source_id: Option<&str>) -> Value {
-        Value::Null
+    fn want_sensors(&mut self, owner: &str, kinds: &[String]) {
+        if let Some(sensors) = self.state.link.as_ref().and_then(|l| l.sensors()) {
+            sensors.want(owner, kinds);
+        }
+    }
+    fn sensor_status(&self, source_id: Option<&str>) -> Value {
+        self.state.link.as_ref().and_then(|l| l.sensors()).map_or(Value::Null, |s| s.status(source_id))
     }
     fn sensors(&self) -> Arc<dyn SensorReader> {
-        Arc::new(NoSensors)
+        match self.state.link.as_ref().and_then(|l| l.sensors()) {
+            Some(hub) => Arc::new(HubReader(hub)),
+            None => Arc::new(NoSensors),
+        }
     }
 }
 

@@ -47,7 +47,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name; "en" until the shell loads languages
-    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into()], "en".into(), problems.clone());
+    let added = telescope_plugin_host::load::factory(vec!["camera_control".into(), "onboarding".into(), "connection".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into()], "en".into(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let connection = link.clone();
@@ -69,6 +69,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
                 Box::new(connection.connection_plugin()),
                 Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
+                Box::new(telescope_effects::cinema::CinemaPlugin::new()),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures.clone())),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),

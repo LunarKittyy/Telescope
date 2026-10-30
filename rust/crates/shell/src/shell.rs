@@ -237,6 +237,10 @@ pub struct State {
     pub colour_before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
     /// The pick under way on the preview, and the warp a plugin moving the picture told it about.
     pub overlays: crate::overlays::Overlays,
+    /// What plugins put on the preview besides shapes (tint, analyse, paint), by owner.
+    pub passes: Vec<(String, Arc<dyn telescope_core::preview::PreviewPass>)>,
+    /// A pass asked for the preview to be drawn again (refresh_preview, or an analysis that finished).
+    pub preview_dirty: Arc<std::sync::atomic::AtomicBool>,
     pub output_slots: Map<String, Value>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
@@ -293,6 +297,8 @@ impl State {
             colour: ColourPipeline::new(),
             colour_before: Arc::default(),
             overlays: Default::default(),
+            passes: Vec::new(),
+            preview_dirty: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             output_slots: Map::new(),
             changes_only: Vec::new(),
             save_failure_notified: false,

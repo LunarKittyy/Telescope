@@ -9,6 +9,9 @@ export component PreviewCard inherits Rectangle {
     // The window draws frames straight into these (preview.rs); the plugin only clears them
     in property <image> frame;
     in property <bool> has-frame;
+    // What plugins draw over the frame (Cinema tools' guides and scope), the frame's size
+    in property <image> overlay;
+    in property <bool> has-overlay;
     // What the stage says without a frame, and whether it's the camera-off note with its icon
     in property <string> stage-text;
     in property <bool> camera-off;
@@ -65,6 +68,13 @@ export component PreviewCard inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 source: frame;
+                image-fit: contain;
+                image-rendering: smooth;
+            }
+            if has-frame && has-overlay: Image {
+                width: parent.width;
+                height: parent.height;
+                source: overlay;
                 image-fit: contain;
                 image-rendering: smooth;
             }

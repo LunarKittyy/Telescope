@@ -74,6 +74,10 @@ pub struct Window {
     preview_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
+    /// What passes on the preview (tint, analyse, paint) have in hand.
+    passes: RefCell<crate::preview_passes::PassWork>,
+    /// The first frame shown has been written to the log.
+    logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
     popout_asks: Cell<i32>,
@@ -88,10 +92,19 @@ export component PreviewPopout inherits Window {
     background: #000;
     in property <image> frame;
     in property <bool> has-frame;
+    in property <image> overlay;
+    in property <bool> has-overlay;
     if has-frame: Image {
         width: parent.width;
         height: parent.height;
         source: frame;
+        image-fit: contain;
+        image-rendering: smooth;
+    }
+    if has-frame && has-overlay: Image {
+        width: parent.width;
+        height: parent.height;
+        source: overlay;
         image-fit: contain;
         image-rendering: smooth;
     }
@@ -209,6 +222,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
+        passes: RefCell::default(),
+        logged: Cell::new(false),
         popout: RefCell::default(),
         popout_asks: Cell::new(0),
     });
@@ -483,6 +498,14 @@ impl Window {
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height);
         }
+        // A pass asked for the preview to be drawn again
+        let (passes, dirty) = {
+            let st = self.state.borrow();
+            (crate::preview_passes::PassWork::sorted(&st.passes), st.preview_dirty.swap(false, std::sync::atomic::Ordering::SeqCst))
+        };
+        if dirty {
+            self.painted.set(0);
+        }
         if number == self.painted.get() {
             return;
         }
@@ -498,16 +521,37 @@ impl Window {
             }
         };
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), stage);
-        if self.painted.get() == 0 {
+        if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
-        let mut painter = self.painter.borrow_mut();
-        if painter.is_none() {
-            let Some(services) = &self.services else { return };
-            *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
-        }
-        let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
-        drop(painter);
+        // Passes that tint the picture, or want a look at it, work on a CPU copy at the size it is painted at
+        let tinted = if self.passes.borrow().needs_copy(&passes) {
+            let scaler = || self.services.as_ref().map(|s| s.media.scaler());
+            let mut work = self.passes.borrow_mut();
+            work.copy(scaler, &frame, w, h).map(|copy| {
+                work.analyse(&passes, &copy, &self.state.borrow().preview_dirty);
+                let mut shown = copy;
+                crate::preview_passes::PassWork::tint(&passes, &mut shown);
+                shown
+            })
+        } else {
+            None
+        };
+        let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
+            Some(shown) => {
+                let rgb: Vec<u8> = shown.data.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+                slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h))
+            }
+            None => {
+                let mut painter = self.painter.borrow_mut();
+                if painter.is_none() {
+                    let Some(services) = &self.services else { return };
+                    *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
+                }
+                let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
+                image
+            }
+        };
         self.painted.set(number);
 
         let (target, id) = match &popout {
@@ -517,6 +561,15 @@ impl Window {
         let name = |n: &str| if id.is_empty() { n.to_string() } else { format!("{id}-{n}") };
         let _ = target.set_property(&name("frame"), SValue::Image(image));
         let _ = target.set_property(&name("has-frame"), SValue::Bool(true));
+        // What passes draw over the frame, as one picture the size of the frame
+        let mut work = self.passes.borrow_mut();
+        if work.overlay_due(dirty, (w, h)) {
+            let overlay = work.overlay(&passes, w, h, self.ui.window().scale_factor());
+            let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));
+            if let Some(overlay) = overlay {
+                let _ = target.set_property(&name("overlay"), SValue::Image(overlay));
+            }
+        }
     }
 
     /// The pick under way on the preview card's picture (overlays.rs), drawn from the overlays as they are now.
