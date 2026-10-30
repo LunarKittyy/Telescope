@@ -130,6 +130,38 @@ fn blank(source: &str) -> String {
     String::from_utf8(out).unwrap_or_default()
 }
 
+/// The English of the title `component` sets on itself (`title: @tr("Phone");`), None when it isn't a literal.
+pub fn heading(source: &str, component: &str) -> Option<String> {
+    let text = blank(source);
+    let start = find_component(&text, component)?;
+    let open = start + text[start..].find('{')?;
+    let (mut depth, mut from) = (0, open);
+    for (i, c) in text[open..].char_indices().map(|(i, c)| (i + open, c)) {
+        match c {
+            '{' => {
+                depth += 1;
+                from = i + 1;
+            }
+            '}' => {
+                depth -= 1;
+                from = i + 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            ';' if depth == 1 => {
+                if let Some(value) = text[from..i].trim().strip_prefix("title").map(str::trim_start).and_then(|t| t.strip_prefix(':')) {
+                    let value = value.trim_start();
+                    return (value.starts_with("@tr(") || value.starts_with('"')).then(|| source[from..i].rsplit('"').nth(1).map(String::from)).flatten();
+                }
+                from = i + 1;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 /// The properties and callbacks `component` declares itself (not what it inherits). Empty if it isn't in source.
 pub fn scan(source: &str, component: &str) -> Interface {
     let text = blank(source);
@@ -374,5 +406,28 @@ export component CameraCard inherits Card {
         assert_eq!(to_json(&from_json(&v)), v);
         let like = Value::Brush(slint::Brush::SolidColor(slint::Color::from_rgb_u8(0, 0, 0)));
         assert_eq!(to_json(&to_slint(&json!("#7fd3c4"), &like)), json!("#7fd3c4ff"));
+    }
+
+    #[test]
+    fn a_heading_is_the_english_of_the_components_own_title() {
+        let text = r#"
+            component Other inherits Card { title: @tr("Not this"); }
+            export component Phone inherits Card {
+                in property <string> title-like: "no";
+                // title: "a comment";
+                callback picked(int);
+                icon: Icons.phone;
+                title: @tr("camera section" => "Light");
+                Button { title: "a child's"; }
+            }
+            export component Bound inherits Card { title: root.who; }
+            export component Plain inherits Card { title: "Telescope"; }
+            export component Untitled inherits Card { Text { title: "a child's"; } }
+        "#;
+        assert_eq!(heading(text, "Phone").as_deref(), Some("Light"));
+        assert_eq!(heading(text, "Plain").as_deref(), Some("Telescope"));
+        assert_eq!(heading(text, "Bound"), None);
+        assert_eq!(heading(text, "Untitled"), None);
+        assert_eq!(heading(text, "Absent"), None);
     }
 }

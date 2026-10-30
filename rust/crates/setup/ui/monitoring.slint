@@ -137,50 +137,55 @@ export component MonitoringCard inherits Card {
         Pill { value: battery-value; note: battery-note; kind: battery-kind; icon: battery-icon == "battery-charging" ? Icons.battery-charging : Icons.battery; }
         Pill { value: temp-value; note: temp-note; kind: temp-kind; icon: Icons.thermometer; }
     }
-    SectionHeading { text: @tr("Warnings"); icon: Icons.bell; }
-    // QFrame#subsection
-    Rectangle {
-        background: Theme.surface-raise;
-        border-width: 1px;
-        border-color: Theme.border;
-        border-radius: 8px;
-        VerticalLayout {
-            padding-left: 13px;
-            padding-right: 13px;
-            padding-top: 11px;
-            padding-bottom: 11px;
-            spacing: 10px;
-            AlertBlock {
-                icon: Icons.battery;
-                label: @tr("Battery under");
-                spin-tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
-                notify-tip: @tr("Show a notification when the battery runs low");
-                stop-tip: @tr("Stop the stream when the battery runs low, and at every restart until it's fine again");
-                enabled: root.active;
-                spin-text <=> root.batt-text;
-                notify <=> root.batt-notify;
-                stop <=> root.batt-stop;
-                committed(t) => { root.batt-committed(t); }
-                step(d) => { root.batt-step(d); }
-                notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
-                stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
-            }
-            // hairline
-            Rectangle { height: 1px; background: Theme.border; }
-            AlertBlock {
-                icon: Icons.thermometer;
-                label: @tr("Hotter than");
-                spin-tip: @tr("The temperature that counts as too hot");
-                notify-tip: @tr("Show a notification when the phone gets too hot");
-                stop-tip: @tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again");
-                enabled: root.active;
-                spin-text <=> root.temp-text;
-                notify <=> root.temp-notify;
-                stop <=> root.temp-stop;
-                committed(t) => { root.temp-committed(t); }
-                step(d) => { root.temp-step(d); }
-                notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
-                stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
+    Section {
+        key: "Warnings";
+        title: @tr("Warnings");
+        icon: Icons.bell;
+        scope: root.fold-key;
+        // QFrame#subsection
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border;
+            border-radius: 8px;
+            VerticalLayout {
+                padding-left: 13px;
+                padding-right: 13px;
+                padding-top: 11px;
+                padding-bottom: 11px;
+                spacing: 10px;
+                AlertBlock {
+                    icon: Icons.battery;
+                    label: @tr("Battery under");
+                    spin-tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
+                    notify-tip: @tr("Show a notification when the battery runs low");
+                    stop-tip: @tr("Stop the stream when the battery runs low, and at every restart until it's fine again");
+                    enabled: root.active;
+                    spin-text <=> root.batt-text;
+                    notify <=> root.batt-notify;
+                    stop <=> root.batt-stop;
+                    committed(t) => { root.batt-committed(t); }
+                    step(d) => { root.batt-step(d); }
+                    notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
+                    stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
+                }
+                // hairline
+                Rectangle { height: 1px; background: Theme.border; }
+                AlertBlock {
+                    icon: Icons.thermometer;
+                    label: @tr("Hotter than");
+                    spin-tip: @tr("The temperature that counts as too hot");
+                    notify-tip: @tr("Show a notification when the phone gets too hot");
+                    stop-tip: @tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again");
+                    enabled: root.active;
+                    spin-text <=> root.temp-text;
+                    notify <=> root.temp-notify;
+                    stop <=> root.temp-stop;
+                    committed(t) => { root.temp-committed(t); }
+                    step(d) => { root.temp-step(d); }
+                    notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
+                    stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
+                }
             }
         }
     }

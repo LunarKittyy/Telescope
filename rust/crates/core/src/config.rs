@@ -178,19 +178,24 @@ impl ConfigFile {
 
     /// save_config(): writes cfg atomically (version set to the current one), only this user able to read it.
     pub fn save(&self, cfg: &mut Value) -> bool {
-        if let Value::Object(map) = cfg {
-            map.insert("version".into(), CONFIG_VERSION.into());
-        }
-        let text = json::dumps(cfg, Style::CONFIG);
-        // Python writes the file in text mode, which turns each newline into the platform's
-        let text = if cfg!(windows) { text.replace('\n', "\r\n") } else { text };
-        match self.write_atomically(text.as_bytes()) {
+        match self.try_save(cfg) {
             Ok(()) => true,
             Err(e) => {
                 log::error!("Failed to save config to {}: {e}", self.path.display());
                 false
             }
         }
+    }
+
+    /// save, with what went wrong for a caller that shows it.
+    pub fn try_save(&self, cfg: &mut Value) -> io::Result<()> {
+        if let Value::Object(map) = cfg {
+            map.insert("version".into(), CONFIG_VERSION.into());
+        }
+        let text = json::dumps(cfg, Style::CONFIG);
+        // Python writes the file in text mode, which turns each newline into the platform's
+        let text = if cfg!(windows) { text.replace('\n', "\r\n") } else { text };
+        self.write_atomically(text.as_bytes())
     }
 
     fn write_atomically(&self, bytes: &[u8]) -> io::Result<()> {

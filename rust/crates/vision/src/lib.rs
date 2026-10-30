@@ -199,6 +199,12 @@ impl VisionService for VisionHost {
         *self.shared.bus.lock().unwrap() = None;
     }
 
+    fn download_failed(&self, error: &str, plugin: &str) {
+        let mut d = self.shared.download.lock().unwrap();
+        d.error = error.to_string();
+        d.failed_for = plugin.to_string();
+    }
+
     fn pack(&self) -> VisionPack {
         let d = self.shared.download.lock().unwrap();
         let size = self.shared.info.download_size();

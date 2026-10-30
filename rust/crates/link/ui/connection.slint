@@ -318,12 +318,13 @@ export component ConnectionCard inherits Card {
             }
             // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
             // A note with nothing under it: Qt's label box ends 4px above Slint's there
-            if route-shown: VerticalLayout {
+            VerticalLayout {
                 // Qt keeps the note box when there's nothing in it, so its 2px bottom margin still counts
                 padding-top: switch-usb-shown || update-shown ? 9px : note-text != "" ? 8px : 14px;
                 spacing: 4px;
+                // Stays with no route to choose from: only the row under it goes
                 Rectangle { height: 1px; background: Theme.border; }
-                FormRow {
+                if route-shown: FormRow {
                     label: @tr("Connect via");
                     Segmented {
                         horizontal-stretch: 1;
@@ -503,6 +504,7 @@ export component PhonePicker inherits HorizontalLayout {
         icon: Icons.phone;
         icon-tint: Theme.plugin-hue("streaming");
         caption: names.length == 0 ? @tr("No phone yet") : "";
+        placeholder: names.length == 0 ? @tr("No phone yet") : "";
         items: names;
         gone: root.gone;
         current <=> root.current;

@@ -340,3 +340,54 @@ fn a_row_keeps_its_stretch_inside_the_fold() {
     r.set("grow", Value::Bool(true));
     assert!(open(&r) > before + 50.0, "a row that grows once folding is installed gets its new height: {} to {}", before, open(&r));
 }
+
+const HEADER: &str = r#"
+import { Card, Icons } from "@ui-kit/ui-kit.slint";
+export component Test inherits Window {
+    width: 420px;
+    height: 200px;
+    in property <bool> dim;
+    in-out property <int> actions;
+    VerticalLayout {
+        alignment: start;
+        Card {
+            title: "Things";
+            icon: Icons.sun;
+            enabled: !dim;
+            blocked: dim;
+            has-action: true;
+            action-text: "Reset";
+            action-icon: Icons.sun;
+            action => { root.actions += 1; }
+            has-extra: true;
+            extra-icon: Icons.sun;
+            extra-label: "Guide";
+            extra => { root.actions += 1; }
+            has-switch: true;
+            switch-label: "Use it";
+            switch-toggled => { root.actions += 1; }
+        }
+    }
+}
+"#;
+
+#[test]
+fn a_dimmed_cards_header_buttons_take_no_click() {
+    thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
+    INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
+    for (dim, heard) in [(false, 3.0), (true, 0.0)] {
+        let ui = telescope_shell::compile::compile("header.slint", HEADER, vec![], "Test").expect("the document compiles").create().unwrap();
+        ui.window().set_size(slint::LogicalSize::new(420.0, 200.0));
+        ui.show().unwrap();
+        ui.set_property("dim", Value::Bool(dim)).unwrap();
+        for label in ["Reset", "Guide", "Use it"] {
+            let e = ElementHandle::find_by_accessible_label(&ui, label).next().unwrap_or_else(|| panic!("no {label}"));
+            let (p, s) = (e.absolute_position(), e.size());
+            let position = LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0);
+            ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+            ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+        }
+        assert_eq!(ui.get_property("actions").unwrap(), Value::Number(heard), "dim: {dim}");
+    }
+}

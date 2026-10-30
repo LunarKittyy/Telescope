@@ -101,6 +101,8 @@ export component Card inherits Rectangle {
     callback extra;
     // A folding card's title is a styled label 6px taller than the 30px chip, a header switch's row 2px (its 32px size hint)
     property <length> lift: fold-key != "" ? 3px : has-switch ? 1px : 0px;
+    // The header stays out of `blocked`'s cover, so its buttons go off by themselves; the title still folds
+    property <bool> live: enabled && !blocked;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -152,6 +154,7 @@ export component Card inherits Rectangle {
                 has-icon: true;
                 icon: extra-icon;
                 icon-tint: Theme.text-dim;
+                enabled: live;
                 tip: extra-label;
                 accessible-label: extra-name;
                 clicked => { root.extra(); }
@@ -167,7 +170,7 @@ export component Card inherits Rectangle {
                 has-icon: true;
                 icon: action-icon;
                 icon-tint: action-tint;
-                enabled: action-enabled;
+                enabled: live && action-enabled;
                 quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-text;
@@ -182,7 +185,7 @@ export component Card inherits Rectangle {
                 has-icon: true;
                 icon: action-icon;
                 icon-tint: Theme.text-dim;
-                enabled: action-enabled;
+                enabled: live && action-enabled;
                 quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-label;
@@ -194,7 +197,7 @@ export component Card inherits Rectangle {
                 Switch {
                     y: lift + 5px;
                     checked <=> root.switch-checked;
-                    enabled: root.switch-enabled;
+                    enabled: live && root.switch-enabled;
                     label: root.switch-label;
                     tip: root.switch-tip;
                     toggled(on) => { root.switch-toggled(on); }
