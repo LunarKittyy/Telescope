@@ -69,6 +69,7 @@ pub fn expand(tag: &str) -> Vec<String> {
 }
 
 /// Takes the language part of a locale name as the environment writes it: "sv_SE.UTF-8@euro" is "sv_SE", "C" and "POSIX" are none.
+#[cfg(not(windows))]
 fn from_environment(value: &str) -> Option<String> {
     let name = value.split(['.', '@']).next().unwrap_or("").trim();
     (!name.is_empty() && name != "C" && name != "POSIX").then(|| name.to_string())
