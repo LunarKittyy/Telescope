@@ -774,3 +774,19 @@ fn iso_shutter_and_focus_move_a_position_at_a_time() {
         assert!(slider.contains("step: 1;"), "{label}: {slider}");
     }
 }
+
+// Sol's review, finding 7: the readout says the value it was given (LogSliderRow.set_value), not the one the nearest
+// of its 2000 positions comes to
+#[test]
+fn the_log_readouts_say_the_value_they_were_given() {
+    let mut r = Rig::new();
+    r.cam.iso.set_value(1234.0);
+    assert_eq!(r.cam.iso.text(), "ISO 1234");
+    r.cam.shutter.set_value(33_333_333.0);
+    assert_eq!(r.cam.shutter.text(), "1/30");
+    // Moved by hand, it says where the slider is
+    r.cam.iso.enabled = true;
+    r.cam.manual_exp = true;
+    r.ui("iso-moved", vec![json!(2000)]);
+    assert_eq!(r.cam.iso.text(), "ISO 6400");
+}
