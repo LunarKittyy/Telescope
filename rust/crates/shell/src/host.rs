@@ -351,7 +351,7 @@ impl HostVision for Ctx<'_> {
 
 impl HostFrames for Ctx<'_> {
     fn frames(&self) -> Arc<dyn FrameStore> {
-        Arc::new(NoFrames)
+        self.state.frames.clone().unwrap_or_else(|| Arc::new(NoFrames))
     }
 }
 
