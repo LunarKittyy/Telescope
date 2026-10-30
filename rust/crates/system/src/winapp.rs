@@ -1,13 +1,11 @@
-//! How the Windows app presents itself (platform/windows.py): the id its Start menu entry carries, and the warning when it was
-//! opened from inside a zip.
+//! The Windows app's Start menu id and the warning for running from inside a zip (platform/windows.py).
 
 use std::path::Path;
 
 /// installer/Telescope.iss gives its shortcuts the same one.
 pub const APP_USER_MODEL_ID: &str = "LunarKittyy.Telescope";
 
-/// In the installed copy, take the id its Start menu entry carries, so Windows names notifications after that entry. A copy
-/// without one keeps the exe's own: Windows can drop toasts from an id no shortcut has.
+/// In the installed copy, takes the id its Start menu entry carries so Windows names notifications after it.
 pub fn use_installed_app_id(app_dir: &Path) -> bool {
     crate::setup_move::has_uninstaller(app_dir) && set_app_id(APP_USER_MODEL_ID)
 }

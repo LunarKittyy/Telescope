@@ -1,5 +1,4 @@
-//! The desktop log and Copy diagnostics (desktop/telescope/diagnostics.py). The log lives in the temp folder, capped in size, and every
-//! line is sanitized first: no tokens, addresses or home paths.
+//! The desktop log and Copy diagnostics (diagnostics.py): every line is sanitized first, so no tokens, addresses or home paths.
 
 use regex::Regex;
 use std::collections::VecDeque;
@@ -44,8 +43,7 @@ pub fn sanitize_at(text: &str, home: Option<&Path>) -> String {
     pattern(&LONG_SECRET, r"\b[A-Za-z0-9_\-+/]{24,}={0,2}").replace_all(&text, "<redacted>").into_owned()
 }
 
-/// An IPv6 address, in full or compressed with "::" ("12:30:45" times don't match). Standing alone: not inside a longer word or
-/// more colons. Every character such an address is made of is also one that can't follow it, so only a whole run of them can be one.
+/// An IPv6 address standing alone, in full or with "::": only a whole run of hex digits and colons can be one.
 fn replace_ipv6(text: &str) -> String {
     let in_run = |c: char| c.is_ascii_hexdigit() || c == ':';
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -117,9 +115,7 @@ struct State {
     repeats: u64,
 }
 
-/// Info and up, plus notes and crashes, appended to a log file in the temp folder (so the OS clears it) and rotated at MAX_BYTES
-/// with one previous file kept. A repeat of the latest line is counted instead of written again, so a reconnect loop stays one
-/// line. Without a file (couldn't create it, or in tests) the lines stay in memory, as many as a report shows.
+/// The event log: a file in the temp folder rotated at MAX_BYTES, repeats counted, or memory only without a file.
 pub struct EventLog {
     state: Mutex<State>,
     max_bytes: u64,
@@ -349,8 +345,7 @@ fn user_name() -> String {
     String::new()
 }
 
-/// A telescope.log shortcut next to the app. Skipped where it can't be made (Windows without symlink rights, a read-only folder) or
-/// where a real file has that name.
+/// A telescope.log shortcut next to the app, skipped where it can't be made or a real file has that name.
 pub fn link_log(link: &Path, target: &Path) {
     let made = || -> std::io::Result<()> {
         if fs::symlink_metadata(link).is_ok_and(|m| m.file_type().is_symlink()) {
@@ -488,8 +483,7 @@ fn windows_version() -> (u32, u32, u32) {
     }
 }
 
-/// What Copy diagnostics puts on the clipboard. `state` is what the plugins report; `windowing` is the windowing system the window
-/// came up on (Slint's backend, "" when unknown).
+/// The text Copy diagnostics copies: `state` is what the plugins report, `windowing` the backend the window came up on.
 pub fn report_for(events: &EventLog, build: &str, commit: &str, state: &[(String, String)], windowing: &str) -> String {
     let mut head = format!("Telescope {build}");
     if !commit.is_empty() {

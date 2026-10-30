@@ -1,6 +1,4 @@
-//! A dev profile (dev_desktop's launcher, desktop/telescope/dev_profile.py): with TELESCOPE_DEV_PROFILE set to a folder, this copy
-//! keeps its config and log there, runs next to the real Telescope and pairs with the dev phone app (com.telescope.dev) without
-//! touching the real one's settings, menu entry, sign-in entry or mic.
+//! A dev profile (dev_profile.py): TELESCOPE_DEV_PROFILE names a folder that holds this copy's config and log, apart from the real app.
 
 use std::path::{Path, PathBuf};
 
@@ -20,8 +18,7 @@ pub fn active() -> bool {
     folder().is_some()
 }
 
-/// Started by the launcher, which starts it again when it exits with RESTART_EXIT, instead of it relaunching itself (which
-/// would leave the terminal and delete a throwaway profile).
+/// Started by the launcher, which starts it again on RESTART_EXIT instead of it relaunching itself.
 pub fn supervised() -> bool {
     active() && std::env::var(SUPERVISED_ENV).as_deref() == Ok("1")
 }

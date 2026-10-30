@@ -111,8 +111,7 @@ impl Place {
         Place::of_with(directory, cfg!(windows), local.as_deref(), &carried_around)
     }
 
-    /// The same with what depends on this computer given: whether it's Windows, %LOCALAPPDATA%, and whether a folder is on a
-    /// removable or network drive.
+    /// The same with whether it's Windows, %LOCALAPPDATA% and the drive check given.
     pub fn of_with(directory: &Path, windows: bool, local_app_data: Option<&str>, carried: &dyn Fn(&Path) -> bool) -> Place {
         Place {
             windows,
@@ -452,8 +451,7 @@ impl Ops<'static> {
     }
 }
 
-/// Older zips came with adb; the installed copy doesn't, so the one going with the old folder is kept where Get adb would put it
-/// (adb_download.downloaded_dir) instead of the installed copy having to download it.
+/// Keeps an adb that came with the old copy where Get adb would put it (adb_download.downloaded_dir).
 fn keep_adb(bundled: &Path, ops: &Ops) {
     let kept = || -> io::Result<()> {
         let dest = &ops.adb_dest;

@@ -1,11 +1,4 @@
-//! `telescope-rs dev`: this checkout as a dev desktop client next to the real Telescope (desktop/scripts/dev_desktop.py).
-//!
-//!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...] [options for the app]
-//!
-//! It runs the app in a profile of its own, so it has its own config (and so its own pairings and computer identity), log and mic, no
-//! menu or sign-in entry, and USB pairing aimed at the dev phone app (com.telescope.dev, from `./gradlew installDev`). Without
-//! --keep the profile is fresh and deleted when the app quits; with it the same one is used every time (--reset deletes it). Each
-//! --plugin FOLDER is loaded as it is, always on, and the app starts again whenever one of its files is saved.
+//! `telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]`: this checkout as a dev desktop next to the real one (dev_desktop.py).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -133,8 +126,7 @@ pub trait Child {
     fn kill(&mut self);
 }
 
-/// Waits for the app to quit, up to `stopped` being set (Ctrl+C or SIGTERM). Either way no copy is left behind: a still-running app is
-/// asked to stop, and killed if it hasn't after `grace`. None when it was stopped from here.
+/// Waits for the app to quit or `stopped` to be set, then makes sure no copy is left running; None when stopped from here.
 pub fn wait_for(child: &mut dyn Child, stopped: &dyn Fn() -> bool, grace: Duration, pause: Duration) -> Option<i32> {
     let result = loop {
         if let Some(code) = child.poll() {

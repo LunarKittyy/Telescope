@@ -1,5 +1,4 @@
-//! What TELESCOPE_RS_REAL_CONFIG=1 switches to: the real app's own folders. Each place the Python app keeps something is asked of the
-//! Python app and of this one in the same environment, and the answers have to be the same, on Linux and on Windows.
+//! TELESCOPE_RS_REAL_CONFIG=1 uses the real folders: each one is asked of the Python app and of this one, and must be the same.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

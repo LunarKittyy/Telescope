@@ -37,8 +37,7 @@ pub trait Registry: Send + Sync {
     fn file_exists(&self, path: &str) -> bool;
     fn build(&self) -> u32;
     fn env(&self, name: &str) -> Option<String>;
-    /// Program Files as Windows itself has it (SHGetKnownFolderPath), unlike %ProgramFiles%, which whoever starts Telescope can
-    /// point anywhere.
+    /// Program Files from Windows itself (SHGetKnownFolderPath), not %ProgramFiles%, which anyone can point elsewhere.
     fn program_files(&self) -> Option<PathBuf>;
 }
 
@@ -126,14 +125,12 @@ pub fn mf_outdated(reg: &dyn Registry, dll_here: bool) -> bool {
     mf_registration(reg, 0).is_some_and(|(_, v)| mf_allowed(reg) && dll_here && v < MF_VERSION)
 }
 
-/// Program Files\Telescope\folder: only an admin can write there, unlike the app's folder, so nothing can swap a DLL between the
-/// hash check and every later load (protected_unitycapture_dir, protected_mf_dir).
+/// Program Files\Telescope\folder, which only an admin can write to (protected_unitycapture_dir, protected_mf_dir).
 pub fn protected_dir(reg: &dyn Registry, folder: &str) -> PathBuf {
     reg.program_files().unwrap_or_else(|| PathBuf::from(r"C:\Program Files")).join("Telescope").join(folder)
 }
 
-/// (name apps list it as, folder its DLL is in) for Telescope's UnityCapture filter, or None if it isn't registered. uc_dir is the
-/// folder beside the app, where an older Telescope registered it from.
+/// (name apps list it as, folder its DLL is in) for Telescope's UnityCapture filter; uc_dir is the one beside the app.
 pub fn uc_registration(reg: &dyn Registry, uc_dir: &Path) -> Option<(String, PathBuf)> {
     let folders = [uc_dir.to_path_buf(), protected_dir(reg, "UnityCapture")];
     for clsid in reg.classes_subkeys("CLSID") {

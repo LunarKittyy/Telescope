@@ -166,8 +166,7 @@ fn start_logging() {
     }
 }
 
-/// Log to the desktop log file from here on, and keep panics in it (main.py's diagnostics.install). Once the profile is settled, since
-/// a dev profile's log lives in its folder.
+/// Log to the desktop log file and keep panics in it (diagnostics.install), once the profile is settled.
 fn start_diagnostics() {
     let version = telescope_system::version::display_version();
     telescope_core::diagnostics::start(telescope_core::diagnostics::events(), &telescope_core::diagnostics::log_dir(), Some(&app_dir()), &version);

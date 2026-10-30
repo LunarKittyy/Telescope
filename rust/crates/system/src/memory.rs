@@ -1,5 +1,4 @@
-//! What glibc keeps after frames are freed (platform/linux.py limit_malloc_arenas and release_freed_memory). Only glibc has either
-//! knob; anywhere else both do nothing.
+//! What glibc keeps after frames are freed (platform/linux.py); both do nothing without glibc.
 
 /// Caps glibc's per-thread memory pools; with the decoder's threads it made dozens that keep freed frames. True when glibc took it.
 pub fn limit_malloc_arenas(count: i32) -> bool {
