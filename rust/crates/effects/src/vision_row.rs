@@ -1,4 +1,4 @@
-//! The status row on cards that use vision (widgets/vision_status.py), for ui/vision_row.slint: why nothing's happening yet, with a Download button when that's why.
+//! The status row on cards that use vision (widgets/vision_status.py), for ui/vision_status.slint: why nothing's happening yet, with a Download button when that's why.
 
 use serde_json::{json, Value};
 use telescope_core::event::Event;

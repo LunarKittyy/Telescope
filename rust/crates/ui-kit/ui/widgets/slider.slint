@@ -16,6 +16,8 @@ export component Slider inherits HorizontalLayout {
     in property <bool> enabled: true;
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;
+    // value_label's fits: wider than the usual column when its words need it
+    in property <length> readout-width: 56px;
     // Dots on the groove (NoScrollSlider.set_snaps, at most four) that a dragged handle sticks to within snap-px; only a
     // drag snaps, keys and clicks on the groove step freely
     in property <[float]> marks;
@@ -112,7 +114,7 @@ export component Slider inherits HorizontalLayout {
         }
     }
     if has-readout: Text {
-        width: 56px;
+        width: readout-width;
         text: readout;
         font-family: Theme.font;
         font-size: Theme.body;

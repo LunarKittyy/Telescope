@@ -23,7 +23,7 @@ use telescope_core::view::{upright_to_shown, Geometry};
 pub const NAME: &str = "privacy_blur";
 /// What it asks the host and the Wait screen for things under.
 const TITLE: &str = n_("Privacy blur");
-const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_row.slint"), "\n", include_str!("../ui/privacy_blur.slint"));
+const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/privacy_blur.slint"));
 /// What happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture.
 pub const MODES: [(&str, &str); 3] = [("others", n_("Blur the others")), ("background", n_("Blur all but me")), ("wait", n_("Show the wait screen"))];
 /// Blurring stops once there's been one person (or nobody) for this long.

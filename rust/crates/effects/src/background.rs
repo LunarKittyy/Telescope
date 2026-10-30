@@ -19,7 +19,7 @@ use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "background";
-const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_row.slint"), "\n", include_str!("../ui/background.slint"));
+const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/background.slint"));
 pub const MODES: [(&str, &str); 3] = [("off", n_("Off")), ("blur", n_("Blur")), ("picture", n_("Picture"))];
 const PICTURES: &str = n_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)");
 /// Edges are worked out at a quarter of the size, then scaled back up.

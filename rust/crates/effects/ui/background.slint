@@ -94,7 +94,7 @@ export component BackgroundCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.edges-moved(v); }
     }
-    if vision-text != "": VisionRow {
+    if vision-text != "": VisionStatus {
         text: vision-text;
         download: vision-download;
         download-clicked => { root.download-clicked(); }

@@ -76,6 +76,12 @@ pub struct FakeHost {
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
+    /// What view_aspect() answers.
+    pub aspect: f32,
+    /// What took the view ("" for nobody): take_view fails for anyone else, as the real host's does.
+    pub view_owner: String,
+    /// Every steer_view, as (zoom, pan_x, pan_y).
+    pub steered: Vec<(f32, f32, f32)>,
     /// Timers pending from Host::schedule, as (after_ms, token), oldest first.
     pub scheduled: Vec<(u64, String)>,
     /// What the poster's posts carried, as (token, data), in order; take them out to deliver them.
@@ -428,7 +434,7 @@ impl HostView for FakeHost {
         self.view.clone()
     }
     fn view_aspect(&self) -> f32 {
-        0.0
+        self.aspect
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
@@ -444,13 +450,21 @@ impl HostView for FakeHost {
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));
+        if !self.view_owner.is_empty() && self.view_owner != owner {
+            return false;
+        }
+        self.view_owner = owner.to_string();
         true
     }
     fn steer_view(&mut self, owner: &str, zoom: f32, pan_x: f32, pan_y: f32) {
         self.note(format!("steer_view {owner} {zoom} {pan_x} {pan_y}"));
+        self.steered.push((zoom, pan_x, pan_y));
     }
     fn release_view(&mut self, owner: &str) {
         self.note(format!("release_view {owner}"));
+        if self.view_owner == owner {
+            self.view_owner.clear();
+        }
     }
 }
 
