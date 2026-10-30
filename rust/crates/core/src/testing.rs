@@ -97,6 +97,10 @@ pub struct FakeHost {
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
     pub vision: Option<String>,
+    /// What vision_pack() answers.
+    pub pack: crate::vision::VisionPack,
+    /// What tracked_people() answers for each source id.
+    pub tracked: HashMap<String, (Vec<Value>, u32)>,
     /// What packets_problem() answers instead of "".
     pub packets_problem: String,
     /// The newest frame of each stream, as frames() hands them out.
@@ -461,8 +465,14 @@ impl HostVision for FakeHost {
     fn want_people(&mut self, owner: &str, on: bool) {
         self.note(format!("want_people {owner} {on}"));
     }
-    fn tracked_people(&self, _source_id: Option<&str>) -> (Vec<Value>, u32) {
-        (Vec::new(), 0)
+    fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
+        self.tracked.get(source_id.unwrap_or("")).cloned().unwrap_or_default()
+    }
+    fn vision_pack(&self) -> crate::vision::VisionPack {
+        self.pack.clone()
+    }
+    fn download_vision(&mut self) {
+        self.note("download_vision");
     }
 }
 

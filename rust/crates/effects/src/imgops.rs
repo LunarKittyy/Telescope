@@ -3,6 +3,7 @@
 //! sampling (pixel centres, repeated or reflected edges) so a picture made here lines up with the one Python makes.
 
 use crate::cpu::Rgb;
+use std::sync::OnceLock;
 pub use telescope_core::image::{grey_of, resize_area, resize_linear_fixed};
 
 /// A single-channel 8-bit picture: a mask, or brightness.
@@ -102,9 +103,14 @@ impl Rgb {
         if (image.w, image.h) == (w, h) { image } else { image.area(w, h) }
     }
 
+    /// cv2.GaussianBlur(image, (0, 0), sigma) to the byte.
+    pub fn blur(&self, sigma: f64) -> Rgb {
+        Rgb { w: self.w, h: self.h, data: gauss_exact(&self.data, self.w, self.h, 3, sigma) }
+    }
+
     /// cv2.cvtColor(BGR2GRAY) of this picture (as R, G, B).
     pub fn gray(&self) -> Gray {
-        Gray { w: self.w, h: self.h, data: self.data.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect() }
+        Gray { w: self.w, h: self.h, data: self.data.as_chunks::<3>().0.iter().map(|p| grey_of(p[0], p[1], p[2])).collect() }
     }
 
     /// cv2.GaussianBlur with a 3 x 3 kernel and the sigma OpenCV picks for it.
@@ -132,15 +138,26 @@ impl Gray {
         Gray { w, h, data: resize_linear_fixed(&self.data, self.w, self.h, 1, w, h) }
     }
 
-    /// cv2.GaussianBlur(mask, (0, 0), sigma).
-    pub fn blur(&self, sigma: f32) -> Gray {
-        // OpenCV makes a kernel of 3 sigma either way, rounded up to an odd width
-        let size = ((sigma * 3.0 * 2.0 + 1.0).round() as usize) | 1;
-        let half = size / 2;
-        let mut k: Vec<f32> = (0..size).map(|i| (-((i as f32 - half as f32).powi(2)) / (2.0 * sigma * sigma)).exp()).collect();
-        let sum: f32 = k.iter().sum();
-        k.iter_mut().for_each(|v| *v /= sum);
-        Gray { w: self.w, h: self.h, data: gauss(&self.data, self.w, self.h, 1, &k) }
+    /// pictures.shrink of a mask.
+    pub fn shrink(&self, w: usize, h: usize) -> Gray {
+        let mut image = self.clone();
+        while image.w >= 2 * w && image.h >= 2 * h {
+            let (iw, ih) = (image.w / 2, image.h / 2);
+            let mut half = Gray::new(iw, ih);
+            for y in 0..ih {
+                for x in 0..iw {
+                    let at = |dy: usize, dx: usize| image.data[(2 * y + dy) * image.w + 2 * x + dx] as u32;
+                    half.data[y * iw + x] = ((at(0, 0) + at(0, 1) + at(1, 0) + at(1, 1) + 2) / 4) as u8;
+                }
+            }
+            image = half;
+        }
+        if (image.w, image.h) == (w, h) { image } else { image.area(w, h) }
+    }
+
+    /// cv2.GaussianBlur(mask, (0, 0), sigma) to the byte.
+    pub fn blur(&self, sigma: f64) -> Gray {
+        Gray { w: self.w, h: self.h, data: gauss_exact(&self.data, self.w, self.h, 1, sigma) }
     }
 
     /// pictures.soften: the mask's edge feathered (edges 0..10; 0 leaves it as it was drawn), blurred at a quarter of the size.
@@ -149,7 +166,7 @@ impl Gray {
             return self.clone();
         }
         let small = self.area((self.w / 4).max(1), (self.h / 4).max(1));
-        small.blur(edges as f32 * 0.6).linear(self.w, self.h)
+        small.blur(edges as f64 * 0.6).linear_exact(self.w, self.h)
     }
 
     /// cv2.absdiff-and-threshold's result: 255 where this is above `level`, else 0.
@@ -196,6 +213,134 @@ fn reflect(i: isize, n: usize) -> usize {
         i = if i < 0 { -i } else { 2 * (n - 1) - i };
     }
     i as usize
+}
+
+/// getGaussianKernelBitExact: n weights around the middle for sigma, adding up to 1.
+fn gaussian_kernel(n: usize, sigma: f64) -> Vec<f64> {
+    let scale = -0.125 / (sigma * sigma);
+    let half = n / 2;
+    let side: Vec<f64> = (0..half).map(|i| {
+        let x = (2 * i) as f64 + 1.0 - n as f64;
+        (x * x * scale).exp()
+    }).collect();
+    let mul = 1.0 / (2.0 * side.iter().sum::<f64>() + 1.0);
+    let mut kernel = vec![mul; n];
+    for (i, v) in side.iter().enumerate() {
+        kernel[i] = v * mul;
+        kernel[n - 1 - i] = v * mul;
+    }
+    kernel
+}
+
+/// The kernel OpenCV uses on 8-bit pictures: 8 fractional bits, each weight taking the last one's rounding error, the middle one whatever makes them add up to 256.
+fn fixed_kernel(n: usize, sigma: f64) -> Vec<u32> {
+    let kernel = gaussian_kernel(n, sigma);
+    let half = n / 2;
+    let (mut err, mut sum) = (0.0f64, 0u32);
+    let mut out = vec![0u32; n];
+    for i in 0..half {
+        let wanted = kernel[i] * 256.0 + err;
+        let v = wanted.round_ties_even();
+        err = wanted - v;
+        out[i] = v as u32;
+        out[n - 1 - i] = v as u32;
+        sum += v as u32;
+    }
+    out[half] = 256 - 2 * sum;
+    out
+}
+
+/// cv2.GaussianBlur(src, (0, 0), sigma) on an 8-bit picture: OpenCV's fixed-point path, the same on every computer.
+fn gauss_exact(src: &[u8], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<u8> {
+    // 3 sigma either way, rounded to an odd width
+    let n = ((sigma * 3.0 * 2.0 + 1.0).round_ties_even() as usize) | 1;
+    let kernel = fixed_kernel(n, sigma);
+    let half = (n / 2) as isize;
+    let across_at: Vec<usize> = (-half..w as isize + half).map(|i| reflect(i, w)).collect();
+    let width = w * ch;
+    let mut across = vec![0u32; width * h];
+    let mut line = vec![0u32; across_at.len() * ch];
+    for (row, out) in src.chunks_exact(width).zip(across.chunks_exact_mut(width)) {
+        for (i, &x) in across_at.iter().enumerate() {
+            for c in 0..ch {
+                line[i * ch + c] = row[x * ch + c] as u32;
+            }
+        }
+        for (j, &k) in kernel.iter().enumerate() {
+            for (o, v) in out.iter_mut().zip(&line[j * ch..]) {
+                *o += k * v;
+            }
+        }
+    }
+    let mut out = vec![0u8; width * h];
+    let mut sum = vec![0u32; width];
+    for (y, row) in out.chunks_exact_mut(width).enumerate() {
+        sum.fill(0);
+        for (j, &k) in kernel.iter().enumerate() {
+            let at = reflect(y as isize + j as isize - half, h);
+            for (s, v) in sum.iter_mut().zip(&across[at * width..(at + 1) * width]) {
+                *s += k * v;
+            }
+        }
+        for (o, s) in row.iter_mut().zip(&sum) {
+            *o = ((s + 0x8000) >> 16).min(255) as u8;
+        }
+    }
+    out
+}
+
+/// a * b + c rounded once at the end, as the fused multiply-add OpenCV's float filters run on.
+#[inline]
+fn fused(a: f32, b: f64, c: f32) -> f32 {
+    (a as f64 * b + c as f64) as f32
+}
+
+/// cv2.GaussianBlur(src, (0, 0), sigma) on float32 values (`ch` to a pixel). Floats go through sepFilter2D with fused multiply-adds on all but the last few values of a row, which is why those are added up plainly here too. Matches OpenCV's bits from a 7-tap kernel up (sigma from about 0.7); its 5-tap filter is a last bit off.
+pub fn blur_f32(src: &[f32], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<f32> {
+    // 4 sigma either way for anything but 8 bits
+    let n = ((sigma * 4.0 * 2.0 + 1.0).round_ties_even() as usize) | 1;
+    let kernel: Vec<f32> = gaussian_kernel(n, sigma).iter().map(|k| *k as f32).collect();
+    let wide: Vec<f64> = kernel.iter().map(|k| *k as f64).collect();
+    let half = n / 2;
+    let across_at: Vec<usize> = (-(half as isize)..(w + half) as isize).map(|i| reflect(i, w)).collect();
+    let width = w * ch;
+    let (row_lanes, column_lanes) = (width / 4 * 4, width / 8 * 8);
+    let mut across = vec![0f32; width * h];
+    let mut line = vec![0f32; across_at.len() * ch];
+    for (row, out) in src.chunks_exact(width).zip(across.chunks_exact_mut(width)) {
+        for (i, &x) in across_at.iter().enumerate() {
+            for c in 0..ch {
+                line[i * ch + c] = row[x * ch + c];
+            }
+        }
+        for (o, v) in out.iter_mut().zip(&line) {
+            *o = kernel[0] * v;
+        }
+        for j in 1..n {
+            let (lanes, plain) = out.split_at_mut(row_lanes);
+            for (o, v) in lanes.iter_mut().zip(&line[j * ch..]) {
+                *o = fused(*v, wide[j], *o);
+            }
+            for (o, v) in plain.iter_mut().zip(&line[row_lanes + j * ch..]) {
+                *o += kernel[j] * v;
+            }
+        }
+    }
+    let mut out = vec![0f32; width * h];
+    for (y, row) in out.chunks_exact_mut(width).enumerate() {
+        for (o, v) in row.iter_mut().zip(&across[y * width..(y + 1) * width]) {
+            *o = kernel[half] * v;
+        }
+        for j in 1..=half as isize {
+            let (a, b) = (reflect(y as isize + j, h) * width, reflect(y as isize - j, h) * width);
+            let (near, wider) = (kernel[half + j as usize], wide[half + j as usize]);
+            for (x, o) in row.iter_mut().enumerate() {
+                let pair = across[a + x] + across[b + x];
+                *o = if x < column_lanes { fused(pair, wider, *o) } else { *o + near * pair };
+            }
+        }
+    }
+    out
 }
 
 /// A separable kernel over every channel.
@@ -281,14 +426,22 @@ fn morph(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
     out
 }
 
+/// cv2.multiply(a, b, scale=1/255) for every a and b, looked up since a frame needs it twice a value.
+fn times_table() -> &'static [u8] {
+    static TABLE: OnceLock<Vec<u8>> = OnceLock::new();
+    TABLE.get_or_init(|| (0..256u32).flat_map(|a| (0..256u32).map(move |b| round8(a as f32 * b as f32 / 255.0))).collect())
+}
+
 /// pictures.compose: top where mask is 255 over under, each term rounded as cv2.multiply(scale=1/255) does.
 pub fn compose(top: &Rgb, mask: &Gray, under: &Rgb) -> Rgb {
+    let times = times_table();
     let mut out = Rgb::new(top.w, top.h);
-    for (i, m) in mask.data.iter().enumerate() {
+    for ((o, m), (t, u)) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(&mask.data).zip(top.data.as_chunks::<3>().0.iter().zip(under.data.as_chunks::<3>().0)) {
+        let m = *m as usize;
         for c in 0..3 {
-            let a = round8(top.data[i * 3 + c] as f32 * *m as f32 / 255.0) as u16;
-            let b = round8(under.data[i * 3 + c] as f32 * (255 - *m) as f32 / 255.0) as u16;
-            out.data[i * 3 + c] = (a + b).min(255) as u8;
+            let a = times[t[c] as usize * 256 + m] as u16;
+            let b = times[u[c] as usize * 256 + (255 - m)] as u16;
+            o[c] = (a + b).min(255) as u8;
         }
     }
     out
@@ -300,7 +453,9 @@ mod tests {
 
     // Recorded from cv2.resize(INTER_AREA) in OpenCV 4.13.0: (width, height, channels, new width, new height, source, result)
 
-    const AREA_CASES: &[(usize, usize, usize, usize, usize, &[u8], &[u8])] = &[
+    type AreaCase = (usize, usize, usize, usize, usize, &'static [u8], &'static [u8]);
+
+    const AREA_CASES: &[AreaCase] = &[
         (2, 1, 1, 4, 1, &[0, 100], &[0, 0, 100, 100]),
         (3, 1, 1, 2, 1, &[169, 65, 6], &[134, 26]),
         (5, 4, 3, 3, 3, &[149, 106, 38, 175, 188, 205, 175, 229, 98, 249, 10, 148, 95, 86, 147, 198, 66, 39, 106, 213, 171, 45, 167, 57, 69, 81, 55, 14, 153, 178, 215, 76, 52, 39, 250, 72, 215, 50, 161, 223, 112, 172, 161, 233, 38, 17, 89, 1, 221, 6, 242, 127, 143, 6, 60, 210, 94, 25, 166, 33], &[160, 135, 102, 158, 173, 117, 126, 73, 143, 153, 135, 76, 122, 131, 112, 111, 154, 110, 110, 78, 88, 145, 122, 89, 76, 184, 66]),
