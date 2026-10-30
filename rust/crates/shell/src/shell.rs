@@ -268,6 +268,8 @@ pub struct State {
     pub vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How the workers turn frames upright for vision, kept up with the view.
     pub upright: Arc<std::sync::Mutex<telescope_core::vision::Upright>>,
+    /// Motion in zones of the shown stream's picture, for the plugins that watch it; the workers feed it.
+    pub motion: Arc<telescope_core::motion::Motion>,
     /// Each stream's frames before the view, as (width, height), from its worker (view_controller._frame_size).
     pub frame_sizes: Arc<std::sync::Mutex<std::collections::HashMap<String, (u32, u32)>>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
@@ -293,13 +295,15 @@ pub struct State {
 
 impl State {
     pub fn new(file: ConfigFile) -> State {
+        let bus = EventBus::new();
+        let sender = bus.sender();
         State {
             slots: Vec::new(),
             panels: Panels::default(),
             collapse: Collapsing::default(),
             banners: Banners::default(),
             file,
-            bus: EventBus::new(),
+            bus,
             effects: Vec::new(),
             packet_makers: PacketMakers::default(),
             selected: None,
@@ -321,6 +325,9 @@ impl State {
             frames: None,
             vision: None,
             upright: Arc::default(),
+            motion: Arc::new(telescope_core::motion::Motion::new(Box::new(move |key, owner, zones| {
+                sender.emit(Event::MotionSeen { source_id: key.to_string(), owner: owner.to_string(), zones: zones.to_vec() });
+            }))),
             frame_sizes: Arc::default(),
             keep_in_tray: false,
             link: None,
@@ -601,7 +608,7 @@ impl State {
     /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
     /// What a new worker hands the vision service.
     pub fn vision_feed(&self) -> Option<crate::worker::VisionFeed> {
-        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone() })
+        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone(), motion: Some(self.motion.clone()) })
     }
 
     /// The shown stream's frames before the view, (0, 0) before its first one.
@@ -643,6 +650,10 @@ impl State {
         };
         if let Some(vision) = self.vision.as_ref().filter(|_| old != turn) {
             vision.view_turned(old, turn);
+        }
+        if old != turn {
+            // The picture turned, so everything is somewhere else
+            self.motion.reset(0.0, now_s());
         }
     }
 
@@ -826,6 +837,8 @@ impl State {
                 if let Event::CameraSwitched { camera } = &event {
                     let said = self.vc.camera_caps(&self.view, Some(camera), now_s());
                     self.apply_said(said);
+                    // Another lens isn't motion
+                    self.motion.reset(telescope_core::motion::LENS_SETTLE_S, now_s());
                     // Before the plugins hear it, so what the lens can take is fresh for them
                     self.note_lens(camera);
                 }
@@ -981,6 +994,9 @@ impl State {
         }
         if let Some(vision) = &self.vision {
             lines.extend(vision.diagnostics());
+        }
+        if let Some(motion) = self.motion.diagnostics() {
+            lines.push(("Motion".into(), motion));
         }
         lines
     }
@@ -1540,5 +1556,47 @@ mod tests {
         s.register(Box::new(Preview)).unwrap();
         assert!(ask(&mut s));
         assert_eq!(s.overlays.picking(), "Test");
+    }
+
+    #[test]
+    fn a_plugin_watching_for_motion_hears_which_zone_moved() {
+        use telescope_core::frame::{Frame, PixelFormat};
+        use telescope_core::host::HostMotion;
+        struct Watches(Arc<Mutex<Vec<Event>>>);
+        impl Plugin for Watches {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "watcher".into(), ..Default::default() }
+            }
+            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let room = |square: bool| {
+            let mut data = vec![100u8; 320 * 180 * 4];
+            for p in data.chunks_mut(4) {
+                p[3] = 255;
+            }
+            if square {
+                for y in 60..120 {
+                    for x in 220..280 {
+                        data[(y * 320 + x) * 4..(y * 320 + x) * 4 + 3].fill(230);
+                    }
+                }
+            }
+            Frame::new(320, 180, PixelFormat::Rgba, data)
+        };
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Watches(heard.clone()))).unwrap();
+        s.streams.source_id = Some("phone".into());
+        crate::host::Ctx { state: &mut s, me: "watcher".into() }.watch_motion("watcher", &[[0.0, 0.0, 0.4, 1.0], [0.6, 0.0, 1.0, 1.0]], 5);
+        for i in 1..=10 {
+            s.motion.feed(&room(false), "phone", None, i as f64 * 0.1);
+        }
+        s.motion.feed(&room(true), "phone", None, 1.1);
+        s.deliver_events();
+        let seen: Vec<Event> = heard.lock().unwrap().iter().filter(|e| matches!(e, Event::MotionSeen { .. })).cloned().collect();
+        assert_eq!(seen, [Event::MotionSeen { source_id: "phone".into(), owner: "watcher".into(), zones: vec![1] }]);
+        assert_eq!(crate::host::Ctx { state: &mut s, me: "watcher".into() }.motion("watcher"), [1]);
     }
 }

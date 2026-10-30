@@ -3055,20 +3055,20 @@
 "test_models.py::test_phone_state_rejects_missing_required_field" = { status = "todo" }
 "test_models.py::test_phone_state_rejects_non_list_cameras" = { status = "todo" }
 # ── motion
-"test_motion.py::test_a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" = { status = "todo" }
-"test_motion.py::test_a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" = { status = "todo" }
-"test_motion.py::test_a_slow_brightness_ramp_doesnt_count" = { status = "todo" }
-"test_motion.py::test_a_square_moving_in_and_out_of_a_zone" = { status = "todo" }
-"test_motion.py::test_coming_back_after_a_gap_starts_the_background_over" = { status = "todo" }
-"test_motion.py::test_everything_changing_at_once_is_a_cut_not_motion" = { status = "todo" }
-"test_motion.py::test_small_zones_and_sensitivity" = { status = "todo" }
-"test_motion.py::test_someone_filling_most_of_the_picture_still_counts" = { status = "todo" }
-"test_motion.py::test_stopping_watching_stops_the_reports" = { status = "todo" }
-"test_motion.py::test_the_background_takes_in_something_left_behind" = { status = "todo" }
-"test_motion.py::test_thresholds_get_finer_with_sensitivity" = { status = "todo" }
-"test_motion.py::test_watching_again_or_turning_the_picture_starts_over" = { status = "todo" }
-"test_motion.py::test_zones_are_cleaned_up" = { status = "todo" }
-"test_motion.py::test_zones_follow_the_phones_share_of_the_zoom" = { status = "todo" }
+"test_motion.py::test_a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_dark_coat_filling_part_of_the_picture_doesnt_trip_a_still_wall" }
+"test_motion.py::test_a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_lens_switch_picked_here_is_not_motion_even_in_a_room_of_similar_colours" }
+"test_motion.py::test_a_slow_brightness_ramp_doesnt_count" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_slow_brightness_ramp_doesnt_count" }
+"test_motion.py::test_a_square_moving_in_and_out_of_a_zone" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::a_square_moving_in_and_out_of_a_zone" }
+"test_motion.py::test_coming_back_after_a_gap_starts_the_background_over" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::coming_back_after_a_gap_starts_the_background_over" }
+"test_motion.py::test_everything_changing_at_once_is_a_cut_not_motion" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::everything_changing_at_once_is_a_cut_not_motion" }
+"test_motion.py::test_small_zones_and_sensitivity" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::small_zones_and_sensitivity" }
+"test_motion.py::test_someone_filling_most_of_the_picture_still_counts" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::someone_filling_most_of_the_picture_still_counts" }
+"test_motion.py::test_stopping_watching_stops_the_reports" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::stopping_watching_stops_the_reports" }
+"test_motion.py::test_the_background_takes_in_something_left_behind" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::the_background_takes_in_something_left_behind" }
+"test_motion.py::test_thresholds_get_finer_with_sensitivity" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::thresholds_get_finer_with_sensitivity" }
+"test_motion.py::test_watching_again_or_turning_the_picture_starts_over" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::watching_again_or_turning_the_picture_starts_over" }
+"test_motion.py::test_zones_are_cleaned_up" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::zones_are_cleaned_up" }
+"test_motion.py::test_zones_follow_the_phones_share_of_the_zoom" = { status = "ported", rust = "rust/crates/core/tests/motion_parity.rs::zones_follow_the_phones_share_of_the_zoom" }
 # ── move_to_installed
 "test_move_to_installed.py::test_a_copy_on_a_usb_stick_or_a_share_stays_where_it_is" = { status = "todo" }
 "test_move_to_installed.py::test_a_damaged_pending_move_note_is_ignored_and_removed" = { status = "todo" }

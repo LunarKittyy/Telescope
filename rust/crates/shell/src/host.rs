@@ -390,9 +390,11 @@ impl HostFrames for Ctx<'_> {
 }
 
 impl HostMotion for Ctx<'_> {
-    fn watch_motion(&mut self, _owner: &str, _zones: &[[f32; 4]], _sensitivity: u32) {}
-    fn motion(&self, _owner: &str) -> Vec<u32> {
-        Vec::new()
+    fn watch_motion(&mut self, owner: &str, zones: &[[f32; 4]], sensitivity: u32) {
+        self.state.motion.watch(owner, &telescope_core::motion::widen(zones), i64::from(sensitivity));
+    }
+    fn motion(&self, owner: &str) -> Vec<u32> {
+        self.focused_source_id().map(|id| self.state.motion.moving(&id, owner)).unwrap_or_default()
     }
 }
 
