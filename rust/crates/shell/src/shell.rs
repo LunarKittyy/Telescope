@@ -439,6 +439,7 @@ impl State {
             all.extend(broke);
             self.set_plugin_problems(&all);
         }
+        crate::settings::start_plugin_updates(self.file.path(), self.builtins.iter().map(|p| p.name.clone()).collect());
         self.remind_plugins_off(&cfg);
     }
 

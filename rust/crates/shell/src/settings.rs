@@ -125,6 +125,39 @@ thread_local! {
     static UPDATER: Rc<RefCell<PluginUpdater>> = Rc::new(RefCell::new(PluginUpdater::app()));
 }
 
+thread_local! {
+    /// The timers that run the update check (load_plugins starts them), and how many checks have finished.
+    static UPDATE_TIMERS: RefCell<Vec<slint::Timer>> = const { RefCell::new(Vec::new()) };
+    static CHECKED: Cell<u64> = const { Cell::new(0) };
+}
+
+/// Starts the update check for added plugins: a while after start, then hourly, with the finished ones taken in as they
+/// come (PluginUpdater.start). reserved are the built-in plugins' names.
+pub fn start_plugin_updates(file: &std::path::Path, reserved: Vec<String>) {
+    use telescope_plugin_host::updater::{FIRST_CHECK, TICK};
+    let (file, folder) = (file.to_path_buf(), file.parent().map(|p| p.join("plugins")).unwrap_or_else(|| "plugins".into()));
+    let make = move || PluginFolder::new(folder.clone(), Switches::new(telescope_core::config::ConfigFile::at(&file)), reserved.clone()).with_dev_folders(dev_plugin_folders());
+    let make = Rc::new(make);
+    let check = |make: Rc<dyn Fn() -> PluginFolder>| move || UPDATER.with(|u| u.clone()).borrow_mut().maybe_check(&make());
+    let timers = [(slint::TimerMode::SingleShot, FIRST_CHECK), (slint::TimerMode::Repeated, TICK)].into_iter().map(|(mode, every)| {
+        let timer = slint::Timer::default();
+        timer.start(mode, every, check(make.clone()));
+        timer
+    }).collect::<Vec<_>>();
+    let poll = slint::Timer::default();
+    poll.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(5), move || { poll_updates(&make()); });
+    UPDATE_TIMERS.with(|t| *t.borrow_mut() = timers.into_iter().chain([poll]).collect());
+}
+
+/// Takes in a finished check; true when one had (the Plugins tab then shows what's newer).
+fn poll_updates(folder: &PluginFolder) -> bool {
+    let found = UPDATER.with(|u| u.clone()).borrow_mut().poll(folder);
+    if found {
+        CHECKED.with(|c| c.set(c.get() + 1));
+    }
+    found
+}
+
 /// The window's PluginUpdater, as the tab asks about it.
 struct SharedUpdater(Rc<RefCell<PluginUpdater>>);
 
@@ -750,9 +783,9 @@ impl Settings {
         let weak = Rc::downgrade(self);
         self.watch.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(600), move || {
             let Some(s) = weak.upgrade() else { return };
-            let found = UPDATER.with(|u| u.clone()).borrow_mut().poll(&s.panel.borrow().folder);
-            let sign = s.panel.borrow().download_sign();
-            if found || *s.seen.borrow() != sign {
+            poll_updates(&s.panel.borrow().folder);
+            let sign = format!("{} {}", s.panel.borrow().download_sign(), CHECKED.with(|c| c.get()));
+            if *s.seen.borrow() != sign {
                 *s.seen.borrow_mut() = sign;
                 s.panel.borrow_mut().refresh();
                 s.show_panel();
