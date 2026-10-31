@@ -427,7 +427,7 @@ fn morph(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
 }
 
 /// cv2.multiply(a, b, scale=1/255) for every a and b, looked up since a frame needs it twice a value.
-fn times_table() -> &'static [u8] {
+pub(crate) fn times_table() -> &'static [u8] {
     static TABLE: OnceLock<Vec<u8>> = OnceLock::new();
     TABLE.get_or_init(|| (0..256u32).flat_map(|a| (0..256u32).map(move |b| round8(a as f32 * b as f32 / 255.0))).collect())
 }

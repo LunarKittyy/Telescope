@@ -261,17 +261,10 @@ fn frame_rgb(rgb: &Rgb) -> Frame {
     f
 }
 
-/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): the ones made of the same
-/// operations are close; the stick figure's lines are drawn with a different anti-aliasing, and ASCII's glyphs are our own.
+/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): nothing at all, each is exact.
 fn fun_limits(effect: &str) -> (u32, f64, f64) {
     match effect {
-        "cloak" | "clones" => (24, 0.5, 0.01),
-        "slit" => (4, 0.2, 0.0),
-        "light" => (4, 0.2, 0.0),
-        "crt" => (6, 0.3, 0.01),
-        "stick" => (255, 1.5, 0.03),
-        "ascii" => (255, 40.0, 0.6),
-        _ => (255, 255.0, 1.0),
+        _ => (0, 0.0, 0.0),
     }
 }
 

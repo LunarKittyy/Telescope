@@ -11,6 +11,7 @@ pub mod composite_plugin;
 pub mod compositor;
 pub mod cpu;
 pub mod cube;
+pub mod cv_draw;
 pub mod desk;
 pub mod face_exposure;
 pub mod framing;

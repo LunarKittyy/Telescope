@@ -114,3 +114,14 @@ fn the_colour_arithmetic_is_opencvs() {
     assert_eq!(luma_of(255, 255, 255), 255);
     assert_eq!(luma_of(0, 0, 0), 0);
 }
+
+/// The fixture lists the lit pixels of the grid OpenCV draws for the app's 256 vectorscope.
+#[test]
+fn the_vectorscope_grid_is_opencvs_to_the_byte() {
+    let recorded = include_bytes!("../tests/fixtures/scope_grid_256.bin");
+    let mut want = Bgra::new(256, 256);
+    for p in recorded.as_chunks::<6>().0 {
+        want.set(p[0] as usize, p[1] as usize, [p[2], p[3], p[4], p[5]]);
+    }
+    assert!(vectorscope_grid(256) == want);
+}

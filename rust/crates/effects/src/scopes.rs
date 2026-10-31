@@ -6,6 +6,7 @@
 //! written in that order there. Cinema tools turns the picture into RGBA when it draws it.
 
 use crate::cpu::Rgb;
+use crate::cv_draw::Canvas;
 use crate::imgops::{resize_area, Gray};
 
 /// Columns a frame is shrunk to before any scope.
@@ -281,66 +282,24 @@ pub fn histogram_image(frame: &Rgb, height: usize) -> Bgra {
     image
 }
 
-/// The circle, the colour bar targets and the skin tone line of a vectorscope this size, B, G, R, A and 0 alpha where nothing is
-/// drawn. The picture of the 256 one the app uses is OpenCV's own, recorded from the Python app; any other size is drawn here.
+/// The circle, the colour bar targets and the skin tone line of a vectorscope this size, B, G, R, A and 0 alpha where nothing is drawn.
 pub fn vectorscope_grid(size: usize) -> Bgra {
-    if size == 256 {
-        return recorded_grid();
-    }
-    draw_grid(size)
-}
-
-const GRID_256: &[u8] = include_bytes!("../tests/fixtures/scope_grid_256.bin");
-
-/// The sparse list of lit pixels (x, y, B, G, R, A, each a byte) the Python app's 256 vectorscope grid has.
-fn recorded_grid() -> Bgra {
-    let mut grid = Bgra::new(256, 256);
-    for p in GRID_256.as_chunks::<6>().0 {
-        grid.set(p[0] as usize, p[1] as usize, [p[2], p[3], p[4], p[5]]);
-    }
-    grid
-}
-
-/// A grid of a size other than 256, which only the tests ask for: the same marks, with plain coverage in place of OpenCV's
-/// anti-aliasing.
-fn draw_grid(size: usize) -> Bgra {
     let mut grid = Bgra::new(size, size);
-    let mid = (size / 2) as i64;
-    let radius = (size as f64 * 0.45).round_ties_even();
+    let mid = (size / 2) as i32;
+    let colour = [GRID[0], GRID[1], GRID[2], 255];
+    let reach = size as f64 * 0.45;
     let skin = SKIN_ANGLE.to_radians();
-    let end = (mid as f64 + skin.cos() * size as f64 * 0.45, mid as f64 - skin.sin() * size as f64 * 0.45);
-    let mut put = |x: i64, y: i64, colour: [u8; 4]| {
-        if (0..size as i64).contains(&x) && (0..size as i64).contains(&y) {
-            grid.set(x as usize, y as usize, colour);
-        }
-    };
-    for y in 0..size as i64 {
-        for x in 0..size as i64 {
-            let d = (((x - mid).pow(2) + (y - mid).pow(2)) as f64).sqrt();
-            let cover = (1.0 - (d - radius).abs()).clamp(0.0, 1.0);
-            if cover > 0.0 {
-                put(x, y, [GRID[0], GRID[1], GRID[2], (cover * 255.0) as u8]);
-            }
-        }
-    }
-    for d in -4..=4 {
-        put(mid + d, mid, [GRID[0], GRID[1], GRID[2], 255]);
-        put(mid, mid + d, [GRID[0], GRID[1], GRID[2], 255]);
-    }
-    let steps = (end.0 - mid as f64).abs().max((end.1 - mid as f64).abs()).ceil().max(1.0) as i64;
-    for i in 0..=steps {
-        let t = i as f64 / steps as f64;
-        put((mid as f64 + (end.0 - mid as f64) * t).round() as i64, (mid as f64 + (end.1 - mid as f64) * t).round() as i64, [GRID[0], GRID[1], GRID[2], 160]);
-    }
-    let boxed = (size / 40).max(3) as i64;
+    let end = ((mid as f64 + skin.cos() * reach).round_ties_even() as i32, (mid as f64 - skin.sin() * reach).round_ties_even() as i32);
+    let boxed = (size / 40).max(3) as i32;
+    let mut canvas = Canvas { data: &mut grid.data, w: size, h: size, channels: 4 };
+    canvas.circle((mid, mid), reach.round_ties_even() as i32, colour, 1);
+    canvas.straight_line((mid - 4, mid), (mid + 4, mid), colour);
+    canvas.straight_line((mid, mid - 4), (mid, mid + 4), colour);
+    canvas.line((mid, mid), end, [GRID[0], GRID[1], GRID[2], 160], 1);
     for bar in BARS {
         let (x, y) = scope_point([bar[2], bar[1], bar[0]], size);
-        let (x, y) = (x as i64, y as i64);
-        for d in -boxed..=boxed {
-            for (px, py) in [(x + d, y - boxed), (x + d, y + boxed), (x - boxed, y + d), (x + boxed, y + d)] {
-                put(px, py, [bar[0], bar[1], bar[2], 255]);
-            }
-        }
+        let (x, y) = (x as i32, y as i32);
+        canvas.rectangle((x - boxed, y - boxed), (x + boxed, y + boxed), [bar[0], bar[1], bar[2], 255]);
     }
     grid
 }
