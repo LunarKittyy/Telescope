@@ -2029,7 +2029,7 @@ mod tests {
     #[test]
     fn pairing_adds_and_selects_the_phone() {
         let mut e = env();
-        e.link.answer(ready(wifi()));
+        e.link.answer(ready(usb())); // a check over Wi-Fi would write the address itself
         e.add("id-a", "Pixel");
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         assert_eq!(e.shared.phones()[0].active_ip.as_deref(), Some("10.0.0.5"));
