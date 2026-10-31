@@ -246,7 +246,7 @@ fn run_admin(sys: &dyn InstallSys, script: &str) -> (bool, String, Option<i32>) 
 
 /// One DLL into its .part file, then its final name once it checks out.
 fn download_one(sys: &dyn InstallSys, name: &str, want: &str, part: &Path, dest: &Path) -> Result<(), String> {
-    let failed = |e: std::io::Error| tr("Download failed: {error}").field("error", &e.to_string());
+    let failed = |e: std::io::Error| tr("Download failed: {error}").field("error", e.to_string());
     let mut reader = sys.open_url(&format!("{UC_URL_BASE}/{name}"), DOWNLOAD_TIMEOUT).map_err(failed)?;
     let mut file = std::fs::File::create(part).map_err(failed)?;
     std::io::copy(&mut reader, &mut file).map_err(failed)?;
@@ -263,7 +263,7 @@ fn download_one(sys: &dyn InstallSys, name: &str, want: &str, part: &Path, dest:
 pub fn download_unitycapture(sys: &dyn InstallSys, progress: &dyn Fn(&str)) -> (bool, String) {
     let dir = sys.uc_dir();
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        return (false, tr("Couldn't create {path}: {error}").field("path", dir.to_string_lossy()).field("error", &e.to_string()));
+        return (false, tr("Couldn't create {path}: {error}").field("path", dir.to_string_lossy()).field("error", e.to_string()));
     }
     for (name, want) in sys.uc_files() {
         // A cut-off download never sits where the callers look for a finished one

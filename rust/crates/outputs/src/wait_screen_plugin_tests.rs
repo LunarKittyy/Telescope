@@ -252,7 +252,7 @@ fn takes_the_camera_back_while_the_stream_has_its_camera_off() {
     assert_eq!(r.stops(0), 2);
 }
 
-// test_wait_screen.py::test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen
+// The plugin's half; the window's flow is in app/tests/stream_camera_off.rs under the same name
 #[test]
 fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
     // The flow says which cameras nothing streams to (a stream that's only its mic included); the extra one shows it then
