@@ -240,7 +240,7 @@ pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            remove(vision_dir, Some(&pid));
+            let _ = remove(vision_dir, Some(&pid));
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),

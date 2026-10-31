@@ -4144,7 +4144,7 @@
 "test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stop_all_stops_everything_and_puts_the_mic_settings_back" }
 "test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stopping_the_mics_stream_moves_the_mic_to_the_next" }
 "test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stopping_the_shown_stream_moves_the_panels_to_one_left" }
-"test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
+"test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "ported", rust = "rust/app/src/scenes.rs::the_built_in_plugins_frame_order_is_the_one_written_down" }
 # ── text_fit
 "test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
 "test_text_fit.py::test_a_column_as_wide_before_the_pick_isnt_put_down_to_it" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }

@@ -148,7 +148,7 @@ export component StreamOutputCard inherits Card {
             readout-width: root.readout-width;
             label: @tr("JPEG quality");
             hue: root.hue;
-            tip: root.quality-tip;
+            tip: root.quality-tip + "\n" + @tr("Double-click to reset");
             marks: [85];
             has-default: true;
             default-value: 85;
@@ -168,7 +168,7 @@ export component StreamOutputCard inherits Card {
             readout-width: root.readout-width;
             label: @tr("Bitrate");
             hue: root.hue;
-            tip: root.bitrate-tip;
+            tip: root.bitrate-tip + "\n" + @tr("Double-click to reset");
             has-default: true;
             default-value: 0;
             moved(v) => { root.bitrate-moved(v); }

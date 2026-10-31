@@ -106,7 +106,7 @@ component PictureView inherits Rectangle {
             if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
             if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
             if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
-            if t.missing: shown-selected-tile-name := Text {
+            if t.missing: Text {
                 width: parent.width - 12px;
                 text: t.gone;
                 wrap: word-wrap;
@@ -439,7 +439,6 @@ export component CompositeEditor inherits Window {
                                     vertical-alignment: center;
                                     horizontal-stretch: 1;
                                     overflow: elide;
-                                    if shown-selected-tile-name.preferred-width > shown-selected-tile-name.width: Tooltip { TipBody { says: shown-selected-tile-name.text; } }
                                 }
                                 Rectangle {
                                     width: 36px;
@@ -470,13 +469,13 @@ export component CompositeEditor inherits Window {
                             LabelRow {
                             label-width: 72px;
                                 label: @tr("Stream");
-                                Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; if shown-tile-name.preferred-width > shown-tile-name.width: Tooltip { TipBody { says: shown-tile-name.text; } } }
                             }
                             SliderRow {
                                     label-width: 72px;
                                     hue: Theme.plugin-hue("streaming");
                                 label: @tr("Zoom");
-                                tip: @tr("Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown");
+                                tip: @tr("Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown") + "\n" + @tr("Double-click to reset");
                                 minimum: 100;
                                 maximum: zoom-max;
                                 value: zoom;
@@ -492,6 +491,7 @@ export component CompositeEditor inherits Window {
                                 maximum: border-max;
                                 value: border;
                                 readout: border-text;
+                                tip: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.border-moved(v); }
@@ -525,6 +525,7 @@ export component CompositeEditor inherits Window {
                                 maximum: radius-max;
                                 value: radius;
                                 readout: radius-text;
+                                tip: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.radius-moved(v); }

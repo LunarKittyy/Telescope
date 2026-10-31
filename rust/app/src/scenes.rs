@@ -518,6 +518,25 @@ mod tests {
 
     // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
     #[test]
+    fn the_built_in_plugins_frame_order_is_the_one_written_down() {
+        use telescope_core::frame::FrameStage;
+        let bus = telescope_core::EventBus::new();
+        let s = crate::services(crate::Machine::real(None), telescope_system::shortcuts::RemoteActions::default(), false);
+        let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
+        plugins.extend((s.plugins)());
+        let written = ["desk", "qr_reader", "background", "chroma_key", "fun_pack", "privacy_blur", "name_tag", "composite", "wait_screen"];
+        let mut steps: Vec<_> = plugins.iter().map(|p| p.info()).filter(|i| written.contains(&i.name.as_str())).collect();
+        assert_eq!(steps.len(), written.len());
+        steps.sort_by_key(|i| (i.frame_stage, written.iter().position(|w| *w == i.name)));
+        let stages: Vec<FrameStage> = steps.iter().map(|i| i.frame_stage).collect();
+        assert!(stages.windows(2).all(|w| w[0] <= w[1]));
+        assert_eq!(steps.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), written);
+        // The window's own: its view before all of them and the colour step between fun_pack and privacy_blur
+        assert!(FrameStage::View < stages[0]);
+        assert!(steps[4].frame_stage < FrameStage::Colour && FrameStage::Colour < steps[5].frame_stage);
+    }
+
+    #[test]
     fn every_built_in_plugin_picks_its_category_and_icon() {
         let bus = telescope_core::EventBus::new();
         // The app's own list, as the real window loads it

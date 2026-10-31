@@ -42,6 +42,11 @@ fn reads(level: u32, charging: bool, temp: f64) -> Value {
     state_with(json!({"codecs": ["mjpeg", "h264"], "battery": level, "charging": charging, "battery_temp_c": temp}))
 }
 
+/// A poll's answer about a stream behind the panels.
+fn polled_behind(r: &Rig, id: &str, state: Value) {
+    r.w.phone_report(telescope_shell::sources::Report::Polled { source_id: id.into(), session_id: r.session_id(id), state });
+}
+
 fn press_first_button(r: &Rig, key: &str) {
     r.w.ui.invoke("banner-action", &[SValue::String(key.into()), SValue::Number(0.0)]).unwrap();
 }
@@ -163,7 +168,7 @@ fn monitoring_start_anyway_for_heat_still_stops_for_battery() {
     r.pump();
     assert_eq!(r.shown().as_deref(), Some("oneplus"));
 
-    r.phone_says("pixel", reads(80, false, 50.0));
+    polled_behind(&r, "pixel", reads(80, false, 50.0));
     r.until("the stop", |r| r.streaming() == ["oneplus"]);
     let banner = r.banner("stopped:pixel").expect("a banner");
     assert_eq!(banner["title"], "Pixel is at 50.0 °C");
@@ -177,10 +182,10 @@ fn monitoring_start_anyway_for_heat_still_stops_for_battery() {
     r.pump();
     assert!(r.streaming().contains(&"pixel".to_string()));
 
-    r.phone_says("pixel", reads(80, false, 50.0));
+    polled_behind(&r, "pixel", reads(80, false, 50.0));
     r.pump();
     assert!(r.streaming().contains(&"pixel".to_string()), "still hot, but started anyway");
-    r.phone_says("pixel", reads(10, false, 50.0));
+    polled_behind(&r, "pixel", reads(10, false, 50.0));
     r.until("the stop", |r| !r.streaming().contains(&"pixel".to_string()));
 }
 

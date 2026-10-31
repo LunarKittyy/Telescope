@@ -646,6 +646,7 @@ impl WebcamPlugin {
                     row["maximum"] = json!(if log { LOG_STEPS } else { hi });
                     row["step"] = json!(if log { 1 } else { c.step });
                     row["position"] = json!(if log { val_to_log_pos(c.value as f64, LOG_STEPS, lo, hi) } else { c.value as f64 });
+                    row["reset-to"] = json!(if log { val_to_log_pos(default_of(c) as f64, LOG_STEPS, lo, hi) } else { default_of(c) as f64 });
                     row["readout"] = json!(shown_value(c, c.value));
                 }
                 rows.push(row);

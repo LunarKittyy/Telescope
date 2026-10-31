@@ -16,6 +16,8 @@ export struct ControlRow {
     maximum: float,
     step: float,
     position: float,
+    // Where a double-click puts the slider back
+    reset-to: float,
     readout: string,
     tip: string,
     enabled: bool,
@@ -144,6 +146,9 @@ export component WebcamCard inherits Card {
                 label: row.label;
                 hue: root.hue;
                 enabled: row.enabled;
+                has-default: true;
+                default-value: row.reset-to;
+                tip: row.tip != "" ? row.tip + "\n" + @tr("Double-click to reset") : @tr("Double-click to reset");
                 moved(v) => { root.control-set(row.name, v); }
             }
         }
