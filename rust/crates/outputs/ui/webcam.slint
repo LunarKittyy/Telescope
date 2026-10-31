@@ -40,6 +40,7 @@ export component WebcamCard inherits Card {
     in-out property <int> fps-current;
     in property <bool> fps-enabled;
     in property <[ControlRow]> rows;
+    in property <bool> reset-shown;
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
@@ -49,6 +50,7 @@ export component WebcamCard inherits Card {
     action-icon: Icons.reset;
     action-label: @tr("Put the webcam's picture settings back to its defaults");
     action-text: @tr("Reset");
+    has-action: root.reset-shown;
 
     FormRow {
         label: @tr("Camera");

@@ -422,7 +422,7 @@ fn a_camera_whose_settings_cant_be_reached_shows_none() {
     let mut env = cams_with(vec![cam()], Box::new(|_| None));
     pick(&mut env, Some("cam"));
     assert!(env.plugin.rows().is_empty());
-    assert_eq!(env.plugin.props(false)["has-action"], false);
+    assert_eq!(env.plugin.props(false)["reset-shown"], false);
 }
 
 // test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings
