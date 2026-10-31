@@ -584,15 +584,20 @@ fn a_plugin_being_written_that_cant_load_says_why() {
 
 #[test]
 fn plugins_being_written_need_a_dev_profile() {
+    let written = example(&scratch_dir("work"), "black_and_white");
     // The only test that touches these variables
     // SAFETY: no other test in this crate reads or writes TELESCOPE_DEV_PLUGINS, and none relies on TELESCOPE_DEV_PROFILE being unset
     unsafe {
-        std::env::set_var(DEV_PLUGINS_ENV, "/somewhere/my_plugin");
+        std::env::set_var(DEV_PLUGINS_ENV, &written);
         std::env::remove_var(telescope_core::config::DEV_PROFILE_ENV);
     }
-    assert!(dev_plugin_folders().is_empty());
+    let p = plugins().with_dev_folders(dev_plugin_folders());
+    assert!(p.find_installed().is_empty());
+    let (loaded, failed) = p.load_enabled("en");
+    assert!(loaded.is_empty() && failed.is_empty());
     unsafe { std::env::set_var(telescope_core::config::DEV_PROFILE_ENV, scratch_dir("profile")) };
-    assert_eq!(dev_plugin_folders(), [PathBuf::from("/somewhere/my_plugin")]);
+    assert_eq!(dev_plugin_folders(), [written]);
+    assert_eq!(names(&plugins().with_dev_folders(dev_plugin_folders()).load_enabled("en").0), ["black_and_white"]);
     unsafe {
         std::env::remove_var(telescope_core::config::DEV_PROFILE_ENV);
         std::env::remove_var(DEV_PLUGINS_ENV);
