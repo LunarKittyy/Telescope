@@ -1834,7 +1834,7 @@
 "Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Tab" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
-"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs", note = "The card's label takes no link or line breaks, so the licence address shows as text in a msgid of its own and Wi-Fi works without it goes." }
+"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "dropped", reason = "The card's label takes no link or line breaks, so the licence address shows as text in a msgid of its own and Wi-Fi works without it goes." }
 "Telescope can't work without this one, so it can't be switched off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete it: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete its folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
