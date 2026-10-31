@@ -5780,11 +5780,14 @@ version = "0.1.0"
 dependencies = [
  "ffmpeg-sys-next",
  "libc",
+ "libloading",
  "log",
  "pollster",
  "serde_json",
  "telescope-core",
  "wgpu",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
