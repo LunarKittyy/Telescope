@@ -13,6 +13,7 @@ use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::json::{dumps, Style};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::text::{py_lines, py_space, py_strip};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -58,12 +59,12 @@ pub fn body_size(text: &str) -> usize {
 
 /// What the set picker calls a set of notes: its first line with something on it, or "" for an empty one.
 pub fn set_name(text: &str) -> String {
-    let line = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("");
+    let line = py_lines(text).into_iter().map(py_strip).find(|l| !l.is_empty()).unwrap_or("");
     if line.chars().count() <= NAME_CHARS {
         return line.to_string();
     }
     let cut: String = line.chars().take(NAME_CHARS - 1).collect();
-    format!("{}\u{2026}", cut.trim_end())
+    format!("{}\u{2026}", cut.trim_end_matches(py_space))
 }
 
 /// Whether the phone streams from its front camera; None when the state doesn't say (an older phone).
@@ -248,7 +249,7 @@ impl NotesPlugin {
     }
 
     fn send_enabled(&self) -> bool {
-        self.sendable() && !self.too_long() && !self.text().trim().is_empty()
+        self.sendable() && !self.too_long() && !py_strip(self.text()).is_empty()
     }
 
     fn fixed_props() -> Value {
@@ -347,7 +348,7 @@ impl NotesPlugin {
         if !self.sendable() || body_size(&text) > NOTES_MAX_BYTES {
             return;
         }
-        if text.trim().is_empty() {
+        if py_strip(&text).is_empty() {
             self.clear(host);
             return;
         }
@@ -704,6 +705,8 @@ impl Plugin for NotesPlugin {
         self.sets = if sets.is_empty() { vec![String::new()] } else { sets };
         self.current = match cfg.get("current") {
             Some(Value::Number(n)) => n.as_u64().map(|c| c as usize).filter(|c| *c < self.sets.len()).unwrap_or(0),
+            // Python's bool is an int
+            Some(Value::Bool(true)) if self.sets.len() > 1 => 1,
             _ => 0,
         };
         let get = |k: &str| cfg.get(k).cloned().unwrap_or(Value::Null);

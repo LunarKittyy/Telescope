@@ -1,5 +1,5 @@
 use super::*;
-use crate::pixels::gaussian_blur;
+use crate::imgops::Gray;
 use std::sync::Mutex;
 use telescope_core::frame::PixelFormat;
 use telescope_core::testing::FakeHost;
@@ -54,7 +54,7 @@ fn code_picture(text: &str, scale: usize, (w, h): (usize, usize), (x, y): (usize
 #[test]
 fn codes_are_read_from_arms_length_to_right_up_close() {
     for scale in [4, 8, 14] {
-        let grey = gaussian_blur(&code_picture("https://example.com", scale, (1280, 720), (400, 10), 90), 1280, 720, 1.0);
+        let grey = Gray { w: 1280, h: 720, data: code_picture("https://example.com", scale, (1280, 720), (400, 10), 90) }.blur(1.0).data;
         let (text, corners) = read_code(&grey, 1280, 720).unwrap_or_else(|| panic!("no code at {scale}x"));
         assert_eq!(text, "https://example.com", "{scale}x");
         assert!(0.25 < corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min) && corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min) < 0.45, "{scale}x");
@@ -73,6 +73,29 @@ const TRUNCATED_UTF8: Recorded = (21, &[0x1fc57f, 0x104b41, 0x17595d, 0x175d5d, 
 const KANJI: Recorded = (21, &[0x1fc07f, 0x104441, 0x17555d, 0x17565d, 0x17515d, 0x105641, 0x1fd57f, 0x1c00, 0x17c27c, 0xdb3c6, 0x1ed56b, 0xd03ca, 0x16e528, 0x112b, 0x1fc692, 0x10543b, 0x175a9c, 0x175be4, 0x17556c, 0x104fe8, 0x1fd90d]);
 // Python: UnicodeDecodeError, for the bytes C0 80 (OpenCV takes them for UTF-8, Python doesn't)
 const OVERLONG: Recorded = (21, &[0x1fcb7f, 0x104541, 0x17535d, 0x17565d, 0x175b5d, 0x105941, 0x1fd57f, 0x1f00, 0x17c57c, 0x199524, 0x17f695, 0x33434, 0x1efa94, 0x13c8, 0x1fc163, 0x1057c9, 0x175924, 0x175524, 0x175e9c, 0x104834, 0x1fd29e]);
+
+// Python: 'café', for ECI 26 and valid UTF-8
+const ECI_UTF8: Recorded = (21, &[0x1fc77f, 0x105d41, 0x17475d, 0x17595d, 0x17495d, 0x105241, 0x1fd57f, 0x800, 0x1f72aa, 0x17b7ee, 0x10f562, 0x113e4, 0x1fd528, 0x190c, 0x1fdab2, 0x104035, 0x175ebd, 0x1757de, 0x175560, 0x1053ef, 0x1fd112]);
+// Python: UnicodeDecodeError, for ECI 26 and bytes that aren't UTF-8
+const ECI_UTF8_BROKEN: Recorded = (21, &[0x1fcf7f, 0x104a41, 0x17485d, 0x175e5d, 0x17575d, 0x104541, 0x1fd57f, 0xf00, 0x18e918, 0x1b215d, 0x174a92, 0x1aa414, 0x7d043, 0x1fcc, 0x1fd562, 0x105394, 0x17412d, 0x174d2e, 0x17446b, 0x10541f, 0x1fda92]);
+// Python: '', for ECI 25, whose raw bytes open with a nul
+const ECI_UTF16: Recorded = (21, &[0x1fdf7f, 0x104a41, 0x174c5d, 0x174e5d, 0x17455d, 0x104341, 0x1fd57f, 0x1f00, 0x1b4d41, 0x1c8555, 0x125cdf, 0x1f0a0c, 0xfc44f, 0x130f, 0x1fc5f0, 0x104793, 0x175b6c, 0x175f3e, 0x17446f, 0x1054d4, 0x1fd214]);
+// Python: UnicodeDecodeError, for ECI 3
+const ECI_LATIN1: Recorded = (21, &[0x1fdf7f, 0x104a41, 0x174c5d, 0x174e5d, 0x17455d, 0x104341, 0x1fd57f, 0x1f00, 0x1b4d41, 0x18395d, 0x1decdb, 0x1aa20c, 0xcf843, 0x130f, 0x1fc5f0, 0x104b96, 0x175f65, 0x175f34, 0x17486b, 0x1050dc, 0x1fde00]);
+// Python: UnicodeDecodeError, for ECI 9 (ISO 8859-7), kept as raw bytes like any ECI
+const ECI_GREEK: Recorded = (21, &[0x1fdf7f, 0x104a41, 0x174c5d, 0x174e5d, 0x17455d, 0x104341, 0x1fd57f, 0x1f00, 0x1b4d41, 0x72d5d, 0x648db, 0x1b9e0c, 0x4c043, 0x170f, 0x1fc1f0, 0x104b97, 0x175f64, 0x175334, 0x17407b, 0x105cdc, 0x1fda00]);
+// Python: '1234', for ECI 25 on a numeric segment, where it isn't looked at
+const ECI_UTF16_DIGITS: Recorded = (21, &[0x1fdf7f, 0x104a41, 0x174c5d, 0x174e5d, 0x17455d, 0x104341, 0x1fd57f, 0x1f00, 0x1b4d41, 0xe2957, 0x1d8dd, 0x161204, 0x4c843, 0x1721, 0x1fc9fa, 0x1043bf, 0x17536c, 0x17571e, 0x174c4f, 0x105cd4, 0x1fda04]);
+// Python: 'abc\x93ú\x96{', for a byte segment before a Kanji one: the first segment decides
+const BYTE_THEN_KANJI: Recorded = (21, &[0x1fc57f, 0x104141, 0x17545d, 0x17415d, 0x174b5d, 0x104e41, 0x1fd57f, 0x1400, 0x1df5c4, 0x160a7b, 0x16e63, 0x13bb90, 0xfc661, 0x145b, 0x1fd11b, 0x10584d, 0x175565, 0x174e8a, 0x1756d5, 0x10579a, 0x1fdef3]);
+// Python: 'ab', for a nul byte: Python's text stops there
+const BYTES_WITH_A_NUL: Recorded = (21, &[0x1fcb7f, 0x104e41, 0x175b5d, 0x174a5d, 0x17455d, 0x104141, 0x1fd57f, 0x1b00, 0x1dfec4, 0x3a44b, 0x1dd13, 0x6a848, 0x46d55, 0x12ab, 0x1fdee7, 0x1053b0, 0x175ae3, 0x17446a, 0x175919, 0x105c62, 0x1fd173]);
+// Python: '', for an alphanumeric segment first, so bytes past ASCII fail the decode
+const ALPHA_THEN_BYTES: Recorded = (21, &[0x1fdf7f, 0x104a41, 0x174c5d, 0x174e5d, 0x17455d, 0x104341, 0x1fd57f, 0x1f00, 0x1b4d41, 0x32d5f, 0x1af4de, 0x1d160c, 0x11784c, 0x1b25, 0x1fcdfe, 0x1047bb, 0x175769, 0x175f18, 0x174047, 0x105cd6, 0x1fd206]);
+// Python: UnicodeDecodeError, for ECI 26 broken, in a code of four blocks
+const ECI_UTF8_BLOCKS: Recorded = (41, &[0x1fd9738e37f, 0x10482ae2941, 0x175bee35c5d, 0x174d74e615d, 0x1757ad0ed5d, 0x1042e7d5a41, 0x1fd5555557f, 0x13aa54f00, 0xc101a7755, 0xd38cc791d5, 0xc7577e0671, 0x1d039a5f35d, 0xb66373dc3c, 0x6be7135822, 0x18d9445894a, 0x1d8f8e96d27, 0x13edc73d0fa, 0x327b8ac58c, 0x11ca1feede8, 0xbb8bff03ad, 0x13c781fa7b1, 0xe2326c89d5, 0xc723d8978, 0x961c8fc51, 0x1dd007b8e36, 0x614ae3482e, 0x14c0434ca86, 0x123c2ca2ee3, 0x10dc7c212ba, 0x1bb9b76859c, 0x1be34396d18, 0x13a59c9435d, 0x175c4b667f1, 0x142e5cb15, 0x1fc48c9895a, 0x105f8a9fd10, 0x174d12f4bf7, 0x174528e8e7e, 0x1746f7bb806, 0x104d5c0dd8a, 0x1fc8d4977e0]);
+// Python: UnicodeDecodeError, for ECI 26 broken, in a code with long and short blocks
+const ECI_UTF8_LONG_BLOCKS: Recorded = (45, &[0x1fc116b8597f, 0x1057abe9aa41, 0x1747deb7ba5d, 0x1741f8a2e35d, 0x175ecdf7b75d, 0x10427712a841, 0x1fd55555557f, 0xd2d1aa500, 0x154749fee312, 0x120dea8bbefa, 0xb5f1bdeefee, 0xf3cee864aaa, 0x1e57ebd21ded, 0x1e8dea6749b6, 0x1e895265ce2, 0x158b21784547, 0x1157546d0316, 0x1699d1487748, 0x24fdb1d645d, 0x6181e46a9a8, 0xdf4dbf2effd, 0x11fcb17bb16, 0x1158a556ed52, 0x11185314471f, 0x9f495f113fe, 0x171993a44e16, 0x134f5b555d43, 0x160cdd18a717, 0x1cffab4de3b4, 0x199d2318b5f8, 0x1271a39de60d, 0x103b61d68a18, 0xfe8a282ccbd, 0x131d8e97bae6, 0x147b476ecb2, 0xf08fa2846a7, 0x134201fd13f6, 0x1e87184714, 0x1fc3715d5751, 0x1048211aa51c, 0x175923fee3fd, 0x174f8f8bbea8, 0x1757b2deeeed, 0x104ab4a64bb9, 0x1fd685e21eef]);
 
 fn recorded_picture((size, rows): Recorded) -> Vec<u8> {
     let (scale, side) = (6, size + 8);
@@ -111,6 +134,29 @@ fn a_code_python_cant_turn_into_text_reports_nothing() {
 }
 
 #[test]
+fn a_code_opening_with_an_eci_keeps_its_bytes() {
+    assert_eq!(read_recorded(ECI_UTF8), Ok(Some("café".into())));
+    for broken in [ECI_UTF8_BROKEN, ECI_LATIN1, ECI_GREEK, ECI_UTF8_BLOCKS, ECI_UTF8_LONG_BLOCKS] {
+        assert_eq!(read_recorded(broken), Err(Unreadable));
+    }
+    assert_eq!(read_recorded(ECI_UTF16_DIGITS), Ok(Some("1234".into())));
+}
+
+#[test]
+fn the_first_segment_decides_how_the_bytes_are_read() {
+    assert_eq!(read_recorded(BYTE_THEN_KANJI), Ok(Some("abc\u{93}ú\u{96}{".into())));
+    // Seen but not read: the decode fails
+    assert_eq!(read_recorded(ALPHA_THEN_BYTES), Ok(Some(String::new())));
+}
+
+#[test]
+fn text_stops_at_a_nul_as_a_c_string_does() {
+    assert_eq!(read_recorded(BYTES_WITH_A_NUL), Ok(Some("ab".into())));
+    // ECI 25 stores "hi" as 00 68 00 69
+    assert_eq!(read_recorded(ECI_UTF16), Ok(Some(String::new())));
+}
+
+#[test]
 fn no_code_is_none() {
     assert!(read_code(&vec![90; 160 * 90], 160, 90).is_none());
     assert!(read_code(&[], 0, 0).is_none());
@@ -118,6 +164,7 @@ fn no_code_is_none() {
 
 #[test]
 fn a_picture_is_shrunk_by_what_each_new_pixel_covers() {
+    let area_resize = |src: &[u8], w, h, dw, dh| crate::imgops::resize_area(src, w, h, 1, dw, dh);
     assert_eq!(area_resize(&[0, 100, 200, 100], 2, 2, 1, 1), vec![100]);
     assert_eq!(area_resize(&[10, 20, 30], 3, 1, 3, 1), vec![10, 20, 30]);
     // A third of a pixel each side: 3 pixels into 2
@@ -507,4 +554,46 @@ fn what_it_says_in_diagnostics() {
     assert_eq!(rig.plugin.diagnostics()[0].1, "on");
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.plugin.diagnostics()[0].1, "off");
+}
+
+struct BehindContext;
+
+impl FrameContext for BehindContext {
+    fn source_id(&self) -> &str {
+        "another camera"
+    }
+    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        None
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+/// Python gives no frame step, so a stream behind the panels is never looked at.
+#[test]
+fn a_stream_behind_the_panels_is_left_alone() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let mut step = cpu(rig.plugin.frame_step());
+    let frame = video_frame("https://example.com");
+    let mut copy = frame.clone();
+    step.process(&mut copy, &BehindContext);
+    assert!(!rig.plugin.shared.busy.load(Ordering::SeqCst));
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(rig.host.take_posted().is_empty());
+}
+
+/// A view change hands out a new step: it mustn't look any sooner for it.
+#[test]
+fn a_new_step_keeps_to_the_same_pace() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let frame = video_frame("https://example.com");
+    let mut step = cpu(rig.plugin.frame_step());
+    look(&mut *step, &frame, &rig.host);
+    let mut next = cpu(rig.plugin.frame_step());
+    let mut copy = frame.clone();
+    next.process(&mut copy, &NoContext);
+    assert!(!rig.plugin.shared.busy.load(Ordering::SeqCst));
 }

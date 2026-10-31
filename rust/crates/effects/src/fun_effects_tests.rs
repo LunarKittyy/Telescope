@@ -201,9 +201,9 @@ fn a_jpeg_at_low_quality_blocks_the_picture_but_keeps_its_colours() {
 
 #[test]
 fn the_ascii_picture_is_green_text_on_black() {
-    let out = ascii(&big(&with_person(&room(), 60, 100, PERSON)));
-    assert!(out.data.chunks(3).all(|p| p == [0, 0, 0] || p == [0, 255, 85]));
-    assert!(out.data.chunks(3).any(|p| p == [0, 255, 85]));
+    let out = ascii(&big(&with_person(&room(), 60, 100, PERSON)), &mut None);
+    assert!(out.data.chunks(3).all(|p| p[0] == 0 && p[2] == p[1] / 3));
+    assert!(out.data.chunks(3).any(|p| p[1] > 100));
 }
 
 #[test]

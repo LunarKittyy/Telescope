@@ -173,3 +173,10 @@ fn compile_editor() {
     assert!(errors.is_empty(), "{}", errors.join("\n"));
     assert!(result.component("CompositeEditor").is_some());
 }
+
+/// Desk's stretch sliders stick at 100% (slider.set_snaps([100]) in desk.py).
+#[test]
+fn desks_stretch_sliders_snap_at_100() {
+    assert_eq!(include_str!("../ui/desk.slint").matches("marks: [100];").count(), 2);
+    assert!(include_str!("../ui/parts.slint").contains("marks: root.marks;"));
+}

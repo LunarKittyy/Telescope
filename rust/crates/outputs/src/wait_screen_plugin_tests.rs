@@ -748,3 +748,14 @@ fn it_is_a_cover_stage_plugin_in_on_screen_that_can_be_switched_off() {
     assert_eq!((info.name.as_str(), info.category.as_str(), info.icon.as_str(), info.frame_stage), ("wait_screen", "on_screen", "moon", FrameStage::Cover));
     assert!(!info.required && !info.optional);
 }
+
+/// A stream in the Windows camera's format is covered too: the real picture must never show through.
+#[test]
+fn an_nv12_stream_is_covered_like_any_other() {
+    let mut r = Rig::new();
+    let frame = Frame::new(320, 180, PixelFormat::Nv12, vec![200; PixelFormat::Nv12.size(320, 180)]);
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    let out = covered(&mut r.plugin, &frame);
+    assert_eq!(out.format, PixelFormat::Nv12);
+    assert_ne!(out.data, frame.data);
+}

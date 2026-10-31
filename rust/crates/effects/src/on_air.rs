@@ -9,6 +9,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::json::{dumps, loads, Style};
 use telescope_core::web::{PageHandler, Reply, Request, ServerStats, Step};
+use ureq::unversioned::resolver::DefaultResolver;
+use ureq::unversioned::transport::{Buffers, ConnectionDetails, Connector, DefaultConnector, NextTimeout, Transport};
 
 pub const ON_AIR_PORT: u16 = 8768;
 /// The raw answer has to hold this long before the sign goes on.
@@ -18,6 +20,9 @@ pub const OFF_AFTER_S: f64 = 6.0;
 pub const WEBHOOK_TIMEOUT: Duration = Duration::from_secs(5);
 /// A failed state is sent again after these, the last one repeating until it works.
 pub const RETRY_S: [u64; 4] = [5, 15, 60, 300];
+/// urllib gives up on a redirect after this many visits to one address, or this many addresses.
+const MAX_REPEATS: usize = 4;
+const MAX_REDIRECTS: usize = 10;
 /// How long a page's request for the state waits for a change before answering anyway.
 const POLL_WAIT: Duration = Duration::from_secs(20);
 
@@ -252,9 +257,12 @@ fn os_text(e: &std::io::Error) -> String {
 fn failure_text(e: &ureq::Error) -> String {
     match e {
         ureq::Error::StatusCode(code) => format!("HTTP {code}"),
-        // A POST can't follow a 307 or 308 on, which urllib raises as the status itself
-        ureq::Error::RedirectFailed => "HTTP 307".into(),
+        // Connecting and sending go through URLError; waiting for the answer raises TimeoutError itself
+        ureq::Error::Timeout(ureq::Timeout::RecvResponse | ureq::Timeout::RecvBody | ureq::Timeout::PerRead) => "TimeoutError".into(),
         ureq::Error::Timeout(_) => "timed out".into(),
+        // The other end hung up before it answered, or answered something that isn't HTTP
+        ureq::Error::Io(io) if io.kind() == std::io::ErrorKind::UnexpectedEof => "RemoteDisconnected".into(),
+        ureq::Error::Protocol(_) => "BadStatusLine".into(),
         ureq::Error::HostNotFound => if cfg!(windows) { "getaddrinfo failed" } else { "Name or service not known" }.into(),
         ureq::Error::Io(io) => match io.get_ref().and_then(|inner| inner.downcast_ref::<rustls::Error>()) {
             Some(tls) => tls.to_string(),
@@ -269,7 +277,7 @@ fn failure_text(e: &ureq::Error) -> String {
 }
 
 /// What a body that breaks says, as Python's read(4096) would: TimeoutError for a stall, IncompleteRead for a garbled one, and
-/// nothing for one cut short (read(4096) hands back what came). A reset is the same to ureq as a cut, where Python names it.
+/// nothing for one cut short (read(4096) hands back what came).
 fn body_failure_text(e: &std::io::Error) -> String {
     use std::io::ErrorKind;
     let timed_out = e.kind() == ErrorKind::TimedOut || e.get_ref().and_then(|inner| inner.downcast_ref::<ureq::Error>()).is_some_and(|inner| matches!(inner, ureq::Error::Timeout(_)));
@@ -288,40 +296,124 @@ pub fn send_webhook(request: &WebhookRequest) -> String {
     send_webhook_within(request, WEBHOOK_TIMEOUT)
 }
 
-/// send_webhook with its own patience for each step.
+/// Remembers a connection reset: ureq takes one in a body for the body ending, where Python's read raises it.
+#[derive(Debug)]
+struct ResetWatch(Arc<Mutex<Option<String>>>);
+
+#[derive(Debug)]
+struct Watched<T: Transport> {
+    inner: T,
+    reset: Arc<Mutex<Option<String>>>,
+}
+
+impl<In: Transport> Connector<In> for ResetWatch {
+    type Out = Watched<In>;
+
+    fn connect(&self, _details: &ConnectionDetails, chained: Option<In>) -> Result<Option<Self::Out>, ureq::Error> {
+        Ok(chained.map(|inner| Watched { inner, reset: self.0.clone() }))
+    }
+}
+
+impl<T: Transport> Transport for Watched<T> {
+    fn buffers(&mut self) -> &mut dyn Buffers {
+        self.inner.buffers()
+    }
+
+    fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), ureq::Error> {
+        self.inner.transmit_output(amount, timeout)
+    }
+
+    fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
+        let got = self.inner.await_input(timeout);
+        if let Err(ureq::Error::Io(e)) = &got {
+            if e.kind() == std::io::ErrorKind::ConnectionReset {
+                *self.reset.lock().unwrap_or_else(|p| p.into_inner()) = Some(os_text(e));
+            }
+        }
+        got
+    }
+
+    fn is_open(&mut self) -> bool {
+        self.inner.is_open()
+    }
+
+    fn is_tls(&self) -> bool {
+        self.inner.is_tls()
+    }
+}
+
+/// urljoin for what a redirect's Location can say: a whole address, one without its scheme, a path or a path beside this one.
+fn joined(base: &str, location: &str) -> String {
+    let Some((scheme, netloc, path, ..)) = urlsplit(base) else { return location.to_string() };
+    if location.contains("://") {
+        location.to_string()
+    } else if location.starts_with("//") {
+        format!("{scheme}:{location}")
+    } else if location.starts_with('/') {
+        format!("{scheme}://{netloc}{location}")
+    } else {
+        let folder = path.rsplit_once('/').map_or("", |(folder, _)| folder);
+        format!("{scheme}://{netloc}{folder}/{location}")
+    }
+}
+
+/// send_webhook with its own patience for each step. Redirects go as urllib takes them: a POST only follows 301, 302 and 303, as a
+/// GET; a redirect that goes round too long fails with its own status.
 pub fn send_webhook_within(request: &WebhookRequest, timeout: Duration) -> String {
     let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
+    let config = ureq::Agent::config_builder()
         .tls_config(tls)
         .user_agent(request.user_agent.clone())
+        .http_status_as_error(false)
+        .max_redirects(0)
         .timeout_resolve(Some(timeout))
         .timeout_connect(Some(timeout))
         .timeout_send_request(Some(timeout))
         .timeout_recv_response(Some(timeout))
         .timeout_recv_body(Some(timeout))
-        .build()
-        .into();
-    let sent = match (request.method, &request.body) {
-        (Method::Post, Some(body)) => {
-            let mut post = agent.post(&request.url);
-            if let Some(kind) = &request.content_type {
-                post = post.header("Content-Type", kind);
+        .build();
+    let reset = Arc::new(Mutex::new(None));
+    let agent = ureq::Agent::with_parts(config, DefaultConnector::default().chain(ResetWatch(reset.clone())), DefaultResolver::default());
+    let (mut url, mut post) = (request.url.clone(), matches!(request.method, Method::Post));
+    let mut visited: Vec<(String, usize)> = Vec::new();
+    loop {
+        let sent = match &request.body {
+            Some(body) if post => {
+                let mut call = agent.post(&url);
+                if let Some(kind) = &request.content_type {
+                    call = call.header("Content-Type", kind);
+                }
+                call.send(body.as_slice())
             }
-            post.send(body.as_slice())
-        }
-        _ => agent.get(&request.url).call(),
-    };
-    match sent {
-        Ok(mut response) => {
+            _ => agent.get(&url).call(),
+        };
+        let mut response = match sent {
+            Ok(response) => response,
+            Err(e) => return failure_text(&e),
+        };
+        let code = response.status().as_u16();
+        if (200..300).contains(&code) {
             use std::io::Read;
-            let mut sink = Vec::new();
             // A body that stalls or breaks is a failed send, as response.read(4096) raising is in Python
-            match response.body_mut().as_reader().take(4096).read_to_end(&mut sink) {
-                Ok(_) => String::new(),
-                Err(e) => body_failure_text(&e),
+            let read = response.body_mut().as_reader().take(4096).read_to_end(&mut Vec::new());
+            if let Some(words) = reset.lock().unwrap_or_else(|p| p.into_inner()).take() {
+                return words;
             }
+            return read.map_or_else(|e| body_failure_text(&e), |_| String::new());
         }
-        Err(e) => failure_text(&e),
+        let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(str::to_string);
+        let follows = matches!(code, 301..=303) || (!post && matches!(code, 307 | 308));
+        let Some(location) = location.filter(|_| follows) else { return format!("HTTP {code}") };
+        let next = joined(&url, &location);
+        let seen = visited.iter().position(|(u, _)| *u == next);
+        if seen.is_some_and(|i| visited[i].1 >= MAX_REPEATS) || visited.len() >= MAX_REDIRECTS {
+            return format!("HTTP {code}");
+        }
+        match seen {
+            Some(i) => visited[i].1 += 1,
+            None => visited.push((next.clone(), 1)),
+        }
+        (url, post) = (next, false);
     }
 }
 

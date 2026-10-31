@@ -5,6 +5,7 @@
 //! system's font for the character's script, then the list of names below for a character it lacks), each run is shaped with its font (harfrust, so Arabic joins, Indic marks land where
 //! they belong and kerning applies) and the glyphs are placed from the shaped advances and offsets, runs in visual order.
 
+mod colour;
 mod shape;
 mod system;
 
@@ -32,6 +33,9 @@ const FALLBACKS: &[&str] = &[
     "notosansdevanagari", "notosanshebrew", "notosansthai", "notosansbengali", "notosanstamil", "notosansgreek", "segoeui.",
     "msyh", "yugoth", "malgun", "nirmala", "arial.",
 ];
+
+/// Colour fonts by file name, in lower case, for a system that doesn't name one.
+const EMOJI_FILES: [&str; 3] = ["seguiemj.ttf", "notocoloremoji.ttf", "noto-colrv1.ttf"];
 
 fn font_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec!["/usr/share/fonts".into(), "/usr/local/share/fonts".into()];
@@ -181,10 +185,28 @@ pub struct Face {
     heavy: bool,
 }
 
-/// Characters that take the font of their neighbours when it has them: spaces, punctuation, marks and joiners.
-fn takes_neighbours_font(ch: char) -> bool {
-    use BidiClass::*;
-    matches!(bidi_class(ch), WS | ON | CS | ES | ET | S | B | NSM | BN)
+/// Characters that are emoji on their own, without a variation selector (Unicode's Emoji_Presentation).
+fn shows_as_emoji(ch: char) -> bool {
+    matches!(ch as u32,
+        0x231a | 0x231b | 0x23e9..=0x23ec | 0x23f0 | 0x23f3 | 0x25fd | 0x25fe | 0x2614 | 0x2615 | 0x2648..=0x2653 | 0x267f | 0x2693 | 0x26a1
+        | 0x26aa | 0x26ab | 0x26bd | 0x26be | 0x26c4 | 0x26c5 | 0x26ce | 0x26d4 | 0x26ea | 0x26f2 | 0x26f3 | 0x26f5 | 0x26fa | 0x26fd | 0x2705
+        | 0x270a | 0x270b | 0x2728 | 0x274c | 0x274e | 0x2753..=0x2755 | 0x2757 | 0x2795..=0x2797 | 0x27b0 | 0x27bf | 0x2b1b | 0x2b1c | 0x2b50
+        | 0x2b55 | 0x1f004 | 0x1f0cf | 0x1f18e | 0x1f191..=0x1f19a | 0x1f1e6..=0x1f1ff | 0x1f300..=0x1faff)
+}
+
+/// Which bytes of `text` belong to an emoji, in ranges: Qt's itemizer gives those to the emoji font, even when the main font has the
+/// character as a plain symbol. A variation selector says which way a character goes.
+fn emoji_ranges(text: &str) -> Vec<Range<usize>> {
+    text.grapheme_indices(true).filter(|(_, g)| !g.contains('\u{fe0e}') && (g.contains('\u{fe0f}') || g.chars().next().is_some_and(shows_as_emoji))).map(|(at, g)| at..at + g.len()).collect()
+}
+
+/// The system's colour font: what a character the main font lacks would go to anyway, else the usual ones by name. One font for every
+/// weight, since emoji have just the one.
+fn emoji_font() -> Option<FontArc> {
+    static FONT: OnceLock<Option<FontArc>> = OnceLock::new();
+    FONT.get_or_init(|| fallback_for('\u{1f319}', false).filter(FontArc::is_colour).or_else(|| {
+        font_files().iter().find(|(file, _)| EMOJI_FILES.contains(&file.as_str())).and_then(|(_, path)| load(std::fs::read(path).ok()?, 400.0))
+    })).clone()
 }
 
 /// The script each character is written in: spaces, punctuation, digits and marks (Common and Inherited) take the script of the
@@ -201,11 +223,6 @@ fn script_runs(chars: impl Iterator<Item = char>) -> Vec<Script> {
         }
     }
     scripts
-}
-
-/// Marks and joiners that belong to the letter before them.
-fn is_mark(ch: char) -> bool {
-    matches!(bidi_class(ch), BidiClass::NSM | BidiClass::BN)
 }
 
 impl Face {
@@ -242,18 +259,28 @@ impl Face {
         }
     }
 
+    /// Pixels to the em in a font.
+    fn em_px(&self, font: &FontArc) -> f32 {
+        self.scale_in(font).x * font.units_per_em().unwrap_or(1000.0) / font.height_unscaled()
+    }
+
     fn scaled(&self) -> ab_glyph::PxScaleFont<&ab_glyph::FontArc> {
         self.font.as_scaled(self.scale_in(&self.font))
     }
 
+    /// Qt keeps sizes in 64ths of a pixel, dropping what's left over; a face sized its own way keeps all of it.
+    fn fixed(&self, v: f32) -> f32 {
+        if self.em { (v * 64.0).floor() / 64.0 } else { v }
+    }
+
     /// Above the baseline, in pixels.
     pub fn ascent(&self) -> f32 {
-        self.scaled().ascent()
+        self.fixed(self.scaled().ascent())
     }
 
     /// Below the baseline, in pixels (positive).
     pub fn descent(&self) -> f32 {
-        -self.scaled().descent()
+        self.fixed(-self.scaled().descent())
     }
 
     /// Ascent plus descent.
@@ -270,34 +297,23 @@ impl Face {
     }
 
     /// `run` split into stretches that one font covers and one script writes, in text order (Qt itemizes by script too, so Hebrew
-    /// followed by Arabic is shaped as each, not both as the first). A space or a mark stays in its neighbours' font when that
-    /// has it, so one Arabic phrase is not cut into a piece per word.
+    /// followed by Arabic is shaped as each, not both as the first). As in QFontEngineMulti each character goes on its own: the main
+    /// font when it has it, so a space or a comma between Hebrew letters is Inter's; only a joiner stays with the fallback before it.
     fn pieces(&self, text: &str, run: Range<usize>) -> Vec<(Range<usize>, FontArc)> {
         let chars: Vec<(usize, char)> = text[run.clone()].char_indices().map(|(i, c)| (run.start + i, c)).collect();
-        let weak: Vec<bool> = chars.iter().map(|&(_, c)| takes_neighbours_font(c)).collect();
-        let picked: Vec<Option<FontArc>> = chars.iter().zip(&weak).map(|(&(_, c), &w)| if w { None } else { self.pick(c) }).collect();
-        // The font of the next letter at or after each character; none when there is no such letter or no font has it
-        let mut ahead: Vec<Option<&FontArc>> = vec![None; chars.len()];
-        let mut next = None;
-        for i in (0..chars.len()).rev() {
-            if !weak[i] {
-                next = picked[i].as_ref();
-            }
-            ahead[i] = next;
-        }
         let scripts = script_runs(chars.iter().map(|&(_, c)| c));
         let mut out: Vec<(Range<usize>, FontArc)> = Vec::new();
         let mut last_script = None;
-        let mut cur: Option<FontArc> = None;
+        let mut fallback: Option<FontArc> = None;
+        let emoji = emoji_ranges(&text[run.clone()]);
+        let colour = if emoji.is_empty() || !self.fallbacks { None } else { emoji_font() };
         for (i, &(at, ch)) in chars.iter().enumerate() {
-            let font = if weak[i] {
-                let stay = cur.as_ref().filter(|c| c.glyph_id(ch).0 != 0 && (is_mark(ch) || ahead[i].is_none_or(|n| n.same(c))));
-                stay.cloned().or_else(|| self.pick(ch))
-            } else {
-                picked[i].clone()
-            };
-            let font = font.or_else(|| cur.clone()).unwrap_or_else(|| self.font.clone());
-            cur = Some(font.clone());
+            let joiner = matches!(ch, '\u{200c}' | '\u{200d}');
+            let stay = fallback.as_ref().filter(|f| joiner && f.glyph_id(ch).0 != 0).cloned();
+            let wanted = colour.as_ref().filter(|f| (f.glyph_id(ch).0 != 0 || matches!(ch, '\u{fe0f}' | '\u{200d}')) && emoji.iter().any(|r| r.contains(&(at - run.start)))).cloned();
+            // Nothing has it: the main font's box
+            let font = stay.or(wanted).or_else(|| self.pick(ch)).unwrap_or_else(|| self.font.clone());
+            fallback = (!font.same(&self.font)).then(|| font.clone());
             let end = at + ch.len_utf8();
             match out.last_mut() {
                 Some((range, last)) if last.same(&font) && last_script == Some(scripts[i]) => range.end = end,
@@ -314,7 +330,7 @@ impl Face {
         let mut placed = Vec::new();
         let mut x = 0.0;
         if !text.is_empty() {
-            let base = if right_to_left(text) { Level::rtl() } else { Level::ltr() };
+            let base = if qt_right_to_left(text) { Level::rtl() } else { Level::ltr() };
             let bidi = BidiInfo::new(text, Some(base));
             for para in &bidi.paragraphs {
                 let (levels, runs) = bidi.visual_runs(para, para.range.clone());
@@ -334,6 +350,7 @@ impl Face {
                                 x += spacing;
                             }
                             last = Some(g.cluster);
+                            let advance = self.fixed(g.x_advance as f32 * per_unit);
                             placed.push(Placed {
                                 font: font.clone(),
                                 scale,
@@ -341,9 +358,9 @@ impl Face {
                                 x: x + g.x_offset as f32 * per_unit,
                                 y: -(g.y_offset as f32) * per_unit,
                                 cluster: g.cluster,
-                                advance: g.x_advance as f32 * per_unit,
+                                advance,
                             });
-                            x += g.x_advance as f32 * per_unit;
+                            x += advance;
                         }
                     }
                 }
@@ -437,13 +454,31 @@ impl Face {
         };
         // When the first letter cut off would have joined to the one before, a joiner keeps that letter in its joining form
         let joiner = if next_char_joins(text, starts[at]) { "\u{200d}" } else { "" };
-        format!("{}{joiner}\u{2026}", &text[..starts[at]])
+        // Direction controls that were cut off still close what the kept text opened (stringMidRetainingBidiCC)
+        let controls: String = text[starts[at]..].chars().filter(|c| matches!(c, '\u{202a}'..='\u{202e}' | '\u{200e}' | '\u{200f}' | '\u{2066}'..='\u{2069}')).collect();
+        format!("{}{joiner}\u{2026}{controls}", &text[..starts[at]])
     }
 
     /// Calls `cover(x, y, coverage)` for each pixel the line touches, with its start at `x` and its baseline at `baseline`.
-    /// Pixels may be reported more than once where glyphs overlap.
-    pub fn draw(&self, line: &Line, x: f32, baseline: f32, mut cover: impl FnMut(i32, i32, f32)) {
+    /// Pixels may be reported more than once where glyphs overlap. Colour glyphs are left out: `draw_coloured` has them.
+    pub fn draw(&self, line: &Line, x: f32, baseline: f32, cover: impl FnMut(i32, i32, f32)) {
+        self.draw_coloured(line, x, baseline, [0; 3], cover, |_, _, _| {});
+    }
+
+    /// `draw`, with emoji: `painted(x, y, [r, g, b, a])`, premultiplied, for each pixel of a colour glyph, in line order among the
+    /// others. `ink` is the colour of the text.
+    pub fn draw_coloured(&self, line: &Line, x: f32, baseline: f32, ink: [u8; 3], mut cover: impl FnMut(i32, i32, f32), mut painted: impl FnMut(i32, i32, [u8; 4])) {
         for p in &line.placed {
+            let em = self.em_px(&p.font);
+            if let Some(tile) = p.font.colour_tile(p.glyph.0, em, ink) {
+                let (left, top) = ((x + p.x).round() as i32 + tile.left, (baseline + p.y).round() as i32 + tile.top);
+                for (i, px) in tile.rgba.as_chunks::<4>().0.iter().enumerate() {
+                    if px[3] != 0 {
+                        painted(left + (i % tile.width) as i32, top + (i / tile.width) as i32, *px);
+                    }
+                }
+                continue;
+            }
             let glyph = p.glyph.with_scale_and_position(p.scale, ab_glyph::point(x + p.x, baseline + p.y));
             let Some(outlined) = p.font.outline_glyph(glyph) else { continue };
             let bounds = outlined.px_bounds();
@@ -456,7 +491,52 @@ impl Face {
 fn next_char_joins(text: &str, pos: usize) -> bool {
     use unicode_joining_type::{get_joining_type, JoiningType};
     let Some(ch) = text[pos..].chars().find(|&c| bidi_class(c) != BidiClass::NSM) else { return false };
-    matches!(get_joining_type(ch), JoiningType::DualJoining | JoiningType::JoinCausing)
+    !matches!(get_joining_type(ch), JoiningType::NonJoining | JoiningType::Transparent)
+}
+
+/// str.isspace(): Unicode's whitespace and the four separators Python counts too.
+pub fn py_space(ch: char) -> bool {
+    ch.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&ch)
+}
+
+/// str.strip().
+pub fn py_strip(text: &str) -> &str {
+    text.trim_matches(py_space)
+}
+
+/// str.splitlines(): every line break Python knows, \r\n as one, with no empty line after a last break.
+pub fn py_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut chars = text.char_indices().peekable();
+    while let Some((at, ch)) = chars.next() {
+        if matches!(ch, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}' | '\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}') {
+            lines.push(&text[start..at]);
+            if ch == '\r' && chars.peek().is_some_and(|&(_, next)| next == '\n') {
+                chars.next();
+            }
+            start = chars.peek().map_or(text.len(), |&(i, _)| i);
+        }
+    }
+    if start < text.len() {
+        lines.push(&text[start..]);
+    }
+    lines
+}
+
+/// QString::isRightToLeft: as right_to_left, leaving out what's inside an isolate. What a line is drawn by.
+fn qt_right_to_left(text: &str) -> bool {
+    let mut isolates = 0;
+    for ch in text.chars() {
+        match bidi_class(ch) {
+            BidiClass::RLI | BidiClass::LRI | BidiClass::FSI => isolates += 1,
+            BidiClass::PDI if isolates > 0 => isolates -= 1,
+            BidiClass::R | BidiClass::AL if isolates == 0 => return true,
+            BidiClass::L if isolates == 0 => return false,
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Whether text starts out right to left (its first strongly directional character is Arabic, Hebrew and the like), by bidi class

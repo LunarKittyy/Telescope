@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use telescope_core::actions::{self, Choice};
 use telescope_core::event::Event;
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, trn_open};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -621,7 +621,7 @@ impl PhotosPlugin {
             let name = Path::new(&files[0]).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let more = files.len() - 1;
             let text = if more > 0 {
-                tr("Saved {name} and {n} more").field("name", &name).field("n", more.to_string())
+                trn_open("Saved {name} and {n} more", "Saved {name} and {n} more", more as i64).field("name", &name)
             } else {
                 tr("Saved {name}").field("name", &name)
             };

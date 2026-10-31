@@ -1,8 +1,7 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
-use crate::imgops::{grey_of, resize_area};
-use crate::pixels::gaussian_blur;
+use crate::imgops::{grey_of, resize_area, Gray};
 use telescope_core::actions::round_half_even;
 use telescope_core::view::{view_to_shown, Geometry};
 
@@ -279,26 +278,6 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
     out
 }
 
-/// cv2.resize(INTER_LINEAR) of one channel to a bigger size, pixel centres lined up.
-fn linear_resize(src: &[u8], w: usize, h: usize, dw: usize, dh: usize) -> Vec<u8> {
-    let (sx, sy) = (w as f64 / dw as f64, h as f64 / dh as f64);
-    let mut out = vec![0u8; dw * dh];
-    for y in 0..dh {
-        let fy = ((y as f64 + 0.5) * sy - 0.5).clamp(0.0, (h - 1) as f64);
-        let (y0, ay) = (fy.floor() as usize, (fy - fy.floor()) as f32);
-        let y1 = (y0 + 1).min(h - 1);
-        for x in 0..dw {
-            let fx = ((x as f64 + 0.5) * sx - 0.5).clamp(0.0, (w - 1) as f64);
-            let (x0, ax) = (fx.floor() as usize, (fx - fx.floor()) as f32);
-            let x1 = (x0 + 1).min(w - 1);
-            let at = |xx: usize, yy: usize| src[yy * w + xx] as f32;
-            let v = (at(x0, y0) * (1.0 - ax) + at(x1, y0) * ax) * (1.0 - ay) + (at(x0, y1) * (1.0 - ax) + at(x1, y1) * ax) * ay;
-            out[y * dw + x] = v.round() as u8;
-        }
-    }
-    out
-}
-
 /// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: three full middle rows and one pixel above and below.
 const ELLIPSE: [(i32, i32); 17] = [
     (0, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
@@ -322,15 +301,15 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
                 }).max().unwrap_or(0);
             }
         }
-        let blurred = gaussian_blur(&dilated, sw, sh, 2.0);
-        paper_map.push(linear_resize(&blurred, sw, sh, w, h));
+        paper_map.push(Gray { w: sw, h: sh, data: dilated }.blur(2.0).linear_exact(w, h).data);
     }
-    let scale = 255.0 * INK;
+    // cv2.divide in floats, a zero below giving zero
+    let scale = (255.0 * INK) as f32;
     let mut out = vec![0u8; sheet.len()];
     for i in 0..w * h {
         for c in 0..3 {
-            let p = paper_map[c][i] as f64;
-            out[i * 3 + c] = if p == 0.0 { 0 } else { (sheet[i * 3 + c] as f64 * scale / p).round().clamp(0.0, 255.0) as u8 };
+            let p = paper_map[c][i] as f32;
+            out[i * 3 + c] = if p == 0.0 { 0 } else { (sheet[i * 3 + c] as f32 * scale / p).round_ties_even().clamp(0.0, 255.0) as u8 };
         }
     }
     out

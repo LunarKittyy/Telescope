@@ -3,7 +3,8 @@
 //! afresh. Game Boy is a shader instead (game_boy.wgsl) and never comes through here.
 
 use crate::cpu::Rgb;
-use crate::imgops::{compose, Gray};
+use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
+use crate::imgops::{compose, times_table, Gray};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -61,14 +62,14 @@ fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Rgb> {
     if (image.w, image.h) == (w, h) {
         return Some(image.clone());
     }
-    fits(image.w, image.h, w, h).then(|| image.linear(w, h))
+    fits(image.w, image.h, w, h).then(|| image.linear_exact(w, h))
 }
 
 fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Gray> {
     if (mask.w, mask.h) == (w, h) {
         return Some(mask.clone());
     }
-    fits(mask.w, mask.h, w, h).then(|| mask.linear(w, h))
+    fits(mask.w, mask.h, w, h).then(|| mask.linear_exact(w, h))
 }
 
 /// Where a frame differs from the empty room: someone in front of it, without the vision download.
@@ -88,7 +89,7 @@ impl PlateMask {
         }
         let (sw, sh) = ((w / MASK_SMALL).max(1), (h / MASK_SMALL).max(1));
         if !self.held.as_ref().is_some_and(|(p, hw, hh)| Arc::ptr_eq(p, plate) && (*hw, *hh) == (w, h)) {
-            let fitted = ((plate.w, plate.h) != (w, h)).then(|| plate.linear(w, h));
+            let fitted = ((plate.w, plate.h) != (w, h)).then(|| plate.linear_exact(w, h));
             self.small = Some(fitted.as_ref().unwrap_or(plate).area(sw, sh).blur3());
             self.held = Some((plate.clone(), w, h));
         }
@@ -98,7 +99,7 @@ impl PlateMask {
         for (i, d) in diff.data.iter_mut().enumerate() {
             *d = (0..3).map(|c| small.data[i * 3 + c].abs_diff(held.data[i * 3 + c])).max().unwrap_or(0);
         }
-        Some(diff.above(DIFFERENCE).open(3).close(7).linear(w, h))
+        Some(diff.above(DIFFERENCE).open(3).close(7).linear_exact(w, h))
     }
 }
 
@@ -142,7 +143,7 @@ pub enum Effect {
     Webcam(Webcam),
     Vhs(Vhs),
     Crt(Option<Crt>),
-    Ascii,
+    Ascii(Option<AsciiGlyphs>),
 }
 
 impl Effect {
@@ -156,7 +157,7 @@ impl Effect {
             "webcam" => Effect::Webcam(Webcam::new()),
             "vhs" => Effect::Vhs(Vhs::new()),
             "crt" => Effect::Crt(None),
-            "ascii" => Effect::Ascii,
+            "ascii" => Effect::Ascii(None),
             _ => return None,
         })
     }
@@ -199,7 +200,7 @@ impl Effect {
                     Some(t) => {
                         // 1: gone in about half a second, 10: hangs around for seconds. At least a level off each time: rounding
                         // alone would keep a faint trail for good at long fades
-                        let keep = 0.80 + look.fade as f32 * 0.019;
+                        let keep = (0.80 + look.fade as f64 * 0.019) as f32;
                         let data = t.data.iter().zip(&lights.data).map(|(&old, &new)| ((old as f32 * keep).round_ties_even().min(255.0) as u8).saturating_sub(1).max(new)).collect();
                         Rgb { w, h, data }
                     }
@@ -236,7 +237,7 @@ impl Effect {
                         }
                     }
                 }
-                out.linear(w, h)
+                out.linear_exact(w, h)
             }
             Effect::Stick => stick_figure(frame, look),
             Effect::Webcam(c) => c.run(frame),
@@ -247,7 +248,7 @@ impl Effect {
                 }
                 c.as_ref().unwrap().run(frame)
             }
-            Effect::Ascii => ascii(frame),
+            Effect::Ascii(glyphs) => ascii(frame, glyphs),
         }
     }
 }
@@ -257,49 +258,18 @@ impl Effect {
 pub const PAPER: [u8; 3] = [240, 236, 232];
 pub const INK: [u8; 3] = [28, 32, 40];
 
-/// How much of a pixel at distance d from a stroke's middle line the stroke covers, for a stroke `half` wide each side: a soft edge
-/// a pixel across, as an anti-aliased line has. OpenCV's thick anti-aliased strokes come out wider than their thickness says (about
-/// 1.5 times for a line, 1.9 for a ring), which the callers allow for.
-fn cover(d: f64, half: f64) -> f64 {
-    (half + 0.5 - d).clamp(0.0, 1.0)
-}
-
-fn blend(out: &mut Rgb, x: usize, y: usize, amount: f64) {
-    if amount <= 0.0 {
-        return;
-    }
-    let p = out.at(x, y);
-    let mix = |a: u8, b: u8| (a as f64 + (b as f64 - a as f64) * amount).round() as u8;
-    out.set(x, y, [mix(p[0], INK[0]), mix(p[1], INK[1]), mix(p[2], INK[2])]);
-}
-
 fn stick_figure(frame: &Rgb, look: &Look) -> Rgb {
     let (w, h) = (frame.w, frame.h);
     let mut out = fit(look.plate.as_deref(), w, h).unwrap_or_else(|| Rgb::filled(w, h, PAPER));
-    let thick = 3.max(h / 70) as f64;
+    let thick = 3.max(h / 70) as i32;
+    let ink = [INK[0], INK[1], INK[2], 0];
+    let (fw, fh) = (w as f64, h as f64);
+    let mut canvas = Canvas { data: &mut out.data, w, h, channels: 3 };
     for &((x0, y0), (x1, y1)) in &look.lines {
-        let (ax, ay, bx, by) = ((x0 * w as f64).trunc(), (y0 * h as f64).trunc(), (x1 * w as f64).trunc(), (y1 * h as f64).trunc());
-        let (dx, dy) = (bx - ax, by - ay);
-        let len2 = (dx * dx + dy * dy).max(1e-9);
-        let pad = thick / 2.0 + 1.0;
-        for y in (ay.min(by) - pad).max(0.0) as usize..((ay.max(by) + pad) as usize + 1).min(h) {
-            for x in (ax.min(bx) - pad).max(0.0) as usize..((ax.max(bx) + pad) as usize + 1).min(w) {
-                let t = (((x as f64 - ax) * dx + (y as f64 - ay) * dy) / len2).clamp(0.0, 1.0);
-                let d = ((x as f64 - ax - t * dx).powi(2) + (y as f64 - ay - t * dy).powi(2)).sqrt();
-                blend(&mut out, x, y, cover(d, thick * 0.77));
-            }
-        }
+        canvas.line(((x0 * fw) as i32, (y0 * fh) as i32), ((x1 * fw) as i32, (y1 * fh) as i32), ink, thick);
     }
-    for &((hx, hy), r) in &look.heads {
-        let (cx, cy) = ((hx * w as f64).trunc(), (hy * h as f64).trunc());
-        let radius = thick.max((r * h as f64).trunc());
-        let pad = radius + thick;
-        for y in (cy - pad).max(0.0) as usize..((cy + pad) as usize + 1).min(h) {
-            for x in (cx - pad).max(0.0) as usize..((cx + pad) as usize + 1).min(w) {
-                let d = ((x as f64 - cx).powi(2) + (y as f64 - cy).powi(2)).sqrt();
-                blend(&mut out, x, y, cover((d - radius + 0.5).abs(), thick * 0.95));
-            }
-        }
+    for &((x, y), r) in &look.heads {
+        canvas.circle(((x * fw) as i32, (y * fh) as i32), thick.max((r * fh) as i32), ink, thick);
     }
     out
 }
@@ -538,7 +508,7 @@ impl Vhs {
             out.data[i * 3 + 1] = (l + d(b * -5636 + r * -11698)).clamp(0, 255) as u8;
             out.data[i * 3 + 2] = (l + d(b * 29049)).clamp(0, 255) as u8;
         }
-        out.linear(w, h)
+        out.linear_exact(w, h)
     }
 }
 
@@ -572,7 +542,7 @@ pub struct Crt {
 
 impl Crt {
     pub fn new(w: usize, h: usize) -> Crt {
-        let axis = |n: usize| -> Vec<f32> { (0..n).map(|i| if n == 1 { -1.0 } else { -1.0 + 2.0 * i as f32 / (n - 1) as f32 }).collect() };
+        let axis = |n: usize| -> Vec<f32> { (0..n).map(|i| if i + 1 == n && n > 1 { 1.0 } else if n == 1 { -1.0 } else { (-1.0 + i as f64 * (2.0 / (n - 1) as f64)) as f32 }).collect() };
         let (xs, ys) = (axis(w), axis(h));
         let pitch = 2.max(h / 270);
         let triad = [[1.0f32, 0.82, 0.82], [0.82, 1.0, 0.82], [0.82, 0.82, 1.0]];
@@ -599,25 +569,32 @@ impl Crt {
 
     pub fn run(&self, frame: &Rgb) -> Rgb {
         let (w, h) = (self.w, self.h);
-        let at = |x: i64, y: i64, c: usize| -> f32 { if x < 0 || y < 0 || x >= w as i64 || y >= h as i64 { 0.0 } else { frame.data[(y as usize * w + x as usize) * 3 + c] as f32 } };
+        let at = |x: i32, y: i32, c: usize| -> i32 {
+            if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
+                0
+            } else {
+                frame.data[(y as usize * w + x as usize) * 3 + c] as i32
+            }
+        };
         let mut bent = Rgb::new(w, h);
         for (i, &(mx, my)) in self.maps.iter().enumerate() {
-            let (x0, y0) = (mx.floor(), my.floor());
-            let (fx, fy) = (mx - x0, my - y0);
-            let (x0, y0) = (x0 as i64, y0 as i64);
+            // cv2.convertMaps to CV_16SC2 and remap's fixed point: a 32nd of a pixel, weights out of 32768
+            let (qx, qy) = ((mx * 32.0).round_ties_even() as i32, (my * 32.0).round_ties_even() as i32);
+            let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, qx & 31, qy & 31);
+            let weights = [(32 - fy) * (32 - fx) * 32, (32 - fy) * fx * 32, fy * (32 - fx) * 32, fy * fx * 32];
             for c in 0..3 {
-                let top = at(x0, y0, c) * (1.0 - fx) + at(x0 + 1, y0, c) * fx;
-                let bottom = at(x0, y0 + 1, c) * (1.0 - fx) + at(x0 + 1, y0 + 1, c) * fx;
-                bent.data[i * 3 + c] = (top * (1.0 - fy) + bottom * fy).round().clamp(0.0, 255.0) as u8;
+                let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
+                bent.data[i * 3 + c] = ((sum + (1 << 14)) >> 15).clamp(0, 255) as u8;
             }
         }
         // a little glow
         let glow = bent.box_blur(9, 9);
+        let times = times_table();
         let mut out = Rgb::new(w, h);
         for i in 0..w * h {
             for c in 0..3 {
                 let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round_ties_even() as u32)).min(255);
-                out.data[i * 3 + c] = (lit as f32 * self.shade[i][c] as f32 / 255.0).round_ties_even() as u8;
+                out.data[i * 3 + c] = times[lit as usize * 256 + self.shade[i][c] as usize];
             }
         }
         out
@@ -626,22 +603,28 @@ impl Crt {
 
 // ── ASCII ──────────────────────────────────────────────────────────────
 
-/// 5 x 7 pictures of the ramp's characters: Python draws them with OpenCV's Hershey font, which isn't here.
-const GLYPHS: [[&str; 7]; 10] = [
-    [".....", ".....", ".....", ".....", ".....", ".....", "....."],
-    [".....", ".....", ".....", ".....", ".....", "..#..", "..#.."],
-    [".....", "..#..", "..#..", ".....", "..#..", "..#..", "....."],
-    [".....", ".....", ".....", "#####", ".....", ".....", "....."],
-    [".....", ".....", "#####", ".....", "#####", ".....", "....."],
-    [".....", "..#..", "..#..", "#####", "..#..", "..#..", "....."],
-    [".....", "#.#.#", ".###.", "#####", ".###.", "#.#.#", "....."],
-    [".#.#.", "#####", ".#.#.", ".#.#.", "#####", ".#.#.", "....."],
-    ["##..#", "##.#.", "..#..", ".#.##", "#..##", ".....", "....."],
-    [".###.", "#...#", "#.###", "#.#.#", "#.###", "#....", ".####"],
-];
+/// The ramp's characters as OpenCV's Hershey Plain draws them in a cell this size.
+pub struct AsciiGlyphs {
+    cell: (usize, usize),
+    glyphs: Vec<u8>,
+}
+
+impl AsciiGlyphs {
+    fn new(cw: usize, ch: usize) -> AsciiGlyphs {
+        let mut glyphs = vec![0u8; ASCII_RAMP.len() * cw * ch];
+        let scale = plain_scale_from_height(4.max(ch as i32 - 4));
+        for (i, c) in ASCII_RAMP.chars().enumerate() {
+            let text = c.to_string();
+            let tw = plain_text_width(&text, scale);
+            let mut canvas = Canvas { data: &mut glyphs[i * cw * ch..(i + 1) * cw * ch], w: cw, h: ch, channels: 1 };
+            canvas.plain_text(&text, ((cw as i32 - tw).div_euclid(2), ch as i32 - 3), scale, [255, 0, 0, 0]);
+        }
+        AsciiGlyphs { cell: (cw, ch), glyphs }
+    }
+}
 
 /// The picture in characters, green on black, about 150 across.
-fn ascii(frame: &Rgb) -> Rgb {
+fn ascii(frame: &Rgb, held: &mut Option<AsciiGlyphs>) -> Rgb {
     const COLUMNS: usize = 150;
     let (w, h) = (frame.w, frame.h);
     let cw = 4.max(w / COLUMNS);
@@ -651,20 +634,19 @@ fn ascii(frame: &Rgb) -> Rgb {
     if cols == 0 || rows == 0 {
         return out;
     }
+    if held.as_ref().is_none_or(|g| g.cell != (cw, ch)) {
+        *held = Some(AsciiGlyphs::new(cw, ch));
+    }
+    let glyphs = &held.as_ref().unwrap().glyphs;
     let gray = frame.shrink(cols, rows).gray();
-    debug_assert_eq!(ASCII_RAMP.len(), GLYPHS.len());
     for row in 0..rows {
         for col in 0..cols {
-            let glyph = &GLYPHS[gray.data[row * cols + col] as usize * GLYPHS.len() / 256];
+            let index = gray.data[row * cols + col] as usize * ASCII_RAMP.len() / 256;
+            let glyph = &glyphs[index * cw * ch..(index + 1) * cw * ch];
             for y in 0..ch {
-                // a line of margin above and below, as a font has
-                let gy = y * 9 / ch;
                 for x in 0..cw {
-                    let (gx, on) = (x * 6 / cw, (1..=7).contains(&gy) && glyph[gy - 1].as_bytes().get(x * 6 / cw).is_some_and(|c| *c == b'#'));
-                    let _ = gx;
-                    if on {
-                        out.set(col * cw + x, row * ch + y, [0, 255, 85]);
-                    }
+                    let text = glyph[y * cw + x];
+                    out.set(col * cw + x, row * ch + y, [0, text, text / 3]);
                 }
             }
         }

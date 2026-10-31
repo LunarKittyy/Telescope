@@ -60,8 +60,16 @@ mod tests {
     }
 
     #[test]
+    fn nv12_comes_out_as_i420_does() {
+        let (w, h) = (8usize, 4usize);
+        let i420 = Frame::new(8, 4, PixelFormat::I420, [vec![180; w * h], vec![100; 8], vec![160; 8]].concat());
+        let nv12 = Frame::new(8, 4, PixelFormat::Nv12, [vec![180; w * h], [100, 160].repeat(8)].concat());
+        assert_eq!(rgb(&nv12, 4, 2), rgb(&i420, 4, 2));
+    }
+
+    #[test]
     fn nothing_to_draw_is_black_of_the_right_size() {
-        assert_eq!(rgb(&Frame::new(8, 4, PixelFormat::Nv12, vec![200; 48]), 4, 2), vec![0; 24]);
+        assert_eq!(rgb(&Frame::new(0, 0, PixelFormat::Nv12, Vec::new()), 4, 2), vec![0; 24]);
         assert!(rgb(&gradient(), 0, 6).is_empty());
     }
 }

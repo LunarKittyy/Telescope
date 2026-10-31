@@ -6,8 +6,8 @@
 
 use telescope_core::actions::round_half_even;
 use telescope_core::frame::{Frame, PixelFormat};
-use crate::pixels::gaussian_blur;
-use telescope_core::text::{app_font, Face, FontArc, Weight};
+use crate::imgops::Gray;
+use telescope_core::text::{app_font, py_strip, Face, FontArc, Weight};
 
 pub const STYLES: [&str; 4] = ["bar", "pill", "light", "shadow"];
 pub const POSITIONS: [&str; 5] = ["bottom_left", "bottom_centre", "bottom_right", "top_left", "top_right"];
@@ -52,7 +52,7 @@ impl Default for Spec {
 
 impl Spec {
     pub fn empty(&self) -> bool {
-        self.name.trim().is_empty() && self.pronouns.trim().is_empty() && self.second.trim().is_empty()
+        py_strip(&self.name).is_empty() && py_strip(&self.pronouns).is_empty() && py_strip(&self.second).is_empty()
     }
 
     fn size_factor(&self) -> f64 {
@@ -151,9 +151,9 @@ pub fn layout_with(spec: &Spec, w: u32, h: u32, fonts: &Fonts) -> Option<Layout>
     let fm_pron = Face::em(fonts.regular.clone(), pixel_size(em * PRONOUNS));
     let fm_second = Face::em(fonts.regular.clone(), pixel_size(em * SECOND));
 
-    let mut name = spec.name.trim().to_string();
-    let mut pronouns = spec.pronouns.trim().to_string();
-    let mut second = spec.second.trim().to_string();
+    let mut name = py_strip(&spec.name).to_string();
+    let mut pronouns = py_strip(&spec.pronouns).to_string();
+    let mut second = py_strip(&spec.second).to_string();
     let pron_gap = if !name.is_empty() && !pronouns.is_empty() { em * 0.45 } else { 0.0 };
     let mut pron_w = if pronouns.is_empty() { 0.0 } else { fm_pron.advance(&pronouns) as f64 };
     if pron_w > room * 0.5 && !name.is_empty() {
@@ -256,6 +256,18 @@ impl Canvas {
         d[3] = alpha + d[3] * keep;
     }
 
+    /// A premultiplied pixel of a colour glyph laid over what's here.
+    fn painted(&mut self, x: i64, y: i64, px: [u8; 4]) {
+        if x < 0 || y < 0 || x as usize >= self.w || y as usize >= self.h {
+            return;
+        }
+        let d = &mut self.px[y as usize * self.w + x as usize];
+        let keep = 1.0 - px[3] as f32 / 255.0;
+        for i in 0..4 {
+            d[i] = px[i] as f32 / 255.0 + d[i] * keep;
+        }
+    }
+
     /// How much of the pixel [i, i + 1) the span lo..hi covers.
     fn span(i: i64, lo: f64, hi: f64) -> f32 {
         (hi.min(i as f64 + 1.0) - lo.max(i as f64)).clamp(0.0, 1.0) as f32
@@ -288,7 +300,9 @@ impl Canvas {
 
     fn text(&mut self, face: &Face, piece: &Piece, rgb: u32) {
         let line = face.layout(&piece.text, 0.0);
-        face.draw(&line, piece.x as f32, piece.baseline as f32, |x, y, cov| self.over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)));
+        let ink = [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8];
+        let canvas = std::cell::RefCell::new(self);
+        face.draw_coloured(&line, piece.x as f32, piece.baseline as f32, ink, |x, y, cov| canvas.borrow_mut().over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)), |x, y, px| canvas.borrow_mut().painted(x as i64, y as i64, px));
     }
 }
 
@@ -332,7 +346,7 @@ pub fn render_with(spec: &Spec, w: u32, h: u32, fonts: &Fonts) -> Option<Tag> {
         alpha.push(to_byte(p[3]));
     }
     if blur > 0.0 {
-        let mut shadow = gaussian_blur(&alpha, tw, th, blur);
+        let mut shadow = Gray { w: tw, h: th, data: alpha.clone() }.blur(blur).data;
         let shift_rows = (round_half_even(lay.em * 0.05) as usize).max(1);
         // Down by a few rows, the top ones empty: a soft dark halo under the text
         let rows = (shift_rows * tw).min(shadow.len());
@@ -381,11 +395,13 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
                 }
             }
         }
-        PixelFormat::I420 => {
+        PixelFormat::I420 | PixelFormat::Nv12 => {
+            let nv12 = frame.format == PixelFormat::Nv12;
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let data = frame.data_mut();
             let (luma, chroma) = data.split_at_mut(w * h);
-            let (us, vs) = chroma.split_at_mut(cw * ch);
+            // Where a chroma cell's U and V are
+            let places = |i: usize| if nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
             for ty in 0..tag.height {
                 for tx in 0..tag.width {
                     let t = ty * tag.width + tx;
@@ -421,9 +437,9 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
                             n += 1.0;
                         }
                     }
-                    let i = cy * cw + cx;
-                    us[i] = (us[i] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
-                    vs[i] = (vs[i] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                    let (u, v) = places(cy * cw + cx);
+                    chroma[u] = (chroma[u] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                    chroma[v] = (chroma[v] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
                 }
             }
         }

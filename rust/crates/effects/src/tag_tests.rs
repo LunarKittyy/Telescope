@@ -1,5 +1,4 @@
 use super::*;
-use crate::pixels::gaussian_blur;
 
 const CANVASES: [(u32, u32); 7] = [(640, 360), (1280, 720), (1920, 1080), (3840, 2160), (1080, 1920), (720, 720), (320, 180)];
 
@@ -214,16 +213,6 @@ fn the_shadow_style_adds_a_soft_halo_under_the_text() {
 }
 
 #[test]
-fn a_gaussian_blur_spreads_a_dot_and_keeps_its_weight() {
-    let mut src = vec![0u8; 21 * 21];
-    src[10 * 21 + 10] = 255;
-    let out = gaussian_blur(&src, 21, 21, 2.0);
-    assert!(out[10 * 21 + 10] < 255 && out[10 * 21 + 10] > out[10 * 21 + 12] && out[10 * 21 + 12] > 0);
-    let total: u32 = out.iter().map(|v| *v as u32).sum();
-    assert!((total as f32 - 255.0).abs() < 30.0, "{total}");
-}
-
-#[test]
 fn it_uses_the_apps_fonts() {
     for weight in [telescope_core::text::Weight::Regular, telescope_core::text::Weight::SemiBold] {
         let files = telescope_core::text::app_font_files(weight);
@@ -235,4 +224,37 @@ fn it_uses_the_apps_fonts() {
         return;
     };
     assert_eq!(Face::em(inter, 40.0).advance("Luna"), Face::em(app, 40.0).advance("Luna"));
+}
+
+/// A person's name can have an emoji in it: the tile holds its colours, not the text's.
+#[test]
+fn an_emoji_in_a_name_keeps_its_colours() {
+    let spec = Spec { name: "\u{1f319}\u{1f319}\u{1f319}".into(), style: "shadow".into(), ..Spec::default() };
+    let Some(tag) = render(&spec, 1280, 720) else { return };
+    let yellow = tag.ink.chunks(3).filter(|p| p[0] > 180 && p[2] < 120).count();
+    if telescope_core::text::app_font(telescope_core::text::Weight::Regular).is_some() && yellow == 0 {
+        // A machine without a colour font draws nothing here
+        assert!(!std::fs::read_dir("/usr/share/fonts/google-noto-color-emoji-fonts").is_ok_and(|mut d| d.next().is_some()));
+    }
+}
+
+/// The same picture in the Windows camera's format gets the same tag.
+#[test]
+fn a_tag_goes_on_nv12_as_on_i420() {
+    let (w, h) = (64usize, 48usize);
+    let tag = Tag { x: 8, y: 8, width: 16, height: 16, ink: vec![200; 16 * 16 * 3], keep: vec![40; 16 * 16] };
+    let mut i420 = vec![120u8; w * h];
+    i420.extend(vec![90u8; (w / 2) * (h / 2)]);
+    i420.extend(vec![170u8; (w / 2) * (h / 2)]);
+    let mut nv12 = vec![120u8; w * h];
+    nv12.extend([90u8, 170].repeat((w / 2) * (h / 2)));
+    let (mut a, mut b) = (Frame::new(w as u32, h as u32, PixelFormat::I420, i420), Frame::new(w as u32, h as u32, PixelFormat::Nv12, nv12));
+    apply(&mut a, &tag);
+    apply(&mut b, &tag);
+    assert_eq!(a.data[..w * h], b.data[..w * h]);
+    let (cw, ch) = (w / 2, h / 2);
+    for i in 0..cw * ch {
+        assert_eq!((a.data[w * h + i], a.data[w * h + cw * ch + i]), (b.data[w * h + i * 2], b.data[w * h + i * 2 + 1]));
+    }
+    assert_ne!(a.data[8 * w + 8], 120);
 }

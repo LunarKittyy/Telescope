@@ -373,3 +373,109 @@ fn a_wrapped_labels_hint_guesses_at_80_then_40_then_20_characters() {
     assert_eq!(face.qt_hint_lines("Set up the virtual camera so apps can see Telescope.", BODY_AVERAGE_CHAR), 2);
     assert_eq!(face.qt_hint_lines("", BODY_AVERAGE_CHAR), 0);
 }
+
+// Worked out from Qt's own QFontMetricsF and QTextLayout on the same fonts (rust/PLAN.md, the text review).
+
+/// A space, a comma or a bang between letters of a fallback font is the main font's when it has one.
+#[test]
+fn only_the_letters_a_font_lacks_come_from_a_fallback() {
+    let Some(face) = face_with(34.0, "שלום", "Hebrew") else { return };
+    let word = face.advance("שלום");
+    assert!((face.advance("שלום!") - word - face.advance("!")).abs() < 0.1);
+    assert!((face.advance("שלום שלום") - 2.0 * word - face.advance(" ")).abs() < 0.1);
+}
+
+/// A letter that only joins to the one before it still needs a joiner, as Qt's nextCharJoins counts everything but non-joining.
+#[test]
+fn a_cut_arabic_word_keeps_its_joined_form() {
+    let text = "مرحبا";
+    let Some(face) = face_with(34.0, text, "Arabic") else { return };
+    let width = face.advance("\u{2026}") + 30.0;
+    let cut = face.elide(text, width);
+    assert!(cut.ends_with("\u{200d}\u{2026}") && cut.len() > "\u{200d}\u{2026}".len(), "{cut:?}");
+}
+
+#[test]
+fn cut_off_direction_controls_stay_after_the_ellipsis() {
+    let text = "\u{2067}abcdefghijklmnop\u{2069} qrstuvwxyz";
+    let Some(face) = face(20.0) else { return };
+    let cut = face.elide(text, 60.0);
+    assert!(cut.ends_with("\u{2026}\u{2069}"), "{cut:?}");
+}
+
+/// QString::isRightToLeft looks past an isolate; unicodedata's first strong letter doesn't, and the name tag keeps that one.
+#[test]
+fn a_line_goes_by_the_first_strong_letter_outside_an_isolate() {
+    assert!(qt_right_to_left("\u{2067}\u{5d0}\u{2069} \u{5d0}"));
+    assert!(!qt_right_to_left("\u{2067}\u{5d0}\u{2069} abc"));
+    assert!(right_to_left("\u{2067}\u{5d0}\u{2069} abc"));
+    assert!(!qt_right_to_left("\u{2066}\u{2067}\u{5d0}\u{2069}\u{2069} abc"));
+}
+
+/// Qt keeps metrics and advances in 64ths of a pixel, dropping the rest.
+#[test]
+fn sizes_are_in_64ths_of_a_pixel() {
+    let Some(face) = face(20.0) else { return };
+    assert_eq!(face.descent() * 64.0, (face.descent() * 64.0).floor());
+    let line = face.layout("Hamburgefonts", 0.0);
+    assert_eq!(line.width * 64.0, (line.width * 64.0).round());
+}
+
+fn colour_face(px: f32) -> Option<Face> {
+    let face = face(px)?;
+    if emoji_font().is_none() {
+        eprintln!("no colour font on this machine: emoji are skipped");
+        return None;
+    }
+    Some(face)
+}
+
+/// The colours of the pixels a line paints, and how many are covered by plain ink.
+fn painted(face: &Face, text: &str) -> (Vec<[u8; 4]>, usize) {
+    let line = face.layout(text, 0.0);
+    let (mut colours, mut plain) = (Vec::new(), 0);
+    face.draw_coloured(&line, 10.0, 80.0, [255; 3], |_, _, _| plain += 1, |_, _, px| colours.push(px));
+    (colours, plain)
+}
+
+#[test]
+fn an_emoji_is_painted_in_its_own_colours() {
+    let Some(face) = colour_face(64.0) else { return };
+    let (colours, plain) = painted(&face, "\u{1f319}");
+    assert_eq!(plain, 0);
+    assert!(colours.len() > 1000, "{}", colours.len());
+    // A moon is yellow: more red than blue
+    let (red, blue) = colours.iter().fold((0u64, 0u64), |(r, b), c| (r + c[0] as u64, b + c[2] as u64));
+    assert!(red > blue * 2, "{red} {blue}");
+}
+
+/// Qt 6.11's itemizer sends these to the emoji font (advance 79.6875 at 64 px, as every Noto emoji): Inter has its own plain smiley.
+#[test]
+fn emoji_go_to_the_colour_font_even_when_the_main_font_has_them() {
+    let Some(face) = colour_face(64.0) else { return };
+    let moon = face.advance("\u{1f319}");
+    assert_eq!(face.advance("\u{1f600}"), moon);
+    assert_eq!(face.advance("\u{2764}\u{fe0f}"), moon);
+    assert_eq!(painted(&face, "\u{1f600}").1, 0);
+    // Joined up, one picture
+    assert_eq!(face.advance("\u{1f469}\u{200d}\u{1f4bb}"), moon);
+    assert_eq!(face.advance("\u{1f1f3}\u{1f1f1}"), moon);
+    // Asked to stay text, it does
+    assert!(!emoji_ranges("\u{2764}").iter().any(|_| true));
+    assert!(emoji_ranges("\u{1f600}\u{fe0e}").is_empty());
+}
+
+#[test]
+fn text_around_an_emoji_stays_ink() {
+    let Some(face) = colour_face(40.0) else { return };
+    let (colours, plain) = painted(&face, "a\u{1f319}b");
+    assert!(!colours.is_empty() && plain > 50);
+}
+
+#[test]
+fn strings_split_and_strip_as_python_does() {
+    assert_eq!(py_lines("a\r\nb\u{2028}c\u{b}\n"), ["a", "b", "c", ""]);
+    assert_eq!(py_lines("a\n"), ["a"]);
+    assert!(py_lines("").is_empty());
+    assert_eq!(py_strip("\u{1c} a\u{a0}\u{3000}"), "a");
+}
