@@ -107,17 +107,48 @@ fn updates_plugin() -> telescope_system::updates_plugin::UpdatesPlugin {
     UpdatesPlugin::new(Arc::new(backend), telescope_system::version::channel())
 }
 
-/// Browser camera on this computer's addresses, with its certificate next to the settings file.
-fn browser_camera(media: Arc<dyn telescope_core::media::Media>) -> telescope_link::browser::plugin::BrowserCameraPlugin {
-    use telescope_core::web::Web;
-    let web: Arc<dyn Web> = Arc::new(telescope_link::web::SystemWeb);
+/// Browser camera on web's addresses, with its certificate next to the settings file.
+fn browser_camera(web: Arc<dyn telescope_core::web::Web>, media: Arc<dyn telescope_core::media::Media>) -> telescope_link::browser::plugin::BrowserCameraPlugin {
     let folder = telescope_core::config::config_path().parent().map(std::path::Path::to_path_buf).unwrap_or_default();
-    let server = telescope_link::browser::plugin::system_server(web, folder, media);
-    telescope_link::browser::plugin::BrowserCameraPlugin::new(server, || telescope_link::web::SystemWeb.addresses())
+    let server = telescope_link::browser::plugin::system_server(web.clone(), folder, media);
+    telescope_link::browser::plugin::BrowserCameraPlugin::new(server, move || web.addresses())
+}
+
+/// What the plugins reach this computer through: all of it, or none of it for config-snapshot, which only wants their settings.
+struct Machine {
+    outputs: Arc<dyn telescope_core::output::Outputs>,
+    web: Arc<dyn telescope_core::web::Web>,
+    quiet: bool,
+}
+
+impl Machine {
+    fn real(device: Option<String>) -> Machine {
+        Machine { outputs: Arc::new(telescope_outputs::VirtualCameras { device }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
+    }
+
+    /// As config_fixtures.py's quiet_system and quiet_plugin leave the Python window.
+    fn quiet() -> Machine {
+        Machine { outputs: Arc::new(cli::NoCameras), web: Arc::new(cli::NoServers), quiet: true }
+    }
+
+    fn webcam(&self) -> telescope_outputs::webcam::WebcamPlugin {
+        use telescope_outputs::webcam::{System, WebcamPlugin};
+        if self.quiet { WebcamPlugin::new(Box::new(|| Ok(Vec::new())), Box::new(|_| None), System::default()) } else { WebcamPlugin::system() }
+    }
+
+    fn shortcuts(&self, remote: telescope_system::shortcuts::RemoteActions) -> telescope_system::shortcuts::ShortcutsPlugin {
+        use telescope_system::shortcuts::ShortcutsPlugin;
+        if self.quiet { ShortcutsPlugin::with_backend(remote, Box::new(|_| None)) } else { ShortcutsPlugin::new(remote) }
+    }
+
+    fn browser(&self, media: Arc<dyn telescope_core::media::Media>) -> telescope_link::browser::plugin::BrowserCameraPlugin {
+        let browser = browser_camera(self.web.clone(), media);
+        if self.quiet { browser.with_clock(|| cli::SNAPSHOT_NOW) } else { browser }
+    }
 }
 
 /// tray: the window's run, which shows the tray icon.
-fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
+fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name
@@ -129,7 +160,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
     let browser_media = media.clone();
     let connection = link.clone();
     let mic_link: Arc<dyn telescope_core::link::Link> = link.clone();
-    let outputs: Arc<dyn telescope_core::output::Outputs> = Arc::new(telescope_outputs::VirtualCameras { device });
+    let outputs = machine.outputs.clone();
     let sign_outputs = outputs.clone();
     let setup_media = media.clone();
     let languages = telescope_setup::setup::Language::found(&[]);
@@ -137,7 +168,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         link,
         media,
         outputs: outputs.clone(),
-        audio: Some(Arc::new(telescope_audio::VirtualMic::default())),
+        audio: (!machine.quiet).then(|| Arc::new(telescope_audio::VirtualMic::default()) as _),
         notifier: Some(Arc::new(telescope_system::Desktop)),
         autostart: Some(Arc::new(telescope_system::Desktop)),
         updater: Some(Arc::new(telescope_system::Desktop)),
@@ -146,7 +177,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
         plugin_admin: Some(admin),
         vision: Some(Arc::new(telescope_vision::VisionHost::system())),
         plugins: Box::new(move || {
-            let browser = browser_camera(browser_media.clone());
+            let browser = machine.browser(browser_media.clone());
             let browser_mics = Arc::new(browser.mics());
             let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![
                 // In the order of plugins/__init__.py, which is also the order frames go through them within a stage
@@ -158,7 +189,7 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 }),
                 Box::new(connection.connection_plugin().with_outputs(outputs.clone())),
                 Box::new(browser),
-                Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
+                Box::new(machine.webcam()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
                 Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
                 Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
@@ -176,11 +207,11 @@ fn services(device: Option<String>, remote: telescope_system::shortcuts::RemoteA
                 Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone()).with_source_audio(browser_mics)),
                 Box::new(updates_plugin()),
                 Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(outputs.clone())),
-                Box::new(telescope_system::shortcuts::ShortcutsPlugin::new(remote.clone())),
+                Box::new(machine.shortcuts(remote.clone())),
                 Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
-                Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(sign_outputs.clone()))),
+                Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(machine.web.clone(), Some(sign_outputs.clone()))),
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
             ];
             plugins.extend(added());
@@ -507,13 +538,23 @@ fn main() {
         start_language();
     }
     let result = match command {
-        Some("config-snapshot") => cli::config_snapshot(words.get(1).map(String::as_str)),
-        Some("pair") => cli::pair(&args, &services(None, remote, false)),
-        Some("stream") => cli::stream(&args, &services(args.device.clone(), remote, false)),
-        Some("control") => cli::control(&args, &services(None, remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
+        Some("config-snapshot") => {
+            let done = cli::snapshot_profile().and_then(|scratch| cli::config_snapshot(words.get(1).map(String::as_str), services(Machine::quiet(), remote, false), &scratch));
+            // The window's threads have nothing to finish
+            std::process::exit(match done {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("{e}");
+                    1
+                }
+            });
+        }
+        Some("pair") => cli::pair(&args, &services(Machine::real(None), remote, false)),
+        Some("stream") => cli::stream(&args, &services(Machine::real(args.device.clone()), remote, false)),
+        Some("control") => cli::control(&args, &services(Machine::real(None), remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
-            telescope_shell::run(services(args.device.clone(), remote, false), args.window(Some(out), false, None))
+            telescope_shell::run(services(Machine::real(args.device.clone()), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
         None => match own_the_lock(|| take_lock(wait_for_lock, &remote, &splash), remove_stale_mic) {
@@ -527,7 +568,7 @@ fn main() {
                         close_splash(&gone);
                         inner();
                     }));
-                    telescope_shell::run(services(args.device.clone(), remote, true), args.window(None, minimized, Some(shown)))
+                    telescope_shell::run(services(Machine::real(args.device.clone()), remote, true), args.window(None, minimized, Some(shown)))
                 })
             }
             None => Ok(()),

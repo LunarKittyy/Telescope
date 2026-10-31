@@ -425,6 +425,8 @@ pub struct Seen {
 
 pub struct BrowserCameraPlugin {
     make_server: ServerMaker,
+    /// Seconds since 1970, for when a browser was last seen.
+    clock: Box<dyn Fn() -> f64 + Send>,
     addresses: Box<dyn Fn() -> Vec<String> + Send>,
     pub hub: Arc<BrowserHub>,
     shared: Arc<Shared>,
@@ -464,7 +466,7 @@ impl BrowserCameraPlugin {
         }));
         let shared = Arc::new(Shared { fps: AtomicU32::new(DEFAULT_FPS), ..Shared::default() });
         BrowserCameraPlugin {
-            make_server, addresses: Box::new(addresses), hub, shared, room, browsers: Vec::new(), started: Vec::new(),
+            make_server, clock: Box::new(unix_now), addresses: Box::new(addresses), hub, shared, room, browsers: Vec::new(), started: Vec::new(),
             joining: false, join_again: false, cutting: false, handover: String::new(), known: Vec::new(), server: None,
             problem: String::new(), selected_id: String::new(), size: DEFAULT_SIZE.into(), fps: DEFAULT_FPS,
             address: String::new(), candidates: Vec::new(),
@@ -853,6 +855,12 @@ impl BrowserCameraPlugin {
     }
 
     /// The old code stops working and every browser on it is cut off: their streams end (they wouldn't come back).
+    /// The same with its own idea of the time, for what it forgets after a while.
+    pub fn with_clock(mut self, clock: impl Fn() -> f64 + Send + 'static) -> Self {
+        self.clock = Box::new(clock);
+        self
+    }
+
     pub fn new_link(&mut self, h: &mut dyn BrowserHost) {
         let Some(server) = &self.server else { return };
         self.cutting = true; // a browser still connected must not start in the place of one that was stopped
@@ -956,7 +964,7 @@ impl BrowserCameraPlugin {
     // ── Remembered browsers ──
 
     fn note_seen(&mut self, h: &mut dyn BrowserHost, bid: &str, name: &str) {
-        let now = unix_now();
+        let now = (self.clock)();
         let entry = self.known.iter_mut().find(|(id, _)| id == bid);
         match entry {
             Some((_, seen)) if seen.name == name && now - seen.seen <= 3600.0 => {}
@@ -973,7 +981,7 @@ impl BrowserCameraPlugin {
 
     /// Forget browsers that haven't connected for REMEMBER_DAYS, and ones that never had a setting changed.
     pub fn tidy_known(&mut self, h: &mut dyn BrowserHost) {
-        let cutoff = unix_now() - REMEMBER_DAYS * 86400.0;
+        let cutoff = (self.clock)() - REMEMBER_DAYS * 86400.0;
         let entries = std::mem::take(&mut self.known);
         for (bid, seen) in entries {
             let sid = format!("{BROWSER_PREFIX}{bid}");

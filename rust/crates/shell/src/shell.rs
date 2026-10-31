@@ -564,6 +564,10 @@ impl State {
             }
         }
         self.apply_device_profile(window.selected_device.as_deref(), cfg);
+        // What's picked is Connection's to say (conn.selected_device): the file's own field may be damaged or out of step with it
+        if let Some(connection) = self.plugin_config("connection") {
+            self.selected = connection.get("selected_phone").and_then(Value::as_str).map(str::to_string);
+        }
     }
 
     fn with_plugin(&mut self, i: usize, f: impl FnOnce(&mut dyn Plugin)) {
@@ -1127,6 +1131,18 @@ mod tests {
         s.register(stub("setup", json!({"canvas_preset": "Auto (from first frame)"}), false).0).unwrap();
         s.register(stub("wait_screen", json!({}), false).0).unwrap();
         assert_eq!(s.call(1, |_, host| host.canvas_size()), Some((None, None)));
+    }
+
+    // The damaged-sections fixture: a selected_device that isn't text, with Connection knowing what's picked
+    #[test]
+    fn whats_picked_is_connections_to_say() {
+        let mut s = state();
+        s.file.save(&mut json!({"selected_device": 5}));
+        s.register(stub("connection", json!({"selected_phone": "PhoneB"}), false).0).unwrap();
+        s.apply_saved_config();
+        assert_eq!(s.selected.as_deref(), Some("PhoneB"));
+        assert!(s.save_now());
+        assert_eq!(s.file.load()["selected_device"], "PhoneB");
     }
 
     #[test]

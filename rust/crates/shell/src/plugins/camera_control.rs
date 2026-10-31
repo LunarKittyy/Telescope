@@ -260,6 +260,12 @@ impl LogRow {
         actions::log_pos_to_val(self.pos, LOG_STEPS, self.v_min, self.v_max)
     }
 
+    /// get_value as saved: an end of a whole-number range comes back as that number, which Python's max and min hand on as it is.
+    fn saved_number(&self) -> Value {
+        let value = self.get_value();
+        if (value == self.v_min || value == self.v_max) && value.fract() == 0.0 { json!(value as i64) } else { json!(value) }
+    }
+
     fn set_value(&mut self, val: f64) {
         self.pos = actions::val_to_log_pos(val, LOG_STEPS, self.v_min, self.v_max);
         self.spin = self.to_spin(val);
@@ -1068,7 +1074,7 @@ impl CameraControl {
     fn config(&self) -> Value {
         json!({
             "exp_manual": self.exp.index == 1,
-            "iso": self.iso.get_value(),
+            "iso": self.iso.saved_number(),
             "shutter_ns": self.shutter.get_value(),
             "ois": self.ois.checked,
             "focus_manual": self.focus.index == 2,

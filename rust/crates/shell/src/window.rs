@@ -1208,13 +1208,18 @@ pub(crate) fn windowing() -> &'static str {
     }
 }
 
-pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
-    let gpu_painter = crate::preview::select_wgpu_backend();
-    let window = build(ConfigFile::default(), |bus| {
+/// The window with every built-in plugin, on file.
+pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
+    build(file, |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
         plugins.extend((services.plugins)());
         crate::plugins::in_order(plugins)
-    }, Some(services.clone()), Some(opts.clone()))?;
+    }, Some(services.clone()), opts)
+}
+
+pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
+    let gpu_painter = crate::preview::select_wgpu_backend();
+    let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
     *window.painter.borrow_mut() = gpu_painter;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
