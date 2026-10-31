@@ -11,6 +11,7 @@
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
 //!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (scripts/write_camera_wait_screen.py)
+//!   telescope-rs build-info               version, build, channel and commit as JSON, for the package checks
 //!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
 //!
 //! --autostart starts streaming once the window is up and --quit-after SECS closes it, for measuring.
@@ -34,9 +35,11 @@ use std::sync::Arc;
 use telescope_core::config::DEV_PROFILE_ENV;
 use telescope_core::services::Services;
 
-/// Until the rewrite replaces the Python app, it keeps its settings in its own profile unless asked not to.
+/// Until the rewrite replaces the Python app, a source build keeps its settings in its own profile unless asked not to. A stamped
+/// release is the real app: it takes over the real settings, phones and cameras.
 fn use_own_profile() {
-    if std::env::var_os(DEV_PROFILE_ENV).is_some() || std::env::var("TELESCOPE_RS_REAL_CONFIG").as_deref() == Ok("1") {
+    let release = telescope_system::version::channel() != "dev";
+    if release || std::env::var_os(DEV_PROFILE_ENV).is_some() || std::env::var("TELESCOPE_RS_REAL_CONFIG").as_deref() == Ok("1") {
         return;
     }
     let folder = std::env::var_os("TELESCOPE_RS_PROFILE").map(PathBuf::from)
@@ -537,6 +540,14 @@ fn main() {
     let (minimized, wait_for_lock, after_update) = (launch.minimized, launch.after_update || launch.restarted, launch.after_update);
     let _ = MOVED_FROM.set(launch.moved_from);
     let remote = telescope_system::shortcuts::RemoteActions::default();
+    // A release that lost its folder, like an exe dragged out of the zip, can't draw anything (the launcher's check in build_bootloader.py)
+    #[cfg(windows)]
+    if words.is_empty() && telescope_system::winapp::left_its_folder(&app_dir(), telescope_system::version::channel()) {
+        use_own_profile();
+        start_language();
+        telescope_system::winapp::warn_running_from_archive();
+        std::process::exit(1);
+    }
     // Before the window: an update cut short is finished, or one that never started is rolled back
     if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
         return;
@@ -558,6 +569,11 @@ fn main() {
             eprintln!("{e}");
             std::process::exit(1);
         }
+        return;
+    }
+    if command == Some("build-info") {
+        use telescope_system::version;
+        println!("{}", serde_json::json!({"version": version::version(), "build": version::build(), "channel": version::channel(), "commit": version::commit()}));
         return;
     }
     if command == Some("camera-wait-screen") {

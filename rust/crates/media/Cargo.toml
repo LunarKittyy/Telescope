@@ -6,7 +6,7 @@ version.workspace = true
 publish.workspace = true
 
 [features]
-# FFmpeg on Windows: a build with FFmpeg's libraries and headers at hand (FFMPEG_DIR) and its DLLs next to the program; CI's Windows runner has none yet
+# FFmpeg on Windows: a build with FFmpeg's libraries and headers at hand (FFMPEG_DIR) and its DLLs next to the program
 ffmpeg-windows = ["dep:ffmpeg-sys-next"]
 
 [dependencies]

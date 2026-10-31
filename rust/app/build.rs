@@ -32,15 +32,37 @@ fn main_thread_stack() {
     }
 }
 
-/// The icon the tray and the window load as resource 1, and the name Windows shows for the program, as telescope.spec's icon.
+/// On Linux a package built against FFMPEG_DIR carries that FFmpeg in lib/ next to the program.
+fn find_shipped_ffmpeg() {
+    println!("cargo:rerun-if-env-changed=FFMPEG_DIR");
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") && std::env::var_os("FFMPEG_DIR").is_some() {
+        println!("cargo::rustc-link-arg-bins=-Wl,-rpath,$ORIGIN/lib");
+    }
+}
+
+/// The icon the tray and the window load as resource 1, the name Windows shows for the program, as telescope.spec's icon, and the version
+/// Explorer shows, the same four numbers as the setup's VersionInfoVersion.
 #[cfg(windows)]
 fn program_resources() {
     if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
         return;
     }
     println!("cargo:rerun-if-changed=../../desktop/resources/telescope.ico");
+    println!("cargo:rerun-if-changed=../../VERSION");
+    println!("cargo:rerun-if-env-changed=TELESCOPE_BUILD");
+    let version = std::fs::read_to_string("../../VERSION").expect("the repo's VERSION file");
+    let mut parts = version.trim().split('.').map(|p| p.parse::<u64>().unwrap_or(0));
+    let build = std::env::var("TELESCOPE_BUILD").ok().and_then(|b| b.trim().parse().ok()).unwrap_or(0);
+    let numbers = [parts.next().unwrap_or(0), parts.next().unwrap_or(0), parts.next().unwrap_or(0), build];
+    let dotted = numbers.map(|n| n.to_string()).join(".");
+    let packed = numbers.iter().fold(0u64, |all, n| (all << 16) | (n & 0xffff));
     let mut resources = winresource::WindowsResource::new();
-    resources.set_icon("../../desktop/resources/telescope.ico").set("ProductName", "Telescope").set("FileDescription", "Telescope");
+    resources.set_icon("../../desktop/resources/telescope.ico")
+        .set("ProductName", "Telescope").set("FileDescription", "Telescope").set("CompanyName", "LunarKittyy")
+        .set("InternalName", "TelescopeDesktop").set("OriginalFilename", "TelescopeDesktop.exe")
+        .set("FileVersion", &dotted).set("ProductVersion", &dotted)
+        .set_version_info(winresource::VersionInfo::FILEVERSION, packed)
+        .set_version_info(winresource::VersionInfo::PRODUCTVERSION, packed);
     resources.compile().expect("the program's resources");
 }
 
@@ -49,6 +71,7 @@ fn main() {
     program_resources();
     main_thread_stack();
     load_ffmpeg_late();
+    find_shipped_ffmpeg();
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it"));
     let folder = manifest.join(LOCALE);
     println!("cargo:rerun-if-changed={}", folder.display());

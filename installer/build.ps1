@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory)] [string] $Bundle,
     [Parameter(Mandatory)] [string] $Out,
     [string] $Build = "0",
-    [switch] $Fast  # a quicker, bigger setup for checks that only install it; a release is built without
+    [switch] $Fast,  # a quicker, bigger setup for checks that only install it; a release is built without
+    [switch] $Rust   # the bundle is rust/tools/build_windows.ps1's
 )
 $ErrorActionPreference = "Stop"
 
@@ -33,6 +34,7 @@ $outPath = (Resolve-Path $Out).Path
 
 $defines = @("/DAppVersion=$version", "/DBuild=$Build", "/DSourceDir=$bundlePath", "/DOutputDir=$outPath")
 if ($Fast) { $defines += "/DFast=1" }
+if ($Rust) { $defines += "/DRust=1" }
 & $iscc /Q @defines "$PSScriptRoot/Telescope.iss"
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
 Write-Host "Built $outPath\TelescopeSetup.exe"

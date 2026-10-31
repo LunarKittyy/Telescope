@@ -1,6 +1,7 @@
 ; Telescope's Windows setup: a per-user install of the same folder Telescope-windows.zip holds.
 ; Build: installer/build.ps1 (it passes the defines below), or by hand:
 ;   iscc /DAppVersion=3.3.1 /DBuild=0 /DSourceDir=..\bundle /DOutputDir=..\out installer\Telescope.iss
+; /DRust=1 packs rust/tools/build_windows.ps1's folder instead of PyInstaller's. It only adds the clean-up below, so a Python setup comes out the same.
 ;
 ; Per-user on purpose: the app updates itself by swapping files in its own folder (desktop/updates.py), so the
 ; folder has to be writable without admin. {autopf} is %LOCALAPPDATA%\Programs here. Program Files\Telescope
@@ -83,6 +84,14 @@ Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postin
 ; working files (desktop/update_guard.py) and the log shortcut (desktop/telescope/diagnostics.py).
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\lib-*"
+#ifdef Rust
+; An in-app update can bring FFmpeg's next major version and new ui-kit files, which the uninstall log doesn't know
+Type: files; Name: "{app}\avcodec-*.dll"
+Type: files; Name: "{app}\avutil-*.dll"
+Type: files; Name: "{app}\swresample-*.dll"
+Type: files; Name: "{app}\swscale-*.dll"
+Type: filesandordirs; Name: "{app}\ui-kit"
+#endif
 Type: filesandordirs; Name: "{app}\.update-staging"
 Type: filesandordirs; Name: "{app}\.previous"
 Type: files; Name: "{app}\.update.json"

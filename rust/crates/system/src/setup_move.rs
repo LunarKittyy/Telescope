@@ -417,13 +417,17 @@ fn ours(entry: &Path) -> io::Result<bool> {
         return Ok(name == "telescope.log"); // the log shortcut; never follow anything else
     }
     if meta.is_file() {
-        return Ok(FILES.contains(&name.as_str()));
+        return Ok(FILES.contains(&name.as_str()) || is_our_library(&name));
     }
     if !meta.is_dir() {
         return Ok(false);
     }
     if name == STAGING_DIR || name == PREVIOUS_DIR {
         return Ok(true); // only Telescope's updater makes these dot-folders
+    }
+    if name == "ui-kit" {
+        let inside = std::fs::read_dir(entry)?.map(|e| e.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<io::Result<BTreeSet<String>>>()?;
+        return Ok(inside.contains("ui-kit.slint") && inside.iter().all(|n| ["ui-kit.slint", "theme.slint", "icons.slint", "icons", "widgets"].contains(&n.as_str())));
     }
     if let Some(allowed) = folders.get(name.as_str()) {
         // A folder that can't be looked into is an error, not an empty one
@@ -432,6 +436,12 @@ fn ours(entry: &Path) -> io::Result<bool> {
     }
     // The Python app's libraries: lib-<build>, with the Qt it can't run without
     Ok(name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir())
+}
+
+/// The libraries a release keeps next to the exe: RNNoise, and FFmpeg's four with their major version in the name.
+fn is_our_library(name: &str) -> bool {
+    let versioned = |prefix: &str| name.strip_prefix(prefix).and_then(|rest| rest.strip_suffix(".dll")).is_some_and(|v| !v.is_empty() && v.bytes().all(|c| c.is_ascii_digit()));
+    name == "rnnoise.dll" || ["avcodec-", "avutil-", "swresample-", "swscale-"].into_iter().any(versioned)
 }
 
 /// Where the adb Telescope downloads goes for this user (adb_download.downloaded_dir): outside the app's folder, so moves leave it alone.
