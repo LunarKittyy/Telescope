@@ -18,14 +18,19 @@ const ALLOWED: &[(&str, &[&str])] = &[
     ("shell", &["telescope-core", "telescope-ui-kit"]),
 ];
 
-fn telescope_deps(manifest: &str) -> Vec<String> {
-    let mut in_deps = false;
+/// What a crate's own tests may use on top: real video and real shaders need media's decoder and frame pipeline.
+const TESTS_ALSO: &[(&str, &[&str])] = &[("link", &["telescope-media"]), ("effects", &["telescope-media"])];
+
+/// The telescope crates a manifest names, each with whether only its tests use it.
+fn telescope_deps(manifest: &str) -> Vec<(String, bool)> {
+    let (mut in_deps, mut dev) = (false, false);
     let mut deps = Vec::new();
     for line in manifest.lines().map(str::trim) {
         if line.starts_with('[') {
             in_deps = line.ends_with("dependencies]");
+            dev = line == "[dev-dependencies]";
         } else if in_deps && line.starts_with("telescope-") {
-            deps.push(line.split(['.', ' ', '=']).next().unwrap().to_string());
+            deps.push((line.split(['.', ' ', '=']).next().unwrap().to_string(), dev));
         }
     }
     deps
@@ -42,8 +47,9 @@ fn crates_only_meet_through_core() {
         let allowed = ALLOWED.iter().find(|(n, _)| n == name).map(|(_, a)| *a)
             .unwrap_or_else(|| panic!("crates/{name} isn't in ALLOWED: say which crates it may use"));
         let manifest = std::fs::read_to_string(crates.join(name).join("Cargo.toml")).unwrap();
-        for dep in telescope_deps(&manifest) {
-            assert!(allowed.contains(&dep.as_str()), "crates/{name} depends on {dep}; go through a trait in core instead");
+        let tests_also = TESTS_ALSO.iter().find(|(n, _)| n == name).map_or(&[][..], |(_, a)| *a);
+        for (dep, dev) in telescope_deps(&manifest) {
+            assert!(allowed.contains(&dep.as_str()) || (dev && tests_also.contains(&dep.as_str())), "crates/{name} depends on {dep}; go through a trait in core instead");
         }
     }
 }
