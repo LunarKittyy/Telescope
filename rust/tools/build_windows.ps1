@@ -1,29 +1,54 @@
-# Builds telescope-rs.exe with H.264 and puts it with its FFmpeg DLLs in rust/target/dist-windows (or -Out).
-# Needs MSVC, LLVM (bindgen), CMake, NASM, and FFMPEG_DIR pointing at a shared FFmpeg 8.x with include, lib and bin.
-# Run it from a shell where those are on PATH.
-param([string]$Out = "$PSScriptRoot\..\target\dist-windows")
+# Builds the Windows package folder, the shape of Telescope-windows-portable.zip: TelescopeDesktop.exe with everything next to it.
+# Needs MSVC, LLVM (bindgen), CMake, NASM, Python, and FFMPEG_DIR pointing at build_ffmpeg.sh's windows build (or any shared FFmpeg 8.x with include, lib and bin).
+# Run it from a shell where those are on PATH. -Channel, -Build and -Commit stamp a release, as write_build_info.py does for Python.
+param(
+    [string]$Out = "$PSScriptRoot\..\target\dist-windows",
+    [ValidateSet('stable', 'nightly', 'dev')] [string]$Channel = 'dev',
+    [string]$Build = '0',
+    [string]$Commit = ''
+)
 
 $ErrorActionPreference = 'Stop'
 if (-not $env:FFMPEG_DIR) { throw 'Set FFMPEG_DIR to a shared FFmpeg build' }
-$tools = (Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC\Tools\MSVC\*\bin\Hostx64\x64\lib.exe" | Select-Object -Last 1).DirectoryName
+& "$PSScriptRoot\ffmpeg_libs.ps1"
 
-# Prebuilt FFmpeg's .lib files come from dlltool and link.exe can't delay-load through those, so they're made again from the .def files
-Push-Location "$env:FFMPEG_DIR\lib"
-foreach ($def in Get-ChildItem *.def) {
-    & "$tools\lib.exe" /nologo /machine:x64 "/def:$($def.Name)" "/out:$($def.BaseName -replace '-\d+$', '').lib" | Out-Null
-}
-Pop-Location
+$rust = (Resolve-Path "$PSScriptRoot\..").Path
+$repo = Split-Path $rust -Parent
+$target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { "$rust\target" }
+Push-Location $rust
 
-Push-Location "$PSScriptRoot\.."
+$env:TELESCOPE_BUILD = $Build
+$env:TELESCOPE_CHANNEL = $Channel
+$env:TELESCOPE_COMMIT = $Commit
 cargo build --release --locked -p telescope-app --features ffmpeg-windows
 if ($LASTEXITCODE) { throw 'cargo build failed' }
-$target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { 'target' }
-New-Item -ItemType Directory -Force $Out | Out-Null
-Copy-Item "$target\release\telescope-rs.exe" $Out
+$exe = "$target\release\telescope-rs.exe"
+
+# The Windows 11 camera, with the wait screen this program draws built into it. It's a window program, so PowerShell has to be told to wait
+$work = "$target\virtualcamera"
+New-Item -ItemType Directory -Force $work | Out-Null
+$wait = "$work\wait_screen.bin"
+$p = Start-Process -FilePath $exe -ArgumentList 'camera-wait-screen', "`"$wait`"" -Wait -PassThru -NoNewWindow
+if ($p.ExitCode) { throw "camera-wait-screen failed with $($p.ExitCode)" }
+cmake -S "$repo\desktop\virtualcamera" -B "$work\build" -A x64 "-DTELESCOPE_WAIT_SCREEN=$wait"
+if ($LASTEXITCODE) { throw 'cmake failed' }
+cmake --build "$work\build" --config Release
+if ($LASTEXITCODE) { throw 'The camera DLL failed to build' }
+
+if (Test-Path $Out) { Remove-Item -Recurse -Force $Out }
+New-Item -ItemType Directory -Force $Out, "$Out\virtualcamera" | Out-Null
+$Out = (Resolve-Path $Out).Path
+Copy-Item $exe "$Out\TelescopeDesktop.exe"
 # The window's .slint files and icons are read at run time (telescope_ui_kit::library_path)
-Remove-Item -Recurse -Force "$Out\ui-kit" -ErrorAction SilentlyContinue
 Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
-foreach ($dll in 'avcodec', 'avutil', 'swscale', 'swresample') {
+foreach ($dll in 'avcodec', 'avutil', 'swscale') {
     Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
 }
+Copy-Item -Recurse "$repo\desktop\unitycapture" "$Out\unitycapture"
+Copy-Item "$work\build\Release\TelescopeCamera.dll" "$Out\virtualcamera\"
+python tools\fetch_rnnoise.py windows $Out
+if ($LASTEXITCODE) { throw 'fetch_rnnoise failed' }
+python tools\write_notices.py windows $env:FFMPEG_DIR "$Out\THIRD_PARTY_NOTICES.txt"
+if ($LASTEXITCODE) { throw 'write_notices failed' }
 Pop-Location
+Write-Host "Telescope $Channel $Build is in $Out"

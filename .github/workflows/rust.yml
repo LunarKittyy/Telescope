@@ -18,6 +18,10 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # Slint's compiler and the bigger windows go deeper than a test thread's default 2 MB
+  RUST_MIN_STACK: 8388608
+  # The workspace with debug info doesn't fit a runner's disk, and nothing here reads it
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   test:
@@ -25,7 +29,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            features: ''
+          - os: windows-latest
+            features: --features telescope-app/ffmpeg-windows
     runs-on: ${{ matrix.os }}
     # A new push to a pull request cancels the check still running for the old one.
     concurrency:
@@ -47,12 +55,26 @@ jobs:
             libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev \
             fonts-inter fonts-noto-core fonts-noto-cjk
 
+      # The full GPL build for the tests' H.264 encoder (libx264). Nothing built here ships: packages use rust-package.yml's small one
+      - name: Install FFmpeg
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build-shared.7z -OutFile "$env:RUNNER_TEMP\ffmpeg.7z"
+          if ((Get-FileHash "$env:RUNNER_TEMP\ffmpeg.7z" -Algorithm SHA256).Hash -ne 'E57F02CEA8B22B7FF81FB0B2EC9F6D7EDB6144E84E3C0026CEA0FE6DFB28E03D') { throw 'FFmpeg changed' }
+          7z x "$env:RUNNER_TEMP\ffmpeg.7z" "-o$env:RUNNER_TEMP" | Out-Null
+          $env:FFMPEG_DIR = "$env:RUNNER_TEMP\ffmpeg-8.1-full_build-shared"
+          ./tools/ffmpeg_libs.ps1
+          "FFMPEG_DIR=$env:FFMPEG_DIR" >> $env:GITHUB_ENV
+          "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+          "$env:FFMPEG_DIR\bin" >> $env:GITHUB_PATH
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
 
       - name: Build
-        run: cargo build --workspace --locked
+        run: cargo build --workspace --locked ${{ matrix.features }}
 
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked ${{ matrix.features }}

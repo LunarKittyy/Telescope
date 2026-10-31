@@ -48,6 +48,12 @@ pub fn running_from_archive(app_dir: &Path, temp_dir: &Path) -> bool {
     resolve(app_dir).strip_prefix(resolve(temp_dir)).is_ok_and(|rel| rel.components().any(|c| is_archive_temp(&c.as_os_str().to_string_lossy())))
 }
 
+/// Whether a release runs without the folder it ships in: the window's files are read from ui-kit next to the exe. A source build falls
+/// back on the checkout, so it doesn't count.
+pub fn left_its_folder(app_dir: &Path, channel: &str) -> bool {
+    channel != "dev" && !app_dir.join("ui-kit").join("ui-kit.slint").is_file()
+}
+
 /// Says so in a message box, since there is no window yet to say it in.
 #[cfg(windows)]
 pub fn warn_running_from_archive() {
@@ -67,6 +73,18 @@ pub fn warn_running_from_archive() {
 mod tests {
     use super::*;
     use telescope_core::testing::scratch_dir;
+
+    #[test]
+    fn a_release_without_its_ui_kit_has_left_its_folder() {
+        let app = scratch_dir("left-folder");
+        assert!(left_its_folder(&app, "stable"));
+        assert!(left_its_folder(&app, "nightly"));
+        assert!(!left_its_folder(&app, "dev"));
+        std::fs::create_dir_all(app.join("ui-kit")).unwrap();
+        assert!(left_its_folder(&app, "stable"));
+        std::fs::write(app.join("ui-kit/ui-kit.slint"), "").unwrap();
+        assert!(!left_its_folder(&app, "stable"));
+    }
 
     // test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders
     #[test]

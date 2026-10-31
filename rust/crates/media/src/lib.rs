@@ -87,7 +87,7 @@ pub fn ffmpeg_available() -> bool {
         static LOADS: OnceLock<bool> = OnceLock::new();
         *LOADS.get_or_init(|| {
             use ffmpeg_sys_next as ff;
-            // These pull in whatever else they need, so a missing swresample fails the avcodec line too
+            // These pull in whatever else they need, so a build's missing dependency fails its own line too
             let libraries = [format!("avutil-{}.dll", ff::LIBAVUTIL_VERSION_MAJOR), format!("swscale-{}.dll", ff::LIBSWSCALE_VERSION_MAJOR),
                              format!("avcodec-{}.dll", ff::LIBAVCODEC_VERSION_MAJOR)];
             // SAFETY: FFmpeg's libraries run no code of ours on load, and stay loaded for the calls to come

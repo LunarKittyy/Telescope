@@ -453,6 +453,11 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
         return; // this copy was rolled back underneath it: the version in place needs these
     }
     let mut leftovers: Vec<PathBuf> = [OLD_EXE_NAME, FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR].iter().map(|n| directory.join(n)).collect();
+    // What the Python tarball had and this one doesn't, which an update leaves in place. Only beside its update_guard.py, since the
+    // others are common names in a folder a tarball was unpacked into
+    if !cfg!(windows) && directory.join("update_guard.py").is_file() {
+        leftovers.extend(["requirements.txt", "requirements-nodeps.txt", "constraints.txt", "__pycache__", "update_guard.py"].map(|n| directory.join(n)));
+    }
     if let Ok(list) = std::fs::read_dir(directory) {
         leftovers.extend(list.filter_map(|e| e.ok().map(|e| e.path()))
             .filter(|p| is_python_build_lib(p)));
@@ -643,6 +648,22 @@ mod tests {
         assert_eq!(read(&app.join("lib-project/main.rs")), "a user's own folder");
         assert!(app.join("lib-130").exists() && app.join("lib-x1").exists());
         assert!(!app.join("lib-129").exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn the_python_tarballs_leftovers_go_but_not_lookalikes() {
+        let base = root("py-leftovers");
+        let app = base.join("app");
+        write(&app.join("requirements.txt"), "someone's project");
+        clean_up_after_update(&app, None);
+        assert_eq!(read(&app.join("requirements.txt")), "someone's project");
+        for name in ["update_guard.py", "requirements-nodeps.txt", "constraints.txt", "__pycache__/update_guard.pyc"] {
+            write(&app.join(name), "python's");
+        }
+        clean_up_after_update(&app, None);
+        assert_eq!(std::fs::read_dir(&app).unwrap().count(), 0);
         std::fs::remove_dir_all(&base).unwrap();
     }
 

@@ -11,15 +11,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # The C++ runtime goes into the DLL, so Frame Server doesn't need the VC++ redistributable to load it
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# The wait screen, rendered by the app's own code (scripts/write_camera_wait_screen.py) and built in as a resource
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(WAIT_SCREEN ${CMAKE_CURRENT_BINARY_DIR}/wait_screen.bin)
-add_custom_command(
-    OUTPUT ${WAIT_SCREEN}
-    COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/write_camera_wait_screen.py ${WAIT_SCREEN}
-    DEPENDS ../scripts/write_camera_wait_screen.py ../telescope/vcam.py ../telescope/theme.py
-    COMMENT "Rendering the camera's wait screen"
-)
+# The wait screen, rendered by the app's own code and built in as a resource. The Rust build passes its own
+# (TELESCOPE_WAIT_SCREEN, from `telescope-rs camera-wait-screen`); otherwise scripts/write_camera_wait_screen.py writes it
+set(TELESCOPE_WAIT_SCREEN "" CACHE FILEPATH "A wait screen already rendered")
+if(TELESCOPE_WAIT_SCREEN)
+    file(TO_CMAKE_PATH "${TELESCOPE_WAIT_SCREEN}" WAIT_SCREEN)
+else()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(WAIT_SCREEN ${CMAKE_CURRENT_BINARY_DIR}/wait_screen.bin)
+    add_custom_command(
+        OUTPUT ${WAIT_SCREEN}
+        COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/write_camera_wait_screen.py ${WAIT_SCREEN}
+        DEPENDS ../scripts/write_camera_wait_screen.py ../telescope/vcam.py ../telescope/theme.py
+        COMMENT "Rendering the camera's wait screen"
+    )
+endif()
 # 101 is kWaitScreenResource in wait_screen.h
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/wait_screen.rc "101 RCDATA \"${WAIT_SCREEN}\"\n")
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/wait_screen.rc PROPERTIES OBJECT_DEPENDS ${WAIT_SCREEN})
