@@ -193,6 +193,7 @@ fn diagnostics_give_each_modes_own_size() {
 fn a_lens_switch_brings_that_lenss_options() {
     let mut rig = Rig::new(Some(full_json()), true);
     assert!(rig.props()["mode-shown"] == true);
+    assert!(rig.props()["mode-items"].as_array().unwrap().contains(&json!("Full resolution")));
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.event(Event::CameraSwitched { camera: json!({"id": "4"}) });
     let p = rig.props();
@@ -261,7 +262,8 @@ fn a_failed_photo_shows_why() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     rig.ui("take-clicked", vec![]);
     let id = *rig.plugin.taking.last().unwrap();
-    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "error": "The phone's camera is off."}) });
+    let failed = serde_json::to_value(telescope_link::stills::StillResult::failed("camera_off", "", &[])).unwrap();
+    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: failed });
     assert!(rig.props()["status"].as_str().unwrap().contains("camera is off"));
     assert_eq!(rig.props()["status-kind"], "status_err");
     // With no reason at all
