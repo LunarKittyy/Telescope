@@ -66,7 +66,7 @@ pub struct VirtualCamera {
 
 /// _vcam_format: I420 needs even sizes, so an odd one goes in BGR.
 pub fn takes_bgr(width: u32, height: u32) -> bool {
-    width % 2 != 0 || height % 2 != 0
+    !width.is_multiple_of(2) || !height.is_multiple_of(2)
 }
 
 /// (pixel format, bytes per line, bytes per frame) a camera of this size opens with.

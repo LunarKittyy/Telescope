@@ -1667,6 +1667,7 @@ mod tests {
         wait_for(|| cams.opened.lock().unwrap().len() == 2);
         let sent = cams.sent.lock().unwrap().len();
         wait_for(|| cams.sent.lock().unwrap().len() > sent);
+        std::thread::sleep(DROP_RETRY_DELAY + Duration::from_millis(300)); // long enough for a reconnect to have shown
         assert_eq!(cams.opened.lock().unwrap().iter().map(|o| o.3).collect::<Vec<_>>(), [24, 15]);
         assert_eq!((opens.calls(), opens.gone()), (1, 0), "the same phone connection throughout");
         w.stop();

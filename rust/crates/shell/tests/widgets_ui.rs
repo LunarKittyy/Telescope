@@ -261,15 +261,17 @@ fn an_arrow_moves_along_a_group_and_picks_only_from_the_picked_option() {
         key(&ui, &text);
         settle(&ui);
     };
+    let right = slint::platform::Key::RightArrow;
+    let left = slint::platform::Key::LeftArrow;
     key(&ui, "\t"); // the picked +12 dB
-    arrow(slint::platform::Key::RightArrow);
-    assert_eq!((picked("Gain: +12 dB"), picked("Gain: +24 dB")), (Some(false), Some(true)), "the pick goes with the focus");
-    key(&ui, "\t"); // +36 dB, not picked
-    arrow(slint::platform::Key::LeftArrow);
-    assert_eq!(picked("Gain: +24 dB"), Some(true), "from there it only moves");
-    assert_eq!(picked("Gain: +36 dB"), Some(false));
-    arrow(slint::platform::Key::LeftArrow);
-    assert_eq!(picked("Gain: +12 dB"), Some(true), "the focus did move, to the picked one, so this one picks");
+    key(&ui, "\t"); // +24 dB, not picked
+    arrow(right);
+    assert_eq!((picked("Gain: +12 dB"), picked("Gain: +36 dB")), (Some(true), Some(false)), "from there it only moves");
+    arrow(left);
+    arrow(left);
+    assert_eq!(picked("Gain: +12 dB"), Some(true), "back along the row, still only moving");
+    arrow(right);
+    assert_eq!((picked("Gain: +12 dB"), picked("Gain: +24 dB")), (Some(false), Some(true)), "from the picked one the pick goes with the focus");
 }
 
 #[test]
