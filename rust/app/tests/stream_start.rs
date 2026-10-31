@@ -8,7 +8,7 @@ use slint_interpreter::Value as SValue;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::frame::{FrameStep, PixelFormat, ShaderStep};
-use telescope_core::host::OutputChange;
+use telescope_core::host::{Host, OutputChange};
 use telescope_core::output::{Held, Outputs, Slot, VideoOutput, WaitScreen};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_outputs::stream_output::StreamOutputPlugin;
@@ -701,4 +701,26 @@ fn packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed()
     r.pick("browser");
     r.w.process();
     assert_ne!(problem(&r), "");
+}
+
+/// Says how it was asked for the camera, and that it isn't ready.
+struct Refuses(rig::Log);
+
+impl Plugin for Refuses {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "connection".into(), ..Default::default() }
+    }
+    fn ensure_virtual_camera(&mut self, _host: &mut dyn Host, interactive: bool, _source_id: Option<&str>) -> bool {
+        self.0.lock().unwrap().push(format!("asked interactive {interactive}"));
+        false
+    }
+}
+
+#[test]
+fn start_stream_passes_on_that_nobody_asked() {
+    let r = Rig::with("start-unasked", |_, heard| vec![Box::new(Refuses(heard.clone())) as Box<dyn Plugin>]);
+    r.w.state.borrow_mut().call(0, |_, host| host.start_stream(false));
+    r.w.process();
+    r.pump();
+    assert_eq!(r.heard(), ["asked interactive false"]);
 }

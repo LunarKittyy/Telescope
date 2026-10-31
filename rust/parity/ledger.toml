@@ -2104,7 +2104,7 @@
 "test_app.py::test_start_hidden_minimizes_without_a_tray" = { status = "ported", rust = "rust/app/tests/window_tray.rs::start_hidden_minimizes_without_a_tray" }
 "test_app.py::test_start_mic_only_opens_the_phone_with_its_camera_off" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::start_mic_only_opens_the_phone_with_its_camera_off" }
 "test_app.py::test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_shows_the_reason_and_builds_nothing_when_the_wake_fails" }
-"test_app.py::test_start_stream_passes_on_that_nobody_asked" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_camera_that_isnt_ready_ends_the_start_before_the_source_is_asked" }
+"test_app.py::test_start_stream_passes_on_that_nobody_asked" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_stream_passes_on_that_nobody_asked" }
 "test_app.py::test_start_uses_defaults_without_optional_plugins" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_uses_defaults_without_optional_plugins" }
 "test_app.py::test_start_wakes_the_phone_before_building_a_worker" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_wakes_the_phone_before_building_a_worker" }
 "test_app.py::test_start_without_connection_or_invalid_stream_is_noop" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_without_connection_or_invalid_stream_is_noop" }

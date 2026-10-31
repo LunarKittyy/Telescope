@@ -79,6 +79,26 @@ fn hooks(r: &Rig, plugin: &str) -> Vec<String> {
 }
 
 #[test]
+fn add_camera_goes_once_every_virtual_camera_has_a_stream() {
+    let r = Rig::new("add-full");
+    for id in ["third", "fourth", "fifth"] {
+        r.link.pair(id, id);
+    }
+    r.start();
+    for (id, made) in [("oneplus", 2), ("third", 3), ("fourth", 4)] {
+        r.w.process();
+        assert!(r.flag("add-visible"), "room for {id}");
+        r.add(id);
+        r.until("it streams", |r| r.workers_made() == made);
+        r.pump();
+    }
+    r.w.process();
+    assert!(!r.flag("add-visible"), "fifth has something to offer but nowhere to go");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
 fn add_camera_offers_what_doesnt_stream_yet_while_anything_streams() {
     let r = Rig::new("add-camera");
     r.offer(rig::FakeSource::new("browser"));
