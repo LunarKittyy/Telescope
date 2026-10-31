@@ -593,6 +593,22 @@ mod tests {
 
     // test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures
     #[test]
+    fn going_back_to_one_camera_unregisters_them_all_first() {
+        let dir = Path::new("C:/app/unitycapture");
+        assert!(!uc_install_script(dir, 1, false).contains("'/u'"));
+        let script = uc_install_script(dir, 1, true);
+        assert!(script.find("'/s', '/u', $dll").unwrap() < script.find("UnityCaptureName").unwrap());
+        assert!(!script.contains("UnityCaptureDevices"));
+    }
+
+    #[test]
+    fn registering_more_cameras_asks_unitycapture_for_them() {
+        let dir = Path::new("C:/app/unitycapture");
+        assert!(!uc_install_script(dir, 1, false).contains("UnityCaptureDevices"));
+        assert!(uc_install_script(dir, 4, false).contains("'/s', '/i:UnityCaptureDevices=4', '\"/i:UnityCaptureName=Telescope\"'"));
+    }
+
+    #[test]
     fn download_unitycapture_handles_network_and_checksum_failures() {
         let offline = Fake::default();
         let (ok, msg) = download_unitycapture(&offline, &|_| {});

@@ -457,6 +457,14 @@ export component Hinted inherits Card {
 "#;
 
     #[test]
+    fn every_card_takes_its_plugins_group_colour() {
+        let (piece, _) = piece("p0", "plugins/one/card.slint", "Stage", STAGE);
+        let cards = vec![CardPlace { piece, region: Region::Right, fold_key: "one/Stage".into(), category: "sound".into() }];
+        let doc = window(&cards, &Panels::default(), &[]);
+        assert!(doc.contains("hue: Theme.plugin-hue(\"sound\");"), "{doc}");
+    }
+
+    #[test]
     fn a_stage_card_takes_what_its_size_hint_adds_and_a_rails_card_doesnt() {
         i_slint_backend_testing::init_no_event_loop();
         let height = |region: Region| {

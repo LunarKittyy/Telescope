@@ -1715,17 +1715,17 @@ mod tests {
     }
 
     #[test]
-    fn a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once() {
+    fn an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on() {
         let mut s = state();
+        let optional = PluginInfo { name: "framing".into(), title: "Auto framing".into(), optional: true, ..Default::default() };
+        s.load_builtins(vec![stub("connection", json!({}), false).0, Box::new(Stub { info: optional, config: json!({}), applied: Default::default() })]).unwrap();
+        assert!(s.index("framing").is_none() && s.index("connection").is_some());
+        assert!(s.plugins_off().is_empty(), "never switched on isn't \"turned off\"");
+        assert!(s.banners.issue("plugins_off").is_none());
         let mut cfg = s.file.load();
-        switches::set_builtin_off(&mut cfg, "notes", true);
-        s.file.save(&mut cfg);
-        let mut notes = stub("notes", json!({}), false).0;
-        let _ = &mut notes;
-        s.load_builtins(vec![stub("setup", json!({}), false).0, notes]).unwrap();
-        assert!(s.index("notes").is_none() && s.index("setup").is_some());
-        assert_eq!(s.plugins_off().len(), 1);
-        assert!(s.banners.issue("plugins_off").is_some());
+        switches::set_optional_on(&mut cfg, "framing", true);
+        switches::all_builtin_on(&mut cfg); // Turn all back on keeps it
+        assert_eq!(switches::optional_on(&cfg).into_iter().collect::<Vec<_>>(), ["framing"]);
     }
 
     /// The plugin host's answer to "which plugins are added": these, all switched on.

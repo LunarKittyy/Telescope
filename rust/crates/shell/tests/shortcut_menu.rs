@@ -69,3 +69,60 @@ export component W inherits Window {
     click(window, 80.0, 50.0, PointerEventButton::Left);
     assert_eq!(*seen.borrow(), ["pressed", "add microphone.mute"]);
 }
+
+const LATER: &str = r#"import { Button, Shortcuts } from "@ui-kit/ui-kit.slint";
+export { Shortcuts }
+export component W inherits Window {
+    width: 300px;
+    height: 200px;
+    in property <bool> lens-there;
+    VerticalLayout {
+        alignment: start;
+        Button { text: "Other"; }
+        if lens-there: Button { text: "Wide"; shortcut: "camera.lens"; }
+    }
+}"#;
+
+// test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu
+#[test]
+fn controls_that_come_later_still_get_the_menu() {
+    telescope_shell::offscreen::install();
+    let w = telescope_shell::compile::compile("later.slint", LATER, vec![], "W").expect("the document compiles").create().unwrap();
+    let seen = Rc::new(RefCell::new(Vec::<String>::new()));
+    let s = seen.clone();
+    w.set_global_callback("Shortcuts", "add", move |args| {
+        if let Some(Value::String(a)) = args.first() {
+            s.borrow_mut().push(a.to_string());
+        }
+        Value::Void
+    }).unwrap();
+    w.set_global_callback("Shortcuts", "bindings-for", |_| {
+        Value::Model(slint::ModelRc::new(slint::VecModel::from(Vec::<Value>::new())))
+    }).unwrap();
+    w.set_global_property("Shortcuts", "available", Value::Bool(true)).unwrap();
+    w.show().unwrap();
+    let window = w.window();
+    telescope_shell::offscreen::draw(window, 300.0, 200.0, 1.0);
+    let right_click = |name: &str| {
+        let e = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, name).next().unwrap_or_else(|| panic!("no {name}"));
+        let (p, s) = (e.absolute_position(), e.size());
+        click(window, p.x + s.width / 2.0, p.y + s.height / 2.0, PointerEventButton::Right);
+        telescope_shell::offscreen::draw(window, 300.0, 200.0, 1.0);
+    };
+    // The menu's first item, by keyboard: where it opens isn't this test's business
+    let first_item = || {
+        for key in ["\u{F701}", "\n"] {
+            window.dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+            window.dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        }
+        telescope_shell::offscreen::pump();
+    };
+    w.set_property("lens-there", Value::Bool(true)).unwrap();
+    telescope_shell::offscreen::draw(window, 300.0, 200.0, 1.0);
+    right_click("Other");
+    first_item();
+    assert!(seen.borrow().is_empty(), "an unrelated button has no menu: {:?}", seen.borrow());
+    right_click("Wide");
+    first_item();
+    assert_eq!(*seen.borrow(), ["camera.lens"]);
+}

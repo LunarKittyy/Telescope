@@ -1408,6 +1408,7 @@ mod tests {
         statuses: HashMap<String, HotkeyStatus>,
         suspended: Vec<bool>,
         rebind: bool,
+        stopped: bool,
     }
 
     struct FakeBackend(Arc<Mutex<Seen>>);
@@ -1428,34 +1429,23 @@ mod tests {
         fn can_rebind(&self) -> bool {
             self.0.lock().unwrap().rebind
         }
+        fn stop(&mut self) {
+            self.0.lock().unwrap().stopped = true;
+        }
     }
 
     fn mute() -> ActionSpec {
-        ActionSpec {
-            id: "microphone.mute".into(), label: "Mute".into(), group: "Microphone".into(),
-            params: vec![json!({"name": "mode", "label": "Does", "kind": "choice", "default": "toggle",
-                                "choices": [["toggle", "Switch on or off"], ["on", "Turn on"], ["off", "Turn off"],
-                                            ["hold", "Switch while held, back on release"]]})],
-            repeats: false, on_release: true, current: None, keywords: String::new(),
-        }
+        actions::toggle_action("microphone.mute", "Mute", "Microphone", "", &[])
     }
 
     fn zoom() -> ActionSpec {
-        ActionSpec {
-            id: "transforms.zoom".into(), label: "Zoom".into(), group: "Transforms".into(),
-            params: vec![json!({"name": "op", "label": "Does", "kind": "choice", "default": "up",
-                                "choices": [["up", "Increase by"], ["down", "Decrease by"], ["set", "Set to"]]}),
-                         json!({"name": "amount", "label": "By", "kind": "number", "default": 1, "minimum": 0, "maximum": 100,
-                                "suffix": "%", "shown_if": ["op", ["up", "down"]]}),
-                         json!({"name": "value", "label": "Value", "kind": "number", "default": null, "minimum": 0, "maximum": 100,
-                                "suffix": "%", "shown_if": ["op", ["set"]]})],
-            repeats: true, on_release: false, current: Some(0.0), keywords: String::new(),
-        }
+        let spec = actions::SliderSpec { id: "transforms.zoom", label: "Zoom", group: "Transforms", keywords: "", minimum: 0.0, maximum: 100.0, step: 10.0,
+                                         decimals: 0, suffix: "", has_default: false };
+        actions::slider_action(&spec, 0.0)
     }
 
     fn torch() -> ActionSpec {
-        ActionSpec { id: "camera.torch".into(), label: "Torch".into(), group: "Camera".into(), params: Vec::new(),
-                     repeats: false, on_release: false, current: None, keywords: String::new() }
+        actions::toggle_action("camera.torch", "Torch", "Camera", "", &[])
     }
 
     fn b(id: &str, keys: &str, action: &str, params: Value, global: bool) -> Value {
@@ -1502,6 +1492,34 @@ mod tests {
         rows.into_iter().zip(headings).map(|(r, h)| if h { format!("# {r}") } else { r }).collect()
     }
 
+    /// The Control list without its group headings.
+    fn listed(plugin: &ShortcutsPlugin) -> Vec<String> {
+        controls(plugin).into_iter().filter(|r| !r.starts_with("# ")).collect()
+    }
+
+    /// The label of the control picked now, by what the list shows; None when it isn't listed.
+    fn picked(plugin: &ShortcutsPlugin) -> Option<String> {
+        let control = plugin.section_props()["control"].as_i64()?;
+        usize::try_from(control).ok().and_then(|i| controls(plugin).get(i).cloned())
+    }
+
+    /// The labels of the settings shown for the picked control.
+    fn shown_params(plugin: &ShortcutsPlugin) -> Vec<String> {
+        plugin.section_props()["params"].as_array().unwrap().iter().map(|p| p["label"].as_str().unwrap().to_string()).collect()
+    }
+
+    /// Picks an option of a setting by the words on them.
+    fn choose(plugin: &mut ShortcutsPlugin, host: &mut FakeHost, setting: &str, option: &str) {
+        let params = plugin.section_props()["params"].clone();
+        let param = params.as_array().unwrap().iter().find(|p| p["label"] == setting).unwrap_or_else(|| panic!("no setting {setting}"));
+        let at = param["items"].as_array().unwrap().iter().position(|i| i == option).unwrap_or_else(|| panic!("no option {option}"));
+        ui(plugin, host, "param-picked", json!([param["at"], at]));
+    }
+
+    fn notes(host: &FakeHost) -> Vec<(&str, &str, bool)> {
+        host.notifications.iter().map(|(t, b, u)| (t.as_str(), b.as_str(), *u)).collect()
+    }
+
     /// The row of the action with this label under this group's heading.
     fn row_of(plugin: &ShortcutsPlugin, group: &str, label: &str) -> usize {
         let rows = controls(plugin);
@@ -1511,6 +1529,35 @@ mod tests {
 
     #[test]
     fn editor_builds_a_binding() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        host.actions[2].1.current = Some(30.0);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        let zoom = row_of(&plugin, "Transforms", "Zoom");
+        ui(&mut plugin, &mut host, "control-picked", json!([zoom]));
+        assert_eq!(plugin.section_props()["save-enabled"], json!(false), "no key yet");
+        assert_eq!(shown_params(&plugin), ["Does", "By"]);
+        choose(&mut plugin, &mut host, "Does", "Set to");
+        assert_eq!(shown_params(&plugin), ["Does", "Value"], "the amount goes and the value comes");
+        assert_eq!(plugin.section_props()["params"][1]["text"], json!("30"), "starts where the control is");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["t", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(false));
+        assert!(props["problem"].as_str().unwrap().contains("already does"), "{}", props["problem"]);
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(true), "allowed, with a warning, everywhere");
+        assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
+        ui(&mut plugin, &mut host, "key-pressed", json!(["z", true, false, true, false]));
+        assert_eq!(plugin.section_props()["problem"], json!(""));
+        ui(&mut plugin, &mut host, "save", json!([]));
+        let saved = plugin.bindings().last().unwrap();
+        assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+Z", "transforms.zoom", true));
+        assert_eq!(Value::Object(saved.params.clone()), json!({"op": "set", "amount": 10.0, "value": 30.0}));
+    }
+
+    #[test]
+    fn editor_saves_a_binding_and_a_bare_modifier_waits_for_its_key() {
         let (mut plugin, mut host, seen) = make(json!([]), false, true);
         plugin.settings_sections();
         ui(&mut plugin, &mut host, "add", json!([]));
@@ -1543,7 +1590,7 @@ mod tests {
         ui(&mut plugin, &mut host, "add", json!([]));
         ui(&mut plugin, &mut host, "key-pressed", json!(["t", true, false, false, false]));
         let props = plugin.section_props();
-        assert_eq!(props["problem"], json!("Ctrl+T already does \"Torch\". Pick another key."));
+        assert_eq!(props["problem"], json!("Ctrl+T already does \"Torch: switch on or off\". Pick another key."));
         assert_eq!(props["save-enabled"], json!(false));
         ui(&mut plugin, &mut host, "key-pressed", json!(["z", false, false, false, false]));
         let props = plugin.section_props();
@@ -1551,6 +1598,25 @@ mod tests {
         assert_eq!(props["save-enabled"], json!(true), "only a warning");
         ui(&mut plugin, &mut host, "global-toggled", json!([false]));
         assert_eq!(plugin.section_props()["problem"], json!(""));
+    }
+
+    #[test]
+    fn editor_warns_about_typing_keys_only() {
+        let (mut plugin, mut host, _) = make(json!([]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        let torch = row_of(&plugin, "Camera", "Torch");
+        ui(&mut plugin, &mut host, "control-picked", json!([torch]));
+        choose(&mut plugin, &mut host, "Does", "Switch while held, back on release");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["\u{F708}", false, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!((props["keys-text"].clone(), props["problem"].clone()), (json!("F5"), json!("")), "F5 types nothing");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        let props = plugin.section_props();
+        assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
+        assert_eq!(props["copy-enabled"], json!(false), "a command can't hold a key");
+        choose(&mut plugin, &mut host, "Does", "Switch on or off");
+        assert_eq!(plugin.section_props()["copy-enabled"], json!(true));
     }
 
     #[test]
@@ -1582,27 +1648,63 @@ mod tests {
         let titles: Vec<&String> = rows.iter().filter(|r| r.starts_with("# ")).collect();
         assert!(!titles.is_empty() && titles.iter().all(|t| *t == &t.to_uppercase()), "{rows:?}");
         assert!(rows.iter().any(|r| !r.starts_with("# ")));
+        let before = picked(&plugin);
+        let title = rows.iter().rposition(|r| r.starts_with("# ")).unwrap();
+        ui(&mut plugin, &mut host, "control-picked", json!([title]));
+        assert_eq!(picked(&plugin), before, "a group's title can't be picked");
     }
 
     #[test]
-    fn editor_search_narrows_the_controls_and_uses_keywords() {
+    fn editor_search_narrows_the_controls() {
         let (mut plugin, mut host, _) = make(json!([]), false, true);
-        host.actions[0].1.keywords = "push to talk".into();
         plugin.settings_sections();
         ui(&mut plugin, &mut host, "add", json!([]));
-        assert!(controls(&plugin).len() > 3);
-        ui(&mut plugin, &mut host, "search", json!(["zo"]));
-        assert_eq!(controls(&plugin), ["# TRANSFORMS", "Zoom"]);
-        assert_eq!(plugin.section_props()["control"], json!(1), "the only match is picked");
-        ui(&mut plugin, &mut host, "search", json!(["talk"]));
-        assert_eq!(controls(&plugin), ["# MICROPHONE", "Mute"]);
-        ui(&mut plugin, &mut host, "search", json!(["nothing like it"]));
+        let all = plugin.actions.len();
+        assert_eq!(listed(&plugin).len(), all);
+        ui(&mut plugin, &mut host, "search", json!(["torch"]));
+        assert_eq!(listed(&plugin), ["Torch"]);
+        assert_eq!(picked(&plugin).as_deref(), Some("Torch"), "the only match is picked");
+        assert_eq!(shown_params(&plugin), ["Does"]);
+        ui(&mut plugin, &mut host, "search", json!(["push talk"]));
+        assert!(listed(&plugin).is_empty(), "what a setting can do counts, and this one can't: {:?}", listed(&plugin));
+        ui(&mut plugin, &mut host, "search", json!(["held"]));
+        assert_eq!(listed(&plugin), ["Mute", "Torch"], "what a setting can do counts too");
+        assert_eq!(picked(&plugin).as_deref(), Some("Torch"), "still there, so still picked");
+        ui(&mut plugin, &mut host, "search", json!(["zzz"]));
         let props = plugin.section_props();
-        assert_eq!((props["control"].clone(), props["problem"].clone()), (json!(-1), json!("No control matches that search.")));
+        assert!(listed(&plugin).is_empty());
+        assert_eq!(props["problem"], json!("No control matches that search."));
+        assert_eq!(props["save-enabled"], json!(false));
+        ui(&mut plugin, &mut host, "search", json!([""]));
+        assert_eq!(listed(&plugin).len(), all);
+    }
+
+    #[test]
+    fn editor_search_uses_keywords() {
+        let (mut plugin, mut host, _) = make(json!([]), false, true);
+        host.actions[2].1.keywords = "crop framing".into();
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "search", json!(["crop"]));
+        assert_eq!(controls(&plugin), ["# TRANSFORMS", "Zoom"]);
+        assert_eq!(picked(&plugin).as_deref(), Some("Zoom"));
     }
 
     #[test]
     fn dialog_lists_bindings() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true), b("b", "F2", "camera.torch", json!({}), false)]), false, true);
+        seen.lock().unwrap().statuses.insert("a".into(), HotkeyStatus::new(true, "Everywhere: Meta+M".into()));
+        let rows = plugin.section_props()["rows"].clone();
+        assert_eq!((rows[0]["where"].clone(), rows[1]["where"].clone()), (json!("Everywhere: Meta+M"), json!("In Telescope")));
+        ui(&mut plugin, &mut host, "remove", json!([1]));
+        assert_eq!(plugin.bindings().iter().map(|b| b.id.as_str()).collect::<Vec<_>>(), ["a"]);
+        let rows = plugin.section_props()["rows"].clone();
+        assert_eq!(rows.as_array().unwrap().len(), 1);
+        assert_eq!(rows[0]["remove-label"], json!("Remove Mute: switch on or off"));
+    }
+
+    #[test]
+    fn dialog_says_what_a_binding_does_and_copies_its_line() {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true),
                                                     b("b", "Ctrl+T", "camera.torch", json!({}), false)]), false, false);
         let props = plugin.section_props();
@@ -1725,21 +1827,34 @@ mod tests {
     #[test]
     fn a_background_press_notifies_only_when_asked() {
         let (mut plugin, mut host, _) = make(json!([b("a", "F9", "camera.torch", json!({}), true)]), true, true);
+        host.action_answers.insert("camera.torch".into(), Some("Torch: on".into()));
         plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
-        assert!(host.calls.contains(&"send_notification Telescope".to_string()));
-        host.calls.clear();
-        host.window_active = true;
+        assert_eq!(notes(&host), [("Telescope", "Torch: on", false)]);
+        ui(&mut plugin, &mut host, "notify-toggled", json!([false]));
         plugin.on_hotkey(&mut host, &json!({"kind": "released", "id": "a"}));
         plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
-        assert!(!host.calls.iter().any(|c| c.starts_with("send_notification")));
+        assert_eq!(host.notifications.len(), 1);
+        assert_eq!(ran(&host).iter().filter(|r| r.starts_with("run_action")).count(), 2, "it still ran");
+    }
+
+    #[test]
+    fn a_press_with_the_window_in_front_doesnt_notify() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "F9", "camera.torch", json!({}), true)]), true, true);
+        host.window_active = true;
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        assert_eq!(ran(&host).len(), 1);
+        assert!(host.notifications.is_empty());
     }
 
     #[test]
     fn showing_the_window_from_the_background_doesnt_notify() {
-        let (mut plugin, mut host, _) = make(json!([b("a", "F9", "window.show_hide", json!({}), true)]), true, true);
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+H", "window.show_hide", json!({}), true)]), true, true);
         plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
         assert!(host.calls.contains(&"toggle_window".to_string()));
-        assert!(!host.calls.iter().any(|c| c.starts_with("send_notification")));
+        assert!(host.notifications.is_empty(), "shown: the window itself is the answer");
+        plugin.on_hotkey(&mut host, &json!({"kind": "released", "id": "a"}));
+        plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
+        assert_eq!(notes(&host), [("Telescope", "Telescope: hidden", false)]);
     }
 
     #[test]
@@ -1836,27 +1951,44 @@ mod tests {
 
     #[test]
     fn a_key_whose_control_is_off_goes_to_the_control_with_focus() {
-        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
-        // The torch can't be used right now: the host runs nothing for it
+        let (mut plugin, mut host, _) = make(json!([b("a", "Z", "transforms.zoom", json!({"op": "up", "amount": 10}), false)]), false, true);
+        // The zoom can't be used right now: its plugin runs nothing
+        host.action_answers.insert("transforms.zoom".into(), None);
+        assert!(!plugin.on_key(&mut host, &KeyInput { shift: true, ..key("Z", false, false) }), "Shift+Z isn't bound");
+        assert!(ran(&host).is_empty());
+        assert!(!plugin.on_key(&mut host, &key("z", false, false)));
+        assert!(!plugin.is_held("a"), "nothing happened, so there's nothing to let go of");
+        host.action_answers.clear();
+        assert!(plugin.on_key(&mut host, &key("z", false, false)));
+        assert!(ran(&host).last().unwrap().ends_with(r#"{"op":"up","amount":10.0,"value":null}"#), "{:?}", ran(&host));
+        plugin.on_key(&mut host, &KeyInput { released: true, ..key("z", false, false) });
+        // Nor does a key do anything for a control this version no longer has
         host.actions.clear();
-        assert!(!plugin.on_key(&mut host, &key("t", true, false)));
+        assert!(!plugin.on_key(&mut host, &key("z", false, false)));
     }
 
     #[test]
     fn config_round_trip_and_editing() {
-        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true)]), true, true);
-        let cfg = plugin.get_config();
-        assert_eq!(cfg["notify"], json!(true));
-        assert_eq!(cfg["bindings"][0]["keys"], json!("Ctrl+Alt+M"));
+        let (mut plugin, mut host, seen) = make(json!([]), false, true);
+        let binding = |id: &str, keys: &str, global: bool| Binding { id: id.into(), keys: keys.into(), action: "camera.torch".into(), params: Map::new(), global };
+        plugin.set_bindings(&mut host, vec![binding("a", "ctrl+f1", true)]);
+        assert_eq!(host.calls.iter().filter(|c| *c == "schedule_save").count(), 1);
+        assert_eq!(plugin.get_config(), json!({"bindings": [b("a", "Ctrl+F1", "camera.torch", json!({}), true)], "notify": false}));
+        let applied = |seen: &Arc<Mutex<Seen>>| seen.lock().unwrap().applied.last().unwrap().iter().map(|h| h.id.clone()).collect::<Vec<_>>();
+        assert_eq!(applied(&seen), ["a"]);
+        assert_eq!(seen.lock().unwrap().applied.len(), 2);
         let mut more = plugin.bindings().to_vec();
-        more.push(clean_bindings(&json!([b("z", "Ctrl+Alt+Z", "camera.torch", json!({}), true)])).remove(0));
+        more.push(binding("x", "F3", false));
         plugin.set_bindings(&mut host, more);
-        assert!(host.calls.contains(&"schedule_save".to_string()));
-        assert_eq!(seen.lock().unwrap().applied.last().unwrap().len(), 2);
-        let applies = seen.lock().unwrap().applied.len();
+        assert_eq!(seen.lock().unwrap().applied.len(), 2, "not global: nothing to rebind");
         plugin.set_bindings(&mut host, plugin.bindings().to_vec());
-        assert_eq!(seen.lock().unwrap().applied.len(), applies, "a same list isn't handed over again");
-        assert_eq!(plugin.diagnostics()[0].1, "2 (2 everywhere, via FakeBackend)");
+        assert_eq!(seen.lock().unwrap().applied.len(), 2, "a same list isn't handed over again");
+        assert_eq!(plugin.diagnostics()[0].1, "2 (1 everywhere, via FakeBackend)");
+        ui(&mut plugin, &mut host, "remove", json!([0]));
+        assert_eq!(plugin.get_config()["bindings"].as_array().unwrap().iter().map(|b| b["id"].clone()).collect::<Vec<_>>(), [json!("x")]);
+        assert!(applied(&seen).is_empty());
+        plugin.shutdown(&mut host);
+        assert!(seen.lock().unwrap().stopped);
     }
 
     #[test]
@@ -1864,6 +1996,64 @@ mod tests {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true)]), false, false);
         assert_eq!(plugin.where_works(&plugin.bindings()[0]), ("In Telescope (no global shortcuts here)".into(), false));
         assert!(plugin.on_key(&mut host, &key("m", true, true)));
+    }
+
+    #[test]
+    fn remote_actions() {
+        let (_plugin, mut host, _) = make(json!([]), false, true);
+        let listing = handle_remote(&mut host, &json!({"list": true}));
+        let text = listing["text"].as_str().unwrap();
+        assert_eq!(listing["ok"], json!(true));
+        assert!(text.contains("microphone.mute  (Microphone: Mute)"), "{text}");
+        assert!(text.contains("    mode=toggle | on | off | hold  (default toggle)"), "{text}");
+        assert!(text.contains("    amount=<number 0 to 100>"), "{text}");
+        host.action_answers.insert("camera.torch".into(), Some("Torch: on".into()));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "camera.torch", "params": {"mode": "on"}})), json!({"ok": true, "text": "Torch: on"}));
+        assert_eq!(ran(&host).last().unwrap(), r#"run_action camera_control camera.torch {"mode":"on"}"#);
+        assert_eq!(handle_remote(&mut host, &json!({"action": "transforms.zoom", "params": {"op": "set", "value": "40"}}))["ok"], json!(true));
+        assert_eq!(ran(&host).last().unwrap(), r#"run_action transforms transforms.zoom {"op":"set","amount":10.0,"value":40.0}"#);
+        assert_eq!(handle_remote(&mut host, &json!({"action": "nope"}))["ok"], json!(false));
+        assert!(handle_remote(&mut host, &json!({"action": "camera.torch", "params": {"colour": "red"}}))["text"].as_str().unwrap().contains("no setting 'colour'"));
+        host.action_answers.insert("camera.torch".into(), None);
+        assert_eq!(handle_remote(&mut host, &json!({"action": "camera.torch"}))["ok"], json!(false));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "streaming.start_stop"})), json!({"ok": true, "text": "Streaming: starting"}));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "streaming.start_stop", "params": {"mode": "start"}}))["text"], json!("Already streaming"));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "streaming.start_stop"}))["text"], json!("Streaming: stopped"));
+        assert_eq!(host.calls.last().unwrap(), "stop_all_streams");
+        host.can_turn_off = Some((true, String::new()));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "streaming.camera", "params": {"mode": "off"}}))["text"], json!("Phone camera: off"));
+        assert!(host.camera_off);
+        assert_eq!(handle_remote(&mut host, &json!({"action": "window.show_hide"})), json!({"ok": true, "text": "Telescope: shown"}));
+        assert_eq!(handle_remote(&mut host, &json!({"action": "window.show_hide"})), json!({"ok": true, "text": "Telescope: hidden"}));
+    }
+
+    #[test]
+    fn remote_settings_are_checked_not_defaulted() {
+        for (params, says) in [(json!({"op": "dwon"}), "op can be up | down | set, not 'dwon'"), (json!({"amount": "lots"}), "amount has to be a number, not 'lots'"),
+                               (json!({"op": "set"}), "needs value=")] {
+            let (_plugin, mut host, _) = make(json!([]), false, true);
+            let reply = handle_remote(&mut host, &json!({"action": "transforms.zoom", "params": params}));
+            assert!(reply["ok"] == false && reply["text"].as_str().unwrap().contains(says), "{reply}");
+            assert!(ran(&host).is_empty(), "nothing moved: {:?}", ran(&host));
+        }
+    }
+
+    #[test]
+    fn remote_hold_is_refused() {
+        let (_plugin, mut host, _) = make(json!([]), false, true);
+        let reply = handle_remote(&mut host, &json!({"action": "microphone.mute", "params": {"mode": "hold"}}));
+        assert!(reply["ok"] == false && reply["text"].as_str().unwrap().contains("hold"), "{reply}");
+        assert!(ran(&host).is_empty());
+    }
+
+    #[test]
+    fn remote_numbers_must_be_finite() {
+        for amount in ["nan", "inf"] {
+            let (_plugin, mut host, _) = make(json!([]), false, true);
+            let reply = handle_remote(&mut host, &json!({"action": "transforms.zoom", "params": {"op": "up", "amount": amount}}));
+            assert!(reply["ok"] == false && reply["text"].as_str().unwrap().contains("has to be a number"), "{reply}");
+            assert!(ran(&host).is_empty());
+        }
     }
 
     #[test]
@@ -1942,7 +2132,7 @@ mod tests {
         host.calls.clear();
         plugin.on_key(&mut host, &key("z", false, false));
         assert!(ran(&host)[0].ends_with(r#""value":10.0}"#), "{:?}", ran(&host));
-        assert!(handle_remote(&mut host, &json!({"list": true}))["text"].as_str().unwrap().contains("value=<number 0 to 10%>"));
+        assert!(handle_remote(&mut host, &json!({"list": true}))["text"].as_str().unwrap().contains("value=<number 0 to 10>"));
     }
 
     #[test]
@@ -2016,7 +2206,7 @@ mod tests {
         let (plugin, _host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
         let entries = plugin.menu_entries();
         assert_eq!(entries.len(), 1);
-        assert_eq!((entries[0].action.as_str(), entries[0].text.as_str()), ("camera.torch", "Ctrl+T: Torch"));
+        assert_eq!((entries[0].action.as_str(), entries[0].text.as_str()), ("camera.torch", "Ctrl+T: Torch: switch on or off"));
     }
 
     #[test]

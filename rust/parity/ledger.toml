@@ -2,7 +2,7 @@
 # inventory.py makes the list; see README.md. Edit the values, not the ids. Each entry is
 #   status = "todo" | "ported" | "verified" | "dropped"
 #   rust = "rust/crates/..."           (needed for ported and verified: a path from the repo root that exists,
-#                                       optionally with ::symbol or :line after it)
+#                                       optionally with ::symbol or :line after it; a test names its ::function)
 #   reason = "why it goes away"        (needed for dropped)
 #   note = "anything else"             (comments in this file are rewritten by --update, notes are kept)
 # The "# area" lines are only for reading; inventory.py works the area out itself.
@@ -1963,7 +1963,7 @@
 "test_app.py::test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back" }
 "test_app.py::test_a_phone_left_with_its_camera_on_or_off_is_matched" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::a_phone_left_with_its_camera_on_or_off_is_matched" }
 "test_app.py::test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone" = { status = "todo" }
-"test_app.py::test_a_plugin_hook_that_raises_does_not_stop_the_others" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_app.py::test_a_plugin_hook_that_raises_does_not_stop_the_others" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_that_panics_doesnt_stop_the_others" }
 "test_app.py::test_a_plugin_still_using_the_settings_menu_hook_is_warned_about" = { status = "dropped", reason = "The Rust plugin API never had create_menu_actions" }
 "test_app.py::test_a_plugin_that_cant_list_its_settings_doesnt_stop_the_window" = { status = "ported", rust = "rust/app/tests/window_saving.rs::a_plugin_that_cant_list_its_settings_doesnt_stop_the_window" }
 "test_app.py::test_a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save" }
@@ -2002,12 +2002,12 @@
 "test_app.py::test_a_wake_that_lands_after_the_user_gave_up_is_discarded" = { status = "ported", rust = "rust/app/tests/stream_start.rs::a_wake_that_lands_after_the_user_gave_up_is_discarded" }
 "test_app.py::test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once" = { status = "ported", rust = "rust/app/tests/stream_hand_over.rs::a_worker_that_turns_it_down_lets_go_of_the_route_at_once" }
 "test_app.py::test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" = { status = "ported", rust = "rust/app/tests/stream_start.rs::a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg" }
-"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"test_app.py::test_acquire_single_instance_binds_and_listens" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_shared_name_has_one_user_at_a_time" }
 "test_app.py::test_acquire_single_instance_closes_failed_notification_socket" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open", note = "Python mocks the sockets; here a real Linux socket that's bound and never listens, and no socket is left open" }
-"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
-"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"test_app.py::test_acquire_single_instance_notifies_existing_process" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok" }
+"test_app.py::test_acquire_single_instance_says_so_when_nothing_answers_the_raise" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_lock_that_answers_nothing_says_so_and_a_relaunch_waits_for_the_old_copy" }
 "test_app.py::test_acquire_single_instance_tolerates_stale_listener" = { status = "ported", rust = "rust/crates/system/tests/single_instance_stale.rs::a_stale_listener_is_told_so_and_leaves_no_socket_open" }
-"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs" }
+"test_app.py::test_acquire_single_instance_waits_for_the_old_copy_after_an_update" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_lock_that_answers_nothing_says_so_and_a_relaunch_waits_for_the_old_copy" }
 "test_app.py::test_an_action_reaches_the_running_copy_with_its_key" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::an_action_reaches_the_running_copy_with_its_key" }
 "test_app.py::test_an_action_when_the_key_couldnt_be_written" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::an_action_when_the_key_couldnt_be_written" }
 "test_app.py::test_an_action_with_nothing_running" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::an_action_with_nothing_running" }
@@ -2019,8 +2019,8 @@
 "test_app.py::test_another_users_telescope_on_a_shared_port_answers_other" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::another_users_telescope_on_a_shared_port_answers_other" }
 "test_app.py::test_apply_config_empty_is_noop" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::apply_config_empty_is_noop" }
 "test_app.py::test_apply_config_routes_global_and_selected_device_config" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::apply_config_routes_global_and_selected_device_config" }
-"test_app.py::test_apply_device_profile_none_uses_defaults_only" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"test_app.py::test_apply_device_profile_resets_defaults_before_saved_values" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_app.py::test_apply_device_profile_none_uses_defaults_only" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::apply_device_profile_none_uses_defaults_only" }
+"test_app.py::test_apply_device_profile_resets_defaults_before_saved_values" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::apply_device_profile_resets_defaults_before_saved_values" }
 "test_app.py::test_apply_state_accepts_empty_state" = { status = "ported", rust = "rust/app/tests/stream_start.rs::apply_state_accepts_empty_state" }
 "test_app.py::test_apply_state_discards_result_for_inactive_session" = { status = "ported", rust = "rust/app/tests/stream_start.rs::apply_state_discards_result_for_inactive_session" }
 "test_app.py::test_apply_state_emits_bus_and_calls_plugins" = { status = "ported", rust = "rust/app/tests/stream_start.rs::apply_state_emits_bus_and_calls_plugins" }
@@ -2058,7 +2058,7 @@
 "test_app.py::test_moving_the_mic_to_another_stream_is_a_focus_change_for_it" = { status = "ported", rust = "rust/app/tests/stream_two.rs::moving_the_mic_to_another_stream_is_a_focus_change_for_it" }
 "test_app.py::test_narrow_layout_stacks_every_panel_into_one_visible_column" = { status = "ported", rust = "rust/crates/shell/src/doc.rs::a_narrow_window_stacks_every_card_in_one_column_the_stage_first" }
 "test_app.py::test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings" }
-"test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_saved_config_that_wont_load_keeps_the_fields_that_do" }
 "test_app.py::test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" = { status = "todo" }
 "test_app.py::test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" = { status = "ported", rust = "rust/app/tests/stream_start.rs::packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" }
 "test_app.py::test_people_are_tracked_steadily_and_carried_through_a_flip" = { status = "ported", rust = "rust/crates/vision/src/host_tests.rs::people_are_tracked_steadily_and_reach_the_bus" }
@@ -2093,8 +2093,8 @@
 "test_app.py::test_restarting_a_background_stream_starts_it_with_its_own_settings" = { status = "ported", rust = "rust/app/tests/stream_two.rs::restarting_a_background_stream_starts_it_with_its_own_settings" }
 "test_app.py::test_restarting_the_only_stream_left_keeps_its_virtual_camera" = { status = "ported", rust = "rust/app/tests/stream_two.rs::restarting_the_only_stream_left_keeps_its_virtual_camera" }
 "test_app.py::test_save_config_failure_notifies_once_until_a_save_succeeds" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_failure_notifies_once_until_a_save_succeeds" }
-"test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_separates_global_and_device_local_plugins" }
+"test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_without_a_picked_device_skips_device_profiles" }
 "test_app.py::test_send_notification_falls_back_to_tray" = { status = "todo" }
 "test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "ported", rust = "rust/crates/system/src/lib.rs::notifications_go_through_notify_send" }
 "test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::settings_once_kept_for_the_whole_app_go_to_every_phone" }
@@ -2127,7 +2127,7 @@
 "test_app.py::test_stopping_the_shown_stream_stops_it_then_moves_the_panels_on" = { status = "ported", rust = "rust/app/tests/stream_two.rs::stopping_the_shown_stream_stops_it_then_moves_the_panels_on" }
 "test_app.py::test_stream_reconnected_is_noop_without_an_active_session" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::stream_reconnected_is_noop_without_an_active_session" }
 "test_app.py::test_stream_reconnected_resends_settings_to_every_plugin" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::stream_reconnected_resends_settings_to_every_plugin" }
-"test_app.py::test_switch_device_saves_old_profile_applies_new_and_restarts" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_app.py::test_switch_device_saves_old_profile_applies_new_and_restarts" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::switch_device_saves_the_old_profile_and_applies_the_new_one" }
 "test_app.py::test_switching_the_mic_off_brings_the_camera_back" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::switching_the_mic_off_brings_the_camera_back" }
 "test_app.py::test_the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on" }
 "test_app.py::test_the_camera_rate_answer_expires" = { status = "ported", rust = "rust/app/tests/stream_status.rs::the_camera_rate_answer_expires" }
@@ -2231,23 +2231,23 @@
 "test_background.py::test_without_a_mask_yet_the_frame_goes_out_as_it_is" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_a_mask_yet_the_frame_goes_out_as_it_is" }
 "test_background.py::test_without_the_download_the_card_offers_it" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_the_download_the_card_offers_it" }
 # ── banner
-"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
+"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::an_action_runs_and_takes_the_banner_with_it" }
 "test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::an_action_that_replaces_the_issue_keeps_the_new_one" }
-"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
-"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
-"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
-"test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
-"test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/src/banners.rs" }
+"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::clearing_one_issue_leaves_a_newer_one_under_the_same_key" }
+"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::closing_tells_whoever_showed_it" }
+"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::copy_keeps_the_banner" }
+"test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::dismiss" }
+"test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::keys_replace_and_clear" }
 # ── bench_frames
 "test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "dropped", reason = "scripts/bench_frames.py times the Python app's frame pipeline and stays in Python; the Rust pipeline is timed with rust/tools/measure.py (rust/FINDINGS.md)" }
 # ── browser_camera
 "test_browser_camera.py::test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten" }
 "test_browser_camera.py::test_a_browser_stopped_here_leaves_room_for_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_browser_stopped_here_leaves_room_for_another" }
-"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_browser_camera.py::test_a_browser_takes_the_waiting_tile_over_next_to_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_browser_takes_the_waiting_tile_over_next_to_a_phone" }
+"test_browser_camera.py::test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after" }
 "test_browser_camera.py::test_a_new_link_ends_the_streams_it_cuts_off_without_starting_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_new_link_ends_the_streams_it_cuts_off_without_starting_another" }
 "test_browser_camera.py::test_a_saved_source_selection_is_restored" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_saved_source_selection_is_restored" }
-"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_browser_camera.py::test_a_source_that_isnt_ready_builds_nothing" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_source_that_isnt_ready_builds_nothing" }
 "test_browser_camera.py::test_a_stopped_browser_waits_until_it_connects_again" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_stopped_browser_waits_until_it_connects_again" }
 "test_browser_camera.py::test_a_streaming_browser_that_drops_stays_until_it_comes_back" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::a_streaming_browser_that_drops_stays_until_it_comes_back" }
 "test_browser_camera.py::test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins" }
@@ -2258,7 +2258,7 @@
 "test_browser_camera.py::test_config_falls_back_on_bad_values" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::config_falls_back_on_bad_values" }
 "test_browser_camera.py::test_diagnostics_say_how_far_browsers_got_but_never_name_the_device" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::diagnostics_say_how_far_browsers_got_but_never_name_the_device" }
 "test_browser_camera.py::test_each_browser_streams_by_itself_to_a_camera_of_its_own" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::each_browser_streams_by_itself_to_a_camera_of_its_own" }
-"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_browser_camera.py::test_every_browser_that_joined_during_a_phone_start_streams_after_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::every_browser_that_joined_during_a_phone_start_streams_after_it" }
 "test_browser_camera.py::test_falling_behind_points_at_its_own_resolution_and_frame_rate" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::falling_behind_points_at_its_own_resolution_and_frame_rate" }
 "test_browser_camera.py::test_feed_drops_frames_from_a_replaced_browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::feed_drops_frames_from_a_replaced_browser" }
 "test_browser_camera.py::test_no_room_means_no_feed" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::no_room_means_no_feed" }
@@ -2266,9 +2266,9 @@
 "test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::phone_only_cards_hide_while_a_source_is_picked", note = "the Camera card's half; the Microphone card's is the audio crate's" }
 "test_browser_camera.py::test_picking_it_runs_the_server_and_shows_the_code" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::picking_it_runs_the_server_and_shows_the_code" }
 "test_browser_camera.py::test_sending_text_says_codec_size_and_rate_once_known" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::sending_text_says_codec_size_and_rate_once_known" }
-"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "ported", rust = "rust/app/tests/plugin_window.rs" }
+"test_browser_camera.py::test_sources_are_announced_on_the_bus" = { status = "ported", rust = "rust/app/tests/plugin_window.rs::sources_are_announced_on_the_bus" }
 "test_browser_camera.py::test_sources_are_listed_after_the_phones_and_can_be_picked" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::sources_are_listed_after_the_phones_and_can_be_picked" }
-"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_browser_camera.py::test_start_streams_from_the_source_without_waking_a_phone" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_plugins_source_streams_without_waking_a_phone" }
 "test_browser_camera.py::test_the_card_shows_the_browser_the_panels_show" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_card_shows_the_browser_the_panels_show" }
 "test_browser_camera.py::test_the_server_stays_up_while_a_browser_streams_behind_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_server_stays_up_while_a_browser_streams_behind_another" }
 "test_browser_camera.py::test_two_browsers_of_one_kind_are_told_apart_in_the_picker" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::two_browsers_of_one_kind_are_told_apart_in_the_picker" }
@@ -2363,21 +2363,21 @@
 "test_check_plugin.py::test_repo_is_checked" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::repo_is_checked" }
 "test_check_plugin.py::test_the_example_plugin_passes" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_example_plugins_pass" }
 # ── chroma_key
-"test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_a_picked_colour_is_the_median_around_the_click" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_a_stream_behind_the_panels_keeps_its_key" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_keying_waits_while_its_own_pick_runs" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_softness_makes_a_ramp_instead_of_a_cliff" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_the_backdrop_is_a_colour_or_the_picture_covering_the_frame" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_the_screen_goes_and_the_person_stays" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_tolerance_decides_how_far_from_the_screen_still_goes" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
-"test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs" }
+"test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_blue_screen_keys_blue_and_keeps_green" }
+"test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_grey_pick_is_refused" }
+"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" }
+"test_chroma_key.py::test_a_picked_colour_is_the_median_around_the_click" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_picked_colour_is_the_median_around_the_click" }
+"test_chroma_key.py::test_a_stream_behind_the_panels_keeps_its_key" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_stream_behind_the_panels_keeps_its_key" }
+"test_chroma_key.py::test_keying_waits_while_its_own_pick_runs" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::keying_waits_while_its_own_pick_runs" }
+"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_starts_where_the_card_says_and_keys_that_colour" }
+"test_chroma_key.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::settings_round_trip_and_bad_values_fall_back" }
+"test_chroma_key.py::test_softness_makes_a_ramp_instead_of_a_cliff" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::softness_makes_a_ramp_instead_of_a_cliff" }
+"test_chroma_key.py::test_spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" }
+"test_chroma_key.py::test_the_backdrop_is_a_colour_or_the_picture_covering_the_frame" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::the_backdrop_is_a_colour_or_the_picture_covering_the_frame" }
+"test_chroma_key.py::test_the_screen_goes_and_the_person_stays" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::the_screen_goes_and_the_person_stays" }
+"test_chroma_key.py::test_tolerance_decides_how_far_from_the_screen_still_goes" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::tolerance_decides_how_far_from_the_screen_still_goes" }
+"test_chroma_key.py::test_without_a_frame_yet_a_pick_reads_the_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::without_a_frame_yet_a_pick_reads_the_preview" }
+"test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::without_a_stream_the_card_says_to_start_one" }
 # ── cinema
 "test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::a_big_preview_is_judged_small_and_marked_at_its_own_size" }
 "test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::a_frozen_horizon_isnt_drawn" }
@@ -2415,98 +2415,98 @@
 "test_collapse.py::test_a_panel_holding_cards_gets_each_of_them" = { status = "dropped", reason = "Qt only: there Collapsing.install() takes a finished panel apart and rewires its layout, which Slint cards never do; the kit Card and Section are foldable as they are written" }
 "test_collapse.py::test_a_plugin_added_later_is_collapsible_without_doing_anything" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::a_plugin_added_later_is_collapsible_without_doing_anything" }
 "test_collapse.py::test_a_plugin_that_hides_its_card_keeps_it_hidden_when_folded" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::a_plugin_that_hides_its_card_keeps_it_hidden_when_folded" }
-"test_collapse.py::test_a_row_keeps_its_stretch_and_alignment_inside_the_fold" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_keeps_its_stretch_inside_the_fold", note = "only the row growing is checked, not a stretch row taking spare height" }
-"test_collapse.py::test_a_row_that_grows_once_folding_is_installed_gets_its_new_height" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_keeps_its_stretch_inside_the_fold", note = "a row that grows makes the card grow with it" }
+"test_collapse.py::test_a_row_keeps_its_stretch_and_alignment_inside_the_fold" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_keeps_its_stretch_inside_the_fold" }
+"test_collapse.py::test_a_row_that_grows_once_folding_is_installed_gets_its_new_height" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_row_that_grows_once_folding_is_installed_gets_its_new_height", note = "a row that grows makes the card grow with it" }
 "test_collapse.py::test_a_section_folds_alone" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::a_section_folds_alone" }
 "test_collapse.py::test_a_switched_off_plugins_folds_survive_saving_while_it_is_gone" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_switched_off_plugins_folds_survive_saving_while_it_is_gone" }
 "test_collapse.py::test_a_title_that_goes_dim_with_its_card_stops_looking_hovered" = { status = "ported", rust = "rust/crates/shell/tests/collapse_hover.rs::hovering_a_title_marks_it_and_a_dimmed_cards_title_stays_as_it_was" }
 "test_collapse.py::test_card_and_section_titles_are_named_keyboard_toggles" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::card_and_section_titles_are_named_keyboard_toggles", note = "Slint has no stacking-order accessibility tree to check" }
-"test_collapse.py::test_changes_are_reported_once_each" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
+"test_collapse.py::test_changes_are_reported_once_each" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs::changes_are_reported_once_each" }
 "test_collapse.py::test_clicking_a_card_title_hides_everything_under_it_and_again_shows_it" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::clicking_a_card_title_hides_everything_under_it_and_again_shows_it" }
 "test_collapse.py::test_clicking_the_label_releases_the_native_toggle" = { status = "dropped", reason = "Qt only: the title is a QToolButton whose pressed state had to be released by hand; Slint has no native button underneath" }
-"test_collapse.py::test_everything_starts_open" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
+"test_collapse.py::test_everything_starts_open" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::everything_starts_open" }
 "test_collapse.py::test_folding_a_card_while_a_shortcut_is_held_still_restores_it" = { status = "dropped", reason = "Qt only: a held shortcut there pressed a widget that folding hides; here the action and its release are plugin code" }
 "test_collapse.py::test_folding_moves_focus_out_of_the_rows_it_hides" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::folding_moves_focus_out_of_the_rows_it_hides", note = "focus goes to the title on any fold, not only when it was inside the rows, since a Slint control cannot be asked where focus is" }
-"test_collapse.py::test_folds_are_saved_and_come_back_with_the_next_window" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_collapse.py::test_folds_are_saved_and_come_back_with_the_next_window" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::folds_are_saved_and_come_back" }
 "test_collapse.py::test_hovering_a_title_marks_it_and_leaving_puts_it_back" = { status = "ported", rust = "rust/crates/shell/tests/collapse_hover.rs::hovering_a_title_marks_it_and_a_dimmed_cards_title_stays_as_it_was" }
-"test_collapse.py::test_keys_say_who_owns_the_card_and_section" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
+"test_collapse.py::test_keys_say_who_owns_the_card_and_section" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs::keys_say_who_owns_the_card_and_section" }
 "test_collapse.py::test_loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::loaded_state_is_applied_to_cards_already_there_and_to_ones_added_later" }
 "test_collapse.py::test_only_the_left_button_folds" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::only_the_left_button_folds" }
 "test_collapse.py::test_resizing_into_another_layout_keeps_folds" = { status = "ported", rust = "rust/crates/shell/tests/collapse_window.rs::resizing_into_another_layout_keeps_folds" }
 "test_collapse.py::test_same_title_twice_in_one_card_gets_its_own_key" = { status = "dropped", reason = "Python works the key out from the title; here each Section writes its own key in the card .slint (no built-in card repeats a heading, checked), and any key, #2 included, folds" }
 "test_collapse.py::test_shortcuts_work_inside_folded_cards_and_sections" = { status = "dropped", reason = "Qt only: a shortcut there clicks the plugin widget and had to ignore hidden ones; here an action runs the plugin code itself, so folding cannot stop it" }
-"test_collapse.py::test_state_that_isnt_a_list_of_strings_is_ignored" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs" }
+"test_collapse.py::test_state_that_isnt_a_list_of_strings_is_ignored" = { status = "ported", rust = "rust/crates/shell/src/collapse.rs::state_that_isnt_a_list_of_strings_is_ignored" }
 "test_collapse.py::test_the_rule_and_icon_of_a_section_heading_fold_it_too" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::the_rule_and_icon_of_a_section_heading_fold_it_too" }
 "test_collapse.py::test_two_plugins_with_the_same_titles_fold_separately" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::two_plugins_with_the_same_titles_fold_separately" }
 "test_collapse.py::test_unfolding_a_card_keeps_rows_a_plugin_hid_itself" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::unfolding_a_card_keeps_rows_a_plugin_hid_itself" }
 "test_collapse.py::test_widgets_without_a_card_header_are_left_alone" = { status = "ported", rust = "rust/crates/shell/tests/collapse_ui.rs::widgets_without_a_card_header_are_left_alone" }
 # ── colour
-"test_colour.py::test_a_1d_lut_with_its_own_domain" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_a_3d_cube_reads_red_fastest" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
+"test_colour.py::test_a_1d_lut_with_its_own_domain" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_1d_lut_with_its_own_domain" }
+"test_colour.py::test_a_3d_cube_reads_red_fastest" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_3d_cube_reads_red_fastest" }
 "test_colour.py::test_a_bake_that_fails_doesnt_leave_the_baking_thread_stuck" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_bake_that_fails_doesnt_leave_the_baking_thread_stuck" }
-"test_colour.py::test_a_cube_written_reads_back_the_same" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_a_failing_stage_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_a_file_that_starts_with_a_byte_order_mark" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_a_huge_file_is_turned_away" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_a_lattice_is_red_fastest_and_cubes_are_blue_major" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_a_resolve_shaper_then_cube" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_a_stage_that_returns_the_wrong_shape_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
+"test_colour.py::test_a_cube_written_reads_back_the_same" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_cube_written_reads_back_the_same" }
+"test_colour.py::test_a_failing_stage_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stage_that_fails_is_left_out" }
+"test_colour.py::test_a_file_that_starts_with_a_byte_order_mark" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_file_that_starts_with_a_byte_order_mark" }
+"test_colour.py::test_a_huge_file_is_turned_away" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_huge_file_is_turned_away" }
+"test_colour.py::test_a_lattice_is_red_fastest_and_cubes_are_blue_major" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_lattice_is_red_fastest_and_cubes_are_blue_major" }
+"test_colour.py::test_a_resolve_shaper_then_cube" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_resolve_shaper_then_cube" }
+"test_colour.py::test_a_stage_that_returns_the_wrong_shape_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stage_that_doesnt_fit_its_size_is_left_out" }
 "test_colour.py::test_a_stopped_streams_lut_isnt_kept_from_the_cache_limit" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stopped_streams_lut_isnt_kept_from_the_cache_limit" }
 "test_colour.py::test_a_stream_behind_the_panels_keeps_the_stages_it_had" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stream_behind_the_panels_keeps_the_stages_it_had" }
-"test_colour.py::test_a_stream_gets_its_own_stages_next_to_the_shown_ones" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
+"test_colour.py::test_a_stream_gets_its_own_stages_next_to_the_shown_ones" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stream_gets_its_own_stages_next_to_the_shown_ones" }
 "test_colour.py::test_a_stream_keeps_its_lut_through_a_moment_without_stages" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stream_keeps_its_lut_through_a_moment_without_stages" }
 "test_colour.py::test_a_tall_frame_cut_into_bands_comes_out_the_same" = { status = "dropped", reason = "Bands were how OpenCV kept up on the processor. The LUT runs as one shader step, so nothing cuts a frame up." }
-"test_colour.py::test_an_identity_lut_leaves_frames_alone" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
+"test_colour.py::test_an_identity_lut_leaves_frames_alone" = { status = "ported", rust = "rust/crates/core/src/colour.rs::an_identity_lut_leaves_pixels_alone" }
 "test_colour.py::test_baked_luts_in_use_stay_and_a_hit_keeps_one_longer" = { status = "ported", rust = "rust/crates/core/src/colour.rs::baked_luts_in_use_stay_and_a_hit_keeps_one_longer" }
 "test_colour.py::test_diagnostics_say_how_long_the_lut_takes" = { status = "ported", rust = "rust/crates/core/src/colour.rs::diagnostics_say_which_lut_runs", note = "the LUT runs as a shader step, so the line names the LUT and has no time of its own" }
-"test_colour.py::test_files_telescope_cant_use_say_why" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
+"test_colour.py::test_files_telescope_cant_use_say_why" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::files_telescope_cant_use_say_why" }
 "test_colour.py::test_new_stages_are_baked_off_the_stream_thread" = { status = "ported", rust = "rust/crates/core/src/colour.rs::new_stages_are_baked_off_the_stream_thread" }
-"test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_per_channel_stages_become_exact_tables" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_real_cube_files_load_and_survive_a_round_trip" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_stages_run_in_order_and_values_are_clipped_between_them" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_stages_sort_by_order_then_owner_and_an_owner_replaces_its_own" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_tabs_after_keywords_and_a_hash_inside_a_quoted_title" = { status = "ported", rust = "rust/crates/effects/src/cube.rs" }
-"test_colour.py::test_the_bake_size_is_what_the_stages_need" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
-"test_colour.py::test_the_composed_lut_follows_the_order" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
+"test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_3d_lut_is_interpolated_trilinearly" }
+"test_colour.py::test_per_channel_stages_become_exact_tables" = { status = "ported", rust = "rust/crates/core/src/colour.rs::per_channel_stages_become_exact_tables" }
+"test_colour.py::test_real_cube_files_load_and_survive_a_round_trip" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::real_cube_files_load_and_survive_a_round_trip" }
+"test_colour.py::test_stages_run_in_order_and_values_are_clipped_between_them" = { status = "ported", rust = "rust/crates/core/src/colour.rs::stages_run_in_order_and_values_are_clipped_between_them" }
+"test_colour.py::test_stages_sort_by_order_then_owner_and_an_owner_replaces_its_own" = { status = "ported", rust = "rust/crates/core/src/colour.rs::stages_sort_by_order_then_owner_and_an_owner_replaces_its_own" }
+"test_colour.py::test_tabs_after_keywords_and_a_hash_inside_a_quoted_title" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::tabs_after_keywords_and_a_hash_inside_a_quoted_title" }
+"test_colour.py::test_the_bake_size_is_what_the_stages_need" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_bake_size_is_what_the_stages_need" }
+"test_colour.py::test_the_composed_lut_follows_the_order" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_composed_lut_follows_the_order" }
 "test_colour.py::test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_picture_before_the_colour_step_shows_left_of_the_split", note = "the preview draws on the full frame here, so Python's resize to a smaller preview has no twin" }
 "test_colour.py::test_the_split_is_only_drawn_on_the_stream_it_came_from" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_split_is_only_drawn_on_the_stream_it_came_from" }
 "test_colour.py::test_the_window_finds_which_stream_a_frame_is_from" = { status = "dropped", reason = "Python's frame steps ask which stream a frame is from. Here each stream's steps are made for its source id (State::pipeline_steps, checked by a_stream_gets_the_colour_stages_set_for_it_alone), so there's nothing to look up." }
-"test_colour.py::test_without_stages_frames_go_through_untouched" = { status = "ported", rust = "rust/crates/core/src/colour.rs" }
+"test_colour.py::test_without_stages_frames_go_through_untouched" = { status = "ported", rust = "rust/crates/core/src/colour.rs::without_stages_frames_go_through_untouched" }
 # ── colour_grading
-"test_colour_grading.py::test_a_click_adds_a_point_on_the_line_and_a_drag_moves_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_a_double_click_resets_the_wheel" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_a_lut_file_loads_shows_its_strength_and_comes_off_again" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_a_lut_that_cant_be_used_says_why" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_a_neutral_grade_puts_nothing_in_the_pipeline" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_a_point_on_a_hue_curve_comes_off_with_a_double_click" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_a_preset_brings_its_lut_back_from_the_file" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_a_real_double_click_on_a_point_still_removes_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_a_real_double_click_on_the_curve_resets_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_a_right_click_removes_a_point" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_arrow_keys_keep_a_hue_point_in_range" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_arrow_keys_move_the_puck_and_home_puts_it_back" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
+"test_colour_grading.py::test_a_click_adds_a_point_on_the_line_and_a_drag_moves_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_click_adds_a_point_on_the_line_and_a_drag_moves_it" }
+"test_colour_grading.py::test_a_double_click_resets_the_wheel" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_double_click_resets_the_wheel" }
+"test_colour_grading.py::test_a_lut_file_loads_shows_its_strength_and_comes_off_again" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::a_lut_file_loads_shows_its_strength_and_comes_off_again" }
+"test_colour_grading.py::test_a_lut_that_cant_be_used_says_why" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::a_lut_that_cant_be_used_says_why" }
+"test_colour_grading.py::test_a_neutral_grade_puts_nothing_in_the_pipeline" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::a_neutral_grade_puts_nothing_in_the_pipeline" }
+"test_colour_grading.py::test_a_point_on_a_hue_curve_comes_off_with_a_double_click" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_point_on_a_hue_curve_comes_off_with_a_double_click" }
+"test_colour_grading.py::test_a_preset_brings_its_lut_back_from_the_file" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::a_preset_brings_its_lut_back_from_the_file" }
+"test_colour_grading.py::test_a_real_double_click_on_a_point_still_removes_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_real_double_click_on_a_point_still_removes_it" }
+"test_colour_grading.py::test_a_real_double_click_on_the_curve_resets_it" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_real_double_click_on_the_curve_resets_it" }
+"test_colour_grading.py::test_a_right_click_removes_a_point" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::a_right_click_removes_a_point" }
+"test_colour_grading.py::test_arrow_keys_keep_a_hue_point_in_range" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::arrow_keys_keep_a_hue_point_in_range" }
+"test_colour_grading.py::test_arrow_keys_move_the_puck_and_home_puts_it_back" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::arrow_keys_move_the_puck_and_home_puts_it_back" }
 "test_colour_grading.py::test_compare_draws_the_split_on_the_preview" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::compare_draws_the_split_on_the_preview" }
-"test_colour_grading.py::test_diagnostics_say_whether_a_grade_is_on" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_dragging_moves_the_puck_without_jumping_and_stays_in_the_circle" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_export_asks_before_replacing_a_file_the_dialog_didnt_name" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_export_says_when_it_cant_write" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_export_writes_the_grade_at_the_size_picked" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_hue_points_stay_below_1_and_apart_round_the_hues" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_it_is_an_optional_built_in_that_rides_in_presets_per_phone" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_keys_pick_move_and_remove_points" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_odd_saved_settings_load_as_something_sensible" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_reset_clears_the_grade_but_keeps_the_lut" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_saved_hue_points_at_1_or_twice_come_back_as_one" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_settings_survive_a_save_and_load" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_shortcuts_reach_the_main_controls" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_shutting_down_takes_the_stage_and_split_out" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_switching_phones_publishes_the_lut_once_and_reads_the_file_once" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_switching_the_grade_off_takes_it_out_and_back" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs" }
-"test_colour_grading.py::test_the_curve_drawn_is_the_one_applied" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_the_ends_of_a_tone_curve_stay_at_the_edges" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
-"test_colour_grading.py::test_tone_points_keep_their_order_while_dragged" = { status = "ported", rust = "rust/crates/effects/src/editors.rs" }
+"test_colour_grading.py::test_diagnostics_say_whether_a_grade_is_on" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::diagnostics_say_whether_a_grade_is_on" }
+"test_colour_grading.py::test_dragging_moves_the_puck_without_jumping_and_stays_in_the_circle" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::dragging_moves_the_puck_without_jumping_and_stays_in_the_circle" }
+"test_colour_grading.py::test_export_asks_before_replacing_a_file_the_dialog_didnt_name" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::export_asks_before_replacing_a_file_the_dialog_didnt_name" }
+"test_colour_grading.py::test_export_says_when_it_cant_write" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::export_says_when_it_cant_write" }
+"test_colour_grading.py::test_export_writes_the_grade_at_the_size_picked" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::export_writes_the_grade_at_the_size_picked" }
+"test_colour_grading.py::test_hue_points_stay_below_1_and_apart_round_the_hues" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::hue_points_stay_below_1_and_apart_round_the_hues" }
+"test_colour_grading.py::test_it_is_an_optional_built_in_that_rides_in_presets_per_phone" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::it_is_an_optional_built_in_that_rides_in_presets_per_phone" }
+"test_colour_grading.py::test_keys_pick_move_and_remove_points" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::keys_pick_move_and_remove_points" }
+"test_colour_grading.py::test_odd_saved_settings_load_as_something_sensible" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::odd_saved_settings_load_as_something_sensible" }
+"test_colour_grading.py::test_pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" }
+"test_colour_grading.py::test_reset_clears_the_grade_but_keeps_the_lut" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::reset_clears_the_grade_but_keeps_the_lut" }
+"test_colour_grading.py::test_saved_hue_points_at_1_or_twice_come_back_as_one" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::saved_hue_points_at_1_or_twice_come_back_as_one" }
+"test_colour_grading.py::test_settings_survive_a_save_and_load" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::settings_survive_a_save_and_load" }
+"test_colour_grading.py::test_shortcuts_reach_the_main_controls" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::shortcuts_reach_the_main_controls" }
+"test_colour_grading.py::test_shutting_down_takes_the_stage_and_split_out" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::shutting_down_takes_the_stage_and_split_out" }
+"test_colour_grading.py::test_switching_phones_publishes_the_lut_once_and_reads_the_file_once" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::switching_phones_publishes_the_lut_once_and_reads_the_file_once" }
+"test_colour_grading.py::test_switching_the_grade_off_takes_it_out_and_back" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::switching_the_grade_off_takes_it_out_and_back" }
+"test_colour_grading.py::test_the_curve_drawn_is_the_one_applied" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::the_curve_drawn_is_the_one_applied" }
+"test_colour_grading.py::test_the_ends_of_a_tone_curve_stay_at_the_edges" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::the_ends_of_a_tone_curve_stay_at_the_edges" }
+"test_colour_grading.py::test_tone_points_keep_their_order_while_dragged" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::tone_points_keep_their_order_while_dragged" }
 # ── composite
 "test_composite.py::test_a_border_goes_inside_the_box_in_its_colour" = { status = "ported", rust = "rust/crates/effects/src/compositor_tests.rs::a_border_goes_inside_the_box_in_its_colour" }
 "test_composite.py::test_a_box_of_another_shape_cuts_evenly_from_the_middle" = { status = "ported", rust = "rust/crates/effects/src/composite_tests.rs::a_box_of_another_shape_cuts_evenly_from_the_middle" }
@@ -2822,12 +2822,12 @@
 "test_face_exposure.py::test_the_point_goes_where_the_face_is_in_the_picture_as_shown" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::the_point_goes_where_the_face_is_in_the_picture_as_shown" }
 "test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::walking_in_moves_the_point_once_you_settle" }
 # ── frames
-"test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
-"test_frames.py::test_streams_without_a_picture_or_that_stopped_are_left_out" = { status = "ported", rust = "rust/crates/media/src/frames.rs" }
+"test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs::a_dropped_stream_keeps_its_last_frame_which_only_gets_older" }
+"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from" }
+"test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "ported", rust = "rust/crates/media/src/frames.rs::a_published_frame_carries_a_number_and_when_it_was_made" }
+"test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs::frames_are_handed_out_read_only_and_without_copying" }
+"test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs::reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" }
+"test_frames.py::test_streams_without_a_picture_or_that_stopped_are_left_out" = { status = "ported", rust = "rust/crates/media/src/frames.rs::streams_without_a_picture_or_that_stopped_are_left_out" }
 "test_frames.py::test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens" = { status = "ported", rust = "rust/app/tests/stream_window.rs::the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_opens" }
 "test_frames.py::test_the_window_shares_its_streams_as_they_start_change_and_stop" = { status = "ported", rust = "rust/app/tests/stream_window.rs::the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_opens" }
 # ── framing
@@ -2855,55 +2855,55 @@
 "test_framing.py::test_two_people_get_one_box_around_both" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::two_people_get_one_box_around_both" }
 "test_framing.py::test_with_no_room_to_move_it_follows_every_shift" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::with_no_room_to_move_it_follows_every_shift" }
 # ── fun_pack
-"test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_a_plate_of_another_shape_is_never_stretched_over_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_another_stream_starts_without_the_last_ones_history" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_background_streams_get_no_stick_figure_or_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_clean_up_lets_a_keyframe_through" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_clones_stay_where_they_were_taken_and_you_stay_in_front" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_datamosh_on_heavy_says_why_and_changes_no_packets" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_datamosh_puts_a_packet_step_on_and_takes_it_off" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_long_light_trails_still_fade_all_the_way" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_off_by_default_with_nothing_on_the_stream" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_settings_come_back" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_shutting_down_lets_go_of_packets_and_people" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_slit_scan_shows_the_bottom_of_the_picture_from_further_back" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::a_clone_without_the_empty_room_or_vision_says_what_to_do" }
+"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::a_frozen_step_keeps_its_settings" }
+"test_fun_pack.py::test_a_plate_of_another_shape_is_never_stretched_over_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::a_plate_of_another_shape_is_never_stretched_over_the_picture" }
+"test_fun_pack.py::test_another_stream_starts_without_the_last_ones_history" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::another_stream_starts_without_the_last_ones_history" }
+"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::asking_for_people_only_once" }
+"test_fun_pack.py::test_background_streams_get_no_stick_figure_or_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::background_streams_get_no_stick_figure_or_empty_room" }
+"test_fun_pack.py::test_clean_up_lets_a_keyframe_through" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::clean_up_lets_a_keyframe_through" }
+"test_fun_pack.py::test_clones_stay_where_they_were_taken_and_you_stay_in_front" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::clones_stay_where_they_were_taken_and_you_stay_in_front" }
+"test_fun_pack.py::test_datamosh_on_heavy_says_why_and_changes_no_packets" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::datamosh_on_heavy_says_why_and_changes_no_packets" }
+"test_fun_pack.py::test_datamosh_puts_a_packet_step_on_and_takes_it_off" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::datamosh_puts_a_packet_step_on_and_takes_it_off" }
+"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::each_retro_look_keeps_the_size_and_changes_the_picture" }
+"test_fun_pack.py::test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::light_painting_leaves_a_trail_that_fades_and_clear_starts_again" }
+"test_fun_pack.py::test_long_light_trails_still_fade_all_the_way" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::long_light_trails_still_fade_all_the_way" }
+"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::off_by_default_with_nothing_on_the_stream" }
+"test_fun_pack.py::test_off_by_default_with_nothing_on_the_stream" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::off_by_default_with_nothing_on_the_stream" }
+"test_fun_pack.py::test_settings_come_back" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::settings_come_back" }
+"test_fun_pack.py::test_shutting_down_lets_go_of_packets_and_people" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::shutting_down_lets_go_of_packets_and_people" }
+"test_fun_pack.py::test_slit_scan_shows_the_bottom_of_the_picture_from_further_back" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::slit_scan_shows_the_bottom_of_the_picture_from_further_back" }
+"test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::stick_figure_lines_come_from_the_pose_through_the_view" }
+"test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::switching_camera_calls_off_taking_the_empty_room" }
+"test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_1998_webcam_repeats_every_other_frame_without_handing_out_the_same_one" }
 "test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" }
-"test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_the_empty_room_difference_finds_whoever_stands_in_front_of_it" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
-"test_fun_pack.py::test_the_empty_room_is_dropped_when_the_picture_changes_under_it" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_the_game_boy_has_four_shades" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
-"test_fun_pack.py::test_the_stick_figure_asks_for_people_and_follows_them" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs" }
-"test_fun_pack.py::test_the_stick_figure_is_drawn_on_paper_or_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs" }
+"test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_cloak_shows_the_empty_room_where_you_are" }
+"test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_cloak_uses_the_person_mask_when_the_vision_download_is_there" }
+"test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_empty_room_and_a_clone_are_taken_from_the_next_frame" }
+"test_fun_pack.py::test_the_empty_room_difference_finds_whoever_stands_in_front_of_it" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_empty_room_difference_finds_whoever_stands_in_front_of_it" }
+"test_fun_pack.py::test_the_empty_room_is_dropped_when_the_picture_changes_under_it" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_empty_room_is_dropped_when_the_picture_changes_under_it" }
+"test_fun_pack.py::test_the_game_boy_has_four_shades" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::the_game_boy_makes_pythons_four_shades" }
+"test_fun_pack.py::test_the_stick_figure_asks_for_people_and_follows_them" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_stick_figure_asks_for_people_and_follows_them" }
+"test_fun_pack.py::test_the_stick_figure_is_drawn_on_paper_or_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_stick_figure_is_drawn_on_paper_or_the_empty_room" }
 # ── grade
-"test_grade.py::test_a_detailed_lut_asks_for_a_bigger_bake" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_a_hue_curve_given_one_hue_twice_has_no_hard_edge" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_a_lut_file_goes_last_and_strength_mixes_it_in" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_a_wheel_pushes_towards_the_colour_it_points_at_without_changing_brightness" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_contrast_turns_around_the_pivot" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_curves_go_through_their_points_without_overshooting" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_everything_together_is_each_step_in_turn" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_hue_curves_go_round" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_hue_vs_hue_turns_one_hue_towards_the_next" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_hue_vs_sat_takes_the_colour_out_of_one_hue_only" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_lift_gamma_gain_and_offset_masters" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_lift_pins_white_gain_pins_black_and_gamma_pins_both" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_saturation_mixes_with_rec709_luma" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_shadows_and_highlights_move_the_tones_they_name" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_temperature_and_tint_are_gains_in_linear_light" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_the_default_grade_changes_nothing" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_the_master_curve_comes_before_each_channels_own" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
-"test_grade.py::test_wheels_follow_the_same_formula_per_channel" = { status = "ported", rust = "rust/crates/effects/src/grade.rs" }
+"test_grade.py::test_a_detailed_lut_asks_for_a_bigger_bake" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::a_detailed_lut_asks_for_a_bigger_bake" }
+"test_grade.py::test_a_hue_curve_given_one_hue_twice_has_no_hard_edge" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::a_hue_curve_given_one_hue_twice_has_no_hard_edge" }
+"test_grade.py::test_a_lut_file_goes_last_and_strength_mixes_it_in" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::a_lut_file_goes_last_and_strength_mixes_it_in" }
+"test_grade.py::test_a_wheel_pushes_towards_the_colour_it_points_at_without_changing_brightness" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::a_wheel_pushes_towards_the_colour_it_points_at_without_changing_brightness" }
+"test_grade.py::test_contrast_turns_around_the_pivot" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::contrast_turns_around_the_pivot" }
+"test_grade.py::test_curves_go_through_their_points_without_overshooting" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::curves_go_through_their_points_without_overshooting" }
+"test_grade.py::test_everything_together_is_each_step_in_turn" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::everything_together_is_each_step_in_turn" }
+"test_grade.py::test_hue_curves_go_round" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::hue_curves_go_round" }
+"test_grade.py::test_hue_vs_hue_turns_one_hue_towards_the_next" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::hue_vs_hue_turns_one_hue_towards_the_next" }
+"test_grade.py::test_hue_vs_sat_takes_the_colour_out_of_one_hue_only" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::hue_vs_sat_takes_the_colour_out_of_one_hue_only" }
+"test_grade.py::test_lift_gamma_gain_and_offset_masters" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::lift_gamma_gain_and_offset_masters" }
+"test_grade.py::test_lift_pins_white_gain_pins_black_and_gamma_pins_both" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::lift_pins_white_gain_pins_black_and_gamma_pins_both" }
+"test_grade.py::test_saturation_mixes_with_rec709_luma" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::saturation_mixes_with_rec709_luma" }
+"test_grade.py::test_shadows_and_highlights_move_the_tones_they_name" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::shadows_and_highlights_move_the_tones_they_name" }
+"test_grade.py::test_temperature_and_tint_are_gains_in_linear_light" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::temperature_and_tint_are_gains_in_linear_light" }
+"test_grade.py::test_the_default_grade_changes_nothing" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::the_default_grade_changes_nothing" }
+"test_grade.py::test_the_master_curve_comes_before_each_channels_own" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::the_master_curve_comes_before_each_channels_own" }
+"test_grade.py::test_wheels_follow_the_same_formula_per_channel" = { status = "ported", rust = "rust/crates/effects/src/grade.rs::wheels_follow_the_same_formula_per_channel" }
 # ── h264_mosh
 "test_h264_mosh.py::test_a_baseline_stream_moshes_too" = { status = "ported", rust = "rust/app/tests/mosh.rs::a_baseline_stream_moshes_too" }
 "test_h264_mosh.py::test_a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect" = { status = "ported", rust = "rust/app/tests/mosh.rs::a_new_decoder_on_the_same_stream_gets_its_keyframes_after_a_reconnect" }
@@ -2914,22 +2914,22 @@
 "test_h264_mosh.py::test_repeats_hand_back_more_frames_and_all_of_them_decode" = { status = "ported", rust = "rust/app/tests/mosh.rs::repeats_hand_back_more_frames_and_all_of_them_decode" }
 "test_h264_mosh.py::test_the_first_keyframe_always_goes_through" = { status = "ported", rust = "rust/app/tests/mosh.rs::the_first_keyframe_always_goes_through" }
 # ── h264_reader
-"test_h264_reader.py::test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" = { status = "ported", rust = "rust/crates/media/src/reader.rs" }
-"test_h264_reader.py::test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_a_hardware_decoder_refusing_the_stream_falls_back_too" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_data_that_never_makes_a_frame_ends_the_stream" = { status = "ported", rust = "rust/crates/media/src/reader.rs" }
-"test_h264_reader.py::test_decoding_diagnostics_follow_the_live_decoder_not_the_next_preference" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_decoding_stays_in_software_unless_hardware_is_on" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_each_packet_shows_its_frame_straight_away" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_failure_after_setup_recovers_at_an_idr_without_repeated_headers" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_linux_tries_va_api_before_cuda_when_pyav_has_it" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback" }
+"test_h264_reader.py::test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" = { status = "ported", rust = "rust/crates/media/src/reader.rs::a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived" }
+"test_h264_reader.py::test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_card_that_opens_decodes_or_hands_over_to_software" }
+"test_h264_reader.py::test_a_hardware_decoder_refusing_the_stream_falls_back_too" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_hardware_decoder_refusing_the_stream_falls_back_to_software_given_each_unit_once" }
+"test_h264_reader.py::test_data_that_never_makes_a_frame_ends_the_stream" = { status = "ported", rust = "rust/crates/media/src/reader.rs::data_that_never_makes_a_frame_ends_the_stream" }
+"test_h264_reader.py::test_decoding_diagnostics_follow_the_live_decoder_not_the_next_preference" = { status = "ported", rust = "rust/crates/media/src/h264.rs::diagnostics_follow_the_live_decoders" }
+"test_h264_reader.py::test_decoding_stays_in_software_unless_hardware_is_on" = { status = "ported", rust = "rust/crates/media/src/h264.rs::decoding_stays_in_software_unless_hardware_is_on" }
+"test_h264_reader.py::test_each_packet_shows_its_frame_straight_away" = { status = "ported", rust = "rust/crates/media/src/h264.rs::each_packet_shows_its_frame_straight_away" }
+"test_h264_reader.py::test_failure_after_setup_recovers_at_an_idr_without_repeated_headers" = { status = "ported", rust = "rust/crates/media/src/h264.rs::failure_after_setup_recovers_at_an_idr_without_repeated_headers" }
+"test_h264_reader.py::test_linux_tries_va_api_before_cuda_when_pyav_has_it" = { status = "ported", rust = "rust/crates/media/src/h264.rs::linux_tries_va_api_before_cuda" }
+"test_h264_reader.py::test_no_graphics_card_decoder_means_software" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_card_that_opens_decodes_or_hands_over_to_software" }
+"test_h264_reader.py::test_pieces_of_any_size_decode_in_order" = { status = "ported", rust = "rust/crates/media/src/h264.rs::pieces_of_any_size_decode_in_order" }
 "test_h264_reader.py::test_pyav_is_imported_by_one_thread_at_a_time" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 "test_h264_reader.py::test_reader_reads_authenticated_frames_then_reports_eof" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::an_h264_feed_reads_authenticated_bytes_then_reports_eof", note = "the HTTP half; decoding the frames is the media crate's" }
 "test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::rejects_non_multipart_response" }
-"test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_hardware_decoder_refusing_the_stream_falls_back_to_software_given_each_unit_once" }
 "test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 "test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
 # ── hotkeys
@@ -2980,18 +2980,18 @@
 "test_ip_utils.py::test_pairing_addresses_tolerate_enumeration_failure" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses", note = "no test: a failing get_if_addrs gives an empty list" }
 "test_ip_utils.py::test_pairing_addresses_trim_very_long_interface_names" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_trim_very_long_interface_names" }
 # ── jpeg_guard
-"test_jpeg_guard.py::test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs" }
-"test_jpeg_guard.py::test_a_truncated_real_jpeg_is_still_sized_when_its_header_is_whole" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_every_start_of_frame_variant_is_read" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_exif_in_front_is_skipped" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_fill_bytes_and_standalone_markers_are_tolerated" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_garbage_and_truncation_give_none_without_raising" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_limits" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_reads_a_progressive_jpeg" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_reads_the_size_of_real_encoder_output" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_segments_are_skipped_by_their_length_not_by_searching" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_the_dht_marker_is_not_a_frame_header" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs" }
-"test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs" }
+"test_jpeg_guard.py::test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs::a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" }
+"test_jpeg_guard.py::test_a_truncated_real_jpeg_is_still_sized_when_its_header_is_whole" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::a_truncated_real_jpeg_is_still_sized_when_its_header_is_whole" }
+"test_jpeg_guard.py::test_every_start_of_frame_variant_is_read" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::every_start_of_frame_variant_is_read" }
+"test_jpeg_guard.py::test_exif_in_front_is_skipped" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::exif_in_front_is_skipped" }
+"test_jpeg_guard.py::test_fill_bytes_and_standalone_markers_are_tolerated" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::fill_bytes_and_standalone_markers_are_tolerated" }
+"test_jpeg_guard.py::test_garbage_and_truncation_give_none_without_raising" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::garbage_and_truncation_give_none_without_raising" }
+"test_jpeg_guard.py::test_limits" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::limits" }
+"test_jpeg_guard.py::test_reads_a_progressive_jpeg" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::reads_a_progressive_jpeg" }
+"test_jpeg_guard.py::test_reads_the_size_of_real_encoder_output" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::reads_the_size_of_real_encoder_output" }
+"test_jpeg_guard.py::test_segments_are_skipped_by_their_length_not_by_searching" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::segments_are_skipped_by_their_length_not_by_searching" }
+"test_jpeg_guard.py::test_the_dht_marker_is_not_a_frame_header" = { status = "ported", rust = "rust/crates/media/src/jpeg_guard.rs::the_dht_marker_is_not_a_frame_header" }
+"test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs::the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" }
 # ── level_meter
 "test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::a_louder_peak_moves_the_hold_up_at_once" }
 "test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it" }
@@ -3185,24 +3185,24 @@
 "test_on_air.py::test_with_wait_screen_there_is_no_second_watch" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::with_wait_screen_there_is_no_second_watch" }
 "test_on_air.py::test_without_wait_screen_it_watches_the_camera_itself" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::without_wait_screen_it_watches_the_camera_itself" }
 # ── onboarding
-"test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::a_paired_phone_alone_is_not_enough_without_the_camera" }
 "test_onboarding.py::test_a_saved_first_stream_keeps_the_checklist_away" = { status = "todo" }
-"test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"test_onboarding.py::test_a_stream_starting_closes_the_guide" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"test_onboarding.py::test_add_phone_goes_through_the_bus" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"test_onboarding.py::test_checklist_steps_aside_after_the_first_stream" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"test_onboarding.py::test_missing_v4l2loopback_says_which_package" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"test_onboarding.py::test_starts_as_a_checklist_with_nothing_done" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::a_stream_source_stands_in_for_the_phone_steps" }
+"test_onboarding.py::test_a_stream_starting_closes_the_guide" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::a_stream_starting_closes_the_guide" }
+"test_onboarding.py::test_add_phone_goes_through_the_bus" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::add_phone_goes_through_the_bus" }
+"test_onboarding.py::test_checklist_steps_aside_after_the_first_stream" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::checklist_steps_aside_after_the_first_stream" }
+"test_onboarding.py::test_missing_v4l2loopback_says_which_package" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::missing_v4l2loopback_says_which_package" }
+"test_onboarding.py::test_starts_as_a_checklist_with_nothing_done" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::starts_as_a_checklist_with_nothing_done" }
 "test_onboarding.py::test_streaming_hides_the_checklist" = { status = "todo" }
-"test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::the_help_button_brings_the_phone_steps_back_until_closed" }
 "test_onboarding.py::test_the_video_stage_makes_room_for_the_checklist" = { status = "todo" }
 "test_onboarding.py::test_usb_install_is_offered_only_with_a_bundled_apk_and_adb" = { status = "todo" }
 "test_onboarding.py::test_usb_install_reports_a_missing_phone" = { status = "todo" }
-"test_onboarding.py::test_windows_offers_to_install_the_driver" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
+"test_onboarding.py::test_windows_offers_to_install_the_driver" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs::windows_offers_to_install_the_driver" }
 # ── overlays
 "test_overlays.py::test_a_click_is_not_an_area" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_click_is_not_an_area" }
 "test_overlays.py::test_a_failing_on_done_does_not_break_the_next_pick" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_failing_on_its_pick_doesnt_break_the_next_pick" }
-"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_pick_carries_the_picture_shown_before_any_tint" }
+"test_overlays.py::test_a_pick_carries_the_picture_shown_before_any_tint" = { status = "ported", rust = "rust/app/tests/preview_pick.rs::a_pick_carries_the_picture_shown_before_any_tint" }
 "test_overlays.py::test_a_pick_result_is_frozen" = { status = "dropped", reason = "A Rust Pick reaches a plugin as an event holding its own copy, so there's nothing to change it through (Python's frozen dataclass guards a shared object)" }
 "test_overlays.py::test_a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_point_comes_back_where_it_was_clicked_and_in_the_whole_picture" }
 "test_overlays.py::test_a_quad_past_one_edge_still_moves_away_from_it" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::a_quad_past_one_edge_still_moves_away_from_it" }
@@ -3225,19 +3225,19 @@
 "test_overlays.py::test_without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::without_zoom_the_whole_picture_is_the_phone_frame_focus_uses" }
 "test_overlays.py::test_zoom_maps_onto_the_part_of_the_picture_shown" = { status = "ported", rust = "rust/crates/shell/src/overlays.rs::zoom_maps_onto_the_part_of_the_picture_shown" }
 # ── packets
-"test_packets.py::test_a_failing_step_passes_units_through_and_is_left_out_after_a_while" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
-"test_packets.py::test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_packets.py::test_a_new_decoder_starts_its_steps_afresh" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_packets.py::test_a_step_can_drop_a_frame" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_packets.py::test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_packets.py::test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
+"test_packets.py::test_a_failing_step_passes_units_through_and_is_left_out_after_a_while" = { status = "ported", rust = "rust/crates/media/src/packets.rs::a_failing_step_passes_units_through_and_is_left_out_after_a_while" }
+"test_packets.py::test_a_hand_over_decoder_doesnt_take_the_running_decoders_steps" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_hand_over_decoder_doesnt_take_the_running_decoders_steps" }
+"test_packets.py::test_a_new_decoder_starts_its_steps_afresh" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_new_decoder_starts_its_steps_afresh" }
+"test_packets.py::test_a_step_can_drop_a_frame" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_step_can_drop_a_frame" }
+"test_packets.py::test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first" }
+"test_packets.py::test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded" }
 "test_packets.py::test_a_step_that_hands_back_the_wrong_thing_is_ignored" = { status = "dropped", reason = "PacketStep::step can only return byte vectors in Rust; a panicking step is covered by the failing-step test" }
-"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_packets.py::test_each_open_gives_every_owner_a_fresh_step" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
-"test_packets.py::test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
-"test_packets.py::test_nothing_extra_runs_while_no_plugin_changes_packets" = { status = "ported", rust = "rust/crates/media/src/h264.rs" }
-"test_packets.py::test_steps_run_one_after_the_other" = { status = "ported", rust = "rust/crates/media/src/packets.rs" }
-"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_packets.py::test_both_readers_hand_their_tap_to_the_decoder" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::both_readers_hand_their_tap_to_the_decoder" }
+"test_packets.py::test_each_open_gives_every_owner_a_fresh_step" = { status = "ported", rust = "rust/crates/media/src/packets.rs::each_open_gives_every_owner_a_fresh_step" }
+"test_packets.py::test_each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" = { status = "ported", rust = "rust/crates/media/src/packets.rs::each_stream_gets_a_fresh_step_and_a_step_coming_on_or_off_says_so" }
+"test_packets.py::test_nothing_extra_runs_while_no_plugin_changes_packets" = { status = "ported", rust = "rust/crates/media/src/h264.rs::nothing_extra_runs_while_no_plugin_changes_packets" }
+"test_packets.py::test_steps_run_one_after_the_other" = { status = "ported", rust = "rust/crates/media/src/packets.rs::steps_run_one_after_the_other" }
+"test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_stream_worker_gives_its_tap_to_light_readers_only" }
 # ── pairing
 "test_pairing_server.py::test_a_malformed_fingerprint_is_rejected" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::a_malformed_fingerprint_is_rejected" }
 "test_pairing_server.py::test_a_peer_trickling_bytes_is_cut_off_at_the_deadline" = { status = "ported", rust = "rust/crates/link/src/pairing.rs::a_peer_trickling_bytes_is_cut_off_at_the_deadline" }
@@ -3393,7 +3393,7 @@
 "test_platform.py::test_adb_reverse_builds_serial_specific_command" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_reverse_builds_serial_specific_command" }
 "test_platform.py::test_adb_reverse_surfaces_error_and_unreverse_ignores_it" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_reverse_surfaces_error_and_unreverse_ignores_it" }
 "test_platform.py::test_bundled_apk_path_returns_existing_file" = { status = "ported", rust = "rust/crates/link/src/adb.rs::bundled_apk_path", note = "no test" }
-"test_platform.py::test_off_windows_adb_runs_its_own_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::OWN_ADB_SERVER", note = "no test" }
+"test_platform.py::test_off_windows_adb_runs_its_own_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::off_windows_adb_runs_its_own_server", note = "no test" }
 "test_platform.py::test_platform_tools_dir_uses_desktop_source_tree" = { status = "dropped", reason = "the Rust app has no source-tree run that looks in desktop/platform-tools; TELESCOPE_ADB or PATH instead" }
 "test_platform.py::test_platform_tools_dir_uses_executable_when_frozen" = { status = "ported", rust = "rust/crates/link/src/adb.rs::platform_tools_dir", note = "always next to the executable" }
 "test_platform.py::test_run_hides_the_console_window_on_windows" = { status = "ported", rust = "rust/crates/link/src/adb.rs::hide_window", note = "Windows only, untested" }
@@ -3426,38 +3426,38 @@
 "test_platform_linux.py::test_setup_with_persist_writes_the_boot_config_in_the_same_prompt" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::setup_with_persist_writes_the_boot_config_in_the_same_prompt" }
 "test_platform_linux.py::test_sudo_is_never_run_where_it_could_ask_for_a_password" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::sudo_is_never_run_where_it_could_ask_for_a_password" }
 "test_platform_windows.py::test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture" }
-"test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_handles_network_and_checksum_failures" }
 "test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_registration_from_the_app_folder_is_flagged" }
 "test_platform_windows.py::test_a_slot_streams_to_the_windows_11_camera_once_its_registered" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::a_slot_streams_to_the_windows_11_camera_once_its_registered" }
 "test_platform_windows.py::test_an_older_windows_11_camera_is_offered_an_update" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::an_older_windows_11_camera_is_outdated_when_a_newer_dll_is_here" }
 "test_platform_windows.py::test_an_update_renames_a_loaded_dll_out_of_the_way" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::an_update_renames_a_loaded_dll_out_of_the_way" }
-"test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_cameras_windows_wouldnt_change_stay_without_unitycapture_on_top" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::a_refused_windows_11_camera_falls_back_to_unitycapture_unless_its_cameras_are_still_there" }
 "test_platform_windows.py::test_download_unitycapture_handles_network_and_checksum_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_handles_network_and_checksum_failures" }
 "test_platform_windows.py::test_download_unitycapture_verifies_both_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::download_unitycapture_verifies_both_files" }
-"test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_going_back_to_one_camera_unregisters_them_all_first" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::going_back_to_one_camera_unregisters_them_all_first" }
 "test_platform_windows.py::test_it_installs_only_with_the_dll_bundled" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::it_installs_only_with_the_dll_bundled" }
 "test_platform_windows.py::test_mf_camera_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::mf_camera_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
 "test_platform_windows.py::test_only_the_installed_copy_takes_the_start_menu_entrys_app_id" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::only_the_installed_copy_takes_the_start_menu_entrys_app_id" }
 "test_platform_windows.py::test_protected_folder_comes_from_the_known_folder_not_the_environment" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::protected_folder_comes_from_the_known_folder_not_the_environment" }
 "test_platform_windows.py::test_register_drops_a_tampered_file_so_a_retry_downloads_it_again" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_drops_a_tampered_file_so_a_retry_downloads_it_again" }
-"test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_register_invokes_elevated_powershell" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_admin_script_starts_encoded_and_quotes_paths" }
 "test_platform_windows.py::test_register_names_what_failed_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_names_what_failed_as_admin" }
 "test_platform_windows.py::test_register_normalizes_process_failures" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_normalizes_process_failures", note = "The test stands in for the process; the real admin run is Windows-only and compile-checked" }
 "test_platform_windows.py::test_register_refuses_missing_or_tampered_files" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::register_refuses_missing_or_tampered_files" }
-"test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_register_unitycapture_survives_an_apostrophe_in_the_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_admin_script_starts_encoded_and_quotes_paths" }
 "test_platform_windows.py::test_registered_name_reads_the_filter_key_and_skips_the_property_page" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::registered_name_reads_the_filter_key_and_skips_the_property_page" }
-"test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_registering_more_cameras_asks_unitycapture_for_them" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::registering_more_cameras_asks_unitycapture_for_them" }
 "test_platform_windows.py::test_running_from_archive_ignores_folders_outside_temp" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_ignores_folders_outside_temp" }
 "test_platform_windows.py::test_running_from_archive_spots_zip_tools_temp_folders" = { status = "ported", rust = "rust/crates/system/src/winapp.rs::running_from_archive_spots_zip_tools_temp_folders" }
 "test_platform_windows.py::test_sha256_reads_entire_file" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::sha256_reads_entire_file" }
 "test_platform_windows.py::test_the_cameras_windows_has_are_read_from_their_device_interfaces" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_cameras_windows_has_are_read_from_their_device_interfaces" }
 "test_platform_windows.py::test_the_clsids_and_version_match_the_dll" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_clsids_and_version_match_the_dll" }
 "test_platform_windows.py::test_the_first_powershell_comes_from_the_system_folder" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::the_first_powershell_comes_from_the_system_folder" }
-"test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_the_windows_11_camera_is_copied_checked_and_registered_as_admin" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_11_installs_its_own_camera_from_program_files" }
 "test_platform_windows.py::test_the_windows_11_camera_needs_windows_11" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::the_windows_11_camera_needs_windows_11" }
 "test_platform_windows.py::test_uc_is_registered_scans_registry_and_handles_absence" = { status = "ported", rust = "rust/crates/outputs/src/wincam.rs::uc_is_registered_scans_registry_and_handles_absence" }
 "test_platform_windows.py::test_unitycapture_dir_frozen_and_source" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_dir_frozen_and_source", note = "There is only the packaged case: the folder beside the exe" }
-"test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs" }
+"test_platform_windows.py::test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::a_refused_windows_11_camera_falls_back_to_unitycapture_unless_its_cameras_are_still_there" }
 "test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy" }
 "test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_10_installs_unitycapture" }
 "test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_11_installs_its_own_camera_and_never_downloads_unitycapture" }
@@ -3635,7 +3635,7 @@
 "test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired", note = "Monitoring's half; the test also runs on Stream output, which its port checks separately or not at all" }
 "test_plugins.py::test_without_a_known_size_the_start_leaves_it_to_the_phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::without_a_known_size_the_start_leaves_it_to_the_phone" }
 # ── plugins_panel
-"test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
+"test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" }
 "test_plugins_panel.py::test_a_built_in_plugin_that_breaks_still_stops_the_start" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_built_in_plugin_that_breaks_still_stops_the_start" }
 "test_plugins_panel.py::test_a_failed_download_leaves_it_off_and_says_why" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::a_failed_download_leaves_it_off_and_says_why" }
 "test_plugins_panel.py::test_a_footer_with_nowhere_to_go_never_becomes_a_window" = { status = "dropped", reason = "Qt only: a widget with no parent shows as a window of its own, and the restart bar here is a Slint element that can only be drawn inside the settings window" }
@@ -3646,26 +3646,26 @@
 "test_plugins_panel.py::test_an_added_plugin_goes_in_the_group_its_plugin_json_names" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::an_added_plugin_goes_in_the_group_its_plugin_json_names" }
 "test_plugins_panel.py::test_an_added_plugin_switched_on_loads" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::added_plugins_are_listed_in_the_diagnostics_as_running_or_not", note = "what loads them is the plugin host (plugin_loader tests); this checks the window lists one as running, with no banner" }
 "test_plugins_panel.py::test_an_added_plugin_that_breaks_while_starting_is_taken_back_out" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::an_added_plugin_that_breaks_while_starting_is_taken_back_out" }
-"test_plugins_panel.py::test_an_added_plugin_that_exits_while_starting_is_left_out" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::an_added_plugin_that_breaks_while_starting_is_taken_back_out", note = "a plugin that panics stands in for SystemExit" }
-"test_plugins_panel.py::test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" = { status = "ported", rust = "rust/crates/shell/src/switches.rs" }
-"test_plugins_panel.py::test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_list_stays_where_it_was_when_a_switch_is_changed", note = "the offset is the page widget own, kept whatever tiles come back; the download path rebuilds the tiles the same way" }
+"test_plugins_panel.py::test_an_added_plugin_that_exits_while_starting_is_left_out" = { status = "ported", rust = "rust/crates/plugin-host/src/package_tests.rs::a_plugin_that_tries_to_exit_only_fails_itself", note = "os.exit in a plugin, the case SystemExit was; that the window leaves out one that fails is an_added_plugin_that_breaks_while_starting_is_taken_back_out" }
+"test_plugins_panel.py::test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on" }
+"test_plugins_panel.py::test_clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away" }
 "test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon" = { status = "ported", rust = "rust/app/src/scenes.rs::every_built_in_plugin_picks_its_category_and_icon" }
-"test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon" = { status = "ported", rust = "rust/app/src/scenes.rs::every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon", note = "the icon half is checked on the cards .slint; every card gets its group hue from doc.rs, which has no card without one" }
+"test_plugins_panel.py::test_every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon" = { status = "ported", rust = "rust/app/src/scenes.rs::every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon", note = "that the window hands every card its group colour is doc.rs::every_card_takes_its_plugins_group_colour" }
 "test_plugins_panel.py::test_installing_a_plugin_thats_there_asks_then_replaces_it" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::installing_a_plugin_thats_there_asks_then_replaces_it" }
 "test_plugins_panel.py::test_one_thats_on_can_be_switched_off_even_with_a_problem" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::one_thats_on_can_be_switched_off_even_with_a_problem" }
 "test_plugins_panel.py::test_required_plugins_are_locked_on_and_say_so" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::required_plugins_are_locked_on_and_say_so" }
-"test_plugins_panel.py::test_restart_now_restarts" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::restart_now_restarts", note = "the tab asks to restart; Effect::Restart itself is not handled anywhere yet, so the button does nothing in the app" }
+"test_plugins_panel.py::test_restart_now_restarts" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_restart_button_restarts_telescope", note = "the footer note and the question while streaming are restart_now_restarts in the same file" }
 "test_plugins_panel.py::test_side_columns_put_the_pinned_cards_first_then_sort_by_group" = { status = "ported", rust = "rust/crates/shell/src/layout.rs::side_columns_put_the_pinned_cards_first_then_sort_by_group" }
 "test_plugins_panel.py::test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_off_asks_first_names_what_goes_and_waits_for_a_restart" }
 "test_plugins_panel.py::test_switching_on_an_added_plugin_warns_about_trust" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_on_an_added_plugin_warns_about_trust" }
-"test_plugins_panel.py::test_switching_one_keeps_the_list_where_it_was" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_list_stays_where_it_was_when_a_switch_is_changed" }
+"test_plugins_panel.py::test_switching_one_keeps_the_list_where_it_was" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_one_keeps_the_list_where_it_was" }
 "test_plugins_panel.py::test_switching_one_on_asks_to_download_first_then_switches_it_on" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::switching_one_on_asks_to_download_first_then_switches_it_on" }
-"test_plugins_panel.py::test_the_auto_update_switch_is_red_warns_and_asks_first" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_auto_update_switch_is_red_warns_and_asks_first" }
+"test_plugins_panel.py::test_the_auto_update_switch_is_red_warns_and_asks_first" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_auto_update_switch_is_red_warns_and_asks_first", note = "the red switch and the standing warning are the_auto_update_switch_looks_red_and_warns_on_the_tab in the same file" }
 "test_plugins_panel.py::test_the_filter_shows_the_ones_on_or_off" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_filter_shows_the_ones_on_or_off" }
 "test_plugins_panel.py::test_the_footer_counts_a_removed_plugin_that_still_runs" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_footer_counts_a_removed_plugin_that_still_runs" }
 "test_plugins_panel.py::test_the_footer_counts_the_changes_that_wait_for_a_restart" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_footer_counts_the_changes_that_wait_for_a_restart" }
-"test_plugins_panel.py::test_the_plugins_tab_opens_over_the_main_window_without_blocking_it" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_plugins_tab_opens_without_blocking_and_a_second_open_reuses_the_window", note = "Slint has no owner-window link, so it is not tied to the main window; it is its own window and does not block" }
-"test_plugins_panel.py::test_the_plugins_tab_says_how_many_are_off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
+"test_plugins_panel.py::test_the_plugins_tab_opens_over_the_main_window_without_blocking_it" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_plugins_tab_opens_without_blocking_and_a_second_open_reuses_the_window", note = "Slint has no owner-window link, so \"over the main window\" isnt checked; it is its own window, visible, and the main window still takes a click" }
+"test_plugins_panel.py::test_the_plugins_tab_says_how_many_are_off" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::the_plugins_tab_says_how_many_are_off" }
 "test_plugins_panel.py::test_the_repo_shows_as_a_link_next_to_the_author" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::the_repo_shows_as_a_link_next_to_the_author" }
 "test_plugins_panel.py::test_the_search_finds_by_name_and_description_in_the_language_shown" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_language.rs::the_search_finds_by_name_and_description_in_the_language_shown" }
 "test_plugins_panel.py::test_tiles_are_grouped_by_category_and_sorted_by_name" = { status = "ported", rust = "rust/app/tests/plugins_tab.rs::tiles_are_grouped_by_category_and_sorted_by_name" }
@@ -3707,7 +3707,7 @@
 "test_preview.py::test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame" = { status = "todo" }
 "test_preview.py::test_a_pick_shows_a_hidden_preview" = { status = "todo" }
 "test_preview.py::test_a_pick_takes_the_mouse_from_focusing_and_panning" = { status = "todo" }
-"test_preview.py::test_a_popout_opened_with_the_card_hidden_leaves_it_hidden" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_a_popout_opened_with_the_card_hidden_leaves_it_hidden" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::a_popout_opened_with_the_card_hidden_leaves_it_hidden" }
 "test_preview.py::test_card_preview_copies_small_frame_and_popout_keeps_full_resolution" = { status = "todo" }
 "test_preview.py::test_card_preview_downscales_large_frame_before_signal" = { status = "todo" }
 "test_preview.py::test_dragging_the_preview_pans_instead_of_focusing" = { status = "todo" }
@@ -3717,18 +3717,18 @@
 "test_preview.py::test_layers_tint_the_preview_copy_and_not_the_frame_apps_get" = { status = "todo" }
 "test_preview.py::test_lens_boxes_show_for_a_moment_after_a_move_then_fade" = { status = "todo" }
 "test_preview.py::test_on_frame_updates_card_pixmap_and_clears_busy" = { status = "todo" }
-"test_preview.py::test_open_and_close_popout_disables_then_restores_toggle" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_open_and_close_popout_disables_then_restores_toggle" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::open_and_close_popout_disables_then_restores_toggle" }
 "test_preview.py::test_popout_set_frame_and_resize_guards" = { status = "todo" }
-"test_preview.py::test_preview_placeholder_says_waiting_while_a_stream_is_up" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"test_preview.py::test_preview_starts_active_and_toggles_off_and_back_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_preview_placeholder_says_waiting_while_a_stream_is_up" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::preview_placeholder_says_waiting_while_a_stream_is_up" }
+"test_preview.py::test_preview_starts_active_and_toggles_off_and_back_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::preview_starts_active_and_toggles_off_and_back_on" }
 "test_preview.py::test_process_frame_is_zero_copy_when_inactive_or_busy" = { status = "todo" }
-"test_preview.py::test_second_popout_request_reuses_visible_window" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"test_preview.py::test_stream_start_and_stop_swap_the_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"test_preview.py::test_the_camera_button_turns_the_camera_off_and_says_so" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"test_preview.py::test_the_camera_can_only_go_off_with_the_mic_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"test_preview.py::test_the_idle_text_names_the_browser_while_a_browser_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"test_preview.py::test_second_popout_request_reuses_visible_window" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::second_popout_request_reuses_visible_window" }
+"test_preview.py::test_stream_start_and_stop_swap_the_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::stream_start_and_stop_swap_the_placeholder" }
+"test_preview.py::test_the_camera_button_turns_the_camera_off_and_says_so" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_camera_button_turns_the_camera_off_and_says_so" }
+"test_preview.py::test_the_camera_can_only_go_off_with_the_mic_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_camera_can_only_go_off_with_the_mic_on" }
+"test_preview.py::test_the_idle_text_names_the_browser_while_a_browser_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_idle_text_names_the_browser_while_a_browser_source_is_picked" }
 "test_preview.py::test_the_popout_pans_zooms_and_shows_boxes_too" = { status = "todo" }
-"test_preview.py::test_the_preview_copy_is_never_scaled_above_the_stream" = { status = "ported", rust = "rust/crates/shell/src/preview.rs" }
+"test_preview.py::test_the_preview_copy_is_never_scaled_above_the_stream" = { status = "ported", rust = "rust/crates/shell/src/preview.rs::frames_shrink_to_the_stage_but_never_grow" }
 "test_preview.py::test_the_skeleton_button_only_shows_with_the_vision_download" = { status = "todo" }
 "test_preview.py::test_the_skeleton_draws_the_shown_streams_people_over_the_preview" = { status = "todo" }
 "test_preview.py::test_the_skeleton_follows_the_zoom_and_marks_an_arm_held_out" = { status = "todo" }
@@ -3820,12 +3820,12 @@
 "test_sensors.py::test_unknown_kinds_are_ignored" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::unknown_kinds_are_ignored" }
 "test_sensors.py::test_wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" = { status = "ported", rust = "rust/crates/link/src/sensors.rs::wants_are_counted_by_owner_and_the_stream_stops_when_nobody_wants_any" }
 # ── session
-"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
-"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
-"test_session.py::test_a_worker_finds_its_stream" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
-"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
-"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
-"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "ported", rust = "rust/crates/shell/src/session.rs" }
+"test_session.py::test_a_source_being_woken_counts_as_streaming_from_it" = { status = "ported", rust = "rust/crates/shell/src/session.rs::a_source_being_woken_counts_as_streaming_from_it" }
+"test_session.py::test_a_stop_drops_what_waited_for_the_start" = { status = "ported", rust = "rust/crates/shell/src/session.rs::a_stop_drops_what_waited_for_the_start" }
+"test_session.py::test_a_worker_finds_its_stream" = { status = "ported", rust = "rust/crates/shell/src/session.rs::a_worker_finds_its_stream" }
+"test_session.py::test_streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" = { status = "ported", rust = "rust/crates/shell/src/session.rs::streams_are_kept_in_the_order_they_started_and_forgotten_when_they_stop" }
+"test_session.py::test_the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" = { status = "ported", rust = "rust/crates/shell/src/session.rs::the_active_source_is_the_shown_stream_then_the_wake_then_what_start_would_use" }
+"test_session.py::test_the_panels_follow_focus_and_the_mic_stays_with_main" = { status = "ported", rust = "rust/crates/shell/src/session.rs::the_panels_follow_focus_and_the_mic_stays_with_main" }
 # ── session_client
 "test_session_client.py::test_a_base_url_with_a_trailing_slash_does_not_double_up" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_base_url_with_a_trailing_slash_does_not_double_up" }
 "test_session_client.py::test_a_listener_that_answers_with_something_other_than_http_is_not_a_phone" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::a_listener_that_answers_with_something_other_than_http_is_not_a_phone" }
@@ -3855,31 +3855,31 @@
 # ── settings
 "test_settings_search.py::test_a_closer_match_scores_higher" = { status = "todo" }
 "test_settings_search.py::test_a_plugins_own_section_is_searchable_without_doing_anything" = { status = "todo" }
-"test_settings_search.py::test_a_word_has_to_start_a_word_unless_it_is_long" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
-"test_settings_search.py::test_accents_and_case_dont_matter" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
+"test_settings_search.py::test_a_word_has_to_start_a_word_unless_it_is_long" = { status = "ported", rust = "rust/crates/shell/src/search.rs::a_word_has_to_start_a_word_unless_it_is_long" }
+"test_settings_search.py::test_accents_and_case_dont_matter" = { status = "ported", rust = "rust/crates/shell/src/search.rs::accents_and_case_dont_matter" }
 "test_settings_search.py::test_arrow_keys_and_enter_work_from_the_search_box" = { status = "todo" }
 "test_settings_search.py::test_clicking_a_tab_while_searching_leaves_the_search" = { status = "todo" }
 "test_settings_search.py::test_every_setting_can_be_found_by_its_own_name" = { status = "todo" }
-"test_settings_search.py::test_every_word_has_to_match_but_filler_doesnt_count" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
+"test_settings_search.py::test_every_word_has_to_match_but_filler_doesnt_count" = { status = "ported", rust = "rust/crates/shell/src/search.rs::every_word_has_to_match_but_filler_doesnt_count" }
 "test_settings_search.py::test_finds_what_people_would_look_for_on_linux" = { status = "todo" }
 "test_settings_search.py::test_finds_what_people_would_look_for_on_windows" = { status = "todo" }
 "test_settings_search.py::test_hidden_rows_arent_offered" = { status = "todo" }
-"test_settings_search.py::test_nonsense_finds_nothing" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
+"test_settings_search.py::test_nonsense_finds_nothing" = { status = "ported", rust = "rust/crates/shell/src/search.rs::nonsense_finds_nothing" }
 "test_settings_search.py::test_nothing_found_says_so_and_offers_a_way_on" = { status = "todo" }
-"test_settings_search.py::test_one_letter_slips_and_swapped_letters_still_find_it" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
+"test_settings_search.py::test_one_letter_slips_and_swapped_letters_still_find_it" = { status = "ported", rust = "rust/crates/shell/src/search.rs::one_letter_slips_and_swapped_letters_still_find_it" }
 "test_settings_search.py::test_opening_a_result_goes_to_its_tab_and_lights_the_setting" = { status = "todo" }
-"test_settings_search.py::test_results_say_where_the_setting_is" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
+"test_settings_search.py::test_results_say_where_the_setting_is" = { status = "ported", rust = "rust/crates/shell/src/search.rs::results_say_where_the_setting_is" }
 "test_settings_search.py::test_typing_shows_results_and_clearing_goes_back_to_the_tab" = { status = "todo" }
 "test_settings_search.py::test_when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" = { status = "todo" }
 "test_settings_window.py::test_a_section_hears_when_its_tab_comes_on_screen" = { status = "todo" }
 "test_settings_window.py::test_a_section_that_cant_refresh_doesnt_break_the_window" = { status = "todo" }
-"test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
-"test_settings_window.py::test_a_tab_title_replaces_the_usual_name" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::a_tab_a_plugin_makes_goes_before_plugins" }
+"test_settings_window.py::test_a_tab_title_replaces_the_usual_name" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::a_tab_title_replaces_the_usual_name" }
 "test_settings_window.py::test_enter_on_a_focused_button_still_runs_it" = { status = "todo" }
 "test_settings_window.py::test_it_stays_inside_the_screen" = { status = "todo" }
-"test_settings_window.py::test_only_tabs_with_something_in_them_show_in_the_fixed_order" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"test_settings_window.py::test_only_tabs_with_something_in_them_show_in_the_fixed_order" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::only_tabs_with_something_in_them_show_in_the_fixed_order" }
 "test_settings_window.py::test_opening_a_search_result_does_not_click_the_setting" = { status = "todo" }
-"test_settings_window.py::test_sections_sit_in_order_then_registration_order" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
+"test_settings_window.py::test_sections_sit_in_order_then_registration_order" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::sections_sit_in_order_then_registration_order" }
 "test_settings_window.py::test_show_tab_switches_and_refuses_one_that_isnt_there" = { status = "todo" }
 # ── setup
 "test_setup.py::test_a_driver_install_that_crashes_still_frees_the_button" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::a_driver_install_that_crashes_still_frees_the_button" }
@@ -3943,15 +3943,15 @@
 "test_shortcuts_plugin.py::test_action_command" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::action_command_runs_the_action_in_the_running_copy" }
 "test_shortcuts_plugin.py::test_an_ignored_key_runs_once_not_at_every_parent" = { status = "dropped", reason = "Slint hands the shell one key event per press; Qt's walk up the parents is gone" }
 "test_shortcuts_plugin.py::test_config_round_trip_and_editing" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::config_round_trip_and_editing" }
-"test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "ported", rust = "rust/crates/shell/tests/shortcut_menu.rs" }
+"test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu" = { status = "ported", rust = "rust/crates/shell/tests/shortcut_menu.rs::controls_that_come_later_still_get_the_menu" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_asks_again_for_unconfirmed_ones" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::desktop_settings_button_asks_again_for_unconfirmed_ones" }
 "test_shortcuts_plugin.py::test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::the_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help" }
 "test_shortcuts_plugin.py::test_dialog_lists_bindings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::dialog_lists_bindings" }
 "test_shortcuts_plugin.py::test_editor_builds_a_binding" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_builds_a_binding" }
 "test_shortcuts_plugin.py::test_editor_keeps_an_option_that_is_gone" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_keeps_an_option_that_is_gone" }
-"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
-"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls_and_uses_keywords" }
-"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_refuses_a_key_another_shortcut_uses_and_warns_about_typing_keys" }
+"test_shortcuts_plugin.py::test_editor_search_narrows_the_controls" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_narrows_the_controls" }
+"test_shortcuts_plugin.py::test_editor_search_uses_keywords" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_search_uses_keywords" }
+"test_shortcuts_plugin.py::test_editor_warns_about_typing_keys_only" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::editor_warns_about_typing_keys_only" }
 "test_shortcuts_plugin.py::test_f_keys_still_work_while_a_text_box_has_focus" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::keys_inside_telescope_run_bindings_and_skip_text_boxes" }
 "test_shortcuts_plugin.py::test_global_presses_are_ignored_while_the_editor_records_a_key" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::global_presses_are_ignored_while_the_editor_records_a_key" }
 "test_shortcuts_plugin.py::test_hold_comes_back_by_scan_code_when_the_key_changes_on_release" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::hold_comes_back_by_scan_code_when_the_key_changes_on_release" }
@@ -3961,10 +3961,10 @@
 "test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus" = { status = "ported", rust = "rust/app/tests/settings_sections.rs::keys_reach_a_window_where_nothing_takes_focus" }
 "test_shortcuts_plugin.py::test_one_key_press_seen_globally_and_inside_runs_once" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::one_key_press_seen_globally_and_inside_runs_once" }
 "test_shortcuts_plugin.py::test_only_global_bindings_without_clashes_go_to_the_system" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::only_global_bindings_without_clashes_go_to_the_system" }
-"test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
+"test_shortcuts_plugin.py::test_remote_actions" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::remote_actions" }
+"test_shortcuts_plugin.py::test_remote_hold_is_refused" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::remote_hold_is_refused" }
+"test_shortcuts_plugin.py::test_remote_numbers_must_be_finite" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::remote_numbers_must_be_finite" }
+"test_shortcuts_plugin.py::test_remote_settings_are_checked_not_defaulted" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::remote_settings_are_checked_not_defaulted" }
 "test_shortcuts_plugin.py::test_showing_the_window_from_the_background_doesnt_notify" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::showing_the_window_from_the_background_doesnt_notify" }
 "test_shortcuts_plugin.py::test_start_collects_actions_app_ones_first_and_gives_controls_a_menu" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::start_collects_actions_app_ones_first" }
 "test_shortcuts_plugin.py::test_the_editors_control_list_marks_group_titles_so_they_look_different" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::the_editors_control_list_marks_group_titles_so_they_look_different" }
@@ -4084,13 +4084,13 @@
 # ── stream
 "test_stream.py::test_a_crash_in_the_worker_ends_with_an_error_and_idle" = { status = "todo" }
 "test_stream.py::test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it" = { status = "todo" }
-"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_frame_that_finishes_after_a_newer_one_is_dropped" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_that_finishes_after_a_newer_one_is_dropped" }
+"test_stream.py::test_a_gap_once_settled_is_not_excused" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_gap_once_settled_is_not_excused" }
+"test_stream.py::test_a_new_fps_settles_the_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_same_fps_again_does_not_reopen_the_virtual_camera" }
 "test_stream.py::test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick" = { status = "todo" }
-"test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
-"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_a_new_pipeline_takes_over_from_the_next_frame" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs::a_new_pipeline_takes_over_from_the_next_frame" }
+"test_stream.py::test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked" }
+"test_stream.py::test_a_phone_that_never_gets_going_is_judged_after_the_cap" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_phone_that_never_gets_going_is_judged_after_the_cap" }
 "test_stream.py::test_a_slow_decoder_skips_to_the_newest_packet" = { status = "todo" }
 "test_stream.py::test_a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken" = { status = "todo" }
 "test_stream.py::test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route" = { status = "todo" }
@@ -4099,51 +4099,51 @@
 "test_stream.py::test_another_slot_opens_its_own_camera" = { status = "todo" }
 "test_stream.py::test_failed_tries_count_only_the_url_it_was_pointed_at" = { status = "todo" }
 "test_stream.py::test_fit_frame_letterboxes_and_preserves_dtype" = { status = "todo" }
-"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_pillarboxes_narrow_input" }
+"test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_resizes_same_aspect_ratio" }
+"test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_returns_matching_frame_without_copy" }
+"test_stream.py::test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_same_fps_again_does_not_reopen_the_virtual_camera" }
 "test_stream.py::test_frames_reach_an_i420_camera_converted" = { status = "todo" }
 "test_stream.py::test_frames_stopping_for_a_photo_reconnect_quietly" = { status = "todo" }
 "test_stream.py::test_frames_that_arrived_together_all_count_as_arrived" = { status = "todo" }
-"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_hand_over_fails_on_a_route_that_wont_open" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::hand_over_fails_on_a_route_that_wont_open" }
 "test_stream.py::test_hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one" = { status = "todo" }
-"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs" }
-"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" }
+"test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs::newest_hands_over_only_the_latest_item" }
+"test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::old_lens_frames_before_the_gap_do_not_count_as_back" }
 "test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "todo" }
-"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "todo", note = "no test yet: a_dropped_stream_reconnects_and_says_so reconnects first time, nothing tries an unopened and an empty capture before the good one or checks they are let go" }
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }
 "test_stream.py::test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay" = { status = "todo" }
-"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_run_opens_at_the_size_a_reader_holds_the_camera_at" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_camera_opens_at_the_size_an_app_already_holds_it_at" }
+"test_stream.py::test_run_streams_a_frame_and_stops_cleanly" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::run_streams_frames_to_the_camera_and_stops_cleanly" }
+"test_stream.py::test_sources_from_plugins_dont_hand_over" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::sources_from_plugins_dont_hand_over" }
 "test_stream.py::test_stream_reader_accumulates_bytes_from_successful_reads" = { status = "todo" }
 "test_stream.py::test_stream_reader_drops_pipeline_errors_and_releases_capture" = { status = "todo" }
-"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_stream_reader_emits_reconnected_signal_on_successful_reconnect" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_dropped_stream_reconnects_and_says_so" }
 "test_stream.py::test_stream_reader_resizes_and_runs_pipeline_keeping_bgr" = { status = "todo" }
 "test_stream.py::test_the_fps_readout_counts_frames_from_the_phone_not_resends" = { status = "todo" }
-"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
+"test_stream.py::test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start" }
+"test_stream.py::test_the_same_fps_again_does_not_reopen_the_virtual_camera" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::the_same_fps_again_does_not_reopen_the_virtual_camera" }
 "test_stream.py::test_the_virtual_camera_opens_in_its_own_format" = { status = "todo" }
 "test_stream.py::test_update_output_distinguishes_omitted_from_pass_through" = { status = "todo" }
 "test_stream.py::test_windows_opens_the_camera_named_telescope_or_any_older_registration" = { status = "todo" }
-"test_stream.py::test_worker_processes_pipeline_in_order" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs" }
+"test_stream.py::test_worker_processes_pipeline_in_order" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs::frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" }
 # ── stream_flow
-"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_pending_source_can_be_cancelled_from_its_tile" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_pending_source_can_be_cancelled_from_its_tile" }
+"test_stream_flow.py::test_a_phone_wakes_first_and_a_failed_wake_says_so" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_phone_wakes_first_and_a_failed_wake_says_so" }
 "test_stream_flow.py::test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later" = { status = "dropped", reason = "Rust has no sees_final_frame: a step in FrameStage::Final sorts last, which media's pipeline stage test covers" }
-"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs", note = "an unknown stage counting as effects is PluginInfo deserialising in core, not covered here" }
-"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
+"test_stream_flow.py::test_a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_restart_of_the_mics_stream_keeps_the_mic_waiting_for_it" }
+"test_stream_flow.py::test_a_second_stream_gets_its_own_camera_and_the_panels" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_second_stream_gets_its_own_camera_and_the_panels" }
+"test_stream_flow.py::test_a_source_that_needs_no_waking_starts_right_away" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::a_source_that_needs_no_waking_starts_right_away" }
+"test_stream_flow.py::test_clicking_a_tile_moves_the_panels_and_not_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::clicking_a_tile_moves_the_panels_and_not_the_mic" }
+"test_stream_flow.py::test_frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs::frames_go_through_the_stages_in_order_whatever_order_plugins_are_registered_in", note = "an unknown stage counting as effects is PluginInfo deserialising in core, not covered here" }
+"test_stream_flow.py::test_making_another_stream_main_moves_only_the_mic" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::making_another_stream_main_moves_only_the_mic" }
+"test_stream_flow.py::test_packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::packet_steps_follow_the_panels_and_the_stream_left_gets_a_keyframe" }
+"test_stream_flow.py::test_stop_all_stops_everything_and_puts_the_mic_settings_back" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stop_all_stops_everything_and_puts_the_mic_settings_back" }
+"test_stream_flow.py::test_stopping_the_mics_stream_moves_the_mic_to_the_next" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stopping_the_mics_stream_moves_the_mic_to_the_next" }
+"test_stream_flow.py::test_stopping_the_shown_stream_moves_the_panels_to_one_left" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs::stopping_the_shown_stream_moves_the_panels_to_one_left" }
 "test_stream_flow.py::test_the_built_in_plugins_frame_order_is_the_one_written_down" = { status = "todo" }
 # ── text_fit
 "test_text_fit.py::test_a_button_pushed_out_of_its_box_is_found" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
@@ -4174,72 +4174,72 @@
 # ── transforms
 "test_transforms.py::test_a_centre_only_phones_share_doesnt_change_with_the_pan" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_centre_only_phones_share_doesnt_change_with_the_pan" }
 "test_transforms.py::test_a_centred_window_just_past_a_lens_gets_back_onto_it" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_centred_window_just_past_a_lens_gets_back_onto_it" }
-"test_transforms.py::test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames" }
 "test_transforms.py::test_a_double_click_resets_zoom_and_pan" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::a_double_click_resets_zoom_and_pan" }
 "test_transforms.py::test_a_frozen_frame_step_keeps_the_settings_it_was_taken_with" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::a_step_keeps_the_view_it_was_made_with" }
-"test_transforms.py::test_a_lens_box_is_the_centred_part_of_the_view_that_lens_sees" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
-"test_transforms.py::test_a_lens_step_never_lands_under_the_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
+"test_transforms.py::test_a_lens_box_is_the_centred_part_of_the_view_that_lens_sees" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_lens_box_is_the_centred_part_of_the_view_that_lens_sees" }
+"test_transforms.py::test_a_lens_step_never_lands_under_the_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_scroll_step_stops_on_the_first_lens_it_crosses" }
 "test_transforms.py::test_a_lens_that_cant_zoom_leaves_it_all_to_the_desktop" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_lens_that_cant_zoom_leaves_it_all_to_the_desktop" }
 "test_transforms.py::test_a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges" }
 "test_transforms.py::test_a_picked_point_goes_out_in_phone_frame_coordinates" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_reaches_the_phone_in_its_own_frame" }
 "test_transforms.py::test_a_picked_point_lands_on_the_phone_frame_through_a_stretch" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_lands_on_the_phone_frame_through_a_stretch" }
 "test_transforms.py::test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_picked_point_only_undoes_the_desktop_share_of_the_zoom" }
-"test_transforms.py::test_a_saved_zoom_loads_exactly" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_a_scroll_step_stops_on_the_first_lens_it_crosses" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
+"test_transforms.py::test_a_saved_zoom_loads_exactly" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::a_saved_zoom_loads_exactly" }
+"test_transforms.py::test_a_scroll_step_stops_on_the_first_lens_it_crosses" = { status = "ported", rust = "rust/crates/core/src/view.rs::a_scroll_step_stops_on_the_first_lens_it_crosses" }
 "test_transforms.py::test_a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels" }
-"test_transforms.py::test_a_squish_leaves_black_bars_and_a_stretch_crops" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
-"test_transforms.py::test_a_zoom_right_on_a_lens_mark_gets_that_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_a_squish_leaves_black_bars_and_a_stretch_crops" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::the_view_makes_the_same_picture_as_python" }
+"test_transforms.py::test_a_zoom_right_on_a_lens_mark_gets_that_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::a_zoom_right_on_a_lens_mark_gets_that_lens" }
 "test_transforms.py::test_auto_framing_visibly_disables_the_zoom_handle_and_value" = { status = "ported", rust = "rust/app/tests/transforms_ui.rs::auto_framing_visibly_disables_the_zoom_handle_and_value" }
-"test_transforms.py::test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::back_on_a_tile_the_lenses_come_back_but_after_a_real_stop_they_dont" }
 "test_transforms.py::test_below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs::below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens" }
-"test_transforms.py::test_caps_come_from_the_current_camera_entry" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
-"test_transforms.py::test_config_round_trip_updates_widgets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_dragging_stops_at_the_edge_and_does_nothing_unzoomed" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_dragging_the_preview_moves_the_picture_with_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_dragging_the_preview_sticks_at_the_centre_then_lets_go" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_caps_come_from_the_current_camera_entry" = { status = "ported", rust = "rust/crates/core/src/view.rs::caps_come_from_the_current_camera_entry" }
+"test_transforms.py::test_config_round_trip_updates_widgets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::config_round_trip_updates_the_card" }
+"test_transforms.py::test_dragging_stops_at_the_edge_and_does_nothing_unzoomed" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::dragging_stops_at_the_edge_and_does_nothing_unzoomed" }
+"test_transforms.py::test_dragging_the_preview_moves_the_picture_with_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::dragging_the_preview_moves_the_picture_with_the_mouse" }
+"test_transforms.py::test_dragging_the_preview_sticks_at_the_centre_then_lets_go" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::dragging_the_preview_sticks_at_the_centre_then_lets_go" }
 "test_transforms.py::test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont" = { status = "ported", rust = "rust/app/tests/transforms_ui.rs::dragging_the_zoom_sticks_to_a_lens_but_keys_dont" }
 "test_transforms.py::test_inverse_map_clamps_and_survives_an_unknown_frame_size" = { status = "ported", rust = "rust/crates/core/src/view.rs::inverse_map_clamps_and_survives_an_unknown_frame_size" }
 "test_transforms.py::test_inverse_map_undoes_a_stretch" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::inverse_map_undoes_a_stretch" }
 "test_transforms.py::test_inverse_map_undoes_what_the_preview_shows" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::inverse_map_undoes_what_the_preview_shows" }
-"test_transforms.py::test_lens_note_says_nothing_on_the_default_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_lens_note_says_when_panning_fell_back_to_the_main_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_lens_note_says_when_the_phone_switched" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_loading_a_stretch_sets_the_view_once" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_no_stretch_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
-"test_transforms.py::test_pan_for_is_the_inverse_of_the_window_centre_and_clamps" = { status = "ported", rust = "rust/crates/core/src/view.rs" }
-"test_transforms.py::test_pan_pad_works_from_the_keyboard" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_lens_note_says_nothing_on_the_default_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::lens_note_says_nothing_on_the_default_camera" }
+"test_transforms.py::test_lens_note_says_when_panning_fell_back_to_the_main_camera" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::lens_note_says_when_panning_fell_back_to_the_main_camera" }
+"test_transforms.py::test_lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself" }
+"test_transforms.py::test_lens_note_says_when_the_phone_switched" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::lens_note_says_when_the_phone_switched" }
+"test_transforms.py::test_loading_a_stretch_sets_the_view_once" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::loading_a_stretch_sets_the_view_once" }
+"test_transforms.py::test_no_stretch_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::a_view_that_changes_nothing_has_no_steps" }
+"test_transforms.py::test_pan_for_is_the_inverse_of_the_window_centre_and_clamps" = { status = "ported", rust = "rust/crates/core/src/view.rs::pan_puts_the_window_where_asked" }
+"test_transforms.py::test_pan_pad_works_from_the_keyboard" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_pan_pad_works_from_the_keyboard" }
 "test_transforms.py::test_panning_out_of_the_telephotos_view_goes_back_to_the_main_lens" = { status = "ported", rust = "rust/crates/core/src/view.rs::panning_out_of_the_telephotos_view_goes_back_to_the_main_lens" }
 "test_transforms.py::test_past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest" = { status = "ported", rust = "rust/crates/core/src/view.rs::past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest" }
 "test_transforms.py::test_plugin_crops_everything_itself_without_a_phone_that_zooms" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::this_computer_crops_everything_without_a_phone_that_zooms" }
-"test_transforms.py::test_plugin_handlers_update_runtime_state_and_schedule_save" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_plugin_handlers_update_runtime_state_and_schedule_save" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::handlers_update_runtime_state_and_schedule_a_save" }
 "test_transforms.py::test_plugin_tells_the_phone_only_when_its_share_changes" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::the_phone_is_told_only_when_its_share_changes" }
-"test_transforms.py::test_red_wins_when_the_phone_is_off_the_lens_after_switching" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_returning_zoom_to_one_resets_and_disables_pan" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_saved_pan_config_updates_runtime_processing_state" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_scrolling_zooms_around_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_red_wins_when_the_phone_is_off_the_lens_after_switching" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::red_wins_when_the_phone_is_off_the_lens_after_switching" }
+"test_transforms.py::test_returning_zoom_to_one_resets_and_disables_pan" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::returning_zoom_to_one_resets_and_disables_pan" }
+"test_transforms.py::test_saved_pan_config_updates_runtime_processing_state" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::saved_pan_config_updates_the_runtime_state" }
+"test_transforms.py::test_scrolling_zooms_around_the_mouse" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::scrolling_zooms_around_the_mouse" }
 "test_transforms.py::test_shown_and_view_points_map_both_ways_and_agree_with_focus" = { status = "ported", rust = "rust/crates/core/src/view.rs::points_map_both_ways_and_agree_with_focus" }
 "test_transforms.py::test_shown_and_view_points_round_trip_through_a_stretch" = { status = "ported", rust = "rust/crates/core/src/view.rs::points_round_trip_through_a_stretch_and_the_centre_stays_put" }
-"test_transforms.py::test_small_scrolls_add_up_and_stop_on_a_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_small_scrolls_add_up_and_stop_on_a_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::small_scrolls_add_up_and_stop_on_a_lens" }
 "test_transforms.py::test_split_zoom_always_frames_what_was_asked" = { status = "ported", rust = "rust/crates/core/src/view.rs::split_zoom_always_frames_what_was_asked" }
-"test_transforms.py::test_stretch_saves_loads_and_resets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_unzoomed_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_stretch_saves_loads_and_resets" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::stretch_saves_loads_and_resets" }
+"test_transforms.py::test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_unzoomed_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_unzoomed_lens" }
+"test_transforms.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
+"test_transforms.py::test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt" }
 "test_transforms.py::test_the_lens_doesnt_flip_back_and_forth_at_its_edge" = { status = "ported", rust = "rust/crates/core/src/view.rs::the_lens_doesnt_flip_back_and_forth_at_its_edge" }
-"test_transforms.py::test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
+"test_transforms.py::test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_dot_shows_only_when_the_phone_switched_or_fell_back" }
 "test_transforms.py::test_the_preview_hears_about_the_lens_boxes_and_the_pan" = { status = "ported", rust = "rust/crates/shell/src/view_control.rs::the_preview_hears_about_the_lens_boxes_and_the_pan" }
-"test_transforms.py::test_the_view_crops_flips_and_rotates_as_the_card_says" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
-"test_transforms.py::test_the_view_stretches_the_picture_as_shown" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_zoom_slider_follows_max_zoom" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_the_zoom_slider_marks_each_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_transform_flip_combinations" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
-"test_transforms.py::test_transform_rotations_match_opencv" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
-"test_transforms.py::test_visible_rotation_and_pan_controls_keep_their_shortcuts" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs" }
-"test_transforms.py::test_zoom_at_or_below_one_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs" }
-"test_transforms.py::test_zoom_pan_selects_opposite_source_regions" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
+"test_transforms.py::test_the_view_crops_flips_and_rotates_as_the_card_says" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::the_view_makes_the_same_picture_as_python" }
+"test_transforms.py::test_the_view_stretches_the_picture_as_shown" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_view_is_what_the_card_says" }
+"test_transforms.py::test_the_zoom_slider_follows_max_zoom" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_zoom_slider_follows_max_zoom" }
+"test_transforms.py::test_the_zoom_slider_marks_each_lens" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_zoom_slider_marks_each_lens" }
+"test_transforms.py::test_transform_flip_combinations" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::zoom_flip_stretch_and_a_half_turn_are_one_shader" }
+"test_transforms.py::test_transform_rotations_match_opencv" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::quarter_turns_match_opencv" }
+"test_transforms.py::test_visible_rotation_and_pan_controls_keep_their_shortcuts" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::visible_rotation_and_pan_controls_keep_their_shortcuts" }
+"test_transforms.py::test_zoom_at_or_below_one_is_zero_copy" = { status = "ported", rust = "rust/crates/core/src/view_step.rs::a_view_that_changes_nothing_has_no_steps" }
+"test_transforms.py::test_zoom_pan_selects_opposite_source_regions" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::the_view_makes_the_same_picture_as_python" }
 "test_transforms.py::test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop" = { status = "ported", rust = "rust/crates/core/src/view.rs::zoom_past_what_the_phone_allows_is_finished_on_the_desktop" }
-"test_transforms.py::test_zoom_preserves_shape_for_all_pan_extremes" = { status = "ported", rust = "rust/app/tests/effects_parity.rs" }
+"test_transforms.py::test_zoom_preserves_shape_for_all_pan_extremes" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::the_view_makes_the_same_picture_as_python" }
 # ── translation_account
 "test_translation_account.py::test_anonymisation_covers_current_base_archived_and_approval_authors" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
 "test_translation_account.py::test_erasure_keeps_submission_but_removes_identity_profile_role_and_version_credits" = { status = "dropped", reason = "scripts/translation_*.py is the translation tool (review site, Firestore, project export, previews of the Python app's Qt windows). It stays Python and isn't part of the desktop app; a preview of the Rust windows in each language is a new tool for the scene renderer, not a port" }
@@ -4356,25 +4356,25 @@
 "test_udp_reader.py::test_reports_say_how_much_got_through" = { status = "ported", rust = "rust/crates/link/src/udp.rs::frames_arrive_over_udp_and_lost_datagrams_are_sent_again" }
 "test_udp_reader.py::test_seals_exactly_like_the_phone" = { status = "ported", rust = "rust/crates/link/src/udp.rs::seals_exactly_like_the_phone" }
 # ── update_guard
-"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_confirmed_update_stays_and_its_leftovers_go" }
+"test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" }
+"test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" }
+"test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" }
+"test_update_guard.py::test_a_linux_update_that_never_confirms_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_update_that_never_confirms_rolls_back" }
+"test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_roll_back_cut_short_is_finished_by_the_next_start" }
+"test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_second_copy_starting_leaves_the_update_to_the_running_one" }
+"test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" }
+"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_update_that_never_confirms_rolls_back" }
+"test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" }
+"test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" }
+"test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::after_an_update_the_new_copy_waits_for_the_old_one_to_exit" }
 "test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" }
-"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
+"test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::clean_up_waits_while_an_update_is_unconfirmed" }
 "test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::right_after_an_update_a_copy_from_before_the_per_user_lock_counts" }
-"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs" }
-"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs" }
-"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs", note = "confirm_on_terminate is a no-op off unix" }
+"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs::main" }
+"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::confirming_with_no_update_in_progress_leaves_no_journal_behind" }
+"test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" }
+"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::confirm_on_terminate", note = "confirm_on_terminate is a no-op off unix" }
 # ── updates
 "test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_check_without_internet_fails_with_a_message" }
 "test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_download_without_internet_fails_and_leaves_nothing" }
@@ -4485,7 +4485,7 @@
 "test_vcam.py::test_lets_go_for_a_driver_reload_and_takes_it_back" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::lets_go_for_a_driver_reload_and_takes_it_back" }
 "test_vcam.py::test_linux_sends_the_cameras_own_format_prepared_once" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::sends_the_cameras_own_format_prepared_once" }
 "test_vcam.py::test_linux_watch_retries_while_the_device_is_missing" = { status = "ported", rust = "rust/crates/outputs/src/watch.rs::the_watch_retries_while_the_device_is_missing_and_stops_when_asked" }
-"test_vcam.py::test_locked_size_is_linux_only" = { status = "ported", rust = "rust/crates/outputs/src/lib.rs", note = "locked_size on Windows only asks the Windows 11 camera; UnityCapture has none (not unit-tested off Windows)" }
+"test_vcam.py::test_locked_size_is_linux_only" = { status = "ported", rust = "rust/crates/outputs/src/lib.rs::locked_size", note = "locked_size on Windows only asks the Windows 11 camera; UnityCapture has none (not unit-tested off Windows)" }
 "test_vcam.py::test_locked_size_reads_the_drivers_format" = { status = "ported", rust = "rust/crates/outputs/src/v4l2.rs::locked_size_reads_the_drivers_format" }
 "test_vcam.py::test_memory_from_another_program_is_refused" = { status = "ported", rust = "rust/crates/outputs/src/mf.rs::memory_from_another_program_is_refused" }
 "test_vcam.py::test_mirror_flips_the_screen_left_to_right" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::mirror_flips_the_screen_left_to_right" }
@@ -4553,7 +4553,7 @@
 "test_vision.py::test_the_real_models_find_a_person_shaped_blob" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_models_find_a_person_shaped_blob", note = "Also checks the astronaut's mask and pose against Python's recording: identical on the a0043f33 pack" }
 "test_vision.py::test_the_real_pack_has_no_address_to_report_usage_to" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_pack_has_no_address_to_report_usage_to" }
 "test_vision.py::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" }
-"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "ported", rust = "rust/crates/shell/src/worker.rs", note = "FrameContext::source_id, which person_mask passes on to the vision service" }
+"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from", note = "FrameContext::source_id, which person_mask passes on to the vision service" }
 "test_vision.py::test_while_nothing_moves_the_mask_is_worked_out_less_often" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_while_nothing_moves_the_mask_is_worked_out_less_often" }
 "test_vision.py::test_without_a_pack_its_missing_and_tries_again_later" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_without_a_pack_its_missing_and_tries_again_later" }
 # ── vision_pack
@@ -4667,7 +4667,7 @@
 "test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::v4l2_structs_match_the_kernel" }
 "test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::virtual_cameras_are_told_apart_by_name" }
 "test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
-"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs" }
+"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs::media_types_become_modes_as_qt_listed_them" }
 # ── widgets
 "test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_picked_segment_keeps_room_for_its_bold_text" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_rows_controls_get_its_label_as_their_screen_reader_name", note = "each control is given its row label in its .slint, not found for it afterwards" }
