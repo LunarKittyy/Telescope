@@ -79,7 +79,7 @@ combining with Telescope's AGPL-3.0.
 def crates(target: str) -> list:
     """Every crate the program's own code reaches on this target, without what's only for tests or build scripts."""
     data = json.loads(subprocess.run(["cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", target],
-                                     cwd=RUST, capture_output=True, text=True, check=True).stdout)
+                                     cwd=RUST, capture_output=True, encoding="utf-8", check=True).stdout)
     packages = {p["id"]: p for p in data["packages"]}
     nodes = {n["id"]: n for n in data["resolve"]["nodes"]}
     start = next(i for i, p in packages.items() if p["name"] == "telescope-app")
@@ -98,10 +98,10 @@ def crates(target: str) -> list:
 
 def main():
     target, ffmpeg, out = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
-    build = (ffmpeg / "BUILD.txt").read_text().strip().replace("\n", "\n    ")
+    build = (ffmpeg / "BUILD.txt").read_text(encoding="utf-8").strip().replace("\n", "\n    ")
     text = HEADER.format(ffmpeg=build) + (WINDOWS if target == "windows" else LINUX) + CRATES
     text += "\n".join(crates(TARGETS[target]))
-    text += "\n\n\nFFmpeg's licence\n----------------\n\n" + (ffmpeg / "COPYING.LGPLv2.1").read_text()
+    text += "\n\n\nFFmpeg's licence\n----------------\n\n" + (ffmpeg / "COPYING.LGPLv2.1").read_text(encoding="utf-8")
     out.write_text(text, encoding="utf-8")
 
 

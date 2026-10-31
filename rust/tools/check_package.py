@@ -114,7 +114,8 @@ def check_linux(name: str, folder: Path, args):
     for lib in ("libavcodec", "libavutil", "libswscale"):
         if not re.search(rf"{lib}\.so\.\d+ => {re.escape(str(folder.resolve()))}/lib/", linked):
             problems.append(f"{name}'s program doesn't find its own {lib}: {linked}")
-    if run_info(folder / "telescope-rs") != stamp:
+    # Through start.sh, as the app's entries and the updater do: it's also what finds lib/fallback on a system without libva
+    if run_info(folder / "start.sh") != stamp:
         problems.append(f"{name}'s program and _build.py disagree")
 
 
