@@ -361,10 +361,11 @@ fn a_failed_replacement_keeps_the_previous_image() {
     // A disk that fills up part of the way through the copy
     let mut plugin = plugin.copying_with(|_from, to| {
         std::fs::write(to, b"tw")?;
-        Err(std::io::Error::from_raw_os_error(28))
+        // ERROR_DISK_FULL on Windows, ENOSPC elsewhere
+        Err(std::io::Error::from_raw_os_error(if cfg!(windows) { 112 } else { 28 }))
     });
     let why = plugin.set_image(&mut host, tmp.join("b.jpg").to_str()).unwrap_err();
-    assert!(why.contains("No space"), "{why}");
+    assert!(why.contains(if cfg!(windows) { "not enough space" } else { "No space" }), "{why}");
     assert!(!why.contains("os error"), "{why}");
     assert_eq!(plugin.image_path(), Some(previous.as_str()));
     assert_eq!(std::fs::read(&previous).unwrap(), b"one");
@@ -386,7 +387,8 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     let request = r.plugin.picking.expect("a dialog open");
     r.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": tmp.join("gone.png").to_str(), "filter": ""}) });
     let note = r.card("picture-note");
-    assert!(note.as_str().unwrap().contains("No such file") && note.as_str().unwrap().contains("Keeping"), "{note}");
+    let gone = if cfg!(windows) { "cannot find the file specified. Keeping" } else { "No such file" };
+    assert!(note.as_str().unwrap().contains(gone) && note.as_str().unwrap().contains("Keeping"), "{note}");
     assert_eq!(r.plugin.image_path(), None);
 
     // One that's kept but won't load shows the default screen and says so

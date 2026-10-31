@@ -9,6 +9,10 @@ publish.workspace = true
 name = "telescope-rs"
 path = "src/main.rs"
 
+[features]
+# H.264 on Windows, with FFmpeg's DLLs next to the program (telescope-media's feature); build.rs loads them on first use
+ffmpeg-windows = ["telescope-media/ffmpeg-windows"]
+
 [dependencies]
 telescope-core.workspace = true
 telescope-link.workspace = true
@@ -25,6 +29,9 @@ serde_json.workspace = true
 log.workspace = true
 libc.workspace = true
 qrcode.workspace = true
+
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true

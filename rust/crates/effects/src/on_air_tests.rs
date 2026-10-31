@@ -183,7 +183,7 @@ fn a_refused_connection_says_so_in_the_systems_words() {
     // A port nothing listens on
     let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
     let said = send_webhook(&webhook_request(&format!("http://127.0.0.1:{port}/api/webhook/SECRET"), "POST", "", true));
-    assert_eq!(said, if cfg!(windows) { "No connection could be made because the target machine actively refused it." } else { "Connection refused" });
+    assert_eq!(said, if cfg!(windows) { "No connection could be made because the target machine actively refused it" } else { "Connection refused" });
     assert!(!said.contains("SECRET"));
 }
 
@@ -194,7 +194,7 @@ fn what_goes_wrong_is_said_without_quoting_the_address() {
     assert_eq!(failure_text(&ureq::Error::Timeout(ureq::Timeout::Global)), "timed out");
     assert_eq!(failure_text(&ureq::Error::HostNotFound), if cfg!(windows) { "getaddrinfo failed" } else { "Name or service not known" });
     assert_eq!(failure_text(&ureq::Error::Io(std::io::Error::from_raw_os_error(if cfg!(unix) { 113 } else { 10065 }))),
-               if cfg!(unix) { "No route to host" } else { "A socket operation was attempted to an unreachable host." });
+               if cfg!(unix) { "No route to host" } else { "A socket operation was attempted to an unreachable host" });
     assert_eq!(failure_text(&io(std::io::ErrorKind::TimedOut, "timed out")), "timed out");
     assert_eq!(failure_text(&ureq::Error::BadUri("/api/webhook/SECRET".into())), "InvalidURL");
     assert!(!failure_text(&ureq::Error::Other("boom at /api/webhook/SECRET".into())).contains("SECRET"));

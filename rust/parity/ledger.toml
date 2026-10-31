@@ -2931,7 +2931,7 @@
 "test_h264_reader.py::test_reader_refuses_a_non_h264_response" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::rejects_non_multipart_response" }
 "test_h264_reader.py::test_the_software_fallback_gives_steps_each_unit_once" = { status = "ported", rust = "rust/crates/media/src/h264.rs::a_hardware_decoder_refusing_the_stream_falls_back_to_software_given_each_unit_once" }
 "test_h264_reader.py::test_the_warm_up_runs_once_under_the_import_lock" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
-"test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "dropped", reason = "no PyAV: FFmpeg is linked into the binary, so there is nothing to import or be missing" }
+"test_h264_reader.py::test_without_pyav_the_reader_never_opens" = { status = "ported", rust = "rust/crates/media/src/lib.rs::without_ffmpeg_h264_never_opens_and_mjpeg_still_does" }
 # ── hotkeys
 "test_hotkeys.py::test_portal_binds_and_relays_presses" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::binds_and_relays_presses" }
 "test_hotkeys.py::test_portal_has_plasma_forget_shortcuts_no_session_binds_any_more" = { status = "ported", rust = "rust/crates/system/src/hotkeys_portal.rs::has_plasma_forget_shortcuts_no_session_binds_any_more" }

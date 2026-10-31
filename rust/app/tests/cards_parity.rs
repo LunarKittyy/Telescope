@@ -65,6 +65,7 @@ fn spec_of(v: &Value) -> Spec {
     Spec { name: s("name"), pronouns: s("pronouns"), second: s("second"), style: s("style"), position: s("position"), size: s("size") }
 }
 
+#[cfg(not(windows))] // recorded with Linux's fonts
 #[test]
 fn name_tags_are_laid_out_and_drawn_like_python() {
     let Some(fonts) = tag::Fonts::system() else {

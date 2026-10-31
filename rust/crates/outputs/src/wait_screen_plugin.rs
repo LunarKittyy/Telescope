@@ -201,8 +201,7 @@ impl CpuStep for CoverStep {
 
 /// A message for an io error as the system words it ("No space left on device"), without Rust's "(os error 28)".
 fn os_message(e: &std::io::Error) -> String {
-    let text = e.to_string();
-    text.split(" (os error").next().unwrap_or(&text).to_string()
+    telescope_core::system::os_words(e)
 }
 
 /// A name nobody else will pick: 16 random hex digits.

@@ -412,11 +412,7 @@ pub struct InstallResult {
 
 /// io::Error's text without Rust's "(os error N)", like Python's strerror.
 fn strerror(e: &io::Error) -> String {
-    let text = e.to_string();
-    match text.rfind(" (os error ") {
-        Some(i) => text[..i].to_string(),
-        None => text,
-    }
+    telescope_core::system::os_words(e)
 }
 
 fn merged(journal: &Value, changes: Value) -> Value {
@@ -1024,6 +1020,7 @@ mod tests {
         assert_eq!(result.relaunch, vec![app.join("start.sh").to_string_lossy().into_owned(), "--after-update".into()]);
     }
 
+    #[cfg(unix)]
     #[test]
     fn linux_install_rolls_back_when_a_swap_fails() {
         let root = tmp("linux-fail");

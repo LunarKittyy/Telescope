@@ -1,3 +1,6 @@
+// No console window behind the app, as telescope.spec's console=False; a debug build keeps one for its logs
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 //! telescope-rs: the Rust rewrite of the Telescope desktop app, wiring every crate together.
 //!
 //!   telescope-rs                          the window
@@ -197,7 +200,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::privacy_blur::PrivacyBlurPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
-                Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
+                Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(telescope_media::ffmpeg_available())),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::framing::FramingPlugin::new()),
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
@@ -450,7 +453,36 @@ fn take_launch(words: &mut Vec<String>) -> Launch {
     }
 }
 
+/// The terminal this was started from, if any: a windows-subsystem program has none of its own, and `pair` or `--list-actions` print to it.
+#[cfg(windows)]
+fn use_parent_console() {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn AttachConsole(process: u32) -> i32;
+    }
+    const ATTACH_PARENT_PROCESS: u32 = u32::MAX;
+    // SAFETY: takes no pointers, and failing just means there's nothing to print to
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+}
+
+/// The main thread's COM mode before anything picks one: winit panics unless it's OLE's, and the Webcam scan and the sound
+/// libraries that run here first ask for the multithreaded one, which then stays as it is.
+#[cfg(windows)]
+fn use_window_apartment() {
+    #[link(name = "ole32")]
+    unsafe extern "system" {
+        fn OleInitialize(reserved: *mut std::ffi::c_void) -> i32;
+    }
+    // SAFETY: the reserved pointer must be null, and this is the program's first COM call on this thread
+    unsafe { OleInitialize(std::ptr::null_mut()) };
+}
+
 fn main() {
+    #[cfg(windows)]
+    {
+        use_parent_console();
+        use_window_apartment();
+    }
     use telescope_system::{memory, update_guard, version};
     telescope_shell::window::use_app_hooks(telescope_shell::window::AppHooks {
         build: version::display_version,

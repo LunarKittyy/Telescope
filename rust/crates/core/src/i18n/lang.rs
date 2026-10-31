@@ -105,8 +105,23 @@ fn system_locale_names() -> Vec<String> {
     ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|n| var(n)).and_then(|v| from_environment(&v)).into_iter().collect()
 }
 
+/// Qt's order: the list in Windows' language settings, which still names a language Windows itself has no display pack for,
+/// then the display languages when that list can't be read.
 #[cfg(windows)]
 fn system_locale_names() -> Vec<String> {
+    let listed = settings_languages();
+    if listed.is_empty() { display_languages() } else { listed }
+}
+
+#[cfg(windows)]
+fn settings_languages() -> Vec<String> {
+    use windows::System::UserProfile::GlobalizationPreferences;
+    let Ok(list) = GlobalizationPreferences::Languages() else { return Vec::new() };
+    (0..list.Size().unwrap_or(0)).filter_map(|i| list.GetAt(i).ok()).map(|tag| tag.to_string()).filter(|t| !t.is_empty()).collect()
+}
+
+#[cfg(windows)]
+fn display_languages() -> Vec<String> {
     extern "system" {
         fn GetUserPreferredUILanguages(flags: u32, count: *mut u32, buffer: *mut u16, size: *mut u32) -> i32;
     }
@@ -158,5 +173,15 @@ pub fn marks(language: &str) -> (&'static str, &'static str) {
         "de" | "es" | "fr" | "id" | "it" | "pl" | "pt" | "ru" | "tr" | "uk" | "vi" => (",", "-"),
         "sv" => (",", "\u{2212}"),
         _ => (".", "-"),
+    }
+}
+
+#[cfg(all(test, windows))]
+mod system_language {
+    #[test]
+    fn windows_says_which_languages_this_user_wants() {
+        let names = super::system_locale_names();
+        assert!(!names.is_empty() && names[0].contains('-'), "{names:?}");
+        assert!(!super::system_languages().is_empty());
     }
 }

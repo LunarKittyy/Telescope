@@ -103,3 +103,25 @@ mod tests {
         assert_eq!(file_url_for(r"\\server\share\a b.log", true), "file://server/share/a%20b.log");
     }
 }
+
+/// An io error in the system's words, like Python's strerror: no "(os error N)", and none of the full stop Windows ends them with.
+pub fn os_words(e: &std::io::Error) -> String {
+    let text = e.to_string();
+    match text.rfind(" (os error ") {
+        Some(at) => text[..at].trim_end_matches('.').to_string(),
+        None => text,
+    }
+}
+
+#[cfg(test)]
+mod os_words_tests {
+    use super::os_words;
+    use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn only_the_systems_own_words_are_left() {
+        let words = os_words(&Error::from_raw_os_error(2));
+        assert!(!words.is_empty() && !words.contains("os error") && !words.ends_with('.'), "{words}");
+        assert_eq!(os_words(&Error::new(ErrorKind::Other, "our own words.")), "our own words.");
+    }
+}

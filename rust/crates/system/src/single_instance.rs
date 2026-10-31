@@ -469,7 +469,8 @@ mod tests {
         if cfg!(target_os = "linux") {
             Address::Abstract(format!("telescope-test-{}-{name}", std::process::id()))
         } else {
-            Address::Port(47900 + (std::process::id() % 50) as u16 + name.len() as u16)
+            let digest = ring::digest::digest(&ring::digest::SHA256, format!("{}{name}", std::process::id()).as_bytes());
+            Address::Port(47900 + u16::from_be_bytes([digest.as_ref()[0], digest.as_ref()[1]]) % 2000)
         }
     }
 
