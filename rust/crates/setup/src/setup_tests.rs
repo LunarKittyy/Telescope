@@ -344,8 +344,13 @@ fn a_registration_in_the_app_folder_asks_for_a_reinstall_and_says_why() {
 fn install_driver_shows_progress_then_ready() {
     let mut r = Rig::with(false, FakeOutputs { progress: Some("Registering (admin access required)...".into()), ..FakeOutputs::default() });
     r.plugin.install_uc(&mut r.host);
-    let posts = r.host.posted.lock().unwrap().clone();
-    assert_eq!(posts[0], ("uc-msg".to_string(), json!("Registering (admin access required)...")));
+    let (token, data) = {
+        let mut posts = r.host.posted.lock().unwrap();
+        posts.remove(0)
+    };
+    assert_eq!(token, "uc-msg");
+    r.plugin.on_event(&mut r.host, &Event::Posted { owner: NAME.into(), token, data });
+    assert_eq!(r.plugin.panel.uc.text, "Registering (admin access required)...", "on screen while it runs");
     r.deliver();
     assert_eq!(r.plugin.panel.uc.text, "Ready");
     assert_eq!(r.plugin.panel.uc_button, "Reinstall");
@@ -498,6 +503,12 @@ fn show_event_refreshes_platform_specific_status() {
     r.ui("devices", "shown", vec![]);
     assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props virtual-camera")));
     assert!(r.plugin.panel.v4l.text.contains("Not loaded"), "looked at the module");
+    for persisted in [true, false] {
+        *r.outputs.status.lock().unwrap() = status(false, false, persisted);
+        r.ui("devices", "shown", vec![]);
+        r.deliver();
+        assert_eq!(r.plugin.panel.persist_checked, persisted, "looked at the boot files too");
+    }
     let mut w = Rig::with(false, FakeOutputs { status: Mutex::new(SetupStatus { windows_camera: true, ..SetupStatus::default() }),
                                                ..FakeOutputs::default() });
     w.ui("devices", "shown", vec![]);
@@ -512,6 +523,18 @@ fn setup_contributes_settings_sections_instead_of_a_panel() {
     tabs.sort();
     tabs.dedup();
     assert_eq!(tabs, ["about", "audio", "devices", "general", "video"]);
+    // A section's on_show: the window tells each one "shown", and each goes and looks
+    for section in r.plugin.settings_sections() {
+        r.outputs.actions.lock().unwrap().clear();
+        r.host.calls.clear();
+        *r.outputs.status.lock().unwrap() = status(true, true, false);
+        r.plugin.panel.v4l = Line::default();
+        r.ui(&section.id, "shown", vec![]);
+        r.deliver();
+        assert!(!r.plugin.panel.v4l.text.is_empty(), "{}", section.id);
+        assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props")), "{}", section.id);
+        assert_eq!(r.plugin.panel.video_visible, section.id == "video");
+    }
 }
 
 #[test]

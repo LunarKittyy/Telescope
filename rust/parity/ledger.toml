@@ -2327,7 +2327,7 @@
 "test_camera_control.py::test_capability_gating_forces_unsupported_modes_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_gating_forces_unsupported_modes_off" }
 "test_camera_control.py::test_capability_line_is_rebuilt_not_appended" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_line_is_rebuilt_not_appended" }
 "test_camera_control.py::test_capability_line_names_only_what_the_lens_supports" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::capability_line_names_only_what_the_lens_supports" }
-"test_camera_control.py::test_compensation_snaps_and_all_three_reset_on_a_double_click" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::compensation_snaps_and_all_three_reset_on_a_double_click" }
+"test_camera_control.py::test_compensation_snaps_and_all_three_reset_on_a_double_click" = { status = "ported", rust = "rust/app/tests/camera_card_ui.rs::compensation_snaps_and_all_three_reset_on_a_double_click", note = "the moves going through the normal handlers, and the snap point, are in rust/crates/shell/src/plugins/camera_control_tests.rs::compensation_snaps_and_all_three_reset_on_a_double_click" }
 "test_camera_control.py::test_default_config_resets_boolean_camera_settings" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::default_config_resets_boolean_camera_settings" }
 "test_camera_control.py::test_derive_camera_control_view_defaults_ae_range_without_current_camera" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_defaults_ae_range_without_current_camera" }
 "test_camera_control.py::test_derive_camera_control_view_maps_auto_and_manual_flags" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::derive_camera_control_view_maps_auto_and_manual_flags" }
@@ -3901,10 +3901,10 @@
 "test_setup.py::test_max_zoom_loads_with_a_safe_fallback_and_is_announced" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::max_zoom_loads_with_a_safe_fallback_and_is_announced" }
 "test_setup.py::test_max_zoom_spinbox_applies_straight_away" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::max_zoom_spinbox_applies_straight_away" }
 "test_setup.py::test_persist_toggle_runs_correct_action_and_displays_success" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::persist_toggle_runs_correct_action_and_displays_success" }
-"test_setup.py::test_refresh_persist_status" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::refresh_persist_status" }
+"test_setup.py::test_refresh_persist_status" = { status = "ported", rust = "rust/crates/outputs/src/linux_setup.rs::either_boot_file_counts_as_persisted" }
 "test_setup.py::test_reinstalling_the_driver_keeps_the_extra_cameras" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::reinstalling_the_driver_keeps_the_extra_cameras" }
 "test_setup.py::test_setup_contributes_settings_sections_instead_of_a_panel" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::setup_contributes_settings_sections_instead_of_a_panel" }
-"test_setup.py::test_setup_plugin_builds_its_cards_and_syncs_config" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::setup_plugin_builds_its_cards_and_syncs_config" }
+"test_setup.py::test_setup_plugin_builds_its_cards_and_syncs_config" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::setup_plugin_builds_its_cards_and_syncs_config", note = "the button being there is rust/app/tests/setup_about_ui.rs::the_diagnostics_button_is_there_to_press" }
 "test_setup.py::test_show_event_refreshes_platform_specific_status" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::show_event_refreshes_platform_specific_status" }
 "test_setup.py::test_the_graphics_card_row_waits_for_settings_and_fills_in_after" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::the_graphics_card_row_waits_for_settings_and_fills_in_after" }
 "test_setup.py::test_the_windows_11_camera_installed_is_ready" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::the_windows_11_camera_installed_is_ready" }
