@@ -175,6 +175,8 @@ pub struct ColourGradingPlugin {
     started: Instant,
     /// Where the switch and the compare were when a key held for them went down.
     held: [Option<bool>; 2],
+    #[cfg(test)]
+    reads: usize,
 }
 
 impl Default for ColourGradingPlugin {
@@ -208,6 +210,8 @@ impl ColourGradingPlugin {
             export_note: (String::new(), "dim"),
             started: Instant::now(),
             held: [None; 2],
+            #[cfg(test)]
+            reads: 0,
         }
     }
 
@@ -271,6 +275,10 @@ impl ColourGradingPlugin {
                 self.parsed.push(hit);
                 return (Some(lut), String::new());
             }
+        }
+        #[cfg(test)]
+        {
+            self.reads += 1;
         }
         match read_cube(Path::new(path)) {
             Ok(lut) => {

@@ -150,13 +150,13 @@ struct HubState {
 
 /// Runs whichever effect look names, keeping its state while it stays the same one.
 #[derive(Default)]
-struct Runner {
+pub(crate) struct Runner {
     name: Option<(String, u32)>,
     effect: Option<Effect>,
 }
 
 impl Runner {
-    fn run(&mut self, frame: &Rgb, look: &Look, mask: Option<Gray>) -> Rgb {
+    pub(crate) fn run(&mut self, frame: &Rgb, look: &Look, mask: Option<Gray>) -> Rgb {
         let id = (look.effect.clone(), look.reset);
         if self.name.as_ref() != Some(&id) {
             self.name = Some(id);

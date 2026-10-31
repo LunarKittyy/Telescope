@@ -69,6 +69,12 @@ impl SensorReader for HeldReading {
 pub struct FakeHost {
     pub calls: Vec<String>,
     pub events: Vec<Event>,
+    /// Every pick_file, in order.
+    pub dialogs: Vec<crate::host::FileDialog>,
+    /// Every set_colour_stage, in order, as (owner, stage).
+    pub colour_stages: Vec<(String, Option<ColourStage>)>,
+    /// What each owner last put on change_packets.
+    pub packets: HashMap<String, Option<Arc<dyn PacketStepFactory>>>,
     /// What plugin_config() answers, by plugin name.
     pub plugin_configs: HashMap<String, Value>,
     /// Plugins has_plugin() says are there.
@@ -425,6 +431,7 @@ impl HostShell for FakeHost {
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
+        self.dialogs.push(dialog.clone());
         Some(self.request())
     }
 }
@@ -587,6 +594,7 @@ impl HostStills for FakeHost {
 impl HostColour for FakeHost {
     fn set_colour_stage(&mut self, owner: &str, stage: Option<ColourStage>, order: i32, _source_id: Option<&str>) {
         self.note(format!("set_colour_stage {owner} {} {order}", stage.is_some()));
+        self.colour_stages.push((owner.to_string(), stage));
     }
     fn colour_split(&mut self, owner: &str, position: Option<f32>) {
         self.note(format!("colour_split {owner} {position:?}"));
@@ -611,6 +619,7 @@ impl HostPackets for FakeHost {
     }
     fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {
         self.note(format!("change_packets {owner} {}", factory.is_some()));
+        self.packets.insert(owner.to_string(), factory);
     }
 }
 

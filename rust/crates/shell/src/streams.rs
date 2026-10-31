@@ -350,6 +350,7 @@ impl Window {
         st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
         st.streams.stopping_all = s.stopping_all;
         st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+        st.streams.waking_id = s.wake_source.as_ref().filter(|_| s.waking).map(|w| w.id_str().to_string());
         st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
         st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
             .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name(), session: x.session().map_or(0, |s| s.id) }).collect();

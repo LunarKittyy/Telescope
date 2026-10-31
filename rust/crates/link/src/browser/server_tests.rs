@@ -125,6 +125,41 @@ fn server() -> Run {
     serve(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), false)
 }
 
+/// The logger is process-wide, so a test that reads it reruns itself alone: true once that passed, false inside that rerun.
+fn on_its_own(test: &str) -> bool {
+    const ALONE: &str = "TELESCOPE_TEST_ALONE";
+    if std::env::var_os(ALONE).is_some() {
+        return false;
+    }
+    let name = format!("browser::server_tests::{test}");
+    let out = std::process::Command::new(std::env::current_exe().unwrap()).args(["--exact", &name, "--nocapture"]).env(ALONE, "1").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && said.contains("1 passed"), "{said}\n{}", String::from_utf8_lossy(&out.stderr));
+    true
+}
+
+struct Lines(Arc<Mutex<Vec<String>>>);
+
+impl log::Log for Lines {
+    fn enabled(&self, _meta: &log::Metadata) -> bool {
+        true
+    }
+    fn log(&self, record: &log::Record) {
+        if record.target().starts_with("telescope") {
+            self.0.lock().unwrap().push(record.args().to_string());
+        }
+    }
+    fn flush(&self) {}
+}
+
+/// Everything logged from here on.
+fn log_lines() -> Arc<Mutex<Vec<String>>> {
+    let lines: Arc<Mutex<Vec<String>>> = Arc::default();
+    log::set_boxed_logger(Box::new(Lines(lines.clone()))).unwrap();
+    log::set_max_level(log::LevelFilter::Info);
+    lines
+}
+
 /// Just enough of a browser's WebSocket: masked frames out, unmasked in.
 struct Browser {
     tls: rustls::StreamOwned<rustls::ClientConnection, TcpStream>,
@@ -335,11 +370,16 @@ fn wrong_token_is_refused() {
     let b = Browser::connect(run.server.port(), "nope", "");
     assert_eq!(b.status, 403);
     drop(b);
+    assert!(!run.feed().connected());
     assert_eq!(run.server.stats().unwrap().count(Step::Refused), 1);
 }
 
 #[test]
 fn stats_count_each_step_a_browser_gets_to() {
+    if on_its_own("stats_count_each_step_a_browser_gets_to") {
+        return;
+    }
+    let lines = log_lines();
     let run = server();
     let port = run.server.port();
     let stats = run.server.stats().unwrap();
@@ -353,6 +393,29 @@ fn stats_count_each_step_a_browser_gets_to() {
     drop(b);
     assert!(wait(|| stats.count(Step::TlsFailed) == 1, FIVE));
     assert_eq!((stats.count(Step::Connections), stats.count(Step::Pages), stats.count(Step::Browsers)), (3, 1, 1));
+    let logged = lines.lock().unwrap();
+    // only the first time
+    assert_eq!(logged.iter().filter(|l| *l == "Browser camera: a device reached this computer").count(), 1, "{logged:?}");
+    let token = run.server.token();
+    assert!(!logged.iter().any(|l| l.contains("127.0.0.1") || l.contains(&token)), "{logged:?}");
+}
+
+#[test]
+fn a_taken_port_is_logged_and_shown() {
+    if on_its_own("a_taken_port_is_logged_and_shown") {
+        return;
+    }
+    let lines = log_lines();
+    let first = server();
+    let (maker, _) = fake_rtc(false);
+    let second = BrowserServer::new(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), Arc::new(SystemWeb), cert(), || {}, first.server.port(), "127.0.0.1", maker);
+    second.start().unwrap();
+    assert_ne!(second.port(), first.server.port());
+    let stats = second.stats().unwrap();
+    assert!(stats.fell_back && stats.port == second.port());
+    assert!(!first.server.stats().unwrap().fell_back);
+    assert!(lines.lock().unwrap().iter().any(|l| l.contains("was taken")), "{:?}", lines.lock().unwrap());
+    second.stop();
 }
 
 #[test]
@@ -589,8 +652,7 @@ fn stop_ends_a_connected_browser() {
 // ── Into the pipeline ────────────────────────────────────────────────────────
 
 #[test]
-fn stream_worker_sends_browser_frames_to_the_virtual_camera() {
-    // The stream reads a browser's frames as it reads a phone's, in order, through the VideoFeed
+fn the_feed_hands_a_stream_every_frame_in_order() {
     let run = server();
     let mut b = run.browser("");
     b.recv_json();
@@ -609,8 +671,7 @@ fn stream_worker_sends_browser_frames_to_the_virtual_camera() {
 }
 
 #[test]
-fn audio_worker_plays_the_browsers_mic() {
-    // What the audio worker reads: the browser's PCM, as the phone's /v1/audio sends it
+fn the_browsers_mic_comes_out_as_it_went_in() {
     let run = server();
     let mut b = run.browser("");
     b.recv_json();
@@ -639,7 +700,7 @@ fn reader_waits_for_a_browser_and_says_what_its_waiting_for() {
 }
 
 #[test]
-fn the_reader_hands_over_only_the_newest_frame() {
+fn a_reader_that_falls_behind_starts_again_at_a_keyframe() {
     // Frames are still encoded here, so none can be skipped on its own: a reader that falls far behind starts again
     // at the next keyframe, and the browser is asked for one
     let feed = Arc::new(BrowserFeed::new());

@@ -180,6 +180,8 @@ pub struct Streams {
     pub stopping_all: bool,
     /// Every stream the flow has, up or still waking, and whether a start is waking or preparing one.
     pub ids: Vec<String>,
+    /// The stream a start is waking.
+    pub waking_id: Option<String>,
     pub waking: bool,
     pub preparing: bool,
     /// Which camera each stream that's up feeds, as other apps list it, and the size it opened at.

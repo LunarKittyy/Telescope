@@ -101,8 +101,8 @@ impl HostStreams for Ctx<'_> {
     }
     fn is_streaming_from(&self, source_id: Option<&str>) -> bool {
         // Shown or not, up or still waking, as Python's Sessions.is_streaming_from
-        let st = &self.state.streams;
-        (st.streaming && st.source_id.as_deref() == source_id) || source_id.is_some_and(|id| st.ids.iter().any(|s| s == id))
+        let (st, id) = (&self.state.streams, source_id.unwrap_or_default());
+        st.waking_id.as_deref() == Some(id) || st.ids.iter().any(|s| s == id)
     }
     fn stream_count(&self) -> u32 {
         self.state.streams.live.len().max(self.state.streams.streaming as usize) as u32

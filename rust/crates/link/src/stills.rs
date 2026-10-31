@@ -672,6 +672,7 @@ mod tests {
     #[test]
     fn a_name_already_taken_gets_a_number() {
         let dir = telescope_core::testing::scratch_dir("stills-names");
+        assert_eq!(free_path(&dir, "IMG_1.jpg"), dir.join("IMG_1.jpg"));
         std::fs::write(dir.join("IMG_1.jpg"), b"x").unwrap();
         assert_eq!(free_path(&dir, "IMG_1.jpg"), dir.join("IMG_1 (2).jpg"));
         std::fs::write(dir.join("IMG_1 (2).jpg.part"), b"x").unwrap();
@@ -682,9 +683,11 @@ mod tests {
     #[test]
     fn names_from_the_phone_stay_in_the_folder() {
         assert_eq!(safe_name("../../etc/passwd", 0), "passwd");
+        assert_eq!(safe_name("IMG_20261026_142501_01.dng", 0), "IMG_20261026_142501_01.dng");
+        assert_eq!(safe_name("a b<c>.jpg", 0), "a_b_c_.jpg");
         assert_eq!(safe_name("IMG 1.jpg", 0), "IMG_1.jpg");
-        assert_eq!(safe_name("...", 2), "photo_3.jpg");
-        assert_eq!(safe_name("", 0), "photo_1.jpg");
+        assert_eq!(safe_name("", 2), "photo_3.jpg");
+        assert_eq!(safe_name("...", 0), "photo_1.jpg");
     }
 
     #[test]
