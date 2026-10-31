@@ -20,6 +20,9 @@ if ($LASTEXITCODE) { throw 'cargo build failed' }
 $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { 'target' }
 New-Item -ItemType Directory -Force $Out | Out-Null
 Copy-Item "$target\release\telescope-rs.exe" $Out
+# The window's .slint files and icons are read at run time (telescope_ui_kit::library_path)
+Remove-Item -Recurse -Force "$Out\ui-kit" -ErrorAction SilentlyContinue
+Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
 foreach ($dll in 'avcodec', 'avutil', 'swscale', 'swresample') {
     Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
 }

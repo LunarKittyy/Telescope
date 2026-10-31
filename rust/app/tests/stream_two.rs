@@ -125,6 +125,19 @@ fn add_camera_offers_what_doesnt_stream_yet_while_anything_streams() {
 }
 
 #[test]
+fn a_stream_left_behind_keeps_its_own_colour() {
+    let r = two_of(Rig::new("freeze-colour"));
+    focus(&r, "pixel");
+    {
+        let mut state = r.w.state.borrow_mut();
+        state.colour = telescope_core::colour::ColourPipeline::inline();
+        state.colour.set_stage("grade", Some(ColourStage::new(2, Arc::new(vec![0.5; 24]), None)), 0, Some("pixel"));
+    }
+    focus(&r, "oneplus");
+    assert!(r.worker(0).steps.lock().unwrap().last().unwrap().iter().any(|o| o == "colour"), "frozen with the grade made for it");
+}
+
+#[test]
 fn a_lut_baked_after_the_panels_moved_on_reaches_the_stream_left_behind() {
     let r = two_of(Rig::new("bake-behind"));
     focus(&r, "oneplus");

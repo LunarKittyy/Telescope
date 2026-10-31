@@ -481,6 +481,7 @@ fn a_stream_restarted_behind_the_panels_warns_again() {
     r.other("other", low.clone());
     assert_eq!(warnings(&r), once, "said once");
     r.host.background[0].session = 2;
+    r.plugin.others.clear();
     r.event(Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: low.clone() });
     assert_eq!(warnings(&r), once, "a reading from before the restart is dropped");
     r.event(Event::PhonePolled { source_id: "other".into(), session: 2, shown: false, state: low });

@@ -288,7 +288,8 @@ export component TelescopeWindow inherits Window {
     out property <length> view-height: view-h;
 
     title: window-title;
-    icon: Icons.camera;
+    in property <image> app-icon;
+    icon: app-icon;
     preferred-width: 1380px;
     preferred-height: 900px;
     min-width: 560px;
@@ -691,6 +692,8 @@ export component TelescopeSettings inherits Window {
     public function focus-search() { search.focus-all(); }
 
     title: @tr("Settings");
+    in property <image> app-icon;
+    icon: app-icon;
     preferred-width: 940px;
     preferred-height: 680px;
     min-width: 720px;

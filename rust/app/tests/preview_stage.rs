@@ -406,6 +406,14 @@ fn a_pick_runs_on_the_popout_while_it_is_open() {
 }
 
 #[test]
+fn every_window_of_the_shell_has_the_apps_icon() {
+    let s = on_air("stage-icon");
+    let wide = |value: SValue| matches!(value, SValue::Image(i) if i.size().width == 256);
+    assert!(wide(s.r.w.ui.get_property("app-icon").unwrap()));
+    assert!(wide(s.pop_out().get_property("app-icon").unwrap()));
+}
+
+#[test]
 fn the_popout_goes_blank_when_the_stream_stops() {
     let s = on_air("stage-popout-stop");
     let p = s.pop_out();

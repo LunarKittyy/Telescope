@@ -111,7 +111,27 @@ impl Window {
         let _ = self.ui.show();
         self.ui.window().set_minimized(false);
         self.ui.window().with_winit_window(|w| w.focus_window());
+        self.keep_on_screen();
         self.report_shown();
+    }
+
+    /// As it first opens: a window taller or wider than the screen is cut down to it.
+    fn keep_on_screen(&self) {
+        use slint::winit_030::WinitWindowAccessor;
+        if self.fitted.replace(true) {
+            return;
+        }
+        let window = self.ui.window();
+        let scale = window.scale_factor();
+        let least = ((560.0 * scale) as u32, (520.0 * scale) as u32);
+        let fitted = window.with_winit_window(|w| {
+            let (screen, inner, outer) = (w.current_monitor()?.size(), w.inner_size(), w.outer_size());
+            let frame = (outer.width.saturating_sub(inner.width), outer.height.saturating_sub(inner.height));
+            crate::window::fit_on_screen((inner.width, inner.height), (screen.width, screen.height), frame, least)
+        }).flatten();
+        if let Some((width, height)) = fitted {
+            window.set_size(slint::PhysicalSize::new(width, height));
+        }
     }
 
     fn hide_window(&self) {

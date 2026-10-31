@@ -83,6 +83,8 @@ pub struct Window {
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    /// It's been fitted to the screen, which it only is as it first opens.
+    pub(crate) fitted: Cell<bool>,
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
     pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
@@ -97,6 +99,8 @@ export struct LayerText { x: length, y: length, text: string, color: color, size
 
 export component PreviewPopout inherits Window {
     title: @tr("Telescope - Video Preview");
+    in property <image> app-icon;
+    icon: app-icon;
     min-width: 320px;
     min-height: 180px;
     background: #000;
@@ -234,6 +238,32 @@ export component PreviewPopout inherits Window {
 }
 "#;
 
+/// The picture a window's title bar and the taskbar show (create_app_icon): the installer's icon, as pixels, since a window
+/// icon has to be one and an SVG isn't.
+pub(crate) fn app_icon() -> Option<slint::Image> {
+    let mut reader = png::Decoder::new(std::io::Cursor::new(include_bytes!("../ui/telescope.png").as_slice())).read_info().ok()?;
+    let (width, height) = (reader.info().width, reader.info().height);
+    let mut rgba = vec![0; reader.output_buffer_size()?];
+    reader.next_frame(&mut rgba).ok()?;
+    let pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(&rgba, width, height);
+    Some(slint::Image::from_rgba8(pixels))
+}
+
+/// Gives a window of the shell's the app's icon.
+pub(crate) fn set_app_icon(window: &ComponentInstance) {
+    if let Some(icon) = app_icon() {
+        let _ = window.set_property("app-icon", SValue::Image(icon));
+    }
+}
+
+/// The window's size so all of it fits on a screen of this size, given what the frame adds around it (Windows clamped Python's
+/// window to about the screen; winit opens one larger), or None when it fits. Never under the window's minimum.
+pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u32), least: (u32, u32)) -> Option<(u32, u32)> {
+    let room = |side: u32, screen: u32, frame: u32, least: u32| side.min(screen.saturating_sub(frame)).max(least);
+    let fitted = (room(size.0, screen.0, frame.0, least.0), room(size.1, screen.1, frame.1, least.1));
+    (fitted != size).then_some(fitted)
+}
+
 /// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px.
 fn fit_popout(p: &ComponentInstance, frame_w: u32, frame_h: u32) {
     let size = p.window().size();
@@ -338,6 +368,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
+    set_app_icon(&ui);
 
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
@@ -356,6 +387,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        fitted: Cell::new(false),
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
     });
@@ -844,6 +876,7 @@ impl Window {
                             SValue::Void
                         });
                     }
+                    set_app_icon(&p);
                     if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
                         let _ = p.set_property("marker-colour", accent);
                     }
@@ -1394,6 +1427,23 @@ mod popout_tests {
     fn the_pop_out_compiles() {
         i_slint_backend_testing::init_no_event_loop();
         crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap();
+    }
+
+    #[test]
+    fn a_window_opens_on_the_screen_it_opens_on() {
+        let frame = (16, 39);
+        assert_eq!(super::fit_on_screen((1380, 900), (1280, 800), frame, (560, 520)), Some((1264, 761)));
+        assert_eq!(super::fit_on_screen((1380, 900), (1920, 1080), frame, (560, 520)), None);
+        assert_eq!(super::fit_on_screen((1380, 900), (1920, 800), frame, (560, 520)), Some((1380, 761)));
+        assert_eq!(super::fit_on_screen((1380, 900), (500, 400), frame, (560, 520)), Some((560, 520)), "never under its minimum");
+    }
+
+    #[test]
+    fn the_app_icon_is_a_picture_a_window_can_use() {
+        i_slint_backend_testing::init_no_event_loop();
+        let icon = super::app_icon().expect("the icon");
+        assert_eq!((icon.size().width, icon.size().height), (256, 256));
+        assert!(icon.to_rgba8().is_some(), "an SVG would come back empty, and winit shows nothing for it");
     }
 
     #[test]

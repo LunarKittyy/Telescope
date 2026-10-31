@@ -190,6 +190,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     if !tab.is_empty() {
         settings.show_tab(tab);
     }
+    crate::window::set_app_icon(&settings.ui);
     let _ = settings.ui.show();
     settings.tell_shown();
     let _ = settings.ui.invoke("focus-search", &[]);
