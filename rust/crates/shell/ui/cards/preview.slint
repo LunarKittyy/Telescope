@@ -30,6 +30,8 @@ export component PreviewCard inherits Rectangle {
     // The pop-out window is open (the window opens it, preview.rs), and how often Pop out asked to bring it forward
     in property <bool> popout;
     in property <int> popout-asks;
+    // Which stream this is, counted: the window forgets what it last painted when this moves
+    in property <int> stream-gen;
     // The stage's size in logical px, for the window to paint frames at
     out property <length> stage-width: surface.width;
     out property <length> stage-height: surface.height;

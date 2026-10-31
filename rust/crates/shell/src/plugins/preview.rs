@@ -83,6 +83,8 @@ pub struct Preview {
     hid_for_popout: bool,
     /// Times Pop out was pressed while the window was open: the window comes to the front for each.
     popout_asks: i64,
+    /// Which stream this is, counted (_stream_gen): nothing the window was waiting on from the last one holds up the next.
+    stream_gen: i64,
     /// The Lens outlines button: the boxes stay on. It stays disabled until lenses send boxes.
     lens_boxes: bool,
     /// What the phone's other lenses see, and how far the boxes have faded since the framing last moved.
@@ -140,6 +142,7 @@ impl Preview {
             "camera-tip": tip,
             "popout": self.popout,
             "popout-asks": self.popout_asks,
+            "stream-gen": self.stream_gen,
         });
         if clear || self.hidden {
             props["has-frame"] = json!(false);
@@ -420,6 +423,7 @@ impl Plugin for Preview {
     }
 
     fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &telescope_core::plugin::StreamInfo) {
+        self.stream_gen += 1;
         self.render(host, true);
     }
 
