@@ -304,6 +304,38 @@ mod tests {
     }
 
     #[test]
+    fn a_reader_decodes_authenticated_frames_then_reports_eof() {
+        use telescope_core::media::{DecodeOptions, FrameReader, Media};
+        let Some(packets) = telescope_media::test_h264(&[30, 90, 150, 210], 64, 48, 5, false) else { return };
+        let body = packets.concat();
+        let (sent, length) = (body.clone(), body.len() as u64);
+        let server = serve(None, Arc::new(move |req| if req.auth.as_deref() == Some("Bearer secret") {
+            (200, "video/h264".into(), sent.clone())
+        } else {
+            (401, "text/plain".into(), Vec::new())
+        }));
+        let url = format!("{}/v1/video.h264", server.base(false));
+        assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
+        let (codec, feed) = open_feed(&url, &PhoneAuth::new("secret", ""), Duration::from_secs(3)).unwrap();
+        let media = telescope_media::FfmpegMedia;
+        let decoder = media.decoder(codec, &DecodeOptions::default()).unwrap();
+        let mut reader = media.frame_reader(feed, decoder).unwrap();
+        let (mut frames, mut total) = (Vec::new(), 0);
+        let end = loop {
+            match reader.read() {
+                Ok(read) => {
+                    total += read.bytes;
+                    frames.push(read.frame);
+                }
+                Err(end) => break end,
+            }
+        };
+        assert_eq!(end, FeedEnd::Closed);
+        assert!(!frames.is_empty() && (frames[0].width, frames[0].height) == (64, 48));
+        assert!(total > 0 && total <= length, "{total} of {length}");
+    }
+
+    #[test]
     fn an_h264_feed_hands_on_what_arrives_and_a_stop_ends_it() {
         let server = serve(None, Arc::new(|_| (200, "video/h264".into(), vec![0, 0, 0, 1, 9, 0xf0])));
         let (codec, mut feed) = open_feed(&format!("{}/v1/video.h264", server.base(false)), &PhoneAuth::new("t", ""), Duration::from_secs(3)).unwrap();

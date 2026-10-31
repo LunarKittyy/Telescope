@@ -24,7 +24,12 @@ static LIVE: Mutex<BTreeMap<&'static str, usize>> = Mutex::new(BTreeMap::new());
 /// The card decoder this computer has, probed once by opening one.
 pub fn hardware_device() -> Option<Hw> {
     static FOUND: OnceLock<Option<Hw>> = OnceLock::new();
-    *FOUND.get_or_init(|| HW_TYPES.into_iter().find(|&h| Codec::h264(Some(h)).is_ok()))
+    *FOUND.get_or_init(|| first_that_opens(|h| Codec::h264(Some(h)).is_ok()))
+}
+
+/// The first card decoder that opens, in the order they're tried. One this build or this computer doesn't have just doesn't open.
+fn first_that_opens(opens: impl Fn(Hw) -> bool) -> Option<Hw> {
+    HW_TYPES.into_iter().find(|&h| opens(h))
 }
 
 pub fn hardware_failed() -> bool {
@@ -126,10 +131,15 @@ pub struct H264 {
 impl H264 {
     /// On the card when hardware is asked for, one opens and none failed this run; software otherwise.
     pub fn new(hardware: bool, tap: Option<Arc<Tap>>) -> Result<H264, String> {
-        let wanted = if hardware && !hardware_failed() { hardware_device() } else { None };
-        let codec = match wanted.map(|h| Codec::h264(Some(h))) {
+        H264::opening(hardware, hardware_device, Codec::h264, tap)
+    }
+
+    /// new, with how a computer finds its card decoder and opens a codec.
+    fn opening(hardware: bool, device: impl FnOnce() -> Option<Hw>, open: impl Fn(Option<Hw>) -> Result<Codec, String>, tap: Option<Arc<Tap>>) -> Result<H264, String> {
+        let wanted = if hardware && !hardware_failed() { device() } else { None };
+        let codec = match wanted.map(|h| open(Some(h))) {
             Some(Ok(c)) => c,
-            _ => Codec::h264(None)?,
+            _ => open(None)?,
         };
         Ok(H264::with_codec(codec, tap))
     }
@@ -433,6 +443,26 @@ pub(crate) mod tests {
         assert_eq!(made.load(Ordering::SeqCst), 2);
     }
 
+    /// HW_FAILED and the live count are one per run: tests that touch them take turns, and leave them as they found them.
+    struct CardTest(#[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+
+    fn card_test() -> CardTest {
+        static TURN: Mutex<()> = Mutex::new(());
+        let turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
+        HW_FAILED.store(false, Ordering::SeqCst);
+        CardTest(turn)
+    }
+
+    impl Drop for CardTest {
+        fn drop(&mut self) {
+            HW_FAILED.store(false, Ordering::SeqCst);
+        }
+    }
+
+    fn hardware_in_use() -> bool {
+        status().backends.iter().any(|b| b != "processor")
+    }
+
     #[test]
     fn diagnostics_follow_the_live_decoders() {
         let dec = software();
@@ -441,9 +471,23 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn diagnostics_follow_the_live_decoder_not_the_next_preference() {
+        let _turn = card_test();
+        let card = pretend_hardware(None);
+        // Hardware decoding switched off: the next connection asks for software, and the running decoder doesn't hear of it
+        let next = H264::new(false, None).unwrap();
+        assert!(next.hw().is_none() && card.hw() == Some(Hw::Cuda));
+        assert!(status().backends.contains(&"cuda".to_string()));
+        assert!(hardware_in_use());
+        drop(card);
+        assert!(!hardware_in_use());
+    }
+
+    #[test]
     fn a_card_that_opens_decodes_or_hands_over_to_software() {
         // On a machine with VA-API this decodes on the card; anywhere else it's software, and either way frames come
         let Some(packets) = testenc::h264(&[60, 120, 180], 64, 48, 5) else { return };
+        let _turn = card_test();
         let mut dec = H264::new(true, None).unwrap();
         let (frame, count) = dec.feed(&packets.concat());
         assert!(frame.is_some() && count >= 1, "on {:?}", dec.hw());
@@ -457,47 +501,111 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_hardware_decoder_refusing_the_stream_falls_back_to_software_given_each_unit_once() {
-        // Garbage first: a card decoder that hasn't decoded anything yet takes that as the card failing
+    fn a_graphics_card_that_fails_hands_over_to_software_and_stays_out() {
+        let Some(packets) = testenc::h264(&[60, 120, 180], 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.break_next = true;
+        assert_eq!(dec.hw(), Some(Hw::Cuda));
+        // The same input again in software
+        let (frame, count) = dec.feed(&packets[0]);
+        assert!(frame.is_some() && count == 1, "{count}");
+        assert!(dec.hw().is_none() && hardware_failed() && status().hardware_failed);
+        let (frame, count) = dec.feed(&packets.concat());
+        assert!(frame.is_some() && count == 3, "{count}");
+        // Not tried again this run, even on a computer that has a card that opens
+        let next = H264::opening(true, || Some(Hw::Cuda), |hw| {
+            let mut codec = Codec::h264(None)?;
+            codec.hw = hw;
+            Ok(codec)
+        }, None).unwrap();
+        assert!(next.hw().is_none());
+        assert!(!hardware_in_use());
+    }
+
+    #[test]
+    fn no_graphics_card_decoder_means_software() {
+        let Some(packets) = testenc::h264(&[90], 64, 48, 5) else { return };
+        let _turn = card_test();
+        let tried = Arc::new(AtomicUsize::new(0));
+        let t = tried.clone();
+        // The computer says it has one, and it doesn't open
+        let mut dec = H264::opening(true, || Some(Hw::Cuda), move |hw| {
+            if hw.is_some() {
+                t.fetch_add(1, Ordering::SeqCst);
+                return Err("no card here".into());
+            }
+            Codec::h264(None)
+        }, None).unwrap();
+        assert_eq!(tried.load(Ordering::SeqCst), 1);
+        assert!(dec.hw().is_none() && !hardware_failed());
+        assert!(dec.feed(&packets.concat()).0.is_some());
+    }
+
+    #[test]
+    fn a_hardware_decoder_refusing_the_stream_falls_back_too() {
+        let Some(packets) = testenc::h264(&[100], 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.codec.refusals = u32::MAX;
+        let (frame, count) = dec.feed(&packets.concat());
+        assert!(frame.is_some() && count == 1, "{count}");
+        assert!(dec.hw().is_none() && hardware_failed());
+    }
+
+    #[test]
+    fn garbage_a_card_refuses_before_its_first_frame_counts_as_the_card_failing() {
+        // Real refusal from FFmpeg: a card decoder that hasn't decoded anything yet takes that as the card failing
         let Some(packets) = testenc::h264(&[60, 120], 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        let bad = [b"\x00\x00\x00\x01\x65".as_slice(), &[0xFF; 64], AUD].concat();
+        let (frame, count) = dec.feed(&[bad, packets.concat()].concat());
+        assert!(dec.hw().is_none() && hardware_failed());
+        assert!(frame.is_some() && count == 2);
+    }
+
+    #[test]
+    fn the_software_fallback_gives_steps_each_unit_once() {
+        let Some(packets) = testenc::h264(&[60, 120], 64, 48, 5) else { return };
+        let _turn = card_test();
         let seen = Arc::new(Mutex::new(Vec::<usize>::new()));
         let s = seen.clone();
         let tap = tap_with(maker(move || {
             let s = s.clone();
-            let mut mine = 0;
             let index = { let mut v = s.lock().unwrap(); v.push(0); v.len() - 1 };
             Box::new(FnStep(move |u: &[u8]| {
-                mine += 1;
-                s.lock().unwrap()[index] = mine;
+                s.lock().unwrap()[index] += 1;
                 vec![u.to_vec()]
             }))
         }));
         let mut dec = pretend_hardware(Some(tap));
-        let bad = [b"\x00\x00\x00\x01\x65".as_slice(), &[0xFF; 64], AUD].concat();
-        let (frame, count) = dec.feed(&[bad, packets.concat()].concat());
-        // Not tried again this run
-        let next = H264::new(true, None).unwrap().hw();
-        let restore = HW_FAILED.swap(false, Ordering::SeqCst);
-        assert!(dec.hw().is_none() && restore && next.is_none());
-        assert!(frame.is_some() && count == 2);
-        // A fresh step for the software decoder
-        assert_eq!(seen.lock().unwrap().len(), 2);
+        dec.codec.refusals = u32::MAX;
+        assert_eq!(dec.hw(), Some(Hw::Cuda));
+        let (frame, _) = dec.feed(&packets.concat());
+        assert!(frame.is_some() && dec.hw().is_none());
+        // A fresh step for the software decoder, given each unit once
+        let seen = seen.lock().unwrap();
+        assert_eq!((seen.len(), seen[1]), (2, 2), "{seen:?}");
     }
 
     #[test]
     fn a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback() {
         let Some(packets) = testenc::h264(&[60, 61, 62, 63, 64], 64, 48, 5) else { return };
+        let _turn = card_test();
         let mut dec = pretend_hardware(None);
         assert!(dec.feed(&packets[0]).0.is_some());
-        let bad = [b"\x00\x00\x00\x01\x41".as_slice(), &[0xFF; 64], AUD].concat();
-        dec.feed(&bad);
-        assert!(dec.hw().is_some());
+        dec.codec.refusals = 1;
+        dec.feed(&packets[1]);
+        assert_eq!(dec.codec.refusals, 0, "the packet reached the decoder");
+        assert!(dec.hw() == Some(Hw::Cuda) && !hardware_failed());
         assert!(dec.feed(&packets[2..].concat()).0.is_some());
     }
 
     #[test]
     fn failure_after_setup_recovers_at_an_idr_without_repeated_headers() {
         let Some(packets) = testenc::h264(&(60..75).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let _turn = card_test();
         let mut dec = pretend_hardware(None);
         assert!(dec.feed(&packets[0]).0.is_some());
         dec.break_next = true;
@@ -513,16 +621,23 @@ pub(crate) mod tests {
             }
             dec.feed(&stripped).0.is_some()
         }).collect();
-        HW_FAILED.store(false, Ordering::SeqCst);
         assert!(recovered.iter().any(|&r| r) && dec.hw().is_none());
     }
 
     #[test]
-    fn linux_tries_va_api_before_cuda() {
+    fn linux_tries_va_api_before_cuda_when_ffmpeg_has_it() {
         #[cfg(not(windows))]
-        assert_eq!(HW_TYPES, [Hw::Vaapi, Hw::Cuda]);
+        {
+            assert_eq!(first_that_opens(|_| true), Some(Hw::Vaapi));
+            // FFmpeg built without VA-API, or a card without it
+            assert_eq!(first_that_opens(|h| h == Hw::Cuda), Some(Hw::Cuda));
+        }
         #[cfg(windows)]
-        assert_eq!(HW_TYPES, [Hw::D3d11va, Hw::Cuda]);
+        {
+            assert_eq!(first_that_opens(|_| true), Some(Hw::D3d11va));
+            assert_eq!(first_that_opens(|h| h == Hw::Cuda), Some(Hw::Cuda));
+        }
+        assert_eq!(first_that_opens(|_| false), None);
     }
 
     #[test]

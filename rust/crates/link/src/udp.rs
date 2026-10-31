@@ -960,6 +960,100 @@ mod tests {
         forget_failures();
     }
 
+    /// A feed the test keeps hold of while the media reader reads it.
+    struct Shared(Arc<Mutex<UdpFeed>>);
+
+    impl VideoFeed for Shared {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            self.0.lock().unwrap().read()
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            self.0.lock().unwrap().stopper()
+        }
+        fn decoded(&mut self) {
+            self.0.lock().unwrap().decoded();
+        }
+    }
+
+    /// Real H.264 as the fake phone's frames: Python's greys, in datagrams of 200 bytes, a keyframe every 5.
+    fn video(values: &[u8]) -> Option<Vec<(Vec<u8>, bool)>> {
+        let packets = telescope_media::test_h264(values, 64, 48, 5, true)?;
+        Some(packets.into_iter().enumerate().map(|(i, p)| (p, i % 5 == 0)).collect())
+    }
+
+    /// The mean brightness of each frame the real reader and decoder make of a feed, till it ends.
+    fn read_video(feed: UdpFeed) -> (Vec<f64>, Arc<Mutex<UdpFeed>>) {
+        use telescope_core::media::{Codec, DecodeOptions, FrameReader, Media};
+        let media = telescope_media::FfmpegMedia;
+        let feed = Arc::new(Mutex::new(feed));
+        let decoder = media.decoder(Codec::H264, &DecodeOptions::default()).unwrap();
+        let mut reader = media.frame_reader(Box::new(Shared(feed.clone())), decoder).unwrap();
+        let mut means = Vec::new();
+        while let Ok(read) = reader.read() {
+            let (w, h) = (read.frame.width as usize, read.frame.height as usize);
+            let y = &read.frame.data[..w * h];
+            means.push(y.iter().map(|&v| v as f64).sum::<f64>() / y.len() as f64);
+        }
+        (means, feed)
+    }
+
+    #[test]
+    fn real_video_arrives_over_udp_and_lost_datagrams_are_sent_again() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let values: Vec<u8> = (40..200).step_by(4).map(|v| v as u8).collect();
+        let Some(sent) = video(&values) else { return };
+        let phone = fake_phone(sent, Behaviour { loss: 0.1, ..Default::default() });
+        let feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        assert!(!feed.fell_back);
+        let (means, _) = read_video(feed);
+        // Nearly every frame, lost pieces and all
+        assert!(means.len() >= values.len() - 5, "{} of {}", means.len(), values.len());
+        assert!(phone.nacks.load(Ordering::SeqCst) > 0);
+        // In order, nothing decoded from a broken frame
+        assert!(means.windows(2).all(|w| w[1] >= w[0] - 3.0), "{means:?}");
+    }
+
+    #[test]
+    fn a_phone_that_refuses_udp_gives_real_video_over_tcp() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let Some(sent) = video(&[60, 120, 180]) else { return };
+        let phone = fake_phone(sent, Behaviour { refused: true, ..Default::default() });
+        let feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(3), StopHandle::default()).unwrap();
+        assert!(feed.fell_back);
+        assert!(!read_video(feed).0.is_empty());
+    }
+
+    #[test]
+    fn datagrams_that_never_arrive_give_real_video_over_tcp_and_stay_there() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let Some(sent) = video(&[60, 120, 180]) else { return };
+        let phone = fake_phone(sent, Behaviour { silent: true, ..Default::default() });
+        let feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(3), StopHandle::default()).unwrap();
+        assert!(!feed.fell_back);
+        let (means, feed) = read_video(feed);
+        assert!(!means.is_empty() && feed.lock().unwrap().fell_back);
+        assert!(udp_failed("127.0.0.1"));
+        // Straight to TCP: no waiting on the firewall a second time
+        let again = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(3), StopHandle::default()).unwrap();
+        assert!(again.fell_back);
+        forget_failures();
+    }
+
+    #[test]
+    fn real_video_that_takes_a_while_to_make_a_frame_stays_on_udp() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let Some(sent) = video(&[60, 120, 180]) else { return };
+        // Longer than FIRST_FRAME_S and the read timeout, short of FIRST_DECODE_S
+        let phone = fake_phone(sent, Behaviour { slow_start: FIRST_FRAME_S + 0.5, ..Default::default() });
+        let feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        let (means, feed) = read_video(feed);
+        assert!(!means.is_empty() && !feed.lock().unwrap().fell_back);
+    }
+
     #[test]
     fn a_session_whose_hello_doesnt_parse_is_closed_before_falling_back() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
