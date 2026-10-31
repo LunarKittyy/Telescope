@@ -78,6 +78,8 @@ pub struct FakeHost {
     pub view: View,
     /// What view_aspect() answers.
     pub aspect: f32,
+    /// Every set_view, oldest first.
+    pub view_changes: Vec<ViewChange>,
     /// What took the view ("" for nobody): take_view fails for anyone else, as the real host's does.
     pub view_owner: String,
     /// Every steer_view, as (zoom, pan_x, pan_y).
@@ -452,6 +454,7 @@ impl HostView for FakeHost {
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
+        self.view_changes.push(change.clone());
         let v = &mut self.view;
         if let Some(z) = change.zoom { v.zoom = z; }
         if let Some(x) = change.pan_x { v.pan_x = x; }
