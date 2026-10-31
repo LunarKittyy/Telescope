@@ -545,7 +545,7 @@ fn main() {
     let splash = if words.is_empty() { start_splash() } else { None };
     if words.is_empty() {
         use telescope_system::autostart;
-        let source_build = cfg!(debug_assertions) || telescope_system::version::channel() == "dev";
+        let source_build = cfg!(debug_assertions) || autostart::is_dev_checkout(telescope_system::version::channel());
         refresh_menu_entry(source_build, &autostart::launch_command(&app_dir(), false), None);
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }

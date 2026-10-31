@@ -57,6 +57,46 @@ fn the_shortcut_editor_starts_at_its_search() {
     telescope_shell::settings::forget();
 }
 
+struct NoSignIn;
+
+impl telescope_core::system::Autostart for NoSignIn {
+    fn enabled(&self) -> bool {
+        false
+    }
+    fn set_enabled(&self, _on: bool, _minimized: bool) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+// test_startup.py::test_start_and_stop_choices_reflect_and_change_the_settings, its controls: what an idle stop switches on
+#[test]
+fn the_notice_and_the_mic_note_come_on_with_an_idle_stop() {
+    use i_slint_backend_testing::ElementHandle;
+    use slint_interpreter::Value;
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-settings-stops");
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| {
+        vec![Box::new(telescope_system::startup::StartupPlugin::new(std::sync::Arc::new(NoSignIn))) as Box<dyn telescope_core::plugin::Plugin>]
+    }, None, None).unwrap();
+    telescope_shell::settings::open(&w, "streaming");
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    let note = || ElementHandle::find_by_accessible_label(&settings.ui, "With the phone mic on, only the camera turns off.").count();
+    let switch = || ElementHandle::find_by_accessible_label(&settings.ui, "Tell me when it stops a stream").find(|e| e.accessible_checkable() == Some(true)).expect("the switch");
+    assert_eq!((note(), switch().accessible_checked()), (0, Some(true)));
+    switch().invoke_accessible_default_action();
+    w.process();
+    assert_eq!(switch().accessible_checked(), Some(true), "nothing stops by itself yet, so its notice is off");
+
+    let picked = settings.ui.definition().callbacks().find(|n| n.ends_with("-stop-picked")).expect("the stop choice");
+    settings.ui.invoke(&picked, &[Value::Number(2.0)]).unwrap();
+    w.process();
+    assert_eq!(note(), 1);
+    switch().invoke_accessible_default_action();
+    w.process();
+    assert_eq!(switch().accessible_checked(), Some(false));
+    telescope_shell::settings::forget();
+}
+
 struct Heard(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
 
 impl telescope_core::plugin::Plugin for Heard {
