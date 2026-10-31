@@ -44,8 +44,8 @@ fn the_shown_streams_phone_state_tells_the_sensors_what_it_has() {
     asks(&r, |host| host.want_sensors("test", &[]));
 }
 
-type Done = Box<dyn FnOnce(Value) + Send>;
 type Taken = (Option<String>, Value, String);
+type Later<T> = Mutex<Option<Box<T>>>;
 
 /// The phone's photos, doing what a test says when it says.
 #[derive(Default)]
@@ -53,9 +53,9 @@ struct Stills {
     caps: Mutex<Option<Value>>,
     busy: AtomicBool,
     taken: Mutex<Vec<Taken>>,
-    progress: Mutex<Option<Box<dyn Fn(Value) + Send>>>,
-    done: Mutex<Option<Done>>,
-    alive: Mutex<Option<Box<dyn Fn() -> bool + Send>>>,
+    progress: Later<dyn Fn(Value) + Send>,
+    done: Later<dyn FnOnce(Value) + Send>,
+    alive: Later<dyn Fn() -> bool + Send>,
 }
 
 impl PhoneStills for Stills {
