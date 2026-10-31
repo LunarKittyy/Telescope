@@ -2231,13 +2231,13 @@
 "test_background.py::test_without_a_mask_yet_the_frame_goes_out_as_it_is" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_a_mask_yet_the_frame_goes_out_as_it_is" }
 "test_background.py::test_without_the_download_the_card_offers_it" = { status = "ported", rust = "rust/crates/effects/src/background_tests.rs::without_the_download_the_card_offers_it" }
 # ── banner
-"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::an_action_runs_and_takes_the_banner_with_it" }
-"test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::an_action_that_replaces_the_issue_keeps_the_new_one" }
-"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::clearing_one_issue_leaves_a_newer_one_under_the_same_key" }
-"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::closing_tells_whoever_showed_it" }
-"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::copy_keeps_the_banner" }
-"test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::dismiss" }
-"test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/src/banners.rs::keys_replace_and_clear" }
+"test_banner.py::test_an_action_runs_and_takes_the_banner_with_it" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::an_action_runs_and_takes_the_banner_with_it" }
+"test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::an_action_that_replaces_the_issue_keeps_the_new_one" }
+"test_banner.py::test_clearing_one_issue_leaves_a_newer_one_under_the_same_key" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::clearing_one_issue_leaves_a_newer_one_under_the_same_key" }
+"test_banner.py::test_closing_tells_whoever_showed_it" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::closing_tells_whoever_showed_it" }
+"test_banner.py::test_copy_keeps_the_banner_and_fills_the_clipboard" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::copy_keeps_the_banner_and_fills_the_clipboard" }
+"test_banner.py::test_dismiss" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::dismiss" }
+"test_banner.py::test_keys_replace_and_clear" = { status = "ported", rust = "rust/crates/shell/tests/banner_window.rs::keys_replace_and_clear" }
 # ── bench_frames
 "test_bench_frames.py::test_the_frame_benchmark_runs_through_every_section" = { status = "dropped", reason = "scripts/bench_frames.py times the Python app's frame pipeline and stays in Python; the Rust pipeline is timed with rust/tools/measure.py (rust/FINDINGS.md)" }
 # ── browser_camera
