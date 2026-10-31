@@ -6,7 +6,49 @@ use std::path::{Path, PathBuf};
 /// Where the catalogs live in the repository.
 const LOCALE: &str = "../../desktop/telescope/locale";
 
+/// With MSVC, FFmpeg's DLLs load on first use instead of at start, so losing one costs H.264 and not the whole program
+/// (telescope_media::ffmpeg_available looks before anything calls them).
+fn load_ffmpeg_late() {
+    let msvc = std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");
+    if !msvc || std::env::var_os("CARGO_FEATURE_FFMPEG_WINDOWS").is_none() {
+        return;
+    }
+    println!("cargo:rerun-if-env-changed=FFMPEG_DIR");
+    let bin = PathBuf::from(std::env::var_os("FFMPEG_DIR").expect("FFMPEG_DIR names FFmpeg's folder")).join("bin");
+    let names = std::fs::read_dir(&bin).expect("FFMPEG_DIR has a bin folder").flatten().map(|e| e.file_name().to_string_lossy().into_owned());
+    for name in names.filter(|n| ["avcodec-", "avutil-", "swscale-"].iter().any(|p| n.starts_with(p)) && n.ends_with(".dll")) {
+        println!("cargo::rustc-link-arg-bins=/DELAYLOAD:{name}");
+    }
+    println!("cargo::rustc-link-arg-bins=delayimp.lib");
+}
+
+/// Windows gives the main thread 1 MB where Linux gives 8, which a window this size goes through while it's built.
+fn main_thread_stack() {
+    let bytes = 8 * 1024 * 1024;
+    match (std::env::var("CARGO_CFG_TARGET_OS").as_deref(), std::env::var("CARGO_CFG_TARGET_ENV").as_deref()) {
+        (Ok("windows"), Ok("msvc")) => println!("cargo::rustc-link-arg-bins=/STACK:{bytes}"),
+        (Ok("windows"), _) => println!("cargo::rustc-link-arg-bins=-Wl,--stack,{bytes}"),
+        _ => {}
+    }
+}
+
+/// The icon the tray and the window load as resource 1, and the name Windows shows for the program, as telescope.spec's icon.
+#[cfg(windows)]
+fn program_resources() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+        return;
+    }
+    println!("cargo:rerun-if-changed=../../desktop/resources/telescope.ico");
+    let mut resources = winresource::WindowsResource::new();
+    resources.set_icon("../../desktop/resources/telescope.ico").set("ProductName", "Telescope").set("FileDescription", "Telescope");
+    resources.compile().expect("the program's resources");
+}
+
 fn main() {
+    #[cfg(windows)]
+    program_resources();
+    main_thread_stack();
+    load_ffmpeg_late();
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it"));
     let folder = manifest.join(LOCALE);
     println!("cargo:rerun-if-changed={}", folder.display());

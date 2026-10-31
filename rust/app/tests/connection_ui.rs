@@ -234,6 +234,7 @@ export component W inherits Window {
 }
 
 // Slint's platform belongs to the thread that set it, so they take turns on one test
+#[cfg(not(windows))] // clicks where Linux's fonts put the buttons
 #[test]
 fn connection_dialogs() {
     a_long_phone_list_scrolls_instead_of_growing_off_the_screen();

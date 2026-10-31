@@ -16,7 +16,9 @@ pub mod opus;
 pub mod vp8;
 pub mod packets;
 pub mod pipeline;
+pub mod plain_jpeg;
 mod pool;
+mod range;
 pub mod reader;
 #[cfg(ffmpeg)]
 mod yuv;
@@ -49,6 +51,56 @@ pub fn test_h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -
     }
 }
 
+/// Whether FFmpeg can be called here (h264_reader.available()). Windows loads its DLLs on first use, so a copy that lost one still
+/// starts: H.264, VP8 and Opus are then missing and MJPEG goes through plain_jpeg. Without this, nothing may touch FFmpeg.
+pub fn ffmpeg_available() -> bool {
+    #[cfg(all(ffmpeg, windows))]
+    {
+        static LOADS: OnceLock<bool> = OnceLock::new();
+        *LOADS.get_or_init(|| {
+            use ffmpeg_sys_next as ff;
+            // These pull in whatever else they need, so a missing swresample fails the avcodec line too
+            let libraries = [format!("avutil-{}.dll", ff::LIBAVUTIL_VERSION_MAJOR), format!("swscale-{}.dll", ff::LIBSWSCALE_VERSION_MAJOR),
+                             format!("avcodec-{}.dll", ff::LIBAVCODEC_VERSION_MAJOR)];
+            // SAFETY: FFmpeg's libraries run no code of ours on load, and stay loaded for the calls to come
+            libraries.iter().all(|name| match unsafe { libloading::Library::new(name) } {
+                Ok(library) => {
+                    std::mem::forget(library);
+                    true
+                }
+                Err(why) => {
+                    log::warn!("FFmpeg isn't available, so only MJPEG can be decoded: {why}");
+                    false
+                }
+            })
+        })
+    }
+    #[cfg(all(ffmpeg, not(windows)))]
+    return true;
+    #[cfg(not(ffmpeg))]
+    false
+}
+
+/// A decoder for codec, from FFmpeg when `ffmpeg` says it can be called.
+fn make_decoder(codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>, ffmpeg: bool) -> Result<Box<dyn Decoder>, String> {
+    #[cfg(ffmpeg)]
+    if ffmpeg {
+        // Only our own taps hand out steps; someone else's PacketTap can't be fed from here
+        let tap = arc_tap(&tap);
+        match codec {
+            Codec::H264 => return Ok(Box::new(h264::H264::new(options.hardware, tap)?)),
+            Codec::Mjpeg => return Ok(Box::new(mjpeg::Mjpeg::new()?)),
+            Codec::Vp8 => return Ok(Box::new(vp8::Vp8::new()?)),
+            _ => {}
+        }
+    }
+    if !ffmpeg && matches!(codec, Codec::Mjpeg) {
+        return Ok(Box::new(plain_jpeg::PlainJpeg));
+    }
+    let _ = (options, tap);
+    Err(format!("{codec:?} decoding isn't in this build"))
+}
+
 /// The decoders and frame steps this build has.
 #[derive(Default)]
 pub struct FfmpegMedia;
@@ -73,7 +125,7 @@ impl Scaler for PreviewScaler {
             }
         }
         #[cfg(ffmpeg)]
-        if frame.format == PixelFormat::I420 {
+        if frame.format == PixelFormat::I420 && ffmpeg_available() {
             return self.cpu.rgb(frame, width, height);
         }
         vec![0; (width * height * 3) as usize]
@@ -92,25 +144,14 @@ impl Media for FfmpegMedia {
     }
 
     fn decoder_with_tap(&self, codec: Codec, options: &DecodeOptions, tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
-        #[cfg(ffmpeg)]
-        {
-            // Only our own taps hand out steps; someone else's PacketTap can't be fed from here
-            let tap = arc_tap(&tap);
-            match codec {
-                Codec::H264 => return Ok(Box::new(h264::H264::new(options.hardware, tap)?)),
-                Codec::Mjpeg => return Ok(Box::new(mjpeg::Mjpeg::new()?)),
-                Codec::Vp8 => return Ok(Box::new(vp8::Vp8::new()?)),
-                _ => {}
-            }
-        }
-        let _ = (options, tap);
-        Err(format!("{codec:?} decoding isn't in this build"))
+        make_decoder(codec, options, tap, ffmpeg_available())
     }
 
     fn opus_decoder(&self) -> Result<Box<dyn AudioDecoder>, String> {
         #[cfg(ffmpeg)]
-        return Ok(Box::new(opus::Opus::new()?));
-        #[cfg(not(ffmpeg))]
+        if ffmpeg_available() {
+            return Ok(Box::new(opus::Opus::new()?));
+        }
         Err("Opus decoding isn't in this build".into())
     }
 
@@ -140,19 +181,18 @@ impl Media for FfmpegMedia {
 
     fn decoding_status(&self) -> DecodingStatus {
         #[cfg(ffmpeg)]
-        return h264::status();
-        #[cfg(not(ffmpeg))]
+        if ffmpeg_available() {
+            return h264::status();
+        }
         DecodingStatus::default()
     }
 
     fn decode_picture(&self, bytes: &[u8]) -> Result<Frame, String> {
         #[cfg(ffmpeg)]
-        return ffmpeg::decode_picture(bytes);
-        #[cfg(not(ffmpeg))]
-        {
-            let _ = bytes;
-            Err("pictures can't be read in this build".into())
+        if ffmpeg_available() {
+            return ffmpeg::decode_picture(bytes);
         }
+        plain_jpeg::picture(bytes).ok_or_else(|| "pictures can't be read without FFmpeg, apart from JPEGs".into())
     }
 }
 
@@ -171,4 +211,26 @@ fn new_tap() -> Arc<packets::Tap> {
 fn arc_tap(tap: &Arc<dyn PacketTap>) -> Option<Arc<packets::Tap>> {
     let at = Arc::as_ptr(tap) as *const () as usize;
     TAPS.lock().unwrap().iter().filter_map(std::sync::Weak::upgrade).find(|t| Arc::as_ptr(t) as *const () as usize == at)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // test_without_pyav_the_reader_never_opens
+    #[test]
+    fn without_ffmpeg_h264_never_opens_and_mjpeg_still_does() {
+        let options = DecodeOptions::default();
+        assert!(make_decoder(Codec::H264, &options, new_tap(), false).is_err());
+        assert!(make_decoder(Codec::Vp8, &options, new_tap(), false).is_err());
+        assert!(!make_decoder(Codec::Mjpeg, &options, new_tap(), false).unwrap().hardware());
+    }
+
+    #[cfg(ffmpeg)]
+    #[test]
+    fn with_ffmpeg_every_codec_opens() {
+        let options = DecodeOptions::default();
+        assert!(make_decoder(Codec::H264, &options, new_tap(), true).is_ok());
+        assert!(make_decoder(Codec::Mjpeg, &options, new_tap(), true).is_ok());
+    }
 }

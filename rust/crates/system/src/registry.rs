@@ -162,3 +162,31 @@ mod tests {
         assert_eq!(registry_text(4, &units), None);
     }
 }
+
+#[cfg(all(test, windows))]
+mod real_registry {
+    use super::*;
+
+    const KEY: &str = r"Software\TelescopeTest";
+
+    #[test]
+    fn a_value_goes_in_comes_back_and_goes_away() {
+        let text = "C:\\Bilder\\Räksmörgås ß 望远镜\\telescope.exe --minimized";
+        set_text("HKCU", KEY, "text", text).unwrap();
+        assert_eq!(read_text("HKCU", KEY, "text").as_deref(), Some(text));
+        set_number("HKCU", KEY, "number", 7).unwrap();
+        let (kind, data) = read_value("HKCU", KEY, "number").unwrap().unwrap();
+        assert_eq!((kind, data[0]), (4, 7), "REG_DWORD");
+        delete_value("HKCU", KEY, "text").unwrap();
+        delete_value("HKCU", KEY, "number").unwrap();
+        assert_eq!(read_value("HKCU", KEY, "text").unwrap(), None);
+        // Deleting what isn't there is fine, as Python's code treats it
+        delete_value("HKCU", KEY, "text").unwrap();
+    }
+
+    #[test]
+    fn the_classes_hive_reads_a_default_value_windows_always_has() {
+        assert_eq!(read_text("HKCR", ".exe", "").as_deref(), Some("exefile"));
+        assert_eq!(read_text("HKCU", r"Software\TelescopeNothing", "x"), None);
+    }
+}

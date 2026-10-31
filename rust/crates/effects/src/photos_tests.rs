@@ -371,6 +371,7 @@ fn quality_burst_and_the_other_boxes_are_picks_too() {
     assert_eq!(rig.host.calls.iter().filter(|c| *c == "schedule_save").count(), saves, "the same pick again isn't a change");
 }
 
+#[cfg(unix)]
 #[test]
 fn the_folder_is_picked_in_a_dialog_and_opened_from_the_last_photo() {
     let mut rig = Rig::new(Some(full_json()), true);
@@ -414,6 +415,7 @@ fn a_second_phones_photo_does_not_cost_the_first_its_end() {
 }
 
 // Python (QStandardPaths.PicturesLocation) under a made-up home, for each user-dirs.dirs
+#[cfg(unix)]
 #[test]
 fn the_pictures_folder_is_read_the_way_qt_reads_it() {
     let home = Path::new("/home/me");

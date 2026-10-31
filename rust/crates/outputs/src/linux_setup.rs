@@ -485,6 +485,7 @@ mod tests {
     }
 
     // test_platform_linux.py::test_persist_script_writes_the_exact_boot_config
+    #[cfg(unix)]
     #[test]
     fn persist_script_writes_the_exact_boot_config() {
         let f = Fake::with(&["pkexec"], &[(0, "", "")]);

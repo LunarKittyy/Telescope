@@ -1,3 +1,6 @@
+// v4l2loopback's canvas: Windows cameras take each stream's size, so nothing reloads there
+#![cfg(target_os = "linux")]
+
 // Changing the canvas: the stream stops, the virtual camera reloads, and the stream starts again, unless something changed.
 mod rig;
 

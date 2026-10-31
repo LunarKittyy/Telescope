@@ -176,6 +176,11 @@ fn the_sign_goes_on_and_the_header_and_the_page_follow() {
     let mut rig = on_air_rig(json!({"token": TOKEN, "webhook_url": "http://hub.local/hook"}));
     assert_eq!(rig.token(), TOKEN);
     assert_eq!(rig.web.served.lock().unwrap().len(), 1, "the sign page is up once the plugins are ready");
+    // The start's "off" goes out first; a newer state that finds it still queued takes its place
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while rig.sent.lock().unwrap().is_empty() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     rig.state.bus.emit(Event::CameraWatched { watched: true });
     rig.state.deliver_events();
     assert!(rig.state.effects.iter().any(|e| matches!(e, Effect::Schedule { plugin, token, .. } if plugin == "on_air" && token == "settle")));

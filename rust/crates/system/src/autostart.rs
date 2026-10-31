@@ -33,13 +33,19 @@ pub fn launch_command(directory: &Path, minimized: bool) -> Vec<String> {
     let program = if !cfg!(windows) && start_sh.exists() {
         start_sh
     } else {
-        std::env::current_exe().map(|p| p.canonicalize().unwrap_or(p)).unwrap_or_else(|_| directory.join("telescope-rs"))
+        std::env::current_exe().map(|p| plain_path(p.canonicalize().unwrap_or(p))).unwrap_or_else(|_| directory.join("telescope-rs"))
     };
     let mut argv = vec![program.to_string_lossy().into_owned()];
     if minimized {
         argv.push(MINIMIZED.into());
     }
     argv
+}
+
+/// A path without the \\?\ that canonicalize puts in front on Windows, which a Run key or a shortcut can't start.
+fn plain_path(path: PathBuf) -> PathBuf {
+    let plain = path.to_string_lossy().strip_prefix(r"\\?\").filter(|rest| !rest.starts_with("UNC\\")).map(PathBuf::from);
+    plain.unwrap_or(path)
 }
 
 fn config_home() -> PathBuf {
@@ -344,6 +350,20 @@ mod tests {
         assert!(desktop_entry(&argv(&["/x/100%", "--minimized"]), false).contains("100%%"));
     }
 
+    #[test]
+    fn a_path_loses_its_verbatim_prefix() {
+        assert_eq!(plain_path(PathBuf::from(r"\\?\C:\b\telescope.exe")), PathBuf::from(r"C:\b\telescope.exe"));
+        assert_eq!(plain_path(PathBuf::from(r"\\?\UNC\pc\share\t.exe")), PathBuf::from(r"\\?\UNC\pc\share\t.exe"));
+        assert_eq!(plain_path(PathBuf::from("/usr/bin/telescope")), PathBuf::from("/usr/bin/telescope"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_run_key_gets_a_plain_path() {
+        assert!(!launch_command(Path::new("."), true)[0].starts_with(r"\\?\"));
+    }
+
+    #[cfg(not(windows))]
     #[test]
     fn launch_command_prefers_start_sh_on_linux() {
         let dir = tmp("launch");
