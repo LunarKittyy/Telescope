@@ -1961,6 +1961,7 @@ mod tests {
         host.action_answers.clear();
         assert!(plugin.on_key(&mut host, &key("z", false, false)));
         assert!(ran(&host).last().unwrap().ends_with(r#"{"op":"up","amount":10.0,"value":null}"#), "{:?}", ran(&host));
+        plugin.on_key(&mut host, &KeyInput { released: true, ..key("z", false, false) });
         // Nor does a key do anything for a control this version no longer has
         host.actions.clear();
         assert!(!plugin.on_key(&mut host, &key("z", false, false)));

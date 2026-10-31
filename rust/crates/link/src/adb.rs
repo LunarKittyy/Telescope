@@ -334,7 +334,7 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn off_windows_adb_runs_its_own_server() {
-        assert!(!OWN_ADB_SERVER);
+        assert!(!std::hint::black_box(OWN_ADB_SERVER));
     }
 
     fn fake(outcome: Outcome) -> (Adb, Arc<Mutex<Vec<Vec<String>>>>) {
