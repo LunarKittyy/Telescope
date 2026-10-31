@@ -26,6 +26,8 @@ use telescope_core::plugin_admin::PluginAdmin;
 
 const FLASH_MS: u64 = 1800;
 
+type Rect = (f32, f32, f32, f32);
+
 /// (tab id, its name, the sections on it in order) for the tabs that have any (settings_window.ordered_tabs).
 pub fn ordered_tabs(sections: &[(String, SettingsSection)], plugins_title: &str) -> Vec<(String, String, Vec<usize>)> {
     let mut names: Vec<(String, String)> = SETTINGS_TABS.iter().map(|(id, n)| (id.to_string(), n.to_string())).collect();
@@ -572,7 +574,7 @@ impl Settings {
             };
             let sections: Vec<(f32, f32, &String)> = self.section_words[t].iter()
                 .map(|(id, words)| (number(&format!("{id}-top")), number(&format!("{id}-tall")), words)).collect();
-            let cards: Vec<(String, (f32, f32, f32, f32), String)> = marked.iter().filter(|(k, _)| k == "card")
+            let cards: Vec<(String, Rect, String)> = marked.iter().filter(|(k, _)| k == "card")
                 .map(|(_, e)| (say(e, AccessibleStringProperty::Label), rect(e), words_of(e, "card-words"))).collect();
             for (kind, e) in &marked {
                 let label = say(e, AccessibleStringProperty::Label);
@@ -581,7 +583,7 @@ impl Settings {
                 }
                 let r = rect(e);
                 let is_card = kind == "card";
-                let card = cards.iter().filter(|c| !is_card && r.1 >= c.1.1 && r.1 < c.1.1 + c.1.3).next_back();
+                let card = cards.iter().rfind(|c| !is_card && r.1 >= c.1.1 && r.1 < c.1.1 + c.1.3);
                 let section = sections.iter().find(|s| r.1 >= s.0 && r.1 < s.0 + s.1).map_or("", |s| s.2.as_str());
                 out.push(Entry {
                     card: card.map(|c| c.0.clone()).unwrap_or_default(),
