@@ -298,7 +298,8 @@ pub trait HostShell {
     fn toggle_window(&mut self) -> bool;
     fn quit_app(&mut self);
     fn restart_app(&mut self) -> bool;
-    fn diagnostics_report(&self) -> String;
+    /// own: the lines of the plugin asking, which is busy with this call.
+    fn diagnostics_report(&self, own: &[(String, String)]) -> String;
     fn open_settings(&mut self, tab: &str);
     /// Every plugin's actions, in registration order, as (plugin, action).
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;

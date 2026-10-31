@@ -366,7 +366,7 @@ impl HostShell for FakeHost {
         self.note("restart_app");
         false
     }
-    fn diagnostics_report(&self) -> String {
+    fn diagnostics_report(&self, _own: &[(String, String)]) -> String {
         self.report.clone()
     }
     fn open_settings(&mut self, tab: &str) {

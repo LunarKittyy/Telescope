@@ -1108,6 +1108,7 @@ impl Window {
                 self.streams.sources.borrow_mut().remove(&id);
             }
         }
+        self.note_changes_only();
         self.announce_sources();
         if self.streams.flow.borrow().sessions.streams.len() > 1 {
             self.refresh_tiles(); // a new name for one that streams
@@ -1130,7 +1131,14 @@ impl Window {
         }
         self.streams.plugin_sources.borrow_mut().remove(id);
         self.streams.sources.borrow_mut().remove(id);
+        self.note_changes_only();
         self.announce_sources();
+    }
+
+    /// Sources whose settings are only saved where they differ from the defaults (_save_config's remember_changes_only).
+    fn note_changes_only(&self) {
+        self.state.borrow_mut().changes_only = self.streams.plugin_sources.borrow().iter()
+            .filter(|(_, s)| s.lock().unwrap().remember_changes_only()).map(|(id, _)| id.clone()).collect();
     }
 
     fn announce_sources(&self) {

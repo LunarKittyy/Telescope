@@ -382,7 +382,7 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "toggle_window" => return out(host.toggle_window()),
         "quit_app" => host.quit_app(),
         "restart_app" => return out(host.restart_app()),
-        "diagnostics_report" => return out(host.diagnostics_report()),
+        "diagnostics_report" => return out(host.diagnostics_report(&[])),
         "open_settings" => host.open_settings(s("tab").as_deref().unwrap_or("")),
         "shortcut_actions" => return out(host.shortcut_actions()),
         "set_ui_props" => host.set_ui_props(&arg::<String>(args, "ui")?, args.get("props").unwrap_or(&Value::Null)),

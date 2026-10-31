@@ -1126,6 +1126,7 @@ mod tests {
         left: Mutex<Vec<Option<Value>>>,
         asked: std::sync::atomic::AtomicU32,
         closes_after: Option<u32>,
+        closed: AtomicBool,
     }
 
     impl PhoneControl for Answers {
@@ -1138,7 +1139,7 @@ mod tests {
         fn resend_settings(&self) {}
         fn close(&self) {}
         fn closed(&self) -> bool {
-            self.closes_after.is_some_and(|n| self.asked.load(Ordering::SeqCst) >= n)
+            self.closed.load(Ordering::SeqCst) || self.closes_after.is_some_and(|n| self.asked.load(Ordering::SeqCst) >= n)
         }
     }
 
@@ -1151,8 +1152,11 @@ mod tests {
     #[test]
     fn fetch_state_retries_then_emits_success() {
         let controls = Answers { left: Mutex::new(vec![Some(json!({"auto": true})), None]), ..Default::default() };
-        assert_eq!(fetched(&controls, true), [json!({"auto": true})]);
+        let (got, paused) = (Mutex::new(Vec::new()), Mutex::new(Vec::new()));
+        fetch_state(&controls, |wait| paused.lock().unwrap().push(wait), true, |state| got.lock().unwrap().push(state));
+        assert_eq!(*got.lock().unwrap(), [json!({"auto": true})]);
         assert_eq!(controls.asked.load(Ordering::SeqCst), 2);
+        assert_eq!(*paused.lock().unwrap(), [Duration::from_millis(1500), Duration::from_secs(2)]);
     }
 
     #[test]
@@ -1176,6 +1180,11 @@ mod tests {
         let controls = Answers { closes_after: Some(1), ..Default::default() };
         assert!(fetched(&controls, true).is_empty());
         assert_eq!(controls.asked.load(Ordering::SeqCst), 1);
+        // A good state is there to be had, and the session goes while it waits to ask
+        let controls = Answers { left: Mutex::new(vec![Some(json!({"battery": 10}))]), ..Default::default() };
+        let got = Mutex::new(Vec::new());
+        fetch_state(&controls, |_| controls.closed.store(true, Ordering::SeqCst), true, |state| got.lock().unwrap().push(state));
+        assert!(got.lock().unwrap().is_empty());
     }
 
     #[test]

@@ -886,7 +886,7 @@ impl SetupPlugin {
     }
 
     pub fn copy_diagnostics(&mut self, host: &mut dyn Host) {
-        host.copy_text(&host.diagnostics_report());
+        host.copy_text(&host.diagnostics_report(&self.diagnostics()));
         self.panel.copied = true;
         host.schedule(2000, "copied");
     }

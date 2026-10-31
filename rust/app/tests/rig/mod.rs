@@ -14,7 +14,7 @@ use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::Event;
 use telescope_core::frame::{Frame, FrameStep, PixelFormat};
 use telescope_core::host::Host;
-use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
+use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, PhoneStills, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
 use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, PacketTap, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
@@ -170,6 +170,10 @@ pub struct FakeLink {
     pub progress: Mutex<Vec<String>>,
     /// A wake that said its progress waits here, while this is on, so a test can read what it said.
     pub hold_after_progress: AtomicBool,
+    pub sensors: Mutex<Option<Arc<dyn PhoneSensors>>>,
+    pub stills: Mutex<Option<Arc<dyn PhoneStills>>>,
+    /// What prepare_route answers: the video URL on the route it's asked for.
+    pub prepared: Mutex<Option<String>>,
     /// Stops take this long to get there: a phone that's gone.
     pub stops_hang: AtomicBool,
 }
@@ -296,6 +300,16 @@ impl Link for FakeLink {
     fn release_stream(&self, source_id: &str) {
         note(&self.log, format!("release {source_id}"));
     }
+    fn sensors(&self) -> Option<Arc<dyn PhoneSensors>> {
+        self.sensors.lock().unwrap().clone()
+    }
+    fn stills(&self) -> Option<Arc<dyn PhoneStills>> {
+        self.stills.lock().unwrap().clone()
+    }
+    fn prepare_route(&self, source_id: &str, route: &RouteSpec) -> Option<String> {
+        note(&self.log, format!("prepare {source_id} {route:?}"));
+        self.prepared.lock().unwrap().clone()
+    }
     fn commit_route(&self, source_id: &str) {
         note(&self.log, format!("commit {source_id}"));
     }
@@ -341,6 +355,8 @@ pub struct FakeWorker {
     pub declines_hand_over: AtomicBool,
     /// How it opens its stream now.
     pub opener: Mutex<Opener>,
+    /// How it was told to open what it's handed over to.
+    pub handed: Mutex<Option<Opener>>,
     /// Every worker before it had been stopped when this one was made.
     pub after_the_others: bool,
 }
@@ -423,8 +439,9 @@ impl VideoWorker for FakeWorker {
     fn camera_size(&self) -> Option<(u32, u32)> {
         *self.size.lock().unwrap()
     }
-    fn hand_over(&self, url: &str, _opener: Opener) -> bool {
+    fn hand_over(&self, url: &str, opener: Opener) -> bool {
         note(&self.log, format!("hand_over {url}"));
+        *self.handed.lock().unwrap() = Some(opener);
         self.can_hand_over() && !self.declines_hand_over.load(Ordering::SeqCst)
     }
 }
@@ -504,6 +521,9 @@ impl Plugin for Listener {
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
             Event::RequestDone { ok, message, data, .. } => note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or(""))),
             Event::WindowShown { shown } => note(&self.heard, format!("{} shown {shown}", self.name)),
+            Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
+            Event::StillBusyChanged { source_id, busy } => note(&self.heard, format!("{} busy {source_id} {busy}", self.name)),
+            Event::StillSaved { source_id, paths } => note(&self.heard, format!("{} saved {source_id} {paths:?}", self.name)),
             _ => {}
         }
     }
@@ -674,7 +694,7 @@ impl Rig {
                 camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
                 parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
                 steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
-                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), after_the_others,
+                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), after_the_others,
             });
             made.lock().unwrap().push(worker.clone());
             worker
@@ -868,6 +888,7 @@ pub struct FakeSource {
     pub hint: String,
     /// prepare() says no, and something is on its way to it.
     pub waits: bool,
+    pub changes_only: bool,
     pub cancels: AtomicU32,
 }
 
@@ -925,6 +946,9 @@ impl StreamSource for FakeSource {
     }
     fn cancel_wait(&self) {
         self.cancels.fetch_add(1, Ordering::SeqCst);
+    }
+    fn remember_changes_only(&self) -> bool {
+        self.changes_only
     }
 }
 

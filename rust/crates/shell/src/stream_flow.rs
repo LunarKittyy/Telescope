@@ -6,6 +6,7 @@
 
 use crate::session::{same, Sessions, Source, SourceRef, StreamSession, Worker};
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use telescope_core::event::Event;
@@ -102,7 +103,7 @@ pub struct StreamFlow {
     /// What the last start was for, so its banner's Try again starts it again.
     pub start_id: Option<String>,
     /// Source id: the extra virtual camera it went to last, so it goes there again.
-    pub slot_memory: BTreeMap<String, u32>,
+    pub slot_memory: Rc<RefCell<BTreeMap<String, u32>>>,
     /// Source id: the banner action to tell once the panels show it, as it starts next to the others.
     befores: BTreeMap<String, (String, String)>,
 }
@@ -298,7 +299,7 @@ impl StreamFlow {
         if used.is_empty() {
             return 0;
         }
-        if let Some(&remembered) = source.id.as_ref().and_then(|id| self.slot_memory.get(id)) {
+        if let Some(remembered) = source.id.as_ref().and_then(|id| self.slot_memory.borrow().get(id).copied()) {
             if 0 < remembered && remembered < MAX_SLOTS && !used.contains(&remembered) {
                 return remembered;
             }
@@ -306,7 +307,7 @@ impl StreamFlow {
         let slot = (0..MAX_SLOTS).find(|n| !used.contains(n)).unwrap_or(0);
         if slot != 0 {
             if let Some(id) = source.id.as_ref().filter(|id| !id.is_empty()) {
-                self.slot_memory.insert(id.clone(), slot);
+                self.slot_memory.borrow_mut().insert(id.clone(), slot);
                 host.schedule_save();
             }
         }
@@ -1306,7 +1307,7 @@ mod tests {
         assert_eq!(ids(&flow.sessions.streams), ["a", "b"]);
         assert!(is(&flow.sessions.focus, "b") && is(&flow.sessions.main, "a"));
         assert_eq!(host.sources["b"].slot(), 1);
-        assert_eq!(flow.slot_memory, BTreeMap::from([("b".to_string(), 1)]));
+        assert_eq!(*flow.slot_memory.borrow(), BTreeMap::from([("b".to_string(), 1)]));
         assert!(!host.worker("a").live.get() && host.worker("b").live.get());
         assert!(logged(&host, "camera on_focus_lost") && !logged(&host, "mic on_focus_lost"));
         assert!(logged(&host, "camera on_stream_start") && !logged(&host, "mic on_stream_start")); // the mic stays on a

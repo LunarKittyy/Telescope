@@ -164,6 +164,28 @@ fn clicking_a_tile_brings_its_settings_back() {
 }
 
 #[test]
+fn a_stream_behind_the_panels_keeps_its_own_zoom() {
+    let r = Rig::with("two-own-zoom", |link, _| {
+        vec![Box::new(telescope_effects::transforms::TransformsPlugin::default()) as Box<dyn Plugin>, Box::new(rig::Picker(link.clone()))]
+    });
+    r.start();
+    r.w.state.borrow_mut().ui_event("transforms", telescope_core::ui::UiEvent { ui: "card".into(), callback: "zoom-moved".into(), args: vec![json!(2.0)] });
+    r.pump();
+    assert_eq!(r.w.state.borrow().view.zoom, 2.0);
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.pump();
+    let view = |list: &[String]| list.iter().any(|owner| owner == "view");
+    assert!(view(r.worker(0).steps.lock().unwrap().last().unwrap()), "frozen with the zoom it had");
+    assert!(!view(&r.worker(1).first_steps), "the next phone has its own settings: not zoomed");
+    assert_eq!(r.w.state.borrow().view.zoom, 1.0);
+    focus(&r, "pixel");
+    assert_eq!(r.w.state.borrow().view.zoom, 2.0);
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
 fn clicking_a_tile_is_a_focus_change_not_a_stop_and_start() {
     let r = two_streams("two-tile-focus");
     focus(&r, "pixel");
@@ -289,7 +311,7 @@ fn the_wait_screen_hears_which_extra_cameras_are_free() {
 #[test]
 fn a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one() {
     let r = Rig::new("two-remembered-camera");
-    r.w.streams.flow.borrow_mut().slot_memory.insert("pixel".into(), 2); // camera 3 in an earlier run; alone it starts on camera 1
+    r.w.streams.flow.borrow().slot_memory.borrow_mut().insert("pixel".into(), 2); // camera 3 in an earlier run; alone it starts on camera 1
     r.start();
     r.add("oneplus");
     focus(&r, "pixel");

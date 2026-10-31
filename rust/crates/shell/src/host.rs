@@ -256,10 +256,10 @@ impl HostShell for Ctx<'_> {
         self.state.effects.push(Effect::Restart);
         true
     }
-    fn diagnostics_report(&self) -> String {
+    fn diagnostics_report(&self, own: &[(String, String)]) -> String {
         use telescope_core::diagnostics::{events, report_for};
         let hooks = crate::window::app_hooks();
-        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics(), crate::window::windowing())
+        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics_with(own), crate::window::windowing())
     }
     fn open_url(&mut self, url: &str) {
         self.state.effects.push(Effect::OpenUrl(url.into()));

@@ -89,6 +89,7 @@ fn desk_mode_tells_the_preview_its_warp_again_after_a_restart() {
     run_step(&mut st, "desk", &mut solid(320, 180, [0, 0, 0]));
     assert!(st.overlays.warping());
     stop(&mut st);
+    st.overlays.set_warp("desk", None); // so what follows shows it telling the preview again
     start(&mut st);
     run_step(&mut st, "desk", &mut solid(320, 180, [0, 0, 0]));
     assert!(st.overlays.warping(), "or taps, zoom and picks land beside what's shown");

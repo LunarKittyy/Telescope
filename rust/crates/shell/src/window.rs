@@ -316,6 +316,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         popout_asks: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
+    window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
     // Events emitted from other threads get delivered on this one
     window.state.borrow().bus.set_waker(|| {
         let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
