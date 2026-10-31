@@ -1765,7 +1765,10 @@ mod tests {
     /// A person mask that says which frame it was worked out for, once per number as the service does; with a list, it
     /// wants people and notes what it's fed.
     #[derive(Default)]
-    struct Masks(Option<Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>>>);
+    struct Masks(Option<Fed>);
+
+    /// What a vision service was fed.
+    type Fed = Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>>;
 
     impl telescope_core::vision::VisionService for Masks {
         fn attach(&self, _bus: telescope_core::BusSender) {}
@@ -1874,7 +1877,7 @@ mod tests {
         use telescope_core::host::ViewChange;
         let path = telescope_core::testing::scratch_dir("people-share").join("telescope_config.json");
         let mut s = crate::shell::State::new(telescope_core::config::ConfigFile::at(path));
-        let fed: Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>> = Arc::default();
+        let fed = Fed::default();
         s.vision = Some(Arc::new(Masks(Some(fed.clone()))));
         s.streams.source_id = Some("phone-1".into());
         let zooms = serde_json::json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
