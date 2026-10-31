@@ -1418,6 +1418,17 @@ mod tests {
     }
 
     #[test]
+    fn turning_the_camera_off_by_hand_takes_it_out_of_the_rules_hands() {
+        let (mut flow, mut host) = setup();
+        let source = flow.active_source(&mut host);
+        (source.state.borrow_mut().camera_off, source.state.borrow_mut().camera_off_auto) = (true, true);
+        flow.set_camera_on(&mut host, false, true);
+        assert!(source.state.borrow().camera_off_auto, "the rule again: still the rule's");
+        flow.set_camera_on(&mut host, false, false);
+        assert!(!source.state.borrow().camera_off_auto);
+    }
+
+    #[test]
     fn a_stream_left_behind_keeps_its_own_settings_not_the_next_phones() {
         let (mut flow, mut host) = setup();
         two_streams(&mut flow, &mut host);

@@ -8,7 +8,7 @@ use slint_interpreter::Value as SValue;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::frame::{FrameStep, PixelFormat, ShaderStep};
-use telescope_core::host::{Host, OutputChange};
+use telescope_core::host::{Host, HostStreams, OutputChange};
 use telescope_core::output::{Held, Outputs, Slot, VideoOutput, WaitScreen};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_outputs::stream_output::StreamOutputPlugin;
