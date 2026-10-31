@@ -444,7 +444,9 @@ impl Window {
             // A second stop waits for the one the flow started, so the camera is free after this
             old.iter().for_each(|worker| worker.stop());
             let result = match outputs.filter(|_| linux) {
-                Some(outputs) => outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {}),
+                // Still reports back, so the stream it stopped isn't left waiting
+                Some(outputs) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {})))
+                    .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: tr("The reload stopped unexpectedly"), command: None }),
                 None => telescope_core::output::SetupResult { ok: true, message: String::new(), command: None },
             };
             let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, result, was_streaming)));
@@ -455,7 +457,8 @@ impl Window {
     fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, result: telescope_core::output::SetupResult, restart_stream: bool) {
         let restart = {
             let mut flow = self.streams.flow.borrow_mut();
-            let restart = restart_stream && flow.sessions.canvas_restart; // not after a Stop since
+            // Not after a Stop since, or over a stream started while the reload ran
+            let restart = restart_stream && flow.sessions.canvas_restart && flow.sessions.streams.is_empty() && !flow.sessions.waking;
             if restart_stream {
                 flow.sessions.canvas_restart = false;
             }
@@ -466,7 +469,7 @@ impl Window {
             let linux = cfg!(target_os = "linux");
             self.set_status(&if linux { tr("Loopback reloaded: {message}").replace("{message}", &result.message) } else { tr("Canvas updated") }, "ok");
             if restart {
-                self.with_flow(|flow, host| flow.start(host, true, None)); // not over a stream started while the reload ran
+                self.with_flow(|flow, host| flow.start(host, true, None));
             }
         } else if command.is_empty() {
             self.set_status(&tr("Reload failed: {message}").replace("{message}", &result.message), "err");

@@ -224,6 +224,15 @@ fn a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one() {
 }
 
 #[test]
+fn a_canvas_change_waits_for_one_camera() {
+    let r = two_streams("two-canvas");
+    r.w.restart_canvas("panel", RequestId(1));
+    r.pump();
+    assert!(r.heard().iter().any(|l| l.starts_with("panel done false Stop all but one camera first")), "{:?}", r.heard());
+    assert_eq!(r.streaming().len(), 2);
+}
+
+#[test]
 fn a_starting_tiles_stop_cancels_its_start() {
     let r = two_streams("two-starting-tile");
     r.link.pair("third", "Third");
@@ -405,7 +414,7 @@ fn extra_cameras_stay_while_a_stream_goes_to_one() {
     let r = two_streams("extra-stay");
     r.w.remove_extras("panel", RequestId(1));
     r.pump();
-    assert!(r.did_hear("panel done false Stop the streams going to them first"), "{:?}", r.heard());
+    assert!(r.heard().iter().any(|l| l.starts_with("panel done false Stop the streams going to them first")), "{:?}", r.heard());
 }
 
 fn with_output(name: &str) -> Rig {

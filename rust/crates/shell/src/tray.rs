@@ -53,7 +53,7 @@ impl Window {
     }
 
     /// Show, every plugin's tray actions in registration order, then Quit.
-    pub(crate) fn refresh_tray_menu(&self) {
+    pub fn refresh_tray_menu(&self) {
         let item = |id: String, title: String| TrayItem { id, title, checkable: false, checked: false, visible: true, enabled: true };
         let mut items = vec![item(SHOW.into(), tr("Show"))];
         for slot in &self.state.borrow().slots {
@@ -70,7 +70,7 @@ impl Window {
         self.with_tray(|t| t.set_items(&items));
     }
 
-    pub(crate) fn refresh_tray_tip(&self) {
+    pub fn refresh_tray_tip(&self) {
         let tip = {
             let st = self.state.borrow();
             tooltip(st.streams.streaming, !st.streams.camera_off, st.mic)
@@ -79,7 +79,7 @@ impl Window {
     }
 
     /// What was clicked in the tray since last asked: the icon toggles the window, the menu does what it says.
-    pub(crate) fn poll_tray(self: &Rc<Self>) {
+    pub fn poll_tray(self: &Rc<Self>) {
         let mut clicks = Vec::new();
         self.with_tray(|t| {
             while let Some(c) = t.poll_click() {
@@ -131,7 +131,7 @@ impl Window {
     }
 
     /// start_hidden, for --minimized: in the tray, or minimized where there's none.
-    pub(crate) fn start_hidden(&self) {
+    pub fn start_hidden(&self) {
         if !self.has_tray() {
             let _ = self.ui.show();
             self.ui.window().set_minimized(true);
@@ -140,7 +140,7 @@ impl Window {
     }
 
     /// _report_shown: the plugins hear whether the window is on screen (the tray and minimized both count as not).
-    pub(crate) fn report_shown(&self) {
+    pub fn report_shown(&self) {
         let w = self.ui.window();
         let shown = w.is_visible() && !w.is_minimized();
         let changed = {
@@ -156,7 +156,7 @@ impl Window {
 
     /// closeEvent: into the tray while something streams or a plugin keeps Telescope there (saying so the first time),
     /// else quit.
-    pub(crate) fn close_requested(self: &Rc<Self>) -> slint::CloseRequestResponse {
+    pub fn close_requested(self: &Rc<Self>) -> slint::CloseRequestResponse {
         let keep = {
             let st = self.state.borrow();
             st.streams.streaming || st.keep_in_tray

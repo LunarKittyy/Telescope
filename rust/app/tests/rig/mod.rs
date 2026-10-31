@@ -19,6 +19,7 @@ use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, Pack
 use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::services::Services;
+use telescope_core::system::{Notifier, Tray, TrayItem};
 use telescope_core::ui::Issue;
 use telescope_core::source::{ControlClient, PairedPhone, RouteSpec, StreamSource};
 use telescope_shell::offscreen;
@@ -431,7 +432,8 @@ impl Plugin for Listener {
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),
             Event::StreamStartFailed => note(&self.heard, format!("{} start_failed", self.name)),
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
-            Event::RequestDone { ok, message, .. } => note(&self.heard, format!("{} done {ok} {message}", self.name)),
+            Event::RequestDone { ok, message, data, .. } => note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or(""))),
+            Event::WindowShown { shown } => note(&self.heard, format!("{} shown {shown}", self.name)),
             _ => {}
         }
     }
@@ -444,6 +446,10 @@ pub struct Cameras {
     pub extras: AtomicU32,
     /// Why setting them up fails, with the command to run by hand.
     pub fails: Mutex<Option<(String, String)>>,
+    /// Setting up waits while this is on.
+    pub held: AtomicBool,
+    /// Setting up falls over.
+    pub panics: AtomicBool,
 }
 
 impl Outputs for Cameras {
@@ -452,6 +458,10 @@ impl Outputs for Cameras {
     }
     fn set_up(&self, action: SetupAction, _progress: &dyn Fn(&str)) -> SetupResult {
         self.asked.lock().unwrap().push(action);
+        while self.held.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!self.panics.load(Ordering::SeqCst), "modprobe gone");
         if let Some((message, command)) = self.fails.lock().unwrap().clone() {
             return SetupResult { ok: false, message, command: Some(command) };
         }
@@ -466,6 +476,40 @@ impl Outputs for Cameras {
     }
 }
 
+/// The tray, as the window sets it, with clicks a test queues.
+#[derive(Default)]
+pub struct TrayState {
+    pub items: Vec<String>,
+    pub tips: Vec<String>,
+    pub clicks: Vec<String>,
+}
+
+struct FakeTray(Arc<Mutex<TrayState>>);
+
+impl Tray for FakeTray {
+    fn set_items(&mut self, items: &[TrayItem]) {
+        self.0.lock().unwrap().items = items.iter().map(|i| i.title.clone()).collect();
+    }
+    fn set_tooltip(&mut self, text: &str) {
+        let tips = &mut self.0.lock().unwrap().tips;
+        if tips.last().map(String::as_str) != Some(text) {
+            tips.push(text.into());
+        }
+    }
+    fn poll_click(&mut self) -> Option<String> {
+        self.0.lock().unwrap().clicks.pop()
+    }
+}
+
+#[derive(Default)]
+pub struct Notes(pub Mutex<Vec<(String, String, bool)>>);
+
+impl Notifier for Notes {
+    fn notify(&self, title: &str, body: &str, urgent: bool) {
+        self.0.lock().unwrap().push((title.into(), body.into(), urgent));
+    }
+}
+
 /// The window, its link, and the workers it started, oldest first.
 pub struct Rig {
     pub w: Rc<Window>,
@@ -474,6 +518,8 @@ pub struct Rig {
     pub workers: Arc<Mutex<Vec<Arc<FakeWorker>>>>,
     pub heard: Log,
     pub dir: std::path::PathBuf,
+    pub tray: Arc<Mutex<TrayState>>,
+    pub notes: Arc<Notes>,
     _turn: MutexGuard<'static, ()>,
 }
 
@@ -498,6 +544,28 @@ impl Rig {
     }
 
     pub fn with(name: &str, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>) -> Rig {
+        Rig::built(name, false, plugins)
+    }
+
+    /// As new, with a tray.
+    pub fn with_tray(name: &str) -> Rig {
+        Rig::built(name, true, |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(Listener::new("microphone", heard))])
+    }
+
+    /// As with_tray, with the mic turned on.
+    pub fn built_with_mic_tray(name: &str) -> Rig {
+        Rig::built(name, true, |_, heard| {
+            let mut mic = Listener::new("microphone", heard);
+            mic.config = json!({"enabled": true});
+            vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(mic)]
+        })
+    }
+
+    pub fn built_tray(name: &str, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>) -> Rig {
+        Rig::built(name, true, plugins)
+    }
+
+    fn built(name: &str, has_tray: bool, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>) -> Rig {
         let turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
         offscreen::install();
         offscreen::drop_jobs();
@@ -508,9 +576,11 @@ impl Rig {
         *link.picked.lock().unwrap() = Some("pixel".into());
         let cameras = Arc::new(Cameras::default());
         cameras.extras.store(3, Ordering::SeqCst);
+        let (tray, notes) = (Arc::<Mutex<TrayState>>::default(), Arc::<Notes>::default());
         let services = Arc::new(Services {
             link: link.clone(), media: Arc::new(telescope_media::FfmpegMedia), outputs: cameras.clone(), audio: None,
-            notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: None,
+            notifier: Some(notes.clone()), autostart: None, updater: None,
+            tray: has_tray.then(|| Mutex::new(Box::new(FakeTray(tray.clone())) as Box<dyn Tray>)), plugins: Box::new(Vec::new), vision: None,
             plugin_problems: Default::default(), plugin_admin: None,
         });
         let heard: Log = Log::default();
@@ -530,7 +600,7 @@ impl Rig {
             worker
         });
         *w.streams.maker.borrow_mut() = Some(maker);
-        Rig { w, link, cameras, workers, heard, dir, _turn: turn }
+        Rig { w, link, cameras, workers, heard, dir, tray, notes, _turn: turn }
     }
 
     /// Runs what threads sent, until cond holds.
