@@ -2,6 +2,7 @@
 //! folder. What the card offers follows the lens the shown stream is on (RAW, the maker's Night mode, bursts and brackets where it
 //! has them); the picks of another lens are kept for when it comes back.
 
+use telescope_core::i18n::Fields;
 use crate::shared::{py_float, Paired};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -284,7 +285,7 @@ fn pictures_in(home: &Path, user_dirs: Option<&str>) -> PathBuf {
 
 /// "Like the video" for none, else the seconds (8 s, 0.5 s).
 pub fn exposure_text(seconds: f64) -> String {
-    if seconds == 0.0 { tr("Like the video") } else { tr("{seconds} s").replace("{seconds}", &format!("{seconds}")) }
+    if seconds == 0.0 { tr("Like the video") } else { tr("{seconds} s").field("seconds", &format!("{seconds}")) }
 }
 
 fn index_of(list: &[&str], value: &str) -> usize {
@@ -386,7 +387,7 @@ impl PhotosPlugin {
     }
 
     fn timer_text(seconds: i64) -> String {
-        if seconds == 0 { tr("Off") } else { tr("{seconds} s").replace("{seconds}", &seconds.to_string()) }
+        if seconds == 0 { tr("Off") } else { tr("{seconds} s").field("seconds", &seconds.to_string()) }
     }
 
     fn labelled(list: &[&str], labels: &[(&str, &str)]) -> Vec<String> {
@@ -602,9 +603,9 @@ impl PhotosPlugin {
         let int = |key: &str| p.get(key).and_then(Value::as_i64).unwrap_or(0);
         let (state, shots, taken, countdown) = (p.get("state").and_then(Value::as_str).unwrap_or(""), int("shots"), int("taken"), int("countdown_ms"));
         let text = if state == "waiting" && countdown > 0 {
-            tr("Taking the photo in {seconds} s").replace("{seconds}", &((countdown + 999) / 1000).max(1).to_string())
+            tr("Taking the photo in {seconds} s").field("seconds", &((countdown + 999) / 1000).max(1).to_string())
         } else if shots > 1 {
-            tr("Photo {n} of {total}").replace("{n}", &shots.min(taken + 1).to_string()).replace("{total}", &shots.to_string())
+            tr("Photo {n} of {total}").field("n", &shots.min(taken + 1).to_string()).field("total", &shots.to_string())
         } else if p.get("paused").and_then(Value::as_bool) == Some(true) {
             tr("Taking the photo, the video is paused…")
         } else {
@@ -620,9 +621,9 @@ impl PhotosPlugin {
             let name = Path::new(&files[0]).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let more = files.len() - 1;
             let text = if more > 0 {
-                tr("Saved {name} and {n} more").replace("{name}", &name).replace("{n}", &more.to_string())
+                tr("Saved {name} and {n} more").field("name", &name).field("n", &more.to_string())
             } else {
-                tr("Saved {name}").replace("{name}", &name)
+                tr("Saved {name}").field("name", &name)
             };
             self.show_status(host, text.clone(), "status_ok");
             // Taken with a global shortcut from another app

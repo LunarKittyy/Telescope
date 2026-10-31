@@ -11,6 +11,7 @@
 //! "describe": a text with {name} for what the binding does ("Preset: {name}", with "lower": true for the choice's label in
 //! lower case), where the usual wording ("Zoom: increase by 5%") doesn't fit.
 
+use telescope_core::i18n::Fields;
 use crate::hotkeys::{self, Hotkey, HotkeyBackend, Signals, HOTKEY};
 use crate::keys;
 use serde_json::{json, Map, Value};
@@ -294,7 +295,7 @@ impl ShortcutsPlugin {
         match backend.status(&binding.id) {
             None => (tr("Everywhere (setting up)"), true),
             Some(st) if st.working => (st.text, true),
-            Some(st) if st.reaches_app => (tr("In Telescope: {status}").replace("{status}", &st.text), false),
+            Some(st) if st.reaches_app => (tr("In Telescope: {status}").field("status", &st.text), false),
             Some(st) => (st.text, false),
         }
     }
@@ -585,7 +586,7 @@ fn repeats(action: &ActionSpec, params: &Map<String, Value>) -> bool {
 }
 
 fn fill(text: String, fields: &[(&str, &str)]) -> String {
-    fields.iter().fold(text, |t, (k, v)| t.replace(&format!("{{{k}}}"), v))
+    fields.iter().fold(text, |t, (k, v)| t.field(k, v))
 }
 
 fn param<'a>(action: &'a ActionSpec, name: &str) -> Option<&'a Value> {
@@ -705,7 +706,7 @@ fn param_problem(action: &ActionSpec, params: &Map<String, Value>) -> Option<Str
         let shown_value = match value { Value::String(s) => format!("'{s}'"), other => other.to_string() };
         if p["kind"] == "number" {
             if !number(value).is_some_and(f64::is_finite) {
-                return Some(tr("{name} has to be a number, not {value}.").replace("{name}", name).replace("{value}", &shown_value));
+                return Some(tr("{name} has to be a number, not {value}.").field("name", name).field("value", &shown_value));
             }
         } else {
             let options = choices(p);
@@ -713,8 +714,8 @@ fn param_problem(action: &ActionSpec, params: &Map<String, Value>) -> Option<Str
                 let listed = if options.is_empty() { tr("nothing right now") } else {
                     options.iter().map(|(v, _)| v.as_str()).collect::<Vec<_>>().join(" | ")
                 };
-                return Some(tr("{name} can be {options}, not {value}.").replace("{name}", name).replace("{options}", &listed)
-                    .replace("{value}", &shown_value));
+                return Some(tr("{name} can be {options}, not {value}.").field("name", name).field("options", &listed)
+                    .field("value", &shown_value));
             }
         }
         if value == "hold" {
@@ -725,7 +726,7 @@ fn param_problem(action: &ActionSpec, params: &Map<String, Value>) -> Option<Str
     for p in &action.params {
         let Some(name) = p["name"].as_str() else { continue };
         if shown(p, &full) && p["kind"] == "number" && full.get(name).is_none_or(Value::is_null) {
-            return Some(tr("{action} needs {name}=… for that.").replace("{action}", &action.id).replace("{name}", name));
+            return Some(tr("{action} needs {name}=… for that.").field("action", &action.id).field("name", name));
         }
     }
     None
@@ -765,13 +766,13 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     let wanted = request["action"].as_str().unwrap_or("");
     let Some((plugin, action)) = actions.into_iter().find(|(_, a)| a.id == wanted) else {
         let shown = match &request["action"] { Value::String(s) => format!("'{s}'"), Value::Null => "None".into(), v => v.to_string() };
-        return json!({"ok": false, "text": tr("No action called {action}. telescope --list-actions lists them.").replace("{action}", &shown)});
+        return json!({"ok": false, "text": tr("No action called {action}. telescope --list-actions lists them.").field("action", &shown)});
     };
     let params = request["params"].as_object().cloned().unwrap_or_default();
     let mut unknown: Vec<&String> = params.keys().filter(|k| !action.params.iter().any(|p| p["name"] == **k)).collect();
     unknown.sort();
     if let Some(name) = unknown.first() {
-        return json!({"ok": false, "text": tr("{action} has no setting {name}.").replace("{action}", &action.id).replace("{name}", &format!("'{name}'"))});
+        return json!({"ok": false, "text": tr("{action} has no setting {name}.").field("action", &action.id).field("name", &format!("'{name}'"))});
     }
     if let Some(problem) = param_problem(&action, &params) {
         return json!({"ok": false, "text": problem});
@@ -783,7 +784,7 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     };
     match said {
         Some(text) => json!({"ok": true, "text": text}),
-        None => json!({"ok": false, "text": tr("{action} can't be used right now (no phone, or the control is off).").replace("{action}", &action.label)}),
+        None => json!({"ok": false, "text": tr("{action} can't be used right now (no phone, or the control is off).").field("action", &action.label)}),
     }
 }
 
@@ -962,16 +963,16 @@ impl ShortcutsPlugin {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
         }
         if e.keys.is_empty() {
-            return (tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").replace("{meta}", meta), true);
+            return (tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").field("meta", meta), true);
         }
         if let Some(other) = self.bindings.iter().find(|b| b.keys == e.keys && b.id != e.id) {
             let text = tr("{keys} already does \"{action}\". Pick another key.")
-                .replace("{keys}", &keys::native_keys(&e.keys)).replace("{action}", &self.describe(other));
+                .field("keys", &keys::native_keys(&e.keys)).field("action", &self.describe(other));
             return (text, true);
         }
         if e.global && keys::edits_text(&e.keys) {
             let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
-                .replace("{keys}", &keys::native_keys(&e.keys)).replace("{meta}", meta);
+                .field("keys", &keys::native_keys(&e.keys)).field("meta", meta);
             return (text, false);
         }
         (String::new(), true)
@@ -991,7 +992,7 @@ impl ShortcutsPlugin {
         let mut control = picked.and_then(|i| rows.iter().position(|(_, a)| *a == Some(i))).map_or(-1, |r| r as i64);
         if let (Some(id), true, -1) = (e.action.as_deref(), e.query.is_empty(), control) {
             // An action this version doesn't have: kept
-            controls.push(tr("Unknown ({action})").replace("{action}", id));
+            controls.push(tr("Unknown ({action})").field("action", id));
             headings.push(false);
             control = controls.len() as i64 - 1;
         }
@@ -1012,7 +1013,7 @@ impl ShortcutsPlugin {
             let mut current = options.iter().position(|(c, _)| *c == v);
             if current.is_none() && !v.is_empty() {
                 // A preset that's gone, say: kept, so Save keeps it
-                options.push((v.clone(), tr("{value} (not there now)").replace("{value}", &v)));
+                options.push((v.clone(), tr("{value} (not there now)").field("value", &v)));
                 current = Some(options.len() - 1);
             }
             let items: Vec<String> = options.into_iter().map(|(_, l)| l).collect();
@@ -1047,8 +1048,8 @@ impl ShortcutsPlugin {
             let does = self.describe(b);
             json!({"keys": keys::native_keys(&b.keys), "does": does, "where": where_text, "ok": ok,
                    "copy-ok": b.params.get("mode").and_then(Value::as_str) != Some("hold"),
-                   "edit-label": tr("Edit {shortcut}").replace("{shortcut}", &does),
-                   "remove-label": tr("Remove {shortcut}").replace("{shortcut}", &does)})
+                   "edit-label": tr("Edit {shortcut}").field("shortcut", &does),
+                   "remove-label": tr("Remove {shortcut}").field("shortcut", &does)})
         }).collect();
         let note = match (&self.note_override, &self.backend) {
             (Some(text), _) => text.clone(),

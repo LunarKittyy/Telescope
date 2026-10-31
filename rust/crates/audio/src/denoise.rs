@@ -2,6 +2,7 @@
 //! sends. The library is loaded at run time from next to the program, as Python loaded it from the pyrnnoise wheel's
 //! folder, so a build without it still runs and the card says why.
 
+use telescope_core::i18n::Fields;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
@@ -96,7 +97,7 @@ pub fn problem_text((kind, error): &Problem) -> String {
     if *kind == "missing" {
         return tr("The pyrnnoise package isn't installed.");
     }
-    tr("Couldn't load RNNoise: {error}").replace("{error}", error)
+    tr("Couldn't load RNNoise: {error}").field("error", error)
 }
 
 /// One RNNoise state.

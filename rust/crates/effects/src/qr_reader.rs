@@ -2,6 +2,7 @@
 //! one. The picture is looked at on a thread of its own a few times a second; a code only counts once it's been read several
 //! looks in a row at about the same place, and is outlined on the preview while it does.
 
+use telescope_core::i18n::Fields;
 use crate::cpu::Rgb;
 use crate::imgops;
 use crate::shared::Paired;
@@ -451,14 +452,14 @@ impl QrReaderPlugin {
     pub fn copy(text: &str) -> (String, String, String) {
         if let Some(wifi) = parse_wifi(text) {
             if !wifi.password.is_empty() {
-                let line = tr("Copied the password for {network}").replace("{network}", &wifi.ssid);
+                let line = tr("Copied the password for {network}").field("network", &wifi.ssid);
                 return (wifi.password, line.clone(), line);
             }
-            let line = tr("Copied the name of {network}, which has no password").replace("{network}", &wifi.ssid);
+            let line = tr("Copied the name of {network}, which has no password").field("network", &wifi.ssid);
             return (wifi.ssid, line.clone(), line);
         }
         if is_link(text) {
-            return (text.to_string(), tr("Copied {link}").replace("{link}", text), text.to_string());
+            return (text.to_string(), tr("Copied {link}").field("link", text), text.to_string());
         }
         (text.to_string(), tr("Copied the code's text"), text.to_string())
     }

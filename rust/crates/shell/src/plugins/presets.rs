@@ -3,6 +3,7 @@
 //! them with the other per-device settings. Applying one hands each section to its plugin's apply_preset(), which also
 //! sends it to the phone while streaming.
 
+use telescope_core::i18n::Fields;
 use serde_json::{json, Map, Value};
 use telescope_core::event::Event;
 use telescope_core::host::Host;
@@ -161,10 +162,10 @@ impl PresetsPlugin {
     /// A name no preset has: "Preset 3" while there are two.
     pub fn unused_name(&self) -> String {
         let mut n = self.presets.len() + 1;
-        while self.find(&tr("Preset {n}").replace("{n}", &n.to_string())).is_some() {
+        while self.find(&tr("Preset {n}").field("n", &n.to_string())).is_some() {
             n += 1;
         }
-        tr("Preset {n}").replace("{n}", &n.to_string())
+        tr("Preset {n}").field("n", &n.to_string())
     }
 
     /// Whether saving as name has to ask first: another preset has it (renaming to its own name, keep, is fine).
@@ -228,7 +229,7 @@ impl PresetsPlugin {
         let Asking::Name { rename } = self.asking.clone() else { return };
         if self.clashes(text, rename.as_deref()) {
             let name = clean(text);
-            let ask = tr("There's already a preset called \"{name}\". Replace it?").replace("{name}", &name);
+            let ask = tr("There's already a preset called \"{name}\". Replace it?").field("name", &name);
             self.asking = Asking::Replace { rename, name };
             host.set_ui_props("header", &json!({"dialog": ""}));
             host.set_ui_props("header", &json!({"confirm-text": ask, "dialog": "replace"}));
@@ -267,7 +268,7 @@ impl PresetsPlugin {
         };
         let name = names[(at + if next { 1 } else { -1 }).rem_euclid(names.len() as i64) as usize].clone();
         self.apply(host, &name);
-        Some(tr("Preset: {name}").replace("{name}", &name))
+        Some(tr("Preset: {name}").field("name", &name))
     }
 }
 
@@ -343,7 +344,7 @@ impl Plugin for PresetsPlugin {
                 let name = params.get("name").and_then(Value::as_str)?.to_string();
                 self.find(&name)?;
                 self.apply(host, &name);
-                Some(tr("Preset: {name}").replace("{name}", &name))
+                Some(tr("Preset: {name}").field("name", &name))
             }
             "presets.cycle" => {
                 let op = params.get("op").and_then(Value::as_str).unwrap_or("next").to_string();

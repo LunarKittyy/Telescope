@@ -1,6 +1,7 @@
 //! The window's side of the stream flow (app.py's _FlowHost and _SourceHost, and the worker's signals): sources by
 //! id, workers, the footer and tiles, and what phones' threads report back.
 
+use telescope_core::i18n::Fields;
 use crate::session::{Source, SourceRef, Worker};
 use crate::sources::{camera_error_text, heat_text, PhoneKind, PluginKind, Report};
 use crate::stream_flow::{FlowHost, Hook, Later, StreamFlow, MAX_SLOTS};
@@ -330,12 +331,12 @@ impl Window {
         let command = result.command.clone().unwrap_or_default();
         if result.ok {
             let linux = cfg!(target_os = "linux");
-            self.set_status(&if linux { tr("Loopback reloaded: {message}").replace("{message}", &result.message) } else { tr("Canvas updated") }, "ok");
+            self.set_status(&if linux { tr("Loopback reloaded: {message}").field("message", &result.message) } else { tr("Canvas updated") }, "ok");
             if restart {
                 self.with_flow(|flow, host| flow.start(host, true, None)); // not over a stream started while the reload ran
             }
         } else if command.is_empty() {
-            self.set_status(&tr("Reload failed: {message}").replace("{message}", &result.message), "err");
+            self.set_status(&tr("Reload failed: {message}").field("message", &result.message), "err");
         } else {
             self.set_status(&tr("Not streaming"), "dim");
         }

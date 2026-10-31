@@ -1,6 +1,7 @@
 //! What the Microphone plugin needs from this computer (microphone.py's LinuxMic and WindowsMic): whether the
 //! virtual mic can exist here, setting it up and removing it, and the output the worker writes to.
 
+use telescope_core::i18n::Fields;
 use crate::virtual_mic;
 use crate::worker::OpenSink;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,7 +49,7 @@ impl MicBackend for LinuxMic {
             return None;
         }
         // LINUX_TOOLS is one tool, so the list never needs an "and"
-        Some((tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).").replace("{tools}", &missing.join(", ")), None))
+        Some((tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).").field("tools", &missing.join(", ")), None))
     }
 
     fn prepare(&self) -> String {

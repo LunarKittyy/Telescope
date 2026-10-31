@@ -6,6 +6,7 @@
 //! bind other keys than the ones suggested: the answer says which, and ShortcutsChanged says when that changes later.
 //! A session can only bind once, so new bindings get a new session.
 
+use telescope_core::i18n::Fields;
 use crate::hotkeys::{Hotkey, HotkeyBackend, HotkeyStatus, Signals};
 use crate::keys;
 use std::collections::HashMap;
@@ -126,7 +127,7 @@ impl HotkeyBackend for PortalHotkeys {
         };
         if state == State::Unavailable {
             let first = if why.is_empty() { tr("This desktop doesn't offer global shortcuts to apps.") } else {
-                tr("This desktop doesn't offer global shortcuts to apps ({why}).").replace("{why}", &why)
+                tr("This desktop doesn't offer global shortcuts to apps ({why}).").field("why", &why)
             };
             return first + " " + &tr("Bind a Copy command line in its own keyboard settings instead.");
         }
@@ -179,7 +180,7 @@ fn status_of(props: Option<&HashMap<String, OwnedValue>>) -> HotkeyStatus {
     if trigger.is_empty() {
         return HotkeyStatus::new(false, tr("No key set in the desktop's shortcut settings"));
     }
-    HotkeyStatus::new(true, tr("Everywhere: {keys}").replace("{keys}", &trigger))
+    HotkeyStatus::new(true, tr("Everywhere: {keys}").field("keys", &trigger))
 }
 
 fn text(v: &Value) -> Option<String> {

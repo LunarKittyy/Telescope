@@ -5,6 +5,7 @@
 //!   from core::people, Privacy blur and Expose for my face), or HostVision::tracked_people,
 //! - HostVision::vision_state and vision_pack, with status_text for the card's status row and download_vision for its button.
 
+use crate::i18n::Fields;
 use crate::bus::BusSender;
 use crate::frame::Frame;
 use crate::i18n::tr;
@@ -97,15 +98,15 @@ pub fn status_text(active: bool, problem: &str, optional: bool, state: &str, pac
         (problem.to_string(), false)
     } else if pack.downloading {
         let text = if let Some(percent) = (pack.done * 100).checked_div(pack.size) {
-            tr("Downloading… {percent}%").replace("{percent}", &percent.min(99).to_string())
+            tr("Downloading… {percent}%").field("percent", &percent.min(99).to_string())
         } else {
             tr("Downloading…")
         };
         (text, false)
     } else if state == MISSING && optional {
-        (tr("Cleaner edges with a one-time download (about {mb} MB).").replace("{mb}", &mb), pack.available)
+        (tr("Cleaner edges with a one-time download (about {mb} MB).").field("mb", &mb), pack.available)
     } else if state == MISSING {
-        (tr("Needs a one-time download (about {mb} MB).").replace("{mb}", &mb), pack.available)
+        (tr("Needs a one-time download (about {mb} MB).").field("mb", &mb), pack.available)
     } else if optional {
         (String::new(), false)
     } else if state == FAILED {

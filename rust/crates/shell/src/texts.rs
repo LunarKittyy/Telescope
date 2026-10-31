@@ -1,5 +1,7 @@
 //! Text helpers from telescope.i18n: plurals, lists and filling in named blanks.
 
+use telescope_core::i18n::Fields;
+
 /// The form that fits n in the current language's plural rule, with {n} filled in (and the rest left to the caller).
 pub fn trn(singular: &str, plural: &str, n: usize) -> String {
     telescope_core::i18n::trn_open(singular, plural, n as i64)
@@ -12,7 +14,7 @@ pub fn and_list(words: &[String]) -> String {
 
 /// Fills in {name} blanks, as tr(text, name=value) does.
 pub fn fill(text: &str, fields: &[(&str, &str)]) -> String {
-    fields.iter().fold(text.to_string(), |t, (k, v)| t.replace(&format!("{{{k}}}"), v))
+    fields.iter().fold(text.to_string(), |t, (k, v)| t.field(k, v))
 }
 
 #[cfg(test)]

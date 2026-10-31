@@ -6,6 +6,7 @@
 //! frame rate, plus whichever picture settings the camera itself offers, all kept per camera and put back each time it's
 //! opened. A camera that's only plugged in is never written to.
 
+use telescope_core::i18n::Fields;
 use crate::webcam_capture::{self, ReaderDeps};
 use crate::webcam_controls::{apply_order, auto_of, default_of, local_flicker, shown_value, Control, Controls, AUTOS};
 use crate::webcams::{self, Choice, Device};
@@ -405,9 +406,9 @@ impl WebcamPlugin {
             let text = if detail.is_empty() {
                 tr("Another app may be using it. Close it there and it starts here.")
             } else {
-                tr("{app} is using it. Close it there and it starts here.").replace("{app}", detail)
+                tr("{app} is using it. Close it there and it starts here.").field("app", detail)
             };
-            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").replace("{name}", &src.name()), text, actions: Vec::new(),
+            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", &src.name()), text, actions: Vec::new(),
                                                 kind: "warn".into(), details: String::new(), tell_dismiss: false });
         } else {
             host.clear_issue(Some(&issue_key), None);
@@ -662,7 +663,7 @@ impl WebcamPlugin {
         } else if state == "gone" || self.shared.device(key).is_none() {
             ("status_warn", tr("Not plugged in"))
         } else if state == "busy" {
-            ("status_err", if detail.is_empty() { tr("In use by another app") } else { tr("In use by {app}").replace("{app}", &detail) })
+            ("status_err", if detail.is_empty() { tr("In use by another app") } else { tr("In use by {app}").field("app", &detail) })
         } else if state == "silent" {
             ("status_warn", tr("Not sending anything"))
         } else if streaming {
@@ -736,7 +737,7 @@ impl Plugin for WebcamPlugin {
                     self.on_reported(host, &s(0), &s(1), &s(2));
                 } else if token == P_UNPLUGGED {
                     let name = data.as_str().unwrap_or("");
-                    host.show_issue("start", Issue { title: tr("{name} isn't plugged in").replace("{name}", name),
+                    host.show_issue("start", Issue { title: tr("{name} isn't plugged in").field("name", name),
                                                      text: tr("Plug it in, or pick another camera."), actions: Vec::new(),
                                                      kind: "warn".into(), details: String::new(), tell_dismiss: false });
                 }

@@ -6,6 +6,7 @@
 //!
 //! The scripts and the steps are plain code behind InstallSys, so tests run them anywhere.
 
+use telescope_core::i18n::Fields;
 use crate::wincam::{MF_DLL, UC_NAME};
 use std::path::{Path, PathBuf};
 use telescope_core::i18n::tr;
@@ -230,12 +231,12 @@ fn run_admin(sys: &dyn InstallSys, script: &str) -> (bool, String, Option<i32>) 
 pub fn download_unitycapture(sys: &dyn InstallSys, progress: &dyn Fn(&str)) -> (bool, String) {
     let dir = sys.uc_dir();
     if let Err(e) = sys.make_dir(&dir) {
-        return (false, tr("Couldn't create {path}: {error}").replace("{path}", &dir.to_string_lossy()).replace("{error}", &e));
+        return (false, tr("Couldn't create {path}: {error}").field("path", &dir.to_string_lossy()).field("error", &e));
     }
     for (name, want) in UC_SHA256 {
         let (dest, part) = (dir.join(name), dir.join(format!("{name}.part")));
-        progress(&tr("Downloading {file}...").replace("{file}", name));
-        let failed = |e: String| (false, tr("Download failed: {error}").replace("{error}", &e));
+        progress(&tr("Downloading {file}...").field("file", name));
+        let failed = |e: String| (false, tr("Download failed: {error}").field("error", &e));
         // A cut-off download never sits where the callers look for a finished one
         if let Err(e) = sys.download(&format!("{UC_URL_BASE}/{name}"), &part) {
             sys.remove(&part);
@@ -245,7 +246,7 @@ pub fn download_unitycapture(sys: &dyn InstallSys, progress: &dyn Fn(&str)) -> (
         if digest != want {
             sys.remove(&part);
             return (false, tr("{file} failed checksum verification (got {digest}...) - not registering")
-                .replace("{file}", name).replace("{digest}", digest.get(..12).unwrap_or(&digest)));
+                .field("file", name).field("digest", digest.get(..12).unwrap_or(&digest)));
         }
         if let Err(e) = sys.rename(&part, &dest) {
             sys.remove(&part);
@@ -261,7 +262,7 @@ fn register_unitycapture(sys: &dyn InstallSys, devices: u32, reset: bool) -> (bo
         let path = dir.join(name);
         if sys.sha256(&path).as_deref() != Some(want) {
             sys.remove(&path); // so "Try again" downloads it afresh instead of failing the same way
-            return (false, tr("{file} failed checksum verification - not registering").replace("{file}", name));
+            return (false, tr("{file} failed checksum verification - not registering").field("file", name));
         }
     }
     // The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy

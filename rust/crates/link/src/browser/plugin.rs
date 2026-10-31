@@ -12,6 +12,7 @@
 //! The sources run on the host's thread without the plugin to hand, so what they need to know (whether Start waits,
 //! which browser is idle, the rate) is shared, and what they ask for (prepare, cancel) is posted to the plugin.
 
+use telescope_core::i18n::Fields;
 use super::feed::{BrowserFeed, BrowserHub, BrowserVideo, Sent};
 use super::rtc::{RtcMaker, RtcSession, StrSession};
 use super::server::{BrowserServer, BROWSER_PORT};
@@ -78,7 +79,7 @@ pub fn sending_text(codec: &str, sent: &Sent) -> String {
     if let (Some(w), Some(h)) = (sent.width.filter(|w| *w > 0), sent.height.filter(|h| *h > 0)) {
         let size = format!("{w}×{h}");
         parts.push(match sent.fps.filter(|f| *f > 0) {
-            Some(fps) => tr("{size} at {fps} fps").replace("{size}", &size).replace("{fps}", &fps.to_string()),
+            Some(fps) => tr("{size} at {fps} fps").field("size", &size).field("fps", &fps.to_string()),
             None => size,
         });
     }
@@ -96,7 +97,7 @@ pub fn waiting_hint(stats: Option<&ServerStats>, connected: bool, now: Instant) 
     }
     if stats.nothing_arrived() && now.saturating_duration_since(stats.started) >= HINT_AFTER {
         return tr("Nothing has reached this computer yet. Check that the device is on the same network as the address in the \
-                   code, and that the firewall allows port {port}.").replace("{port}", &stats.port.to_string());
+                   code, and that the firewall allows port {port}.").field("port", &stats.port.to_string());
     }
     String::new()
 }
@@ -561,7 +562,7 @@ impl BrowserCameraPlugin {
                 (if sent.limit == "cpu" { "status_warn" } else { "status_ok" }, text)
             }
         } else if connected.len() > 1 {
-            ("status_ok", tr("{n} connected").replace("{n}", &connected.len().to_string()))
+            ("status_ok", tr("{n} connected").field("n", &connected.len().to_string()))
         } else if let Some(only) = connected.first() {
             ("status_ok", only.name.clone())
         } else {
@@ -570,7 +571,7 @@ impl BrowserCameraPlugin {
         let lines: Vec<String> = connected.iter().map(|s| {
             let out = h.stream_output(&s.source_id());
             let value = if out.is_empty() { tr("not streaming") } else { out };
-            tr("{label}: {value}").replace("{label}", &s.name).replace("{value}", &value)
+            tr("{label}: {value}").field("label", &s.name).field("value", &value)
         }).collect();
         let mic = match (&server, &feed) {
             (Some(_), Some(feed)) if feed.connected() => feed.mic_error(),
@@ -587,7 +588,7 @@ impl BrowserCameraPlugin {
             "status-tip": tip,
             "list-text": lines.join("\n"),
             "show-list": lines.len() > 1,
-            "mic-text": if mic.is_empty() { String::new() } else { tr("No microphone: {problem}").replace("{problem}", &mic) },
+            "mic-text": if mic.is_empty() { String::new() } else { tr("No microphone: {problem}").field("problem", &mic) },
             "hint-text": hint,
             "url": url,
             "qr-cells": cells,
@@ -820,13 +821,13 @@ impl BrowserCameraPlugin {
             Ok(server) => server,
             Err(e) => {
                 log::warn!("Browser camera server didn't start: {e}");
-                self.problem = tr("Couldn't start: {error}").replace("{error}", &e);
+                self.problem = tr("Couldn't start: {error}").field("error", &e);
                 return false;
             }
         };
         if let Err(e) = server.start() {
             log::warn!("Browser camera server didn't start: {e}");
-            self.problem = tr("Couldn't start: {error}").replace("{error}", &e);
+            self.problem = tr("Couldn't start: {error}").field("error", &e);
             return false;
         }
         self.server = Some(server);
@@ -1006,7 +1007,7 @@ impl BrowserCameraPlugin {
         list.into_iter().filter_map(|(bid, seen)| {
             let sid = format!("{BROWSER_PREFIX}{bid}");
             h.has_device_settings(&sid).then(|| RememberedSource {
-                id: sid, name: seen.name.clone(), detail: tr("Browser, last connected {date}").replace("{date}", &ymd(seen.seen)),
+                id: sid, name: seen.name.clone(), detail: tr("Browser, last connected {date}").field("date", &ymd(seen.seen)),
             })
         }).collect()
     }

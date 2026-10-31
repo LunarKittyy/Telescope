@@ -5,6 +5,7 @@
 //! The plugin owns the card, dialogs and bus; it calls in here and carries out what comes back. Clocks come in as
 //! arguments so tests can move them.
 
+use telescope_core::i18n::Fields;
 use crate::https::PhoneAuth;
 use crate::phones::{auth_of, is_usb, phone_from_value, phone_to_value, route_host, usb_note_text, UsbTunnels, STREAM_PORT};
 use crate::session_client::{Ping, PingStatus, SessionClient, SessionResult, PING_PORT, START_FAST_POLL_FOR,
@@ -431,9 +432,9 @@ impl Connection {
         }
         let name = &phone.name;
         let title = match preference {
-            RoutePreference::Usb => tr("Can't reach {phone} over USB").replace("{phone}", name),
-            RoutePreference::Wifi => tr("Can't reach {phone} over Wi-Fi").replace("{phone}", name),
-            RoutePreference::Auto => tr("Can't reach {phone}").replace("{phone}", name),
+            RoutePreference::Usb => tr("Can't reach {phone} over USB").field("phone", name),
+            RoutePreference::Wifi => tr("Can't reach {phone} over Wi-Fi").field("phone", name),
+            RoutePreference::Auto => tr("Can't reach {phone}").field("phone", name),
         };
         let now_on = if self.stream_route().is_some_and(|r| is_usb(&r)) { "USB" } else { "Wi-Fi" };
         let kept = route_choice_label(self.route_pref);
@@ -442,7 +443,7 @@ impl Connection {
             RoutePreference::Wifi => format!(" {}", tr("Check that it's on the same network as this computer.")),
             RoutePreference::Auto => String::new(),
         };
-        let text = tr("Still streaming over {now}, so Connect via stays on {kept}.").replace("{now}", now_on).replace("{kept}", &kept) + &hint;
+        let text = tr("Still streaming over {now}, so Connect via stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
         ProbeOutcome::Refuse { title, text, preference }
     }
 
@@ -792,7 +793,7 @@ pub fn default_computer_name() -> String {
 // ── Texts ─────────────────────────────────────────────────────────────────
 
 fn with_phone(text: String, phone: &str) -> String {
-    text.replace("{phone}", phone)
+    text.field("phone", phone)
 }
 
 /// (status kind, short text) for the card's Phone row.
@@ -825,7 +826,7 @@ pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> Strin
         }
         PhoneStatus::UsbNeedsAttention => {
             let why = Some(usb_note_text(res.usb_note)).filter(|w| !w.is_empty()).unwrap_or_else(|| tr("the phone isn't answering over USB"));
-            tr("The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead.").replace("{why}", &why)
+            tr("The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead.").field("why", &why)
         }
         PhoneStatus::PhoneOutdated => with_phone(tr("The Telescope app on {phone} is older than this one. Update it on the phone."), phone),
         PhoneStatus::DesktopOutdated => with_phone(tr("The Telescope app on {phone} is newer than this one. Update Telescope on this computer."), phone),
@@ -838,7 +839,7 @@ pub fn not_using_usb(res: &Resolution) -> Option<String> {
     let wifi = res.route.as_ref().is_some_and(|r| !is_usb(r));
     match res.usb_note {
         Some(note) if wifi && !matches!(note, UsbNote::NoCable | UsbNote::NoAdb) => {
-            Some(tr("Not using USB: {reason}.").replace("{reason}", &usb_note_text(Some(note))))
+            Some(tr("Not using USB: {reason}.").field("reason", &usb_note_text(Some(note))))
         }
         _ => None,
     }
@@ -855,7 +856,7 @@ pub fn route_text(route: Option<&RouteSpec>) -> String {
 /// Why Start didn't take the phone: another paired computer's stream runs on it.
 pub fn busy_other_reason(computer: Option<&str>) -> String {
     let text = match computer {
-        Some(c) => tr("The phone is streaming to {computer}.").replace("{computer}", c),
+        Some(c) => tr("The phone is streaming to {computer}.").field("computer", c),
         None => tr("The phone is streaming to another computer."),
     };
     format!("{text}\n\n{}", tr("Stop it there or on the phone, then try again."))
@@ -870,7 +871,7 @@ pub fn start_refused_reason(error: Option<&str>, computer: Option<&str>) -> Stri
         "not_paired" => tr("The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again."),
         other => {
             let error = if other.is_empty() { tr("unknown error") } else { other.to_string() };
-            tr("The phone refused to start streaming ({error}).").replace("{error}", &error)
+            tr("The phone refused to start streaming ({error}).").field("error", &error)
         }
     }
 }
@@ -1031,7 +1032,7 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
             if unreachable_streak >= UNREACHABLE_STREAK_LIMIT {
                 return Err(tr("Lost contact with the phone while its camera was starting."));
             }
-            progress(&tr("Phone went quiet for a moment, still waiting... ({seconds}s)").replace("{seconds}", &seconds));
+            progress(&tr("Phone went quiet for a moment, still waiting... ({seconds}s)").field("seconds", &seconds));
             continue;
         }
         unreachable_streak = 0;
@@ -1041,7 +1042,7 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
             return Err(tr("The phone's camera stopped before it finished starting.\n\nCheck the phone for a permission prompt or an error."));
         }
         let text = if started { tr("Phone's camera is opening... ({seconds}s)") } else { tr("Waiting for the phone's camera... ({seconds}s)") };
-        progress(&text.replace("{seconds}", &seconds));
+        progress(&text.field("seconds", &seconds));
     }
     Err(tr("The phone's camera didn't finish starting in time.\n\nTry again. If it keeps happening, open Telescope on the phone."))
 }

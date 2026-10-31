@@ -2,6 +2,7 @@
 //! adb's licence doesn't allow passing it on, so this reads Google's own SDK index for the current Windows
 //! platform-tools, downloads that zip, checks its size and SHA-1, and keeps only what adb needs in downloaded_dir().
 
+use telescope_core::i18n::Fields;
 use crate::util::{hex, random_hex};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -286,7 +287,7 @@ fn download(web: &dyn Fetch, dest: &Path, say: &dyn Fn(&str), rename: Rename) ->
     if archive.revision.is_empty() {
         say(&tr("Downloading adb from Google…"));
     } else {
-        say(&tr("Downloading adb {version} from Google…").replace("{version}", &archive.revision));
+        say(&tr("Downloading adb {version} from Google…").field("version", &archive.revision));
     }
     let fetched = std::fs::File::create(&zip_path).map_err(|e| Failed::Other(e.to_string()))
         .and_then(|mut file| fetch(web, &archive.url, &mut file, archive.size));
@@ -395,8 +396,8 @@ fn offline(failed: &Failed) -> Option<String> {
         FetchError::Certificate(_) => tr("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."),
         FetchError::Offline(_) => tr("Couldn't reach Google. Check the internet connection and try again."),
         FetchError::Http(code @ (403 | 404 | 451)) => tr("Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
-            .replace("{code}", &code.to_string()),
-        FetchError::Http(code) => tr("Google's server said {code}. Try again later.").replace("{code}", &code.to_string()),
+            .field("code", &code.to_string()),
+        FetchError::Http(code) => tr("Google's server said {code}. Try again later.").field("code", &code.to_string()),
         FetchError::Other(_) => return None,
     })
 }
@@ -521,7 +522,7 @@ mod tests {
     }
 
     fn index_for(size: u64, sha1: &str, name: &str) -> Vec<u8> {
-        INDEX.replace("{size}", &size.to_string()).replace("{sha1}", sha1).replace("{name}", name).into_bytes()
+        INDEX.field("size", &size.to_string()).field("sha1", sha1).field("name", name).into_bytes()
     }
 
     /// dl.google.com: the index and one zip.

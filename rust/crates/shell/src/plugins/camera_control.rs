@@ -2,6 +2,7 @@
 //! widgets live here as plain state, changed the way Qt changes them (a value set while signals flow runs its handler),
 //! and camera.slint only draws them; its callbacks come back as UiEvents and the settings go out through Host::phone_control.
 
+use telescope_core::i18n::Fields;
 use serde_json::{json, Value};
 use telescope_core::actions::{self, Choice, LogSliderSpec, SliderSpec};
 use telescope_core::event::Event;
@@ -49,7 +50,7 @@ pub fn diopters_to_label(d: f64) -> String {
     if d <= 0.01 {
         return "∞".into(); // focused at infinity: the same in every language
     }
-    tr("{n} m").replace("{n}", &number(1.0 / d, 2, false))
+    tr("{n} m").field("n", &number(1.0 / d, 2, false))
 }
 
 /// ns_to_display: an exposure time as the shutter row shows it.
@@ -59,7 +60,7 @@ pub fn ns_to_display(ns: i64) -> String {
     }
     let s = ns as f64 / 1e9;
     if s >= 1.0 {
-        return tr("{n} s").replace("{n}", &number(s, 1, false));
+        return tr("{n} s").field("n", &number(s, 1, false));
     }
     let denom = actions::round_half_even(1.0 / s) as i64;
     let digits = denom.to_string();
@@ -74,7 +75,7 @@ pub fn ns_to_display(ns: i64) -> String {
 }
 
 fn ev_text(ev: f64) -> String {
-    tr("{n} EV").replace("{n}", &number(ev, 1, true))
+    tr("{n} EV").field("n", &number(ev, 1, true))
 }
 
 fn signed(v: i64) -> String {
@@ -757,13 +758,13 @@ impl CameraControl {
         self.info_text = if full { tr("Full manual control") } else { tr("Limited manual control") };
         let mut lines = Vec::new();
         if !hw_level.is_empty() {
-            lines.push(tr("Camera level: {level}").replace("{level}", &hw_level));
+            lines.push(tr("Camera level: {level}").field("level", &hw_level));
         }
         if !have.is_empty() {
-            lines.push(tr("Supports: {features}").replace("{features}", &have.join(", ")));
+            lines.push(tr("Supports: {features}").field("features", &have.join(", ")));
         }
         if !missing.is_empty() {
-            lines.push(tr("Not supported: {features}").replace("{features}", &missing.join(", ")));
+            lines.push(tr("Not supported: {features}").field("features", &missing.join(", ")));
         }
         self.info_tip = lines.join("\n");
     }

@@ -7,6 +7,7 @@
 //! phone takes over. The extra cameras Add camera sets up show it too while nothing streams to them. Another plugin can also ask
 //! for it in place of the shown stream's picture (cover_requested on the bus).
 
+use telescope_core::i18n::Fields;
 use crate::convert::rgb_to_i420;
 use crate::wait_screen::{self, Loader, Rgb, DEFAULT_SIZE};
 use serde_json::{json, Value};
@@ -455,12 +456,12 @@ impl WaitScreenPlugin {
     fn props(&self, host: &dyn Host, pick_error: &str, unreadable: bool, preview: (u32, u32)) -> Value {
         let (w, h) = self.size(host);
         let note = if !pick_error.is_empty() {
-            tr("Couldn't use that image: {problem}. Keeping the current wait screen.").replace("{problem}", pick_error)
+            tr("Couldn't use that image: {problem}. Keeping the current wait screen.").field("problem", pick_error)
         } else if unreadable {
             tr("Couldn't read that image, so the default screen is showing. Choose another one.")
         } else {
             tr("Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.")
-                .replace("{size}", &format!("{w} \u{d7} {h}"))
+                .field("size", &format!("{w} \u{d7} {h}"))
         };
         json!({
             "preview-width": preview.0, "preview-height": preview.1, "picture-note": note,
@@ -506,7 +507,7 @@ impl WaitScreenPlugin {
             kind: FileDialogKind::Open,
             title: tr("Choose a wait screen"),
             start: home.to_string_lossy().into_owned(),
-            filters: vec![tr("Images ({formats})").replace("{formats}", PICKER_FORMATS)],
+            filters: vec![tr("Images ({formats})").field("formats", PICKER_FORMATS)],
         };
         self.picking = host.pick_file(&dialog);
     }

@@ -1,6 +1,7 @@
 //! The window's state without the window: the plugins, their cards and settings, banners, folds and saving (app.py's
 //! TelescopeWindow minus Qt). The Slint side (window.rs) drains `effects` after each call and shows the result.
 
+use telescope_core::i18n::Fields;
 use crate::banners::Banners;
 use crate::collapse::Collapsing;
 use crate::layout::{Panels, Region};
@@ -493,7 +494,7 @@ impl State {
         let titles: Vec<String> = problems.iter().map(|p| tr(&p.title)).collect();
         let n = titles.len();
         let title = if n < 4 {
-            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).replace("{plugins}", &crate::texts::and_list(&titles))
+            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).field("plugins", &crate::texts::and_list(&titles))
         } else {
             crate::texts::trn("{n} plugin didn't start", "{n} plugins didn't start", n)
         };
@@ -515,7 +516,7 @@ impl State {
         }
         let n = titles.len();
         let list = crate::texts::and_list(&titles);
-        let title = crate::texts::trn("{plugins} is turned off", "{plugins} are turned off", n).replace("{plugins}", &list);
+        let title = crate::texts::trn("{plugins} is turned off", "{plugins} are turned off", n).field("plugins", &list);
         let text = crate::texts::trn(
             "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on.",
             "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on.", n);
@@ -536,7 +537,7 @@ impl State {
         self.apply_config(&mut cfg);
         self.each(|p, host| p.on_plugins_ready(host));
         if let Some(backup) = self.file.take_reset_notice() {
-            let where_ = if backup.is_empty() { String::new() } else { format!(" {}", tr("A copy of the old file is at {path}.").replace("{path}", &backup)) };
+            let where_ = if backup.is_empty() { String::new() } else { format!(" {}", tr("A copy of the old file is at {path}.").field("path", &backup)) };
             self.banners.show("config", Issue {
                 title: tr("Your settings couldn't be read"),
                 text: tr("Telescope started with its defaults, so paired phones need pairing again.") + &where_,

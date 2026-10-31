@@ -6,6 +6,7 @@
 //! areas. Every property and callback a card declares is aliased on the window as p<n>-<name>, which is how
 //! set_ui_props and UiEvents reach it by name.
 
+use telescope_core::i18n::Fields;
 use crate::layout::{Mode, Panels, Region};
 use crate::source::{quote, Interface};
 
@@ -103,7 +104,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             .map(|h| format!("                {} := {}C {{ y: (parent.height - self.height) / 2; }}\n", h.piece.id, h.piece.id))
             .collect()
     };
-    out.push_str(&HEADER.replace("{left}", &header(false)).replace("{right}", &header(true)));
+    out.push_str(&HEADER.field("left", &header(false)).field("right", &header(true)));
 
     // The body: cards placed by their column in the current mode
     out.push_str(BODY_TOP);

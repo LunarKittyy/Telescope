@@ -3,6 +3,7 @@
 //! too, and judges those by the thresholds saved for that phone. A warning notifies once per crossing (it re-arms 5 below
 //! or above the line); Stop the stream stops on every reading past the line, until Start anyway lets it carry on.
 
+use telescope_core::i18n::Fields;
 use crate::py;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -271,7 +272,7 @@ impl MonitoringPlugin {
             "status_ok"
         };
         let feel = match temp_kind { "status_ok" => tr("Cool"), "status_warn" => tr("Warm"), _ => tr("Hot") };
-        self.temp = Pill { value: tr("{temp} °C").replace("{temp}", &number(temp_c, 1, false)), note: feel, kind: temp_kind.into(),
+        self.temp = Pill { value: tr("{temp} °C").field("temp", &number(temp_c, 1, false)), note: feel, kind: temp_kind.into(),
                            icon: "thermometer".into() };
         self.show(host);
     }
@@ -316,7 +317,7 @@ impl MonitoringPlugin {
                     tr("{phone} battery is at {level}% and still dropping despite being plugged in - the charger may not be keeping up.")
                 } else {
                     tr("{phone} battery is at {level}%.")
-                }.replace("{phone}", &phone).replace("{level}", &level.to_string());
+                }.field("phone", &phone).field("level", &level.to_string());
                 let text = if stop_low { format!("{text} {}", tr("Stopped streaming.")) } else { text };
                 notes.push((tr("Telescope - Low Battery"), text));
             }
@@ -329,9 +330,9 @@ impl MonitoringPlugin {
             if cfg.temp_notify {
                 let temp = number(temp_c, 1, false);
                 let text = if name.is_empty() {
-                    tr("Temperature is {temp} °C.").replace("{temp}", &temp)
+                    tr("Temperature is {temp} °C.").field("temp", &temp)
                 } else {
-                    tr("{phone}: temperature is {temp} °C.").replace("{phone}", name).replace("{temp}", &temp)
+                    tr("{phone}: temperature is {temp} °C.").field("phone", name).field("temp", &temp)
                 };
                 let then = if stop_hot { tr("Stopped streaming to let it cool down.") } else { tr("Consider stopping charging or closing other apps.") };
                 notes.push((tr("Telescope - Phone Running Hot"), format!("{text} {then}")));
@@ -348,19 +349,19 @@ impl MonitoringPlugin {
             host.stop_stream(sid); // for the shown one it runs on_stream_stop, which clears its state here
             let (title, text) = if stop_low {
                 let title = if name.is_empty() {
-                    tr("The phone's battery is at {level}%").replace("{level}", &level.to_string())
+                    tr("The phone's battery is at {level}%").field("level", &level.to_string())
                 } else {
-                    tr("{phone}'s battery is at {level}%").replace("{phone}", name).replace("{level}", &level.to_string())
+                    tr("{phone}'s battery is at {level}%").field("phone", name).field("level", &level.to_string())
                 };
-                (title, tr("Streaming stopped, as Monitoring stops it at {level}% or lower.").replace("{level}", &batt_thresh.to_string()))
+                (title, tr("Streaming stopped, as Monitoring stops it at {level}% or lower.").field("level", &batt_thresh.to_string()))
             } else {
                 let temp = number(temp_c, 1, false);
                 let title = if name.is_empty() {
-                    tr("The phone is at {temp} °C").replace("{temp}", &temp)
+                    tr("The phone is at {temp} °C").field("temp", &temp)
                 } else {
-                    tr("{phone} is at {temp} °C").replace("{phone}", name).replace("{temp}", &temp)
+                    tr("{phone} is at {temp} °C").field("phone", name).field("temp", &temp)
                 };
-                (title, tr("Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C.").replace("{temp}", &temp_thresh.to_string()))
+                (title, tr("Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C.").field("temp", &temp_thresh.to_string()))
             };
             let issue_key = format!("stopped:{}", key.as_deref().unwrap_or("None"));
             self.stops.insert(issue_key.clone(), (key.clone(), stop_low, stop_hot));

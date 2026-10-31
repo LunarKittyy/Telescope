@@ -4,6 +4,7 @@
 //! once it has started fine it removes the folder it replaced. What decides this is plain data (`Place`), so the rules can be checked
 //! from any system; only gathering that data and running the installer is Windows-only.
 
+use telescope_core::i18n::Fields;
 use crate::update_guard::{self, EXE_NAME, FAILED_EXE_NAME, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR};
 use crate::updates::{InstallResult, UpdateError};
 use std::collections::{BTreeMap, BTreeSet};
@@ -352,11 +353,11 @@ pub fn install_with_setup(setup: &Path, old_dir: &Path, env: &SetupEnv) -> Resul
     match (env.run)(&argv) {
         SetupRun::TimedOut => return Err(UpdateError(tr("The installer took too long, so this copy stays as it is."))),
         SetupRun::CouldNotStart(e) => {
-            return Err(UpdateError(tr("Couldn't start the installer: {error}").replace("{error}", &strerror(&e))));
+            return Err(UpdateError(tr("Couldn't start the installer: {error}").field("error", &strerror(&e))));
         }
         SetupRun::Exited(0) => {}
         SetupRun::Exited(code) => {
-            return Err(UpdateError(tr("The installer stopped (code {code}), so this copy stays as it is.").replace("{code}", &code.to_string())));
+            return Err(UpdateError(tr("The installer stopped (code {code}), so this copy stays as it is.").field("code", &code.to_string())));
         }
     }
     let Some(location) = (env.locate)().filter(|l| l.join(EXE_NAME).is_file()) else {

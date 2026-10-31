@@ -4,6 +4,7 @@
 //! Each connection is read on a thread of its own, so a hand-over can switch to the new route at once even while a
 //! read on the old one is stuck: the old thread lets go as soon as its read comes back.
 
+use telescope_core::i18n::Fields;
 use crate::jitter::{target_for, JitterBuffer, CHUNK};
 use crate::shape::{Controls, MakeDenoiser, Measure, Shaper};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -349,7 +350,7 @@ fn write_once(s: &Shared, open_sink: &OpenSink, shaper: &mut Shaper, recovering:
             if !recovering {
                 log::error!("Couldn't open the microphone output: {e}");
             }
-            return Some(tr("Couldn't open the virtual microphone: {error}").replace("{error}", &e));
+            return Some(tr("Couldn't open the virtual microphone: {error}").field("error", &e));
         }
     };
     if recovering {

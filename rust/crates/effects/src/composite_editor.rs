@@ -2,6 +2,7 @@
 //! the streams on, and the controls for borders, corners, the background and saved layouts. Every change goes out at once. Its
 //! window draws what editor_props says and reports the pointer in px of the picture.
 
+use telescope_core::i18n::Fields;
 use super::*;
 use crate::composite::{self, crop_px, Tile, MAX_BORDER, MAX_RADIUS, MAX_TILES, MAX_ZOOM, SNAP};
 use telescope_core::frame::PixelFormat;
@@ -283,7 +284,7 @@ impl CompositePlugin {
             _ => tr("Pan"),
         };
         let e = self.editor.as_mut().unwrap();
-        e.mode = if snapping || mode == "pan" { text } else { tr("{mode}, no snapping").replace("{mode}", &text) };
+        e.mode = if snapping || mode == "pan" { text } else { tr("{mode}, no snapping").field("mode", &text) };
         e.guides = (guides_x, guides_y);
         self.replace_tile(host, selected, new);
     }
@@ -342,7 +343,7 @@ impl CompositePlugin {
         let names = self.names();
         let mut n = names.len() + 1;
         loop {
-            let name = tr("Layout {n}").replace("{n}", &n.to_string());
+            let name = tr("Layout {n}").field("n", &n.to_string());
             if !names.contains(&name) {
                 return name;
             }
@@ -509,7 +510,7 @@ impl CompositePlugin {
         let tiles: Vec<Value> = layout.tiles.iter().enumerate().map(|(i, t)| {
             let label = if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() };
             json!({"x": t.x, "y": t.y, "w": t.w, "h": t.h, "missing": !live.contains(&t.source_id.as_str()), "name": label,
-                   "gone": tr("{name} isn't streaming").replace("{name}", &label),
+                   "gone": tr("{name} isn't streaming").field("name", &label),
                    "hover": e.hover.0 == i as i64 && e.selected != i as i64 && e.drag.is_none()})
         }).collect();
         let picked = self.picked();
@@ -519,7 +520,7 @@ impl CompositePlugin {
                    "hot": dragged || (e.hover.0 == e.selected && e.hover.1 == *name)})
         }).collect()).unwrap_or_default();
         let rows: Vec<Value> = self.stream_entries().into_iter().map(|(sid, name, running)| {
-            let text = if running { name } else { tr("{name} (not streaming)").replace("{name}", &name) };
+            let text = if running { name } else { tr("{name} (not streaming)").field("name", &name) };
             json!({"text": text, "dim": !running, "on": layout.tiles.iter().any(|t| t.source_id == sid)})
         }).collect();
         let picture_name = if layout.picture.is_empty() {
@@ -580,7 +581,7 @@ impl CompositePlugin {
             "ask-title": match e.asking.as_ref().map(|a| &a.0) { Some(NameFor::Rename(_)) => tr("Rename layout"), _ => tr("Save layout") },
             "ask-start": e.asking.as_ref().map_or("", |a| a.1.as_str()),
             "confirming": e.replacing.is_some(),
-            "confirm-text": e.replacing.as_ref().map_or_else(String::new, |r| tr("There's already a layout called \"{name}\". Replace it?").replace("{name}", &r.1)),
+            "confirm-text": e.replacing.as_ref().map_or_else(String::new, |r| tr("There's already a layout called \"{name}\". Replace it?").field("name", &r.1)),
         });
         if let (Value::Object(all), Value::Object(side)) = (&mut props, side) {
             all.extend(side);

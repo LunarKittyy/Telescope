@@ -2,6 +2,7 @@
 //! editor asks for (an ActionSpec with its params) and the arithmetic of running one. The card keeps its own control; the
 //! plugin hands these the control's value and gets the new one back.
 
+use crate::i18n::Fields;
 use crate::i18n::{n_, number, percent, tr};
 use crate::ui::ActionSpec;
 use serde_json::{json, Value};
@@ -60,7 +61,7 @@ pub fn hold_released(params: &Value, held: &mut Option<bool>) -> Option<bool> {
 
 /// "Colour grading: on" for a switch.
 pub fn toggle_text(label: &str, on: bool) -> String {
-    tr("{label}: {value}").replace("{label}", label).replace("{value}", &if on { tr("on") } else { tr("off") })
+    tr("{label}: {value}").field("label", label).field("value", &if on { tr("on") } else { tr("off") })
 }
 
 /// What a slider's shortcut needs to know, in the units the control shows (its own steps times `scale`).
@@ -263,7 +264,7 @@ pub fn shown(value: f64, decimals: usize, suffix: &str, signed: bool) -> String 
 
 /// "Contrast: 1.40" after a slider moved, from its readout text.
 pub fn slider_text(label: &str, readout: &str) -> String {
-    tr("{label}: {value}").replace("{label}", label).replace("{value}", readout)
+    tr("{label}: {value}").field("label", label).field("value", readout)
 }
 
 #[cfg(test)]

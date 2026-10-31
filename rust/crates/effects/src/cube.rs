@@ -1,6 +1,7 @@
 //! .cube LUT files (the second half of telescope/colour.py): reading Adobe's format plus Resolve's LUT_1D_INPUT_RANGE and
 //! shaper-then-cube files, and writing a 3D LUT for other apps.
 
+use telescope_core::i18n::Fields;
 use std::path::Path;
 use telescope_core::colour::sample_cube;
 use telescope_core::i18n::{n_, tr};
@@ -32,7 +33,7 @@ impl CubeError {
     }
 
     fn fill(text: &str, fields: &[(&'static str, String)]) -> String {
-        fields.iter().fold(text.to_string(), |t, (k, v)| t.replace(&format!("{{{k}}}"), v))
+        fields.iter().fold(text.to_string(), |t, (k, v)| t.field(k, v))
     }
 
     /// The problem in English, as Python's str(error).

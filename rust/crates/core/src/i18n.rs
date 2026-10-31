@@ -58,25 +58,6 @@ fn field_at(tail: &str) -> Option<(&str, &str, &str, usize)> {
     Some((name, conversion, spec, end + 1))
 }
 
-/// The names of the fields in text that have a conversion or a format spec.
-pub(crate) fn spec_fields(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut rest = text;
-    while let Some(i) = rest.find('{') {
-        rest = &rest[i..];
-        if rest.starts_with("{{") {
-            rest = &rest[2..];
-            continue;
-        }
-        let Some((name, conversion, spec, len)) = field_at(rest) else { break };
-        if !conversion.is_empty() || !spec.is_empty() {
-            out.push(name.to_string());
-        }
-        rest = &rest[len..];
-    }
-    out
-}
-
 /// The numbers format specs treat as such: a value's text is all there is to go by, so one that reads as a number counts as one.
 fn as_number(text: &str) -> Option<f64> {
     text.parse::<f64>().ok().filter(|v| v.is_finite())
@@ -86,9 +67,10 @@ fn as_number(text: &str) -> Option<f64> {
 fn format_spec(text: &str, spec: &str) -> Result<String, String> {
     let bad = || format!("the format spec {spec:?} on {text:?}");
     let mut chars: Vec<char> = spec.chars().collect();
-    let (mut fill_char, mut align) = (' ', None);
+    let (mut fill_char, mut align, mut fill_given) = (' ', None, false);
     if chars.len() >= 2 && "<>=^".contains(chars[1]) {
         fill_char = chars[0];
+        fill_given = true;
         align = Some(chars[1]);
         chars.drain(..2);
     } else if chars.first().is_some_and(|c| "<>=^".contains(*c)) {
@@ -125,9 +107,11 @@ fn format_spec(text: &str, spec: &str) -> Result<String, String> {
     let number = as_number(text);
     let whole = !text.is_empty() && text.strip_prefix('-').unwrap_or(text).bytes().all(|b| b.is_ascii_digit());
     let is_number = number.is_some() && kind != Some('s');
-    if zero && align.is_none() {
-        fill_char = '0';
-        align = Some(if is_number { '=' } else { '<' });
+    if zero {
+        if !fill_given {
+            fill_char = '0';
+        }
+        align = align.or(Some(if is_number { '=' } else { '<' }));
     }
     if !is_number && (sign.is_some() || grouping.is_some() || align == Some('=')) {
         return Err(bad());
@@ -200,8 +184,19 @@ pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, Strin
     Ok(out)
 }
 
-/// text with its {n} filled in, any spec on it too, and every other field left for the caller.
-fn fill_n(text: &str, n: i64) -> String {
+/// One {field} filled in at a time, by code that gathers its values as it goes; a spec the value can't take shows the value as it is.
+pub trait Fields {
+    /// This text with its {name} filled in, any conversion and spec too, and every other field left as it is.
+    fn field(&self, name: &str, value: impl Display) -> String;
+}
+
+impl Fields for str {
+    fn field(&self, name: &str, value: impl Display) -> String {
+        fill_one(self, name, &value)
+    }
+}
+
+fn fill_one(text: &str, wanted: &str, value: &dyn Display) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(i) = rest.find('{') {
@@ -213,9 +208,16 @@ fn fill_n(text: &str, n: i64) -> String {
             continue;
         }
         let Some((name, conversion, spec, len)) = field_at(rest) else { break };
-        match format_field(&n, conversion, spec) {
-            Ok(shown) if name == "n" => out += &shown,
-            _ => out += &rest[..len],
+        // A brace in the way is no field: a template of code has blocks around its fields
+        if rest[1..len].contains('{') {
+            out.push('{');
+            rest = &rest[1..];
+            continue;
+        }
+        if name == wanted {
+            out += &format_field(value, conversion, spec).unwrap_or_else(|_| value.to_string());
+        } else {
+            out += &rest[..len];
         }
         rest = &rest[len..];
     }
@@ -265,7 +267,7 @@ pub fn trn_with(singular: &str, plural: &str, n: i64, ctx: &str, fields: &[(&str
 /// The form that fits n with only {n} filled in, for a text with other fields the caller fills in afterwards.
 pub fn trn_open(singular: &str, plural: &str, n: i64) -> String {
     let english = if n == 1 { singular } else { plural };
-    fill_n(&plural_form(singular, plural, n, "").unwrap_or_else(|| english.to_string()), n)
+    plural_form(singular, plural, n, "").unwrap_or_else(|| english.to_string()).field("n", n)
 }
 
 /// trn(singular, plural, n): the form that fits n, with {n} filled in.
