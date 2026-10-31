@@ -34,7 +34,7 @@ fn quits() -> usize {
 }
 
 fn last_quit() -> String {
-    telescope_core::diagnostics::events().lines(10_000).into_iter().filter(|l| l.contains("QUIT")).next_back().unwrap_or_default()
+    telescope_core::diagnostics::events().lines(10_000).into_iter().rfind(|l| l.contains("QUIT")).unwrap_or_default()
 }
 
 fn click(r: &Rig, what: &str) {

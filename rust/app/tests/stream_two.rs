@@ -1,7 +1,7 @@
 // Two cameras at once: each has its own virtual camera, the panels show one, and the mic stays with the first.
 mod rig;
 
-use rig::{state_with, Listener, Output, Rig};
+use rig::{state_with, Listener, Rig};
 use serde_json::json;
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
@@ -143,7 +143,7 @@ fn a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own() {
     assert_eq!(tiles(&r), ["pixel", "oneplus"]);
     assert_eq!(zoom(&r), 3);
     assert_eq!(r.times_heard("panel left"), 1);
-    assert!(r.heard().iter().filter(|l| l.starts_with("panel start ") || l.starts_with("panel focus ")).last().is_some_and(|l| l.ends_with("oneplus")));
+    assert!(r.heard().iter().rfind(|l| l.starts_with("panel start ") || l.starts_with("panel focus ")).is_some_and(|l| l.ends_with("oneplus")));
     let mic: Vec<String> = r.heard().into_iter().filter(|l| l.starts_with("microphone start ") || l.starts_with("microphone focus ")).collect();
     assert_eq!(mic, ["microphone start pixel"], "the mic stays with the first phone");
 }
