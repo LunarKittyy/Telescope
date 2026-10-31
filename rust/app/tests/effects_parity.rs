@@ -345,6 +345,74 @@ fn the_game_boy_makes_pythons_four_shades() {
     assert!(g.over <= 0.02, "{g:?}");
 }
 
+/// test_fun_pack.py's _room with a person in it, four times the size in each direction.
+fn big_room() -> Frame {
+    let (w, h) = (160usize, 90usize);
+    let mut room = Rgb::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let person = (20..80).contains(&y) && (60..100).contains(&x);
+            room.set(x, y, if person { [240, 220, 20] } else { [70, (60.0 + 40.0 * y as f32 / (h - 1) as f32) as u8, (40.0 + 80.0 * x as f32 / (w - 1) as f32) as u8] });
+        }
+    }
+    frame_rgb(&room.nearest(w * 4, h * 4))
+}
+
+fn mean_change(a: &Frame, b: &Frame) -> f64 {
+    let changes: Vec<f64> = a.data.chunks(4).zip(b.data.chunks(4)).flat_map(|(p, q)| (0..3).map(move |c| p[c].abs_diff(q[c]) as f64)).collect();
+    changes.iter().sum::<f64>() / changes.len() as f64
+}
+
+/// A card with a phone paired that has picked this effect.
+fn fun_pack(effect: &str) -> (FunPackPlugin, telescope_core::testing::FakeHost) {
+    let (mut plugin, mut host) = (FunPackPlugin::new(), telescope_core::testing::FakeHost::new());
+    host.focused = Some("".into());
+    plugin.setup(&mut host);
+    plugin.set_config(&json!({})).unwrap();
+    plugin.on_event(&mut host, &telescope_core::Event::PhonesChanged { count: 1 });
+    pick_fun(&mut plugin, &mut host, effect);
+    (plugin, host)
+}
+
+fn pick_fun(plugin: &mut FunPackPlugin, host: &mut telescope_core::testing::FakeHost, effect: &str) {
+    let i = telescope_effects::fun_pack::EFFECTS.iter().position(|(k, _)| *k == effect).unwrap();
+    plugin.on_ui(host, &telescope_core::ui::UiEvent { ui: "card".into(), callback: "effect-picked".into(), args: vec![json!(i)] });
+}
+
+#[test]
+fn each_retro_look_keeps_the_size_and_changes_the_picture() {
+    if !gpu_here() {
+        return;
+    }
+    let big = big_room();
+    for effect in ["game_boy", "webcam", "vhs", "crt", "ascii"] {
+        let (mut plugin, _host) = fun_pack(effect);
+        let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+        pipeline.set_steps(vec![StagedStep { owner: "fun_pack".into(), stage: FrameStage::Effects, step: plugin.frame_step().expect("a step") }]);
+        pipeline.process(big.clone(), &Ctx);
+        let out = pipeline.process(big.clone(), &Ctx);
+        assert_eq!((out.width, out.height, out.format), (big.width, big.height, big.format), "{effect}");
+        let mean = mean_change(&out, &big);
+        assert!(mean > 5.0, "{effect} changed the picture by {mean}");
+    }
+}
+
+#[test]
+fn a_frozen_step_keeps_its_settings() {
+    if !gpu_here() {
+        return;
+    }
+    let (mut plugin, mut host) = fun_pack("game_boy");
+    let step = plugin.frame_step().expect("a step");
+    pick_fun(&mut plugin, &mut host, "off");
+    assert!(plugin.frame_step().is_none());
+    let big = big_room();
+    let out = run(vec![StagedStep { owner: "fun_pack".into(), stage: FrameStage::Effects, step }], big.clone());
+    let shades: std::collections::HashSet<[u8; 3]> = out.data.chunks(4).map(|p| [p[0], p[1], p[2]]).collect();
+    assert_eq!(shades.len(), 4, "still the Game Boy's four shades");
+    assert!(mean_change(&out, &big) > 5.0);
+}
+
 #[test]
 fn the_effects_shaders_compile() {
     for (name, plugin) in [("chroma_key", Box::new({ let mut p = ChromaKeyPlugin::new(); p.set_config(&json!({"on": true})).unwrap(); p }) as Box<dyn Plugin>), ("game_boy", Box::new({ let mut p = FunPackPlugin::new(); p.set_config(&json!({"effect": "game_boy"})).unwrap(); p }))] {

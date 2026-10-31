@@ -1659,6 +1659,8 @@ mod tests {
         tapped: Mutex<Vec<Codec>>,
         plain: Mutex<Vec<Codec>>,
         sources: Mutex<Vec<String>>,
+        /// The number each frame had while the steps ran.
+        numbers: Mutex<Vec<u64>>,
         /// How many steps the pipeline had at each frame.
         steps_at_first: Mutex<Vec<usize>>,
         /// The first byte of each frame's person mask.
@@ -1704,6 +1706,7 @@ mod tests {
             self.0.steps_at_first.lock().unwrap().push(self.1);
             self.0.masks.lock().unwrap().extend(ctx.person_mask(&frame).map(|m| m[0]));
             self.0.sources.lock().unwrap().push(ctx.source_id().to_string());
+            self.0.numbers.lock().unwrap().push(frame.number);
             frame
         }
         fn is_empty(&self) -> bool {
@@ -1874,5 +1877,12 @@ mod tests {
         let seen = watched("https://phone/v1/video.h264", Codec::H264);
         let sources = seen.sources.lock().unwrap();
         assert!(!sources.is_empty() && sources.iter().all(|s| s == "phone-1"));
+        drop(sources);
+        // and which frame it is: what a person mask is worked out once by
+        let w = running(&seen, Vec::new(), None, None);
+        assert!(w.shared.publish(1_000, Frame::new(6, 4, PixelFormat::Rgba, vec![0; 6 * 4 * 4])));
+        assert_eq!(seen.numbers.lock().unwrap().last(), Some(&1_000));
+        assert_eq!(seen.sources.lock().unwrap().last().map(String::as_str), Some("phone-1"));
+        w.stop();
     }
 }

@@ -105,19 +105,18 @@ fn light_painting_leaves_a_trail_that_fades_and_clear_starts_again() {
         }
     }
     let l = Look { fade: 5, ..look("light") };
-    let mut e = Effect::named("light").unwrap();
-    let mut go = |f: &Rgb| e.run(f, &l, Inputs { mask: None });
-    go(&lit);
-    let mut after = go(&dark);
+    let mut runner = crate::fun_pack::Runner::default();
+    runner.run(&lit, &l, None);
+    let mut after = runner.run(&dark, &l, None);
     // still there a frame later
     assert!(after.at(22, 42)[0] > 150);
     for _ in 0..60 {
-        after = go(&dark);
+        after = runner.run(&dark, &l, None);
     }
     // and gone after two seconds
     assert!(after.at(22, 42)[0] < 40);
-    // Clear is a new effect, which has no trail
-    let cleared = Effect::named("light").unwrap().run(&dark, &Look { reset: 1, ..l.clone() }, Inputs { mask: None });
+    runner.run(&lit, &l, None);
+    let cleared = runner.run(&dark, &Look { reset: 1, ..l.clone() }, None);
     assert_eq!(cleared.at(22, 42)[0], 10);
 }
 

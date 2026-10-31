@@ -152,6 +152,10 @@ fn test_the_real_models_find_a_person_shaped_blob() {
     let backend = telescope_vision::mediapipe::MediaPipe::load(&folder).unwrap_or_else(|e| panic!("{e:?}"));
     let mut segment = backend.segmenter().unwrap();
     let grey = Rgb::filled(1280, 720, 90);
+    let full = segment.segment(&grey, 1).unwrap();
+    assert_eq!((full.w, full.h, full.data.len()), (1280, 720, 1280 * 720));
+    drop(segment);
+    let mut segment = backend.segmenter().unwrap();
     let small = ops::model_input(&grey, ops::MODEL_SIZE).unwrap();
     let m = segment.segment(&small, 1).unwrap();
     assert_eq!((m.w, m.h), (256, 144));
@@ -190,8 +194,23 @@ fn test_the_real_models_find_a_person_shaped_blob() {
 #[test]
 fn test_the_real_pack_has_no_address_to_report_usage_to() {
     let Some(folder) = pack() else { return };
-    let report_to = b"https://play.googleapis.com/log";
-    let lib = telescope_vision::mediapipe::library_path(&folder);
-    let data = std::fs::read(&lib).unwrap();
-    assert!(!data.windows(report_to.len()).any(|w| w == report_to), "{} reports usage", lib.display());
+    let script = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../desktop/scripts/build_vision_pack.py")).unwrap();
+    let report_to = script.split("TELEMETRY_URL = b\"").nth(1).and_then(|rest| rest.split('"').next()).expect("the address").as_bytes();
+    fn libraries(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                libraries(&path, found);
+            } else if path.extension().is_some_and(|e| e == "so" || e == "dll") {
+                found.push(path);
+            }
+        }
+    }
+    let mut libs = Vec::new();
+    libraries(&folder.join("site").join("mediapipe"), &mut libs);
+    assert!(!libs.is_empty());
+    for lib in libs {
+        let data = std::fs::read(&lib).unwrap();
+        assert!(!data.windows(report_to.len()).any(|w| w == report_to), "{} reports usage", lib.display());
+    }
 }

@@ -126,10 +126,14 @@ fn datamosh_puts_a_packet_step_on_and_takes_it_off() {
     let mut r = Rig::new();
     r.pick("mosh");
     assert_eq!(r.calls("change_packets fun_pack true"), 1);
+    let make = r.host.packets["fun_pack"].clone().expect("a packet step");
+    // the step it makes takes packets: a parameter set goes straight through
+    assert_eq!(make.make().step(&[0, 0, 0, 1, 0x67, 1, 2]), vec![vec![0, 0, 0, 1, 0x67, 1, 2]]);
     // it's all in the packets
     assert!(r.plugin.frame_step().is_none());
     r.pick("vhs");
     assert_eq!(r.calls("change_packets fun_pack false"), 1);
+    assert!(r.host.packets["fun_pack"].is_none());
 }
 
 #[test]
@@ -148,12 +152,12 @@ fn datamosh_on_heavy_says_why_and_changes_no_packets() {
 #[test]
 fn clean_up_lets_a_keyframe_through() {
     let mut r = Rig::new();
-    r.pick("mosh");
     let before = r.host.calls.len();
+    r.pick("mosh");
     r.ui("clean-clicked", vec![]);
     let calls: Vec<&String> = r.host.calls[before..].iter().filter(|c| c.starts_with("change_packets")).collect();
     // off and on again, which asks the phone for a keyframe
-    assert_eq!(calls, ["change_packets fun_pack false", "change_packets fun_pack true"]);
+    assert_eq!(calls, ["change_packets fun_pack true", "change_packets fun_pack false", "change_packets fun_pack true"]);
 }
 
 #[test]
@@ -186,8 +190,10 @@ fn shutting_down_lets_go_of_packets_and_people() {
 fn asking_for_people_only_once() {
     let mut r = Rig::new();
     r.pick("stick");
-    r.event(Event::StreamStopped);
+    // the real want_people loads MediaPipe, and what that says reaches a plugin once its hook has returned
     r.event(Event::VisionStateChanged { state: "loading".into() });
+    r.event(Event::StreamStopped);
+    r.event(Event::StreamStopped);
     assert_eq!(r.calls("want_people fun_pack true"), 1);
 }
 
@@ -240,6 +246,26 @@ fn a_clone_without_the_empty_room_or_vision_says_what_to_do() {
     r.stream("phone", &room());
     assert!(r.look().clones.is_none());
     assert_eq!(r.shown("problem"), json!("Take the empty room first, so you can be cut out."));
+}
+
+#[test]
+fn off_and_datamosh_leave_frames_alone() {
+    let frame = room();
+    for effect in ["off", "mosh"] {
+        assert_eq!(Runner::default().run(&frame, &Look { effect: effect.into(), ..Look::default() }, None), frame, "{effect}");
+    }
+    // Neither has a frame step, and one handed out earlier stops changing the shown stream too
+    let mut r = Rig::new();
+    r.pick("vhs");
+    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    for effect in ["off", "mosh"] {
+        r.pick(effect);
+        assert!(r.plugin.frame_step().is_none(), "{effect}");
+        let mut f = frame_of(&frame);
+        let before = f.data.clone();
+        step.process(&mut f, &Ctx("phone"));
+        assert_eq!(f.data, before, "{effect}");
+    }
 }
 
 #[test]

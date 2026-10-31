@@ -184,6 +184,20 @@ fn the_level_switch_asks_for_the_sensors_only_while_on() {
 }
 
 #[test]
+fn a_frozen_horizon_isnt_drawn() {
+    let mut r = Rig::new();
+    r.toggle(3, true);
+    r.reading(Some(json!({"at": 10.0, "roll": 3.0, "pitch": 0.0, "orientation_at": 10.0})));
+    r.event(Event::SensorsChanged { source_id: "phone".into() });
+    let layer = r.plugin.layer();
+    r.now.store(10.5f64.to_bits(), Ordering::SeqCst);
+    assert!(layer.paint_canvas(64, 36, 1.0).is_some());
+    // at 12 s the newest roll is 2 s old
+    r.now.store(12.0f64.to_bits(), Ordering::SeqCst);
+    assert!(layer.paint_canvas(64, 36, 1.0).is_none());
+}
+
+#[test]
 fn readings_reach_the_layer_as_shown() {
     let mut r = Rig::new();
     r.toggle(3, true);
