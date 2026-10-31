@@ -241,6 +241,18 @@ fn a_preset_is_applied_at_once() {
     assert!(r.host.view.zoom == 2.0 && r.host.view.rotation == Some(180));
 }
 
+// test_shortcuts.py::test_plain_button_clicks: the card's Reset button as a key
+#[test]
+fn a_plain_button_takes_no_settings_and_clicks() {
+    let mut r = Rig::new();
+    let reset = r.plugin.actions().into_iter().find(|a| a.id == "transforms.reset").unwrap();
+    assert!(reset.params.is_empty());
+    r.zoom(200);
+    assert_ne!(r.plugin.get_config()["zoom"], json!(1.0));
+    assert_eq!(r.run("transforms.reset", json!({})).as_deref(), Some("Reset transforms"));
+    assert_eq!(r.plugin.get_config()["zoom"], json!(1.0));
+}
+
 #[test]
 fn a_reset_clears_everything() {
     let mut r = Rig::new();
