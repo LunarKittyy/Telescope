@@ -3,32 +3,99 @@
 
 use crate::frame::{Frame, PixelFormat};
 
+/// Rounds to a byte. The cast saturates, so this clamps too, and x86-64's baseline has no round instruction: f32::round is a call
+/// to libm for every colour of every pixel, which alone used up a 1080p frame's time.
+#[inline(always)]
+pub fn byte(v: f32) -> u8 {
+    (v + 0.5) as u8
+}
+
+/// v to the nearest whole number with ties to even, as OpenCV's cvRound. x86-64's baseline has an instruction for it, though
+/// f64::round_ties_even still calls libm there.
+#[inline(always)]
+pub fn rint(v: f64) -> i32 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        use std::arch::x86_64::{_mm_cvtsd_si32, _mm_set_sd};
+        // SAFETY: SSE2 is part of x86-64, and nothing here changes MXCSR from its round-to-nearest default
+        unsafe { _mm_cvtsd_si32(_mm_set_sd(v)) }
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        v.round_ties_even() as i32
+    }
+}
+
+/// Rows at or above this are worth spreading over threads.
+const BANDED_ROWS: usize = 256;
+const BANDS: usize = 4;
+
+/// row(index, its elements) for every row of data, in a few bands of rows on threads of their own when the picture is big.
+pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &mut [T]) + Sync) {
+    let rows = data.len() / row_len.max(1);
+    if rows < BANDED_ROWS {
+        data.chunks_exact_mut(row_len.max(1)).enumerate().for_each(|(i, line)| row(i, line));
+        return;
+    }
+    let per_band = rows.div_ceil(BANDS);
+    std::thread::scope(|s| {
+        for (b, band) in data.chunks_mut(per_band * row_len).enumerate() {
+            let row = &row;
+            s.spawn(move || band.chunks_exact_mut(row_len).enumerate().for_each(|(i, line)| row(b * per_band + i, line)));
+        }
+    });
+}
+
+/// Reads a 4:2:0 frame into out, 3 bytes a pixel, through pixel(y, u, v). None when the frame is too short for its size.
+pub fn read_420(frame: &Frame, out: &mut [u8], pixel: impl Fn(u8, u8, u8) -> [u8; 3] + Sync) -> Option<()> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    if frame.data.len() < w * h + 2 * cw * ch {
+        return None;
+    }
+    let (y, chroma) = frame.data.split_at(w * h);
+    let (u, v, step) = if frame.format == PixelFormat::Nv12 { (chroma, &chroma[1..], 2) } else { (chroma, &chroma[cw * ch..], 1) };
+    over_rows(out, w * 3, |row, line| {
+        let (ys, us, vs) = (&y[row * w..][..w], &u[(row / 2) * cw * step..], &v[(row / 2) * cw * step..]);
+        for (col, (p, l)) in line.as_chunks_mut::<3>().0.iter_mut().zip(ys).enumerate() {
+            *p = pixel(*l, us[(col / 2) * step], vs[(col / 2) * step]);
+        }
+    });
+    Some(())
+}
+
+/// Writes a 4:2:0 picture of w x h into data: luma(x, y) for each pixel, chroma(cx, cy) as (u, v) for each 2 x 2.
+pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(usize, usize) -> u8 + Sync, chroma: impl Fn(usize, usize) -> (u8, u8) + Sync) {
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let (y_plane, rest) = data.split_at_mut(w * h);
+    over_rows(y_plane, w, |y, line| line.iter_mut().enumerate().for_each(|(x, l)| *l = luma(x, y)));
+    if nv12 {
+        over_rows(&mut rest[..2 * cw * ch], cw * 2, |cy, line| {
+            for (cx, cell) in line.as_chunks_mut::<2>().0.iter_mut().enumerate() {
+                let (u, v) = chroma(cx, cy);
+                *cell = [u, v];
+            }
+        });
+    } else {
+        let (u_plane, v_plane) = rest.split_at_mut(cw * ch);
+        over_rows(u_plane, cw, |cy, line| line.iter_mut().enumerate().for_each(|(cx, u)| *u = chroma(cx, cy).0));
+        over_rows(&mut v_plane[..cw * ch], cw, |cy, line| line.iter_mut().enumerate().for_each(|(cx, v)| *v = chroma(cx, cy).1));
+    }
+}
+
 /// The frame as 3 bytes a pixel (R, G, B). I420 is BT.601 video range with each chroma sample shared by its 2 x 2 pixels, as
 /// OpenCV's YUV conversions read it. None for a format that isn't one of the picture formats.
 pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    let mut out = Vec::with_capacity(w * h * 3);
+    let mut out = vec![0; w * h * 3];
     match frame.format {
-        PixelFormat::Rgba => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend_from_slice(&p[..3])),
-        PixelFormat::Bgra => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend([p[2], p[1], p[0]])),
-        PixelFormat::I420 | PixelFormat::Nv12 => {
-            let nv12 = frame.format == PixelFormat::Nv12;
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-            if frame.data.len() < w * h + 2 * cw * ch {
-                return None;
-            }
-            let (y, chroma) = frame.data.split_at(w * h);
-            for row in 0..h {
-                for col in 0..w {
-                    let cell = (row / 2) * cw + col / 2;
-                    let (u, v) = if nv12 { (chroma[cell * 2], chroma[cell * 2 + 1]) } else { (chroma[cell], chroma[cw * ch + cell]) };
-                    let c = (y[row * w + col] as f32 - 16.0).max(0.0) * 1.164_383;
-                    let (du, dv) = (u as f32 - 128.0, v as f32 - 128.0);
-                    let q = |x: f32| x.round().clamp(0.0, 255.0) as u8;
-                    out.extend([q(c + 1.596_027 * dv), q(c - 0.391_762 * du - 0.812_968 * dv), q(c + 2.017_232 * du)]);
-                }
-            }
-        }
+        PixelFormat::Rgba => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2]]),
+        PixelFormat::Bgra => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0]]),
+        PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out, |y, u, v| {
+            let c = (y as f32 - 16.0).max(0.0) * 1.164_383;
+            let (du, dv) = (u as f32 - 128.0, v as f32 - 128.0);
+            [byte(c + 1.596_027 * dv), byte(c - 0.391_762 * du - 0.812_968 * dv), byte(c + 2.017_232 * du)]
+        })?,
     }
     Some(out)
 }
@@ -193,4 +260,82 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
 /// One pixel's cv2.cvtColor(RGB2GRAY) / BGR2GRAY: OpenCV 4.13's 15-bit weights 9798, 19235 and 3735, rounded by the shift.
 pub fn grey_of(r: u8, g: u8, b: u8) -> u8 {
     ((r as u32 * 9798 + g as u32 * 19235 + b as u32 * 3735 + (1 << 14)) >> 15) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn byte_rounds_and_clamps_as_round_and_clamp_do() {
+        for i in -4000..4000 {
+            let v = i as f32 / 8.0 + 0.03;
+            assert_eq!(byte(v), v.round().clamp(0.0, 255.0) as u8, "{v}");
+        }
+    }
+
+    #[test]
+    fn rint_rounds_ties_to_even() {
+        for i in -4000..4000 {
+            let v = i as f64 / 8.0;
+            assert_eq!(rint(v), v.round_ties_even() as i32, "{v}");
+        }
+        assert_eq!((rint(0.5), rint(1.5), rint(2.5), rint(-0.5), rint(-1.5)), (0, 2, 2, 0, -2));
+    }
+
+    #[test]
+    fn over_rows_visits_every_row_once_with_its_own_index() {
+        for rows in [1, 255, 256, 257, 1081] {
+            let mut data = vec![0usize; rows * 3];
+            over_rows(&mut data, 3, |row, line| line.iter_mut().for_each(|v| *v += row + 1));
+            assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
+        }
+    }
+
+    // Tall enough for bands, odd sizes for the rounded up chroma
+    fn picture(w: usize, h: usize, format: PixelFormat) -> Frame {
+        let data = (0..format.size(w as u32, h as u32)).map(|i| (i * 7 % 251) as u8).collect();
+        Frame::new(w as u32, h as u32, format, data)
+    }
+
+    #[test]
+    fn a_tall_frame_reads_the_same_as_pixel_by_pixel() {
+        let (w, h) = (33usize, 301usize);
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        for format in [PixelFormat::I420, PixelFormat::Nv12] {
+            let frame = picture(w, h, format);
+            let mut out = vec![0; w * h * 3];
+            read_420(&frame, &mut out, |y, u, v| [y, u, v]).unwrap();
+            for (y, x) in [(0, 0), (150, 32), (149, 3), (300, 17), (300, 32)] {
+                let cell = (y / 2) * cw + x / 2;
+                let chroma = &frame.data[w * h..];
+                let (u, v) = if format == PixelFormat::Nv12 { (chroma[cell * 2], chroma[cell * 2 + 1]) } else { (chroma[cell], chroma[cw * ch + cell]) };
+                assert_eq!(out[(y * w + x) * 3..][..3], [frame.data[y * w + x], u, v], "{format:?} {x},{y}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_tall_picture_lands_in_the_right_places_of_both_formats() {
+        let (w, h) = (33usize, 301usize);
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        for format in [PixelFormat::I420, PixelFormat::Nv12] {
+            let mut data = vec![0; format.size(w as u32, h as u32)];
+            let luma = |x: usize, y: usize| ((x + y) % 200) as u8;
+            let chroma = |cx: usize, cy: usize| ((cx + cy) as u8, (cx * 2 + cy) as u8);
+            write_420(&mut data, w, h, format == PixelFormat::Nv12, luma, chroma);
+            for y in 0..h {
+                for x in 0..w {
+                    assert_eq!(data[y * w + x], luma(x, y));
+                }
+            }
+            for cy in 0..ch {
+                for cx in 0..cw {
+                    let cell = cy * cw + cx;
+                    let got = if format == PixelFormat::Nv12 { (data[w * h + cell * 2], data[w * h + cell * 2 + 1]) } else { (data[w * h + cell], data[w * h + cw * ch + cell]) };
+                    assert_eq!(got, chroma(cx, cy), "{format:?}");
+                }
+            }
+        }
+    }
 }
