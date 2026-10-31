@@ -161,6 +161,7 @@ mod tests {
     #[test]
     fn a_view_that_changes_nothing_has_no_steps() {
         assert!(steps(&View::default()).is_empty());
+        assert!(steps(&View { zoom: 0.5, ..View::default() }).is_empty(), "at or below 1x the frame goes through untouched");
         assert!(steps(&View { zoom: 1.0, pan_x: 0.7, ..View::default() }).is_empty(), "pan counts only once zoomed in");
     }
 

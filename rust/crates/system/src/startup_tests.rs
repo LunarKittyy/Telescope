@@ -744,6 +744,13 @@ fn settings_sections_go_in_general_and_streaming() {
     assert_eq!(sections.iter().map(|s| s.tab.as_str()).collect::<Vec<_>>(), ["general", "streaming"]);
     assert_eq!(sections.iter().map(|s| s.ui.component.as_str()).collect::<Vec<_>>(), ["StartupSettings", "AutomaticSettings"]);
     assert!(sections[0].keywords.contains("autostart") && sections[1].keywords.contains("grace period"));
+    // Each brings itself up to date when the settings window shows it (on_show)
+    for (id, shows) in [("sign-in", "open-checked"), ("automatic", "start-current")] {
+        assert!(sections.iter().any(|s| s.id == id), "{id}");
+        r.host.calls.clear();
+        r.ui(id, "shown", vec![]);
+        assert!(r.host.calls.iter().any(|c| c.contains(&format!("set_ui_props {id} ")) && c.contains(shows)), "{id}: {:?}", r.host.calls);
+    }
 }
 
 // test_startup.py::test_start_and_stop_choices_reflect_and_change_the_settings

@@ -166,8 +166,7 @@ fn shrinking_goes_in_halves_then_the_rest() {
     let frame = noise(1920, 1080, 3, 1);
     assert_eq!(scale_to(&frame, 1920, 1080, 3, 480, 270).len(), 270 * 480 * 3);
     assert_eq!(scale_to(&frame, 1920, 1080, 3, 333, 187).len(), 187 * 333 * 3);
-    // Python hands back the same array; here it's an equal copy
-    assert_eq!(scale_to(&frame, 1920, 1080, 3, 1920, 1080), frame);
+    assert!(std::ptr::eq(scale_to(&frame, 1920, 1080, 3, 1920, 1080).as_ptr(), frame.as_ptr()), "the same picture, not a copy");
     // exact halves are the 2 x 2 means
     let quarter = scale_to(&frame, 1920, 1080, 3, 960, 540);
     let mean = (frame[0] as u32 + frame[3] as u32 + frame[1920 * 3] as u32 + frame[1920 * 3 + 3] as u32 + 2) / 4;

@@ -135,10 +135,13 @@ fn returning_zoom_to_one_resets_and_disables_pan() {
     let mut r = Rig::new();
     r.zoom(200);
     r.ui("pad-pointer", vec![json!(0.8), json!(-0.8)]);
+    assert_eq!((r.shown("pan-x"), r.shown("pan-y"), r.shown("pan-enabled")), (json!(0.8), json!(-0.8), json!(true)));
     r.zoom(100);
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
     assert_eq!(r.shown("pan-enabled"), json!(false));
     assert_eq!(r.host.view.pan_x, 0.0);
+    assert_eq!((r.shown("pan-x"), r.shown("pan-y")), (json!(0.0), json!(0.0)), "the pad's dot is back in the middle");
+    assert_eq!(r.shown("pan-text"), json!("H 0%\nV 0%"));
 }
 
 #[test]
@@ -208,13 +211,15 @@ fn stretch_saves_loads_and_resets() {
 #[test]
 fn loading_a_stretch_sets_the_view_once() {
     let mut r = Rig::new();
-    r.host.calls.clear();
+    r.host.view_changes.clear();
     // every phone switch, Transforms being per phone
     r.plugin.set_config(&json!({"stretch_x": 1.25, "stretch_y": 0.7})).unwrap();
     r.event(Event::StreamStopped);
     r.event(Event::StreamStopped);
-    let sets: Vec<&String> = r.host.calls.iter().filter(|c| c.starts_with("set_view") && c.contains("stretch_x: Some(1.25)")).collect();
-    assert_eq!(sets.len(), 1, "{:?}", r.host.calls);
+    let stretched: Vec<&ViewChange> = r.host.view_changes.iter().filter(|c| c.stretch_x.is_some() || c.stretch_y.is_some()).collect();
+    // Python's call has the flips, the rotation and the stretch; here it's the whole view in one call, zoom and pan too
+    let want = ViewChange { zoom: Some(1.0), pan_x: Some(0.0), pan_y: Some(0.0), flip_h: Some(false), flip_v: Some(false), rotation: Some(None), stretch_x: Some(1.25), stretch_y: Some(0.7) };
+    assert_eq!(stretched, [&want]);
 }
 
 #[test]
@@ -224,6 +229,8 @@ fn a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames() {
     assert_eq!(r.plugin.pan(), (0.0, 1.0));
     r.plugin.set_config(&json!({"zoom": "big"})).unwrap();
     assert_eq!(r.plugin.get_config()["zoom"], json!(1.0));
+    r.event(Event::StreamStopped);
+    assert!(telescope_core::view_step::steps(&r.host.view).is_empty(), "frames go through at their own size: {:?}", r.host.view);
 }
 
 #[test]

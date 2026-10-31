@@ -42,6 +42,12 @@ pub fn launch_command(directory: &Path, minimized: bool) -> Vec<String> {
     argv
 }
 
+/// A build from source, whose copy mustn't take over the menu and sign-in entries. A release unpacked inside a git-tracked
+/// folder is still a release, so it goes by the channel.
+pub fn is_dev_checkout(channel: &str) -> bool {
+    channel == "dev"
+}
+
 /// A path without the \\?\ that canonicalize puts in front on Windows, which a Run key or a shortcut can't start.
 fn plain_path(path: PathBuf) -> PathBuf {
     let plain = path.to_string_lossy().strip_prefix(r"\\?\").filter(|rest| !rest.starts_with("UNC\\")).map(PathBuf::from);
@@ -373,6 +379,17 @@ mod tests {
         let start = dir.join("start.sh").to_string_lossy().into_owned();
         assert_eq!(launch_command(&dir, true), vec![start.clone(), MINIMIZED.to_string()]);
         assert_eq!(launch_command(&dir, false), vec![start]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn menu_entry_opens_the_window_and_skips_dev_checkouts() {
+        let dir = tmp("dev-checkout");
+        std::fs::write(dir.join("start.sh"), "#!/bin/sh\n").unwrap();
+        assert_eq!(launch_command(&dir, false), vec![dir.join("start.sh").to_string_lossy().into_owned()]);
+        std::fs::create_dir(dir.join(".git")).unwrap();
+        assert!(!is_dev_checkout("nightly"));
+        assert!(is_dev_checkout("dev"));
     }
 
     #[test]
