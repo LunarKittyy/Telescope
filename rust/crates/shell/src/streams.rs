@@ -758,11 +758,12 @@ impl Window {
             }
             Report::Moved { source_id, session_id, route, session } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                let Some(phone) = source.kind.as_phone() else { return };
                 let Some(current) = source.session().filter(|s| s.id == session_id) else {
+                    phone.move_failed();
                     session.release();
                     return;
                 };
-                let Some(phone) = source.kind.as_phone() else { return };
                 let url = session.video_url();
                 let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video().map(crate::worker::Opened::from)) };
                 if let Some(controls) = session.controls() {

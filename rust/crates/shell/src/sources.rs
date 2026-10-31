@@ -781,6 +781,7 @@ impl SourceKind for PhoneKind {
         let (session, handover) = {
             let mut inner = self.inner.borrow_mut();
             inner.wake_id += 1;
+            inner.moving = false;
             if !remote_stop {
                 inner.stop_late_wake = false; // the phone is meant to keep going, so a wake landing late isn't stopped either
             }
