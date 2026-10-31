@@ -698,6 +698,9 @@ mod tests {
         assert!(matches!(fetch_error(ureq::Error::Rustls(bad.clone())), FetchError::Certificate(_)));
         assert!(matches!(fetch_error(ureq::Error::Io(io::Error::other(bad))), FetchError::Certificate(_)));
         assert!(matches!(fetch_error(ureq::Error::HostNotFound), FetchError::Offline(_)));
+        assert!(matches!(fetch_error(ureq::Error::Timeout(ureq::Timeout::Global)), FetchError::Offline(_)));
+        assert!(matches!(fetch_error(ureq::Error::Io(io::ErrorKind::TimedOut.into())), FetchError::Offline(_)));
+        assert!(matches!(fetch_error(ureq::Error::Io(io::ErrorKind::ConnectionReset.into())), FetchError::Offline(_)));
         assert!(matches!(fetch_error(ureq::Error::StatusCode(503)), FetchError::Http(503)));
     }
 

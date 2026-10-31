@@ -54,15 +54,64 @@ fn nested_camera_and_control_consumers_read_the_same_contract() {
     assert_eq!(stills.max_res, Some((8064, 6048)));
     assert_eq!(stills.extensions, ["night", "hdr", "bokeh"]);
     assert_eq!((stills.burst_max, stills.distortion), (60, true));
+
+    // Python's ContractDict fails on a field the example doesn't have, in the consumers themselves. A serde value can't, so what these four
+    // functions ask of it is read from their source: a misspelled name that would quietly take its default fails here
+    let mut known = Vec::new();
+    every_key(&state, &mut known);
+    for (file, function) in CONSUMERS {
+        let source = std::fs::read_to_string(root().join(file)).unwrap();
+        let body = body_of(&source, function);
+        let names: Vec<&str> = body.split('"').skip(1).step_by(2).filter(|s| is_name(s)).collect();
+        assert!(names.len() >= 4, "{file}: found only {names:?} in {function}");
+        for name in names {
+            assert!(known.iter().any(|k| k == name) || NOT_FIELDS.contains(&name), "{file} asks for {name:?}, which docs/state.json doesn't have");
+        }
+    }
 }
 
-/// The names asked of a state in this source, from `state.get("name")` and `state["name"]`.
+/// Where each consumer of the state starts: (file, its signature).
+const CONSUMERS: [(&str, &str); 5] = [
+    ("rust/crates/shell/src/plugins/camera_control.rs", "pub fn derive_camera_control_view("),
+    ("rust/crates/core/src/view.rs", "pub fn from_camera("),
+    ("rust/crates/link/src/stills.rs", "pub fn from_state("),
+    ("rust/crates/core/src/models.rs", "pub fn from_value(raw: &Value) -> Result<CameraCapabilities"),
+    ("rust/crates/core/src/models.rs", "pub fn from_value(raw: &Value) -> Result<PhoneState"),
+];
+
+/// Texts in those functions that are not fields: a format, focus modes and the name errors go by.
+const NOT_FIELDS: [&str; 5] = ["jpeg", "manual", "point", "continuous", "state"];
+
+fn every_key(value: &Value, out: &mut Vec<String>) {
+    match value {
+        Value::Object(fields) => fields.iter().for_each(|(k, v)| {
+            out.push(k.clone());
+            every_key(v, out);
+        }),
+        Value::Array(items) => items.iter().for_each(|v| every_key(v, out)),
+        _ => {}
+    }
+}
+
+fn is_name(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// The function that starts at this signature, up to its closing brace.
+fn body_of<'a>(source: &'a str, signature: &str) -> &'a str {
+    let at = source.find(signature).unwrap_or_else(|| panic!("no {signature}"));
+    let indent = at - source[..at].rfind('\n').map_or(0, |n| n + 1);
+    let end = format!("\n{}}}\n", " ".repeat(indent));
+    &source[at..at + source[at..].find(&end).unwrap()]
+}
+
+/// The names asked of a state in this source, from `state.get("name")`, `state["name"]` and helpers like `get_bool(state, "name", false)`.
 fn asked(text: &str) -> Vec<String> {
     let mut found = Vec::new();
-    for pattern in ["state.get(\"", "state[\""] {
+    for pattern in ["state.get(\"", "state[\"", "(state, \""] {
         for (at, _) in text.match_indices(pattern) {
             let before = text[..at].chars().next_back();
-            if before.is_some_and(|c| c.is_alphanumeric() || c == '_') {
+            if before.is_some_and(|c| c.is_alphanumeric() || c == '_') && !pattern.starts_with('(') {
                 continue;
             }
             let name: String = text[at + pattern.len()..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();

@@ -2,7 +2,10 @@
 mod rig;
 
 use rig::{Listener, Rig};
+use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value};
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -44,8 +47,9 @@ impl AudioRoutes for Routes {
     }
 }
 
+/// Each worker's url and whether it stopped, and the level every worker reports.
 #[derive(Default)]
-struct Running(Mutex<Vec<(String, bool)>>);
+struct Running(Mutex<Vec<(String, bool)>>, Mutex<(f32, f32, bool)>);
 
 struct Worker(Arc<Running>, usize);
 
@@ -61,7 +65,7 @@ impl MicWorker for Worker {
     fn set_auto_level(&self, _on: bool) {}
     fn set_noise_reduction(&self, _on: bool) {}
     fn take_level(&self) -> (f32, f32, bool) {
-        (0.0, 0.0, false)
+        *self.0.1.lock().unwrap()
     }
 }
 
@@ -150,6 +154,36 @@ fn two_cams(name: &str) -> Mic {
     mic.r.worker(1).says("ok", "Streaming");
     mic.settle();
     mic
+}
+
+// test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it: the click itself, on the card's real meter
+#[test]
+fn a_click_on_the_meter_clears_the_clip_light() {
+    let m = two_cams("mic-meter");
+    m.toggle(true); // the mic comes to the shown card
+    let lit = |m: &Mic| match m.prop("meter") {
+        SValue::Struct(meter) => meter.get_field("lit").cloned(),
+        other => panic!("{other:?}"),
+    };
+    *m.workers.1.lock().unwrap() = (1.0, 0.5, false);
+    m.r.skip(telescope_audio::plugin::METER_MS);
+    assert_eq!(lit(&m), Some(SValue::String("clip".into())));
+    *m.workers.1.lock().unwrap() = (0.0, 0.0, false);
+    m.r.skip(telescope_audio::plugin::METER_MS);
+    assert_eq!(lit(&m), Some(SValue::String("clip".into())), "it latches");
+
+    let ui = &m.r.w.ui;
+    assert!(m.flag("here"));
+    telescope_shell::offscreen::draw(ui.window(), 1280.0, 900.0, 1.0).expect("a picture"); // what the card builds, it builds when drawn
+    let meter = ElementHandle::find_by_element_type_name(ui, "LevelMeter").next().expect("the meter");
+    let (at, size) = (meter.absolute_position(), meter.size());
+    assert!(size.width > 0.0 && size.height > 0.0, "{size:?}");
+    let position = LogicalPosition::new(at.x + size.width / 2.0, at.y + size.height / 2.0);
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+    ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    m.settle();
+    assert_eq!(lit(&m), Some(SValue::String("".into())));
 }
 
 #[test]

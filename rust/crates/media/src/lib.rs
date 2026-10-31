@@ -66,6 +66,18 @@ pub fn test_h264(values: &[u8], w: u32, h: u32, gop: u32, noisy: bool) -> Option
     }
 }
 
+/// Opus packets of a 20 ms mono tone, made with this build's encoder for tests in other crates (None where it has none).
+#[doc(hidden)]
+pub fn test_opus_tone(packets: usize, peak: f64) -> Option<Vec<Vec<u8>>> {
+    #[cfg(ffmpeg)]
+    return testenc::opus_tone(packets, peak);
+    #[cfg(not(ffmpeg))]
+    {
+        let _ = (packets, peak);
+        None
+    }
+}
+
 /// Whether FFmpeg can be called here (h264_reader.available()). Windows loads its DLLs on first use, so a copy that lost one still
 /// starts: H.264, VP8 and Opus are then missing, MJPEG goes through plain_jpeg and pictures through picture. Without this, nothing
 /// may touch FFmpeg, its destructors included.

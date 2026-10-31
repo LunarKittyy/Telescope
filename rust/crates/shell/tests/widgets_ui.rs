@@ -57,12 +57,11 @@ export component Test inherits Window {
         Rectangle { width: 40px; height: 36px; HorizontalLayout { Slider { label: "Narrow room"; has-readout: false; } } }
         ChoiceField { caption: "Picked"; items: ["a", "b", "c"]; gone: [false, true, false]; tip: "About the field"; picked(i) => { pressed = "row " + i; } }
     }
-    short-tip := TipBody { says: "Settings"; visible: false; }
-    long-tip := TipBody { says: "All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself"; visible: false; }
-    out property <length> short-tip-width: short-tip.preferred-width;
-    out property <length> short-tip-height: short-tip.preferred-height;
-    out property <length> long-tip-width: long-tip.preferred-width;
-    out property <length> long-tip-height: long-tip.preferred-height;
+    // One tooltip body at the size a Tooltip gives it, below the window: its text changes in place, like Qt's reused tip window
+    in property <string> tip-text: "Settings";
+    shown-tip := TipBody { y: 1000px; says: root.tip-text; width: self.preferred-width; height: self.preferred-height; }
+    out property <length> tip-width: shown-tip.width;
+    out property <length> tip-height: shown-tip.height;
     out property <length> bold-width: bold-measure.preferred-width;
     bold-measure := Text { text: "Tap a point"; font-size: Theme.body; font-weight: 600; font-family: Theme.font; visible: false; }
     tag-measure := Text { text: "Experimental"; font-size: 11px; font-weight: 600; font-family: Theme.font; visible: false; }
@@ -184,10 +183,19 @@ fn separator_and_all_known_vector_icons_are_constructible() {
 #[test]
 fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     let ui = rig();
-    let (short_w, short_h) = (num(&ui, "short-tip-width"), num(&ui, "short-tip-height"));
-    let (long_w, long_h) = (num(&ui, "long-tip-width"), num(&ui, "long-tip-height"));
-    // About 64 characters to a line: the long one stops at a readable width and grows downwards, none of it cut off
-    assert!(long_w <= 470.0 + 16.0 + 1.0 && long_w > short_w, "{long_w} wide");
+    let long_text = "All the way right is Dynamic: as much as the connection carries, lowered by itself ".repeat(3);
+    ui.set_property("tip-text", Value::String(long_text.trim_end().into())).unwrap();
+    settle(&ui);
+    let (long_w, long_h) = (num(&ui, "tip-width"), num(&ui, "tip-height"));
+    // About 64 characters to a line: the long one stops at a readable width and grows downwards
+    assert!(long_w <= 470.0 + 16.0 + 1.0, "{long_w} wide");
+    let text = labelled(&ui, long_text.trim_end()).into_iter().next().expect("the tip's text");
+    assert!(f64::from(text.size().height) <= long_h - 10.0 + 0.5 && f64::from(text.size().height) >= long_h - 10.0 - 0.5, "none of it is cut off: {} in {long_h}", text.size().height);
+
+    // The same body, reused
+    ui.set_property("tip-text", Value::String("Settings".into())).unwrap();
+    settle(&ui);
+    let (short_w, short_h) = (num(&ui, "tip-width"), num(&ui, "tip-height"));
     assert!(short_w < 120.0, "a short one hugs its text: {short_w}");
     assert!(long_h >= short_h + 2.0 * 15.0, "several lines: {long_h} against {short_h}");
 }

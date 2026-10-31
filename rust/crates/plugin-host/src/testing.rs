@@ -232,7 +232,10 @@ pub fn check(folder: &Path) -> Report {
     hook(&mut t, &mut report, "tray_actions", vec![], false);
     hook(&mut t, &mut report, "on_plugins_ready", vec![], true);
     check_shader(&mut t, &mut report);
-    if let Some(cfg) = hook(&mut t, &mut report, "get_config", vec![], false) {
+    t.plugin_guest(|g| g.set_strict_config(true));
+    let config = hook(&mut t, &mut report, "get_config", vec![], false);
+    t.plugin_guest(|g| g.set_strict_config(false));
+    if let Some(cfg) = config {
         let cfg = if cfg.is_object() { cfg } else { json!({}) };
         if t.defines("set_config") {
             let back = t.call_without_host("set_config", vec![cfg.clone()]).and_then(|_| {
@@ -316,14 +319,14 @@ fn check_shader_files(folder: &Path, report: &mut Report) {
 pub fn check_repo(installed: &Installed, report: &mut Report) {
     let problem = manifest::repo_problem(installed.manifest.get("repo"));
     if !problem.is_empty() {
-        report.step(MANIFEST, Err(problem));
+        report.step(MANIFEST, Err(format!("{problem} It isn't shown until it is.")));
         return;
     }
     if installed.repo.is_empty() {
         return;
     }
     if crate::updates::github_repo(&installed.repo).is_none() {
-        report.notes.push("Update checks only follow https://github.com/owner/repo addresses, so people won't hear about new versions.".into());
+        report.notes.push("The update check only follows https://github.com/owner/repo addresses, so people won't hear about new versions from this one.".into());
     } else if installed.version.is_empty() {
         report.notes.push("Give it a \"version\" in plugin.json, so Telescope can tell people when a new release is out.".into());
     } else {

@@ -6,7 +6,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const APP = path.join(__dirname, "..", "..", "telescope", "web", "app.js");
+const APP = process.env.TELESCOPE_PAGE_SCRIPT || path.join(__dirname, "..", "..", "telescope", "web", "app.js");
 
 function deferred() {
   const d = {};

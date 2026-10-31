@@ -1,12 +1,16 @@
 //! Lua plugins end to end: the sandbox, the two example plugins, check-plugin's report and the frozen plugin API.
 
 use serde_json::{json, Value};
+use serde_json::to_value;
 use std::path::{Path, PathBuf};
-use telescope_core::plugin::{load_config_tolerantly, Plugin};
-use telescope_core::testing::scratch_dir;
-use telescope_core::ui::SlintSource;
+use std::sync::{Arc, Mutex};
+use telescope_core::event::{LensBox, RememberedSource, SourceName};
+use telescope_core::host::{Pick, PickKind, View};
+use telescope_core::plugin::{load_config_tolerantly, Plugin, PluginInfo, StreamInfo};
+use telescope_core::testing::{scratch_dir, FakeHost};
+use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_core::Event;
-use telescope_plugin_host::guest::{HOOKS, HOST_API};
+use telescope_plugin_host::guest::{Guest, GuestPlugin, HostCalls, PluginContext, HOOKS, HOST_API};
 use telescope_plugin_host::lua::GLOBALS;
 use telescope_plugin_host::testing::{check, validate_shader, PluginTest};
 use telescope_plugin_host::{OLDEST_PLUGIN_API, PLUGIN_API};
@@ -181,12 +185,18 @@ fn stream_alerts_needs_its_permission() {
 
 // ── check-plugin (test_check_plugin.py) ─────────────────────────────────────
 
+/// check-plugin run as an author runs it: its exit code and everything it printed.
+fn checker(folder: &Path) -> (Option<i32>, String) {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_check-plugin")).arg(folder).output().unwrap();
+    (out.status.code(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+}
+
 #[test]
 fn the_example_plugins_pass() {
     for name in ["black_and_white", "stream_alerts"] {
-        let report = check(&example(name));
-        assert_eq!(report.problems(), 0, "{}", report.text());
-        assert!(report.text().ends_with("All good.\n"));
+        let (code, out) = checker(&example(name));
+        assert_eq!(code, Some(0), "{out}");
+        assert!(!out.contains("[FAIL]") && out.ends_with("All good.\n"), "{out}");
     }
 }
 
@@ -195,33 +205,36 @@ fn a_broken_plugin_gets_each_problem_with_where_it_is() {
     let folder = plugin("bad_one", "local plugin = {}\n\
         function plugin.frame_step() return { shader = 'fx.wgsl' } end\n\
         function plugin.card() return { file = 'card.slint', component = 'Card' } end\n\
-        function plugin.set_config(cfg) end\n\
+        function plugin.get_config() return { when = function() end } end\n\
         function plugin.on_stream_start(stream)\n  error('no lens')\nend\n\
         return plugin\n", json!({}));
     std::fs::write(folder.join("fx.wgsl"), "fn effect(uv: vec2<f32>) -> vec4<f32> {\n    return sample(uv) * nope;\n}\n").unwrap();
-    let report = check(&folder);
-    let text = report.text();
-    assert_eq!(report.problems(), 3, "{text}");
-    assert!(text.contains("3 problems to fix"), "{text}");
+    let (code, text) = checker(&folder);
+    assert_eq!(code, Some(1), "{text}");
+    assert!(text.contains("4 problems to fix"), "{text}");
     assert!(text.contains("fx.wgsl:2"), "the shader's error points into its file: {text}");
     assert!(text.contains("main.lua:6: no lens"), "{text}");
     assert!(text.contains("the plugin has no card.slint"), "{text}");
+    assert!(text.contains("JSON"), "settings that can't be saved say why: {text}");
+    // Only the plugin's own places, none of the checker's
+    assert!(![".rs:", "check-plugin", "stack traceback"].iter().any(|ours| text.contains(ours)), "{text}");
 }
 
 #[test]
 fn a_plugin_that_wont_load_says_why() {
     let folder = plugin("broken", "require('not_a_module_anywhere')\nreturn {}\n", json!({}));
-    let report = check(&folder);
-    assert!(report.problems() == 1 && report.text().contains("not_a_module_anywhere"), "{}", report.text());
+    let (code, out) = checker(&folder);
+    assert_eq!(code, Some(1), "{out}");
+    assert!(out.contains("1 problem to fix") && out.contains("not_a_module_anywhere"), "{out}");
 }
 
 #[test]
 fn repo_is_checked() {
     let cases = [
-        (json!({"repo": "github.com/me/extra"}), "[FAIL] plugin.json"),
+        (json!({"repo": "github.com/me/extra"}), "[FAIL] plugin.json\n       \"repo\" has to be an https:// address"),
         (json!({"repo": "https://github.com/me/extra", "version": "1.0"}), "Telescope can tell people when a new release"),
         (json!({"repo": "https://github.com/me/extra"}), "Give it a \"version\""),
-        (json!({"repo": "https://codeberg.org/me/extra"}), "only follow https://github.com/owner/repo"),
+        (json!({"repo": "https://codeberg.org/me/extra"}), "only follows https://github.com/owner/repo"),
         (json!({}), ""),
     ];
     for (extra, expect) in cases {
@@ -234,6 +247,104 @@ fn repo_is_checked() {
 
 // ── The plugin API, frozen (test_plugin_api.py) ─────────────────────────────
 
+/// Every hook GuestPlugin really calls when Telescope uses it as a Plugin: (hook, how many arguments, whether the host is there).
+fn hooks_called() -> Vec<(String, usize, bool)> {
+    struct Recorder(Arc<Mutex<Vec<(String, usize, bool)>>>);
+
+    impl Guest for Recorder {
+        fn call(&mut self, calls: &mut HostCalls<'_>, hook: &str, args: Vec<Value>) -> Result<Value, String> {
+            self.0.lock().unwrap().push((hook.to_string(), args.len(), calls.has_host()));
+            Ok(Value::Null)
+        }
+        fn defines(&self, _hook: &str) -> bool {
+            true
+        }
+        fn listens(&self, _event: &str) -> bool {
+            true
+        }
+    }
+
+    let called: Arc<Mutex<Vec<(String, usize, bool)>>> = Arc::default();
+    let info = PluginInfo { name: "recorder".into(), title: "Recorder".into(), ..Default::default() };
+    let mut p = GuestPlugin::new(PluginContext::new(info, ".", Vec::new()), Recorder(called.clone()));
+    let (mut host, h) = (FakeHost::new(), &json!({}));
+    let stream = StreamInfo { source_id: "s".into(), url: "u".into(), session: 1 };
+    p.setup(&mut host);
+    p.on_plugins_ready(&mut host);
+    p.shutdown(&mut host);
+    p.on_event(&mut host, &Event::StreamStopped);
+    p.card();
+    p.header_widget();
+    p.settings_sections();
+    p.tray_actions();
+    p.on_tray_action(&mut host, "t");
+    p.actions();
+    p.run_action(&mut host, "a", h);
+    p.release_action(&mut host, "a", h);
+    p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "c".into(), args: Vec::new() });
+    p.on_issue_action(&mut host, "k", "i");
+    p.on_stream_starting(&mut host);
+    p.on_stream_start(&mut host, &stream);
+    p.on_stream_stop(&mut host);
+    p.on_focus_gained(&mut host, &stream);
+    p.on_focus_lost(&mut host);
+    p.on_camera_off(&mut host);
+    p.on_camera_on(&mut host);
+    p.on_phone_state(&mut host, h);
+    p.frame_step();
+    p.get_config();
+    p.set_config(h).unwrap();
+    p.apply_preset(&mut host, h).unwrap();
+    p.diagnostics();
+    let mut called = called.lock().unwrap().clone();
+    called.sort();
+    called
+}
+
+/// Everything a plugin's Lua code finds in its globals and their tables, but host, which HOST_API lists: asked of a real sandbox.
+fn lua_globals() -> Vec<String> {
+    let folder = plugin("globals", r#"
+        local plugin = {}
+        function plugin.globals()
+          local found = {}
+          for name, value in pairs(_G) do
+            if name == "_G" or name == "host" then
+              found[#found + 1] = name
+            elseif type(value) == "table" then
+              for member in pairs(value) do found[#found + 1] = name .. "." .. member end
+            else
+              found[#found + 1] = name
+            end
+          end
+          return found
+        end
+        return plugin
+    "#, json!({}));
+    let found = PluginTest::open(&folder).unwrap().call("globals", vec![]).unwrap();
+    found.as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect()
+}
+
+/// What a JSON value holds, as "field: kind" lines under name: the fields a plugin reads and hands back.
+fn shape(name: &str, value: &Value, lines: &mut Vec<String>) {
+    let kind = match value {
+        Value::Object(fields) => {
+            for (field, v) in fields {
+                shape(&format!("{name}.{field}"), v, lines);
+            }
+            return;
+        }
+        Value::Array(items) => match items.first() {
+            Some(first) => return shape(&format!("{name}[]"), first, lines),
+            None => "list",
+        },
+        Value::String(_) => "text",
+        Value::Number(_) => "number",
+        Value::Bool(_) => "true or false",
+        Value::Null => "nothing",
+    };
+    lines.push(format!("payload {name}: {kind}"));
+}
+
 fn current_api() -> String {
     let mut lines = vec![format!("PLUGIN_API = {PLUGIN_API}"), format!("OLDEST_PLUGIN_API = {OLDEST_PLUGIN_API}")];
     for m in HOST_API {
@@ -244,13 +355,74 @@ fn current_api() -> String {
     for (hook, args, with_host) in HOOKS {
         lines.push(format!("plugin.{hook}({args}){}", if *with_host { "" } else { " [no host]" }));
     }
-    lines.extend(GLOBALS.iter().map(|g| format!("global {g}")));
-    lines.extend(Event::NAMES.iter().map(|e| format!("event {e}")));
+    lines.extend(lua_globals().iter().filter(|g| *g != "_G" && *g != "host").map(|g| format!("global {g}")));
+    // An event's fields and types, as plain text whatever spacing this compiler's stringify! gives
+    for (event, fields) in Event::FIELDS {
+        let fields: Vec<String> = fields.iter().map(|(name, ty)| format!("{name}: {}", ty.replace(' ', ""))).collect();
+        lines.push(format!("event {event}({})", fields.join(", ")));
+    }
+    // What's inside those fields and the hooks' arguments, the way a plugin gets it
+    let point = [0.5f32, 0.5];
+    let pick = Pick { kind: PickKind::Point, shown: vec![point], full: vec![point], in_picture: vec![point], picture: None };
+    let view = View { rotation: Some(90), ..View::default() };
+    let samples = [
+        ("LensBox", to_value(LensBox { label: "x".into(), x0: 0.0, y0: 0.0, x1: 1.0, y1: 1.0 })),
+        ("SourceName", to_value(SourceName { id: "x".into(), name: "x".into() })),
+        ("RememberedSource", to_value(RememberedSource { id: "x".into(), name: "x".into(), detail: "x".into() })),
+        ("View", to_value(view)),
+        ("Pick", to_value(pick)),
+        ("StreamInfo", to_value(StreamInfo { source_id: "x".into(), url: "x".into(), session: 1 })),
+        ("UiEvent", to_value(UiEvent { ui: "x".into(), callback: "x".into(), args: vec![json!(1)] })),
+    ];
+    for (name, sample) in samples {
+        shape(name, &sample.unwrap(), &mut lines);
+    }
     lines.extend(telescope_plugin_host::manifest::PERMISSIONS.iter().map(|(p, _)| format!("permission {p}")));
     lines.push(format!("shader entry {}", telescope_core::shader::ENTRY));
     lines.push(format!("shader params {}", telescope_core::shader::PARAMS));
     lines.sort();
     lines.join("\n") + "\n"
+}
+
+// HOOKS and HOST_API are tables, so what they say is held to what the code does: the hooks Telescope calls and the arguments call_host reads
+#[test]
+fn the_api_tables_are_what_the_code_does() {
+    let mut table: Vec<(String, usize, bool)> = HOOKS.iter()
+        .map(|(hook, args, host)| (hook.to_string(), if args.is_empty() { 0 } else { args.split(", ").count() }, *host)).collect();
+    table.sort();
+    let mut called = hooks_called();
+    called.dedup();
+    assert_eq!(table, called, "HOOKS against what GuestPlugin calls");
+
+    let source = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/guest.rs")).unwrap();
+    let body = &source[source.find("pub fn call_host").unwrap()..];
+    let body = &body[..body.find("other => return Err").unwrap()];
+    let mut arms: Vec<(String, String)> = Vec::new();
+    for line in body.lines().map(str::trim) {
+        match line.strip_prefix('"').and_then(|l| l.split_once("\" => ")) {
+            Some((method, rest)) => arms.push((method.to_string(), rest.to_string())),
+            None => if let Some(arm) = arms.last_mut() { arm.1.push_str(line) },
+        }
+    }
+    assert_eq!(arms.len(), HOST_API.len());
+    for (method, code) in arms {
+        let mut read: Vec<String> = Vec::new();
+        for pattern in ["(args, \"", "args.get(\"", "s(\""] {
+            read.extend(code.match_indices(pattern).map(|(at, _)| code[at + pattern.len()..].split('"').next().unwrap().to_string()));
+        }
+        if code.contains("src)") || code.contains("src,") {
+            read.push("source_id".into());
+        }
+        read.sort();
+        let entry = HOST_API.iter().find(|m| m.name == method).unwrap_or_else(|| panic!("{method} isn't in HOST_API"));
+        let mut params: Vec<String> = entry.params.iter().map(|p| p.trim_end_matches('?').to_string()).collect();
+        params.sort();
+        assert_eq!(read, params, "host.{method}'s arguments");
+    }
+    let found = lua_globals();
+    for global in GLOBALS {
+        assert!(*global == "host" || found.iter().any(|g| g == global), "{global} is gone from the sandbox");
+    }
 }
 
 #[test]

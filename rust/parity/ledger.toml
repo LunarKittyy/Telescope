@@ -1917,7 +1917,7 @@
 "test_adb_download.py::test_two_downloads_at_once_fetch_only_once" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::two_downloads_at_once_fetch_only_once" }
 # ── adb_widget
 "test_adb_widget.py::test_a_download_that_raises_still_reports_back" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_download_that_raises_still_reports_back" }
-"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::asking_while_a_download_runs_doesn_t_ask_or_start_another" }
+"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::asking_while_a_download_runs_doesn_t_ask_or_start_another" }
 # ── app
 "test_app.py::test_a_background_phone_without_h264_falls_back_to_mjpeg" = { status = "ported", rust = "rust/app/tests/stream_two.rs::a_background_phone_without_h264_falls_back_to_mjpeg" }
 "test_app.py::test_a_background_stream_says_which_one_dropped_and_came_back" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_background_stream_says_which_one_dropped_and_came_back" }
@@ -2279,7 +2279,7 @@
 "test_browser_page.py::test_every_scenario_is_run" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::every_scenario_is_run" }
 "test_browser_page.py::test_page_scenario" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::page_scenario" }
 # ── browser_rtc
-"test_browser_rtc.py::test_a_browser_over_webrtc_reaches_the_reader_and_the_mic" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::a_browser_over_webrtc_reaches_the_reader_and_the_mic" }
+"test_browser_rtc.py::test_a_browser_over_webrtc_reaches_the_reader_and_the_mic" = { status = "ported", rust = "rust/app/tests/browser_rtc.rs::a_browser_over_webrtc_reaches_the_reader_and_the_mic" }
 "test_browser_rtc.py::test_an_offer_without_a_codec_this_computer_decodes_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::an_offer_without_a_codec_this_computer_decodes_is_refused" }
 "test_browser_rtc.py::test_answer_codec_is_the_first_video_codec" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::answer_codec_is_the_first_video_codec" }
 "test_browser_rtc.py::test_max_kbps_follows_size_and_rate_within_bounds" = { status = "ported", rust = "rust/crates/link/src/browser/rtc_tests.rs::max_kbps_follows_size_and_rate_within_bounds" }
@@ -2315,9 +2315,9 @@
 "test_browser_server.py::test_wrong_token_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::wrong_token_is_refused" }
 # ── camera
 "test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_cmake_resource_id_is_the_one_the_dll_loads" }
-"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_lays_it_out_like_the_app", note = "Against outputs::camera_wait_screen and this app's default_screen; the DLL's build still calls the Python writer" }
+"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_lays_it_out_like_the_app", note = "Both resources against this app's default_screen: outputs::camera_wait_screen and, where PyQt can run it, the one the DLL's build still writes with Python" }
 "test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_turns_down_a_cut_short_resource" }
-"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_header_is_the_one_the_dll_reads", note = "Against outputs::camera_wait_screen; the DLL's build still calls the Python writer" }
+"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_header_is_the_one_the_dll_reads", note = "Checks outputs::camera_wait_screen and, where PyQt can run it, what write_camera_wait_screen.py writes, which is what the DLL's build still uses" }
 # ── camera_control
 "test_camera_control.py::test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" }
 "test_camera_control.py::test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" }
@@ -2604,7 +2604,7 @@
 "test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" }
 "test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::valid_current_version_config_round_trips_through_migrate" }
 "test_config.py::test_windows_config_path_uses_appdata" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::windows_config_path_uses_appdata" }
-"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::config_level_parts_match_every_fixture", note = "Settings and sections are compared in Rust; each plugin's own settings are compared by parity/compare_config.py as their settings get ported" }
+"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/app/tests/config_fixtures.rs::the_app_ends_up_where_the_fixture_says" }
 "test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::there_is_a_fixture_for_each_kind_of_file" }
 # ── connection
 "test_connection.py::test_a_cable_that_is_not_used_gets_explained" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_cable_that_is_not_used_gets_explained" }
@@ -2994,15 +2994,15 @@
 "test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs::the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" }
 # ── level_meter
 "test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::a_louder_peak_moves_the_hold_up_at_once" }
-"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it" }
+"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it", note = "The real click on the card's meter is app/tests/mic_window.rs::a_click_on_the_meter_clears_the_clip_light" }
 "test_level_meter.py::test_limiting_lights_the_dot_without_counting_as_a_clip" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::limiting_lights_the_dot_without_counting_as_a_clip" }
 "test_level_meter.py::test_peak_holds_then_sinks" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::peak_holds_then_sinks" }
 "test_level_meter.py::test_to_db_floors_silence" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::to_db_floors_silence" }
 # ── main
-"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "ported", rust = "rust/app/tests/commands.rs::commands_leave_what_the_running_copy_owns_alone", note = "No PyAV build here: the same rule, that a command touches nothing the running copy owns, on what Rust has of that kind (the stale mic source)" }
-"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "ported", rust = "rust/app/src/main.rs::only_the_copy_with_the_lock_touches_what_the_running_copy_owns", note = "No PyAV to activate: what runs only once the lock is held is checked instead" }
+"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "ported", rust = "rust/app/tests/commands.rs::commands_and_a_duplicate_launch_leave_a_running_copy_alone", note = "No PyAV build here: the same rule on what Rust has of that kind (the stale mic source), with a running copy answering; commands_leave_what_the_running_copy_owns_alone is the case with none" }
+"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "ported", rust = "rust/app/tests/commands.rs::a_new_copy_cleans_up_once_it_has_the_lock", note = "No PyAV to activate: the real start's stale mic cleanup is what runs once the lock is held; a fake pactl asks the program whether it answers on the lock" }
 "test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
-"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside" }
+"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_programs_own_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside. Runs config-snapshot's offscreen window with the real services and built-ins, not a window on a display" }
 # ── microphone
 "test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/app/tests/mic_window.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
 "test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_missing_piece_is_shown_with_its_fix_and_nothing_starts" }
@@ -3462,7 +3462,7 @@
 "test_platform_windows.py::test_windows_10_installs_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_10_installs_unitycapture" }
 "test_platform_windows.py::test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture" = { status = "ported", rust = "rust/crates/outputs/src/wininstall.rs::windows_11_installs_its_own_camera_and_never_downloads_unitycapture" }
 # ── plugin
-"test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_plugin_api_only_changes_on_purpose", note = "freezes HOST_API, HOOKS, Lua globals, events and permissions in tests/plugin_api.txt" }
+"test_plugin_api.py::test_the_plugin_api_only_changes_on_purpose" = { status = "ported", rust = "rust/crates/plugin-host/tests/lua.rs::the_plugin_api_only_changes_on_purpose", note = "Freezes HOST_API, hooks, what a real Lua sandbox holds, every event's fields and types, their nested structs and permissions in tests/plugin_api.txt; the_api_tables_are_what_the_code_does holds the tables to GuestPlugin and call_host. Stills and sensors payloads live in link and aren't frozen" }
 "test_plugin_i18n.py::test_a_broken_file_leaves_the_plugin_in_english_and_still_loading" = { status = "ported", rust = "rust/crates/plugin-host/tests/i18n.rs::a_broken_file_leaves_the_plugin_in_english_and_still_loading" }
 "test_plugin_i18n.py::test_a_broken_plural_rule_or_field_shows_english_instead_of_failing" = { status = "ported", rust = "rust/crates/plugin-host/tests/i18n.rs::a_broken_plural_rule_or_field_shows_english_instead_of_failing" }
 "test_plugin_i18n.py::test_a_plugin_with_a_catalog_shows_its_texts_in_the_language" = { status = "ported", rust = "rust/crates/plugin-host/tests/i18n.rs::a_plugin_with_a_catalog_shows_its_texts_in_the_language" }
@@ -3789,7 +3789,7 @@
 "test_qr_reader.py::test_what_goes_to_the_clipboard" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::what_goes_to_the_clipboard" }
 "test_qr_reader.py::test_wifi_codes_are_read_with_their_escapes" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::wifi_codes_are_read_with_their_escapes" }
 # ── release_checklist
-"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "dropped", reason = ".github/checklist_due.py is the release process's own tool (it maps repo files to checklist sections) and stays Python. It needs rust/ and the new workflows mapped before the rewrite merges: it fails on this branch for every file under rust/" }
+"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "ported", rust = "rust/app/tests/release_checklist.rs::every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" }
 # ── scopes
 "test_scopes.py::test_a_brighter_spot_glows_more" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::a_brighter_spot_glows_more" }
 "test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::every_scope_makes_a_bgra_picture" }
@@ -3991,7 +3991,7 @@
 "test_sources.py::test_with_others_streaming_the_banner_names_the_phone" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::with_others_streaming_the_banner_names_the_phone" }
 # ── splash
 "test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_line_about_the_scan_waits_until_the_start_is_slow" }
-"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language" }
+"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language", note = "The close step is app/src/main.rs::the_app_closes_the_splash_it_opened; the real window's own close is tests/splash_window.rs on Windows" }
 "test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "ported", rust = "rust/crates/system/src/splash.rs::without_the_packaged_build_nothing_happens" }
 # ── startup
 "test_startup.py::test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" }
@@ -4051,7 +4051,7 @@
 "test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" }
 # ── state_example
 "test_state_example.py::test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends" = { status = "ported", rust = "rust/app/tests/state_example.rs::every_state_field_the_desktop_asks_for_is_one_the_phone_sends" }
-"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "ported", rust = "rust/app/tests/state_example.rs::nested_camera_and_control_consumers_read_the_same_contract", note = "Python's ContractDict makes a mistyped field fail in the consumers themselves; serde values can't, so the last test scans the sources for the names they ask for" }
+"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "ported", rust = "rust/app/tests/state_example.rs::nested_camera_and_control_consumers_read_the_same_contract", note = "Python's ContractDict fails a mistyped field at the read; a serde value can't, so the same test reads each field name out of the consumers' source and checks it against every key in the example, at any depth" }
 "test_state_example.py::test_the_desktop_reads_the_phones_state" = { status = "ported", rust = "rust/app/tests/state_example.rs::the_desktop_reads_the_phones_state" }
 # ── stills
 "test_stills.py::test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" }
@@ -4163,7 +4163,7 @@
 "test_text_fit.py::test_walking_a_card_finds_a_readout_only_one_slider_stop_shows" = { status = "dropped", reason = "scripts/text_fit.py walks the Python app's Qt widgets with Qt's layout and font measures, and stays in Python; the Slint window has no equivalent walker yet, so nothing checks that every text fits in every language there (a new tool, not a port)" }
 # ── text_fits
 "test_text_fits.py::test_add_phone_and_phones_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
-"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
+"test_text_fits.py::test_automatic_streaming_fields_fit" = { status = "ported", rust = "rust/app/tests/text_fits.rs::automatic_streaming_fields_fit" }
 "test_text_fits.py::test_layout_widths_grow_with_the_font" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
 "test_text_fits.py::test_setup_dialog_button_text_fits" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
 "test_text_fits.py::test_text_still_fits_with_larger_text" = { status = "dropped", reason = "Qt's fixed-width push buttons could clip a longer text, which these look for; ui-kit's Button takes its minimum width from its text (rust/app/tests/text_fits.rs checks that, also in the pseudo language), and Qt's UI font scale has no Slint counterpart" }
@@ -4596,9 +4596,9 @@
 "test_wait_screen.py::test_the_main_camera_shows_it_while_only_extra_ones_stream" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_main_camera_shows_it_while_only_extra_ones_stream" }
 "test_wait_screen.py::test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" }
 # ── web
-"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_rustls_certificate_error_counts_as_a_certificate_failure", note = "Each download words it where it fails: link and audio match rustls' certificate errors, system's update check matches their text" }
-"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "The update check and plugin updates used the bundled roots; they use the system's now, as Python's do" }
-"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "rustls always checks the name; the system's store is what RootCerts::PlatformVerifier asks for" }
+"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_rustls_certificate_error_counts_as_a_certificate_failure", note = "Each download words it where it fails: link and audio match rustls' certificate errors, system's update check matches their text. Every download's real failure is in app/tests/web.rs" }
+"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_checks_the_certificate_and_the_name_against_the_system_store", note = "Linux: all five real agents against a real server, with the store the system's verifier reads. On Windows only the source check next to it runs" }
+"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_checks_the_certificate_and_the_name_against_the_system_store", note = "Linux: an unknown certificate and one for another name both fail as certificate failures on all five real agents. On Windows only the source check next to it runs" }
 # ── webcam
 "test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_whose_settings_cant_be_reached_shows_none" }
 "test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_replugged_webcam_gets_a_fresh_handle_on_its_settings" }

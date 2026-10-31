@@ -46,20 +46,51 @@ fn asset_url_for(version: &str, channel: &str, name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Command;
 
     #[test]
     fn a_source_build_is_dev_with_the_repo_version() {
         assert_eq!(channel(), "dev");
         assert_eq!(build(), 0);
-        assert!(version().split('.').count() >= 3);
+        assert_eq!(version().matches('.').count(), 2, "{}", version());
         assert_eq!(display_version(), format!("{} dev", version()));
         assert!(release_asset_url("x.apk").ends_with("/releases/download/nightly/x.apk"));
     }
 
+    /// What a build of this file stamped with these says: the stamp is read at compile time, so this compiles it, with a stand-in for core's VERSION.
+    fn stamped(channel: &str) -> Vec<String> {
+        let dir = telescope_core::testing::scratch_dir(&format!("stamped-{channel}"));
+        let core = dir.join("core.rs");
+        std::fs::write(&core, "pub mod version { pub fn version() -> &'static str { \"1.2.3\" } }").unwrap();
+        let this = concat!(env!("CARGO_MANIFEST_DIR"), "/src/version.rs");
+        std::fs::write(dir.join("main.rs"), format!("#[path = {this:?}] mod version;\n\
+            fn main() {{\n\
+                println!(\"{{}}\", version::version());\n\
+                println!(\"{{}}\", version::channel());\n\
+                println!(\"{{}}\", version::build());\n\
+                println!(\"{{}}\", version::commit());\n\
+                println!(\"{{}}\", version::display_version());\n\
+                println!(\"{{}}\", version::release_asset_url(\"Telescope.apk\"));\n\
+            }}\n")).unwrap();
+        let rustc = |args: &[&str]| {
+            let out = Command::new("rustc").current_dir(&dir).args(args).env("TELESCOPE_BUILD", "99").env("TELESCOPE_CHANNEL", channel)
+                .env("TELESCOPE_COMMIT", "abc").output().expect("rustc");
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        };
+        rustc(&["--edition", "2021", "--crate-type", "rlib", "--crate-name", "telescope_core", "core.rs"]);
+        rustc(&["--edition", "2021", "--extern", "telescope_core=libtelescope_core.rlib", "-A", "warnings", "-o", "stamped.exe", "main.rs"]);
+        let out = Command::new(dir.join("stamped.exe")).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().map(str::to_string).collect()
+    }
+
     #[test]
     fn a_stamped_build_reports_itself() {
-        assert_eq!(display_for("1.2.3", "stable", 99), "1.2.3");
-        assert!(asset_url_for("1.2.3", "stable", "Telescope.apk").ends_with("/releases/download/v1.2.3/Telescope.apk"));
-        assert_eq!(display_for("1.2.3", "nightly", 99), "1.2.3 nightly 99");
+        let stable = stamped("stable");
+        assert_eq!(stable[..4], ["1.2.3", "stable", "99", "abc"]);
+        assert_eq!(stable[4], "1.2.3");
+        assert!(stable[5].ends_with("/releases/download/v1.2.3/Telescope.apk"), "{}", stable[5]);
+        let nightly = stamped("nightly");
+        assert_eq!(nightly[4], "1.2.3 nightly 99");
+        assert!(nightly[5].ends_with("/releases/download/nightly/Telescope.apk"), "{}", nightly[5]);
     }
 }

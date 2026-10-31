@@ -1,78 +1,91 @@
 OLDEST_PLUGIN_API = 2
 PLUGIN_API = 2
-event add_phone_requested
-event camera_on_changed
-event camera_opened
-event camera_switched
-event camera_watched
-event cover_requested
-event custom
-event device_changed
-event focus_mode_changed
-event focus_mode_picked
-event focus_point
-event focus_point_available
-event focus_point_picked
-event forget_source_requested
-event idle_outputs
-event lens_boxes
-event limiter_changed
-event max_gain_changed
-event max_zoom_changed
-event meter_point
-event meter_point_available
-event meter_point_picked
-event mic_changed
-event motion_seen
-event people_seen
-event people_tracked
-event phone_polled
-event phone_ready
-event phone_state_updated
-event phone_wanted
-event phones_changed
-event posted
-event preview_pick_changed
-event preview_picked
-event remembered_sources
-event request_done
-event request_progress
-event resolution_change_requested
-event select_source
-event sensors_changed
-event setup_guide_requested
-event setup_needed
-event source_selected
-event source_shown
-event still_busy_changed
-event still_saved
-event stream_behind
-event stream_connected
-event stream_covered
-event stream_lost
-event stream_sources_changed
-event stream_start_failed
-event stream_started
-event stream_state
-event stream_stopped
-event stream_transport_changed
-event streams_changed
-event timer_fired
-event update_requested
-event vcam_opened
-event view_changed
-event view_dragged
-event view_pannable
-event view_scrolled
-event view_status
-event view_taken
-event vision_download_finished
-event vision_download_progress
-event vision_state_changed
-event window_shown
+event add_phone_requested()
+event camera_on_changed(on: bool)
+event camera_opened(source_id: String, slot: u32, width: u32, height: u32)
+event camera_switched(camera: Value)
+event camera_watched(watched: bool)
+event cover_requested(owner: String, on: bool)
+event custom(name: String, data: Value)
+event device_changed(source_id: String)
+event focus_mode_changed(mode: String)
+event focus_mode_picked(mode: String)
+event focus_point(x: f32, y: f32)
+event focus_point_available(available: bool)
+event focus_point_picked(x: f32, y: f32)
+event forget_source_requested(source_id: String)
+event idle_outputs(slots: Vec<u32>)
+event lens_boxes(boxes: Vec<LensBox>, moved: bool)
+event limiter_changed(on: bool)
+event max_gain_changed(max_gain: i32)
+event max_zoom_changed(max_zoom: i32)
+event meter_point(x: f32, y: f32)
+event meter_point_available(available: bool)
+event meter_point_picked(x: f32, y: f32)
+event mic_changed(enabled: bool, muted: bool)
+event motion_seen(source_id: String, owner: String, zones: Vec<u32>)
+event people_seen(source_id: String, people: Vec<Value>)
+event people_tracked(source_id: String, tracks: Vec<Value>, count: u32)
+event phone_polled(source_id: String, session: u64, shown: bool, state: Value)
+event phone_ready(phone_id: String, ready: bool)
+event phone_state_updated(state: Value)
+event phone_wanted(wanted: bool, held: bool)
+event phones_changed(count: u32)
+event posted(owner: String, token: String, data: Value)
+event preview_pick_changed(owner: String)
+event preview_picked(owner: String, pick: Option<Pick>)
+event remembered_sources(sources: Vec<RememberedSource>)
+event request_done(request: RequestId, ok: bool, message: String, data: Value)
+event request_progress(request: RequestId, data: Value)
+event resolution_change_requested(width: u32, height: u32)
+event select_source(source_id: String)
+event sensors_changed(source_id: String)
+event setup_guide_requested()
+event setup_needed(showing: bool)
+event source_selected(source_id: String)
+event source_shown(source_id: String)
+event still_busy_changed(source_id: String, busy: bool)
+event still_saved(source_id: String, paths: Vec<String>)
+event stream_behind(source_id: String, behind: bool)
+event stream_connected(source_id: String)
+event stream_covered(covered: bool)
+event stream_lost(source_id: String)
+event stream_sources_changed(sources: Vec<SourceName>)
+event stream_start_failed()
+event stream_started(url: String)
+event stream_state(source_id: String, state: Value)
+event stream_stopped()
+event stream_transport_changed()
+event streams_changed(count: u32)
+event timer_fired(owner: String, token: String)
+event update_requested()
+event vcam_opened(width: u32, height: u32)
+event view_changed(view: View)
+event view_dragged(du: f32, dv: f32)
+event view_pannable(pannable: bool)
+event view_scrolled(factor: f32, u: f32, v: f32)
+event view_status(status: Value)
+event view_taken(owner: String)
+event vision_download_finished(error: String, switch_on: String)
+event vision_download_progress(done: u64, size: u64)
+event vision_state_changed(state: String)
+event window_shown(shown: bool)
 global N_
+global _VERSION
+global assert
+global collectgarbage
+global coroutine.close
+global coroutine.create
+global coroutine.isyieldable
+global coroutine.resume
+global coroutine.running
+global coroutine.status
+global coroutine.wrap
+global coroutine.yield
+global error
 global files.read
-global host
+global getmetatable
+global ipairs
 global json.decode
 global json.encode
 global load
@@ -80,14 +93,92 @@ global log.debug
 global log.error
 global log.info
 global log.warn
+global math.abs
+global math.acos
+global math.asin
+global math.atan
+global math.atan2
+global math.ceil
+global math.cos
+global math.cosh
+global math.deg
+global math.exp
+global math.floor
+global math.fmod
+global math.frexp
+global math.huge
+global math.ldexp
+global math.log
+global math.log10
+global math.max
+global math.maxinteger
+global math.min
+global math.mininteger
+global math.modf
+global math.pi
+global math.pow
+global math.rad
+global math.random
+global math.randomseed
+global math.sin
+global math.sinh
+global math.sqrt
+global math.tan
+global math.tanh
+global math.tointeger
+global math.type
+global math.ult
+global next
 global os.clock
 global os.date
 global os.difftime
 global os.time
+global pairs
+global pcall
 global print
+global rawequal
+global rawget
+global rawlen
+global rawset
 global require
+global select
+global setmetatable
+global string.byte
+global string.char
+global string.find
+global string.format
+global string.gmatch
+global string.gsub
+global string.len
+global string.lower
+global string.match
+global string.pack
+global string.packsize
+global string.rep
+global string.reverse
+global string.sub
+global string.unpack
+global string.upper
+global table.concat
+global table.insert
+global table.move
+global table.pack
+global table.remove
+global table.sort
+global table.unpack
+global tonumber
+global tostring
 global tr
 global trn
+global type
+global utf8.char
+global utf8.charpattern
+global utf8.codepoint
+global utf8.codes
+global utf8.len
+global utf8.offset
+global warn
+global xpcall
 host.add_preview_layer(layer)
 host.apply_preset(name, cfg) [settings]
 host.background_streams()
@@ -169,6 +260,34 @@ host.vision_state()
 host.want_people(on)
 host.want_sensors(kinds)
 host.watch_motion(zones, sensitivity?)
+payload LensBox.label: text
+payload LensBox.x0: number
+payload LensBox.x1: number
+payload LensBox.y0: number
+payload LensBox.y1: number
+payload Pick.full[][]: number
+payload Pick.in_picture[][]: number
+payload Pick.kind: text
+payload Pick.shown[][]: number
+payload RememberedSource.detail: text
+payload RememberedSource.id: text
+payload RememberedSource.name: text
+payload SourceName.id: text
+payload SourceName.name: text
+payload StreamInfo.session: number
+payload StreamInfo.source_id: text
+payload StreamInfo.url: text
+payload UiEvent.args[]: number
+payload UiEvent.callback: text
+payload UiEvent.ui: text
+payload View.flip_h: true or false
+payload View.flip_v: true or false
+payload View.pan_x: number
+payload View.pan_y: number
+payload View.rotation: number
+payload View.stretch_x: number
+payload View.stretch_y: number
+payload View.zoom: number
 permission app
 permission notifications
 permission phone

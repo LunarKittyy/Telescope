@@ -39,6 +39,8 @@ base64.workspace = true
 proc-macro2 = "1"
 flate2.workspace = true
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+# The fake browser in tests/browser_rtc.rs
+str0m.workspace = true
 zip.workspace = true
 # The settings window's tests drive it through Slint's testing backend (pinned like the shell's)
 i-slint-backend-testing = "=1.18.1"
