@@ -22,7 +22,7 @@ LICENSE in the repository root.
 Bundled binaries
 -----------------
 
-FFmpeg (libavcodec, libavutil, libswscale)
+FFmpeg (libavcodec, libavutil, libswresample, libswscale)
     Decodes the phone's video. A decoder-only build under the GNU LGPL v2.1 or
     later, with no GPL or non-free parts. Its licence is at the end of this
     file. How it was built:

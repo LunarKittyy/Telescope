@@ -40,7 +40,7 @@ cp -r crates/ui-kit/ui "$out/ui-kit"
 version=$(tr -d '[:space:]' < ../VERSION)
 printf "VERSION = '%s'\nBUILD = %s\nCHANNEL = '%s'\nCOMMIT = '%s'\n" "$version" "$build" "$channel" "$commit" > "$out/telescope/_build.py"
 # Real files under each library's soname: build artifacts don't keep symlinks
-for lib in libavcodec libavutil libswscale; do
+for lib in libavcodec libavutil libswresample libswscale; do
     soname=$(basename "$(find "$ffmpeg/lib" -name "$lib.so.*" -regex '.*\.so\.[0-9]+')")
     cp -L "$ffmpeg/lib/$soname" "$out/lib/$soname"
 done

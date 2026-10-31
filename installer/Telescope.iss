@@ -88,6 +88,7 @@ Type: filesandordirs; Name: "{app}\lib-*"
 ; An in-app update can bring FFmpeg's next major version and new ui-kit files, which the uninstall log doesn't know
 Type: files; Name: "{app}\avcodec-*.dll"
 Type: files; Name: "{app}\avutil-*.dll"
+Type: files; Name: "{app}\swresample-*.dll"
 Type: files; Name: "{app}\swscale-*.dll"
 Type: filesandordirs; Name: "{app}\ui-kit"
 #endif

@@ -41,7 +41,7 @@ $Out = (Resolve-Path $Out).Path
 Copy-Item $exe "$Out\TelescopeDesktop.exe"
 # The window's .slint files and icons are read at run time (telescope_ui_kit::library_path)
 Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
-foreach ($dll in 'avcodec', 'avutil', 'swscale') {
+foreach ($dll in 'avcodec', 'avutil', 'swresample', 'swscale') {
     Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
 }
 Copy-Item -Recurse "$repo\desktop\unitycapture" "$Out\unitycapture"

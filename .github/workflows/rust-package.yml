@@ -39,7 +39,7 @@ jobs:
       - name: Install what it builds with
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm pkg-config \
+          apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm patchelf pkg-config \
             libva-dev libdrm-dev zlib1g-dev gcc-mingw-w64-x86-64-win32 libz-mingw-w64-dev
 
       - uses: actions/checkout@v7

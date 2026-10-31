@@ -2,7 +2,7 @@
 # Builds the small LGPL FFmpeg the release packages ship: only the decoders and hardware paths the app calls, no programs, no encoders.
 # Usage: build_ffmpeg.sh linux|windows OUT [DOWNLOADS]
 # Runs on Ubuntu 22.04 (CI's rust-package.yml, or `docker run ubuntu:22.04` here), which sets how old a Linux the package still runs on.
-# Linux needs: build-essential nasm pkg-config libva-dev libdrm-dev zlib1g-dev
+# Linux needs: build-essential nasm patchelf pkg-config libva-dev libdrm-dev zlib1g-dev
 # Windows also needs: gcc-mingw-w64-x86-64-win32 libz-mingw-w64-dev (the win32 thread model, so no libwinpthread DLL comes along)
 # The GPL build with libx264 stays for tests only: nothing here may turn on --enable-gpl.
 set -euo pipefail
@@ -41,7 +41,7 @@ export PKG_CONFIG_PATH="$work/nv/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PA
 flags=(
     --prefix="$out" --enable-shared --disable-static --enable-pic
     --disable-autodetect --disable-everything --disable-programs --disable-doc --disable-debug --disable-network
-    --disable-avdevice --disable-avformat --disable-avfilter --disable-swresample
+    --disable-avdevice --disable-avformat --disable-avfilter
     --enable-decoder="$DECODERS" --enable-parser=h264,hevc
     --enable-zlib --enable-ffnvcodec --enable-nvdec --enable-hwaccel=h264_nvdec,hevc_nvdec
 )
@@ -71,6 +71,9 @@ make -j"$JOBS"
 make install
 if [ "$target" = windows ]; then
     x86_64-w64-mingw32-strip "$out"/bin/*.dll
+else
+    # The Opus decoder pulls in swresample, which only finds its way through libavcodec's own search path
+    find "$out/lib" -maxdepth 1 -type f -name 'lib*.so.*' -exec patchelf --set-rpath '$ORIGIN' {} +
 fi
 cp COPYING.LGPLv2.1 "$out/"
 {

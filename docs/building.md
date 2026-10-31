@@ -108,7 +108,7 @@ FFmpeg comes first. `rust/tools/build_ffmpeg.sh` makes a small LGPL build with o
 
 ```bash
 docker run --rm -v "$PWD:/src" -w /src ubuntu:22.04 bash -c '
-  apt-get update && apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm pkg-config \
+  apt-get update && apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm patchelf pkg-config \
     libva-dev libdrm-dev zlib1g-dev gcc-mingw-w64-x86-64-win32 libz-mingw-w64-dev
   bash rust/tools/build_ffmpeg.sh linux rust/target/ffmpeg-linux
   bash rust/tools/build_ffmpeg.sh windows rust/target/ffmpeg-windows'

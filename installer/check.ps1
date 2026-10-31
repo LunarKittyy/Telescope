@@ -23,7 +23,7 @@ if ($Rust) {
     foreach ($want in "$app\ui-kit\ui-kit.slint", "$app\rnnoise.dll") {
         if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
     }
-    foreach ($dll in "avcodec-*.dll", "avutil-*.dll", "swscale-*.dll") {
+    foreach ($dll in "avcodec-*.dll", "avutil-*.dll", "swresample-*.dll", "swscale-*.dll") {
         if (-not (Get-ChildItem $app -Filter $dll)) { $problems += "after install, no $dll" }
     }
 }
