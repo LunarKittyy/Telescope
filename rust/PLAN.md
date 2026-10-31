@@ -84,6 +84,10 @@ Once `shell`, `media` and `plugin-host` exist, the rest is many small pieces wit
 
 The Python updater doesn't need to know about Rust. On Windows it swaps `TelescopeDesktop.exe` and starts it. On Linux it swaps the tarball's top-level entries and runs `start.sh --after-update`. So the Rust release ships a `TelescopeDesktop.exe` (or a `start.sh` that starts the binary) and implements the same journal handshake as `update_guard.py`: finish a cut-short swap, confirm a trial once the window is up, roll back one that never starts. That's a couple of hundred lines in `system`, with tests against the same journal states. The first Rust start also cleans up what the Python build left behind (`lib-<build>` folders, `.previous/`).
 
+## Later ideas
+- **FFmpeg on Windows (owner's call, 2026-10-31):** ship the small decoder-only build. The GPL build with libx264 stays for tests only.
+- **H.265 (owner, 2026-10-31):** add it some day for phones that support it, after the rewrite. Keep the HEVC decoder in the small build if it costs little.
+
 ## What's done already
 
 - **The prototype** (`meow/rust-prototype-b6ffde`): protocol, decode, v4l2 and the Camera card, with measurements in `rust/FINDINGS.md`.
