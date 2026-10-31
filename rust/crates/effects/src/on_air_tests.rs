@@ -187,7 +187,7 @@ fn a_webhook_arrives_as_built_and_a_failure_says_what_went_wrong_without_the_add
     let silent = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = silent.local_addr().unwrap().port();
     let started = Instant::now();
-    assert_eq!(send_webhook(&webhook_request(&format!("http://127.0.0.1:{port}/x"), "POST", "", true)), "timed out");
+    assert_eq!(send_webhook(&webhook_request(&format!("http://127.0.0.1:{port}/x"), "POST", "", true)), "TimeoutError");
     assert!((4.5..7.0).contains(&started.elapsed().as_secs_f64()), "{:?}", started.elapsed());
 }
 
@@ -270,8 +270,7 @@ fn sent_to(port: u16) -> String {
     send_webhook_within(&webhook_request(&format!("http://127.0.0.1:{port}/x"), "POST", "", true), Duration::from_secs(1))
 }
 
-// Python (urllib, read(4096), timeout 1 s) said: TimeoutError, IncompleteRead, and "" for a body cut short. A reset mid-body is
-// "Connection reset by peer" there, but ureq reports it as the body ending, so it reads as a short body here.
+// Python (urllib, read(4096), timeout 1 s) said: TimeoutError, IncompleteRead, and "" for a body cut short.
 #[test]
 fn a_body_that_stalls_or_is_garbled_is_a_failed_send() {
     let stall = odd_hub(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nok", |_| std::thread::sleep(Duration::from_secs(3)));
@@ -288,6 +287,92 @@ fn a_body_that_stalls_or_is_garbled_is_a_failed_send() {
         std::thread::sleep(Duration::from_millis(200));
     });
     assert_eq!(sent_to(short), "");
+}
+
+/// Makes closing the connection send a reset rather than an ordinary end.
+#[cfg(target_os = "linux")]
+fn reset_on_close(conn: &mut TcpStream) {
+    use std::os::fd::AsRawFd;
+    unsafe extern "C" {
+        fn setsockopt(fd: i32, level: i32, name: i32, value: *const std::ffi::c_void, len: u32) -> i32;
+    }
+    std::thread::sleep(Duration::from_millis(100));
+    let linger = [1i32, 0];
+    assert_eq!(unsafe { setsockopt(conn.as_raw_fd(), 1, 13, linger.as_ptr().cast(), 8) }, 0);
+}
+
+fn eof(_conn: &mut TcpStream) {}
+
+/// What Python's send_webhook said to each of these, recorded against the same replies.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_reset_is_named_wherever_it_comes() {
+    assert_eq!(sent_to(odd_hub(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nok", reset_on_close)), "Connection reset by peer");
+    assert_eq!(sent_to(odd_hub(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n", reset_on_close)), "Connection reset by peer");
+    assert_eq!(sent_to(odd_hub(b"", reset_on_close)), "Connection reset by peer");
+}
+
+#[test]
+fn only_a_2xx_counts_and_the_failure_says_what_came() {
+    let cases: [(&'static [u8], &str); 9] = [
+        (b"HTTP/1.1 204 No Content\r\n\r\n", ""),
+        (b"HTTP/1.1 304 Not Modified\r\n\r\n", "HTTP 304"),
+        (b"HTTP/1.1 300 Multiple\r\nContent-Length: 0\r\n\r\n", "HTTP 300"),
+        (b"HTTP/1.1 301 Moved\r\nContent-Length: 0\r\n\r\n", "HTTP 301"),
+        (b"HTTP/1.1 307 Temp\r\nLocation: /y\r\nContent-Length: 0\r\n\r\n", "HTTP 307"),
+        (b"HTTP/1.1 308 Perm\r\nLocation: /y\r\nContent-Length: 0\r\n\r\n", "HTTP 308"),
+        (b"", "RemoteDisconnected"),
+        (b"HTTP/1.1 100 Continue\r\n\r\n", "RemoteDisconnected"),
+        (b"hello\r\n\r\n", "BadStatusLine"),
+    ];
+    for (reply, want) in cases {
+        assert_eq!(sent_to(odd_hub(reply, eof)), want, "{}", String::from_utf8_lossy(reply));
+    }
+}
+
+/// A redirect goes on as a GET, and one that loops fails with its own status once urllib would give up on it.
+#[test]
+fn redirects_go_as_urllib_takes_them() {
+    let (port, seen) = hub_replying(vec![b"HTTP/1.1 302 Found\r\nLocation: /next\r\nContent-Length: 0\r\n\r\n".to_vec(), b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n".to_vec()]);
+    assert_eq!(sent_to(port), "");
+    let seen = seen.lock().unwrap();
+    assert!(seen[0].starts_with("POST /x "), "{}", seen[0]);
+    assert!(seen[1].starts_with("GET /next "), "{}", seen[1]);
+    drop(seen);
+    let looping = vec![b"HTTP/1.1 302 Found\r\nLocation: /x\r\nContent-Length: 0\r\n\r\n".to_vec(); 8];
+    let (port, seen) = hub_replying(looping);
+    assert_eq!(sent_to(port), "HTTP 302");
+    assert_eq!(seen.lock().unwrap().len(), 5);
+}
+
+/// A hub answering each connection with the next reply, keeping the first line of what it was asked.
+fn hub_replying(replies: Vec<Vec<u8>>) -> (u16, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for reply in replies {
+            let Ok((mut conn, _)) = listener.accept() else { return };
+            let mut reader = BufReader::new(conn.try_clone().unwrap());
+            let (mut first, mut length) = (String::new(), 0usize);
+            let _ = reader.read_line(&mut first);
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap_or(0) == 0 || line.trim().is_empty() {
+                    break;
+                }
+                if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = v.trim().parse().unwrap_or(0);
+                }
+            }
+            let _ = reader.read_exact(&mut vec![0; length]);
+            log.lock().unwrap().push(first);
+            let _ = conn.write_all(&reply);
+            let _ = conn.shutdown(std::net::Shutdown::Both);
+        }
+    });
+    (port, seen)
 }
 
 type Bodies = Arc<Mutex<Vec<String>>>;
