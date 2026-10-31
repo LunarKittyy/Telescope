@@ -520,6 +520,9 @@ impl HostSensors for Ctx<'_> {
 
 impl HostPackets for Ctx<'_> {
     fn packets_problem(&self) -> String {
+        if self.state.streams.plugin_source {
+            return telescope_core::i18n::tr("Only a phone's stream has the video this needs.");
+        }
         let heavy = match &self.state.streams.url {
             Some(url) => url.ends_with(".mjpeg"),
             None => self.state.plugin_config("stream_output").is_some_and(|c| c["format"] == "mjpeg"),

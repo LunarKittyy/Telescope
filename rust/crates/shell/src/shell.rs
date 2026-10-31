@@ -166,6 +166,8 @@ pub struct Streams {
     pub camera_off_auto: bool,
     /// Whether the camera can go off now, and why not.
     pub can_turn_off: (bool, String),
+    /// The source the panels speak for is a plugin's, with no phone's video to work on.
+    pub plugin_source: bool,
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
     /// (id, name) of the stream the mic follows, and the ids of every stream that's up.
@@ -1113,6 +1115,7 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use telescope_core::plugin::ConfigRejected;
     use telescope_core::testing::scratch_dir;
     use telescope_core::source::RouteSpec;
@@ -1151,6 +1154,125 @@ mod tests {
 
     fn state() -> State {
         State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")))
+    }
+
+    #[test]
+    fn a_config_that_was_set_aside_shows_a_banner() {
+        let mut s = state();
+        std::fs::create_dir_all(s.file.path().parent().unwrap()).unwrap();
+        std::fs::write(s.file.path(), "not valid json").unwrap();
+        s.apply_saved_config();
+        let issue = s.banners.issue("config").expect("a banner");
+        assert!(issue.title.contains("couldn't be read") && issue.text.contains(".invalid-"), "{issue:?}");
+    }
+
+    #[test]
+    fn a_readable_config_shows_no_banner() {
+        let mut s = state();
+        s.apply_saved_config();
+        assert!(s.banners.issue("config").is_none());
+    }
+
+    #[test]
+    fn apply_config_empty_is_noop() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        s.apply_saved_config();
+        assert!(s.banners.all().is_empty());
+    }
+
+    #[test]
+    fn once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings() {
+        struct Ready(&'static str, Arc<Mutex<Vec<String>>>);
+        impl Plugin for Ready {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: self.0.into(), ..Default::default() }
+            }
+            fn set_config(&mut self, _cfg: &Value) -> Result<(), ConfigRejected> {
+                self.1.lock().unwrap().push(format!("config {}", self.0));
+                Ok(())
+            }
+            fn on_plugins_ready(&mut self, _host: &mut dyn telescope_core::host::Host) {
+                self.1.lock().unwrap().push(format!("ready {}", self.0));
+            }
+        }
+        let mut s = state();
+        s.file.save(&mut json!({"plugin_configs": {"first": {"a": 1}, "second": {"b": 2}}}));
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Ready("first", heard.clone()))).unwrap();
+        s.register(Box::new(Ready("second", heard.clone()))).unwrap();
+        heard.lock().unwrap().clear();
+        s.apply_saved_config();
+        assert_eq!(*heard.lock().unwrap(), ["config first", "config second", "ready first", "ready second"]);
+    }
+
+    #[cfg(unix)]
+    fn locked(s: &State, mode: u32) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(s.file.path(), std::fs::Permissions::from_mode(mode)).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_settings_file_that_cant_be_read_is_not_saved_over() {
+        let mut s = state();
+        s.file.save(&mut json!({"devices": {"PhoneB": {"plugin_configs": {"transforms": {"zoom": 3}}}}}));
+        s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
+        s.selected = Some("PhoneA".into());
+        locked(&s, 0o000);
+        assert!(!s.save_now(), "the window tries again");
+        locked(&s, 0o600);
+        assert_eq!(s.file.load()["devices"]["PhoneB"]["plugin_configs"]["transforms"]["zoom"], 3);
+    }
+
+    #[test]
+    fn save_config_failure_notifies_once_until_a_save_succeeds() {
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        let notes = |s: &State| s.effects.iter().filter(|e| matches!(e, Effect::Notify { title, .. } if title == "Telescope - Save failed")).count();
+        // A folder where the save writes its copy first
+        let in_the_way = PathBuf::from(format!("{}.tmp", s.file.path().display()));
+        std::fs::create_dir(&in_the_way).unwrap();
+        assert!(!s.save_now());
+        assert!(!s.save_now());
+        assert_eq!(notes(&s), 1);
+        std::fs::remove_dir(&in_the_way).unwrap();
+        assert!(s.save_now());
+        std::fs::create_dir(&in_the_way).unwrap();
+        assert!(!s.save_now());
+        assert_eq!(notes(&s), 2);
+    }
+
+    #[test]
+    fn a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save() {
+        struct Odd(Arc<Mutex<Value>>);
+        impl Plugin for Odd {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "odd".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                self.0.lock().unwrap().clone()
+            }
+        }
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        let odd = Arc::new(Mutex::new(json!({"level": 1})));
+        s.register(Box::new(Odd(odd.clone()))).unwrap();
+        s.register(stub("other", json!({"x": 1}), false).0).unwrap();
+        assert!(s.save_now());
+        *odd.lock().unwrap() = json!(["not", "a", "dict"]);
+        assert!(s.save_now());
+        assert_eq!(s.file.load()["plugin_configs"]["odd"], json!({"level": 1}));
+        assert_eq!(s.file.load()["plugin_configs"]["other"], json!({"x": 1}));
+        assert!(!s.effects.iter().any(|e| matches!(e, Effect::Notify { .. })));
+    }
+
+    #[test]
+    fn register_plugin_initializes_panel_and_captures_device_defaults() {
+        let mut s = state();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        assert_eq!(s.slots.len(), 1);
+        assert_eq!(s.slots[0].defaults, json!({"zoom": 1}));
     }
 
     #[test]

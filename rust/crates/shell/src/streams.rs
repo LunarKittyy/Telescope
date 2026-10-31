@@ -198,12 +198,13 @@ impl Window {
         let source = flow.active_source(&mut host);
         let can_turn_off = flow.can_turn_camera_off(&mut host);
         let (off, auto) = { let st = source.state.borrow(); (st.camera_off, st.camera_off_auto) };
+        let plugin_source = source.kind.as_phone().is_none();
         let idle = flow.sessions.streams.is_empty() && !flow.sessions.waking;
         drop(flow);
         let changed = {
             let streams = &mut self.state.borrow_mut().streams;
             let changed = streams.camera_off != off;
-            (streams.camera_off, streams.camera_off_auto, streams.can_turn_off) = (off, auto, can_turn_off);
+            (streams.camera_off, streams.camera_off_auto, streams.can_turn_off, streams.plugin_source) = (off, auto, can_turn_off, plugin_source);
             changed
         };
         if changed && idle {
@@ -365,7 +366,7 @@ impl Window {
     }
 
     /// Host::update_stream_output: the new size or rate goes to that stream's worker (the focused one without an id).
-    pub(crate) fn update_output(self: &Rc<Self>, change: &telescope_core::host::OutputChange, source_id: Option<&str>) {
+    pub fn update_output(self: &Rc<Self>, change: &telescope_core::host::OutputChange, source_id: Option<&str>) {
         let flow = self.streams.flow.borrow();
         let source = match source_id {
             Some(id) => flow.sessions.find(Some(id)),
@@ -446,7 +447,7 @@ impl Window {
             let result = match outputs.filter(|_| linux) {
                 // Still reports back, so the stream it stopped isn't left waiting
                 Some(outputs) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| outputs.set_up(telescope_core::output::SetupAction::Reload, &|_| {})))
-                    .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: tr("The reload stopped unexpectedly"), command: None }),
+                    .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: "the reload stopped unexpectedly".into(), command: None }),
                 None => telescope_core::output::SetupResult { ok: true, message: String::new(), command: None },
             };
             let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, result, was_streaming)));

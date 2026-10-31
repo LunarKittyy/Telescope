@@ -224,6 +224,23 @@ fn a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one() {
 }
 
 #[test]
+fn re_pairing_a_phone_while_another_starts_restarts_it_after() {
+    let r = two_streams("two-repair");
+    r.link.pair("third", "Third");
+    r.link.hold_wakes(true);
+    r.w.with_flow(|flow, host| flow.add_stream(host, "third"));
+    r.until("the wake", |r| r.link.logged("wake third") == 1);
+    r.w.with_flow(|flow, host| flow.reconnect_stream(host, Some("pixel")));
+    r.pump();
+    assert_eq!(r.workers_made(), 2, "it waits for the start under way");
+    r.link.hold_wakes(false);
+    r.until("the restart too", |r| r.workers_made() == 4);
+    r.pump();
+    assert_eq!(r.streaming().len(), 3);
+    assert!(r.worker(0).is_stopped());
+}
+
+#[test]
 fn a_canvas_change_waits_for_one_camera() {
     let r = two_streams("two-canvas");
     r.w.restart_canvas("panel", RequestId(1));

@@ -4,8 +4,11 @@ mod rig;
 use rig::{state_with, Listener, Output, Rig};
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
+use slint_interpreter::Value as SValue;
 use std::time::{Duration, Instant};
+use telescope_core::host::OutputChange;
 use telescope_core::plugin::Plugin;
+use telescope_outputs::stream_output::StreamOutputPlugin;
 use telescope_shell::shell::Effect;
 use telescope_shell::sources::Report;
 use telescope_shell::worker::WorkerEvent;
@@ -471,4 +474,56 @@ fn a_reconnect_keeps_the_worker_from_hearing_a_gone_stream() {
     old.says("ok", "Streaming");
     r.pump();
     assert_eq!(r.text("status"), "Not streaming");
+}
+
+#[test]
+fn update_stream_output_forwards_only_provided_values() {
+    let r = Rig::new("update-output");
+    let change = |change: OutputChange| r.w.update_output(&change, None);
+    change(OutputChange { width: Some(Some(1280)), height: Some(Some(720)), fps: None }); // no-op when idle
+    r.start();
+    change(OutputChange { width: None, height: None, fps: Some(Some(60)) });
+    change(OutputChange { width: Some(None), height: Some(None), fps: None }); // None: pass-through
+    assert_eq!(*r.worker(0).log.lock().unwrap(), ["update_output None None Some(60)", "update_output Some(None) Some(None) None"]);
+}
+
+#[test]
+fn falling_behind_on_heavy_offers_light_and_switching_reconnects() {
+    let r = Rig::with("heavy-behind", |_, heard| vec![Box::new(StreamOutputPlugin::new(true)) as Box<dyn Plugin>, Box::new(Listener::new("panel", heard))]);
+    r.w.state.borrow_mut().apply_device_profile(Some("pixel"), &json!({"devices": {"pixel": {"plugin_configs": {"stream_output": {"format": "mjpeg"}}}}}));
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(!r.link.formats.lock().unwrap().last().unwrap().h264);
+    r.worker(0).says("net_warn", "40.0 Mbps");
+    r.pump();
+    r.worker(0).says("net_warn", "40.0 Mbps");
+    r.pump();
+    let banner = r.banner("behind").expect("a banner");
+    assert_eq!((banner["title"].as_str(), banner["text"].as_str()), ("Can't keep up", "Try Light or lower quality."));
+    assert_eq!(banner["actions"], "Switch to Light");
+    assert_eq!(banner["kind"], "warn");
+    r.w.ui.invoke("banner-action", &[SValue::String("behind".into()), SValue::Number(0.0)]).unwrap();
+    r.until("it reconnects", |r| r.workers_made() == 2);
+    assert!(r.link.formats.lock().unwrap().last().unwrap().h264);
+    assert!(r.banner("behind").is_none());
+}
+
+#[test]
+fn packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed() {
+    use telescope_core::host::HostPackets;
+    let r = Rig::with("packets-problem", |link, heard| {
+        vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(Output { config: json!({"format": "mjpeg"}) }), Box::new(rig::Picker(link.clone()))]
+    });
+    let problem = |r: &Rig| r.w.state.borrow_mut().call(0, |_, host| host.packets_problem()).unwrap();
+    r.w.process();
+    assert!(problem(&r).contains("Heavy"));
+    r.w.state.borrow_mut().streams.url = Some("https://phone/v1/video.mjpeg".into());
+    assert!(problem(&r).contains("Heavy"), "what streams counts, not what's picked for next time");
+    r.w.state.borrow_mut().streams.url = Some("https://phone/v1/video.udp".into());
+    assert_eq!(problem(&r), "");
+    r.offer(rig::FakeSource::new("browser"));
+    r.pick("browser");
+    r.w.process();
+    assert_ne!(problem(&r), "");
 }
