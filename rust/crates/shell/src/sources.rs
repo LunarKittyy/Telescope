@@ -1287,11 +1287,14 @@ mod tests {
         RouteSpec::Network { address: "192.168.1.20".into() }
     }
 
+    /// A banner's title, text and buttons.
+    type Shown = (String, String, Vec<IssueAction>);
+
     /// The window as a source sees it, writing down what it's asked.
     #[derive(Default)]
     struct Stand {
         calls: RefCell<Vec<String>>,
-        issues: RefCell<Vec<(String, String, String, Vec<IssueAction>)>>,
+        issues: RefCell<Vec<(String, Shown)>>,
         streaming: Cell<bool>,
         waking: Cell<bool>,
     }
@@ -1303,14 +1306,14 @@ mod tests {
         fn called(&self, call: &str) -> bool {
             self.calls.borrow().iter().any(|c| c == call)
         }
-        fn issue(&self, key: &str) -> Option<(String, String, Vec<IssueAction>)> {
-            self.issues.borrow().iter().find(|i| i.0 == key).map(|i| (i.1.clone(), i.2.clone(), i.3.clone()))
+        fn issue(&self, key: &str) -> Option<Shown> {
+            self.issues.borrow().iter().find(|i| i.0 == key).map(|i| i.1.clone())
         }
     }
 
     impl SourceHost for Stand {
         fn show_issue(&self, key: &str, title: &str, text: &str, actions: Vec<IssueAction>) {
-            self.issues.borrow_mut().push((key.into(), title.into(), text.into(), actions));
+            self.issues.borrow_mut().push((key.into(), (title.into(), text.into(), actions)));
         }
         fn clear_issue(&self, key: &str) {
             self.issues.borrow_mut().retain(|i| i.0 != key);
