@@ -102,7 +102,7 @@ export component Tag inherits Rectangle {
     label := Text {
         text: root.text;
         font-family: Theme.font;
-        font-size: 11px; // 0.88 of the body size, which Qt draws at 11
+        font-size: floor(Theme.body * 0.88 / 1px) * 1px; // 0.88 of the body size, which Qt draws at 11
         font-weight: 600;
         color: root.tint.brighter(0.08);
         accessible-role: none;

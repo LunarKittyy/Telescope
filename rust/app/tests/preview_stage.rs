@@ -3,18 +3,20 @@ mod rig;
 
 use rig::{Listener, Rig};
 use serde_json::json;
+use i_slint_backend_testing::ElementHandle;
 use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value as SValue};
 use std::sync::{Arc, Mutex};
 use telescope_core::event::{Event, LensBox};
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::host::{Host, Pick, PickKind};
+use telescope_core::host::{Host, Pick, PickKind, ViewChange};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::pose::Person;
 use telescope_core::preview::PreviewPass;
 use telescope_shell::offscreen;
 use telescope_shell::plugins::preview::Preview;
+use telescope_shell::preview::{CpuPainter, Painter};
 use telescope_shell::worker::VideoWorker;
 
 /// Hears what the stage says to the rest of the app.
@@ -184,9 +186,40 @@ impl Stage {
     }
 
     fn pop_out(&self) -> ComponentInstance {
-        self.r.w.call_ui("preview", "card", "pop-out");
-        self.r.w.paint_preview();
+        self.press_button("Pop out");
         self.r.w.popout_window().expect("the pop-out")
+    }
+
+    /// The window's own close button on the pop-out.
+    fn close_pop_out(&self, p: &ComponentInstance) {
+        p.window().dispatch_event(WindowEvent::CloseRequested);
+        self.r.w.process();
+        self.r.w.paint_preview();
+    }
+
+    fn element(&self, label: &str) -> Option<ElementHandle> {
+        ElementHandle::find_by_accessible_label(&self.r.w.ui, label).next()
+    }
+
+    /// A real click on the toolbar's button with this name, then a turn of the preview's timer.
+    fn press_button(&self, label: &str) {
+        let e = self.element(label).unwrap_or_else(|| panic!("no {label} button"));
+        let (p, size) = (e.absolute_position(), e.size());
+        self.click(LogicalPosition::new(p.x + size.width / 2.0, p.y + size.height / 2.0));
+        self.r.w.paint_preview();
+    }
+
+    /// Whether the stage reads this, on the Text it's drawn with.
+    fn says(&self, text: &str) -> bool {
+        self.element(text).is_some()
+    }
+
+    fn lines(&self) -> Vec<serde_json::Value> {
+        telescope_shell::source::to_json(&self.prop("skeleton-lines")).as_array().cloned().unwrap_or_default()
+    }
+
+    fn accent(&self) -> SValue {
+        self.r.w.ui.get_global_property("Theme", "accent").unwrap()
     }
 
     fn picked(&self) -> Vec<(f32, f32)> {
@@ -425,10 +458,16 @@ fn the_popout_goes_blank_when_the_stream_stops() {
     assert_eq!(p.get_property("has-frame").unwrap(), SValue::Bool(false));
 }
 
+// Python scales on the stream thread and signals the UI; here the window pulls the newest frame and scales it as it paints,
+// so the stream keeps its full frame and is never held up by the preview
 #[test]
-fn frames_are_scaled_to_the_view_on_the_stream_thread() {
+fn frames_are_scaled_to_the_view_as_they_are_painted() {
     let s = on_air("stage-scaled");
-    s.show(0, grey(1920, 1080));
+    let frame = grey(1920, 1080);
+    let sent = frame.clone();
+    s.show(0, frame);
+    let (held, _) = s.r.worker(0).slot().latest().unwrap();
+    assert!(Arc::ptr_eq(&held.data, &sent.data) && (held.width, held.height) == (1920, 1080), "the stream's own frame stays as it was");
     let (w, h) = (s.number("stage-width"), s.number("stage-height"));
     let scale = (w / 1920.0).min(h / 1080.0);
     assert!(scale < 1.0);
@@ -448,13 +487,19 @@ fn card_preview_downscales_large_frame_before_signal() {
     let width = s.number("stage-width").min(s.number("stage-height") * 2.0).round() as u32;
     assert!(width < 1200);
     assert_eq!(s.image_size(), (width, width / 2));
+    assert_eq!(s.r.worker(0).slot().latest().unwrap().0.width, 1200, "what the stream holds isn't touched");
 }
 
 #[test]
 fn card_preview_copies_small_frame_and_popout_keeps_full_resolution() {
     let s = on_air("stage-small");
-    s.show(0, grey(200, 100));
+    let frame = grey(200, 100);
+    let held = frame.data.clone();
+    s.r.worker(0).slot().publish(frame);
+    let holders = Arc::strong_count(&held);
+    s.r.w.paint_preview();
     assert_eq!(s.image_size(), (200, 100));
+    assert_eq!(Arc::strong_count(&held), holders, "the card's picture is a copy: it holds on to none of the stream's memory");
     let p = s.pop_out();
     s.show(0, grey(200, 100));
     let SValue::Image(image) = p.get_property("frame").unwrap() else { panic!("no picture") };
@@ -492,6 +537,7 @@ fn process_frame_is_zero_copy_when_inactive_or_busy() {
     assert!(!s.has_frame());
     assert!(matches!(s.prop("frame"), SValue::Image(i) if i.size().width == 0), "nothing was drawn for it");
     assert_eq!(Arc::strong_count(&held), holders, "and nothing kept it");
+    assert!(Arc::ptr_eq(&s.r.worker(0).slot().latest().unwrap().0.data, &held), "the stream's frame goes on as the same memory");
 }
 
 #[test]
@@ -555,6 +601,7 @@ fn a_frame_from_just_before_the_camera_went_off_is_dropped() {
     assert_eq!(p.get_property("has-frame").unwrap(), SValue::Bool(false), "and the pop-out goes blank with it");
 }
 
+// The frame the last stream's paint was waiting on never came: nothing turned the preview's timer between the two streams
 #[test]
 fn a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame() {
     let s = on_air("stage-new-stream");
@@ -562,7 +609,6 @@ fn a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame() {
     assert!(s.has_frame());
     s.r.stop(None);
     s.r.pump();
-    s.r.w.paint_preview();
     s.r.start();
     s.r.until("the second worker", |r| r.workers_made() == 2);
     s.r.worker(1).says("ok", "Streaming");
@@ -572,12 +618,29 @@ fn a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame() {
     assert!(s.has_frame(), "its first frame has the number the last stream's had");
 }
 
+/// Won't draw the first frame it's given (a texture Slint refuses), and draws from then on.
+struct RefusesOnce(bool, CpuPainter);
+
+impl Painter for RefusesOnce {
+    fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
+        if std::mem::replace(&mut self.0, false) {
+            return None;
+        }
+        self.1.paint(frame, width, height)
+    }
+}
+
 #[test]
 fn a_frame_that_fails_to_show_still_frees_the_preview() {
+    use telescope_core::media::Media;
     let s = on_air("stage-broken");
-    s.show(0, Frame::new(0, 0, PixelFormat::Rgba, Vec::new()));
+    s.r.w.use_painter(Box::new(RefusesOnce(true, CpuPainter(telescope_media::FfmpegMedia.scaler()))));
     s.show(0, grey(32, 18));
-    assert_eq!(s.image_size(), (32, 18));
+    assert!(!s.has_frame(), "this one failed to show");
+    s.r.w.paint_preview();
+    assert_eq!(s.image_size(), (32, 18), "and the preview takes it again, not waiting on it for good");
+    s.show(0, grey(64, 36));
+    assert_eq!(s.image_size(), (64, 36));
 }
 
 #[test]
@@ -621,4 +684,347 @@ fn layers_tint_the_preview_copy_and_not_the_frame_apps_get() {
     assert_eq!(s.pixel(), (255, 0, 0), "the picture on the stage");
     assert!(sent.data.chunks(4).all(|p| p == [0, 0, 0, 255]), "the frame itself");
     assert!(s.r.worker(0).slot().latest().unwrap().0.data.chunks(4).all(|p| p == [0, 0, 0, 255]), "what the stream still holds");
+}
+
+const IDLE: &str = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.";
+const IDLE_MIC: &str = "Not streaming\n\nStart mic only streams the phone's mic with its camera off.";
+const WAITING: &str = "Waiting for the first frame\u{2026}";
+const CAMERA_OFF: &str = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.";
+const CAMERA_OFF_AUTO: &str = "Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it.";
+
+/// A stage with a Microphone stand-in that's on or off.
+fn with_mic(name: &str, on: bool) -> Stage {
+    let heard = Heard::default();
+    let ears = heard.clone();
+    let r = Rig::with(name, move |_, log| {
+        let mut mic = Listener::new("microphone", log);
+        mic.config = json!({"enabled": on});
+        vec![Box::new(Ears(ears)) as Box<dyn Plugin>, Box::new(Preview::default()), Box::new(mic)]
+    });
+    r.w.ui.window().set_size(slint::LogicalSize::new(1200.0, 800.0));
+    r.w.ui.show().unwrap();
+    Stage { r, heard }
+}
+
+#[test]
+fn preview_starts_active_and_toggles_off_and_back_on() {
+    let s = stage("stage-toggle");
+    assert!(s.on("showing") && s.element("Hide").is_some());
+    assert!(s.says(IDLE));
+    s.press_button("Hide");
+    assert!(!s.on("showing") && s.element("Hide").is_none());
+    assert!(s.says("Preview hidden"));
+    s.press_button("Show");
+    assert!(s.on("showing") && s.element("Hide").is_some());
+    assert!(s.says(IDLE));
+}
+
+#[test]
+fn the_idle_text_names_the_browser_while_a_browser_source_is_picked() {
+    let s = stage("stage-idle");
+    let browser = "Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects.";
+    for (source, text) in [("browser", browser), ("browser:b1", browser), ("webcam:usb-c920", "Not streaming\n\nPress Start streaming to use this camera."), ("", IDLE)] {
+        s.r.w.emit(Event::SourceSelected { source_id: source.into() });
+        assert!(s.says(text), "{source}");
+    }
+    assert!(!browser.contains("phone"));
+}
+
+#[test]
+fn preview_placeholder_says_waiting_while_a_stream_is_up() {
+    let s = on_air("stage-waiting");
+    s.press_button("Hide");
+    s.press_button("Show");
+    assert!(s.says(WAITING));
+}
+
+#[test]
+fn stream_start_and_stop_swap_the_placeholder() {
+    let s = stage("stage-swap");
+    s.r.start();
+    s.r.pump();
+    assert!(s.says(WAITING));
+    s.r.worker(0).says("ok", "Streaming");
+    s.r.pump();
+    s.show(0, grey(32, 18));
+    assert!(s.has_frame() && !s.says(WAITING), "the picture takes its place");
+    s.r.stop(None);
+    s.r.pump();
+    assert!(s.says(IDLE));
+    assert!(!s.has_frame(), "the last picture goes with it");
+}
+
+#[test]
+fn the_stage_says_the_camera_is_off_and_why() {
+    let s = with_mic("stage-off-why", true);
+    s.r.start();
+    s.r.worker(0).says("ok", "Streaming");
+    s.r.pump();
+    s.show(0, grey(32, 18));
+    s.r.w.set_camera_on(false, false);
+    s.r.pump();
+    assert!(s.says(CAMERA_OFF) && s.on("camera-off") && !s.has_frame());
+    s.r.w.set_camera_on(true, false);
+    s.r.pump();
+    s.r.until("the new worker", |r| r.workers_made() == 2);
+    s.r.worker(1).says("ok", "Streaming");
+    s.r.pump();
+    assert!(s.says(WAITING) && !s.on("camera-off"));
+    s.r.w.set_camera_on(false, true);
+    s.r.pump();
+    assert!(s.says(CAMERA_OFF_AUTO) && s.on("camera-off"));
+}
+
+/// The tip the camera button shows under the mouse.
+fn camera_tip(s: &Stage, text: &str) -> bool {
+    let e = s.element("Phone camera").expect("the camera button");
+    let (p, size) = (e.absolute_position(), e.size());
+    s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(p.x + size.width / 2.0, p.y + size.height / 2.0) });
+    s.r.skip(600);
+    let shown = s.says(text);
+    s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(600.0, 200.0) });
+    s.r.skip(20);
+    shown
+}
+
+#[test]
+fn the_camera_button_turns_the_camera_off_and_says_so() {
+    let s = with_mic("stage-camera-button", true);
+    s.r.w.emit(Event::MicChanged { enabled: true, muted: false });
+    assert!(s.on("camera-on") && s.on("camera-enabled"));
+    s.press_button("Phone camera");
+    s.r.pump();
+    assert!(!s.on("camera-on"), "the click reached the camera");
+    assert!(camera_tip(&s, "Turn the phone's camera back on."));
+    assert!(s.says(IDLE_MIC), "not streaming yet: the stage says what Start will do");
+    s.press_button("Phone camera");
+    s.r.pump();
+    assert!(s.on("camera-on") && s.says(IDLE));
+}
+
+#[test]
+fn the_camera_can_only_go_off_with_the_mic_on() {
+    let s = with_mic("stage-camera-needs-mic", false);
+    s.r.w.emit(Event::MicChanged { enabled: false, muted: false });
+    s.r.pump();
+    assert!(!s.on("camera-enabled"));
+    assert!(s.text("camera-tip").contains("mic"), "{}", s.text("camera-tip"));
+    assert!(camera_tip(&s, &s.text("camera-tip")));
+    s.press_button("Phone camera");
+    s.r.pump();
+    assert!(s.on("camera-on"), "a disabled button does nothing");
+}
+
+#[test]
+fn open_and_close_popout_disables_then_restores_toggle() {
+    let s = stage("stage-popout-open");
+    let p = s.pop_out();
+    assert!(!s.on("showing") && s.on("popout"));
+    s.press_button("Show");
+    assert!(!s.on("showing"), "the button is disabled while the window is open");
+    s.close_pop_out(&p);
+    assert!(s.r.w.popout_window().is_none());
+    assert!(s.on("showing") && !s.on("popout"), "the card it hid comes back");
+    s.press_button("Hide");
+    assert!(!s.on("showing"), "and the button works again");
+}
+
+#[test]
+fn a_popout_opened_with_the_card_hidden_leaves_it_hidden() {
+    let s = stage("stage-popout-hidden");
+    s.press_button("Hide");
+    let p = s.pop_out();
+    s.close_pop_out(&p);
+    assert!(s.r.w.popout_window().is_none());
+    assert!(!s.on("showing"));
+}
+
+// What's checked here stops at the window: focus_window itself needs a real desktop
+#[test]
+fn second_popout_request_reuses_visible_window() {
+    let s = stage("stage-popout-again");
+    let p = s.pop_out();
+    p.window().set_size(slint::PhysicalSize::new(700, 400));
+    p.set_property("layer-font", SValue::String("marked".into())).unwrap();
+    p.window().set_minimized(true);
+    s.press_button("Pop out");
+    let again = s.r.w.popout_window().expect("the pop-out");
+    assert_eq!(again.get_property("layer-font").unwrap(), SValue::String("marked".into()), "the same window, not a new one");
+    assert_eq!(again.window().size(), slint::PhysicalSize::new(700, 400));
+    assert!(!p.window().is_minimized(), "it comes forward");
+    p.window().set_minimized(true);
+    s.r.w.paint_preview();
+    assert!(p.window().is_minimized(), "only when asked");
+}
+
+#[test]
+fn popout_set_frame_and_resize_guards() {
+    let s = on_air("stage-popout-frame");
+    let p = s.pop_out();
+    p.window().set_size(slint::PhysicalSize::new(640, 400));
+    s.show(0, grey(160, 90));
+    let SValue::Image(image) = p.get_property("frame").unwrap() else { panic!("no picture") };
+    assert_eq!(p.get_property("has-frame").unwrap(), SValue::Bool(true));
+    assert_eq!((image.size().width, image.size().height), (160, 90));
+    assert_eq!((p.window().size().width, p.window().size().height), (640, 360), "it takes the picture's shape");
+    p.window().set_size(slint::PhysicalSize::new(640, 362));
+    s.show(0, grey(160, 90));
+    assert_eq!(p.window().size().height, 362, "within 4 px it stays");
+    s.r.stop(None);
+    s.r.pump();
+    p.window().set_size(slint::PhysicalSize::new(500, 300));
+    s.r.w.paint_preview();
+    assert_eq!((p.window().size().width, p.window().size().height), (500, 300), "no picture, no shape to take");
+}
+
+#[test]
+fn a_pick_shows_a_hidden_preview() {
+    let s = letterboxed("stage-pick-reveals");
+    s.press_button("Hide");
+    assert!(!s.on("showing"));
+    s.call("ears", |host| assert!(host.pick_on_preview("ears", PickKind::Point, None, "")));
+    assert!(s.on("showing"), "started through the overlays, heard by the card");
+}
+
+#[test]
+fn turning_plugin_colours_off_repaints_every_card_in_the_app_purple() {
+    let s = stage("stage-hues");
+    let own = s.prop("hue");
+    assert_ne!(own, s.accent());
+    s.call("ears", |host| host.set_plugin_hues(false));
+    assert_eq!(s.prop("hue"), s.accent());
+    s.call("ears", |host| host.set_plugin_hues(true));
+    assert_eq!(s.prop("hue"), own);
+}
+
+#[test]
+fn lens_boxes_show_for_a_moment_after_a_move_then_fade() {
+    let s = on_air("stage-lens-button");
+    s.show(0, Frame::new(640, 360, PixelFormat::Rgba, [0, 0, 0, 255].repeat(640 * 360)));
+    let left = s.at(0.25, 0.5);
+    let button = |s: &Stage| s.element("Lens outlines").expect("the button").size().width;
+    assert_eq!(button(&s), 36.0, "icon only at a fixed width: it can't widen the stage");
+    s.press_button("Lens outlines");
+    assert!(!s.on("lenses-on"), "nothing to outline yet");
+    s.r.w.emit(Event::LensBoxes { boxes: vec![lens_box()], moved: false });
+    assert!(s.on("lenses-enabled") && !lit_near(&s, left), "known, but nothing moved");
+    let before = s.r.w.card_rect("preview").unwrap();
+    s.press_button("Lens outlines");
+    assert!(lit_near(&s, left), "always on");
+    assert_eq!((button(&s), s.r.w.card_rect("preview").unwrap()), (36.0, before));
+    s.press_button("Lens outlines");
+    assert!(!lit_near(&s, left));
+}
+
+/// Shoulders at 0.45 and 0.55 of the width, 0.4 down, and the left arm straight out.
+fn figure() -> serde_json::Value {
+    Person::new([("left_shoulder", 0.55, 0.4, 0.99), ("right_shoulder", 0.45, 0.4, 0.99), ("left_hip", 0.53, 0.75, 0.9), ("right_hip", 0.47, 0.75, 0.9),
+                 ("nose", 0.5, 0.28, 0.99), ("left_eye", 0.51, 0.26, 0.99), ("left_ear", 0.53, 0.27, 0.9), ("left_elbow", 0.62, 0.42, 0.9), ("left_wrist", 0.69, 0.42, 0.9)]).to_value()
+}
+
+/// A vision service in a state of the test's choosing, noting who asks for people.
+#[derive(Default)]
+struct Vision {
+    state: Mutex<String>,
+    wanted: Mutex<Vec<(String, bool)>>,
+}
+
+impl telescope_core::vision::VisionService for Vision {
+    fn attach(&self, _bus: telescope_core::BusSender) {}
+    fn state(&self) -> String {
+        self.state.lock().unwrap().clone()
+    }
+    fn load(&self) {}
+    fn person_mask(&self, _source_id: &str, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        None
+    }
+    fn want_people(&self, owner: &str, on: bool) {
+        self.wanted.lock().unwrap().push((owner.into(), on));
+    }
+    fn wants_people(&self) -> bool {
+        false
+    }
+    fn feed_raw(&self, _source_id: &str, _frame: &Frame, _upright: telescope_core::vision::Upright) {}
+    fn tracked_people(&self, _source_id: &str) -> (Vec<serde_json::Value>, u32) {
+        (Vec::new(), 0)
+    }
+    fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+    fn drop_stream(&self, _source_id: &str) {}
+    fn set_power_saving(&self, _on: bool) {}
+    fn diagnostics(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    fn shutdown(&self) {}
+    fn pack(&self) -> telescope_core::vision::VisionPack {
+        unimplemented!()
+    }
+    fn download(&self, _switch_on: &str) {}
+    fn cancel_download(&self) {}
+    fn remove_pack(&self) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+fn say_vision(s: &Stage, vision: &Vision, state: &str) {
+    *vision.state.lock().unwrap() = state.into();
+    s.r.w.emit(Event::VisionStateChanged { state: state.into() });
+}
+
+fn with_vision(s: &Stage) -> Arc<Vision> {
+    let vision = Arc::new(Vision::default());
+    s.r.w.state.borrow_mut().vision = Some(vision.clone());
+    vision
+}
+
+#[test]
+fn the_skeleton_button_only_shows_with_the_vision_download() {
+    let s = on_air("stage-skeleton-button");
+    let vision = with_vision(&s);
+    for (state, shown) in [("missing", false), ("off", true), ("failed", false), ("ready", true)] {
+        say_vision(&s, &vision, state);
+        assert_eq!(s.element("Skeleton").is_some(), shown, "{state}");
+    }
+    s.press_button("Skeleton");
+    assert_eq!(vision.wanted.lock().unwrap().last(), Some(&("Preview skeleton".to_string(), true)));
+    say_vision(&s, &vision, "missing");
+    assert_eq!(vision.wanted.lock().unwrap().last(), Some(&("Preview skeleton".to_string(), false)), "the download went away with the button on");
+}
+
+#[test]
+fn the_skeleton_draws_the_shown_streams_people_over_the_preview() {
+    let s = on_air("stage-skeleton-people");
+    s.show(0, Frame::new(640, 360, PixelFormat::Rgba, [0, 0, 0, 255].repeat(640 * 360)));
+    let vision = with_vision(&s);
+    say_vision(&s, &vision, "ready");
+    let seen = |source: &str| s.r.w.emit(Event::PeopleSeen { source_id: source.into(), people: vec![figure()] });
+    seen("pixel");
+    assert!(s.lines().is_empty(), "not asked for");
+    s.press_button("Skeleton");
+    assert_eq!(vision.wanted.lock().unwrap().last(), Some(&("Preview skeleton".to_string(), true)));
+    seen("another phone");
+    assert!(s.lines().is_empty());
+    seen("pixel");
+    assert!(lit_near(&s, s.at(0.5, 0.4)), "the shoulders' line");
+    s.press_button("Skeleton");
+    assert_eq!(vision.wanted.lock().unwrap().last(), Some(&("Preview skeleton".to_string(), false)));
+    assert!(s.lines().is_empty());
+    assert!(!lit_near(&s, s.at(0.5, 0.4)));
+}
+
+#[test]
+fn the_skeleton_follows_the_zoom_and_marks_an_arm_held_out() {
+    let s = on_air("stage-skeleton-zoom");
+    s.show(0, Frame::new(640, 360, PixelFormat::Rgba, [0, 0, 0, 255].repeat(640 * 360)));
+    s.r.w.emit(Event::VisionStateChanged { state: "ready".into() });
+    s.press_button("Skeleton");
+    s.call("ears", |host| host.set_view(ViewChange { zoom: Some(2.0), ..Default::default() }));
+    s.r.w.emit(Event::PeopleSeen { source_id: "pixel".into(), people: vec![figure()] });
+    let lines = s.lines();
+    let close = |a: &serde_json::Value, b: f64| (a.as_f64().unwrap() - b).abs() < 1e-3;
+    let shoulders = lines.iter().find(|l| close(&l["y0"], 0.3) && close(&l["y1"], 0.3)).expect("the shoulders, moved by the zoom");
+    let mut xs = [shoulders["x0"].as_f64().unwrap(), shoulders["x1"].as_f64().unwrap()];
+    xs.sort_by(f64::total_cmp);
+    assert!((xs[0] - 0.4).abs() < 1e-3 && (xs[1] - 0.6).abs() < 1e-3 && shoulders["out"] == false, "{xs:?}");
+    assert_eq!(lines.iter().filter(|l| l["out"] == true).count(), 2, "shoulder to elbow and elbow to wrist, not the side of the body or the face");
+    assert!(lit_near(&s, s.at(0.5, 0.3)), "drawn where the zoom put it");
 }

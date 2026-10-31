@@ -28,6 +28,24 @@ export component Segmented inherits Rectangle {
         touched = true;
         picked(i);
     }
+    // Every option is a Tab stop of its own, as in reading_order; Space picks it. keyed: Tab or an arrow brought the focus
+    // here, so it shows the ring; a click gives it without one (theme.keyboard_focus)
+    property <bool> keyed;
+    // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    // QAbstractButton's moveFocus: an arrow moves the focus along the group, and picks with it from the picked option
+    function step(from: int, to: int) {
+        if (to < 0 || to >= items.length || disabled[to]) {
+            return;
+        }
+        if (from == shown) {
+            pick(to);
+        }
+        keyed = true;
+        arrow-to = to;
+        arrows += 1;
+    }
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
@@ -36,17 +54,8 @@ export component Segmented inherits Rectangle {
     height: 32px + 2 * margin;
     horizontal-stretch: 1;
     preferred-width: 0px;
-    forward-focus: focus;
     accessible-role: tab-list;
     accessible-label: label;
-    focus := FocusScope {
-        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        key-pressed(e) => {
-            if (e.text == Key.LeftArrow && shown > 0 && !disabled[shown - 1]) { pick(shown - 1); return accept; }
-            if (e.text == Key.RightArrow && shown < items.length - 1 && !disabled[shown + 1]) { pick(shown + 1); return accept; }
-            reject
-        }
-    }
     track := Rectangle {
         y: margin;
         height: 32px;
@@ -54,7 +63,6 @@ export component Segmented inherits Rectangle {
         border-width: 1px;
         border-color: Theme.border;
         border-radius: 8px;
-        FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
     }
     HorizontalLayout {
         y: margin;
@@ -78,8 +86,36 @@ export component Segmented inherits Rectangle {
             accessible-checked: on;
             if tips[i] != "": Tooltip { TipBody { says: tips[i]; } }
             bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
+            property <int> asked: arrows;
+            changed asked => {
+                if (arrow-to == i) {
+                    seg-focus.focus();
+                }
+            }
+            seg-focus := FocusScope {
+                enabled: !off;
+                focus-gained(reason) => {
+                    if (reason == FocusReason.tab-navigation) {
+                        keyed = true;
+                        Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+                    }
+                }
+                key-pressed(e) => {
+                    if (e.text == " ") { pick(i); return accept; }
+                    if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
+                    if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
+                    reject
+                }
+            }
+            FocusRing { shown: seg-focus.has-focus && keyed; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down && !off) {
+                        keyed = false;
+                        seg-focus.focus();
+                    }
+                }
                 clicked => {
                     if (!off) {
                         pick(i);

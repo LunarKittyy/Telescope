@@ -88,6 +88,7 @@ pub struct Window {
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
     pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
+    painted_gen: Cell<i32>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
@@ -264,6 +265,14 @@ pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u
     (fitted != size).then_some(fitted)
 }
 
+/// raise_ and activateWindow on an open window: not minimized, in front and with the keyboard. show() does nothing on
+/// a window that's already shown.
+pub(crate) fn bring_forward(window: &slint::Window) {
+    use slint::winit_030::WinitWindowAccessor;
+    window.set_minimized(false);
+    window.with_winit_window(|w| w.focus_window());
+}
+
 /// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px.
 fn fit_popout(p: &ComponentInstance, frame_w: u32, frame_h: u32) {
     let size = p.window().size();
@@ -390,6 +399,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         fitted: Cell::new(false),
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
+        painted_gen: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -703,6 +713,11 @@ impl Window {
                 }
             }
         }
+        // A new stream's first frame is a new one whatever its number, even with no paint since the last stream stopped
+        let stream_gen = match prop("stream-gen") { Some(SValue::Number(n)) => n as i32, _ => 0 };
+        if self.painted_gen.replace(stream_gen) != stream_gen {
+            self.painted.set(0);
+        }
         // _clear: nothing to show, on the pop-out too, and the next stream's first frame is a new one whatever its number
         if !on("camera-on") || !self.is_streaming() {
             if let Some(p) = &popout {
@@ -924,6 +939,7 @@ impl Window {
             self.popout_asks.set(asks);
             if let Some(p) = self.popout.borrow().as_ref() {
                 let _ = p.show();
+                bring_forward(p.window());
             }
         }
     }
@@ -961,6 +977,11 @@ impl Window {
         let done = self.ui.invoke(&format!("{}-{callback}", r.id), &[]).is_ok();
         self.process();
         done
+    }
+
+    /// Draws the preview through this from now on, in place of the graphics card's painter or the CPU's.
+    pub fn use_painter(&self, painter: Box<dyn crate::preview::Painter>) {
+        *self.painter.borrow_mut() = Some(painter);
     }
 
     /// The preview's pop-out window, while it's open.

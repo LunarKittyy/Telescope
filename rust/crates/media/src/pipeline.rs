@@ -311,6 +311,23 @@ pub(crate) mod tests {
         assert_eq!(out.data[0], 9);
     }
 
+    /// Adds to the picture or multiplies it, so what comes out says which ran first.
+    struct Maths(Box<dyn Fn(u8) -> u8 + Send>);
+
+    impl CpuStep for Maths {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let value = (self.0)(frame.data[0]);
+            frame.data_mut()[0] = value;
+        }
+    }
+
+    #[test]
+    fn worker_processes_pipeline_in_order() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("first", FrameStage::Effects, Maths(Box::new(|v| v + 2))), step("second", FrameStage::Effects, Maths(Box::new(|v| v * 3)))]);
+        assert_eq!(p.process(grey(4, 2, 1), &NoContext).data[0], 9, "(1 + 2) * 3");
+    }
+
     #[test]
     fn a_new_pipeline_takes_over_from_the_next_frame() {
         let seen = Arc::new(std::sync::Mutex::new(Vec::new()));

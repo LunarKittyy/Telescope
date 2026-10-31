@@ -374,4 +374,7 @@ fn eliding_label_keeps_its_full_text_available() {
     r.w.ui.set_property("status", slint_interpreter::Value::String(long.into())).unwrap();
     hover();
     assert_eq!(says(long), 2, "the line and its tooltip");
+    let line = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&r.w.ui, long).next().expect("the line");
+    assert!(line.size().width < 500.0, "it gives way to the window rather than holding it open: {}", line.size().width);
+    assert!(line.absolute_position().x + line.size().width <= 560.0, "and is cut off inside it");
 }
