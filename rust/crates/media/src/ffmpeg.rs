@@ -85,6 +85,9 @@ pub struct Codec {
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
+    /// Tests: this many pictures are refused as a card that can't take the stream would.
+    #[cfg(test)]
+    pub refusals: u32,
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
     converter: yuv::Converter,
@@ -135,6 +138,8 @@ impl Codec {
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
+                #[cfg(test)]
+                refusals: 0,
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 converter: yuv::Converter::default(),
                 parse_buf: Vec::new(),
@@ -195,6 +200,11 @@ impl Codec {
 
     /// Decodes one access unit (or one whole JPEG); every frame it finishes goes to done.
     pub fn decode(&mut self, unit: &[u8], mut done: impl FnMut(Frame)) -> Result<u32, Fault> {
+        #[cfg(test)]
+        if self.refusals > 0 {
+            self.refusals -= 1;
+            return Err(Fault::Invalid);
+        }
         let mut count = 0;
         let input = padded(&mut self.unit_buf, unit).as_ptr();
         // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet

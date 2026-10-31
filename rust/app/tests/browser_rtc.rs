@@ -82,7 +82,7 @@ fn fake_browser(video_units: Vec<Vec<u8>>, mic_packets: Vec<Vec<u8>>, answered: 
 #[test]
 fn a_browser_over_webrtc_reaches_the_reader_and_the_mic() {
     let greys: Vec<u8> = (0..50).map(|n| 100 + n).collect();
-    let (Some(units), Some(packets)) = (telescope_media::test_h264_grey(&greys, SIZE.0, SIZE.1, 10), telescope_media::test_opus_tone(50, PEAK)) else {
+    let (Some(units), Some(packets)) = (telescope_media::test_h264(&greys, SIZE.0, SIZE.1, 10, false), telescope_media::test_opus_tone(50, PEAK)) else {
         eprintln!("this build has no H.264 or Opus encoder: skipped");
         return;
     };

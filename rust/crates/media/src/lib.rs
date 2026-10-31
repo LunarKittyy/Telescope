@@ -53,14 +53,15 @@ pub fn test_h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -
     }
 }
 
-/// H.264 of flat grey frames, one packet per value, made with this build's encoder for tests in other crates (None where it has none).
+/// H.264 of flat greys for tests in other crates, one packet a frame with a delimiter after each, as the phone sends them. noisy: with
+/// noise on the greys, so frames span several datagrams.
 #[doc(hidden)]
-pub fn test_h264_grey(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>>> {
+pub fn test_h264(values: &[u8], w: u32, h: u32, gop: u32, noisy: bool) -> Option<Vec<Vec<u8>>> {
     #[cfg(ffmpeg)]
-    return testenc::h264(values, w, h, gop);
+    return if noisy { testenc::h264_noisy(values, w, h, gop) } else { testenc::h264(values, w, h, gop) };
     #[cfg(not(ffmpeg))]
     {
-        let _ = (values, w, h, gop);
+        let _ = (values, w, h, gop, noisy);
         None
     }
 }

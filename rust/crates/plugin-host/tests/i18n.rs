@@ -131,7 +131,9 @@ fn the_region_falls_back_to_the_language_and_a_new_language_reloads() {
     let folder = add(&scratch_dir("i18n"), "cats", Some(&po(SV)), "pt.po");
     assert_eq!(texts(&folder, "pt_BR")[0], "Hej");
     assert_eq!(texts(&folder, "sv")[3], "2 cats", "no sv.po in the plugin");
+    assert_eq!(telescope_core::i18n::tr("Hello"), "Hallå från Telescope");
     assert_eq!(texts(&folder, "pt_BR")[0], "Hej");
+    assert_eq!(telescope_core::i18n::tr("Hello"), "Hello", "Telescope has no such text in this language");
 }
 
 #[test]
@@ -139,8 +141,13 @@ fn one_plugin_doesnt_see_anothers_texts() {
     let dir = scratch_dir("i18n");
     let cats = add(&dir, "cats", Some(&po(SV)), "sv.po");
     let dogs = add(&dir, "dogs", None, "");
-    assert_eq!(texts(&cats, "sv")[3], "2 katter");
-    assert_eq!(texts(&dogs, "sv")[3], "2 cats");
+    telescope_in("sv");
+    // Both at once, as the window has them
+    let (mut cats, mut dogs) = (PluginTest::open_in(&cats, "sv").unwrap(), PluginTest::open_in(&dogs, "sv").unwrap());
+    let cat = |t: &mut PluginTest| t.call("texts", vec![]).unwrap()[3].clone();
+    assert_eq!(cat(&mut cats), "2 katter");
+    assert_eq!(cat(&mut dogs), "2 cats");
+    assert_eq!(cat(&mut cats), "2 katter");
 }
 
 #[test]
@@ -149,24 +156,31 @@ fn everything_is_english_in_english() {
     assert_eq!(texts(&folder, "en")[0], "Hello");
 }
 
+/// The command people run: its exit code, what it printed and what it complained about.
+fn plugin_texts(args: &[&str]) -> (i32, String, String) {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_plugin-texts")).args(args).output().unwrap();
+    (out.status.code().unwrap(), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
+}
+
 #[test]
 fn the_script_extracts_and_updates_a_plugins_own_catalogs() {
-    use telescope_plugin_host::texts::{self, Target};
     let folder = add(&scratch_dir("i18n"), "cats", None, "");
-    let target = Target::new(&folder).unwrap();
-    assert!(texts::new(&target, "sv").unwrap_err().contains("run extract first"), "nothing extracted yet");
-    texts::extract(&target).unwrap();
+    let path = folder.to_str().unwrap();
+    let (code, _, said) = plugin_texts(&["new", "sv", path]);
+    assert!(code == 1 && said.contains("run extract first"), "nothing extracted yet: {said}");
+    assert_eq!(plugin_texts(&["extract", path]).0, 0);
     let template = telescope_plugin_host::i18n::read_po(&std::fs::read_to_string(folder.join("locale/cats.pot")).unwrap()).unwrap();
     let mut ids: Vec<&str> = template.iter().map(|e| e.msgid.as_str()).filter(|m| !m.is_empty()).collect();
     ids.sort();
     assert_eq!(ids, ["Camera", "Hello", "Hi {who}", "Not translated", "{n} cat"]);
     assert!(template.iter().filter(|e| !e.msgid.is_empty()).all(|e| e.locations[0].starts_with("cats/")));
-    texts::new(&target, "sv").unwrap();
+    assert_eq!(plugin_texts(&["new", "sv", path]).0, 0);
     let po = folder.join("locale/sv.po");
     let text = std::fs::read_to_string(&po).unwrap().replace("msgid \"Hello\"\nmsgstr \"\"", "msgid \"Hello\"\nmsgstr \"Hej\"");
     std::fs::write(&po, text).unwrap();
-    texts::extract(&target).unwrap();
-    assert!(texts::status(&target).unwrap().contains("sv: 1/5 translated"), "keeps the translation it was given");
+    assert_eq!(plugin_texts(&["extract", path]).0, 0, "keeps the translation it was given");
+    let (code, said, _) = plugin_texts(&["status", path]);
+    assert!(code == 0 && said.contains("sv: 1/5 translated"), "{said}");
     assert_eq!(texts(&folder, "sv")[0], "Hej");
 }
 
@@ -174,5 +188,7 @@ fn the_script_extracts_and_updates_a_plugins_own_catalogs() {
 fn the_script_wants_a_plugins_folder() {
     let dir = scratch_dir("i18n");
     add(&dir, "cats", None, "");
-    assert!(telescope_plugin_host::texts::Target::new(&dir).is_err());
+    let (code, _, said) = plugin_texts(&["extract", dir.to_str().unwrap()]);
+    assert!(code != 0 && said.contains("point at your plugin's folder"), "{code} {said}");
+    assert_eq!(plugin_texts(&["extract"]).0, 2, "no folder at all");
 }

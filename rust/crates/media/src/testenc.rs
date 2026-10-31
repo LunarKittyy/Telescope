@@ -154,6 +154,27 @@ pub fn jpeg_yuv(y: u8, u: u8, v: u8, w: u32, h: u32) -> Vec<u8> {
     encode("mjpeg", &[y], (u, v), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
 }
 
+/// H.264 of greys with noise on them so frames span several datagrams, a keyframe every `gop`, framed as h264() is.
+pub fn h264_noisy(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>>> {
+    let g = gop.to_string();
+    let values = values.to_vec();
+    let count = values.len();
+    let plane = move |i: usize, plane: usize, pw: usize, ph: usize| -> Vec<u8> {
+        if plane > 0 {
+            return vec![128; pw * ph];
+        }
+        let base = (16.0 + values[i] as f64 * 219.0 / 255.0).round() as u32;
+        let mut seed = i as u32 + 1;
+        (0..pw * ph).map(|_| {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            (base + (seed >> 24) % 40).min(235) as u8
+        }).collect()
+    };
+    let packets = encode_with("libx264", count, w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+                              &[("tune", "zerolatency"), ("g", &g), ("keyint_min", &g), ("bf", "0"), ("preset", "ultrafast")], &plane)?;
+    Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
+}
+
 /// H.264 packets (no delimiters) of a grey square moving right over a picture that changes completely every 6 frames, the
 /// way test_h264_mosh.py makes its streams: no B-frames, no scene cuts, a keyframe every `gop` frames. profile: "high" or "baseline".
 pub fn h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -> Option<Vec<Vec<u8>>> {

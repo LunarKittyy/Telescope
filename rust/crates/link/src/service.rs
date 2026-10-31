@@ -190,16 +190,7 @@ impl Link for LinkService {
     }
 
     fn usb_devices(&self) -> Vec<UsbDevice> {
-        let adb = Adb::system();
-        let mut models = self.models.lock().unwrap();
-        adb.device_models().into_iter().map(|(serial, state, model)| {
-            if state == "device" && !models.contains_key(&serial) {
-                let asked = adb.model(&serial);
-                models.insert(serial.clone(), if asked.is_empty() { model.clone() } else { asked });
-            }
-            let model = models.get(&serial).cloned().unwrap_or(model);
-            UsbDevice { serial, state, model }
-        }).collect()
+        usb_devices_with(&Adb::system(), &self.models)
     }
 
     fn get_adb(&self, own: Option<&str>, progress: &dyn Fn(&str)) -> Result<String, String> {
@@ -368,8 +359,21 @@ impl PhoneSession for Session {
     }
 }
 
+/// What's on the cables, each phone named as it names itself (asked once: `adb devices -l` mangles the model).
+pub(crate) fn usb_devices_with(adb: &Adb, models: &Mutex<HashMap<String, String>>) -> Vec<UsbDevice> {
+    let mut models = models.lock().unwrap();
+    adb.device_models().into_iter().map(|(serial, state, model)| {
+        if state == "device" && !models.contains_key(&serial) {
+            let asked = adb.model(&serial);
+            models.insert(serial.clone(), if asked.is_empty() { model.clone() } else { asked });
+        }
+        let model = models.get(&serial).cloned().unwrap_or(model);
+        UsbDevice { serial, state, model }
+    }).collect()
+}
+
 /// The pairing server's offer, and the phone it hands back once one pairs.
-struct Offer {
+pub(crate) struct Offer {
     server: PairingServer,
     paired: Mutex<mpsc::Receiver<PairingResult>>,
     /// Serials with an adb reverse to the pairing server, taken down when it's revoked (None from then on).
@@ -379,9 +383,14 @@ struct Offer {
 
 impl Offer {
     fn start(computer_id: &str, computer_name: &str, adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
+        Offer::start_on(computer_id, computer_name, None, adb)
+    }
+
+    /// start, advertising these addresses in place of the adapter scan.
+    pub(crate) fn start_on(computer_id: &str, computer_name: &str, advertise: Option<Vec<crate::net::PairingAddress>>, adb: Arc<dyn Fn() -> Adb + Send + Sync>) -> Result<Offer, String> {
         let (tx, rx) = mpsc::channel::<PairingResult>();
         let tx = Mutex::new(tx);
-        let server = PairingServer::start(computer_id, computer_name, None, move |r| {
+        let server = PairingServer::start(computer_id, computer_name, advertise, move |r| {
             let _ = tx.lock().unwrap().send(r);
         }).map_err(|e| e.to_string())?;
         Ok(Offer { server, paired: Mutex::new(rx), reversed: Mutex::new(Some(HashSet::new())), adb })

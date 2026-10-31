@@ -72,6 +72,9 @@ struct StepsInner {
     steps: Vec<(String, Guarded)>,
     /// Goes up whenever the steps change, so the decoder can tell a new step came on.
     generation: u64,
+    /// How many units went through step().
+    #[cfg(test)]
+    asked: u32,
 }
 
 impl Steps {
@@ -92,6 +95,11 @@ impl Steps {
         !self.inner.lock().unwrap().steps.is_empty()
     }
 
+    #[cfg(test)]
+    pub(crate) fn asked(&self) -> u32 {
+        self.inner.lock().unwrap().asked
+    }
+
     /// Changes whenever a step comes on or off.
     pub fn generation(&self) -> u64 {
         self.inner.lock().unwrap().generation
@@ -100,6 +108,10 @@ impl Steps {
     /// The units to decode in place of unit: each step one after the other, each on every unit the one before handed back.
     pub fn step(&self, unit: &[u8]) -> Vec<Vec<u8>> {
         let mut inner = self.inner.lock().unwrap();
+        #[cfg(test)]
+        {
+            inner.asked += 1;
+        }
         let mut units = vec![unit.to_vec()];
         for (_, step) in inner.steps.iter_mut() {
             units = units.iter().flat_map(|u| step.run(u)).collect();
@@ -176,8 +188,24 @@ pub(crate) mod tests {
         })
     }
 
+    struct Logged;
+
+    static LOGGED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    impl log::Log for Logged {
+        fn enabled(&self, metadata: &log::Metadata) -> bool {
+            metadata.level() <= log::Level::Error
+        }
+        fn log(&self, record: &log::Record) {
+            LOGGED.lock().unwrap().push(record.args().to_string());
+        }
+        fn flush(&self) {}
+    }
+
     #[test]
     fn a_failing_step_passes_units_through_and_is_left_out_after_a_while() {
+        let _ = log::set_logger(&Logged);
+        log::set_max_level(log::LevelFilter::Error);
         let calls = Arc::new(AtomicUsize::new(0));
         let c = calls.clone();
         let mut run = Guarded::new("fun", Box::new(FnStep(move |_u: &[u8]| -> Vec<Vec<u8>> {
@@ -191,6 +219,7 @@ pub(crate) mod tests {
         }
         std::panic::set_hook(hook);
         assert_eq!(calls.load(Ordering::SeqCst), FAILS_BEFORE_SKIP as usize);
+        assert!(LOGGED.lock().unwrap().iter().any(|line| line.contains("fun") && line.contains("failed on a packet")));
     }
 
     #[test]

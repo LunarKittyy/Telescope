@@ -742,6 +742,9 @@ impl ConnectionPlugin {
         add.paired = Some(phone.name.clone());
         offer.revoke();
         add.offer = None;
+        // The picks go with the rest of the pairing
+        add.usb_states.clear();
+        add.chosen = None;
         host.cancel_schedule(T_PAIR_USB);
         self.render_add(host, true);
         self.phone_paired(host, phone);
@@ -1548,6 +1551,10 @@ impl crate::service::LinkService {
 }
 
 #[cfg(test)]
+#[path = "add_phone_tests.rs"]
+mod add_phone_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::connection::Tunnels;
@@ -1711,6 +1718,18 @@ mod tests {
         fn add(&mut self, pid: &str, name: &str) {
             self.plugin.phone_paired(&mut self.host, phone(pid, name));
             self.settle();
+        }
+
+        /// Hands posts back to the plugin until this holds: its threads can be waiting on a lock another test has.
+        fn settle_until(&mut self, done: impl Fn(&Env) -> bool) {
+            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            while !done(self) {
+                assert!(std::time::Instant::now() < deadline, "what the test waited for never came");
+                for (token, data) in self.host.take_posted() {
+                    self.plugin.on_event(&mut self.host, &Event::Posted { owner: NAME.into(), token, data });
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
         }
 
         /// Hands every post (from the plugin's threads too) back to the plugin until nothing more comes.
@@ -3012,6 +3031,7 @@ mod tests {
         assert_eq!(e.props("card")["usb-kind"], "status_err");
         assert_eq!(e.props("card")["usb-action"], "Try again");
         assert_eq!(e.props("card")["usb-pick-action"], "Pick one you already have");
+        assert!(!e.host.is_scheduled(T_PAIR_USB));
 
         // An adb.exe the person has already, which doesn't work out here
         e.ui("card", "usb-pick-clicked", vec![]);
@@ -3020,9 +3040,8 @@ mod tests {
         e.plugin.on_event(&mut e.host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": "/nonexistent/adb.exe"}) });
         assert!(e.host.calls.iter().any(|c| c.contains("Copying adb…")));
         assert_eq!(e.props("card")["usb-action"], "");
-        std::thread::sleep(Duration::from_millis(50));
-        e.settle();
-        assert_eq!(e.props("card")["usb-kind"], "status_err");
+        e.settle_until(|e| e.props("card")["usb-kind"] == "status_err");
+        assert!(!e.host.is_scheduled(T_PAIR_USB));
     }
 
     #[test]
@@ -3059,9 +3078,7 @@ mod tests {
         assert_eq!(e.props("card")["usb-text"], "Getting adb from Google…");
         *e.link.adb.lock().unwrap() = true;
         release.send(()).unwrap();
-        std::thread::sleep(Duration::from_millis(50));
-        e.settle();
-        assert!(e.host.is_scheduled(T_PAIR_USB));
+        e.settle_until(|e| e.host.is_scheduled(T_PAIR_USB));
         assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
     }
 
@@ -3137,7 +3154,7 @@ mod tests {
         e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "add-closed".into(), args: vec![] });
         *e.link.adb.lock().unwrap() = true;
         release.send(()).unwrap();
-        std::thread::sleep(Duration::from_millis(50));
+        e.settle_until(|e| !e.plugin.downloader.running());
         e.settle();
         assert!(!e.host.is_scheduled(T_PAIR_USB));
     }

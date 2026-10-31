@@ -687,6 +687,20 @@ pub(crate) mod tests {
         assert_eq!(w.shape(&chunk(1000)), chunk(1000));
     }
 
+    struct Caught;
+
+    static LOGGED: Mutex<Vec<(std::thread::ThreadId, String)>> = Mutex::new(Vec::new());
+
+    impl log::Log for Caught {
+        fn enabled(&self, _: &log::Metadata) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record) {
+            LOGGED.lock().unwrap().push((std::thread::current().id(), record.args().to_string()));
+        }
+        fn flush(&self) {}
+    }
+
     #[test]
     fn a_denoiser_that_fails_to_start_is_logged_once_and_the_audio_carries_on() {
         let calls = Arc::new(Mutex::new(0));
@@ -696,9 +710,14 @@ pub(crate) mod tests {
             Err("no".into())
         }));
         w.c.set_noise_reduction(true);
+        let _ = log::set_logger(&Caught);
+        log::set_max_level(log::LevelFilter::Error);
         assert_eq!(w.shape(&chunk(1000)), chunk(1000));
         assert_eq!(w.shape(&chunk(1000)), chunk(1000));
         assert_eq!(*calls.lock().unwrap(), 1);
+        let me = std::thread::current().id();
+        let logged = LOGGED.lock().unwrap().clone();
+        assert_eq!(logged.iter().filter(|(who, text)| *who == me && text.contains("noise reduction")).count(), 1, "{logged:?}");
     }
 
     #[test]

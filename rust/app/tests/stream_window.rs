@@ -141,6 +141,9 @@ impl VideoOutput for Cam {
 }
 
 /// Only the main camera opens.
+/// The second stream's camera opens once this is on.
+static SECOND_CAMERA: AtomicBool = AtomicBool::new(false);
+
 struct Cameras;
 
 impl Outputs for Cameras {
@@ -154,7 +157,7 @@ impl Outputs for Cameras {
         vec![PixelFormat::I420]
     }
     fn open(&self, slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
-        if slot == 0 { Ok(Box::new(Cam)) } else { Err("not this one".into()) }
+        if slot == 0 || SECOND_CAMERA.load(Ordering::SeqCst) { Ok(Box::new(Cam)) } else { Err("not this one".into()) }
     }
 }
 
@@ -236,6 +239,10 @@ fn the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_open
     assert_eq!(ask(&w, |host| host.stream_on_camera(0)), Some(("test:a".to_string(), Some(1920), Some(1080))));
     assert_eq!(ask(&w, |host| host.stream_on_camera(1)), Some(("test:b".to_string(), None, None)));
     assert_eq!(ask(&w, |host| host.stream_on_camera(2)), None);
+    SECOND_CAMERA.store(true, Ordering::SeqCst);
+    pump_until(&w, "the second stream's camera opening", |_| opened.lock().unwrap().len() == 2);
+    assert_eq!(opened.lock().unwrap()[1], json!(["test:b", 1, 1920, 1080]));
+    assert_eq!(ask(&w, |host| host.stream_on_camera(1)), Some(("test:b".to_string(), Some(1920), Some(1080))));
 
     // The camera went off: its session stays, without a worker, and it's no longer shared
     w.with_flow(|flow, _| flow.sessions.find(Some("test:b")).unwrap().state.borrow_mut().session.as_mut().unwrap().worker = None);

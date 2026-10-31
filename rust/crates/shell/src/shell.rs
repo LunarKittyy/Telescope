@@ -1190,6 +1190,24 @@ mod tests {
         s
     }
 
+    // test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open
+    #[test]
+    fn the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open() {
+        let mut s = state();
+        s.bus.emit(Event::VisionDownloadFinished { error: String::new(), switch_on: "framing".into() });
+        s.deliver_events();
+        assert_eq!(crate::switches::optional_on(&s.file.load()).into_iter().collect::<Vec<_>>(), ["framing"]);
+    }
+
+    // test_vision_pack.py::test_a_failed_download_remembers_why_for_the_plugin_that_waited (vision's host_tests has what it remembers)
+    #[test]
+    fn a_failed_download_switches_nothing_on() {
+        let mut s = state();
+        s.bus.emit(Event::VisionDownloadFinished { error: "The download failed.".into(), switch_on: "framing".into() });
+        s.deliver_events();
+        assert!(crate::switches::optional_on(&s.file.load()).is_empty());
+    }
+
     #[test]
     fn a_config_that_was_set_aside_shows_a_banner() {
         let mut s = state();
@@ -1627,11 +1645,17 @@ mod tests {
         s.frame_sizes.lock().unwrap().insert("phone".into(), (1920, 1080));
         s.view.flip_h = true;
         s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.5 });
+        s.deliver_events();
+        let points = |heard: &Mutex<Vec<Event>>| {
+            let heard = heard.lock().unwrap();
+            let focus: Vec<Event> = heard.iter().filter(|e| matches!(e, Event::FocusPoint { .. })).cloned().collect();
+            let meter: Vec<Event> = heard.iter().filter(|e| matches!(e, Event::MeterPoint { .. })).cloned().collect();
+            (focus, meter)
+        };
+        assert_eq!(points(&heard), (vec![Event::FocusPoint { x: 0.75, y: 0.5 }], vec![]));
         s.bus.emit(Event::MeterPointPicked { x: 0.75, y: 0.25 });
         s.deliver_events();
-        let heard = heard.lock().unwrap();
-        assert!(heard.contains(&Event::FocusPoint { x: 0.75, y: 0.5 }), "{heard:?}");
-        assert!(heard.contains(&Event::MeterPoint { x: 0.25, y: 0.25 }), "{heard:?}");
+        assert_eq!(points(&heard), (vec![Event::FocusPoint { x: 0.75, y: 0.5 }], vec![Event::MeterPoint { x: 0.25, y: 0.25 }]), "metering moves no focus");
     }
 
     #[test]

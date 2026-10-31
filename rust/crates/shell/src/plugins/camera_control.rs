@@ -1640,3 +1640,7 @@ impl Plugin for CameraControl {
 #[cfg(test)]
 #[path = "camera_control_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "camera_shortcut_tests.rs"]
+mod shortcut_tests;

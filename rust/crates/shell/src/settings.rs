@@ -264,7 +264,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         }
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
-    let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
+    let def = crate::compile::compile_with("settings.slint", &text, files, "TelescopeSettings", true)?;
     let ui = def.create().map_err(|e| e.to_string())?;
     let settings = Rc::new(Settings {
         ui,
@@ -491,8 +491,21 @@ impl Settings {
 
     /// Every setting the search can find, read off the window as it is now (settings_search.collect).
     pub fn entries(&self) -> Vec<Entry> {
+        // Only what shows can be read, so each page shows for its turn, and nothing draws before they're put back
+        let (current, searching) = (self.ui.get_property("current"), self.ui.get_property("searching"));
+        let _ = self.ui.set_property("searching", SValue::Bool(false));
+        let out = self.entries_of_each_page();
+        if let (Ok(current), Ok(searching)) = (current, searching) {
+            let _ = self.ui.set_property("current", current);
+            let _ = self.ui.set_property("searching", searching);
+        }
+        out
+    }
+
+    fn entries_of_each_page(&self) -> Vec<Entry> {
         let mut out = Vec::new();
         for (t, (tab, name)) in self.tabs.iter().enumerate() {
+            let _ = self.ui.set_property("current", SValue::Number(t as f64));
             // The Plugins tab and each of its groups are also found by what people call plugins
             let words = if tab == "plugins" { plugins_tab::search_keywords() } else { String::new() };
             let base = Entry {
@@ -815,13 +828,21 @@ mod tests {
 
     #[test]
     fn only_tabs_with_something_in_them_show_in_the_fixed_order() {
-        let tabs = ordered_tabs(&[section("a", "video", 0), section("b", "general", 0)], "");
+        // Python's test window has no Plugins tab because the app is what adds it; here ordered_tabs does
+        let tabs = ordered_tabs(&[section("a", "about", 0), section("b", "general", 0), section("c", "video", 0)], "");
         let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
-        assert_eq!(ids, ["general", "video", "plugins"]);
+        assert_eq!(ids, ["general", "video", "plugins", "about"]);
+        assert_eq!(tabs[3].1, "Updates & About");
     }
 
     #[test]
     fn a_tab_a_plugin_makes_goes_before_plugins() {
+        let mut mine = section("c", "mine", 0);
+        mine.1.tab_title = "My thing".into();
+        let tabs = ordered_tabs(&[section("a", "shortcuts", 0), mine, section("b", "general", 0)], "");
+        let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(ids, ["general", "shortcuts", "mine", "plugins"]);
+        assert_eq!(tabs[2].1, "My thing");
         let tabs = ordered_tabs(&[section("a", "on_air", 0), section("b", "about", 0)], "");
         let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
         assert_eq!(ids, ["on_air", "plugins", "about"]);

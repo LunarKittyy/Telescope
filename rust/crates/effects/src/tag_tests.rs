@@ -106,11 +106,6 @@ fn names_in_other_scripts_get_drawn() {
     let Some(fonts) = fonts() else { return };
     for name in ["山田 花子", "नीलम शर्मा", "Ζωή Παπαδοπούλου", "Олена Коваль", "김민지"] {
         let s = Spec { name: name.into(), style: "bar".into(), ..Default::default() };
-        let face = Face::em(fonts.semibold.clone(), 40.0);
-        if !name.chars().filter(|c| !c.is_whitespace()).all(|c| face.has_glyph(c)) {
-            eprintln!("no font here has every letter of {name}: skipped");
-            continue;
-        }
         let tag = render_with(&s, 1280, 720, &fonts).unwrap();
         let lay = layout_with(&s, 1280, 720, &fonts).unwrap();
         // nothing cut
@@ -163,7 +158,7 @@ fn a_frame_somebody_else_holds_is_copied() {
     let original = rgba(640, 360, 50);
     let mut frame = original.clone();
     apply(&mut frame, &render_with(&spec(), 640, 360, &fonts).unwrap());
-    assert!(original.data.iter().all(|b| *b == 50 || *b == 255));
+    assert!(original.data.chunks(4).all(|p| p == [50, 50, 50, 255]));
     assert_ne!(*original.data, *frame.data);
 }
 
@@ -230,9 +225,13 @@ fn a_gaussian_blur_spreads_a_dot_and_keeps_its_weight() {
 
 #[test]
 fn it_uses_the_apps_fonts() {
+    for weight in [telescope_core::text::Weight::Regular, telescope_core::text::Weight::SemiBold] {
+        let files = telescope_core::text::app_font_files(weight);
+        assert!(files[0].starts_with("Inter-"), "{files:?}");
+    }
     // Inter first, when the system has it
     let (Some(inter), Some(app)) = (telescope_core::text::font_named(&["Inter-Regular.ttf"]), telescope_core::text::app_font(telescope_core::text::Weight::Regular)) else {
-        eprintln!("Inter isn't installed here: skipped");
+        eprintln!("Inter isn't installed here: the font itself isn't compared");
         return;
     };
     assert_eq!(Face::em(inter, 40.0).advance("Luna"), Face::em(app, 40.0).advance("Luna"));

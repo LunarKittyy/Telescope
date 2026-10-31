@@ -151,6 +151,12 @@ mod tests {
     }
 
     #[test]
+    fn a_stage_that_doesnt_exist_counts_as_effects() {
+        let info = Manifest::new(json!({"name": "x", "frame_stage": "nowhere"})).info("x");
+        assert_eq!(info.frame_stage, telescope_core::FrameStage::Effects);
+    }
+
+    #[test]
     fn names_and_main_scripts() {
         assert!(valid_name("black_and_white") && !valid_name("Bad-Name") && !valid_name("a") && !valid_name("_x"));
         assert_eq!(Manifest::new(json!({})).main().as_deref(), Some("main.lua"));

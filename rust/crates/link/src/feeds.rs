@@ -231,6 +231,23 @@ mod tests {
         assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
     }
 
+    // test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only: _new_reader goes by the URL, as this does
+    #[test]
+    fn a_feed_goes_by_what_the_url_asks_for() {
+        // UDP that doesn't get going falls back to the same feed on .h264, so .udp asks for it here too
+        let server = serve(None, Arc::new(|req| if req.path.contains(".h264") || req.path.contains(".udp") {
+            (200, "video/h264".into(), b"\x00\x00\x00\x01".to_vec())
+        } else {
+            (200, "multipart/x-mixed-replace; boundary=--frame".into(), Vec::new())
+        }));
+        let open = |path: &str| open_feed(&format!("{}{path}", server.base(false)), &PhoneAuth::new("t", ""), Duration::from_secs(3)).map(|(codec, _)| codec);
+        assert_eq!(open("/v1/video.h264"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.h264?x=1"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.udp"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.mjpeg"), Ok(Codec::Mjpeg));
+        assert_eq!(open("/v1/video"), Ok(Codec::Mjpeg));
+    }
+
     #[test]
     fn rejects_non_multipart_response() {
         let server = serve(None, Arc::new(|_| (200, "text/html".into(), b"<html>".to_vec())));
@@ -301,6 +318,38 @@ mod tests {
             }
         };
         assert_eq!((got, end), (body, FeedEnd::Closed));
+    }
+
+    #[test]
+    fn a_reader_decodes_authenticated_frames_then_reports_eof() {
+        use telescope_core::media::{DecodeOptions, Media};
+        let Some(packets) = telescope_media::test_h264(&[30, 90, 150, 210], 64, 48, 5, false) else { return };
+        let body = packets.concat();
+        let (sent, length) = (body.clone(), body.len() as u64);
+        let server = serve(None, Arc::new(move |req| if req.auth.as_deref() == Some("Bearer secret") {
+            (200, "video/h264".into(), sent.clone())
+        } else {
+            (401, "text/plain".into(), Vec::new())
+        }));
+        let url = format!("{}/v1/video.h264", server.base(false));
+        assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
+        let (codec, feed) = open_feed(&url, &PhoneAuth::new("secret", ""), Duration::from_secs(3)).unwrap();
+        let media = telescope_media::FfmpegMedia;
+        let decoder = media.decoder(codec, &DecodeOptions::default()).unwrap();
+        let mut reader = media.frame_reader(feed, decoder).unwrap();
+        let (mut frames, mut total) = (Vec::new(), 0);
+        let end = loop {
+            match reader.read() {
+                Ok(read) => {
+                    total += read.bytes;
+                    frames.push(read.frame);
+                }
+                Err(end) => break end,
+            }
+        };
+        assert_eq!(end, FeedEnd::Closed);
+        assert!(!frames.is_empty() && (frames[0].width, frames[0].height) == (64, 48));
+        assert!(total > 0 && total <= length, "{total} of {length}");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use super::*;
 use telescope_core::host::Pick;
+use telescope_core::media::{Media, StagedStep};
 use telescope_core::testing::FakeHost;
 
 const GREEN: [u8; 3] = [60, 180, 50];
@@ -83,23 +84,99 @@ fn shader(plugin: &mut ChromaKeyPlugin) -> ShaderStep {
     }
 }
 
-fn alpha_of(tables: &Tables, bgr: [u8; 3]) -> u8 {
-    tables.flat(bgr).0
+/// Whether this machine has a graphics card the key's shader can run on.
+fn gpu_here() -> bool {
+    let here = telescope_media::gpu::Gpu::shared().is_some();
+    if !here {
+        eprintln!("no graphics card here: the shader checks are skipped");
+    }
+    here
+}
+
+/// A step through the app's own frame pipeline.
+fn through(step: FrameStep, frame: Frame) -> Frame {
+    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step }]);
+    pipeline.process(frame, &NoContext)
+}
+
+/// A pixel of a frame as B, G, R.
+fn at(frame: &Frame, x: u32, y: u32) -> [u8; 3] {
+    let i = ((y * frame.width + x) * 4) as usize;
+    [frame.data[i + 2], frame.data[i + 1], frame.data[i]]
+}
+
+/// What a key leaves of a frame: how much of each pixel stays, and the picture over a black backdrop.
+struct Matte {
+    width: u32,
+    alpha: Vec<u8>,
+    over_black: Frame,
+}
+
+impl Matte {
+    fn a(&self, x: u32, y: u32) -> u8 {
+        self.alpha[(y * self.width + x) as usize]
+    }
+
+    /// The largest and smallest alpha of a block of the picture.
+    fn range(&self, ys: std::ops::Range<u32>, xs: std::ops::Range<u32>) -> (u8, u8) {
+        let all: Vec<u8> = ys.flat_map(|y| xs.clone().map(move |x| (x, y))).map(|(x, y)| self.a(x, y)).collect();
+        (*all.iter().max().unwrap(), *all.iter().min().unwrap())
+    }
+
+    /// The colour with the spill out, where nothing of the backdrop shows through.
+    fn clean(&self, x: u32, y: u32) -> [u8; 3] {
+        assert_eq!(self.a(x, y), 255, "all of the pixel has to stay for its colour to show");
+        at(&self.over_black, x, y)
+    }
+}
+
+/// matte() read off the production shader: the gap between a white and a black backdrop is what didn't stay.
+fn matte(frame: &Frame, cfg: Value) -> Matte {
+    let over = |colour: [u8; 3]| {
+        let mut p = ChromaKeyPlugin::new();
+        let mut cfg = cfg.clone();
+        cfg["on"] = json!(true);
+        cfg["colour"] = json!(colour);
+        p.set_config(&cfg).unwrap();
+        through(p.frame_step().expect("a key"), frame.clone())
+    };
+    let (white, black) = (over([255; 3]), over([0; 3]));
+    let alpha = (0..frame.height).flat_map(|y| (0..frame.width).map(move |x| (x, y))).map(|(x, y)| 255 - (at(&white, x, y)[0] - at(&black, x, y)[0])).collect();
+    Matte { width: frame.width, alpha, over_black: black }
+}
+
+/// A green screen with a skin-coloured block in the middle.
+fn scene() -> Frame {
+    let (w, h) = (64usize, 36usize);
+    let mut data = flat(w as u32, h as u32, GREEN).data.to_vec();
+    for y in 10..26 {
+        for x in 20..44 {
+            data[(y * w + x) * 4..(y * w + x) * 4 + 3].copy_from_slice(&[SKIN[2], SKIN[1], SKIN[0]]);
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
 }
 
 #[test]
 fn the_screen_goes_and_the_person_stays() {
-    let tables = key_tables(GREEN, 40, 30, 60);
-    assert!(alpha_of(&tables, GREEN) < 10);
-    assert!(alpha_of(&tables, SKIN) > 245);
+    if !gpu_here() {
+        return;
+    }
+    let m = matte(&scene(), json!({"tolerance": 40, "softness": 30, "spill": 60}));
+    assert!(m.range(2..6, 2..10).0 < 10, "screen");
+    assert!(m.range(14..22, 26..38).1 > 245, "person");
 }
 
 #[test]
 fn tolerance_decides_how_far_from_the_screen_still_goes() {
+    if !gpu_here() {
+        return;
+    }
     // a slightly different green, as a crease or shadow on the screen would be
-    let near = [80, 170, 70];
-    assert!(alpha_of(&key_tables(GREEN, 0, 0, 0), near) > 200);
-    assert!(alpha_of(&key_tables(GREEN, 90, 0, 0), near) < 30);
+    let near = flat(4, 4, [80, 170, 70]);
+    assert!(matte(&near, json!({"tolerance": 0, "softness": 0, "spill": 0})).range(0..4, 0..4).1 > 200);
+    assert!(matte(&near, json!({"tolerance": 90, "softness": 0, "spill": 0})).range(0..4, 0..4).0 < 30);
 }
 
 #[test]
@@ -115,24 +192,35 @@ fn softness_makes_a_ramp_instead_of_a_cliff() {
 
 #[test]
 fn spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours() {
+    if !gpu_here() {
+        return;
+    }
     // skin with green light on it
-    let tinged = [110, 170, 140];
-    let kept = key_tables(GREEN, 10, 10, 0).flat(tinged).1;
-    let clean = key_tables(GREEN, 10, 10, 100).flat(tinged).1;
+    let tinged = flat(4, 4, [110, 170, 140]);
+    let kept = matte(&tinged, json!({"tolerance": 10, "softness": 10, "spill": 0})).clean(0, 0);
+    let clean = matte(&tinged, json!({"tolerance": 10, "softness": 10, "spill": 100})).clean(0, 0);
     let green_in = |px: [u8; 3]| px[1] as i32 - (px[0] as i32 + px[2] as i32) / 2;
-    assert!(green_in(clean) < green_in(kept) - 10);
+    assert!(green_in(clean) < green_in(kept) - 10, "{clean:?} against {kept:?}");
     // skin, red, blue: nowhere near green
     for colour in [SKIN, [40, 40, 220], [220, 60, 40]] {
-        let clean = key_tables(GREEN, 40, 30, 100).flat(colour).1;
+        let clean = matte(&flat(4, 4, colour), json!({"tolerance": 40, "softness": 30, "spill": 100})).clean(0, 0);
         assert!((0..3).all(|c| (clean[c] as i32 - colour[c] as i32).abs() <= 6), "{colour:?} became {clean:?}");
     }
 }
 
 #[test]
 fn a_blue_screen_keys_blue_and_keeps_green() {
-    let tables = key_tables(BLUE, 40, 30, 60);
-    assert!(alpha_of(&tables, BLUE) < 10);
-    assert!(alpha_of(&tables, GREEN) > 245);
+    if !gpu_here() {
+        return;
+    }
+    let mut data = flat(8, 8, BLUE).data.to_vec();
+    for y in 0..8 {
+        for x in 4..8 {
+            data[(y * 8 + x) * 4..(y * 8 + x) * 4 + 3].copy_from_slice(&[GREEN[2], GREEN[1], GREEN[0]]);
+        }
+    }
+    let m = matte(&Frame::new(8, 8, PixelFormat::Rgba, data), json!({"screen": "blue", "tolerance": 40, "softness": 30, "spill": 60}));
+    assert!(m.range(0..8, 0..3).0 < 10 && m.range(0..8, 5..8).1 > 245);
 }
 
 #[test]
@@ -174,14 +262,16 @@ fn a_pick_starts_where_the_card_says_and_keys_that_colour() {
     assert!(r.host.calls.iter().any(|c| c == "pick_on_preview chroma_key Point"));
     assert_eq!(r.config()["picked"], Value::Null);
     assert_eq!(r.config()["screen"], json!("green"));
+    assert_eq!(r.shown("screen"), json!(0), "nothing picked yet");
     r.click([0.5, 0.5]);
     assert_eq!(r.config()["picked"], json!(purple));
     assert_eq!((r.config()["screen"].clone(), r.shown("screen")), (json!("picked"), json!(2)));
     r.event(Event::PreviewPickChanged { owner: String::new() });
     r.ui("switch-toggled-by-hand", vec![json!(true)]);
     let step = shader(&mut r.plugin);
-    let c = r.config()["colour"].clone();
-    assert_eq!(step.uniforms["backdrop"], json!([c[2].as_f64().unwrap() as f32 / 255.0, c[1].as_f64().unwrap() as f32 / 255.0, c[0].as_f64().unwrap() as f32 / 255.0, 0.0]));
+    if gpu_here() {
+        assert_eq!(at(&through(FrameStep::Shader(step), flat(64, 36, purple)), 5, 5), DEFAULT_COLOUR);
+    }
 }
 
 #[test]
@@ -199,7 +289,7 @@ fn a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview() {
     r.picking();
     r.look(Frame::new(64, 36, PixelFormat::Rgba, data));
     // on the preview Desk's Black and white turned it all white
-    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]], picture: None };
+    let pick = Pick { kind: PickKind::Point, shown: vec![[0.2, 0.5]], full: vec![[0.2, 0.5]], in_picture: vec![[0.9, 0.5]], picture: Some(flat(40, 20, [255, 255, 255])) };
     r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(pick) });
     assert_eq!(r.config()["picked"], json!([160, 40, 150]));
 }
@@ -227,12 +317,19 @@ fn without_a_frame_yet_a_pick_reads_the_preview() {
 fn keying_waits_while_its_own_pick_runs() {
     let mut r = Rig::new(true);
     r.plugin.set_config(&json!({"on": true})).unwrap();
+    let frame = scene();
     assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Shader(_))));
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
-    assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Cpu(_))), "the picture goes through untouched");
+    let Some(FrameStep::Cpu(mut tap)) = r.plugin.frame_step() else { panic!("a step that only looks") };
+    let mut seen = frame.clone();
+    tap.process(&mut seen, &NoContext);
+    assert_eq!(seen.data, frame.data, "the picture goes through untouched");
     assert!(r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() >= 1);
     r.event(Event::PreviewPickChanged { owner: String::new() });
-    assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Shader(_))));
+    let keyed = r.plugin.frame_step().expect("the key is back");
+    if gpu_here() {
+        assert_ne!(through(keyed, frame.clone()).data, frame.data);
+    }
     // somebody else's pick isn't ours to wait for
     r.event(Event::PreviewPickChanged { owner: "desk_mode".into() });
     assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Shader(_))));
@@ -290,18 +387,37 @@ fn a_stream_behind_the_panels_keeps_its_key() {
     let nine = 9.0 / 255.0;
     assert_eq!(step.uniforms["backdrop"], json!([nine as f32, nine as f32, nine as f32, 0.0]));
     assert!(r.plugin.frame_step().is_none());
+    if gpu_here() {
+        assert_eq!(at(&through(FrameStep::Shader(step), scene()), 2, 2), [9, 9, 9]);
+    }
 }
 
 #[test]
 fn the_backdrop_is_a_colour_or_the_picture_covering_the_frame() {
+    let tables = json!({"tolerance": 40, "softness": 30, "spill": 60, "on": true});
+    let mut cfg = tables.clone();
+    cfg["colour"] = json!([10, 20, 30]);
+    let mut p = ChromaKeyPlugin::new();
+    p.set_config(&cfg).unwrap();
+    let solid = shader(&mut p);
     let picture = flat(10, 10, [0, 0, 200]);
     let given = picture.clone();
     let mut p = ChromaKeyPlugin::with_reader(Arc::new(move |path| if path == "/pics/red.png" { Ok(given.clone()) } else { Err("no".into()) }));
-    p.set_config(&json!({"on": true, "background": "picture", "picture": "/pics/red.png"})).unwrap();
+    let mut cfg = tables.clone();
+    cfg["background"] = json!("picture");
+    cfg["picture"] = json!("/pics/red.png");
+    cfg["colour"] = json!([10, 20, 30]);
+    p.set_config(&cfg).unwrap();
     let step = shader(&mut p);
     assert_eq!(step.uniforms["backdrop"][3], json!(1.0));
     assert_eq!(step.uniforms["picture"], json!([10.0, 10.0]));
     assert_eq!(step.textures.iter().map(|(n, f)| (n.as_str(), f.width)).collect::<Vec<_>>(), vec![("keys", 256), ("picture", 10)]);
+    if gpu_here() {
+        let out = through(FrameStep::Shader(solid), scene());
+        assert_eq!(at(&out, 2, 2), [10, 20, 30]);
+        assert!((0..3).all(|c| (at(&out, 32, 18)[c] as i32 - SKIN[c] as i32).abs() <= 6), "{:?}", at(&out, 32, 18));
+        assert_eq!(at(&through(FrameStep::Shader(step), scene()), 2, 2), [0, 0, 200]);
+    }
     // switched off, or a picture that won't open: the colour
     p.set_config(&json!({"on": true, "background": "picture", "picture": "/pics/gone.png", "colour": [9, 9, 9]})).unwrap();
     assert_eq!(shader(&mut p).uniforms["backdrop"][3], json!(0.0));

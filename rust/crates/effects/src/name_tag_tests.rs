@@ -130,6 +130,21 @@ fn a_box_is_held_to_eighty_letters() {
 }
 
 #[test]
+fn typing_saves_and_swaps_the_settings_whole() {
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"on": true})).unwrap();
+    let before = r.plugin.step().spec;
+    let saves = r.count("schedule_save");
+    r.ui("text-edited", vec![json!(0), json!("Luna")]);
+    assert!(r.count("schedule_save") > saves);
+    assert_eq!((before.name.as_str(), r.plugin.step().spec.name.as_str()), ("", "Luna"));
+    let frozen = r.plugin.step();
+    r.ui("choice-picked", vec![json!(0), json!(2)]);
+    // a frozen step keeps its look
+    assert_eq!((frozen.spec.style.as_str(), r.plugin.step().spec.style.as_str()), ("bar", "light"));
+}
+
+#[test]
 fn a_frozen_step_keeps_its_look() {
     if !have_fonts() {
         return;
@@ -188,9 +203,10 @@ fn a_stream_behind_the_panels_keeps_a_cache_of_its_own() {
     if !have_fonts() {
         return;
     }
-    let spec = Spec { name: "Luna".into(), ..Default::default() };
-    let mut live = TagStep { spec: spec.clone(), cache: TagCache::default() };
-    let mut other = TagStep { spec, cache: TagCache::default() };
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"on": true, "name": "Luna"})).unwrap();
+    let mut other = r.plugin.step();
+    let mut live = r.plugin.step();
     live.process(&mut frame(1280, 720, 0), &Ctx);
     other.process(&mut frame(640, 360, 0), &Ctx);
     live.process(&mut frame(1280, 720, 0), &Ctx);
