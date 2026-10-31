@@ -111,6 +111,7 @@ export component DeskCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 100;
+        marks: [100];
         moved(v) => { root.stretch-moved(0, v); }
     }
     SliderRow {
@@ -125,6 +126,7 @@ export component DeskCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 100;
+        marks: [100];
         moved(v) => { root.stretch-moved(1, v); }
     }
     if status != "": Note { text: status; kind: status-kind; }

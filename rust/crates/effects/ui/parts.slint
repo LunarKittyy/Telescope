@@ -49,6 +49,8 @@ component SliderRow inherits LabelRow {
     in property <color> hue: Theme.accent;
     in property <bool> has-default;
     in property <float> default-value;
+    // Values a dragged handle sticks to (NoScrollSlider.set_snaps)
+    in property <[float]> marks;
     // "Double-click to reset", added to the tip of a slider that has a default
     in property <string> hint;
     callback moved(float);
@@ -67,6 +69,7 @@ component SliderRow inherits LabelRow {
             readout: root.readout;
             has-default: root.has-default;
             default-value: root.default-value;
+            marks: root.marks;
             moved(v) => { root.moved(v); }
         }
         if tip != "": Tooltip { TipBody { says: has-default && hint != "" ? root.tip + "\n" + hint : root.tip; } }

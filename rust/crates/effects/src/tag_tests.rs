@@ -236,3 +236,15 @@ fn it_uses_the_apps_fonts() {
     };
     assert_eq!(Face::em(inter, 40.0).advance("Luna"), Face::em(app, 40.0).advance("Luna"));
 }
+
+/// A person's name can have an emoji in it: the tile holds its colours, not the text's.
+#[test]
+fn an_emoji_in_a_name_keeps_its_colours() {
+    let spec = Spec { name: "\u{1f319}\u{1f319}\u{1f319}".into(), style: "shadow".into(), ..Spec::default() };
+    let Some(tag) = render(&spec, 1280, 720) else { return };
+    let yellow = tag.ink.chunks(3).filter(|p| p[0] > 180 && p[2] < 120).count();
+    if telescope_core::text::app_font(telescope_core::text::Weight::Regular).is_some() && yellow == 0 {
+        // A machine without a colour font draws nothing here
+        assert!(!std::fs::read_dir("/usr/share/fonts/google-noto-color-emoji-fonts").is_ok_and(|mut d| d.next().is_some()));
+    }
+}

@@ -256,6 +256,18 @@ impl Canvas {
         d[3] = alpha + d[3] * keep;
     }
 
+    /// A premultiplied pixel of a colour glyph laid over what's here.
+    fn painted(&mut self, x: i64, y: i64, px: [u8; 4]) {
+        if x < 0 || y < 0 || x as usize >= self.w || y as usize >= self.h {
+            return;
+        }
+        let d = &mut self.px[y as usize * self.w + x as usize];
+        let keep = 1.0 - px[3] as f32 / 255.0;
+        for i in 0..4 {
+            d[i] = px[i] as f32 / 255.0 + d[i] * keep;
+        }
+    }
+
     /// How much of the pixel [i, i + 1) the span lo..hi covers.
     fn span(i: i64, lo: f64, hi: f64) -> f32 {
         (hi.min(i as f64 + 1.0) - lo.max(i as f64)).clamp(0.0, 1.0) as f32
@@ -288,7 +300,9 @@ impl Canvas {
 
     fn text(&mut self, face: &Face, piece: &Piece, rgb: u32) {
         let line = face.layout(&piece.text, 0.0);
-        face.draw(&line, piece.x as f32, piece.baseline as f32, |x, y, cov| self.over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)));
+        let ink = [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8];
+        let canvas = std::cell::RefCell::new(self);
+        face.draw_coloured(&line, piece.x as f32, piece.baseline as f32, ink, |x, y, cov| canvas.borrow_mut().over(x as i64, y as i64, rgb, cov.clamp(0.0, 1.0)), |x, y, px| canvas.borrow_mut().painted(x as i64, y as i64, px));
     }
 }
 

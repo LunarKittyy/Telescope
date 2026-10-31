@@ -583,3 +583,17 @@ fn a_stream_behind_the_panels_is_left_alone() {
     std::thread::sleep(Duration::from_millis(50));
     assert!(rig.host.take_posted().is_empty());
 }
+
+/// A view change hands out a new step: it mustn't look any sooner for it.
+#[test]
+fn a_new_step_keeps_to_the_same_pace() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let frame = video_frame("https://example.com");
+    let mut step = cpu(rig.plugin.frame_step());
+    look(&mut *step, &frame, &rig.host);
+    let mut next = cpu(rig.plugin.frame_step());
+    let mut copy = frame.clone();
+    next.process(&mut copy, &NoContext);
+    assert!(!rig.plugin.shared.busy.load(Ordering::SeqCst));
+}

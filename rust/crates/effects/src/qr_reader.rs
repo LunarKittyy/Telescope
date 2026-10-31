@@ -337,13 +337,14 @@ struct Shared {
     busy: AtomicBool,
     /// The stream the panels show: Python has no frame step here, so a stream behind them is never looked at
     focused: Mutex<String>,
+    /// When the last look began: a new step, which every view change makes, keeps to the same pace
+    looked_at: Mutex<Option<Instant>>,
 }
 
 /// The frame step: now and then hands a picture to a thread that looks for a code in it. The frame itself goes on untouched.
 struct Reader {
     shared: Arc<Shared>,
     poster: Arc<dyn Poster>,
-    looked_at: Option<Instant>,
 }
 
 impl CpuStep for Reader {
@@ -353,10 +354,13 @@ impl CpuStep for Reader {
         }
         let every = if self.shared.pending.load(Ordering::SeqCst) { PENDING } else { EVERY };
         let now = Instant::now();
-        if self.looked_at.is_some_and(|at| now.duration_since(at) < every) {
-            return;
+        {
+            let mut looked_at = self.shared.looked_at.lock().unwrap();
+            if looked_at.is_some_and(|at| now.duration_since(at) < every) {
+                return;
+            }
+            *looked_at = Some(now);
         }
-        self.looked_at = Some(now);
         self.shared.busy.store(true, Ordering::SeqCst);
         let (shared, poster, frame) = (self.shared.clone(), self.poster.clone(), frame.clone());
         let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || {
@@ -700,7 +704,7 @@ impl Plugin for QrReaderPlugin {
 
     fn frame_step(&mut self) -> Option<FrameStep> {
         let poster = self.poster.clone()?;
-        Some(FrameStep::Cpu(Box::new(Reader { shared: self.shared.clone(), poster, looked_at: None })))
+        Some(FrameStep::Cpu(Box::new(Reader { shared: self.shared.clone(), poster })))
     }
 
     fn get_config(&self) -> Value {
