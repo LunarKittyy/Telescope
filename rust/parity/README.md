@@ -4,7 +4,7 @@ What keeps the Rust rewrite honest about matching the Python desktop app (the pl
 
 ## The inventory and the ledger
 
-`inventory.py` lists every piece of the Python app with a stable id and an area (the plugin or module that owns it). `ledger.toml` has one line per id with its status: `todo`, `ported` (with `rust = "rust/crates/..."`, a path from the repo root, optionally followed by `::symbol` or `:line`), `verified` (also with `rust`) or `dropped` (with a `reason`). A `note` can go on any line. The `[unknown]` table at the top is for gaps someone notices by hand. Give each one a note, then teach `inventory.py` to find that whole kind of thing.
+`inventory.py` lists every piece of the Python app with a stable id and an area (the plugin or module that owns it). `ledger.toml` has one line per id with its status: `todo`, `ported` (with `rust = "rust/crates/..."`, a path from the repo root, optionally followed by `::symbol` or `:line`; a test has to end in the `::function` that replaced it, and `--check` looks that function up), `verified` (also with `rust`) or `dropped` (with a `reason`). A `note` can go on any line. The `[unknown]` table at the top is for gaps someone notices by hand. Give each one a note, then teach `inventory.py` to find that whole kind of thing.
 
 ```bash
 python inventory.py --check

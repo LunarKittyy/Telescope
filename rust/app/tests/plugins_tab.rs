@@ -722,6 +722,7 @@ fn the_footer_counts_the_changes_that_wait_for_a_restart() {
 fn the_footer_counts_a_removed_plugin_that_still_runs() {
     let r = rig(builtins(), &["connection", "camera_control", "presets", "gone"]);
     assert_eq!(r.panel.pending_changes(), 1);
+    assert_eq!(r.panel.footer_note(), "Restart to apply 1 change");
 }
 
 #[test]

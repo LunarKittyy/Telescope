@@ -85,6 +85,26 @@ def test_a_ported_entry_must_point_at_something_that_exists():
         "rust = 'rust/core/src/session.rs' doesn't exist (moved?)"]
 
 
+def test_a_ported_test_names_a_function_that_exists(tmp_path, monkeypatch):
+    monkeypatch.setattr(inventory, "REPO", tmp_path)
+    (tmp_path / "t.rs").write_text("#[test]\nfn found_one() {}\nfn found() {}\n", encoding="utf-8")
+    assert inventory.test_problems({"status": "ported", "rust": "t.rs::found_one"}) == []
+    assert inventory.test_problems({"status": "ported", "rust": "t.rs::found"}) == []
+    assert inventory.test_problems({"status": "ported", "rust": "t.rs"}) == ["rust = 't.rs' names a file, not the test that replaced it"]
+    assert inventory.test_problems({"status": "verified", "rust": "t.rs::gone"}) == ["rust = 't.rs::gone': t.rs has no fn gone"]
+    assert inventory.test_problems({"status": "todo"}) == []
+    assert inventory.test_problems({"status": "ported", "rust": "gone.rs::x"}) == []
+
+
+def test_check_refuses_a_ported_test_with_no_function(tmp_path, monkeypatch):
+    monkeypatch.setattr(inventory, "REPO", tmp_path)
+    (tmp_path / "t.rs").write_text("fn found() {}\n", encoding="utf-8")
+    items = [Item("test", "test_a.py::test_b", "a"), Item("text", "Start", "connection")]
+    assert inventory.check(items, {"test": {"test_a.py::test_b": {"status": "ported", "rust": "t.rs::found"}}, "text": {"Start": {"status": "ported", "rust": "t.rs"}}}) == []
+    assert inventory.check(items, {"test": {"test_a.py::test_b": {"status": "ported", "rust": "t.rs"}}, "text": {"Start": {"status": "todo"}}}) == [
+        "test:test_a.py::test_b: rust = 't.rs' names a file, not the test that replaced it"]
+
+
 def test_a_missing_key_is_a_difference():
     other = changed(["saved", "plugin_configs", "setup"], {"theme": "dark"})
     assert compare_config.compare(EXPECTED, other, {("global", "setup", "language")}, {"setup"}) == [

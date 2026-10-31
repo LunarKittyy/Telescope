@@ -420,7 +420,7 @@ HEADER = """\
 # inventory.py makes the list; see README.md. Edit the values, not the ids. Each entry is
 #   status = "todo" | "ported" | "verified" | "dropped"
 #   rust = "rust/crates/..."           (needed for ported and verified: a path from the repo root that exists,
-#                                       optionally with ::symbol or :line after it)
+#                                       optionally with ::symbol or :line after it; a test names its ::function)
 #   reason = "why it goes away"        (needed for dropped)
 #   note = "anything else"             (comments in this file are rewritten by --update, notes are kept)
 # The "# area" lines are only for reading; inventory.py works the area out itself.
@@ -479,6 +479,20 @@ def problems_with(entry: dict) -> list:
     return []
 
 
+def test_problems(entry: dict) -> list:
+    """A ported test has to say which function replaced it, or nobody can check it."""
+    if entry.get("status") not in ("ported", "verified") or not entry.get("rust"):
+        return []
+    path, _, name = str(entry["rust"]).partition("::")
+    if not (REPO / path).is_file():
+        return []  # problems_with said so
+    if not name:
+        return [f"rust = {entry['rust']!r} names a file, not the test that replaced it"]
+    if not re.search(rf"\bfn {re.escape(name)}\b", (REPO / path).read_text(encoding="utf-8")):
+        return [f"rust = {entry['rust']!r}: {path} has no fn {name}"]
+    return []
+
+
 def check(items: list, ledger: dict) -> list:
     errors = []
     wanted = {i.id for i in items}
@@ -489,6 +503,8 @@ def check(items: list, ledger: dict) -> list:
     for kind in list(KINDS) + ["unknown"]:
         for key, entry in ledger.get(kind, {}).items():
             errors += [f"{kind}:{key}: {p}" for p in problems_with(entry)]
+            if kind == "test":
+                errors += [f"{kind}:{key}: {p}" for p in test_problems(entry)]
             if kind == "unknown" and not entry.get("note"):
                 errors.append(f"unknown:{key}: needs a note saying what it is")
     return errors

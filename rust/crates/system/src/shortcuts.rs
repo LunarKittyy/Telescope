@@ -1648,6 +1648,10 @@ mod tests {
         let titles: Vec<&String> = rows.iter().filter(|r| r.starts_with("# ")).collect();
         assert!(!titles.is_empty() && titles.iter().all(|t| *t == &t.to_uppercase()), "{rows:?}");
         assert!(rows.iter().any(|r| !r.starts_with("# ")));
+        let before = picked(&plugin);
+        let title = rows.iter().rposition(|r| r.starts_with("# ")).unwrap();
+        ui(&mut plugin, &mut host, "control-picked", json!([title]));
+        assert_eq!(picked(&plugin), before, "a group's title can't be picked");
     }
 
     #[test]
@@ -1688,6 +1692,19 @@ mod tests {
 
     #[test]
     fn dialog_lists_bindings() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({}), true), b("b", "F2", "camera.torch", json!({}), false)]), false, true);
+        seen.lock().unwrap().statuses.insert("a".into(), HotkeyStatus::new(true, "Everywhere: Meta+M".into()));
+        let rows = plugin.section_props()["rows"].clone();
+        assert_eq!((rows[0]["where"].clone(), rows[1]["where"].clone()), (json!("Everywhere: Meta+M"), json!("In Telescope")));
+        ui(&mut plugin, &mut host, "remove", json!([1]));
+        assert_eq!(plugin.bindings().iter().map(|b| b.id.as_str()).collect::<Vec<_>>(), ["a"]);
+        let rows = plugin.section_props()["rows"].clone();
+        assert_eq!(rows.as_array().unwrap().len(), 1);
+        assert_eq!(rows[0]["remove-label"], json!("Remove Mute: switch on or off"));
+    }
+
+    #[test]
+    fn dialog_says_what_a_binding_does_and_copies_its_line() {
         let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+Alt+M", "microphone.mute", json!({"mode": "hold"}), true),
                                                     b("b", "Ctrl+T", "camera.torch", json!({}), false)]), false, false);
         let props = plugin.section_props();

@@ -138,6 +138,13 @@ mod tests {
     }
 
     #[test]
+    fn register_plugin_routes_unknown_region_to_the_left_rail() {
+        let mut p = Panels::default();
+        p.place(Region::from_name("nowhere"), 0, false, "camera");
+        assert_eq!(p.columns(Mode::Three)[0].0, [0]);
+    }
+
+    #[test]
     fn modes_merge_columns() {
         let mut p = Panels::default();
         p.place(Region::Left, 0, false, "camera");
