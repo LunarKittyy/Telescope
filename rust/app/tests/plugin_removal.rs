@@ -315,7 +315,7 @@ fn every_card_and_section_in_the_window_folds() {
         st.cards().into_iter().filter_map(|i| {
             let card = &st.slots[i].card.as_ref()?.ui;
             let SlintSource::Text(text) = &card.source else { return None };
-            telescope_shell::source::card_title(text, &card.component)
+            telescope_shell::source::heading(text, &card.component)
         }).collect()
     };
     assert!(titles.len() > 20, "{titles:?}");

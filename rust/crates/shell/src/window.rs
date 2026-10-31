@@ -264,8 +264,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         if let Some(card) = &slot.card {
             let (file, text) = source_of(name, "card", &card.ui);
             let id = format!("p{i}");
-            let title = crate::source::card_title(&text, &card.ui.component)
-                .or_else(|| (!slot.info.title.is_empty()).then(|| slot.info.title.clone())).unwrap_or_else(|| name.clone());
+            let title = if slot.info.title.is_empty() { name.clone() } else { slot.info.title.clone() };
             cards.push(CardPlace {
                 piece: Piece { id: id.clone(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
                 region: Region::from_name(&card.region),

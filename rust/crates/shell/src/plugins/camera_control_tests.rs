@@ -887,6 +887,7 @@ fn the_log_readouts_say_the_value_they_were_given() {
 #[test]
 fn a_keys_range_and_choices_move_with_the_lens() {
     let mut r = Rig::new();
+    r.streaming();
     r.flush();
     assert!(!r.host.calls.iter().any(|c| c == "refresh_actions"), "nothing moved yet");
     r.cam.on_lens_selected(&json!({"id": "wide", "label": "Wide", "isoMin": 80, "isoMax": 800, "shutterMinNs": 300_000, "shutterMaxNs": 500_000_000}));

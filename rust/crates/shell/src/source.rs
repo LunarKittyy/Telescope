@@ -343,27 +343,9 @@ pub fn parse_color(s: &str) -> Option<slint::Color> {
     }
 }
 
-/// The title a card's component gives itself, in English: `title: @tr("...")` or `title: "..."` in its own lines. A fold is
-/// saved under this one (collapse.py keys on the card's title), which isn't always the plugin's.
-pub fn card_title(text: &str, component: &str) -> Option<String> {
-    let start = text.find(&format!("component {component} inherits Card"))?;
-    let line = text[start..].lines().find_map(|l| l.strip_prefix("    title: "))?;
-    let line = line.strip_prefix("@tr(").unwrap_or(line);
-    let quoted = line.strip_prefix('"')?;
-    quoted.split_once('"').map(|(title, _)| title.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_card_is_known_by_the_title_it_shows() {
-        let text = "component Row inherits Rectangle {\n    title: @tr(\"Not this\");\n}\nexport component OneCard inherits Card {\n    in property <bool> on;\n    title: @tr(\"One picture\");\n}\n";
-        assert_eq!(card_title(text, "OneCard").as_deref(), Some("One picture"));
-        assert_eq!(card_title("export component P inherits Card {\n    title: \"Telescope\";\n}", "P").as_deref(), Some("Telescope"));
-        assert_eq!(card_title("export component Q inherits Rectangle {\n    title: \"x\";\n}", "Q"), None);
-    }
     use serde_json::json;
 
     const CARD: &str = r#"
