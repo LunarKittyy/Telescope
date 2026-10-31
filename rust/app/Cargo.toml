@@ -35,6 +35,8 @@ winresource.workspace = true
 
 [dev-dependencies]
 base64.workspace = true
+# test_architecture reads paths from tokens rather than text
+proc-macro2 = "1"
 flate2.workspace = true
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
 zip.workspace = true
