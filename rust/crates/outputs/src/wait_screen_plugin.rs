@@ -78,7 +78,7 @@ struct CoverCache {
     failed: Vec<(CoverKey, Instant)>,
 }
 
-/// An RGB picture as a frame in the stream's format and mirrored or not.
+/// An RGB picture as a frame in the stream's format and mirrored or not; None for a format nothing can be drawn in.
 fn picture_in(rgb: &Rgb, format: PixelFormat, mirror: bool) -> Option<Frame> {
     Some(match format {
         PixelFormat::I420 => rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror),
@@ -97,6 +97,7 @@ fn picture_in(rgb: &Rgb, format: PixelFormat, mirror: bool) -> Option<Frame> {
             data.as_chunks_mut::<4>().0.iter_mut().for_each(|p| p.swap(0, 2));
             Frame::new(rgb.width, rgb.height, PixelFormat::Bgra, data)
         }
+        _ => return None,
     })
 }
 
