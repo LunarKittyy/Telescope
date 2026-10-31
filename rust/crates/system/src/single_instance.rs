@@ -2,6 +2,7 @@
 //! `telescope --action` handing an action to the running copy. The socket, the messages and the control key are
 //! the Python app's, so either one's `--action` reaches the other.
 
+use telescope_core::i18n::Fields;
 use serde_json::{json, Value};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
@@ -44,6 +45,26 @@ impl Address {
             // Above the real app's port and the Python dev profile's
             Address::Port(port) => Address::Port(port + 2 + tag % 1000),
         }
+    }
+}
+
+/// Whether this is the only copy using a name every copy on this kind of profile shares (the virtual mic's source), and if so keeps it that way for as
+/// long as this process runs: profiles each have a lock of their own, while Python's dev profiles all share one, which counts too.
+pub fn sole_user_of(name: &str) -> bool {
+    let shared = telescope_core::config::dev_profile().is_some().then(|| Address::for_profile(true));
+    sole_user_at(&Address::Abstract(format!("telescope-{}-shared-{name}", uid())), shared.as_ref())
+}
+
+fn sole_user_at(claim: &Address, python: Option<&Address>) -> bool {
+    if python.is_some_and(held_elsewhere) {
+        return false;
+    }
+    match Lock::bind(claim) {
+        Ok(lock) => {
+            std::mem::forget(lock);
+            true
+        }
+        Err(_) => false,
     }
 }
 
@@ -252,12 +273,12 @@ pub fn notice(acquired: &Acquired, address: &Address) -> Option<(String, String)
                                      tr("Telescope is already running for another user on this computer. Close it there, then open it again here."))),
         Acquired::Taken => {
             let place = match address {
-                Address::Port(port) => tr("port {port}").replace("{port}", &port.to_string()),
+                Address::Port(port) => tr("port {port}").field("port", &port.to_string()),
                 Address::Abstract(_) => tr("a local socket"),
             };
             Some((tr("Telescope can't start"),
                   tr("Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.")
-                      .replace("{where}", &place)))
+                      .field("where", &place)))
         }
         _ => None,
     }
@@ -418,6 +439,20 @@ pub fn action_request(words: &[String]) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A mic source goes by one name on every dev profile, and each Rust profile has its own lock
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_shared_name_has_one_user_at_a_time() {
+        let name = |what: &str| Address::Abstract(format!("telescope-test-{}-{what}", std::process::id()));
+        let (claim, python) = (name("claim"), name("python"));
+        let running = Lock::bind(&python).unwrap();
+        assert!(!sole_user_at(&claim, Some(&python)), "a Python dev desktop is running");
+        drop(running);
+        assert!(sole_user_at(&claim, Some(&python)));
+        assert!(!sole_user_at(&claim, Some(&python)), "another Rust profile holds it now");
+        assert!(sole_user_at(&name("other"), None), "the real app's name has no dev lock to ask about");
+    }
     use std::sync::{Arc, Mutex};
 
     fn test_address(name: &str) -> Address {

@@ -342,10 +342,15 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, sp
     Some(())
 }
 
-/// Linux: only the copy holding the lock gets here, so the source it finds is never a running one's.
+/// Linux: a source left by a crashed run goes, unless another copy shares that source's name and may be using it.
 fn remove_stale_mic() {
     #[cfg(target_os = "linux")]
-    telescope_audio::virtual_mic::remove_stale_source(&|cmd| telescope_audio::virtual_mic::run_within(cmd, std::time::Duration::from_secs(2)));
+    {
+        use telescope_audio::virtual_mic::{remove_stale_source, run_within, source};
+        if telescope_system::single_instance::sole_user_of(source()) {
+            remove_stale_source(&|cmd| run_within(cmd, std::time::Duration::from_secs(2)));
+        }
+    }
 }
 
 /// The folder this program runs from, which an update replaces (main.py's APP_DIR).
@@ -455,7 +460,6 @@ fn main() {
     });
     // Before the decoder and the stream start their threads, which would each get a pool of their own
     telescope_system::memory::limit_malloc_arenas(4);
-    // Before any other thread starts, so a logout's SIGTERM reaches the thread that confirms a trial
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     #[cfg(windows)]
