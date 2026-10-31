@@ -20,12 +20,18 @@ pub fn shell_files() -> Vec<(String, String)> {
 
 /// Compiles `doc` (as ROOT/<name>) with `files` (paths under ROOT to source text) and returns `component`.
 pub fn compile(name: &str, doc: &str, files: Vec<(String, String)>, component: &str) -> Result<ComponentDefinition, String> {
+    compile_with(name, doc, files, component, false)
+}
+
+/// compile, with Slint's debug info when something reads the elements back (the settings search).
+pub fn compile_with(name: &str, doc: &str, files: Vec<(String, String)>, component: &str, debug_info: bool) -> Result<ComponentDefinition, String> {
     let mut known: HashMap<PathBuf, String> = HashMap::new();
     for (path, text) in shell_files().into_iter().chain(files) {
         known.insert(Path::new(ROOT).join(path), translate(&text));
     }
     let known = Rc::new(known);
     let mut compiler = Compiler::default();
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_info = debug_info;
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
     compiler.set_file_loader(move |path: &Path| {
         let found = known.get(path).cloned().or_else(|| {

@@ -80,26 +80,40 @@ mod tests {
     }
 
     #[test]
-    fn one_letter_slips_and_swapped_letters_still_find_it() {
-        let e = vec![entry("Resolution", "Streaming", "Output"), entry("Microphone", "Audio", "")];
-        assert_eq!(search_ex(&e, "resolutoin", 12).0[0].name, "Resolution");
-        assert_eq!(search_ex(&e, "microphne", 12).0[0].name, "Microphone");
-    }
-
-    #[test]
     fn a_word_has_to_start_a_word_unless_it_is_long() {
         let e = vec![entry("Microphone", "Audio", ""), entry("Crop", "Video", "")];
         assert_eq!(search_ex(&e, "crop", 12).0.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["Crop"]);
         assert!(search_ex(&e, "phone", 12).0.iter().any(|e| e.name == "Microphone"));
     }
 
+    /// fuzzy.Doc(**fields).score(query) with every field counting in full.
+    fn score(query: &str, name: &str) -> f64 {
+        Doc::new(&[("name", name)]).score(query, &[("name", 1.0)], false)
+    }
+
     #[test]
     fn accents_and_case_dont_matter() {
         assert_eq!(normalize("Résolution  Écran!"), "resolution ecran");
+        assert!(score("CAFÉ", "cafe") > 0.0);
     }
 
     #[test]
     fn every_word_has_to_match_but_filler_doesnt_count() {
+        assert!(score("max zoom", "Max zoom") > score("max", "Max zoom"));
+        assert_eq!(score("max volume", "Max zoom"), 0.0);
+        assert!(score("how to zoom", "Max zoom") > 0.0);
+        // "hw" is too short to rule it out
+        assert!(score("hw accel", "Hardware acceleration") > 0.0);
+    }
+
+    #[test]
+    fn a_closer_match_scores_higher() {
+        let (exact, prefix, typo) = (score("zoom", "Zoom"), score("zoo", "Zoom"), score("zoim", "Zoom"));
+        assert!(exact > prefix && prefix > typo && typo > 0.0, "{exact} {prefix} {typo}");
+    }
+
+    #[test]
+    fn when_no_entry_has_every_word_the_ones_with_some_come_back_marked() {
         let e = vec![entry("Open Telescope when I sign in", "General", "Startup")];
         assert!(!search_ex(&e, "how do i change startup", 12).1);
         let (hits, partial) = search_ex(&e, "startup zebra", 12);
@@ -107,13 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn nonsense_finds_nothing() {
-        let e = vec![entry("Resolution", "Streaming", "")];
-        assert!(search_ex(&e, "qqqqzz", 12).0.is_empty());
-    }
-
-    #[test]
-    fn results_say_where_the_setting_is() {
+    fn a_result_says_its_tab_and_card() {
         let mut e = entry("Resolution", "Streaming", "Output");
         assert_eq!(e.path(), "Streaming  ›  Output");
         e.card = "Resolution".into();

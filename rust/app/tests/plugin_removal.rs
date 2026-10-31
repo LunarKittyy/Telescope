@@ -376,3 +376,50 @@ fn every_built_in_plugin_says_what_it_is_for_the_plugins_tab() {
     let required: BTreeSet<&str> = infos.iter().filter(|p| p.required).map(|p| p.name.as_str()).collect();
     assert_eq!(required, BTreeSet::from(["connection", "setup", "updates"]));
 }
+
+// test_settings_search.py: real queries against the real tabs of a window with every plugin
+fn opened(name: &str) -> (Rc<Window>, Rc<telescope_shell::settings::Settings>) {
+    let w = build(&telescope_core::testing::scratch_dir(name), None);
+    telescope_shell::settings::open(&w, "general");
+    (w, telescope_shell::settings::current().expect("the settings window"))
+}
+
+fn names(settings: &telescope_shell::settings::Settings, query: &str) -> Vec<String> {
+    settings.search_results(query).into_iter().map(|e| e.name).collect()
+}
+
+#[test]
+fn nonsense_finds_nothing() {
+    let (_w, settings) = opened("search-nonsense");
+    for query in ["zzzzzz", "qwertyuiop", "banana bread", "xx", "kubernetes"] {
+        assert_eq!(names(&settings, query), Vec::<String>::new(), "{query}");
+    }
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn results_say_where_the_setting_is() {
+    let (_w, settings) = opened("search-where");
+    let first = settings.search_results("canvas size").remove(0);
+    assert_eq!((first.name.as_str(), first.tab.as_str(), first.path().as_str()), ("Canvas size", "video", "Video"));
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn one_letter_slips_and_swapped_letters_still_find_it() {
+    let (_w, settings) = opened("search-slips");
+    for query in ["hardwrae", "acceleraton", "lmiter", "cavnas", "micorphone"] {
+        assert!(!names(&settings, query).is_empty(), "{query}");
+    }
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn every_setting_can_be_found_by_its_own_name() {
+    let (_w, settings) = opened("search-own-name");
+    let entries = settings.entries();
+    assert!(entries.len() > 25, "{}", entries.len());
+    let lost: Vec<&str> = entries.iter().filter(|e| !telescope_shell::search::search_ex(&entries, &e.name, 5).0.contains(e)).map(|e| e.name.as_str()).collect();
+    assert!(lost.is_empty(), "{lost:?}");
+    telescope_shell::settings::forget();
+}

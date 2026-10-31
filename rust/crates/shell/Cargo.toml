@@ -16,7 +16,8 @@ unicode-normalization = "0.1"
 # Reads the settings window's accessible tree for the search (pinned: its API follows Slint's internals)
 i-slint-backend-testing = "=1.18.1"
 i-slint-core = "=1.18.1"
-slint-interpreter.workspace = true
+# internal: the settings window keeps Slint's debug info, which reading its elements needs
+slint-interpreter = { workspace = true, features = ["internal"] }
 telescope-ui-kit.workspace = true
 
 
