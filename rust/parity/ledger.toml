@@ -3871,16 +3871,16 @@
 "test_settings_search.py::test_results_say_where_the_setting_is" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::results_say_where_the_setting_is" }
 "test_settings_search.py::test_typing_shows_results_and_clearing_goes_back_to_the_tab" = { status = "ported", rust = "rust/app/tests/settings_search.rs::typing_shows_results_and_clearing_goes_back_to_the_tab" }
 "test_settings_search.py::test_when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" = { status = "ported", rust = "rust/app/tests/settings_search.rs::when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" }
-"test_settings_window.py::test_a_section_hears_when_its_tab_comes_on_screen" = { status = "todo" }
-"test_settings_window.py::test_a_section_that_cant_refresh_doesnt_break_the_window" = { status = "todo" }
+"test_settings_window.py::test_a_section_hears_when_its_tab_comes_on_screen" = { status = "ported", rust = "rust/app/tests/settings_window.rs::a_section_hears_when_its_tab_comes_on_screen" }
+"test_settings_window.py::test_a_section_that_cant_refresh_doesnt_break_the_window" = { status = "ported", rust = "rust/app/tests/settings_window.rs::a_section_that_cant_refresh_doesnt_break_the_window" }
 "test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::a_tab_a_plugin_makes_goes_before_plugins" }
 "test_settings_window.py::test_a_tab_title_replaces_the_usual_name" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::a_tab_title_replaces_the_usual_name" }
-"test_settings_window.py::test_enter_on_a_focused_button_still_runs_it" = { status = "todo" }
-"test_settings_window.py::test_it_stays_inside_the_screen" = { status = "todo" }
+"test_settings_window.py::test_enter_on_a_focused_button_still_runs_it" = { status = "ported", rust = "rust/app/tests/settings_window.rs::enter_on_a_focused_button_still_runs_it" }
+"test_settings_window.py::test_it_stays_inside_the_screen" = { status = "ported", rust = "rust/app/tests/settings_window.rs::it_stays_inside_the_screen", note = "fit_to_screen is given the size; reading the real monitor isn't run offscreen" }
 "test_settings_window.py::test_only_tabs_with_something_in_them_show_in_the_fixed_order" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::only_tabs_with_something_in_them_show_in_the_fixed_order", note = "ordered_tabs always adds Plugins, which Python's app adds outside the test's window, so the list here has one more tab" }
-"test_settings_window.py::test_opening_a_search_result_does_not_click_the_setting" = { status = "todo" }
+"test_settings_window.py::test_opening_a_search_result_does_not_click_the_setting" = { status = "ported", rust = "rust/app/tests/settings_window.rs::opening_a_search_result_does_not_click_the_setting", note = "from the search box only: the result rows here take clicks, not focus" }
 "test_settings_window.py::test_sections_sit_in_order_then_registration_order" = { status = "ported", rust = "rust/crates/shell/tests/settings_order.rs::sections_sit_in_order_then_registration_order" }
-"test_settings_window.py::test_show_tab_switches_and_refuses_one_that_isnt_there" = { status = "todo" }
+"test_settings_window.py::test_show_tab_switches_and_refuses_one_that_isnt_there" = { status = "ported", rust = "rust/app/tests/settings_window.rs::show_tab_switches_and_refuses_one_that_isnt_there" }
 # ── setup
 "test_setup.py::test_a_driver_install_that_crashes_still_frees_the_button" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::a_driver_install_that_crashes_still_frees_the_button" }
 "test_setup.py::test_a_registration_in_the_app_folder_asks_for_a_reinstall_and_says_why" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::a_registration_in_the_app_folder_asks_for_a_reinstall_and_says_why" }
@@ -4675,7 +4675,7 @@
 "test_widgets.py::test_a_tag_measures_itself_in_the_themes_font_not_the_systems" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_tag_measures_itself_in_the_themes_font_not_the_systems" }
 "test_widgets.py::test_control_row_starts_the_control_at_the_label_column" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_control_row_widget_is_hideable" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
-"test_widgets.py::test_double_log_slider_converts_scaled_spin_value" = { status = "todo", note = "ISO and shutter have no box to type a value in yet: LogRow keeps spin and the card shows a readout only. Needs the typing box on the camera card first." }
+"test_widgets.py::test_double_log_slider_converts_scaled_spin_value" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::double_log_slider_converts_scaled_spin_value", note = "the box is the readout: a click on it types over it, so the card looks the same" }
 "test_widgets.py::test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin" = { status = "dropped", reason = "Qt only: a QStyledItemDelegate's row height; the kit's ChoiceField has no separator row, and it marks the picked item by its fill" }
 "test_widgets.py::test_eliding_label_keeps_its_full_text_available" = { status = "ported", rust = "rust/app/tests/stream_status.rs::eliding_label_keeps_its_full_text_available" }
 "test_widgets.py::test_empty_lenses_show_a_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::empty_lenses_show_a_placeholder" }
