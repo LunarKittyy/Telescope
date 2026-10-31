@@ -7,9 +7,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use telescope_core::host::Host;
 use telescope_core::link::PhoneStills;
+use telescope_core::media::PacketTap;
 use telescope_core::plugin::Plugin;
 use telescope_core::source::PairedPhone;
 use telescope_link::sensors::SensorHub;
+use telescope_shell::worker::VideoWorker;
 
 fn asks<R>(r: &Rig, f: impl FnOnce(&mut dyn Host) -> R) -> R {
     let at = r.w.state.borrow().index("panel").unwrap();
@@ -205,4 +207,115 @@ fn re_pairing_a_background_phone_restarts_it_with_the_new_token() {
     assert!(r.worker(0).is_stopped());
     assert!(!r.worker(1).is_stopped(), "the other stream stays");
     assert_eq!(r.link.logged("open pixel with new-token"), 1);
+}
+
+#[test]
+fn packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe() {
+    struct Nothing;
+    impl telescope_core::host::PacketStepFactory for Nothing {
+        fn make(&self) -> Box<dyn telescope_core::host::PacketStep> {
+            unimplemented!("no packets in this test")
+        }
+    }
+    let r = Rig::new("packets");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    let control = r.link.control("pixel");
+    let keyframes = || control.sent.lock().unwrap().iter().filter(|s| s["action"] == "keyframe").count();
+    let on = r.worker(0).packets.clone();
+    asks(&r, |host| host.change_packets("fun", Some(Arc::new(Nothing))));
+    assert!(on.on());
+    assert_eq!(keyframes(), 1);
+    asks(&r, |host| host.change_packets("fun", None));
+    assert!(!on.on());
+    assert_eq!(keyframes(), 2);
+    asks(&r, |host| host.change_packets("fun", None));
+    assert_eq!(keyframes(), 2, "nothing came on or off");
+}
+
+#[test]
+fn a_preview_frame_from_the_last_stream_isnt_shown_on_the_next() {
+    let r = Rig::new("preview-last");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.pump();
+    r.w.with_flow(|flow, host| flow.focus_stream(host, "pixel"));
+    r.pump();
+    r.worker(0).slot().publish(rig::frame()); // came in before the switch
+    r.w.with_flow(|flow, host| flow.focus_stream(host, "oneplus"));
+    r.pump();
+    assert!(r.w.preview_frame().is_none());
+}
+
+#[test]
+fn stopping_a_stream_lets_go_of_its_colour_lut() {
+    use telescope_core::colour::{lattice, ColourPipeline};
+    use telescope_core::host::ColourStage;
+    use std::time::Duration;
+    let r = Rig::new("colour-let-go");
+    r.w.state.borrow_mut().colour = ColourPipeline::inline();
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    let stage = ColourStage::new(2, Arc::new(lattice(2).iter().map(|v| 1.0 - v).collect()), None);
+    r.w.state.borrow_mut().colour.set_stage("grade", Some(stage), 0, Some("pixel"));
+    r.w.state.borrow_mut().pipeline_steps(Some("pixel"));
+    assert!(r.w.state.borrow().colour.settle(Duration::from_secs(5)));
+    assert!(r.w.state.borrow().colour.holds("pixel"));
+    r.stop(Some("pixel"));
+    r.pump();
+    assert!(!r.w.state.borrow().colour.holds("pixel"));
+}
+
+#[test]
+fn stopping_a_stream_forgets_who_it_was_tracking() {
+    #[derive(Default)]
+    struct Tracks(Mutex<Vec<String>>);
+    impl telescope_core::vision::VisionService for Tracks {
+        fn attach(&self, _bus: telescope_core::BusSender) {}
+        fn state(&self) -> String {
+            String::new()
+        }
+        fn load(&self) {}
+        fn person_mask(&self, _source_id: &str, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn want_people(&self, _owner: &str, _on: bool) {}
+        fn wants_people(&self) -> bool {
+            false
+        }
+        fn feed_raw(&self, _source_id: &str, _frame: &telescope_core::Frame, _upright: telescope_core::vision::Upright) {}
+        fn tracked_people(&self, _source_id: &str) -> (Vec<Value>, u32) {
+            (Vec::new(), 0)
+        }
+        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn drop_stream(&self, source_id: &str) {
+            self.0.lock().unwrap().push(source_id.to_string());
+        }
+        fn set_power_saving(&self, _on: bool) {}
+        fn diagnostics(&self) -> Vec<(String, String)> {
+            Vec::new()
+        }
+        fn shutdown(&self) {}
+        fn pack(&self) -> telescope_core::vision::VisionPack {
+            Default::default()
+        }
+        fn download(&self, _switch_on: &str) {}
+        fn cancel_download(&self) {}
+        fn remove_pack(&self) {}
+        fn download_failed(&self, _error: &str, _plugin: &str) {}
+    }
+    let r = Rig::new("tracking-forgot");
+    let vision = Arc::new(Tracks::default());
+    r.w.state.borrow_mut().vision = Some(vision.clone());
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.stop(Some("pixel"));
+    r.pump();
+    assert_eq!(*vision.0.lock().unwrap(), ["pixel"]);
 }

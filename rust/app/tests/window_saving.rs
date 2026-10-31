@@ -4,9 +4,10 @@ mod rig;
 use rig::{FakeSource, Listener, Rig};
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use telescope_core::host::{Host, HostShell};
 use telescope_core::plugin::{Plugin, PluginInfo};
-use telescope_core::ui::SettingsSection;
+use telescope_core::ui::{SettingsSection, SlintSource, UiSpec};
 
 fn zoomed(name: &str) -> Rig {
     Rig::with(name, |_, heard| {
@@ -155,4 +156,95 @@ fn a_plugin_that_cant_list_its_settings_doesnt_stop_the_window() {
     telescope_shell::settings::open(&r.w, "plugins");
     assert_eq!(telescope_shell::settings::current().unwrap().current_tab(), "plugins");
     telescope_shell::settings::forget();
+}
+
+struct Sections;
+
+impl Plugin for Sections {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "with_sections".into(), ..Default::default() }
+    }
+    fn settings_sections(&mut self) -> Vec<SettingsSection> {
+        const PAGE: &str = "import { VerticalBox } from \"std-widgets.slint\";\nexport component Page inherits VerticalBox { Text { text: \"Mine\"; } }\n";
+        let page = |id: &str, tab: &str, title: &str| SettingsSection {
+            id: id.into(), tab: tab.into(), ui: UiSpec { source: SlintSource::Text(PAGE.into()), component: "Page".into(), props: json!({}) },
+            order: 0, tab_title: title.into(), keywords: String::new(), footer: None,
+        };
+        vec![page("first", "general", ""), page("second", "my_own", "My own")]
+    }
+}
+
+#[test]
+fn settings_window_collects_sections_from_every_plugin() {
+    use slint::ComponentHandle;
+    let r = Rig::with("sections", |_, _| vec![Box::new(Sections) as Box<dyn Plugin>]);
+    telescope_shell::settings::open(&r.w, "");
+    let win = telescope_shell::settings::current().unwrap();
+    assert!(win.ui.window().is_visible());
+    assert_eq!(win.tabs(), ["general", "my_own", "plugins"], "a tab of its own goes before Plugins");
+    telescope_shell::settings::open(&r.w, "my_own");
+    assert!(std::rc::Rc::ptr_eq(&win, &telescope_shell::settings::current().unwrap()));
+    assert_eq!(win.current_tab(), "my_own");
+    telescope_shell::settings::open(&r.w, "nowhere");
+    assert_eq!(win.current_tab(), "my_own", "not a tab: stays where it was");
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn the_gear_button_opens_settings_without_a_menu() {
+    use slint::ComponentHandle;
+    let r = Rig::new("gear");
+    telescope_shell::settings::forget();
+    r.w.ui.invoke("settings-clicked", &[]).unwrap();
+    r.pump();
+    assert!(telescope_shell::settings::current().unwrap().ui.window().is_visible());
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn under_dev_desktop_a_restart_is_left_to_it() {
+    let restarts = |name: &str, streaming: bool| {
+        let r = Rig::new(name);
+        if streaming {
+            r.start();
+            r.worker(0).says("ok", "Streaming");
+            r.pump();
+        }
+        assert!(asks(&r, |host| host.restart_app()));
+        r.w.process();
+        r.pump();
+        telescope_shell::window::exit_code()
+    };
+    // SAFETY: the rig runs one window at a time, and the variable goes before the next
+    unsafe {
+        std::env::set_var(telescope_core::dev_profile::ENV, telescope_core::testing::scratch_dir("restart-profile"));
+        std::env::set_var(telescope_core::dev_profile::SUPERVISED_ENV, "1");
+    }
+    let (idle, streaming) = (restarts("restart-idle", false), restarts("restart-streaming", true));
+    unsafe {
+        std::env::remove_var(telescope_core::dev_profile::SUPERVISED_ENV);
+        std::env::remove_var(telescope_core::dev_profile::ENV);
+    }
+    assert_eq!((idle, streaming), (75, 76), "and dev_desktop.py has the next one start streaming");
+}
+
+#[test]
+fn these_built_in_plugins_keep_their_settings_per_phone() {
+    use telescope_effects as fx;
+    let per_phone: Vec<Box<dyn Plugin>> = vec![
+        Box::new(telescope_shell::plugins::camera_control::CameraControl::new()), Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
+        Box::new(fx::transforms::TransformsPlugin::new()), Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
+        Box::new(telescope_shell::plugins::presets::PresetsPlugin::new()), Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(Arc::new(rig::FakeLink::default()))),
+        Box::new(fx::desk::DeskPlugin::new()),
+        Box::new(fx::colour_grading::ColourGradingPlugin::new()), Box::new(fx::fun_pack::FunPackPlugin::new()),
+        Box::new(fx::background::BackgroundPlugin::new()), Box::new(fx::chroma_key::ChromaKeyPlugin::new()),
+        Box::new(fx::framing::FramingPlugin::new()), Box::new(fx::face_exposure::FaceExposurePlugin::new()), Box::new(fx::name_tag::NameTagPlugin::new()),
+    ];
+    let names: Vec<String> = per_phone.iter().filter(|p| p.info().device_local).map(|p| p.info().name).collect();
+    assert_eq!(names, ["camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk", "colour_grading", "fun_pack", "background", "chroma_key", "framing", "face_exposure", "name_tag"]);
+    let whole_app: Vec<Box<dyn Plugin>> = vec![
+        Box::new(fx::cinema::CinemaPlugin::new()), Box::new(fx::privacy_blur::PrivacyBlurPlugin::new()), Box::new(fx::photos::PhotosPlugin::new()),
+        Box::new(fx::notes::NotesPlugin::new()), Box::new(fx::qr_reader::QrReaderPlugin::new()),
+    ];
+    assert!(whole_app.iter().all(|p| !p.info().device_local));
 }

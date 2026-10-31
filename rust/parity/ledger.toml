@@ -1951,26 +1951,26 @@
 "test_app.py::test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light" = { status = "ported", rust = "rust/app/tests/stream_status.rs::a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light" }
 "test_app.py::test_a_frame_rate_lowered_for_the_heat_says_so" = { status = "ported", rust = "rust/app/tests/stream_status.rs::a_frame_rate_lowered_for_the_heat_says_so" }
 "test_app.py::test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped" = { status = "ported", rust = "rust/crates/media/src/pipeline.rs::a_failing_or_mangling_step_passes_the_frame_through_and_is_skipped_after_a_while" }
-"test_app.py::test_a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for" = { status = "todo" }
+"test_app.py::test_a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for" }
 "test_app.py::test_a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now" = { status = "ported", rust = "rust/app/tests/stream_hand_over.rs::a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now" }
 "test_app.py::test_a_legacy_plugins_settings_actions_still_work" = { status = "dropped", reason = "The Rust plugin API never had create_menu_actions" }
 "test_app.py::test_a_lens_switch_or_new_size_lets_the_stream_settle_before_it_counts_as_behind" = { status = "ported", rust = "rust/app/tests/stream_status.rs::a_lens_switch_or_new_size_lets_the_stream_settle_before_it_counts_as_behind" }
-"test_app.py::test_a_lens_switch_starts_motion_over" = { status = "todo" }
+"test_app.py::test_a_lens_switch_starts_motion_over" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_lens_switch_starts_motion_over" }
 "test_app.py::test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok" }
 "test_app.py::test_a_loopback_reload_that_raises_still_reports_back" = { status = "ported", rust = "rust/app/tests/stream_canvas.rs::a_loopback_reload_that_raises_still_reports_back" }
 "test_app.py::test_a_phone_back_before_the_wait_screen_keeps_its_camera" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_phone_back_before_the_wait_screen_keeps_its_camera" }
 "test_app.py::test_a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera" = { status = "ported", rust = "rust/app/tests/window_saving.rs::a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera" }
 "test_app.py::test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back" }
 "test_app.py::test_a_phone_left_with_its_camera_on_or_off_is_matched" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::a_phone_left_with_its_camera_on_or_off_is_matched" }
-"test_app.py::test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone" = { status = "todo" }
+"test_app.py::test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone" }
 "test_app.py::test_a_plugin_hook_that_raises_does_not_stop_the_others" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_that_panics_doesnt_stop_the_others" }
 "test_app.py::test_a_plugin_still_using_the_settings_menu_hook_is_warned_about" = { status = "dropped", reason = "The Rust plugin API never had create_menu_actions" }
 "test_app.py::test_a_plugin_that_cant_list_its_settings_doesnt_stop_the_window" = { status = "ported", rust = "rust/app/tests/window_saving.rs::a_plugin_that_cant_list_its_settings_doesnt_stop_the_window" }
 "test_app.py::test_a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save" }
-"test_app.py::test_a_preset_applied_on_one_camera_leaves_the_others_alone" = { status = "todo" }
-"test_app.py::test_a_preset_from_before_per_camera_effects_applies_to_the_shown_camera" = { status = "todo" }
-"test_app.py::test_a_preset_saved_with_two_cameras_streaming_is_the_shown_ones" = { status = "todo" }
-"test_app.py::test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next" = { status = "todo" }
+"test_app.py::test_a_preset_applied_on_one_camera_leaves_the_others_alone" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::a_preset_applied_on_one_camera_leaves_the_others_alone" }
+"test_app.py::test_a_preset_from_before_per_camera_effects_applies_to_the_shown_camera" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::a_preset_from_before_per_camera_effects_applies_to_the_shown_camera" }
+"test_app.py::test_a_preset_saved_with_two_cameras_streaming_is_the_shown_ones" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::a_preset_saved_with_two_cameras_streaming_is_the_shown_ones" }
+"test_app.py::test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next" = { status = "ported", rust = "rust/app/tests/stream_services.rs::a_preview_frame_from_the_last_stream_isnt_shown_on_the_next" }
 "test_app.py::test_a_probe_from_before_the_stream_came_back_is_dropped" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_probe_from_before_the_stream_came_back_is_dropped" }
 "test_app.py::test_a_raise_still_works_next_to_actions" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::a_raise_still_works_next_to_actions" }
 "test_app.py::test_a_readable_config_shows_no_banner" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_readable_config_shows_no_banner" }
@@ -2033,10 +2033,10 @@
 "test_app.py::test_close_event_minimizes_active_stream_to_tray" = { status = "ported", rust = "rust/app/tests/window_tray.rs::close_event_minimizes_active_stream_to_tray" }
 "test_app.py::test_close_event_stops_and_accepts_without_background_stream" = { status = "ported", rust = "rust/app/tests/window_tray.rs::close_event_stops_and_accepts_without_background_stream" }
 "test_app.py::test_colour_stages_go_on_after_the_plugins" = { status = "ported", rust = "rust/app/tests/window_frames.rs::colour_stages_go_on_after_the_plugins" }
-"test_app.py::test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing" = { status = "todo" }
-"test_app.py::test_coming_back_to_a_stream_keeps_its_focus_point" = { status = "todo" }
-"test_app.py::test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure" = { status = "todo" }
-"test_app.py::test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again" = { status = "todo" }
+"test_app.py::test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing" }
+"test_app.py::test_coming_back_to_a_stream_keeps_its_focus_point" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::coming_back_to_a_stream_keeps_its_focus_point" }
+"test_app.py::test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure" }
+"test_app.py::test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again" }
 "test_app.py::test_desk_mode_tells_the_preview_its_warp_again_after_a_restart" = { status = "ported", rust = "rust/app/tests/host_services.rs::desk_mode_tells_the_preview_its_warp_again_after_a_restart" }
 "test_app.py::test_diagnostics_report_gathers_plugins_and_recent_status" = { status = "ported", rust = "rust/app/tests/window_saving.rs::diagnostics_report_gathers_plugins_and_recent_status" }
 "test_app.py::test_drain_phone_stops_is_bounded" = { status = "ported", rust = "rust/app/tests/stream_start.rs::drain_phone_stops_is_bounded" }
@@ -2059,10 +2059,10 @@
 "test_app.py::test_narrow_layout_stacks_every_panel_into_one_visible_column" = { status = "ported", rust = "rust/crates/shell/src/doc.rs::a_narrow_window_stacks_every_card_in_one_column_the_stage_first" }
 "test_app.py::test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings" }
 "test_app.py::test_one_bad_saved_field_keeps_the_plugins_other_settings" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_saved_config_that_wont_load_keeps_the_fields_that_do" }
-"test_app.py::test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" = { status = "todo" }
+"test_app.py::test_packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" = { status = "ported", rust = "rust/app/tests/stream_services.rs::packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe" }
 "test_app.py::test_packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" = { status = "ported", rust = "rust/app/tests/stream_start.rs::packets_problem_says_why_heavy_and_browsers_cant_have_their_packets_changed" }
 "test_app.py::test_people_are_tracked_steadily_and_carried_through_a_flip" = { status = "ported", rust = "rust/crates/vision/src/host_tests.rs::people_are_tracked_steadily_and_reach_the_bus" }
-"test_app.py::test_photo_options_follow_a_lens_switch" = { status = "todo" }
+"test_app.py::test_photo_options_follow_a_lens_switch" = { status = "ported", rust = "rust/app/tests/cards2_shell.rs::photo_options_follow_a_lens_switch" }
 "test_app.py::test_photos_follow_the_shown_streams_phone_and_tell_every_plugin" = { status = "ported", rust = "rust/app/tests/stream_services.rs::photos_follow_the_shown_streams_phone_and_tell_every_plugin" }
 "test_app.py::test_picking_another_source_while_the_phone_wakes_still_stops_the_phone" = { status = "ported", rust = "rust/app/tests/stream_start.rs::picking_another_source_while_the_phone_wakes_still_stops_the_phone" }
 "test_app.py::test_picking_another_source_with_two_streaming_replaces_the_one_shown" = { status = "ported", rust = "rust/app/tests/stream_two.rs::picking_another_source_with_two_streaming_replaces_the_one_shown" }
@@ -2081,9 +2081,9 @@
 "test_app.py::test_recovery_stops_and_says_why_when_the_phone_wont_take_the_stream_back" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::recovery_stops_and_says_why_when_the_phone_wont_take_the_stream_back" }
 "test_app.py::test_recovery_stops_the_stream_when_the_phone_stopped_streaming" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::recovery_stops_the_stream_when_the_phone_stopped_streaming" }
 "test_app.py::test_recovery_waits_while_the_phone_is_mid_start" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::recovery_waits_while_the_phone_is_mid_start" }
-"test_app.py::test_register_headless_global_plugin_does_not_add_panel" = { status = "todo" }
+"test_app.py::test_register_headless_global_plugin_does_not_add_panel" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::register_headless_global_plugin_does_not_add_panel" }
 "test_app.py::test_register_plugin_initializes_panel_and_captures_device_defaults" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::register_plugin_initializes_panel_and_captures_device_defaults" }
-"test_app.py::test_register_plugin_routes_panel_to_its_declared_region" = { status = "todo" }
+"test_app.py::test_register_plugin_routes_panel_to_its_declared_region" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::register_plugin_routes_panel_to_its_declared_region" }
 "test_app.py::test_register_plugin_routes_unknown_region_to_the_left_rail" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::a_panel_for_a_region_nobody_knows_goes_on_the_left_rail" }
 "test_app.py::test_resolution_pending_cleared_on_idle_status" = { status = "ported", rust = "rust/app/tests/stream_status.rs::resolution_pending_cleared_on_idle_status" }
 "test_app.py::test_resolution_pending_replaced_by_a_second_request" = { status = "ported", rust = "rust/app/tests/stream_status.rs::resolution_pending_replaced_by_a_second_request" }
@@ -2095,10 +2095,10 @@
 "test_app.py::test_save_config_failure_notifies_once_until_a_save_succeeds" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_failure_notifies_once_until_a_save_succeeds" }
 "test_app.py::test_save_config_separates_global_and_device_local_plugins" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_separates_global_and_device_local_plugins" }
 "test_app.py::test_save_config_without_connection_skips_device_profile" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::save_config_without_a_picked_device_skips_device_profiles" }
-"test_app.py::test_send_notification_falls_back_to_tray" = { status = "todo" }
+"test_app.py::test_send_notification_falls_back_to_tray" = { status = "ported", rust = "rust/crates/system/src/lib.rs::without_notify_send_the_tray_shows_a_notification" }
 "test_app.py::test_send_notification_uses_notify_send_on_linux" = { status = "ported", rust = "rust/crates/system/src/lib.rs::notifications_go_through_notify_send" }
 "test_app.py::test_settings_once_kept_for_the_whole_app_go_to_every_phone" = { status = "ported", rust = "rust/crates/shell/src/shell.rs::settings_once_kept_for_the_whole_app_go_to_every_phone" }
-"test_app.py::test_settings_window_collects_sections_from_every_plugin" = { status = "todo" }
+"test_app.py::test_settings_window_collects_sections_from_every_plugin" = { status = "ported", rust = "rust/app/tests/window_saving.rs::settings_window_collects_sections_from_every_plugin" }
 "test_app.py::test_start_asks_the_phone_to_open_at_the_size_picked" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_asks_the_phone_to_open_at_the_size_picked" }
 "test_app.py::test_start_builds_worker_pipeline_and_notifies_plugins" = { status = "ported", rust = "rust/app/tests/stream_start.rs::start_builds_worker_pipeline_and_notifies_plugins" }
 "test_app.py::test_start_hidden_minimizes_without_a_tray" = { status = "ported", rust = "rust/app/tests/window_tray.rs::start_hidden_minimizes_without_a_tray" }
@@ -2121,8 +2121,8 @@
 "test_app.py::test_stop_stream_cancels_a_wake_that_is_still_in_flight" = { status = "ported", rust = "rust/app/tests/stream_start.rs::stop_stream_cancels_a_wake_that_is_still_in_flight" }
 "test_app.py::test_stop_takes_the_phone_s_camera_down_with_it" = { status = "ported", rust = "rust/app/tests/stream_start.rs::stop_takes_the_phone_s_camera_down_with_it" }
 "test_app.py::test_stopping_a_phone_that_cant_be_reached_takes_its_banner_away" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::stopping_a_phone_that_cant_be_reached_takes_its_banner_away" }
-"test_app.py::test_stopping_a_stream_forgets_who_it_was_tracking" = { status = "todo" }
-"test_app.py::test_stopping_a_stream_lets_go_of_its_colour_lut" = { status = "todo" }
+"test_app.py::test_stopping_a_stream_forgets_who_it_was_tracking" = { status = "ported", rust = "rust/app/tests/stream_services.rs::stopping_a_stream_forgets_who_it_was_tracking" }
+"test_app.py::test_stopping_a_stream_lets_go_of_its_colour_lut" = { status = "ported", rust = "rust/app/tests/stream_services.rs::stopping_a_stream_lets_go_of_its_colour_lut" }
 "test_app.py::test_stopping_the_first_camera_hands_the_mic_to_the_next" = { status = "ported", rust = "rust/app/tests/stream_two.rs::stopping_the_first_camera_hands_the_mic_to_the_next" }
 "test_app.py::test_stopping_the_shown_stream_stops_it_then_moves_the_panels_on" = { status = "ported", rust = "rust/app/tests/stream_two.rs::stopping_the_shown_stream_stops_it_then_moves_the_panels_on" }
 "test_app.py::test_stream_reconnected_is_noop_without_an_active_session" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::stream_reconnected_is_noop_without_an_active_session" }
@@ -2133,8 +2133,8 @@
 "test_app.py::test_the_camera_rate_answer_expires" = { status = "ported", rust = "rust/app/tests/stream_status.rs::the_camera_rate_answer_expires" }
 "test_app.py::test_the_camera_stays_on_without_the_mic" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::the_camera_stays_on_without_the_mic" }
 "test_app.py::test_the_can_t_keep_up_note_goes_once_the_stream_keeps_up" = { status = "ported", rust = "rust/app/tests/stream_status.rs::the_cant_keep_up_note_goes_once_the_stream_keeps_up" }
-"test_app.py::test_the_focus_hooks_default_to_the_stream_hooks" = { status = "todo" }
-"test_app.py::test_the_gear_button_opens_settings_without_a_menu" = { status = "todo" }
+"test_app.py::test_the_focus_hooks_default_to_the_stream_hooks" = { status = "ported", rust = "rust/crates/core/src/plugin.rs::the_focus_hooks_default_to_the_stream_hooks" }
+"test_app.py::test_the_gear_button_opens_settings_without_a_menu" = { status = "ported", rust = "rust/app/tests/window_saving.rs::the_gear_button_opens_settings_without_a_menu" }
 "test_app.py::test_the_heat_note_goes_when_the_stream_stops" = { status = "ported", rust = "rust/app/tests/stream_start.rs::the_heat_note_goes_when_the_stream_stops" }
 "test_app.py::test_the_listener_only_raises_for_the_same_user" = { status = "ported", rust = "rust/crates/system/src/single_instance.rs::the_listener_only_raises_for_the_same_user" }
 "test_app.py::test_the_main_camera_counts_as_free_while_only_an_extra_one_streams" = { status = "ported", rust = "rust/app/tests/stream_two.rs::the_main_camera_counts_as_free_while_only_an_extra_one_streams" }
@@ -2143,12 +2143,12 @@
 "test_app.py::test_the_tray_icon_says_what_streams" = { status = "ported", rust = "rust/app/tests/window_tray.rs::the_tray_icon_says_what_streams" }
 "test_app.py::test_the_wait_screen_hears_which_extra_cameras_are_free" = { status = "ported", rust = "rust/app/tests/stream_two.rs::the_wait_screen_hears_which_extra_cameras_are_free" }
 "test_app.py::test_the_window_says_when_it_is_on_screen" = { status = "ported", rust = "rust/app/tests/window_tray.rs::the_window_says_when_it_is_on_screen" }
-"test_app.py::test_these_built_in_plugins_keep_their_settings_per_phone" = { status = "todo" }
+"test_app.py::test_these_built_in_plugins_keep_their_settings_per_phone" = { status = "ported", rust = "rust/app/tests/window_saving.rs::these_built_in_plugins_keep_their_settings_per_phone" }
 "test_app.py::test_toggle_routes_to_start_or_stop" = { status = "ported", rust = "rust/app/tests/stream_start.rs::toggle_routes_to_start_or_stop" }
 "test_app.py::test_tray_show_quit_and_activation" = { status = "ported", rust = "rust/app/tests/window_tray.rs::tray_show_quit_and_activation" }
-"test_app.py::test_turning_a_camera_effect_on_leaves_the_other_cameras_alone" = { status = "todo" }
+"test_app.py::test_turning_a_camera_effect_on_leaves_the_other_cameras_alone" = { status = "ported", rust = "rust/app/tests/stream_per_camera.rs::turning_a_camera_effect_on_leaves_the_other_cameras_alone" }
 "test_app.py::test_two_phones_waiting_for_the_extra_cameras_both_start" = { status = "ported", rust = "rust/app/tests/stream_two.rs::two_phones_waiting_for_the_extra_cameras_both_start" }
-"test_app.py::test_under_dev_desktop_a_restart_is_left_to_it" = { status = "todo" }
+"test_app.py::test_under_dev_desktop_a_restart_is_left_to_it" = { status = "ported", rust = "rust/app/tests/window_saving.rs::under_dev_desktop_a_restart_is_left_to_it" }
 "test_app.py::test_update_stream_output_forwards_only_provided_values" = { status = "ported", rust = "rust/app/tests/stream_start.rs::update_stream_output_forwards_only_provided_values" }
 "test_app.py::test_waiting_to_start_by_itself_keeps_running_in_the_tray" = { status = "ported", rust = "rust/app/tests/window_tray.rs::waiting_to_start_by_itself_keeps_running_in_the_tray" }
 "test_app.py::test_wake_progress_ignores_a_stale_or_cancelled_wake" = { status = "ported", rust = "rust/app/tests/stream_start.rs::wake_progress_ignores_a_stale_or_cancelled_wake" }

@@ -355,6 +355,7 @@ pub struct FakeWorker {
     pub declines_hand_over: AtomicBool,
     /// How it opens its stream now.
     pub opener: Mutex<Opener>,
+    pub packets: Arc<telescope_media::packets::Tap>,
     /// How it was told to open what it's handed over to.
     pub handed: Mutex<Option<Opener>>,
     /// Every worker before it had been stopped when this one was made.
@@ -389,7 +390,7 @@ impl VideoWorker for FakeWorker {
         Some(self.source.as_str()).filter(|s| !s.is_empty())
     }
     fn tap(&self) -> Option<Arc<dyn PacketTap>> {
-        None
+        Some(self.packets.clone())
     }
     fn slot(&self) -> Arc<dyn FrameSlot> {
         self.slot.clone()
@@ -521,6 +522,7 @@ impl Plugin for Listener {
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
             Event::RequestDone { ok, message, data, .. } => note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or(""))),
             Event::WindowShown { shown } => note(&self.heard, format!("{} shown {shown}", self.name)),
+            Event::FocusModeChanged { mode } => note(&self.heard, format!("{} focus mode {mode}", self.name)),
             Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
             Event::StillBusyChanged { source_id, busy } => note(&self.heard, format!("{} busy {source_id} {busy}", self.name)),
             Event::StillSaved { source_id, paths } => note(&self.heard, format!("{} saved {source_id} {paths:?}", self.name)),
@@ -694,7 +696,7 @@ impl Rig {
                 camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
                 parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
                 steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
-                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), after_the_others,
+                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), packets: telescope_media::packets::Tap::new(), after_the_others,
             });
             made.lock().unwrap().push(worker.clone());
             worker

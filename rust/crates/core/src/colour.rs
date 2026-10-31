@@ -500,6 +500,11 @@ impl ColourPipeline {
         lut
     }
 
+    /// Whether a stream's LUT is being held on to.
+    pub fn holds(&self, key: &str) -> bool {
+        self.bakery.bakes.lock().unwrap().current.contains_key(&Some(key.to_string()))
+    }
+
     /// The streams running now, by key. One that stopped lets go of its LUT, and a frame of it still on its way doesn't hold
     /// on to it again until it streams again.
     pub fn set_streams<'a>(&self, keys: impl IntoIterator<Item = &'a str>) {

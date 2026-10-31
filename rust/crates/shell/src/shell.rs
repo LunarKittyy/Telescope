@@ -621,6 +621,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
 
@@ -656,6 +657,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
 
@@ -1327,6 +1329,57 @@ mod tests {
         assert_eq!(s.slots.iter().map(|slot| slot.info.name.as_str()).collect::<Vec<_>>(), ["transforms"]);
         assert_eq!(s.slots[0].defaults, json!({"zoom": 1}));
         assert_eq!(s.panels.left, [0]);
+    }
+
+    #[test]
+    fn register_plugin_routes_panel_to_its_declared_region() {
+        struct Placed(&'static str);
+        impl Plugin for Placed {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "regional".into(), ..Default::default() }
+            }
+            fn card(&mut self) -> Option<CardSpec> {
+                Some(card_in(self.0))
+            }
+        }
+        for (region, list) in [("left", 0), ("center", 1), ("right", 2)] {
+            let mut s = state();
+            s.register(Box::new(Placed(region))).unwrap();
+            let mut want: [Vec<usize>; 3] = Default::default();
+            want[list] = vec![0];
+            assert_eq!([s.panels.left.clone(), s.panels.center.clone(), s.panels.right.clone()], want, "{region}");
+        }
+    }
+
+    #[test]
+    fn register_headless_global_plugin_does_not_add_panel() {
+        let mut s = state();
+        s.register(stub("global", json!({}), false).0).unwrap();
+        assert!(s.panels.left.is_empty() && s.panels.center.is_empty() && s.panels.right.is_empty());
+    }
+
+    #[test]
+    fn a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone() {
+        use telescope_core::host::PickKind;
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Watches(heard.clone()))).unwrap();
+        s.overlays.start_pick(&s.view, "watcher", PickKind::Quad, None, "", &s.bus);
+        assert_eq!(s.overlays.picking(), "watcher");
+        s.bus.emit(Event::DeviceChanged { source_id: "phone-2".into() });
+        s.deliver_events();
+        assert_eq!(s.overlays.picking(), "");
+        assert!(heard.lock().unwrap().iter().any(|e| matches!(e, Event::PreviewPicked { owner, pick: None } if owner == "watcher")));
+    }
+
+    #[test]
+    fn a_lens_switch_starts_motion_over() {
+        let mut s = state();
+        let before = now_s();
+        s.bus.emit(Event::CameraSwitched { camera: json!({"id": "2"}) });
+        s.deliver_events();
+        let quiet = s.motion.quiet_until() - before;
+        assert!(quiet >= telescope_core::motion::LENS_SETTLE_S && quiet < telescope_core::motion::LENS_SETTLE_S + 1.0, "{quiet}");
     }
 
     #[test]

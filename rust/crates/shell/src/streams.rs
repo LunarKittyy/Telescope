@@ -401,7 +401,7 @@ impl Window {
     }
 
     /// The newest frame of the stream the panels show (its worker is the live one), and its number.
-    pub(crate) fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
+    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
         let workers = self.streams.workers.borrow();
         workers.iter().find(|w| w.live.get()).and_then(|w| w.inner.slot().latest())
     }

@@ -1,0 +1,306 @@
+// Settings that belong to one camera, with real plugins on two streams: effects, presets, and coming back to a stream.
+mod rig;
+
+use rig::{state_with, Listener, Rig};
+use serde_json::{json, Value};
+use telescope_core::plugin::Plugin;
+use telescope_core::ui::UiEvent;
+use telescope_effects::colour_grading::ColourGradingPlugin;
+use telescope_effects::fun_pack::{FunPackPlugin, EFFECTS};
+use telescope_shell::plugins::camera_control::CameraControl;
+use telescope_shell::plugins::presets::PresetsPlugin;
+
+fn with(name: &str, optional: Vec<Box<dyn Plugin>>) -> Rig {
+    let r = Rig::with(name, |link, heard| {
+        let list: Vec<Box<dyn Plugin>> = vec![Box::new(Listener::new("panel", heard)), Box::new(rig::Picker(link.clone()))];
+        list
+    });
+    for plugin in optional {
+        r.w.state.borrow_mut().register(plugin).unwrap(); // optional ones aren't loaded with the others
+    }
+    r
+}
+
+fn per_camera(name: &str) -> Rig {
+    with(name, vec![Box::new(FunPackPlugin::new()), Box::new(ColourGradingPlugin::new()), Box::new(PresetsPlugin::new())])
+}
+
+fn ui(r: &Rig, plugin: &str, id: &str, callback: &str, args: Vec<Value>) {
+    r.w.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: callback.into(), args });
+    r.w.process();
+    r.pump();
+}
+
+fn config(r: &Rig, plugin: &str) -> Value {
+    r.w.state.borrow().plugin_config(plugin).unwrap()
+}
+
+fn grade(r: &Rig, key: &str) -> f64 {
+    config(r, "colour_grading")[key].as_f64().unwrap()
+}
+
+fn pick_effect(r: &Rig, effect: &str) {
+    ui(r, "fun_pack", "card", "effect-picked", vec![json!(EFFECTS.iter().position(|(k, _)| *k == effect).unwrap())]);
+}
+
+fn effect(r: &Rig) -> Value {
+    config(r, "fun_pack")["effect"].clone()
+}
+
+fn save_preset(r: &Rig, name: &str) {
+    ui(r, "presets", "header", "save-clicked", vec![]);
+    ui(r, "presets", "header", "name-accepted", vec![json!(name)]);
+}
+
+fn apply_preset(r: &Rig, name: &str) {
+    ui(r, "presets", "header", "apply", vec![json!(name)]);
+}
+
+fn presets(r: &Rig) -> Vec<String> {
+    config(r, "presets")["presets"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap().to_string()).collect()
+}
+
+fn on(r: &Rig, id: &str) {
+    r.w.with_flow(|flow, host| flow.focus_stream(host, id));
+    r.pump();
+}
+
+fn second(r: &Rig) {
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.pump();
+}
+
+/// What a worker runs now, by who gave each step.
+fn running(r: &Rig, worker: usize) -> Vec<String> {
+    let w = r.worker(worker);
+    let steps = w.steps.lock().unwrap();
+    steps.last().unwrap_or(&w.first_steps).clone()
+}
+
+fn runs(r: &Rig, worker: usize, owner: &str) -> bool {
+    running(r, worker).iter().any(|o| o == owner)
+}
+
+#[test]
+fn a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for() {
+    let r = per_camera("fun-stays");
+    r.start();
+    pick_effect(&r, "game_boy");
+    second(&r);
+    assert_eq!(effect(&r), "off");
+    assert!(!runs(&r, 1, "fun_pack"));
+    assert!(runs(&r, 0, "fun_pack"), "still on behind the panels");
+    on(&r, "pixel");
+    assert_eq!(effect(&r), "game_boy");
+    assert!(!runs(&r, 1, "fun_pack"));
+    on(&r, "oneplus");
+    assert_eq!(effect(&r), "off");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn a_preset_saved_with_two_cameras_streaming_is_the_shown_ones() {
+    let r = per_camera("preset-shown");
+    r.start();
+    second(&r);
+    pick_effect(&r, "vhs");
+    r.configure("colour_grading", json!({"temperature": 40}));
+    save_preset(&r, "Retro");
+    on(&r, "pixel");
+    assert!(presets(&r).is_empty(), "presets are per phone");
+    assert_eq!(effect(&r), "off");
+    assert_eq!(grade(&r, "temperature"), 0.0);
+    on(&r, "oneplus");
+    pick_effect(&r, "off");
+    r.configure("colour_grading", json!({}));
+    apply_preset(&r, "Retro");
+    assert_eq!(effect(&r), "vhs");
+    assert_eq!(grade(&r, "temperature"), 40.0);
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn a_preset_applied_on_one_camera_leaves_the_others_alone() {
+    let r = per_camera("preset-alone");
+    r.start();
+    save_preset(&r, "Plain");
+    pick_effect(&r, "crt");
+    save_preset(&r, "Telly");
+    second(&r);
+    on(&r, "pixel");
+    apply_preset(&r, "Plain");
+    assert_eq!(effect(&r), "off");
+    assert!(!runs(&r, 1, "fun_pack"), "oneplus: nothing on");
+    on(&r, "oneplus");
+    assert_eq!(effect(&r), "off");
+    assert!(presets(&r).is_empty());
+    on(&r, "pixel");
+    apply_preset(&r, "Telly");
+    assert!(r.w.state.borrow_mut().save_now());
+    let devices = r.w.state.borrow().file.load()["devices"].clone();
+    assert_eq!(devices["pixel"]["plugin_configs"]["fun_pack"]["effect"], "crt");
+    assert_eq!(devices["oneplus"]["plugin_configs"]["fun_pack"]["effect"], "off");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn a_preset_from_before_per_camera_effects_applies_to_the_shown_camera() {
+    let r = per_camera("preset-old");
+    r.w.state.borrow().file.save(&mut json!({
+        "plugin_configs": {"fun_pack": {"effect": "vhs"}},
+        "selected_device": "pixel",
+        "devices": {"pixel": {"plugin_configs": {"presets": {"presets": [{"name": "Old", "fun_pack": {"effect": "ascii"}, "colour_grading": {"tint": 30}}]}}}},
+    }));
+    r.w.state.borrow_mut().apply_saved_config();
+    r.w.process();
+    assert_eq!(effect(&r), "vhs");
+    assert_eq!(presets(&r), ["Old"]);
+    r.start();
+    second(&r);
+    assert_eq!(effect(&r), "off", "a phone with nothing saved starts plain");
+    on(&r, "pixel");
+    apply_preset(&r, "Old");
+    assert_eq!(effect(&r), "ascii");
+    assert_eq!(grade(&r, "tint"), 30.0);
+    on(&r, "oneplus");
+    assert_eq!(effect(&r), "off");
+    assert_eq!(grade(&r, "tint"), 0.0);
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+fn stays_on_its_camera(name: &str, plugin: Box<dyn Plugin>, id: &str, on_it: Value) {
+    let r = with(name, vec![plugin]);
+    let off = config(&r, id);
+    let mut set = off.clone();
+    set.as_object_mut().unwrap().extend(on_it.as_object().unwrap().clone());
+    r.start();
+    r.configure(id, set.clone());
+    second(&r);
+    assert_eq!(config(&r, id), off);
+    on(&r, "pixel");
+    assert_eq!(config(&r, id), set);
+    r.configure(id, off); // Auto framing's timer would outlive the window
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn turning_a_camera_effect_on_leaves_the_other_cameras_alone() {
+    stays_on_its_camera("own-background", Box::new(telescope_effects::background::BackgroundPlugin::new()), "background", json!({"mode": "blur"}));
+    stays_on_its_camera("own-chroma", Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::new()), "chroma_key", json!({"on": true}));
+    stays_on_its_camera("own-framing", Box::new(telescope_effects::framing::FramingPlugin::new()), "framing", json!({"on": true}));
+    stays_on_its_camera("own-face", Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()), "face_exposure", json!({"on": true}));
+    stays_on_its_camera("own-tag", Box::new(telescope_effects::name_tag::NameTagPlugin::new()), "name_tag", json!({"on": true, "name": "Luna"}));
+}
+
+// ── Coming back to a stream ──
+
+fn camera_state(camera: Value, more: Value) -> Value {
+    let mut lens = json!({
+        "id": "0", "logicalId": null, "label": "Back", "current": true, "hasOis": true, "isoMin": 50, "isoMax": 3200,
+        "shutterMinNs": 100_000, "shutterMaxNs": 1_000_000_000i64, "supportsManualSensor": true, "supportsManualWB": true,
+        "supportsManualFocus": false, "minFocusDistance": 0.0, "aeCompMin": -8, "aeCompMax": 8, "aeCompStep": 0.167,
+        "supportsFlash": true, "hwLevel": "FULL",
+    });
+    lens.as_object_mut().unwrap().extend(camera.as_object().unwrap().clone());
+    let mut state = json!({"cameras": [lens], "codecs": ["mjpeg", "h264"], "camera_toggle": true});
+    state.as_object_mut().unwrap().extend(more.as_object().unwrap().clone());
+    state_with(state)
+}
+
+fn with_camera(name: &str) -> Rig {
+    let r = with(name, vec![Box::new(CameraControl::new())]);
+    r.emit(telescope_core::event::Event::PhonesChanged { count: 2 });
+    r.pump();
+    r
+}
+
+fn sent(r: &Rig, id: &str) -> Vec<Value> {
+    r.link.control(id).sent.lock().unwrap().clone()
+}
+
+fn forget_sent(r: &Rig, id: &str) {
+    r.link.control(id).sent.lock().unwrap().clear();
+}
+
+fn exposed(name: &str) -> Rig {
+    let r = with_camera(name);
+    r.start();
+    r.phone_says("pixel", camera_state(json!({"isoMax": 6400}), json!({"auto": false, "iso": 6400, "shutter_ns": 10_000_000})));
+    r.pump();
+    second(&r);
+    r.phone_says("oneplus", camera_state(json!({"isoMax": 800}), json!({}))); // a lens that stops at ISO 800
+    r.pump();
+    r
+}
+
+#[test]
+fn coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing() {
+    let r = exposed("back-exposure");
+    forget_sent(&r, "pixel");
+    on(&r, "pixel");
+    assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0);
+    assert_eq!(sent(&r, "pixel"), [] as [Value; 0], "the phone still has them");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure() {
+    let r = exposed("back-route");
+    r.source("pixel").kind.as_phone().unwrap().move_to(r.session_id("pixel"), telescope_core::source::RouteSpec::Network { address: "192.168.1.20".into() });
+    r.worker(0).says("reconnecting", "Connection lost");
+    r.until("it moved", |r| r.source("pixel").session().unwrap().url.contains("192.168.1.20"));
+    forget_sent(&r, "pixel");
+    on(&r, "pixel");
+    assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0);
+    assert_eq!(sent(&r, "pixel"), [] as [Value; 0]);
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn coming_back_to_a_stream_keeps_its_focus_point() {
+    let r = with_camera("back-focus");
+    r.start();
+    r.phone_says("pixel", camera_state(json!({"supportsFocusPoint": true}), json!({})));
+    r.pump();
+    r.emit(telescope_core::event::Event::FocusPoint { x: 0.25, y: 0.75 });
+    r.pump();
+    second(&r);
+    let focus = |r: &Rig| r.heard().into_iter().rfind(|l| l.starts_with("panel focus mode "));
+    assert_eq!(focus(&r).as_deref(), Some("panel focus mode auto"), "oneplus's panel");
+    forget_sent(&r, "pixel");
+    on(&r, "pixel");
+    assert_eq!(focus(&r).as_deref(), Some("panel focus mode point"));
+    assert_eq!(sent(&r, "pixel"), [] as [Value; 0]);
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again() {
+    let r = with("back-zoom", vec![Box::new(telescope_effects::transforms::TransformsPlugin::new())]);
+    r.start();
+    r.phone_says("pixel", camera_state(json!({"zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}), json!({})));
+    r.pump();
+    ui(&r, "transforms", "card", "zoom-moved", vec![json!(2.0)]);
+    let crop = |r: &Rig| {
+        let st = r.w.state.borrow();
+        let shown = st.vc.frame_view(&st.view);
+        (shown.zoom, shown.pan_x, shown.pan_y)
+    };
+    assert_eq!(crop(&r), (1.0, 0.0, 0.0), "the phone crops it all");
+    second(&r);
+    forget_sent(&r, "pixel");
+    on(&r, "pixel");
+    assert_eq!(crop(&r), (1.0, 0.0, 0.0));
+    assert_eq!(sent(&r, "pixel"), [] as [Value; 0]);
+    r.w.stop_all_streams();
+    r.pump();
+}

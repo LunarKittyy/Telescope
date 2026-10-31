@@ -706,6 +706,10 @@ impl Plugin for TransformsPlugin {
         }
     }
 
+    fn on_profile_applied(&mut self, host: &mut dyn Host) {
+        self.catch_up(host);
+    }
+
     fn on_stream_start(&mut self, _host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);

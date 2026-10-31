@@ -137,5 +137,8 @@ fn people_are_tracked_steadily_and_reach_the_bus() {
     assert!(flipped.centre().0 > 0.5, "mirrored");
     h.drop_stream("phone");
     assert_eq!(h.tracked_people("phone"), (vec![], 0));
+    // Started again straight away, the first person seen is confirmed again, not given the old id
+    let person = telescope_core::pose::Person::new([("nose", 0.3, 0.3, 0.99), ("left_shoulder", 0.35, 0.45, 0.99), ("right_shoulder", 0.25, 0.45, 0.99)]);
+    assert_eq!(h.shared.tracking.lock().unwrap().update("phone", &[person], service::monotonic()).1, 0);
     h.shutdown();
 }

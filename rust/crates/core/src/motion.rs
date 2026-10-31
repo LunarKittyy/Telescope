@@ -318,6 +318,11 @@ impl Motion {
 
     /// Every stream's background starts over (the picture turned, so everything is somewhere else), and keeps following the picture for
     /// settle_s (another lens: its first frames are still on their way).
+    /// When changes count as motion again.
+    pub fn quiet_until(&self) -> f64 {
+        *self.quiet_until.lock().unwrap()
+    }
+
     pub fn reset(&self, settle_s: f64, now: f64) {
         if settle_s > 0.0 {
             let mut quiet = self.quiet_until.lock().unwrap();

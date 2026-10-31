@@ -331,3 +331,35 @@ fn a_photo_the_stream_ends_under_is_let_go() {
     state.deliver_events();
     assert!(state.still_alive.is_empty());
 }
+
+#[test]
+fn photo_options_follow_a_lens_switch() {
+    struct Listens(Arc<Mutex<Vec<Option<Value>>>>);
+    impl telescope_core::plugin::Plugin for Listens {
+        fn info(&self) -> telescope_core::plugin::PluginInfo {
+            telescope_core::plugin::PluginInfo { name: "listens".into(), ..Default::default() }
+        }
+        fn on_event(&mut self, host: &mut dyn telescope_core::host::Host, event: &Event) {
+            if matches!(event, Event::CameraSwitched { .. }) {
+                self.0.lock().unwrap().push(host.still_caps(None));
+            }
+        }
+    }
+    let (mut state, _file) = state_with(json!({}));
+    let stills = Arc::new(Stills::new());
+    state.link = Some(Arc::new(StillsLink(stills.clone())));
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    state.register(Box::new(Listens(seen.clone()))).unwrap();
+    state.streams.source_id = Some("p1".into());
+    state.streams.live = vec!["p1".into()];
+    let full = json!({"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000});
+    let tele = json!({"id": "4", "current": false, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}});
+    stills.note_state(Some("p1"), &json!({"stills": 1, "cameras": [{"id": "1", "current": true, "stills": full}, tele]}));
+    assert_eq!(PhoneStills::caps(&*stills, Some("p1")).unwrap()["max_res"], json!([8000, 6000]));
+    state.bus.emit(Event::CameraSwitched { camera: tele });
+    state.deliver_events();
+    let seen = seen.lock().unwrap();
+    let caps = seen[0].as_ref().unwrap();
+    assert!(caps["max_res"].is_null(), "already the new lens's for plugins listening: {caps}");
+    assert_eq!(caps["size"], json!([1920, 1440]));
+}

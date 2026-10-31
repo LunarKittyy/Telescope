@@ -116,6 +116,9 @@ pub trait Plugin: Send {
     /// Plugins are set up one at a time; state others follow is announced again from on_plugins_ready.
     fn setup(&mut self, _host: &mut dyn Host) {}
     /// Every plugin is set up and the saved settings are in: emit again any state other plugins follow.
+    /// A device's settings just went in through set_config, which has no host: the moment to tell the host what they change
+    /// (the view), before the stream they belong to hears it's on the panels.
+    fn on_profile_applied(&mut self, _host: &mut dyn Host) {}
     fn on_plugins_ready(&mut self, _host: &mut dyn Host) {}
     /// App is quitting: stop background services the plugin started.
     fn shutdown(&mut self, _host: &mut dyn Host) {}
@@ -276,6 +279,29 @@ pub fn load_config_tolerantly(plugin: &mut dyn Plugin, defaults: &Value, cfg: &V
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[derive(Default)]
+    struct Plain(Vec<String>);
+
+    impl Plugin for Plain {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: "plain".into(), ..Default::default() }
+        }
+        fn on_stream_start(&mut self, _host: &mut dyn Host, stream: &StreamInfo) {
+            self.0.push(format!("start {}", stream.url));
+        }
+        fn on_stream_stop(&mut self, _host: &mut dyn Host) {
+            self.0.push("stop".into());
+        }
+    }
+
+    #[test]
+    fn the_focus_hooks_default_to_the_stream_hooks() {
+        let (mut plain, mut host) = (Plain::default(), crate::testing::FakeHost::new());
+        plain.on_focus_gained(&mut host, &StreamInfo { source_id: "p".into(), url: "url".into(), session: 1 });
+        plain.on_focus_lost(&mut host);
+        assert_eq!(plain.0, ["start url", "stop"]);
+    }
 
     #[derive(Default)]
     struct Picky {
