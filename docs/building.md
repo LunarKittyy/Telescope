@@ -100,6 +100,30 @@ Both apps share one version, the `VERSION` file at the repo root. The build numb
 
 A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows under Updates & About in Settings and in both apps' Copy diagnostics.
 
+## Package the Rust app
+
+The Rust rewrite in `rust/` packages into the same shape as the Python release, which lets the Python app's updater install it. `master` still ships Python, so none of this runs in `release.yml` yet.
+
+FFmpeg comes first. `rust/tools/build_ffmpeg.sh` makes a small LGPL build with only the decoders the app opens (about 5 MB instead of about 170 MB) and it wants Ubuntu 22.04 for both targets, Windows' through mingw:
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src ubuntu:22.04 bash -c '
+  apt-get update && apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm pkg-config \
+    libva-dev libdrm-dev zlib1g-dev gcc-mingw-w64-x86-64-win32 libz-mingw-w64-dev
+  bash rust/tools/build_ffmpeg.sh linux rust/target/ffmpeg-linux
+  bash rust/tools/build_ffmpeg.sh windows rust/target/ffmpeg-windows'
+```
+
+The GPL build with libx264 is only for the tests, which need an H.264 encoder.
+
+On Linux `rust/tools/package_linux.sh --ffmpeg DIR --channel nightly --build 123 --commit <sha>` writes the folder that becomes `Telescope-linux.tar.gz`. Build it on Ubuntu 22.04 as well, because the machine it's built on sets the oldest Linux it runs on. Besides the program it holds a `start.sh`, a `main.py` that only hands over to `start.sh` and a `telescope/` folder with the stamp, because the Python updater turns down a tarball without the last two. FFmpeg is in `lib/`, and `lib/fallback/` has libva for a system that has none (`start.sh` only uses it then, a system's own libva knows where its video drivers are).
+
+On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. The camera DLL's wait screen comes from `telescope-rs camera-wait-screen`, so no Python app is needed for it. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
+
+A stamped build (channel `stable` or `nightly`) uses the real settings folder, like the Python app it replaces, where a `dev` build keeps to a profile of its own.
+
+`python rust/tools/check_package.py --version 4.2.0 --build 123 --channel nightly <folder or archive>` is the package's smoke check.
+
 ## CI
 
 ### `release.yml`
@@ -124,6 +148,7 @@ They also run on every pull request without publishing. Their checks are called 
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
 | `build-windows.yml` | `desktop/**`, `installer/**` | Builds the Windows 11 camera's DLL, installs dependencies, runs `pytest` and `smoke_check.py`, checks the UnityCapture install for real on the runner (its Windows Server is older than Windows 11, so the Windows 11 camera can't be registered there), builds the app folder with PyInstaller (`telescope.spec`) and a launcher of its own (`scripts/build_bootloader.py`, which says to extract the zip first when opened from inside it), and on pull requests builds a quick `TelescopeSetup.exe` with Inno Setup and checks the installer, update and uninstall paths. A release does those last two in `release.yml`, on the setup it publishes |
 | `build-linux.yml` | `desktop/**` | Runs `pytest` (with the Inter and Noto fonts installed, which `test_text_fit.py` measures with) and `smoke_check.py`, then assembles the source bundle: `main.py`, `update_guard.py`, the `telescope/` package, the requirements files, `start.sh` and the notices. There's no compiled build step since `start.sh` makes its own venv on first run |
+| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both Rust packages, runs `check_package.py` and on Windows the installer checks with `-Rust`. It is not a required check and `release.yml` doesn't call it until the switch |
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log, the downloaded adb and the vision download, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.
 

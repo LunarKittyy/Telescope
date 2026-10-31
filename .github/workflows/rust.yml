@@ -18,9 +18,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Slint's compiler and the bigger windows go deeper than a test thread's default 2 MB
+  # Test threads get 2 MB, which building a window this size can overflow
   RUST_MIN_STACK: 8388608
-  # The workspace with debug info doesn't fit a runner's disk, and nothing here reads it
+  # Debug info only costs a runner's disk here
   CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
