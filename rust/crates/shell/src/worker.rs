@@ -688,19 +688,31 @@ impl Shared {
     }
 
     /// Resize and run the plugin steps on frame, then make it the frame the camera sends. One frame at a time, and
-    /// never one older than what's already out. Whether it went out.
+    /// never one older than what's already out. Whether it went out: a frame that breaks on the way is dropped.
     fn publish(&self, seq: u64, frame: Frame) -> bool {
         let mut publish = self.publish.lock().unwrap();
         if seq <= publish.1 {
             return false;
         }
+        let pipeline = publish.0.as_mut();
+        let Ok(out) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
+            log::error!("Frame processing failed; dropping this frame");
+            return false;
+        };
+        self.slot.publish(out);
+        publish.1 = seq;
+        true
+    }
+
+    /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some();
         if let Some(steps) = next_steps {
-            publish.0.set_steps(steps);
+            pipeline.set_steps(steps);
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
-            publish.0.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
+            pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
         let mut frame = match (rw, rh) {
@@ -710,7 +722,7 @@ impl Shared {
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
         if let Some(view) = self.gate.as_ref().and_then(|g| g.for_frame(&self.source_id, &frame, crate::shell::now_s(), replaced)) {
-            publish.0.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps(&view));
+            pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps(&view));
         }
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
@@ -729,10 +741,7 @@ impl Shared {
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
         let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
-        let out = publish.0.process(frame, &ctx);
-        self.slot.publish(out);
-        publish.1 = seq;
-        true
+        pipeline.process(frame, &ctx)
     }
 
     fn next_seq(&self) -> u64 {
@@ -761,6 +770,7 @@ impl Shared {
                 Ok(f) => f,
                 Err(FeedEnd::Stopped) => break,
                 Err(_) => {
+                    drop(cap);
                     failed = true;
                     self.status("waiting", &tr("Waiting for the first frame…"));
                     self.restart_vcam.wait(RECONNECT_DELAY);
@@ -772,6 +782,7 @@ impl Shared {
             // Run the first frame through the steps so the camera's size accounts for them (a 90° turn swaps sides).
             let seq = self.next_seq();
             if !self.publish(seq, first.0) || self.slot.latest().is_none() {
+                drop(cap);
                 self.restart_vcam.wait(RECONNECT_DELAY);
                 self.restart_vcam.clear();
                 continue;
@@ -1197,28 +1208,50 @@ mod tests {
         assert!(Arc::ptr_eq(&fitted.data, &frame.data));
     }
 
+    /// A plain colour: distinct planes, so a check can't pass on luma alone.
+    fn tinted(w: u32, h: u32, y: u8, u: u8, v: u8) -> Frame {
+        let chroma = (w.div_ceil(2) * h.div_ceil(2)) as usize;
+        let mut data = vec![y; (w * h) as usize];
+        data.extend(vec![u; chroma]);
+        data.extend(vec![v; chroma]);
+        Frame::new(w, h, PixelFormat::I420, data)
+    }
+
     #[test]
     fn fit_frame_resizes_same_aspect_ratio() {
-        let fitted = fit_frame(&grey(4, 2, 17), 8, 4);
-        assert_eq!((fitted.width, fitted.height), (8, 4));
-        assert!(fitted.i420_planes().unwrap().0.iter().all(|&p| p == 17));
+        let fitted = fit_frame(&tinted(4, 2, 17, 40, 200), 8, 4);
+        assert_eq!((fitted.width, fitted.height, fitted.format), (8, 4, PixelFormat::I420));
+        let (y, u, v) = fitted.i420_planes().unwrap();
+        assert!(y.iter().all(|&p| p == 17) && u.iter().all(|&p| p == 40) && v.iter().all(|&p| p == 200));
     }
 
     #[test]
     fn fit_frame_letterboxes() {
-        let fitted = fit_frame(&grey(4, 2, 255), 4, 4);
-        let y = fitted.i420_planes().unwrap().0;
-        assert!(y[0..4].iter().all(|&p| p == 0));
-        assert!(y[4..12].iter().all(|&p| p == 255));
-        assert!(y[12..16].iter().all(|&p| p == 0));
+        let fitted = fit_frame(&tinted(8, 4, 255, 40, 200), 8, 8);
+        assert_eq!((fitted.width, fitted.height, fitted.format), (8, 8, PixelFormat::I420));
+        let (y, u, v) = fitted.i420_planes().unwrap();
+        assert!(y[..16].iter().all(|&p| p == 0));
+        assert!(y[16..48].iter().all(|&p| p == 255));
+        assert!(y[48..].iter().all(|&p| p == 0));
+        // Black bars, so no colour in them, and the picture's colour between
+        for plane in [(u, 40), (v, 200)] {
+            assert_eq!(plane.0.chunks(4).map(|r| r[0]).collect::<Vec<_>>(), [128, plane.1, plane.1, 128]);
+            assert!(plane.0.chunks(4).all(|r| r.iter().all(|&p| p == r[0])));
+        }
     }
 
     #[test]
     fn fit_frame_pillarboxes_narrow_input() {
-        let fitted = fit_frame(&grey(2, 4, 9), 4, 4);
-        let y = fitted.i420_planes().unwrap().0;
-        for row in y.chunks(4) {
-            assert_eq!(row, [0, 9, 9, 0]);
+        let fitted = fit_frame(&tinted(4, 8, 9, 40, 200), 8, 8);
+        assert_eq!((fitted.width, fitted.height, fitted.format), (8, 8, PixelFormat::I420));
+        let (y, u, v) = fitted.i420_planes().unwrap();
+        for row in y.chunks(8) {
+            assert_eq!(row, [0, 0, 9, 9, 9, 9, 0, 0]);
+        }
+        for (plane, value) in [(u, 40), (v, 200)] {
+            for row in plane.chunks(4) {
+                assert_eq!(row, [128, value, value, 128]);
+            }
         }
     }
 
@@ -1380,6 +1413,10 @@ mod tests {
         opened: Mutex<Vec<(u32, u32, u32, u32)>>,
         sent: Mutex<Vec<u8>>,
         sent_at: Mutex<Vec<(u8, Instant)>>,
+        /// The frames themselves, whole.
+        frames: Mutex<Vec<Frame>>,
+        /// "open" and "close" as they happened.
+        life: Mutex<Vec<&'static str>>,
         formats: Mutex<Vec<PixelFormat>>,
         /// It takes NV12, like the Windows camera's shared memory.
         nv12: AtomicBool,
@@ -1396,6 +1433,7 @@ mod tests {
             self.0.sent.lock().unwrap().push(frame.data[0]);
             self.0.sent_at.lock().unwrap().push((frame.data[0], Instant::now()));
             self.0.formats.lock().unwrap().push(frame.format);
+            self.0.frames.lock().unwrap().push(frame.clone());
             Ok(())
         }
         fn size(&self) -> (u32, u32) {
@@ -1406,6 +1444,12 @@ mod tests {
         }
         fn outdated(&self) -> bool {
             self.0.outdated.swap(false, Ordering::SeqCst)
+        }
+    }
+
+    impl Drop for Cam {
+        fn drop(&mut self) {
+            self.0.life.lock().unwrap().push("close");
         }
     }
 
@@ -1420,6 +1464,7 @@ mod tests {
         }
         fn open(&self, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
             self.0.opened.lock().unwrap().push((slot, width, height, fps));
+            self.0.life.lock().unwrap().push("open");
             Ok(Box::new(Cam(self.0.clone(), (width, height))))
         }
         fn locked_size(&self, _slot: u32) -> Option<(u32, u32)> {
@@ -1502,11 +1547,15 @@ mod tests {
     #[test]
     fn the_camera_opens_at_the_size_an_app_already_holds_it_at() {
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        *cams.locked.lock().unwrap() = Some((8, 6));
-        let w = worker(Arc::new(Mutex::new(VecDeque::from([Some(10)]))), cams.clone(), log);
-        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        *cams.locked.lock().unwrap() = Some((6, 6));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10)])]);
+        let w = started(WorkerSetup { canvas: (Some(4), Some(4)), ..setup(opener) }, &cams, &log);
+        wait_for(|| !cams.frames.lock().unwrap().is_empty());
         w.stop();
-        assert_eq!(cams.opened.lock().unwrap()[0], (0, 8, 6, 30)); // the 4x2 frames are fitted into it
+        assert_eq!(cams.opened.lock().unwrap()[0], (0, 6, 6, 30));
+        let sent = cams.frames.lock().unwrap()[0].clone();
+        assert_eq!((sent.width, sent.height, sent.data.len()), (6, 6, 54), "the 4x2 frames are fitted into it");
+        assert_eq!(log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::VcamOpened(..))).collect::<Vec<_>>(), [&WorkerEvent::VcamOpened(6, 6)]);
     }
 
     #[test]
@@ -1559,28 +1608,37 @@ mod tests {
 
     #[test]
     fn run_streams_frames_to_the_camera_and_stops_cleanly() {
-        let packets = Arc::new(Mutex::new(VecDeque::from([Some(10), Some(20), Some(30)])));
-        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let w = worker(packets, cams.clone(), log.clone());
-        wait_for(|| cams.sent.lock().unwrap().contains(&30));
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Frame(20), Step::Frame(30)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { fps: 24, canvas: (Some(4), Some(4)), ..setup(opener) }, &cams, &log);
+        let row = |f: &Frame| f.i420_planes().unwrap().0[4]; // the picture starts under the bar
+        wait_for(|| cams.frames.lock().unwrap().iter().any(|f| row(f) == 30));
         w.stop();
-        assert_eq!(cams.opened.lock().unwrap()[0], (0, 4, 2, 30));
+        assert_eq!(cams.opened.lock().unwrap()[0], (0, 4, 4, 24));
+        let sent = cams.frames.lock().unwrap()[0].clone();
+        assert_eq!((sent.width, sent.height, sent.format, sent.data.len()), (4, 4, PixelFormat::I420, 24), "the 4x2 frame fitted to the square canvas");
+        assert_eq!(sent.i420_planes().unwrap().0[..4], [0; 4], "with its bar");
+        assert_eq!(opens.gone(), 1);
+        assert_eq!(*cams.life.lock().unwrap().last().unwrap(), "close");
         let log = log.lock().unwrap();
         assert_eq!(log[0], WorkerEvent::Status("info".into(), "Connecting to http://phone/v1/video...".into()));
-        assert!(log.contains(&WorkerEvent::VcamOpened(4, 2)));
-        assert!(log.contains(&WorkerEvent::Status("ok".into(), "Streaming 4 × 2 at 30 fps to Telescope".into())));
+        assert!(log.contains(&WorkerEvent::VcamOpened(4, 4)));
+        assert!(log.contains(&WorkerEvent::Status("ok".into(), "Streaming 4 × 4 at 24 fps to Telescope".into())));
         assert_eq!(log.last().unwrap(), &WorkerEvent::Status("idle".into(), "Not streaming".into()));
     }
 
     #[test]
     fn a_dropped_stream_reconnects_and_says_so() {
-        let packets = Arc::new(Mutex::new(VecDeque::from([Some(10), None, Some(40)])));
-        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let w = worker(packets, cams.clone(), log.clone());
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(10), Step::End]), Some(vec![Step::Frame(40)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
         wait_for(|| log.lock().unwrap().contains(&WorkerEvent::Reconnected));
         wait_for(|| cams.sent.lock().unwrap().contains(&40));
+        assert_eq!(opens.gone(), 1, "the first reader was let go of");
         w.stop();
+        assert_eq!(opens.gone(), 2, "and so was the second, at the stop");
         let log = log.lock().unwrap();
+        assert_eq!(log.iter().filter(|e| **e == WorkerEvent::Reconnected).count(), 1);
         assert!(log.contains(&WorkerEvent::Status("reconnecting".into(), "Stream dropped - reconnecting".into())));
         assert!(log.contains(&WorkerEvent::Status("ok".into(), "Stream reconnected".into())));
         assert_eq!(w.failed_tries(), 0);
@@ -1593,13 +1651,37 @@ mod tests {
         let w = worker(packets.clone(), cams.clone(), log);
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
         w.update_output(None, None, Some(30));
+        assert!(!w.shared.restart_vcam.is_set());
         std::thread::sleep(Duration::from_millis(100));
         assert_eq!(cams.opened.lock().unwrap().len(), 1);
-        // A new fps rebuilds the camera without reopening the phone's stream.
-        w.update_output(None, None, Some(60));
+        w.stop();
+    }
+
+    #[test]
+    fn fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream() {
+        let (opener, opens) = scripted(vec![Some(flowing(1, 500))]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { fps: 24, canvas: (Some(4), Some(4)), ..setup(opener) }, &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().len() >= 2);
+        w.update_output(None, None, Some(15));
         wait_for(|| cams.opened.lock().unwrap().len() == 2);
-        assert_eq!(cams.opened.lock().unwrap()[1].3, 60);
-        assert!(w.shared.settle.lock().unwrap().since.is_some()); // a new fps settles the stream
+        let sent = cams.sent.lock().unwrap().len();
+        wait_for(|| cams.sent.lock().unwrap().len() > sent);
+        assert_eq!(cams.opened.lock().unwrap().iter().map(|o| o.3).collect::<Vec<_>>(), [24, 15]);
+        assert_eq!((opens.calls(), opens.gone()), (1, 0), "the same phone connection throughout");
+        w.stop();
+    }
+
+    #[test]
+    fn a_new_fps_settles_the_stream() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (w, _cams, _log) = sitting(opener, &opens);
+        w.shared.settle.lock().unwrap().since = None; // streaming along
+        w.update_output(None, None, Some(30));
+        assert!(w.shared.settle.lock().unwrap().since.is_none(), "the same fps is no change");
+        let before = Instant::now();
+        w.update_output(None, None, Some(60));
+        assert!(w.shared.settle.lock().unwrap().since.is_some_and(|since| since >= before));
         w.stop();
     }
 
@@ -1609,23 +1691,31 @@ mod tests {
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
         let w = worker(packets, cams.clone(), log);
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        let received = w.shared.slot.latest().unwrap().1;
         assert!(w.shared.publish(1000, grey(4, 2, 7)));
         assert!(!w.shared.publish(999, grey(4, 2, 8)));
-        assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 7);
+        let (frame, count) = w.shared.slot.latest().unwrap();
+        assert_eq!((frame.data[0], count), (7, received + 1), "the older one isn't received at all");
         w.stop();
     }
 
     #[test]
     fn a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked() {
-        let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
-        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let w = worker(packets, cams.clone(), log);
-        wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = worker_from(Arc::default(), cams.clone(), log.clone(), false, Some(1));
+        let life = || cams.life.lock().unwrap().clone();
+        wait_for(|| life() == ["open"]);
         w.set_parked(true);
-        assert!(w.shared.vcam_free.is_set() && w.parked());
+        assert_eq!(life(), ["open", "close"], "let go before set_parked returns, so the wait screen can open it");
+        assert!(w.parked());
+        let arrived = w.shared.frames_arrived.load(Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(life(), ["open", "close"], "and stays let go");
+        assert!(w.shared.frames_arrived.load(Ordering::SeqCst) > arrived, "while the reader carries on");
         w.set_parked(false);
-        wait_for(|| cams.opened.lock().unwrap().len() == 2);
+        wait_for(|| life() == ["open", "close", "open"]);
         w.stop();
+        assert_eq!(log.lock().unwrap().last(), Some(&WorkerEvent::Status("idle".into(), "Not streaming".into())), "the runner ended");
     }
 
     #[test]
@@ -1637,6 +1727,10 @@ mod tests {
         w.stop();
     }
 
+    fn moves(log: &Log) -> Vec<WorkerEvent> {
+        log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))).cloned().collect()
+    }
+
     #[test]
     fn hand_over_fails_on_a_route_that_wont_open() {
         let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
@@ -1644,26 +1738,30 @@ mod tests {
         let w = worker(packets, cams, log.clone());
         assert!(w.hand_over("https://usb/v1/video", Arc::new(|| Err("refused".into()))));
         wait_for(|| log.lock().unwrap().contains(&WorkerEvent::MoveFailed("https://usb/v1/video".into())));
+        assert_eq!(moves(&log), [WorkerEvent::MoveFailed("https://usb/v1/video".into())], "and it didn't move");
         assert_eq!(w.url(), "http://phone/v1/video");
         w.stop();
     }
 
     #[test]
     fn hand_over_moves_to_the_new_route_once_it_keeps_frames_coming() {
-        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let w = worker_from(Arc::default(), cams.clone(), log.clone(), false, Some(1)); // the old route keeps going
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let (old, old_opens) = scripted(vec![Some(flowing(1, 1000))]); // the old route keeps going
+        let w = started(setup(old), &cams, &log);
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
-        let opener: Opener = Arc::new(move || {
-            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(77) }) as Box<dyn VideoFeed>).into())
-        });
-        assert!(w.hand_over("https://usb/v1/video", opener.clone()));
-        assert!(!w.hand_over("https://usb/v1/video", opener)); // one at a time
+        let (new, new_opens) = scripted(vec![Some(flowing(77, 1000))]);
+        let url = "https://usb/v1/video";
+        assert!(w.hand_over(url, new.clone()));
+        assert!(!w.hand_over(url, new)); // one at a time
         let until = Instant::now() + HANDOVER_HEALTHY + Duration::from_secs(3);
-        while !log.lock().unwrap().contains(&WorkerEvent::Moved("https://usb/v1/video".into())) && Instant::now() < until {
+        while moves(&log).is_empty() && Instant::now() < until {
             std::thread::sleep(Duration::from_millis(20));
         }
-        assert_eq!(w.url(), "https://usb/v1/video");
+        assert_eq!(moves(&log), [WorkerEvent::Moved(url.into())]);
+        assert_eq!(w.url(), url);
         wait_for(|| cams.sent.lock().unwrap().contains(&77)); // its frames reach the camera
+        wait_for(|| old_opens.gone() == 1);
+        assert_eq!((new_opens.calls(), new_opens.gone()), (1, 0), "the new reader carries on");
         w.stop();
     }
 
@@ -1842,14 +1940,15 @@ mod tests {
     #[test]
     fn failed_tries_count_only_the_url_it_was_pointed_at() {
         // A recovery reads it to tell a dead USB forward from one it's still trying
-        let shared: Arc<Mutex<Option<Arc<Shared>>>> = Arc::default();
-        let (tries, inner) = (Arc::new(AtomicU32::new(0)), shared.clone());
+        let worker: Arc<std::sync::OnceLock<(Arc<StreamWorker>, Opener)>> = Arc::default();
+        let (tries, inner) = (Arc::new(AtomicU32::new(0)), worker.clone());
         let counted = tries.clone();
         let opener: Opener = Arc::new(move || {
             let n = counted.fetch_add(1, Ordering::SeqCst);
             if n == 2 {
                 // Moved while the second try was out
-                *inner.lock().unwrap().as_ref().unwrap().url.lock().unwrap() = "http://127.0.0.1:41001/v1/video".into();
+                let (w, me) = inner.get().unwrap();
+                w.retarget("http://127.0.0.1:41001/v1/video", me.clone());
             }
             match n {
                 0 | 4 => {
@@ -1860,13 +1959,14 @@ mod tests {
             }
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let w = started(setup(opener), &cams, &log);
-        *shared.lock().unwrap() = Some(w.shared.clone());
+        let w = Arc::new(started(setup(opener.clone()), &cams, &log));
+        assert!(worker.set((w.clone(), opener)).is_ok());
         wait_for(|| tries.load(Ordering::SeqCst) == 1);
         let fast = no_delay(&w);
         assert!(w.shared.reconnect().is_some());
         drop(fast);
-        assert_eq!(w.failed_tries(), 2);
+        assert_eq!(tries.load(Ordering::SeqCst), 5);
+        assert_eq!(w.failed_tries(), 2, "the try out while it moved counts for neither");
         w.stop();
     }
 
@@ -1910,6 +2010,31 @@ mod tests {
         }
     }
 
+    /// Frames in a colour, with a pipeline of its own: packets say the luma, and chroma sits above it.
+    struct Colours(Arc<Mutex<Option<(u32, u32)>>>);
+
+    impl Decoder for Colours {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            let y = packet.data[0];
+            Decoded { newest: Some(tinted(4, 2, y, y + 10, y + 20)), count: 1 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    impl Media for Colours {
+        fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            Ok(Box::new(Colours(self.0.clone())))
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(PlusOne(self.0.clone())))
+        }
+    }
+
     /// FakeMedia with a pipeline of its own.
     struct WithPipeline(Box<dyn Fn() -> Box<dyn FramePipeline> + Send + Sync>);
 
@@ -1930,12 +2055,13 @@ mod tests {
         let (opener, opens) = scripted(vec![Some(vec![Step::Frame(10)])]);
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         let seen: Arc<Mutex<Option<(u32, u32)>>> = Arc::default();
-        let media = { let seen = seen.clone(); WithPipeline(Box::new(move || Box::new(PlusOne(seen.clone())))) };
-        let w = start(WorkerSetup { width: Some(4), height: Some(4), ..setup(opener) }, Arc::new(media), &cams, &log);
+        let w = start(WorkerSetup { width: Some(4), height: Some(3), ..setup(opener) }, Arc::new(Colours(seen.clone())), &cams, &log);
         wait_for(|| cams.sent.lock().unwrap().contains(&11));
-        assert_eq!(*seen.lock().unwrap(), Some((4, 4)), "resized before the steps");
+        assert_eq!(*seen.lock().unwrap(), Some((4, 3)), "resized before the steps");
         let (frame, _) = w.shared.slot.latest().unwrap();
-        assert_eq!((frame.width, frame.height, frame.data[0]), (4, 4, 11));
+        assert_eq!((frame.width, frame.height), (4, 3));
+        let (y, u, v) = frame.i420_planes().unwrap();
+        assert!(y.iter().all(|&p| p == 11) && u.iter().all(|&p| p == 21) && v.iter().all(|&p| p == 31), "every plane through the steps, none swapped: {y:?} {u:?} {v:?}");
         w.stop();
         assert_eq!(opens.gone(), 1);
     }
@@ -1948,29 +2074,61 @@ mod tests {
         w.stop();
     }
 
-    struct Broken;
+    /// Fails on one picture, past what the real pipeline's guard on each step catches, and notes that it got there.
+    struct BreaksOn(u8, Arc<AtomicBool>);
 
-    impl FramePipeline for Broken {
+    impl FramePipeline for BreaksOn {
         fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
-        fn process(&mut self, _frame: Frame, _ctx: &dyn FrameContext) -> Frame {
-            panic!("bad transform")
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            if frame.data[0] == self.0 {
+                self.1.store(true, Ordering::SeqCst);
+                panic!("bad transform")
+            }
+            frame
         }
         fn is_empty(&self) -> bool {
             false
         }
     }
 
-    // The real pipeline guards each step (media's pipeline.rs), so this is one that breaks past that: nothing goes out and
-    // the phone's connection is let go of. Python's next frame would try again; here it ends with an error.
+    fn breaking_on(picture: u8) -> (Arc<WithPipeline>, Arc<AtomicBool>) {
+        let tried: Arc<AtomicBool> = Arc::default();
+        let seen = tried.clone();
+        (Arc::new(WithPipeline(Box::new(move || Box::new(BreaksOn(picture, seen.clone()))))), tried)
+    }
+
+    fn pause() -> Step {
+        Step::Pause(Duration::from_millis(40))
+    }
+
     #[test]
     fn stream_reader_drops_pipeline_errors_and_releases_capture() {
-        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1), pause(), Step::Frame(2), pause(), Step::Frame(3)])]);
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let w = start(setup(opener), Arc::new(WithPipeline(Box::new(|| Box::new(Broken)))), &cams, &log);
+        let (media, tried) = breaking_on(2);
+        let w = start(setup(opener), media, &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&3));
+        assert!(tried.load(Ordering::SeqCst), "the frame did reach the pipeline");
+        assert_eq!(*cams.sent.lock().unwrap().iter().collect::<std::collections::BTreeSet<_>>().into_iter().collect::<Vec<_>>(), [&1, &3], "dropped, and the next one went out");
+        assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 3);
+        assert_eq!((opens.calls(), opens.gone()), (1, 0), "the same connection carries on");
+        assert!(!kinds(&log).iter().any(|k| k == "error" || k == "idle"), "{:?}", kinds(&log));
+        w.stop();
+        assert_eq!(opens.gone(), 1);
+    }
+
+    #[test]
+    fn a_first_frame_that_breaks_lets_go_of_the_capture_and_the_stream_tries_again() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(2)]), Some(vec![Step::Frame(3)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let (media, tried) = breaking_on(2);
+        let w = start(setup(opener), media, &cams, &log);
+        wait_for(|| tried.load(Ordering::SeqCst));
         wait_for(|| opens.gone() == 1);
-        assert!(w.shared.slot.latest().is_none());
-        wait_for(|| log.lock().unwrap().last() == Some(&WorkerEvent::Status("idle".into(), "Not streaming".into())));
+        assert!(w.shared.slot.latest().is_none(), "nothing went out");
         assert!(cams.sent.lock().unwrap().is_empty());
+        wait_for(|| cams.sent.lock().unwrap().contains(&3));
+        assert!(!kinds(&log).iter().any(|k| k == "error" || k == "idle"), "{:?}", kinds(&log));
         w.stop();
     }
 
@@ -2127,7 +2285,8 @@ mod tests {
     #[test]
     fn hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one() {
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let w = worker_from(Arc::default(), cams.clone(), log.clone(), false, Some(1)); // the old route keeps going
+        let (old, old_opens) = scripted(vec![Some(flowing(1, 3000))]); // the old route keeps going
+        let w = started(setup(old), &cams, &log);
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
         // Never HANDOVER_HEALTHY without a gap past HANDOVER_GAP
         let steps: Vec<Step> = (0..8).flat_map(|_| flowing(2, 150).into_iter().chain([Step::Pause(HANDOVER_GAP + Duration::from_millis(200))])).collect();
@@ -2135,14 +2294,15 @@ mod tests {
         let url = "https://127.0.0.1:41000/v1/video";
         assert!(w.hand_over(url, new));
         let until = Instant::now() + HANDOVER_TIMEOUT + Duration::from_secs(3);
-        while !log.lock().unwrap().contains(&WorkerEvent::MoveFailed(url.into())) && Instant::now() < until {
+        while moves(&log).is_empty() && Instant::now() < until {
             std::thread::sleep(Duration::from_millis(20));
         }
-        assert!(log.lock().unwrap().contains(&WorkerEvent::MoveFailed(url.into())));
-        assert!(!log.lock().unwrap().contains(&WorkerEvent::Moved(url.into())));
-        assert_eq!(opens.gone(), 1);
+        assert_eq!(moves(&log), [WorkerEvent::MoveFailed(url.into())]);
+        assert_eq!((opens.gone(), old_opens.gone()), (1, 0), "the new one let go of, the old one still open");
         assert_eq!(w.url(), "http://phone/v1/video");
         assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 1);
+        let received = w.shared.slot.latest().unwrap().1;
+        wait_for(|| w.shared.slot.latest().unwrap().1 > received);
         assert!(w.hand_over(url, Arc::new(|| Err("no".into()))), "it can try again later");
         w.stop();
     }
@@ -2151,14 +2311,16 @@ mod tests {
     fn a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route() {
         let (opener, opens) = scripted(vec![Some(vec![])]);
         let (w, _cams, log) = sitting(opener, &opens);
-        let (new, _new_opens) = scripted(vec![Some(flowing(2, 400))]);
+        let (new, new_opens) = scripted(vec![Some(flowing(2, 400))]);
         let url = "https://127.0.0.1:41000/v1/video";
         assert!(w.hand_over(url, new));
         wait_for(|| w.shared.handover_ready.lock().unwrap().is_some());
         let fast = no_delay(&w);
-        assert!(w.shared.reconnect().is_some());
+        let mut cap = w.shared.reconnect().expect("the prepared route");
         drop(fast);
-        assert!(log.lock().unwrap().contains(&WorkerEvent::Moved(url.into())));
+        assert_eq!(cap.read_frame().unwrap().0.data[0], 2, "the reader the hand-over prepared, still on its stream");
+        assert_eq!(new_opens.calls(), 1, "not a new one");
+        assert_eq!(moves(&log), [WorkerEvent::Moved(url.into())]);
         assert_eq!(w.url(), url);
         assert_eq!(opens.calls(), 1, "the old route isn't tried again");
         w.stop();
