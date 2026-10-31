@@ -10,8 +10,10 @@
 use crate::frame::{Frame, PixelFormat, ShaderStep};
 use crate::host::ColourStage;
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::collections::{BTreeSet, HashMap};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 /// The 3D LUT sizes the pipeline bakes at: points per side.
 pub const SIZES: [u32; 2] = [33, 65];
@@ -153,7 +155,11 @@ pub fn bake(stages: &[&ColourStage], size: Option<u32>) -> Option<Baked> {
             log::error!("A colour stage failed; leaving it out (its data doesn't fit its size)");
             continue;
         }
-        run(stage, &mut rgb);
+        let before = rgb.clone();
+        if catch_unwind(AssertUnwindSafe(|| run(stage, &mut rgb))).is_err() {
+            log::error!("A colour stage failed; leaving it out");
+            rgb = before;
+        }
     }
     Some(if flat { Baked::Table(rgb) } else { Baked::Cube { size: n, rgb } })
 }
@@ -276,16 +282,105 @@ impl Identity {
     }
 }
 
+/// Composed LUTs kept per pipeline, for streams with different stages and quick back and forth.
 const KEEP_BAKED: usize = 8;
 
-/// The window's colour step (HostColour): the stages of the stream the panels show and of single streams, the compare
-/// line, and the LUT baked from them.
+/// A stream's key in the baking: its source id, or None for a stream without one.
+type Key = Option<String>;
+/// Turns stages into a LUT; the baking thread runs it.
+type BakeFn = dyn Fn(&[ColourStage]) -> Option<Baked> + Send + Sync;
+
+/// What the stream steps and the baking thread share.
 #[derive(Default)]
+struct Bakes {
+    /// The newest last.
+    baked: Vec<(Identity, Option<Arc<Baked>>)>,
+    /// The LUT each stream got last, until the one for new stages is baked.
+    current: HashMap<Key, Option<Arc<Baked>>>,
+    /// Stages waiting for the baking thread, one set per stream.
+    wanted: Vec<(Key, Identity, Vec<ColourStage>)>,
+    /// Streams that stopped, which mustn't pin a LUT in current again.
+    gone: BTreeSet<String>,
+    baking: bool,
+}
+
+impl Bakes {
+    fn find(&self, key: &Identity) -> Option<usize> {
+        self.baked.iter().position(|(k, _)| k.same(key))
+    }
+
+    /// Adds a LUT, dropping the oldest first but never one a stream is showing.
+    fn store(&mut self, key: Identity, lut: Option<Arc<Baked>>, keep: usize) {
+        let mut i = 0;
+        while self.baked.len() >= keep && i < self.baked.len() {
+            let in_use = self.baked[i].1.as_ref().is_some_and(|b| self.current.values().flatten().any(|c| Arc::ptr_eq(c, b)));
+            if in_use {
+                i += 1;
+            } else {
+                self.baked.remove(i);
+            }
+        }
+        self.baked.push((key, lut));
+    }
+}
+
+struct Bakery {
+    bakes: Mutex<Bakes>,
+    idle: Condvar,
+    bake: Box<BakeFn>,
+    keep: usize,
+    on_baked: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+}
+
+impl Bakery {
+    fn run(self: Arc<Self>) {
+        loop {
+            let (key, stages) = {
+                let mut b = self.bakes.lock().unwrap();
+                let Some((_, key, stages)) = (!b.wanted.is_empty()).then(|| b.wanted.remove(0)) else {
+                    b.baking = false;
+                    self.idle.notify_all();
+                    return;
+                };
+                if b.find(&key).is_some() || b.wanted.iter().any(|(_, k, _)| k.same(&key)) {
+                    continue;
+                }
+                (key, stages)
+            };
+            match catch_unwind(AssertUnwindSafe(|| (self.bake)(&stages))) {
+                Ok(lut) => self.bakes.lock().unwrap().store(key, lut.map(Arc::new), self.keep),
+                Err(_) => log::error!("Baking the colour stages failed"),
+            }
+            let told = self.on_baked.lock().unwrap().clone();
+            if let Some(told) = told {
+                told();
+            }
+        }
+    }
+}
+
+/// The window's colour step (HostColour): the stages of the stream the panels show and of single streams, the compare
+/// line, and the LUT baked from them. New stages are baked on a thread of their own (a 65-point bake can take a tenth of a
+/// second), so a dragged slider never holds anything up, and a stream keeps the LUT it had until the new one is there.
 pub struct ColourPipeline {
     shown: Vec<Entry>,
     by_source: HashMap<String, Vec<Entry>>,
     splits: Vec<(String, f32)>,
-    baked: Vec<(Identity, Option<Arc<Baked>>)>,
+    bakery: Arc<Bakery>,
+    /// Bake on the call that first needs a LUT instead of on a thread of its own.
+    inline: bool,
+    /// The kind of the last LUT handed out, for the diagnostics.
+    kind: Option<String>,
+}
+
+impl Default for ColourPipeline {
+    fn default() -> Self {
+        ColourPipeline::with(false, KEEP_BAKED, Box::new(bake_owned))
+    }
+}
+
+fn bake_owned(stages: &[ColourStage]) -> Option<Baked> {
+    bake(&stages.iter().collect::<Vec<_>>(), None)
 }
 
 fn sorted(mut entries: Vec<Entry>) -> Vec<Entry> {
@@ -296,6 +391,21 @@ fn sorted(mut entries: Vec<Entry>) -> Vec<Entry> {
 impl ColourPipeline {
     pub fn new() -> ColourPipeline {
         ColourPipeline::default()
+    }
+
+    /// One that bakes on the call that first needs a LUT, for tests and for checking one LUT at a time.
+    pub fn inline() -> ColourPipeline {
+        ColourPipeline::with(true, KEEP_BAKED, Box::new(bake_owned))
+    }
+
+    fn with(inline: bool, keep: usize, bake: Box<BakeFn>) -> ColourPipeline {
+        let bakery = Bakery { bakes: Mutex::default(), idle: Condvar::new(), bake, keep, on_baked: Mutex::new(None) };
+        ColourPipeline { shown: Vec::new(), by_source: HashMap::new(), splits: Vec::new(), bakery: Arc::new(bakery), inline, kind: None }
+    }
+
+    /// Called from the baking thread each time a LUT is ready, so the streams can be given it.
+    pub fn set_on_baked(&mut self, told: Arc<dyn Fn() + Send + Sync>) {
+        *self.bakery.on_baked.lock().unwrap() = Some(told);
     }
 
     /// An owner's stage, or none; it replaces the one it had. With a source id the stage is for that stream alone, next to
@@ -342,24 +452,86 @@ impl ColourPipeline {
         self.splits.last().map(|(_, p)| *p)
     }
 
-    /// The LUT of source_id's stages, baked once for as long as the same stages come back (a few are kept).
+    /// The LUT of source_id's stages, baked once for as long as the same stages come back (a few are kept). Stages not
+    /// baked yet go to the baking thread and the stream gets the LUT it had meanwhile.
     pub fn lut(&mut self, source_id: Option<&str>) -> Option<Arc<Baked>> {
-        let stages = self.stages(source_id);
+        let stages: Vec<ColourStage> = self.stages(source_id).into_iter().cloned().collect();
+        let lut = self.lut_of(&stages, source_id);
+        if let Some(lut) = &lut {
+            self.kind = Some(lut.kind());
+        }
+        lut
+    }
+
+    /// The baked LUT of these stages for the stream called key.
+    pub fn lut_of(&self, stages: &[ColourStage], key: Option<&str>) -> Option<Arc<Baked>> {
         if stages.is_empty() {
             return None;
         }
-        let key = Identity::of(&stages);
-        if let Some(i) = self.baked.iter().position(|(k, _)| k.same(&key)) {
-            let hit = self.baked.remove(i);
-            self.baked.push(hit);
-            return self.baked.last().and_then(|(_, b)| b.clone());
+        let identity = Identity::of(&stages.iter().collect::<Vec<_>>());
+        let key: Key = key.map(String::from);
+        let mut b = self.bakery.bakes.lock().unwrap();
+        if key.as_ref().is_some_and(|k| b.gone.contains(k)) {
+            // A stopped stream's last frames: whatever's there, nothing kept
+            return b.find(&identity).and_then(|i| b.baked[i].1.clone());
         }
-        let lut = bake(&stages, None).map(Arc::new);
-        while self.baked.len() >= KEEP_BAKED {
-            self.baked.remove(0);
+        if let Some(i) = b.find(&identity) {
+            let hit = b.baked.remove(i);
+            let lut = hit.1.clone();
+            b.baked.push(hit); // the newest last again
+            b.current.insert(key, lut.clone());
+            return lut;
         }
-        self.baked.push((key, lut.clone()));
+        if !self.inline {
+            b.wanted.retain(|(k, ..)| *k != key);
+            b.wanted.push((key.clone(), identity, stages.to_vec()));
+            if !b.baking {
+                b.baking = true;
+                let bakery = self.bakery.clone();
+                std::thread::Builder::new().name("colour-bake".into()).spawn(move || bakery.run()).expect("a thread to bake on");
+            }
+            return b.current.get(&key).cloned().flatten();
+        }
+        drop(b);
+        let lut = (self.bakery.bake)(stages).map(Arc::new);
+        let mut b = self.bakery.bakes.lock().unwrap();
+        b.current.insert(key, lut.clone());
+        b.store(identity, lut.clone(), self.bakery.keep);
         lut
+    }
+
+    /// The streams running now, by key. One that stopped lets go of its LUT, and a frame of it still on its way doesn't hold
+    /// on to it again until it streams again.
+    pub fn set_streams<'a>(&self, keys: impl IntoIterator<Item = &'a str>) {
+        let keys: BTreeSet<&str> = keys.into_iter().collect();
+        let mut b = self.bakery.bakes.lock().unwrap();
+        let known = b.current.keys().chain(b.wanted.iter().map(|(k, ..)| k)).flatten().cloned().collect::<Vec<_>>();
+        let gone: BTreeSet<String> = b.gone.iter().cloned().chain(known).filter(|k| !keys.contains(k.as_str())).collect();
+        for key in &gone {
+            b.current.remove(&Some(key.clone()));
+            b.wanted.retain(|(k, ..)| k.as_ref() != Some(key));
+        }
+        b.gone = gone;
+    }
+
+    /// Waits until nothing waits to be baked; false if it still does after timeout.
+    pub fn settle(&self, timeout: Duration) -> bool {
+        let until = Instant::now() + timeout;
+        let mut b = self.bakery.bakes.lock().unwrap();
+        while b.baking || !b.wanted.is_empty() {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return false;
+            }
+            b = self.bakery.idle.wait_timeout(b, left).unwrap().0;
+        }
+        true
+    }
+
+    /// What Copy diagnostics says about it, once frames have had a LUT. The LUT runs as a shader, so unlike Python's there's
+    /// no time of its own to report.
+    pub fn diagnostics(&self) -> Vec<(String, String)> {
+        self.kind.iter().map(|kind| ("Colour pipeline".to_string(), format!("{kind}, as a shader step"))).collect()
     }
 
     /// The step the stream's frames go through in the Colour stage; None without stages (frames go through untouched).
@@ -519,7 +691,7 @@ mod tests {
 
     #[test]
     fn stages_sort_by_order_then_owner_and_an_owner_replaces_its_own() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         let (a, b, c, d) = (stage(|v| v, false, 33), stage(|v| v * 0.9, false, 33), stage(|v| v * 0.8, false, 33), stage(|v| v * 0.7, false, 33));
         p.set_stage("zeta", Some(a.clone()), 0, None);
         p.set_stage("alpha", Some(b.clone()), 0, None);
@@ -533,7 +705,7 @@ mod tests {
 
     #[test]
     fn the_composed_lut_follows_the_order() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         p.set_stage("gamma", Some(stage(|v| v * v, true, 33)), 0, None);
         p.set_stage("invert", Some(stage(|v| 1.0 - v, true, 33)), -1, None);
         let lut = p.lut(None).unwrap();
@@ -545,7 +717,7 @@ mod tests {
 
     #[test]
     fn a_stream_gets_its_own_stages_next_to_the_shown_ones() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         p.set_stage("grade", Some(stage(|v| v * 0.5, true, 33)), 0, None);
         p.set_stage("match", Some(stage(|v| 1.0 - v, true, 33)), -1, Some("b"));
         let at = |p: &mut ColourPipeline, id: &str| p.lut(Some(id)).unwrap().apply([200, 200, 200])[0] as i32;
@@ -557,13 +729,13 @@ mod tests {
 
     #[test]
     fn without_stages_frames_go_through_untouched() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         assert!(p.step(None).is_none() && p.lut(Some("phone")).is_none());
     }
 
     #[test]
     fn the_same_stages_are_baked_once() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         p.set_stage("grade", Some(stage(|v| 1.0 - v, false, 33)), 0, None);
         let (a, b) = (p.lut(None).unwrap(), p.lut(None).unwrap());
         assert!(Arc::ptr_eq(&a, &b));
@@ -590,7 +762,7 @@ mod tests {
 
     #[test]
     fn a_stage_that_took_a_freed_ones_place_is_baked_afresh() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         p.set_stage("grade", Some(stage(|v| v * 0.5, false, 33)), 0, None);
         assert!((p.lut(None).unwrap().apply([200, 200, 200])[0] as i32 - 100).abs() <= 1);
         p.set_stage("grade", None, 0, None);
@@ -612,7 +784,7 @@ mod tests {
 
     #[test]
     fn the_compare_line_is_the_newest_ask_and_clamped() {
-        let mut p = ColourPipeline::new();
+        let mut p = ColourPipeline::inline();
         assert_eq!(p.split(), None);
         p.set_split("grade", Some(1.5));
         assert_eq!(p.split(), Some(1.0));
@@ -622,6 +794,169 @@ mod tests {
         assert_eq!(p.split(), Some(1.0));
         p.set_split("grade", None);
         assert_eq!(p.split(), None);
+    }
+
+    fn lut_of(stages: &[&ColourStage]) -> Vec<ColourStage> {
+        stages.iter().map(|s| (*s).clone()).collect()
+    }
+
+    const SETTLE: Duration = Duration::from_secs(5);
+
+    #[test]
+    fn a_stage_that_fails_is_left_out() {
+        let broken = stage(|v| v, false, 33).with_eval(|_: &mut [f32]| panic!("no"));
+        let lut = bake(&[&stage(|v| 1.0 - v, false, 33), &broken], None).unwrap();
+        assert_eq!(lut.apply([0, 0, 0]), [255, 255, 255]);
+    }
+
+    #[test]
+    fn a_stream_behind_the_panels_keeps_the_stages_it_had() {
+        let mut p = ColourPipeline::inline();
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
+        let frozen = p.step(None).unwrap();
+        p.set_stage("grade", None, 0, None); // the panels moved on to a phone without a grade
+        assert!(p.step(None).is_none());
+        let (_, lo) = (&frozen.textures[0], &frozen.textures[1]);
+        assert_eq!((frozen.textures[0].1.data[0], lo.1.data[0]), (255, 255), "the step it runs still inverts");
+    }
+
+    #[test]
+    fn new_stages_are_baked_off_the_stream_thread() {
+        let mut p = ColourPipeline::new();
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
+        let first = p.lut(Some("phone"));
+        assert!(p.settle(SETTLE));
+        assert!(first.is_none_or(|l| l.apply([0, 0, 0]) == [255, 255, 255])); // either not baked yet, or the thread was quick
+        assert_eq!(p.lut(Some("phone")).unwrap().apply([0, 0, 0]), [255, 255, 255]);
+        p.set_stage("grade", Some(stage(|_| 0.5, true, 33)), 0, None);
+        let meanwhile = p.lut(Some("phone")).unwrap().apply([0, 0, 0])[0];
+        assert!(meanwhile == 255 || meanwhile == 128, "the old LUT until the new one is there, never no grade at all");
+        assert!(p.settle(SETTLE));
+        assert_eq!(p.lut(Some("phone")).unwrap().apply([0, 0, 0])[0], 128);
+    }
+
+    #[test]
+    fn a_stream_keeps_its_lut_through_a_moment_without_stages() {
+        let mut p = ColourPipeline::new();
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
+        p.lut(Some("phone"));
+        assert!(p.settle(SETTLE));
+        assert_eq!(p.lut(Some("phone")).unwrap().apply([0, 0, 0])[0], 255);
+        p.set_stage("grade", None, 0, None); // the defaults, then the next phone's settings
+        assert!(p.lut(Some("phone")).is_none());
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let held = gate.clone();
+        let slow = stage(|_| 0.5, true, 33).with_eval(move |px: &mut [f32]| {
+            let mut open = held.0.lock().unwrap();
+            while !*open {
+                open = held.1.wait_timeout(open, SETTLE).unwrap().0;
+            }
+            px.fill(0.5);
+        });
+        p.set_stage("grade", Some(slow), 0, None);
+        assert_eq!(p.lut(Some("phone")).unwrap().apply([0, 0, 0])[0], 255, "the old LUT while the new one bakes");
+        *gate.0.lock().unwrap() = true;
+        gate.1.notify_all();
+        assert!(p.settle(SETTLE));
+        assert_eq!(p.lut(Some("phone")).unwrap().apply([0, 0, 0])[0], 128);
+    }
+
+    #[test]
+    fn the_window_hears_when_a_lut_is_ready() {
+        let mut p = ColourPipeline::new();
+        let (told, heard) = (Arc::new(Mutex::new(0)), Arc::new(Condvar::new()));
+        let (t, h) = (told.clone(), heard.clone());
+        p.set_on_baked(Arc::new(move || {
+            *t.lock().unwrap() += 1;
+            h.notify_all();
+        }));
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
+        p.lut(None);
+        let mut n = told.lock().unwrap();
+        while *n == 0 {
+            let (next, timeout) = heard.wait_timeout(n, SETTLE).unwrap();
+            n = next;
+            assert!(!timeout.timed_out(), "never told");
+        }
+    }
+
+    fn grades(values: &[f32]) -> Vec<Vec<ColourStage>> {
+        values.iter().map(|v| {
+            let v = *v;
+            lut_of(&[&stage(move |_| v, true, 33)])
+        }).collect()
+    }
+
+    fn holds(p: &ColourPipeline, stages: &[ColourStage]) -> bool {
+        p.bakery.bakes.lock().unwrap().find(&Identity::of(&stages.iter().collect::<Vec<_>>())).is_some()
+    }
+
+    #[test]
+    fn baked_luts_in_use_stay_and_a_hit_keeps_one_longer() {
+        let p = ColourPipeline::with(true, 4, Box::new(bake_owned));
+        let shown = lut_of(&[&stage(|v| 1.0 - v, true, 33)]);
+        p.lut_of(&shown, Some("a"));
+        let o = grades(&[0.1, 0.2, 0.3, 0.4, 0.5]);
+        for i in [0, 1, 0, 2, 3] {
+            p.lut_of(&o[i], Some("b")); // o[0] used again before o[2]
+        }
+        assert!(holds(&p, &shown), "stream a still shows it, though it's the oldest");
+        assert!(holds(&p, &o[0]) && !holds(&p, &o[1]));
+        p.lut_of(&o[4], Some("b"));
+        assert!(holds(&p, &shown) && holds(&p, &o[3]));
+        assert_eq!(p.bakery.bakes.lock().unwrap().baked.len(), 4);
+    }
+
+    #[test]
+    fn a_stopped_streams_lut_isnt_kept_from_the_cache_limit() {
+        let p = ColourPipeline::with(true, 2, Box::new(bake_owned));
+        let g = grades(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
+        for (sid, stages) in ["a", "b", "c", "d"].iter().zip(&g) {
+            p.lut_of(stages, Some(sid));
+        }
+        p.set_streams(["d"]); // the others stopped
+        p.lut_of(&g[0], Some("a")); // a last frame of one of them, still on its way
+        p.lut_of(&g[4], Some("d"));
+        p.lut_of(&g[5], Some("d"));
+        assert!(holds(&p, &g[4]) && holds(&p, &g[5]));
+        assert_eq!(p.bakery.bakes.lock().unwrap().baked.len(), 2);
+        assert_eq!(p.bakery.bakes.lock().unwrap().current.keys().cloned().collect::<Vec<_>>(), [Some("d".to_string())]);
+        p.set_streams(["a", "d"]); // streaming again
+        let lut = p.lut_of(&g[0], Some("a")).unwrap();
+        assert!(Arc::ptr_eq(p.bakery.bakes.lock().unwrap().current[&Some("a".to_string())].as_ref().unwrap(), &lut));
+    }
+
+    #[test]
+    fn a_bake_that_fails_doesnt_leave_the_baking_thread_stuck() {
+        let calls = Arc::new(Mutex::new(0));
+        let counted = calls.clone();
+        let mut p = ColourPipeline::with(false, KEEP_BAKED, Box::new(move |_| {
+            *counted.lock().unwrap() += 1;
+            panic!("no")
+        }));
+        p.set_stage("grade", Some(stage(|v| v, false, 33)), 0, None);
+        assert!(p.lut(None).is_none());
+        assert!(p.settle(SETTLE));
+        assert_eq!(*calls.lock().unwrap(), 1);
+        assert!(!p.bakery.bakes.lock().unwrap().baking);
+    }
+
+    #[test]
+    fn diagnostics_say_which_lut_runs() {
+        let mut p = ColourPipeline::inline();
+        assert!(p.diagnostics().is_empty());
+        p.set_stage("grade", Some(stage(|v| v, false, 33)), 0, None);
+        p.lut(None);
+        let said = p.diagnostics();
+        assert_eq!(said[0].0, "Colour pipeline");
+        assert!(said[0].1.starts_with("3D 33, "), "{}", said[0].1);
+    }
+
+    #[test]
+    fn the_split_is_only_drawn_on_the_stream_it_came_from() {
+        let before = Frame::new(80, 40, PixelFormat::Rgba, vec![0; 80 * 40 * 4]);
+        let tall = Frame::new(40, 80, PixelFormat::Rgba, vec![7; 40 * 80 * 4]);
+        assert_eq!(with_split(&before, &tall, 0.5).data, tall.data);
     }
 
     #[test]

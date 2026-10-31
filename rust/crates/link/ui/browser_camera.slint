@@ -89,6 +89,7 @@ export component BrowserCameraCard inherits Card {
         label: @tr("Address");
         ChoiceField {
             items: addresses;
+            tip: @tr("Which of this computer's addresses the code points to");
             current: address-index;
             picked(i) => { root.address-picked(i); }
         }
@@ -117,6 +118,7 @@ export component BrowserCameraCard inherits Card {
         label: @tr("Resolution");
         ChoiceField {
             items: ["480p", "720p", "1080p"];
+            tip: @tr("The size the browser sends; a camera that can't do it sends what it can");
             current: size-index;
             picked(i) => { root.size-picked(i); }
         }

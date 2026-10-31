@@ -526,6 +526,8 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         out.push_str(&aliases(piece));
     }
+    out.push_str(SETTINGS_KEYS);
+    out.push_str(SETTINGS_RAIL);
     for t in 0..tabs {
         let footers: Vec<&Piece> = sections.iter().filter(|s| s.tab == t).filter_map(|s| s.footer.as_ref()).collect();
         let footer_h = if Some(t) == plugins_tab {
@@ -554,7 +556,8 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             below = format!("{}.y - 10px", f.id);
         }
     }
-    out.push_str(SETTINGS_BOTTOM);
+    out.push_str(SETTINGS_BOTTOM.trim_end().strip_suffix('}').unwrap_or(SETTINGS_BOTTOM));
+    out.push_str("    }\n}\n");
     out
 }
 
@@ -569,6 +572,7 @@ export component TelescopeSettings inherits Window {
     in-out property <int> result;
     in property <string> results-note;
     in property <string> results-empty;
+    callback key(KeyEvent, bool, bool) -> bool;
     callback query-changed(string);
     callback step(int);
     callback open-result(int);
@@ -619,8 +623,22 @@ export component TelescopeSettings inherits Window {
     background: Theme.bg;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
+"#;
 
-    Rectangle {
+/// Holds everything in the window, so plugins hear a key before the control with focus, as in the main window.
+const SETTINGS_KEYS: &str = r#"    keys := FocusScope {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { self.focus(); }
+        capture-key-pressed(e) => { root.key(e, false, TextInputInterface.text-input-focused) ? accept : reject }
+        capture-key-released(e) => { root.key(e, true, TextInputInterface.text-input-focused) ? accept : reject }
+"#;
+
+const SETTINGS_RAIL: &str = r#"    Rectangle {
         x: 0;
         y: 0;
         width: 236px;

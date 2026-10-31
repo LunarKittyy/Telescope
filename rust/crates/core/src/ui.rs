@@ -188,4 +188,6 @@ pub enum IssueDoes {
     StartAgain { source_id: Option<String>, before: Option<String> },
     OpenSettings { tab: String },
     OpenUrl { url: String },
+    /// The panels go to this source's stream and its camera is asked to come back on.
+    CameraOnAgain { source_id: Option<String> },
 }

@@ -7,11 +7,11 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody } from "@ui-kit/ui-kit.slint";
 export { Theme }
 export component Test inherits Window {
     width: 420px;
-    height: 500px;
+    height: 560px;
     in-out property <bool> notify;
     // What a plugin says, bound one way into the widgets below
     in property <float> zoom: 1;
@@ -50,6 +50,8 @@ export component Test inherits Window {
         }
         Button { text: "Frame rate"; clicked => { pressed = "Frame rate"; } }
         Button { text: "Bitrate"; clicked => { pressed = "Bitrate"; } }
+        Button { text: "Tipped"; tip: "About the owner"; }
+        ChoiceField { caption: "Picked"; items: ["a", "b", "c"]; gone: [false, true, false]; tip: "About the field"; picked(i) => { pressed = "row " + i; } }
     }
     short-tip := TipBody { says: "Settings"; visible: false; }
     long-tip := TipBody { says: "All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself All the way right is Dynamic: as much as the connection carries, lowered by itself"; visible: false; }
@@ -68,7 +70,7 @@ fn rig() -> ComponentInstance {
     INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
     let def = telescope_shell::compile::compile("widgets.slint", DOC, vec![], "Test").expect("the document compiles");
     let ui = def.create().unwrap();
-    ui.window().set_size(slint::LogicalSize::new(420.0, 500.0));
+    ui.window().set_size(slint::LogicalSize::new(420.0, 560.0));
     ui.show().unwrap();
     ui
 }
@@ -280,4 +282,56 @@ fn a_segment_picked_by_hand_still_follows_the_value_bound_to_it() {
     ui.set_property("mode", Value::Number(2.0)).unwrap();
     settle(&ui);
     assert_eq!((checked("Bound mode: b"), checked("Bound mode: c")), (Some(false), Some(true)));
+}
+
+
+fn hover(ui: &ComponentInstance, e: &ElementHandle) {
+    let (p, s) = (e.absolute_position(), e.size());
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0) });
+}
+
+fn wait(ms: u64) {
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(ms));
+}
+
+// test_tooltips.py::test_tooltips_show_sooner: Qt's own wait is 700 ms and Python's 250. Slint 1.18 keeps Tooltip's at 500 and
+// doesn't let a program change it, so this holds it to sooner than Qt's.
+#[test]
+fn tooltips_show_sooner() {
+    let ui = rig();
+    let owner = labelled(&ui, "Tipped").remove(0);
+    hover(&ui, &owner);
+    wait(450);
+    assert!(labelled(&ui, "About the owner").is_empty(), "not straight away");
+    wait(100);
+    assert!(!labelled(&ui, "About the owner").is_empty(), "up in under 700 ms");
+}
+
+#[test]
+fn a_tip_stays_while_the_mouse_is_on_its_control() {
+    let ui = rig();
+    let owner = labelled(&ui, "Tipped").remove(0);
+    hover(&ui, &owner);
+    wait(600);
+    wait(60_000);
+    assert!(!labelled(&ui, "About the owner").is_empty(), "no time limit while the mouse is on it");
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(2.0, 2.0) });
+    wait(10);
+    assert!(labelled(&ui, "About the owner").is_empty(), "moved off: it goes");
+}
+
+#[test]
+fn a_dropdown_says_its_tip_and_its_arrows_skip_what_cant_be_picked() {
+    let ui = rig();
+    let field = labelled(&ui, "Picked").remove(0);
+    assert_eq!(field.accessible_description().as_deref(), Some("About the field"));
+    hover(&ui, &field);
+    wait(600);
+    assert!(!labelled(&ui, "About the field").is_empty() );
+    click(&ui, &labelled(&ui, "Picked").remove(0));
+    ui.window().dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Escape.into() });
+    ui.window().dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Escape.into() });
+    let down: slint::SharedString = slint::platform::Key::DownArrow.into();
+    key(&ui, &down);
+    assert_eq!(ui.get_property("pressed").unwrap(), Value::String("row 2".into()));
 }

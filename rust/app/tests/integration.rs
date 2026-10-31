@@ -51,7 +51,7 @@ impl App {
         let mut state = State::new(ConfigFile::at(&file));
         let link = Arc::new(telescope_link::LinkService::new());
         state.link = Some(link.clone());
-        state.load_builtins(plugins(link));
+        state.load_builtins(plugins(link)).unwrap();
         state.apply_saved_config();
         let mut app = App { state, file, timers: Vec::new(), seen: Vec::new() };
         app.settle();

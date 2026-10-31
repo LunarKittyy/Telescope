@@ -3,32 +3,33 @@
 use crate::event::Event;
 use crate::frame::{FrameStage, FrameStep};
 use crate::host::Host;
+use crate::i18n::n_;
 use crate::ui::{ActionSpec, CardSpec, KeyInput, SettingsSection, TrayAction, UiEvent, UiSpec};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// The tabs of the settings window, in order: (id, name).
 pub const SETTINGS_TABS: &[(&str, &str)] = &[
-    ("general", "General"),
-    ("streaming", "Streaming"),
-    ("video", "Video"),
-    ("audio", "Audio"),
-    ("devices", "Virtual camera & phone"),
-    ("shortcuts", "Keyboard shortcuts"),
-    ("plugins", "Plugins"),
-    ("about", "Updates & About"),
+    ("general", n_("General")),
+    ("streaming", n_("Streaming")),
+    ("video", n_("Video")),
+    ("audio", n_("Audio")),
+    ("devices", n_("Virtual camera & phone")),
+    ("shortcuts", n_("Keyboard shortcuts")),
+    ("plugins", n_("Plugins")),
+    ("about", n_("Updates & About")),
 ];
 
 /// The plugin groups, in order: (id, name). An id that isn't here goes under Extras.
 pub const PLUGIN_CATEGORIES: &[(&str, &str)] = &[
-    ("camera", "Camera"),
-    ("look", "Look"),
-    ("vision", "People"),
-    ("preview", "Preview tools"),
-    ("on_screen", "On screen"),
-    ("sound", "Sound"),
-    ("streaming", "Streaming and devices"),
-    ("extras", "Extras"),
+    ("camera", n_("Camera")),
+    ("look", n_("Look")),
+    ("vision", n_("People")),
+    ("preview", n_("Preview tools")),
+    ("on_screen", n_("On screen")),
+    ("sound", n_("Sound")),
+    ("streaming", n_("Streaming and devices")),
+    ("extras", n_("Extras")),
 ];
 
 /// What a plugin is, as plain data: the class attributes of TelescopePlugin. A Lua or WASM plugin gives it in its plugin.json.

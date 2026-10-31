@@ -251,7 +251,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
     state.set_plugin_problems(&problems);
-    state.load_builtins(plugins);
+    state.load_builtins(plugins)?;
     state.apply_saved_config();
     let phones = state.plugin_config("connection").map_or_else(
         || phones_from_file(&state.file).phones.len() as u32,
@@ -528,6 +528,13 @@ impl Window {
                 self.start_source(source_id);
             }
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
+            Pressed::Action(IssueDoes::CameraOnAgain { source_id }) => {
+                // The switch is the panels' stream's
+                if let Some(id) = source_id.as_deref() {
+                    self.with_flow(|flow, host| flow.focus_stream(host, id));
+                }
+                self.state.borrow_mut().effects.push(Effect::CameraOn { on: true, auto: false });
+            }
             Pressed::Dismissed => {
                 if key == "plugins_off" {
                     let s = self.state.borrow_mut();

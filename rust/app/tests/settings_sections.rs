@@ -24,3 +24,34 @@ fn a_settings_section_hears_its_plugin_after_the_settings_window_opens() {
     assert_eq!(open(), slint_interpreter::Value::Bool(true));
     telescope_shell::settings::forget();
 }
+
+struct Heard(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
+
+impl telescope_core::plugin::Plugin for Heard {
+    fn info(&self) -> telescope_core::plugin::PluginInfo {
+        telescope_core::plugin::PluginInfo { name: "heard".into(), ..Default::default() }
+    }
+    fn on_key(&mut self, _host: &mut dyn telescope_core::host::Host, key: &telescope_core::ui::KeyInput) -> bool {
+        if !key.released {
+            self.0.lock().unwrap().push(key.text.to_string());
+        }
+        false
+    }
+}
+
+// test_shortcuts_plugin.py::test_keys_reach_a_window_where_nothing_takes_focus: Settings is a window of its own
+#[test]
+fn keys_reach_a_window_where_nothing_takes_focus() {
+    use slint::ComponentHandle;
+    use slint::platform::WindowEvent;
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("window-settings-keys");
+    let heard: std::sync::Arc<std::sync::Mutex<Vec<String>>> = Default::default();
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Heard(h))], None, None).unwrap();
+    telescope_shell::settings::open(&w, "plugins");
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    settings.ui.window().dispatch_event(WindowEvent::KeyPressed { text: "t".into() });
+    assert_eq!(*heard.lock().unwrap(), ["t"]);
+    telescope_shell::settings::forget();
+}

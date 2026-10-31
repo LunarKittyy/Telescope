@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing } from "basics.slint";
+import { TipBody } from "tip.slint";
 
 // The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
 export component Slider inherits HorizontalLayout {
@@ -33,6 +34,8 @@ export component Slider inherits HorizontalLayout {
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
+    // A tooltip on the slider and its readout
+    in property <string> tip;
     callback moved(float);
     callback released(float);
     spacing: 8px;
@@ -57,6 +60,7 @@ export component Slider inherits HorizontalLayout {
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
+        accessible-description: tip;
         forward-focus: slider-focus;
         slider-focus := FocusScope {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
@@ -132,6 +136,7 @@ export component Slider inherits HorizontalLayout {
                 }
             }
         }
+        if tip != "": Tooltip { TipBody { says: tip; } }
     }
     if has-readout: Text {
         width: readout-width;
@@ -143,5 +148,6 @@ export component Slider inherits HorizontalLayout {
         color: enabled ? hue : Theme.accent-soft;
         horizontal-alignment: right;
         vertical-alignment: center;
+        if tip != "": Tooltip { TipBody { says: tip; } }
     }
 }

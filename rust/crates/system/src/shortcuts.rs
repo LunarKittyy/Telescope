@@ -1574,6 +1574,17 @@ mod tests {
     }
 
     #[test]
+    fn the_editors_control_list_marks_group_titles_so_they_look_different() {
+        let (mut plugin, mut host, _) = make(json!([]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        let rows = controls(&plugin);
+        let titles: Vec<&String> = rows.iter().filter(|r| r.starts_with("# ")).collect();
+        assert!(!titles.is_empty() && titles.iter().all(|t| *t == &t.to_uppercase()), "{rows:?}");
+        assert!(rows.iter().any(|r| !r.starts_with("# ")));
+    }
+
+    #[test]
     fn editor_search_narrows_the_controls_and_uses_keywords() {
         let (mut plugin, mut host, _) = make(json!([]), false, true);
         host.actions[0].1.keywords = "push to talk".into();

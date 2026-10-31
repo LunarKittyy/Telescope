@@ -114,6 +114,7 @@ component Strip inherits Rectangle {
             y: (parent.height - self.height) / 2;
             icon: Icons.pencil;
             label: item.edit-label;
+            tip: @tr("Edit");
             clicked => { root.edit(); }
         }
         IconButton {
