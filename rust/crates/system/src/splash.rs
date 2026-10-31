@@ -161,8 +161,6 @@ mod tests {
         assert_ne!(texts[0], ENGLISH_BOTH);
         assert_eq!(texts[0], "Startar Telescope…\nDet kan ta en minut medan Windows söker igenom filerna\nefter virus.");
         i18n::load(Some("en"));
-        fake.close();
-        assert!(*fake.closed.lock().unwrap());
     }
 
     // test_splash.py::test_without_the_packaged_build_nothing_happens

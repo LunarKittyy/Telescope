@@ -2999,10 +2999,10 @@
 "test_level_meter.py::test_peak_holds_then_sinks" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::peak_holds_then_sinks" }
 "test_level_meter.py::test_to_db_floors_silence" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::to_db_floors_silence" }
 # ── main
-"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "ported", rust = "rust/app/tests/commands.rs::commands_leave_what_the_running_copy_owns_alone", note = "No PyAV build here: the same rule, that a command touches nothing the running copy owns, on what Rust has of that kind (the stale mic source)" }
-"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "ported", rust = "rust/app/src/main.rs::only_the_copy_with_the_lock_touches_what_the_running_copy_owns", note = "No PyAV to activate: what runs only once the lock is held is checked instead" }
+"test_main.py::test_commands_and_duplicate_launches_leave_a_staged_build_alone" = { status = "ported", rust = "rust/app/tests/commands.rs::commands_and_a_duplicate_launch_leave_a_running_copy_alone", note = "No PyAV build here: the same rule on what Rust has of that kind (the stale mic source), with a running copy answering; commands_leave_what_the_running_copy_owns_alone is the case with none" }
+"test_main.py::test_new_instance_activates_pyav_after_getting_the_lock_and_before_importing_it" = { status = "ported", rust = "rust/app/tests/commands.rs::a_new_copy_cleans_up_once_it_has_the_lock", note = "No PyAV to activate: the real start's stale mic cleanup is what runs once the lock is held; a fake pactl asks the program whether it answers on the lock" }
 "test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
-"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside" }
+"test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_programs_own_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside. Runs config-snapshot's offscreen window with the real services and built-ins, not a window on a display" }
 # ── microphone
 "test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/app/tests/mic_window.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
 "test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_missing_piece_is_shown_with_its_fix_and_nothing_starts" }
@@ -3991,7 +3991,7 @@
 "test_sources.py::test_with_others_streaming_the_banner_names_the_phone" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::with_others_streaming_the_banner_names_the_phone" }
 # ── splash
 "test_splash.py::test_the_line_about_the_scan_waits_until_the_start_is_slow" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_line_about_the_scan_waits_until_the_start_is_slow" }
-"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language" }
+"test_splash.py::test_the_splash_text_is_in_the_chosen_language" = { status = "ported", rust = "rust/crates/system/src/splash.rs::the_splash_text_is_in_the_chosen_language", note = "The close step is app/src/main.rs::the_app_closes_the_splash_it_opened; the real window's own close is tests/splash_window.rs on Windows" }
 "test_splash.py::test_without_the_packaged_build_nothing_happens" = { status = "ported", rust = "rust/crates/system/src/splash.rs::without_the_packaged_build_nothing_happens" }
 # ── startup
 "test_startup.py::test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it" }
@@ -4051,7 +4051,7 @@
 "test_startup.py::test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" = { status = "ported", rust = "rust/crates/system/src/startup_tests.rs::with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone" }
 # ── state_example
 "test_state_example.py::test_every_state_field_the_desktop_asks_for_is_one_the_phone_sends" = { status = "ported", rust = "rust/app/tests/state_example.rs::every_state_field_the_desktop_asks_for_is_one_the_phone_sends" }
-"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "ported", rust = "rust/app/tests/state_example.rs::nested_camera_and_control_consumers_read_the_same_contract", note = "Python's ContractDict makes a mistyped field fail in the consumers themselves; serde values can't, so the last test scans the sources for the names they ask for" }
+"test_state_example.py::test_nested_camera_and_control_consumers_read_the_same_contract" = { status = "ported", rust = "rust/app/tests/state_example.rs::nested_camera_and_control_consumers_read_the_same_contract", note = "Python's ContractDict fails a mistyped field at the read; a serde value can't, so the same test reads each field name out of the consumers' source and checks it against every key in the example, at any depth" }
 "test_state_example.py::test_the_desktop_reads_the_phones_state" = { status = "ported", rust = "rust/app/tests/state_example.rs::the_desktop_reads_the_phones_state" }
 # ── stills
 "test_stills.py::test_a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" = { status = "ported", rust = "rust/crates/link/src/stills.rs::a_file_that_cant_be_saved_makes_the_phone_forget_the_photo" }

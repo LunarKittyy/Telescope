@@ -710,6 +710,25 @@ mod tests {
         assert!(cleaned.get());
     }
 
+    // test_splash.py::test_the_splash_text_is_in_the_chosen_language's last step: the app's own close reaches the splash, and none is no splash
+    #[test]
+    fn the_app_closes_the_splash_it_opened() {
+        #[derive(Default)]
+        struct Fake(std::sync::atomic::AtomicBool);
+
+        impl telescope_system::splash::SplashWindow for Fake {
+            fn update_text(&self, _text: &str) {}
+            fn close(&self) {
+                self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+
+        let fake = Arc::new(Fake::default());
+        close_splash(&Some(fake.clone() as Splash));
+        assert!(fake.0.load(std::sync::atomic::Ordering::SeqCst));
+        close_splash(&None);
+    }
+
     #[test]
     fn saving_a_plugins_file_restarts_the_dev_copy() {
         let dir = telescope_core::testing::scratch_dir("dev-plugin");
