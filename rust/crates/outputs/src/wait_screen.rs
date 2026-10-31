@@ -674,20 +674,39 @@ int main(int, char** argv) {
         find_font(true).map(|_| camera_wait_screen().unwrap())
     }
 
+    /// What goes into the DLL: its CMake build still calls scripts/write_camera_wait_screen.py. None where that can't run (no PyQt).
+    fn built_into_the_dll(scratch: &Path) -> Option<Vec<u8>> {
+        let (desktop, out) = (camera().join(".."), scratch.join("from_python.bin"));
+        let ran = ["python3", "python"].iter().find_map(|python| {
+            Command::new(python).current_dir(&desktop).arg("scripts/write_camera_wait_screen.py").arg(&out).env("QT_QPA_PLATFORM", "offscreen").output().ok()
+        });
+        if !ran.is_some_and(|r| r.status.success()) {
+            eprintln!("write_camera_wait_screen.py didn't run here; only this app's resource was checked");
+            return None;
+        }
+        std::fs::read(out).ok()
+    }
+
+    /// The resources to check: (what it is, its bytes).
+    fn resources(scratch: &Path) -> Vec<(&'static str, Vec<u8>)> {
+        resource().map(|r| ("this app's", r)).into_iter().chain(built_into_the_dll(scratch).map(|r| ("the DLL's", r))).collect()
+    }
+
     // test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads
     #[test]
     fn the_header_is_the_one_the_dll_reads() {
-        let Some(resource) = resource() else { return };
         let fields = header_fields();
-        let value = |name: &str| {
-            let at = fields.iter().position(|f| f == name).unwrap_or_else(|| panic!("{name}"));
-            u32::from_le_bytes(resource[at * 4..at * 4 + 4].try_into().unwrap())
-        };
-        assert_eq!((value("magic"), value("version")), (CAMERA_MAGIC, CAMERA_VERSION));
-        assert!(read("wait_screen.h").contains(&format!("kWaitScreenVersion = {CAMERA_VERSION};")));
-        assert_eq!((value("screen_width"), value("screen_with_name"), value("name_top")), (500, 654, 290));
-        let (lens, mask) = (value("lens_size").pow(2) as usize, (value("name_width") * value("name_height")) as usize);
-        assert_eq!(resource.len(), 4 * fields.len() + lens + lens / 2 + mask);
+        for (what, resource) in resources(&telescope_core::testing::scratch_dir("camera-header")) {
+            let value = |name: &str| {
+                let at = fields.iter().position(|f| f == name).unwrap_or_else(|| panic!("{name}"));
+                u32::from_le_bytes(resource[at * 4..at * 4 + 4].try_into().unwrap())
+            };
+            assert_eq!((value("magic"), value("version")), (CAMERA_MAGIC, CAMERA_VERSION), "{what}");
+            assert!(read("wait_screen.h").contains(&format!("kWaitScreenVersion = {CAMERA_VERSION};")));
+            assert_eq!((value("screen_width"), value("screen_with_name"), value("name_top")), (500, 654, 290), "{what}");
+            let (lens, mask) = (value("lens_size").pow(2) as usize, (value("name_width") * value("name_height")) as usize);
+            assert_eq!(resource.len(), 4 * fields.len() + lens + lens / 2 + mask, "{what}");
+        }
     }
 
     // test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads
@@ -708,12 +727,16 @@ int main(int, char** argv) {
     // test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app, with this app's screen as the one to match
     #[test]
     fn the_dll_lays_it_out_like_the_app() {
-        let (Some(resource), Some(_)) = (resource(), compiler()) else { return };
+        let Some(_) = compiler() else { return };
         let dir = telescope_core::testing::scratch_dir("camera-layout");
         let exe = harness(&dir, &["-std=c++17", "-O2"]).unwrap();
-        std::fs::write(dir.join("screen.bin"), resource).unwrap();
-        for (w, h) in [(1280u32, 720u32), (640, 480), (1080, 1920)] {
-            let ran = Command::new(&exe).arg(dir.join("screen.bin")).arg(dir.join("out.nv12")).arg(w.to_string()).arg(h.to_string()).status().unwrap();
+        let sizes = [(1280u32, 720u32), (640, 480), (1080, 1920)];
+        for (what, (w, h)) in resources(&dir).into_iter().flat_map(|(what, resource)| {
+            std::fs::write(dir.join(format!("{}.bin", what.len())), resource).unwrap();
+            sizes.map(|size| (what, size))
+        }) {
+            let screen_bin = dir.join(format!("{}.bin", what.len()));
+            let ran = Command::new(&exe).arg(screen_bin).arg(dir.join("out.nv12")).arg(w.to_string()).arg(h.to_string()).status().unwrap();
             assert!(ran.success());
             let (ws, hs) = (w as usize, h as usize);
             let dll = rgb_of_nv12(&std::fs::read(dir.join("out.nv12")).unwrap(), ws, hs);
@@ -731,8 +754,8 @@ int main(int, char** argv) {
             let mean = |v: &[i32]| v.iter().map(|d| *d as f64).sum::<f64>() / v.len().max(1) as f64;
             above.sort_unstable();
             let p99 = above[above.len() * 99 / 100];
-            assert!(mean(&above) < 1.0 && p99 < 8, "{w}x{h}: mean {}, 99% {p99}", mean(&above));
-            assert!(mean(&below) < 5.0, "{w}x{h}: the name: {}", mean(&below));
+            assert!(mean(&above) < 1.0 && p99 < 8, "{what}, {w}x{h}: mean {}, 99% {p99}", mean(&above));
+            assert!(mean(&below) < 5.0, "{what}, {w}x{h}: the name: {}", mean(&below));
         }
     }
 

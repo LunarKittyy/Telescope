@@ -1917,7 +1917,7 @@
 "test_adb_download.py::test_two_downloads_at_once_fetch_only_once" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::two_downloads_at_once_fetch_only_once" }
 # ── adb_widget
 "test_adb_widget.py::test_a_download_that_raises_still_reports_back" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_download_that_raises_still_reports_back" }
-"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::asking_while_a_download_runs_doesn_t_ask_or_start_another" }
+"test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::asking_while_a_download_runs_doesn_t_ask_or_start_another" }
 # ── app
 "test_app.py::test_a_background_phone_without_h264_falls_back_to_mjpeg" = { status = "ported", rust = "rust/app/tests/stream_two.rs::a_background_phone_without_h264_falls_back_to_mjpeg" }
 "test_app.py::test_a_background_stream_says_which_one_dropped_and_came_back" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::a_background_stream_says_which_one_dropped_and_came_back" }
@@ -2315,9 +2315,9 @@
 "test_browser_server.py::test_wrong_token_is_refused" = { status = "ported", rust = "rust/crates/link/src/browser/server_tests.rs::wrong_token_is_refused" }
 # ── camera
 "test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_cmake_resource_id_is_the_one_the_dll_loads" }
-"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_lays_it_out_like_the_app", note = "Against outputs::camera_wait_screen and this app's default_screen; the DLL's build still calls the Python writer" }
+"test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_lays_it_out_like_the_app", note = "Both resources against this app's default_screen: outputs::camera_wait_screen and, where PyQt can run it, the one the DLL's build still writes with Python" }
 "test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_dll_turns_down_a_cut_short_resource" }
-"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_header_is_the_one_the_dll_reads", note = "Against outputs::camera_wait_screen; the DLL's build still calls the Python writer" }
+"test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen.rs::the_header_is_the_one_the_dll_reads", note = "Checks outputs::camera_wait_screen and, where PyQt can run it, what write_camera_wait_screen.py writes, which is what the DLL's build still uses" }
 # ── camera_control
 "test_camera_control.py::test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens" }
 "test_camera_control.py::test_a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off" }
@@ -4596,9 +4596,9 @@
 "test_wait_screen.py::test_the_main_camera_shows_it_while_only_extra_ones_stream" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_main_camera_shows_it_while_only_extra_ones_stream" }
 "test_wait_screen.py::test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin_tests.rs::the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it" }
 # ── web
-"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_rustls_certificate_error_counts_as_a_certificate_failure", note = "Each download words it where it fails: link and audio match rustls' certificate errors, system's update check matches their text" }
-"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "The update check and plugin updates used the bundled roots; they use the system's now, as Python's do" }
-"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_goes_through_the_system_certificate_check", note = "rustls always checks the name; the system's store is what RootCerts::PlatformVerifier asks for" }
+"test_web.py::test_a_certificate_failure_is_told_apart_from_being_offline" = { status = "ported", rust = "rust/crates/link/src/adb_download.rs::a_rustls_certificate_error_counts_as_a_certificate_failure", note = "Each download words it where it fails: link and audio match rustls' certificate errors, system's update check matches their text. Every download's real failure is in app/tests/web.rs" }
+"test_web.py::test_it_uses_the_system_store_when_truststore_is_there" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_checks_the_certificate_and_the_name_against_the_system_store", note = "Linux: all five real agents against a real server, with the store the system's verifier reads. On Windows only the source check next to it runs" }
+"test_web.py::test_the_context_checks_certificates_and_hostnames" = { status = "ported", rust = "rust/app/tests/web.rs::every_download_checks_the_certificate_and_the_name_against_the_system_store", note = "Linux: an unknown certificate and one for another name both fail as certificate failures on all five real agents. On Windows only the source check next to it runs" }
 # ── webcam
 "test_webcam_controls.py::test_a_camera_whose_settings_cant_be_reached_shows_none" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_camera_whose_settings_cant_be_reached_shows_none" }
 "test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::a_replugged_webcam_gets_a_fresh_handle_on_its_settings" }
