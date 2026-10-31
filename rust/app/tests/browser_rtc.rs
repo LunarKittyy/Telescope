@@ -138,7 +138,7 @@ fn a_browser_over_webrtc_reaches_the_reader_and_the_mic() {
     let pcm = heard.recv_timeout(Duration::from_secs(10)).expect("the mic's samples");
     stop.store(true, Ordering::SeqCst);
     session.close();
-    let samples: Vec<i16> = pcm.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect();
+    let samples: Vec<i16> = pcm.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
     assert!(samples.len() >= 4800, "{} samples", samples.len());
     let loudest = samples.iter().map(|s| s.unsigned_abs()).max().unwrap();
     assert!(loudest > 1000, "loudest sample {loudest}");
