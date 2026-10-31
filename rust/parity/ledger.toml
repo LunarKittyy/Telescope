@@ -2365,11 +2365,11 @@
 # ── chroma_key
 "test_chroma_key.py::test_a_blue_screen_keys_blue_and_keeps_green" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_blue_screen_keys_blue_and_keeps_green" }
 "test_chroma_key.py::test_a_grey_pick_is_refused" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_grey_pick_is_refused" }
-"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" }
+"test_chroma_key.py::test_a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_reads_the_keys_own_input_not_the_cleaned_up_preview", note = "the frame is fed after the pick starts: a shader step can't hand frames back, so the key's input only exists from then on; if a click beats the first frame the preview's picture is read" }
 "test_chroma_key.py::test_a_picked_colour_is_the_median_around_the_click" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_picked_colour_is_the_median_around_the_click" }
 "test_chroma_key.py::test_a_stream_behind_the_panels_keeps_its_key" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_stream_behind_the_panels_keeps_its_key" }
 "test_chroma_key.py::test_keying_waits_while_its_own_pick_runs" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::keying_waits_while_its_own_pick_runs" }
-"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_starts_where_the_card_says_and_keys_that_colour" }
+"test_chroma_key.py::test_picking_on_the_preview_keys_that_colour" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::a_pick_starts_where_the_card_says_and_keys_that_colour", note = "the frame is fed after the pick starts, as above" }
 "test_chroma_key.py::test_settings_round_trip_and_bad_values_fall_back" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::settings_round_trip_and_bad_values_fall_back" }
 "test_chroma_key.py::test_softness_makes_a_ramp_instead_of_a_cliff" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::softness_makes_a_ramp_instead_of_a_cliff" }
 "test_chroma_key.py::test_spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::spill_takes_green_out_of_a_green_tinged_edge_but_leaves_other_colours" }

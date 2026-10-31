@@ -99,28 +99,7 @@ pub fn key_tables(key_bgr: [u8; 3], tolerance: i64, softness: i64, spill: i64) -
     Tables { alpha, cr: out_cr, cb: out_cb }
 }
 
-/// cv2's fixed-point BGR2YCrCb as (Y, Cr, Cb) bytes.
-fn ycrcb(bgr: [u8; 3]) -> (i32, i32, i32) {
-    let (b, g, r) = (bgr[0] as i32, bgr[1] as i32, bgr[2] as i32);
-    let y = (b * 1868 + g * 9617 + r * 4899 + (1 << 13)) >> 14;
-    (y, (((r - y) * 11682 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255), (((b - y) * 9241 + (128 << 14) + (1 << 13)) >> 14).clamp(0, 255))
-}
-
-/// cv2's YCrCb2BGR.
-fn bgr_of(y: i32, cr: i32, cb: i32) -> [u8; 3] {
-    let d = |v: i32| (v + (1 << 13)) >> 14;
-    let (cr, cb) = (cr - 128, cb - 128);
-    [(y + d(cb * 29049)).clamp(0, 255) as u8, (y + d(cb * -5636 + cr * -11698)).clamp(0, 255) as u8, (y + d(cr * 22987)).clamp(0, 255) as u8]
-}
-
 impl Tables {
-    /// matte() of a picture that is one colour all over: (how much of it stays, what it looks like with the spill out).
-    pub fn flat(&self, bgr: [u8; 3]) -> (u8, [u8; 3]) {
-        let (y, cr, cb) = ycrcb(bgr);
-        let i = ((cr.clamp(0, 255) << 8) | cb.clamp(0, 255)) as usize;
-        (self.alpha[i], bgr_of(y, self.cr[i] as i32, self.cb[i] as i32))
-    }
-
     /// The tables as the 256 x 256 picture the shader reads: red = alpha, green = Cr, blue = Cb.
     pub fn texture(&self) -> Frame {
         let mut data = Vec::with_capacity(65536 * 4);
