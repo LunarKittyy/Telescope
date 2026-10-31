@@ -578,12 +578,21 @@ impl Window {
         self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
             self.state.borrow_mut().deliver_events();
-            let effects: Vec<Effect> = std::mem::take(&mut self.state.borrow_mut().effects);
-            if effects.is_empty() {
+            let queued = self.state.borrow().effects.len();
+            if queued == 0 {
                 break;
             }
-            for e in effects {
-                self.apply(e);
+            // One at a time off the front: an effect that starts its own process (the stream flow's do) has to carry out what
+            // was asked before it first, or those older settings land on top of what its hooks just set
+            for _ in 0..queued {
+                let next = {
+                    let mut state = self.state.borrow_mut();
+                    if state.effects.is_empty() {
+                        break;
+                    }
+                    state.effects.remove(0)
+                };
+                self.apply(next);
             }
         }
         self.sync_camera();
