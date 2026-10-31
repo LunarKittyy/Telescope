@@ -162,10 +162,10 @@ impl PresetsPlugin {
     /// A name no preset has: "Preset 3" while there are two.
     pub fn unused_name(&self) -> String {
         let mut n = self.presets.len() + 1;
-        while self.find(&tr("Preset {n}").field("n", &n.to_string())).is_some() {
+        while self.find(&tr("Preset {n}").field("n", n.to_string())).is_some() {
             n += 1;
         }
-        tr("Preset {n}").field("n", &n.to_string())
+        tr("Preset {n}").field("n", n.to_string())
     }
 
     /// Whether saving as name has to ask first: another preset has it (renaming to its own name, keep, is fine).

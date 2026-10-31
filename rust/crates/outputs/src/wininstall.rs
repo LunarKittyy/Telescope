@@ -231,7 +231,7 @@ fn run_admin(sys: &dyn InstallSys, script: &str) -> (bool, String, Option<i32>) 
 pub fn download_unitycapture(sys: &dyn InstallSys, progress: &dyn Fn(&str)) -> (bool, String) {
     let dir = sys.uc_dir();
     if let Err(e) = sys.make_dir(&dir) {
-        return (false, tr("Couldn't create {path}: {error}").field("path", &dir.to_string_lossy()).field("error", &e));
+        return (false, tr("Couldn't create {path}: {error}").field("path", dir.to_string_lossy()).field("error", &e));
     }
     for (name, want) in UC_SHA256 {
         let (dest, part) = (dir.join(name), dir.join(format!("{name}.part")));

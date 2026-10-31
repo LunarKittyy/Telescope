@@ -150,7 +150,7 @@ pub fn linux_setup(run: Run, fifo: Option<PathBuf>) -> (Vec<u32>, String) {
     linux_teardown(&stale_modules(&out), run);
     let fifo = match fifo.map(Ok).unwrap_or_else(fifo_path) {
         Ok(f) => f,
-        Err(e) => return (Vec::new(), tr("Couldn't create the virtual microphone: {error}").field("error", &e.to_string())),
+        Err(e) => return (Vec::new(), tr("Couldn't create the virtual microphone: {error}").field("error", e.to_string())),
     };
     let _ = std::fs::remove_file(&fifo);
     let base = vec![

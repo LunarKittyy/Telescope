@@ -674,7 +674,7 @@ impl MicrophonePlugin {
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.prepare())).unwrap_or_else(|e| {
                 log::error!("Microphone setup failed: {}", panic_text(&e));
-                tr("Couldn't create the virtual microphone: {error}").field("error", &panic_text(&e))
+                tr("Couldn't create the virtual microphone: {error}").field("error", panic_text(&e))
             });
             if let Some(p) = poster {
                 p.post(P_PREPARED, json!({"gen": gen, "error": err}));
@@ -767,7 +767,7 @@ impl MicrophonePlugin {
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.install())).unwrap_or_else(|e| {
                 log::error!("VB-Cable install failed: {}", panic_text(&e));
-                tr("Couldn't install VB-Cable: {error}").field("error", &panic_text(&e))
+                tr("Couldn't install VB-Cable: {error}").field("error", panic_text(&e))
             });
             if let Some(p) = poster {
                 p.post(P_INSTALLED, json!({"error": err}));

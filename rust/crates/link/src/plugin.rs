@@ -420,7 +420,7 @@ impl ConnectionPlugin {
                 Err(panic) => {
                     let error = panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned());
                     log::error!("Phone app install failed: {error:?}");
-                    json!({"ok": false, "detail": tr("Couldn't update the phone app: {error}").field("error", &error.unwrap_or_default())})
+                    json!({"ok": false, "detail": tr("Couldn't update the phone app: {error}").field("error", error.unwrap_or_default())})
                 }
             }
         });
@@ -1351,14 +1351,14 @@ impl Plugin for ConnectionPlugin {
                 let from = current.unwrap_or(if op == "next" { n - 1 } else { 0 });
                 let next = (from + step) % n;
                 if Some(next) == current {
-                    return Some(tr("{label}: {value}").field("label", &tr("Phone")).field("value", &options[next].1));
+                    return Some(tr("{label}: {value}").field("label", tr("Phone")).field("value", &options[next].1));
                 }
                 next
             }
         };
         let (pid, name) = options[target].clone();
         self.select(host, Some(&pid), false, true);
-        Some(tr("{label}: {value}").field("label", &tr("Phone")).field("value", &name))
+        Some(tr("{label}: {value}").field("label", tr("Phone")).field("value", &name))
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {

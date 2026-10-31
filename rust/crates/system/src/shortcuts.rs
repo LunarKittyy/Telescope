@@ -772,7 +772,7 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     let mut unknown: Vec<&String> = params.keys().filter(|k| !action.params.iter().any(|p| p["name"] == **k)).collect();
     unknown.sort();
     if let Some(name) = unknown.first() {
-        return json!({"ok": false, "text": tr("{action} has no setting {name}.").field("action", &action.id).field("name", &format!("'{name}'"))});
+        return json!({"ok": false, "text": tr("{action} has no setting {name}.").field("action", &action.id).field("name", format!("'{name}'"))});
     }
     if let Some(problem) = param_problem(&action, &params) {
         return json!({"ok": false, "text": problem});
@@ -967,12 +967,12 @@ impl ShortcutsPlugin {
         }
         if let Some(other) = self.bindings.iter().find(|b| b.keys == e.keys && b.id != e.id) {
             let text = tr("{keys} already does \"{action}\". Pick another key.")
-                .field("keys", &keys::native_keys(&e.keys)).field("action", &self.describe(other));
+                .field("keys", keys::native_keys(&e.keys)).field("action", self.describe(other));
             return (text, true);
         }
         if e.global && keys::edits_text(&e.keys) {
             let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
-                .field("keys", &keys::native_keys(&e.keys)).field("meta", meta);
+                .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
             return (text, false);
         }
         (String::new(), true)

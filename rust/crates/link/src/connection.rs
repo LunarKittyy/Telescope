@@ -839,7 +839,7 @@ pub fn not_using_usb(res: &Resolution) -> Option<String> {
     let wifi = res.route.as_ref().is_some_and(|r| !is_usb(r));
     match res.usb_note {
         Some(note) if wifi && !matches!(note, UsbNote::NoCable | UsbNote::NoAdb) => {
-            Some(tr("Not using USB: {reason}.").field("reason", &usb_note_text(Some(note))))
+            Some(tr("Not using USB: {reason}.").field("reason", usb_note_text(Some(note))))
         }
         _ => None,
     }

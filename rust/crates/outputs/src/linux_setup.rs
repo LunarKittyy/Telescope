@@ -238,7 +238,7 @@ impl Setup<'_> {
         }
         let conflicts = self.conflicting_confs();
         if !conflicts.is_empty() {
-            return failed(tr("Existing v4l2loopback config found in {paths} - remove it first").field("paths", &conflicts.join(", ")));
+            return failed(tr("Existing v4l2loopback config found in {paths} - remove it first").field("paths", conflicts.join(", ")));
         }
         let r = self.privileged(&persist_steps(), 30, &tr("Failed to write persistence files"));
         if !r.ok {
@@ -258,7 +258,7 @@ impl Setup<'_> {
         if !r.ok {
             return r;
         }
-        ok(tr("Removed {paths}").field("paths", &existing.join(", ")))
+        ok(tr("Removed {paths}").field("paths", existing.join(", ")))
     }
 }
 

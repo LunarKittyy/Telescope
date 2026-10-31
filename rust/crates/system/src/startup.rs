@@ -55,7 +55,7 @@ pub const DEFAULT_STOP_DELAY_S: i64 = 15;
 
 /// "90 s", "2 min": whole minutes read as minutes.
 pub fn delay_text(seconds: i64) -> String {
-    if seconds % 60 == 0 { tr("{n} min").field("n", &(seconds / 60).to_string()) } else { tr("{n} s").field("n", &seconds.to_string()) }
+    if seconds % 60 == 0 { tr("{n} min").field("n", (seconds / 60).to_string()) } else { tr("{n} s").field("n", seconds.to_string()) }
 }
 
 /// A saved wait held to its range; anything that isn't a whole number (a boolean included) is the default.
@@ -394,7 +394,7 @@ impl StartupPlugin {
         if self.notify_stop {
             host.send_notification(
                 &tr("Telescope stopped streaming"),
-                &tr("No app used the camera for {time}.").field("time", &delay_text(self.stop_delay_s)),
+                &tr("No app used the camera for {time}.").field("time", delay_text(self.stop_delay_s)),
                 false,
             );
         }

@@ -104,7 +104,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             .map(|h| format!("                {} := {}C {{ y: (parent.height - self.height) / 2; }}\n", h.piece.id, h.piece.id))
             .collect()
     };
-    out.push_str(&HEADER.field("left", &header(false)).field("right", &header(true)));
+    out.push_str(&HEADER.field("left", header(false)).field("right", header(true)));
 
     // The body: cards placed by their column in the current mode
     out.push_str(BODY_TOP);

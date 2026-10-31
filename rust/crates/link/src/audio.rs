@@ -56,7 +56,7 @@ fn refusal(mut resp: Response) -> String {
                 .unwrap_or_else(|| format!("HTTP {status}"));
             phone_mic_reason(body.get("code").and_then(|c| c.as_str()), &english)
         }
-        Err(()) => tr("The phone refused the microphone (HTTP {code}).").field("code", &status.to_string()),
+        Err(()) => tr("The phone refused the microphone (HTTP {code}).").field("code", status.to_string()),
     }
 }
 

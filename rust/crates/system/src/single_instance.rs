@@ -273,7 +273,7 @@ pub fn notice(acquired: &Acquired, address: &Address) -> Option<(String, String)
                                      tr("Telescope is already running for another user on this computer. Close it there, then open it again here."))),
         Acquired::Taken => {
             let place = match address {
-                Address::Port(port) => tr("port {port}").field("port", &port.to_string()),
+                Address::Port(port) => tr("port {port}").field("port", port.to_string()),
                 Address::Abstract(_) => tr("a local socket"),
             };
             Some((tr("Telescope can't start"),

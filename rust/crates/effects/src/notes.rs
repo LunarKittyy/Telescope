@@ -210,7 +210,7 @@ impl NotesPlugin {
 
     fn set_label(index: usize, text: &str) -> String {
         let name = set_name(text);
-        if name.is_empty() { tr("Notes {n}").field("n", &(index + 1).to_string()) } else { name }
+        if name.is_empty() { tr("Notes {n}").field("n", (index + 1).to_string()) } else { name }
     }
 
     // ── What the card shows ───────────────────────────────────────────
@@ -634,7 +634,7 @@ impl Plugin for NotesPlugin {
                     self.send_style(host);
                 }
                 let state = if self.playing { tr("playing") } else { tr("paused") };
-                Some(tr("{label}: {value}").field("label", &tr("Scroll notes")).field("value", &state))
+                Some(tr("{label}: {value}").field("label", tr("Scroll notes")).field("value", &state))
             }
             "notes.speed" if self.scroll_auto => {
                 let target = actions::slider_target(params, self.speed, 1.0, 1, SPEED_MAX, Some(SPEED_DEFAULT))?;

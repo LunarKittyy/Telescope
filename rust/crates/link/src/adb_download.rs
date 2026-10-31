@@ -396,8 +396,8 @@ fn offline(failed: &Failed) -> Option<String> {
         FetchError::Certificate(_) => tr("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."),
         FetchError::Offline(_) => tr("Couldn't reach Google. Check the internet connection and try again."),
         FetchError::Http(code @ (403 | 404 | 451)) => tr("Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
-            .field("code", &code.to_string()),
-        FetchError::Http(code) => tr("Google's server said {code}. Try again later.").field("code", &code.to_string()),
+            .field("code", code.to_string()),
+        FetchError::Http(code) => tr("Google's server said {code}. Try again later.").field("code", code.to_string()),
         FetchError::Other(_) => return None,
     })
 }
@@ -522,7 +522,7 @@ mod tests {
     }
 
     fn index_for(size: u64, sha1: &str, name: &str) -> Vec<u8> {
-        INDEX.field("size", &size.to_string()).field("sha1", sha1).field("name", name).into_bytes()
+        INDEX.field("size", size.to_string()).field("sha1", sha1).field("name", name).into_bytes()
     }
 
     /// dl.google.com: the index and one zip.

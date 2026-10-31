@@ -494,7 +494,7 @@ impl State {
         let titles: Vec<String> = problems.iter().map(|p| tr(&p.title)).collect();
         let n = titles.len();
         let title = if n < 4 {
-            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).field("plugins", &crate::texts::and_list(&titles))
+            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).field("plugins", crate::texts::and_list(&titles))
         } else {
             crate::texts::trn("{n} plugin didn't start", "{n} plugins didn't start", n)
         };

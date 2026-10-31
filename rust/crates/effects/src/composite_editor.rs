@@ -343,7 +343,7 @@ impl CompositePlugin {
         let names = self.names();
         let mut n = names.len() + 1;
         loop {
-            let name = tr("Layout {n}").field("n", &n.to_string());
+            let name = tr("Layout {n}").field("n", n.to_string());
             if !names.contains(&name) {
                 return name;
             }

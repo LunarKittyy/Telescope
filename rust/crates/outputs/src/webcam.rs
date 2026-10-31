@@ -408,7 +408,7 @@ impl WebcamPlugin {
             } else {
                 tr("{app} is using it. Close it there and it starts here.").field("app", detail)
             };
-            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", &src.name()), text, actions: Vec::new(),
+            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()), text, actions: Vec::new(),
                                                 kind: "warn".into(), details: String::new(), tell_dismiss: false });
         } else {
             host.clear_issue(Some(&issue_key), None);

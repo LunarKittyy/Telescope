@@ -580,7 +580,7 @@ impl Plugin for CompositePlugin {
                 if pick {
                     self.pick(host, &name);
                 }
-                Some(tr("{label}: {value}").field("label", &tr("Picture layout")).field("value", &name))
+                Some(tr("{label}: {value}").field("label", tr("Picture layout")).field("value", &name))
             }
             _ => None,
         }

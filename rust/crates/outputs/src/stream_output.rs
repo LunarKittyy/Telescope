@@ -284,7 +284,7 @@ impl StreamOutputPlugin {
     fn quality_tip(&self) -> String {
         let label = quality_label(self.quality);
         tr("{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS.")
-            .field("quality", &label).field("default", &DEFAULT_QUALITY.to_string())
+            .field("quality", &label).field("default", DEFAULT_QUALITY.to_string())
     }
 
     fn bitrate_text(&self) -> String {
@@ -579,7 +579,7 @@ impl StreamOutputPlugin {
             // The phone went back to MJPEG; so does the stream, or it would keep asking for H.264
             host.show_issue("h264", Issue {
                 title: tr("Switched to Heavy"),
-                text: tr("{error}. You can try Light again in Stream output.").field("error", &codec_error_text(state)),
+                text: tr("{error}. You can try Light again in Stream output.").field("error", codec_error_text(state)),
                 actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false,
             });
             self.set_format(host, FORMAT_MJPEG);
@@ -700,7 +700,7 @@ fn truthy(v: Option<&Value>) -> bool {
 /// widgets.common.quality_label: what a JPEG quality looks like, in words.
 fn quality_label(q: i64) -> String {
     let text = if q >= 91 { tr("{q}%: High") } else if q >= 80 { tr("{q}%: Balanced") } else if q >= 60 { tr("{q}%: Low") } else { tr("{q}%: Very low") };
-    text.field("q", &q.to_string())
+    text.field("q", q.to_string())
 }
 
 impl Plugin for StreamOutputPlugin {

@@ -487,7 +487,7 @@ impl SetupPlugin {
     pub fn show_graphics_card(&mut self, device: Option<&str>) {
         self.panel.hw_enabled = device.is_some();
         self.panel.hw_line = match device {
-            Some(d) => tr("Found {device}").field("device", &hw_name(d)),
+            Some(d) => tr("Found {device}").field("device", hw_name(d)),
             None => tr("No graphics card Telescope can use"),
         };
     }

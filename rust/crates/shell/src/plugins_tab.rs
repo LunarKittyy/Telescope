@@ -573,7 +573,7 @@ impl Panel {
 
     /// The tab's name, with how many built-in plugins are off this run.
     pub fn tab_title(off: usize) -> String {
-        if off == 0 { String::new() } else { tr("Plugins ({n} off)").field("n", &off.to_string()) }
+        if off == 0 { String::new() } else { tr("Plugins ({n} off)").field("n", off.to_string()) }
     }
 
     fn tile(&self, name: &str) -> Option<Tile> {

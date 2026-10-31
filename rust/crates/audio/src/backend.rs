@@ -49,7 +49,7 @@ impl MicBackend for LinuxMic {
             return None;
         }
         // LINUX_TOOLS is one tool, so the list never needs an "and"
-        Some((tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).").field("tools", &missing.join(", ")), None))
+        Some((tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).").field("tools", missing.join(", ")), None))
     }
 
     fn prepare(&self) -> String {

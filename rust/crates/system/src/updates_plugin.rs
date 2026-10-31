@@ -330,12 +330,12 @@ impl UpdatesPlugin {
     }
 
     fn status_while(&self, streaming: bool) -> (String, &'static str) {
-        let with_version = |text: &str, m: &Manifest| tr(text).field("version", &m.display_version());
+        let with_version = |text: &str, m: &Manifest| tr(text).field("version", m.display_version());
         match self.phase {
             Phase::Downloading => {
                 let (done, total) = self.progress;
                 if let Some(percent) = (done * 100).checked_div(total) {
-                    return (tr("Downloading {percent}%…").field("percent", &percent.to_string()), "status_dim");
+                    return (tr("Downloading {percent}%…").field("percent", percent.to_string()), "status_dim");
                 }
                 return (tr("Downloading…"), "status_dim");
             }
@@ -384,7 +384,7 @@ impl UpdatesPlugin {
     }
 
     fn refresh(&self, host: &mut dyn Host) {
-        let tip = self.available.as_ref().map(|m| tr("Telescope {version} is available").field("version", &m.display_version()));
+        let tip = self.available.as_ref().map(|m| tr("Telescope {version} is available").field("version", m.display_version()));
         host.set_ui_props("header", &json!({"shown": self.available.is_some(), "tip": tip.unwrap_or_default()}));
         host.set_ui_props(SECTION, &self.section_props(host.is_streaming()));
     }

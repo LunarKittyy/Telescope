@@ -461,7 +461,7 @@ impl WaitScreenPlugin {
             tr("Couldn't read that image, so the default screen is showing. Choose another one.")
         } else {
             tr("Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.")
-                .field("size", &format!("{w} \u{d7} {h}"))
+                .field("size", format!("{w} \u{d7} {h}"))
         };
         json!({
             "preview-width": preview.0, "preview-height": preview.1, "picture-note": note,

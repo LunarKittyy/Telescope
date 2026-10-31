@@ -77,7 +77,7 @@ impl Window {
         let outputs = self.services.as_ref().map(|s| s.outputs.clone());
         let label = |slot| outputs.as_ref().map_or_else(String::new, |o| o.slot_label(slot));
         let last = outputs.as_ref().map_or(1, |o| o.max_slots().saturating_sub(1));
-        let names = tr("{first} to {last}").field("first", &label(1)).field("last", &label(last));
+        let names = tr("{first} to {last}").field("first", label(1)).field("last", label(last));
         let asks = if cfg!(target_os = "linux") { tr("This asks for your password.") } else { tr("Windows asks for permission.") };
         let text = format!("{} {asks}", tr("To stream several cameras at once, Telescope adds more virtual cameras ({names}).").field("names", &names));
         let built = crate::compile::compile("slots-question.slint", QUESTION, Vec::new(), "SlotsQuestion").and_then(|d| d.create().map_err(|e| e.to_string()));

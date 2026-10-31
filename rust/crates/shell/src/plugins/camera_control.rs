@@ -50,7 +50,7 @@ pub fn diopters_to_label(d: f64) -> String {
     if d <= 0.01 {
         return "∞".into(); // focused at infinity: the same in every language
     }
-    tr("{n} m").field("n", &number(1.0 / d, 2, false))
+    tr("{n} m").field("n", number(1.0 / d, 2, false))
 }
 
 /// ns_to_display: an exposure time as the shutter row shows it.
@@ -60,7 +60,7 @@ pub fn ns_to_display(ns: i64) -> String {
     }
     let s = ns as f64 / 1e9;
     if s >= 1.0 {
-        return tr("{n} s").field("n", &number(s, 1, false));
+        return tr("{n} s").field("n", number(s, 1, false));
     }
     let denom = actions::round_half_even(1.0 / s) as i64;
     let digits = denom.to_string();
@@ -75,7 +75,7 @@ pub fn ns_to_display(ns: i64) -> String {
 }
 
 fn ev_text(ev: f64) -> String {
-    tr("{n} EV").field("n", &number(ev, 1, true))
+    tr("{n} EV").field("n", number(ev, 1, true))
 }
 
 fn signed(v: i64) -> String {
@@ -761,10 +761,10 @@ impl CameraControl {
             lines.push(tr("Camera level: {level}").field("level", &hw_level));
         }
         if !have.is_empty() {
-            lines.push(tr("Supports: {features}").field("features", &have.join(", ")));
+            lines.push(tr("Supports: {features}").field("features", have.join(", ")));
         }
         if !missing.is_empty() {
-            lines.push(tr("Not supported: {features}").field("features", &missing.join(", ")));
+            lines.push(tr("Not supported: {features}").field("features", missing.join(", ")));
         }
         self.info_tip = lines.join("\n");
     }
