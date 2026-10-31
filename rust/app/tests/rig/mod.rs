@@ -427,6 +427,7 @@ impl Plugin for Listener {
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),
             Event::StreamStartFailed => note(&self.heard, format!("{} start_failed", self.name)),
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
+            Event::RequestDone { ok, message, .. } => note(&self.heard, format!("{} done {ok} {message}", self.name)),
             _ => {}
         }
     }
@@ -437,6 +438,8 @@ pub struct Cameras {
     pub asked: Mutex<Vec<SetupAction>>,
     /// Slots set up, past the usual one.
     pub extras: AtomicU32,
+    /// Why setting them up fails, with the command to run by hand.
+    pub fails: Mutex<Option<(String, String)>>,
 }
 
 impl Outputs for Cameras {
@@ -445,6 +448,10 @@ impl Outputs for Cameras {
     }
     fn set_up(&self, action: SetupAction, _progress: &dyn Fn(&str)) -> SetupResult {
         self.asked.lock().unwrap().push(action);
+        if let Some((message, command)) = self.fails.lock().unwrap().clone() {
+            return SetupResult { ok: false, message, command: Some(command) };
+        }
+        self.extras.store(3, Ordering::SeqCst);
         SetupResult { ok: true, message: String::new(), command: None }
     }
     fn formats(&self) -> Vec<PixelFormat> {

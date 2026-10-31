@@ -72,6 +72,11 @@ impl Window {
         }
     }
 
+    /// The question about more virtual cameras, while it's open.
+    pub fn slots_question(&self) -> Option<ComponentInstance> {
+        self.streams.slots.question.borrow().as_ref().map(|q| q.clone_strong())
+    }
+
     fn ask_slots(self: &Rc<Self>) {
         let outputs = self.services.as_ref().map(|s| s.outputs.clone());
         let label = |slot| outputs.as_ref().map_or_else(String::new, |o| o.slot_label(slot));
