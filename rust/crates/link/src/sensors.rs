@@ -1046,11 +1046,12 @@ mod tests {
         let auth: Arc<dyn SensorLink> = Arc::new(PhoneAuth::new("t", ""));
         hub.follow(Some("phone"), Some(&format!("http://127.0.0.1:{port}/v1")), Some(auth), true, Some(&all()));
         assert!(soon(|| hub.status(None).state == "on"));
-        let stopped = hub.reader_stopped().unwrap();
+        // Only the reader's threads and the hub hold this, so it goes when the blocked thread has really ended
+        let reader_alive = Arc::downgrade(&hub.reader_stopped().unwrap());
         std::thread::sleep(Duration::from_millis(100));
         let started = Instant::now();
         hub.want("level", &[]);
         assert!(started.elapsed() < Duration::from_millis(300));
-        assert!(stopped.load(Ordering::SeqCst));
+        assert!(wait_for(|| reader_alive.strong_count() == 0, Duration::from_secs(2)));
     }
 }
