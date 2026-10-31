@@ -120,6 +120,11 @@ impl telescope_audio::backend::MicBackend for TestMic {
     fn teardown(&self) {}
 }
 
+thread_local! {
+    /// Which computer Setup shows its rows for.
+    static LINUX: Cell<bool> = const { Cell::new(cfg!(target_os = "linux")) };
+}
+
 /// Every built-in plugin there is.
 fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     let link: Arc<dyn Link> = Arc::new(NoLink);
@@ -129,7 +134,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     let web: Arc<dyn telescope_core::web::Web> = Arc::new(telescope_link::web::SystemWeb);
     let server = telescope_link::browser::plugin::system_server(web, std::env::temp_dir(), media.clone());
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
-        Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), link.clone(), media, "1.0", telescope_setup::setup::Language::found(&[]))),
+        Box::new(telescope_setup::setup::SetupPlugin::new(outputs.clone(), link.clone(), media, "1.0", telescope_setup::setup::Language::found(&[])).for_platform(LINUX.get())),
         Box::new(telescope_link::plugin::ConnectionPlugin::new(link, telescope_link::shared::Shared::new(Arc::new(NoTunnels))).with_outputs(outputs.clone())),
         Box::new(telescope_link::browser::plugin::BrowserCameraPlugin::new(server, Vec::new)),
         Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
@@ -386,6 +391,122 @@ fn opened(name: &str) -> (Rc<Window>, Rc<telescope_shell::settings::Settings>) {
 
 fn names(settings: &telescope_shell::settings::Settings, query: &str) -> Vec<String> {
     settings.search_results(query).into_iter().map(|e| e.name).collect()
+}
+
+/// (what someone might type, the setting that should come up, how far down the list it may be)
+const FINDS: &[(&str, &str, usize)] = &[
+    // the name, or a part of it
+    ("hardware acceleration", "Hardware acceleration", 1),
+    ("canvas", "Canvas size", 1),
+    ("max zoom", "Max zoom", 1),
+    ("limiter", "Limiter", 1),
+    ("wait screen", "Wait screen", 1),
+    ("card colours", "Card colours", 1),
+    ("copy diagnostics", "Bug reports", 2),
+    ("wait before", "Wait before stopping", 1),
+    ("sign in", "Open Telescope when I sign in", 1),
+    ("keyboard", "Keyboard shortcuts", 1),
+    // typos and the other spelling
+    ("hardwre accel", "Hardware acceleration", 1),
+    ("reslution", "Canvas size", 2),
+    ("colour", "Card colours", 2),
+    ("color", "Card colours", 2),
+    ("limitr", "Limiter", 1),
+    ("zomm", "Max zoom", 2),
+    ("notificaton", "Tell me when it stops a stream", 3),
+    ("mirorr", "Mirror it, for apps that flip the camera", 2),
+    // what it does, in other words
+    ("gpu", "Hardware acceleration", 1),
+    ("nvidia", "Hardware acceleration", 2),
+    ("hw accel", "Hardware acceleration", 1),
+    ("hwaccel", "Hardware acceleration", 1),
+    ("resolution", "Canvas size", 1),
+    ("1080p", "Canvas size", 2),
+    ("4k", "Canvas size", 3),
+    ("portrait", "Canvas size", 2),
+    ("aspect ratio", "Canvas size", 2),
+    ("volume", "Max gain", 2),
+    ("microphone boost", "Max gain", 2),
+    ("quiet mic", "Max gain", 3),
+    ("clipping", "Limiter", 2),
+    ("distortion", "Limiter", 2),
+    ("startup", "Open Telescope when I sign in", 2),
+    ("run on startup", "Open Telescope when I sign in", 2),
+    ("autostart", "Open Telescope when I sign in", 1),
+    ("login", "Open Telescope when I sign in", 2),
+    ("tray", "Open Telescope when I sign in", 3),
+    ("start automatically", "Start", 3),
+    ("stop when idle", "Stop", 3),
+    ("delay", "Wait before stopping", 2),
+    ("timeout", "Wait before stopping", 2),
+    ("notify", "Tell me when it stops a stream", 3),
+    ("black screen", "Wait screen", 2),
+    ("custom image", "Wait screen", 3),
+    ("placeholder", "Wait screen", 2),
+    ("flip", "Mirror it, for apps that flip the camera", 3),
+    ("theme", "Card colours", 2),
+    ("monochrome", "Card colours", 1),
+    ("purple", "Card colours", 2),
+    ("update", "Check daily", 4),
+    ("nightly", "Channel", 1),
+    ("stable", "Channel", 2),
+    ("auto update", "Check daily", 2),
+    ("version", "This version", 2),
+    ("bug report", "Bug reports", 1),
+    ("logs", "Bug reports", 2),
+    ("debug", "Bug reports", 2),
+    ("hotkey", "Shortcuts", 2),
+    ("push to talk", "Shortcuts", 3),
+    ("keybinding", "Shortcuts", 2),
+    ("global shortcuts", "Desktop shortcut settings", 3),
+    ("install plugin", "Added plugins", 2),
+    ("extensions", "Added plugins", 4),
+    ("apk", "Telescope.apk", 1),
+    ("install the phone app", "Telescope.apk", 2),
+    // asked as a question
+    ("how do i change the resolution", "Canvas size", 1),
+    ("where is the gpu setting", "Hardware acceleration", 1),
+    ("turn on autostart", "Open Telescope when I sign in", 2),
+];
+
+const LINUX_ONLY: &[(&str, &str, usize)] = &[
+    ("kernel module", "Kernel module", 1),
+    ("v4l2loopback", "Kernel module", 2),
+    ("load at boot", "Load when the computer starts", 1),
+    ("reboot", "Load when the computer starts", 2),
+    ("virtual camera not showing", "Kernel module", 4),
+];
+
+const WINDOWS_ONLY: &[(&str, &str, usize)] = &[
+    ("driver", "Driver", 1),
+    ("unitycapture", "Driver", 1),
+    ("adb", "ADB", 1),
+    ("usb", "ADB", 3),
+    ("virtual camera not showing", "Driver", 3),
+];
+
+fn finds(name: &str, linux: bool, more: &[(&str, &str, usize)]) {
+    LINUX.set(linux);
+    let (_w, settings) = opened(name);
+    // Python's fixture has no plugin tiles or groups on its Plugins tab
+    let entries: Vec<_> = settings.entries().into_iter().filter(|e| e.tab != "plugins" || e.name == "Plugins" || e.name == "Added plugins").collect();
+    let misses: Vec<String> = FINDS.iter().chain(more).filter_map(|(query, wanted, within)| {
+        let found: Vec<String> = telescope_shell::search::search_ex(&entries, query, 12).0.into_iter().map(|e| e.name).collect();
+        let shown = &found[..found.len().min(*within)];
+        (!shown.iter().any(|n| n == wanted)).then(|| format!("{query:?}: wanted {wanted:?} in the first {within}, got {:?}", &found[..found.len().min(5)]))
+    }).collect();
+    assert!(misses.is_empty(), "\n{}", misses.join("\n"));
+    telescope_shell::settings::forget();
+}
+
+#[test]
+fn finds_what_people_would_look_for_on_linux() {
+    finds("search-linux", true, LINUX_ONLY);
+}
+
+#[test]
+fn finds_what_people_would_look_for_on_windows() {
+    finds("search-windows", false, WINDOWS_ONLY);
 }
 
 #[test]

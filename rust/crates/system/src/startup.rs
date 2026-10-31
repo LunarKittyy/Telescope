@@ -538,28 +538,18 @@ impl Plugin for StartupPlugin {
 
     fn settings_sections(&mut self) -> Vec<SettingsSection> {
         self.show_wait();
-        let section = |id: &str, tab: &str, component: &str, props: Value, keywords: String| SettingsSection {
+        let section = |id: &str, tab: &str, component: &str, props: Value| SettingsSection {
             id: id.into(),
             tab: tab.into(),
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: component.into(), props },
             order: 0,
             tab_title: String::new(),
-            keywords,
+            keywords: String::new(),
             footer: None,
         };
-        let search = |words: &str| tr_ctx("search", words);
         vec![
-            section("sign-in", "general", "StartupSettings", self.sign_in_props(), [
-                search("login boot autostart run on startup tray minimized"),
-                search("autostart login log in boot startup run on startup launch computer starts tray"),
-            ].join(" ")),
-            section("automatic", "streaming", "AutomaticSettings", self.automatic_props(), [
-                search("auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"),
-                search("automatically begin streaming when phone ready app opens the camera auto start"),
-                search("automatically end streaming idle no app uses the camera auto stop"),
-                search("delay timeout idle seconds minutes how long grace period auto stop"),
-                search("notification notify alert popup message"),
-            ].join(" ")),
+            section("sign-in", "general", "StartupSettings", self.sign_in_props()),
+            section("automatic", "streaming", "AutomaticSettings", self.automatic_props()),
         ]
     }
 

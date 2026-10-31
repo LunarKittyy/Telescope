@@ -623,11 +623,7 @@ impl Plugin for OnAirPlugin {
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "OnAirSettings".into(), props },
             order: 0,
             tab_title: tr("On Air"),
-            keywords: [
-                tr_ctx("search", "on air sign busy light call meeting do not disturb webhook home assistant smart home"),
-                tr_ctx("search", "tablet phone screen page link qr code"),
-                tr_ctx("search", "smart home light home assistant url http request automation"),
-            ].join(" "),
+            keywords: tr_ctx("search", "on air sign busy light call meeting do not disturb webhook home assistant smart home"),
             footer: None,
         }]
     }

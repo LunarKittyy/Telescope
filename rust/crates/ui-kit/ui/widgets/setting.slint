@@ -2,11 +2,27 @@
 
 import { Theme } from "../theme.slint";
 
+// settings_search.keywords: words a setting is found by on top of what it says. They sit on an element of their own
+// because no accessible property keeps them from screen readers, and role none does.
+export component SearchWords inherits Rectangle {
+    in property <string> words;
+    // A card's words are for what's under it too
+    in property <bool> card;
+    // What a control offers: a row is found by the choices in it too
+    in property <bool> control;
+    width: 0px;
+    height: 0px;
+    accessible-role: none;
+    accessible-id: card ? "card-words" : control ? "control-words" : "setting-words";
+    accessible-label: words;
+}
+
 // setting_row: its name with a short line under it on the left, its controls on the right. The settings search finds
 // it by name and small print.
 export component SettingRow inherits Rectangle {
     in property <string> title;
     in property <string> sub;
+    in property <string> keywords;
     // A disabled row greys its text, as Qt greys a disabled strip's labels
     in property <bool> enabled: true;
     // setting_row's below: a note across the row's width under the name and the controls
@@ -21,6 +37,7 @@ export component SettingRow inherits Rectangle {
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
+    if keywords != "": SearchWords { words: keywords; }
     // The QSS border sits outside the layout's 12px and 8px margins
     VerticalLayout {
         padding-left: 13px;

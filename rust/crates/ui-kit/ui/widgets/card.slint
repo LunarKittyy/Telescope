@@ -5,6 +5,7 @@ import { Icon, FocusRing, Button } from "basics.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
 import { Switch } from "switch.slint";
 import { TipBody } from "tip.slint";
+import { SearchWords } from "setting.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
@@ -65,6 +66,7 @@ component FoldTitle inherits Rectangle {
 // The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
 export component Card inherits Rectangle {
     in property <string> title;
+    in property <string> keywords;
     in property <image> icon;
     in property <color> hue: Theme.accent;
     // A disabled card's chip icon greys out, as Qt draws a disabled QLabel's pixmap
@@ -107,6 +109,7 @@ export component Card inherits Rectangle {
     accessible-role: groupbox;
     accessible-id: "card";
     accessible-label: title;
+    if keywords != "": SearchWords { words: keywords; card: true; }
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -268,6 +271,7 @@ export component SectionHeading inherits HorizontalLayout {
 // control_row: the dim label in a 96px column, then the control, 36px tall at least.
 export component FormRow inherits HorizontalLayout {
     in property <string> label;
+    in property <string> keywords;
     in property <bool> enabled: true;
     spacing: 10px;
     min-height: 36px;
@@ -278,6 +282,9 @@ export component FormRow inherits HorizontalLayout {
         font-size: Theme.body;
         color: enabled ? Theme.text-dim : Theme.text-disabled;
         vertical-alignment: center;
+        // control_row's label is what the settings search finds
+        accessible-id: "setting";
+        if keywords != "": SearchWords { words: keywords; }
     }
     @children
 }

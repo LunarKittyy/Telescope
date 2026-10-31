@@ -1317,7 +1317,7 @@ impl Plugin for ConnectionPlugin {
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ConnectionSettings".into(), props: json!({"udp": self.conn().udp}) },
             order: 0,
             tab_title: String::new(),
-            keywords: tr_ctx("search", "udp tcp transport network lag freezes stutter wifi"),
+            keywords: String::new(),
             footer: None,
         }]
     }

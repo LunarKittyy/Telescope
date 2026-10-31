@@ -103,6 +103,7 @@ export component OnAirSettings inherits VerticalLayout {
     }
     Card {
         title: @tr("Sign on another device");
+        keywords: @tr("search" => "tablet phone screen page link qr code");
         icon: Icons.qr;
         hue: Theme.plugin-hue("on_screen");
         has-action: true;
@@ -122,6 +123,7 @@ export component OnAirSettings inherits VerticalLayout {
             }
             Text {
                 text: @tr("Show the sign on a web page");
+                accessible-id: "setting";
                 font-family: Theme.font;
                 font-size: Theme.body;
                 color: Theme.text;
@@ -176,6 +178,7 @@ export component OnAirSettings inherits VerticalLayout {
     }
     Card {
         title: @tr("Webhook");
+        keywords: @tr("search" => "smart home light home assistant url http request automation");
         icon: Icons.plug;
         hue: Theme.plugin-hue("on_screen");
         Note { text: @tr("Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."); }

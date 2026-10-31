@@ -224,6 +224,7 @@ export component ShortcutsSettings inherits VerticalLayout {
 
     Card {
         title: @tr("Shortcuts");
+        keywords: @tr("search" => "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove");
         icon: Icons.keyboard;
         hue: Theme.plugin-hue("extras");
         has-action: true;
@@ -242,10 +243,12 @@ export component ShortcutsSettings inherits VerticalLayout {
 
     Card {
         title: @tr("Everywhere");
+        keywords: @tr("search" => "global system wide hotkeys background other apps");
         icon: Icons.monitor;
         hue: Theme.plugin-hue("extras");
         SettingRow {
             title: @tr("Desktop shortcut settings");
+            keywords: @tr("search" => "global hotkeys portal kde plasma gnome desktop keys rebind");
             sub: note-text;
             if system-shown: Button {
                 y: (parent.height - self.height) / 2;
@@ -256,6 +259,7 @@ export component ShortcutsSettings inherits VerticalLayout {
         }
         SettingRow {
             title: @tr("Notify when one runs");
+            keywords: @tr("search" => "notification notify toast confirmation popup");
             sub: @tr("While Telescope is in the background");
             Switch {
                 y: (parent.height - self.height) / 2;

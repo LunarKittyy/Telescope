@@ -42,11 +42,13 @@ export component VirtualCameraSettings inherits Card {
     callback copy(string);
 
     title: @tr("Virtual camera");
+    keywords: @tr("search" => "obs zoom teams discord webcam driver output device loopback");
     icon: Icons.video;
     hue: Theme.plugin-hue("streaming");
 
     if linux: Strip {
         title: @tr("Kernel module");
+        keywords: @tr("search" => "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe");
         sub: v4l-text;
         tip: @tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.");
         StripTop {
@@ -61,6 +63,7 @@ export component VirtualCameraSettings inherits Card {
     }
     if linux: Strip {
         title: @tr("Load when the computer starts");
+        keywords: @tr("search" => "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart");
         sub: persist-text;
         StripTop {
             title: @tr("Load when the computer starts");
@@ -78,6 +81,7 @@ export component VirtualCameraSettings inherits Card {
     }
     if !linux: Strip {
         title: @tr("Driver");
+        keywords: @tr("search" => "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom");
         sub: uc-text;
         StripTop {
             title: @tr("Driver");
@@ -88,6 +92,7 @@ export component VirtualCameraSettings inherits Card {
     }
     if !linux: Strip {
         title: "ADB";
+        keywords: @tr("search" => "adb android debug bridge usb pairing download get platform-tools google own cable");
         sub: adb-text;
         StripTop {
             title: "ADB";
@@ -113,6 +118,7 @@ export component VirtualCameraSettings inherits Card {
     // The ones Add camera set up, for streaming several cameras at once
     if extras-shown: Strip {
         title: @tr("Extra cameras");
+        keywords: @tr("search" => "multiple second cameras add camera several streams remove virtual cameras");
         sub: extras-text;
         StripTop {
             title: @tr("Extra cameras");
@@ -153,11 +159,13 @@ export component VideoSettings inherits Card {
     callback copy(string);
 
     title: @tr("Video");
+    keywords: @tr("search" => "picture quality image stream camera output");
     icon: Icons.chip;
     hue: Theme.plugin-hue("streaming");
 
     Strip {
         title: @tr("Hardware acceleration");
+        keywords: @tr("search" => "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k");
         sub: hw-line;
         StripTop {
             title: @tr("Hardware acceleration");
@@ -173,6 +181,7 @@ export component VideoSettings inherits Card {
     }
     Strip {
         title: @tr("Power-saving effects");
+        keywords: @tr("search" => "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality");
         sub: @tr("Background and Auto framing update less often");
         StripTop {
             title: @tr("Power-saving effects");
@@ -187,6 +196,7 @@ export component VideoSettings inherits Card {
     }
     Strip {
         title: @tr("Max zoom");
+        keywords: @tr("search" => "zoom limit magnify telephoto digital crop 10x 30x slider range");
         StripTop {
             title: @tr("Max zoom");
             SpinChip {
@@ -200,6 +210,7 @@ export component VideoSettings inherits Card {
     }
     Strip {
         title: @tr("Canvas size");
+        keywords: @tr("search" => "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload");
         StripTop {
             title: @tr("Canvas size");
             // The row fits the dialog; the list opens as wide as it needs
@@ -261,11 +272,13 @@ export component MicrophoneLimits inherits Card {
     callback limiter-toggled(bool);
 
     title: @tr("Microphone");
+    keywords: @tr("search" => "audio sound voice input volume");
     icon: Icons.mic;
     hue: Theme.plugin-hue("sound");
 
     Strip {
         title: @tr("Max gain");
+        keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
         tip: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.");
         StripTop { title: @tr("Max gain"); bare: true; }
         Segmented {
@@ -278,6 +291,7 @@ export component MicrophoneLimits inherits Card {
     }
     Strip {
         title: @tr("Limiter");
+        keywords: @tr("search" => "microphone audio compressor distortion clipping loud peaks sound");
         sub: @tr("Keeps loud sounds from clipping");
         StripTop {
             title: @tr("Limiter");
@@ -305,11 +319,13 @@ export component PhoneAppSettings inherits Card {
     callback pick-cancelled;
 
     title: @tr("Phone app");
+    keywords: @tr("search" => "android install apk usb");
     icon: Icons.phone;
     hue: Theme.plugin-hue("streaming");
 
     Strip {
         title: "Telescope.apk";
+        keywords: @tr("search" => "phone app install usb android reinstall newer version sideload cable");
         sub: apk-text;
         StripTop {
             title: "Telescope.apk";
@@ -364,11 +380,13 @@ export component LookSettings inherits Card {
     callback translate-clicked;
 
     title: @tr("Look");
+    keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
 
     Strip {
         title: @tr("Card colours");
+        keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
         tip: @tr("Every card in the main window gets its own colour.");
         StripTop { title: @tr("Card colours"); bare: true; }
         Segmented {
@@ -382,6 +400,7 @@ export component LookSettings inherits Card {
     }
     Strip {
         title: @tr("Language");
+        keywords: @tr("search" => "language translation translate locale");
         StripTop {
             title: @tr("Language");
             ChoiceField {
@@ -446,11 +465,13 @@ export component AboutSettings inherits Card {
     callback help-clicked;
 
     title: @tr("About");
+    keywords: @tr("search" => "info version help support credits");
     icon: Icons.help;
     hue: Theme.plugin-hue("streaming");
 
     Strip {
         title: "Telescope";
+        keywords: @tr("search" => "about author credits made by version number build");
         sub: version-text;
         StripTop {
             title: "Telescope";
@@ -475,6 +496,7 @@ export component AboutSettings inherits Card {
     }
     Strip {
         title: @tr("Bug reports");
+        keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
         sub: @tr("Paste the diagnostics into the report.");
         StripTop {
             title: @tr("Bug reports");
@@ -494,6 +516,7 @@ export component AboutSettings inherits Card {
     }
     Strip {
         title: @tr("Need help?");
+        keywords: @tr("search" => "help support troubleshooting question faq problem not working stuck ask");
         sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
         StripTop {
             title: @tr("Need help?");

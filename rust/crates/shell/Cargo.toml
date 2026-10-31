@@ -13,11 +13,10 @@ log.workspace = true
 slint = { workspace = true, features = ["renderer-software", "software-renderer-systemfonts", "software-renderer-path", "unstable-wgpu-30", "renderer-femtovg-wgpu", "unstable-winit-030"] }
 png = "0.18"
 unicode-normalization = "0.1"
-# Reads the settings window's accessible tree for the search (pinned: its API follows Slint's internals)
+# Finds where things are in a window for scenes and tests (pinned: its API follows Slint's internals)
 i-slint-backend-testing = "=1.18.1"
 i-slint-core = "=1.18.1"
-# internal: the settings window keeps Slint's debug info, which reading its elements needs
-slint-interpreter = { workspace = true, features = ["internal"] }
+slint-interpreter = { workspace = true }
 telescope-ui-kit.workspace = true
 
 

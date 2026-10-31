@@ -3854,23 +3854,23 @@
 "test_session_client.py::test_transport_and_auth_failures_are_distinguished" = { status = "ported", rust = "rust/crates/link/src/session_client.rs::transport_and_auth_failures_are_distinguished" }
 # ── settings
 "test_settings_search.py::test_a_closer_match_scores_higher" = { status = "ported", rust = "rust/crates/shell/src/search.rs::a_closer_match_scores_higher" }
-"test_settings_search.py::test_a_plugins_own_section_is_searchable_without_doing_anything" = { status = "todo" }
+"test_settings_search.py::test_a_plugins_own_section_is_searchable_without_doing_anything" = { status = "ported", rust = "rust/app/tests/settings_search.rs::a_plugins_own_section_is_searchable_without_doing_anything" }
 "test_settings_search.py::test_a_word_has_to_start_a_word_unless_it_is_long" = { status = "ported", rust = "rust/crates/shell/src/search.rs::a_word_has_to_start_a_word_unless_it_is_long" }
 "test_settings_search.py::test_accents_and_case_dont_matter" = { status = "ported", rust = "rust/crates/shell/src/search.rs::accents_and_case_dont_matter" }
-"test_settings_search.py::test_arrow_keys_and_enter_work_from_the_search_box" = { status = "todo" }
-"test_settings_search.py::test_clicking_a_tab_while_searching_leaves_the_search" = { status = "todo" }
+"test_settings_search.py::test_arrow_keys_and_enter_work_from_the_search_box" = { status = "ported", rust = "rust/app/tests/settings_search.rs::arrow_keys_and_enter_work_from_the_search_box" }
+"test_settings_search.py::test_clicking_a_tab_while_searching_leaves_the_search" = { status = "ported", rust = "rust/app/tests/settings_search.rs::clicking_a_tab_while_searching_leaves_the_search" }
 "test_settings_search.py::test_every_setting_can_be_found_by_its_own_name" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::every_setting_can_be_found_by_its_own_name" }
 "test_settings_search.py::test_every_word_has_to_match_but_filler_doesnt_count" = { status = "ported", rust = "rust/crates/shell/src/search.rs::every_word_has_to_match_but_filler_doesnt_count" }
-"test_settings_search.py::test_finds_what_people_would_look_for_on_linux" = { status = "todo" }
-"test_settings_search.py::test_finds_what_people_would_look_for_on_windows" = { status = "todo" }
-"test_settings_search.py::test_hidden_rows_arent_offered" = { status = "todo" }
+"test_settings_search.py::test_finds_what_people_would_look_for_on_linux" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::finds_what_people_would_look_for_on_linux" }
+"test_settings_search.py::test_finds_what_people_would_look_for_on_windows" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::finds_what_people_would_look_for_on_windows" }
+"test_settings_search.py::test_hidden_rows_arent_offered" = { status = "ported", rust = "rust/app/tests/settings_search.rs::hidden_rows_arent_offered" }
 "test_settings_search.py::test_nonsense_finds_nothing" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::nonsense_finds_nothing" }
-"test_settings_search.py::test_nothing_found_says_so_and_offers_a_way_on" = { status = "todo" }
+"test_settings_search.py::test_nothing_found_says_so_and_offers_a_way_on" = { status = "ported", rust = "rust/app/tests/settings_search.rs::nothing_found_says_so_and_offers_a_way_on" }
 "test_settings_search.py::test_one_letter_slips_and_swapped_letters_still_find_it" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::one_letter_slips_and_swapped_letters_still_find_it" }
-"test_settings_search.py::test_opening_a_result_goes_to_its_tab_and_lights_the_setting" = { status = "todo" }
+"test_settings_search.py::test_opening_a_result_goes_to_its_tab_and_lights_the_setting" = { status = "ported", rust = "rust/app/tests/settings_search.rs::opening_a_result_goes_to_its_tab_and_lights_the_setting" }
 "test_settings_search.py::test_results_say_where_the_setting_is" = { status = "ported", rust = "rust/app/tests/plugin_removal.rs::results_say_where_the_setting_is" }
-"test_settings_search.py::test_typing_shows_results_and_clearing_goes_back_to_the_tab" = { status = "todo" }
-"test_settings_search.py::test_when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" = { status = "todo" }
+"test_settings_search.py::test_typing_shows_results_and_clearing_goes_back_to_the_tab" = { status = "ported", rust = "rust/app/tests/settings_search.rs::typing_shows_results_and_clearing_goes_back_to_the_tab" }
+"test_settings_search.py::test_when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" = { status = "ported", rust = "rust/app/tests/settings_search.rs::when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so" }
 "test_settings_window.py::test_a_section_hears_when_its_tab_comes_on_screen" = { status = "todo" }
 "test_settings_window.py::test_a_section_that_cant_refresh_doesnt_break_the_window" = { status = "todo" }
 "test_settings_window.py::test_a_tab_a_plugin_makes_goes_before_plugins" = { status = "ported", rust = "rust/crates/shell/src/settings.rs::a_tab_a_plugin_makes_goes_before_plugins" }

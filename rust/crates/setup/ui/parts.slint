@@ -1,7 +1,7 @@
 // What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, Card, Section, SectionHeading, Switch, Segmented, ChoiceField, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, Segmented, ChoiceField, TextField, TipBody } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -33,6 +33,7 @@ component Strip inherits Rectangle {
     in property <string> sub;
     // strip.setToolTip
     in property <string> tip;
+    in property <string> keywords;
     min-height: 46px;
     border-radius: 9px;
     border-width: 1px;
@@ -42,6 +43,7 @@ component Strip inherits Rectangle {
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
+    if keywords != "": SearchWords { words: keywords; }
     if tip != "": Tooltip { TipBody { says: tip; } }
     VerticalLayout {
         padding-left: 13px;

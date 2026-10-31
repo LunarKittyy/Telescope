@@ -10,7 +10,7 @@ At startup `window::build` registers the plugins into `shell::State` (settings, 
 - Every property and callback a card's component declares (read off its source by `source::scan`) is aliased on the window as `p<slot>-<name>`. That's how `host.set_ui_props()` reaches a card by name and how its callbacks come back as `UiEvent`s. Header widgets are `h<slot>-…` and settings sections `s<n>-…`.
 - `@tr("…")` texts are translated before compiling (`source::translate`), so translations need nothing from Slint's gettext. Texts with named blanks (`{name}`) are filled in on the Rust side.
 - Folding goes through the kit's `Folds` global. A card gets its key (`<plugin>/<title in English>`) from the window, and a `Section` gets its key from `scope: root.fold-key` plus its `key`.
-- `settings.rs` builds the settings window the same way, the first time it opens. Its search reads the window's accessible tree (`i-slint-backend-testing`'s `ElementHandle`): elements with `accessible-id: "setting"` or `"card"` are what it finds.
+- `settings.rs` builds the settings window the same way, the first time it opens. Its search walks the window's items when a search starts: elements with `accessible-id: "setting"` or `"card"` are what it finds, and the kit's `keywords` property puts extra words on them. `ElementHandle` can't do this, it leaves out whatever is scrolled off the page.
 
 ## How streams run
 

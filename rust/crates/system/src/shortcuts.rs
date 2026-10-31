@@ -24,7 +24,7 @@ use telescope_core::actions;
 use telescope_core::event::Event;
 use telescope_core::fuzzy::{self, Doc};
 use telescope_core::host::{Host, Poster};
-use telescope_core::i18n::{n_, tr, tr_ctx};
+use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, ShortcutEntry, SlintSource, UiEvent, UiSpec};
 
@@ -1318,12 +1318,7 @@ impl Plugin for ShortcutsPlugin {
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ShortcutsSettings".into(), props: self.section_props() },
             order: 0,
             tab_title: String::new(),
-            keywords: [
-                tr_ctx("search", "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"),
-                tr_ctx("search", "global system wide hotkeys background other apps"),
-                tr_ctx("search", "global hotkeys portal kde plasma gnome desktop keys rebind"),
-                tr_ctx("search", "notification notify toast confirmation popup"),
-            ].join(" "),
+            keywords: String::new(),
             footer: None,
         }]
     }

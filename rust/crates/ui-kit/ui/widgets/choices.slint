@@ -5,6 +5,7 @@ import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { TipBody } from "tip.slint";
+import { SearchWords } from "setting.slint";
 
 // segmented_row: equal segments in one track, the picked one a filled pill.
 export component Segmented inherits Rectangle {
@@ -149,6 +150,7 @@ export component ChoiceField inherits Rectangle {
     }
     height: compact ? 32px : 48px;
     horizontal-stretch: 1;
+    for item in items: SearchWords { words: item; control: true; }
     min-width: 0px;
     preferred-width: 0px;
     border-radius: compact ? 7px : 10px;

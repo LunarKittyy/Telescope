@@ -599,6 +599,9 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
     for t in 0..tabs {
         out.push_str(&format!("    in-out property page{t}-offset <=> page{t}.offset;\n    out property page{t}-height <=> page{t}.height;\n"));
     }
+    for s in sections {
+        out.push_str(&format!("    out property <length> {id}-top: {id}.y;\n    out property <length> {id}-tall: {id}.height;\n", id = s.piece.id));
+    }
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         out.push_str(&aliases(piece));
     }
@@ -612,7 +615,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             footers.iter().map(|f| format!("({}.preferred-height + 10px)", f.id)).chain(std::iter::once("0px".to_string())).collect::<Vec<_>>().join(" + ")
         };
         out.push_str(&format!(
-            "    page{t} := ScrollPage {{\n        x: 260px;\n        y: 53px;\n        width: root.width - 276px;\n        height: root.height - 69px - {footer_h};\n        visible: !root.searching && root.current == {t};\n"));
+            "    page{t} := ScrollPage {{\n        x: 260px;\n        y: 53px;\n        width: root.width - 276px;\n        height: root.height - 69px - {footer_h};\n        visible: !root.searching && root.current == {t};\n        index: {t};\n"));
         for s in sections.iter().filter(|s| s.tab == t) {
             let hue = s.hue.as_ref().map(|c| format!("hue: Theme.plugin-hue({c:?}); ")).unwrap_or_default();
             out.push_str(&format!("        {} := {}C {{ {hue}}}\n", s.piece.id, s.piece.id));

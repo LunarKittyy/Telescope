@@ -10,9 +10,11 @@ export component StartupSettings inherits Card {
     in property <string> open-tip;
     callback open-toggled(bool);
     title: @tr("Startup");
+    keywords: @tr("search" => "login boot autostart run on startup tray minimized");
     icon: Icons.monitor;
     SettingRow {
         title: @tr("Open Telescope when I sign in");
+        keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
         Switch {
             y: (parent.height - self.height) / 2;
             checked <=> root.open-checked;
@@ -46,9 +48,11 @@ export component AutomaticSettings inherits Card {
     callback unit-picked(int);
     callback notify-toggled(bool);
     title: @tr("Automatic streaming");
+    keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free");
     icon: Icons.bolt;
     SettingRow {
         title: start-title;
+        keywords: @tr("search" => "automatically begin streaming when phone ready app opens the camera auto start");
         ChoiceField {
             y: (parent.height - self.height) / 2;
             width: 320px;
@@ -61,6 +65,7 @@ export component AutomaticSettings inherits Card {
     }
     SettingRow {
         title: stop-title;
+        keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop");
         ChoiceField {
             y: (parent.height - self.height) / 2;
             width: 320px;
@@ -82,6 +87,7 @@ export component AutomaticSettings inherits Card {
     SettingRow {
         enabled: stops;
         title: delay-title;
+        keywords: @tr("search" => "delay timeout idle seconds minutes how long grace period auto stop");
         sub: delay-sub;
         HorizontalLayout {
             spacing: 8px;
@@ -112,6 +118,7 @@ export component AutomaticSettings inherits Card {
     SettingRow {
         enabled: stops;
         title: @tr("Tell me when it stops a stream");
+        keywords: @tr("search" => "notification notify alert popup message");
         Switch {
             y: (parent.height - self.height) / 2;
             checked <=> root.notify-checked;

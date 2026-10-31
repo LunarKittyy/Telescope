@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, Switch, SettingRow, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, Switch, SearchWords, SettingRow, TextField, TipBody } from "@ui-kit/ui-kit.slint";
 import { ColumnScrollbar } from "frame.slint";
 
 export struct NavTab {
@@ -145,6 +145,9 @@ export component ScrollPage inherits Rectangle {
     changed content => { bar = content > root.height; }
     changed height => { bar = content > root.height; }
     clip: true;
+    // How the settings search tells the pages apart
+    in property <int> index;
+    SearchWords { words: "page \{index}"; }
     Timer {
         interval: 1ms;
         running: !checked;
@@ -520,7 +523,7 @@ export component PluginsPanel inherits VerticalLayout {
             spacing: 10px;
             height: 30px;
             Chip { y: 2px; width: 26px; height: 26px; icon: Icons.download; hue: Theme.accent; }
-            Text { text: @tr("Added plugins"); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+            Text { text: @tr("Added plugins"); accessible-id: "card"; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
             CardAction {
                 text: @tr("Install");

@@ -77,6 +77,7 @@ export component UpdatesSettings inherits Card {
     callback notes;
     callback retry;
     title: "Telescope";
+    keywords: @tr("search" => "update upgrade new version release download install latest");
     icon: Icons.v-update;
     hue: Theme.plugin-hue("extras");
     has-action: true;
@@ -86,10 +87,12 @@ export component UpdatesSettings inherits Card {
     action => { if (!busy) { root.check-now(); } }
     FormRow {
         label: @tr("This version");
+        keywords: @tr("search" => "current build number");
         Note { text: version-text; kind: "val"; horizontal-stretch: 1; }
     }
     FormRow {
         label: @tr("Channel");
+        keywords: @tr("search" => "stable nightly beta release track builds testing");
         enabled: !busy;
         ChoiceField {
             compact: true;
@@ -104,6 +107,7 @@ export component UpdatesSettings inherits Card {
     }
     FormRow {
         label: @tr("Check daily");
+        keywords: @tr("search" => "automatic updates auto check every day background");
         HorizontalLayout {
             alignment: end;
             Switch {
@@ -116,6 +120,7 @@ export component UpdatesSettings inherits Card {
     }
     if portable-shown: FormRow {
         label: @tr("Unzipped copy");
+        keywords: @tr("search" => "portable keep this copy where it is zip folder in place windows");
         HorizontalLayout {
             spacing: 10px;
             Switch {

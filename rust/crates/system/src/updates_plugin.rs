@@ -13,7 +13,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
-use telescope_core::i18n::{n_, tr, tr_ctx};
+use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
@@ -685,23 +685,13 @@ impl Plugin for UpdatesPlugin {
     }
 
     fn settings_sections(&mut self) -> Vec<SettingsSection> {
-        let mut keywords = vec![
-            tr_ctx("search", "update upgrade new version release download install latest"),
-            tr_ctx("search", "current build number"),
-            tr_ctx("search", "stable nightly beta release track builds testing"),
-            tr_ctx("search", "automatic updates auto check every day background"),
-        ];
-        // Search skips what's hidden, and the row only shows for an unzipped copy
-        if self.backend.is_unzipped_copy() {
-            keywords.push(tr_ctx("search", "portable keep this copy where it is zip folder in place windows"));
-        }
         vec![SettingsSection {
             id: SECTION.into(),
             tab: "about".into(),
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "UpdatesSettings".into(), props: self.section_props(false) },
             order: 0,
             tab_title: String::new(),
-            keywords: keywords.join(" "),
+            keywords: String::new(),
             footer: None,
         }]
     }
@@ -1131,14 +1121,6 @@ mod tests {
         assert!(!plugin.busy());
         assert_eq!(plugin.status_text(&host), ("The update failed.".to_string(), "status_err"));
         assert_eq!(quits(&host), 0);
-    }
-
-    #[test]
-    fn the_portable_words_are_searched_only_where_the_switch_shows() {
-        let (mut plugin, _host, fake) = env();
-        assert!(!plugin.settings_sections()[0].keywords.contains("portable"));
-        fake.unzipped.store(true, Ordering::SeqCst);
-        assert!(plugin.settings_sections()[0].keywords.contains("portable"));
     }
 
     /// The real download and install, with only the network, the installer, adb and restarting stood in for.

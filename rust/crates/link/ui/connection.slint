@@ -670,6 +670,7 @@ export component ConnectionSettings inherits Card {
     icon: Icons.v-connection;
     SettingRow {
         title: @tr("UDP on Wi-Fi");
+        keywords: @tr("search" => "udp tcp transport network lag freezes stutter wifi");
         sub: @tr("Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see.");
         Tag { text: @tr("Experimental"); }
         Switch {

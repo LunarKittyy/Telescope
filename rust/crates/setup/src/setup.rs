@@ -15,7 +15,7 @@ use std::sync::Arc;
 use telescope_core::canvas;
 use telescope_core::event::Event;
 use telescope_core::host::{FileDialog, FileDialogKind, Host, Poster, RequestId};
-use telescope_core::i18n::{n_, tr, tr_ctx};
+use telescope_core::i18n::{n_, tr};
 use telescope_core::link::Link;
 use telescope_core::media::Media;
 use telescope_core::output::{Outputs, SetupAction, SetupResult};
@@ -1016,56 +1016,22 @@ impl Plugin for SetupPlugin {
 
     fn settings_sections(&mut self) -> Vec<SettingsSection> {
         self.sync_panel();
-        let search = |words: &[&str]| words.iter().map(|w| tr_ctx("search", w)).collect::<Vec<_>>().join(" ");
-        let section = |id: &str, tab: &str, component: &str, order: i32, props: Value, keywords: String| SettingsSection {
+        let section = |id: &str, tab: &str, component: &str, order: i32, props: Value| SettingsSection {
             id: id.into(),
             tab: tab.into(),
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: component.into(), props },
             order,
             tab_title: String::new(),
-            keywords,
+            keywords: String::new(),
             footer: None,
         };
-        let camera_words: &[&str] = if self.linux {
-            &["obs zoom teams discord webcam driver output device loopback",
-              "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe",
-              "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart",
-              "multiple second cameras add camera several streams remove virtual cameras"]
-        } else {
-            &["obs zoom teams discord webcam driver output device loopback",
-              "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom",
-              "adb android debug bridge usb pairing download get platform-tools google own cable",
-              "multiple second cameras add camera several streams remove virtual cameras"]
-        };
         vec![
-            section("virtual-camera", "devices", "VirtualCameraSettings", 0, self.camera_props(), search(camera_words)),
-            section("video", "video", "VideoSettings", 0, self.video_props(), search(&[
-                "picture quality image stream camera output",
-                "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k",
-                "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality",
-                "zoom limit magnify telephoto digital crop 10x 30x slider range",
-                "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload",
-            ])),
-            section("microphone", "audio", "MicrophoneLimits", 0, self.mic_props(), search(&[
-                "audio sound voice input volume",
-                "microphone volume loudness boost amplify quiet decibel db slider range",
-                "microphone audio compressor distortion clipping loud peaks sound",
-            ])),
-            section("phone-app", "devices", "PhoneAppSettings", 10, self.apk_props(), search(&[
-                "android install apk usb",
-                "phone app install usb android reinstall newer version sideload cable",
-            ])),
-            section("look", "general", "LookSettings", 10, self.look_props(), search(&[
-                "appearance theme colors colours interface",
-                "color colour theme appearance monochrome colourful purple hue accent look",
-                "language translation translate locale",
-            ])),
-            section("about", "about", "AboutSettings", 10, self.about_props(), search(&[
-                "info version help support credits",
-                "about author credits made by version number build",
-                "bug report diagnostics logs debug support problem issue help copy log file",
-                "help support troubleshooting question faq problem not working stuck ask",
-            ])),
+            section("virtual-camera", "devices", "VirtualCameraSettings", 0, self.camera_props()),
+            section("video", "video", "VideoSettings", 0, self.video_props()),
+            section("microphone", "audio", "MicrophoneLimits", 0, self.mic_props()),
+            section("phone-app", "devices", "PhoneAppSettings", 10, self.apk_props()),
+            section("look", "general", "LookSettings", 10, self.look_props()),
+            section("about", "about", "AboutSettings", 10, self.about_props()),
         ]
     }
 

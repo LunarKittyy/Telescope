@@ -8,11 +8,15 @@ use crate::search::{search_ex, Entry};
 use crate::source::{scan, to_json, to_slint};
 use crate::window::Window;
 use crate::texts::fill;
-use i_slint_backend_testing::ElementHandle;
+use i_slint_core::accessibility::AccessibleStringProperty;
+use i_slint_core::item_tree::{ItemRc, ParentItemTraversalMode};
+use i_slint_core::items::{AccessibleRole, Clip};
+use i_slint_core::window::WindowInner;
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+use std::ops::ControlFlow;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use telescope_core::i18n::tr;
@@ -103,7 +107,11 @@ pub struct Settings {
     pieces: Vec<(String, String, String)>,
     /// (plugin, section id) of the sections on each tab, which hear "shown" when it comes on screen.
     tab_sections: Vec<Vec<(String, String)>>,
+    /// (element id, search words) of the sections on each tab that have any (SettingsSection.keywords).
+    section_words: Vec<Vec<(String, String)>>,
     panel: RefCell<Panel>,
+    /// What a search looks through, read when it starts (rows come and go) and dropped when it ends.
+    entries: RefCell<Vec<Entry>>,
     hits: RefCell<Vec<Entry>>,
     /// What waits for an answer to the question on screen, and the messages that wait their turn after it.
     asking: RefCell<Option<Commit>>,
@@ -258,6 +266,8 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
             places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer, hue });
         }
     }
+    let section_words = tabs.iter().map(|(_, _, mine)| mine.iter().filter(|&&i| !sections[i].1.keywords.is_empty())
+        .map(|&i| (format!("s{i}"), sections[i].1.keywords.clone())).collect()).collect();
     let mut tab_sections = vec![Vec::new(); tabs.len()];
     for place in &places {
         if let Some((plugin, id, _)) = pieces.iter().find(|p| p.2 == place.piece.id) {
@@ -265,7 +275,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         }
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
-    let def = crate::compile::compile_with("settings.slint", &text, files, "TelescopeSettings", true)?;
+    let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     let ui = def.create().map_err(|e| e.to_string())?;
     let settings = Rc::new(Settings {
         ui,
@@ -273,7 +283,9 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         plugins_tab,
         pieces,
         tab_sections,
+        section_words,
         panel: RefCell::new(panel),
+        entries: RefCell::new(Vec::new()),
         hits: RefCell::new(Vec::new()),
         asking: RefCell::new(None),
         notices: RefCell::new(VecDeque::new()),
@@ -288,6 +300,46 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     settings.start_watching();
     settings.show_row(0);
     Ok(settings)
+}
+
+fn under(item: &ItemRc) -> Vec<ItemRc> {
+    let mut items = Vec::new();
+    item.visit_descendants(|i| {
+        items.push(i.clone());
+        ControlFlow::<()>::Continue(())
+    });
+    items
+}
+
+fn say(item: &ItemRc, what: AccessibleStringProperty) -> String {
+    item.accessible_string_property(what).map(|s| s.to_string()).unwrap_or_default()
+}
+
+/// Whether something between the item and the page has `visible: false`, which Slint turns into a clip around it.
+fn hidden(item: &ItemRc, page: &ItemRc) -> bool {
+    let mut node = Some(item.clone());
+    while let Some(i) = node.filter(|i| i != page) {
+        if i.downcast::<Clip>().is_some_and(|c| c.as_pin_ref().is_visibility_clip() && c.as_pin_ref().clip()) {
+            return true;
+        }
+        node = i.parent_item(ParentItemTraversalMode::StopAtPopups);
+    }
+    false
+}
+
+/// The words on the marker of this kind under a row or a card.
+fn words_of(element: &ItemRc, kind: &str) -> String {
+    let marker = under(element).into_iter().find(|e| say(e, AccessibleStringProperty::Id) == kind);
+    marker.map(|m| say(&m, AccessibleStringProperty::Label)).unwrap_or_default()
+}
+
+/// What the controls in a row say (settings_search._row_texts' extra).
+fn controls_of(element: &ItemRc, name: &str) -> String {
+    let mut said: Vec<String> = under(element).iter()
+        .filter(|e| say(e, AccessibleStringProperty::Id) == "control-words" || !matches!(e.accessible_role(), AccessibleRole::None | AccessibleRole::Text))
+        .map(|e| say(e, AccessibleStringProperty::Label)).filter(|l| !l.trim().is_empty() && l != name).collect();
+    said.dedup();
+    said.join(" ")
 }
 
 fn source_of(plugin: &str, ui: &str, source: &SlintSource) -> (String, String) {
@@ -485,28 +537,19 @@ impl Settings {
     fn leave_search(&self) {
         let _ = self.ui.set_property("query", s_empty());
         let _ = self.ui.set_property("searching", SValue::Bool(false));
+        self.entries.borrow_mut().clear();
         self.hits.borrow_mut().clear();
         let i = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };
         self.show_row(i);
     }
 
-    /// Every setting the search can find, read off the window as it is now (settings_search.collect).
+    /// Every setting the search can find, read off the window as it is now (settings_search.collect). The items are
+    /// walked by hand: Slint's ElementHandle leaves out whatever is scrolled off the page.
     pub fn entries(&self) -> Vec<Entry> {
-        // Only what shows can be read, so each page shows for its turn, and nothing draws before they're put back
-        let (current, searching) = (self.ui.get_property("current"), self.ui.get_property("searching"));
-        let _ = self.ui.set_property("searching", SValue::Bool(false));
-        let out = self.entries_of_each_page();
-        if let (Ok(current), Ok(searching)) = (current, searching) {
-            let _ = self.ui.set_property("current", current);
-            let _ = self.ui.set_property("searching", searching);
-        }
-        out
-    }
-
-    fn entries_of_each_page(&self) -> Vec<Entry> {
+        let root = ItemRc::new_root(WindowInner::from_pub(self.ui.window()).component());
+        let items = under(&root);
         let mut out = Vec::new();
         for (t, (tab, name)) in self.tabs.iter().enumerate() {
-            let _ = self.ui.set_property("current", SValue::Number(t as f64));
             // The Plugins tab and each of its groups are also found by what people call plugins
             let words = if tab == "plugins" { plugins_tab::search_keywords() } else { String::new() };
             let base = Entry {
@@ -515,32 +558,40 @@ impl Settings {
                 card_entry: true, tab_entry: true, target: (0.0, 0.0, 0.0, 0.0),
             };
             out.push(base.clone());
-            let Some(page) = ElementHandle::find_by_element_id(&self.ui, &format!("TelescopeSettings::page{t}")).next() else { continue };
-            let origin = page.absolute_position();
-            let offset = match self.ui.get_property(&format!("page{t}-offset")) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
-            let marked: Vec<(String, ElementHandle)> = page.query_descendants()
-                .match_predicate(|e| matches!(e.accessible_id().as_deref(), Some("setting") | Some("card")))
-                .find_all().into_iter().map(|e| (e.accessible_id().unwrap_or_default().to_string(), e)).collect();
-            let rect = |e: &ElementHandle| {
-                let (p, size) = (e.absolute_position(), e.size());
-                (p.x - origin.x, p.y - origin.y + offset, size.width, size.height)
+            let mark = items.iter().find(|i| say(i, AccessibleStringProperty::Label) == format!("page {t}") && say(i, AccessibleStringProperty::Id) == "setting-words");
+            let Some(page) = mark.and_then(|m| m.parent_item(ParentItemTraversalMode::StopAtPopups)) else { continue };
+            let page = &page;
+            let origin = page.map_to_window(page.geometry().origin);
+            let number = |name: &str| match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
+            let offset = number(&format!("page{t}-offset"));
+            let marked: Vec<(String, ItemRc)> = under(page).into_iter().filter(|e| !hidden(e, page))
+                .map(|e| (say(&e, AccessibleStringProperty::Id), e)).filter(|(k, _)| k == "setting" || k == "card").collect();
+            let rect = |e: &ItemRc| {
+                let (g, p) = (e.geometry(), e.map_to_window(e.geometry().origin));
+                (p.x - origin.x, p.y - origin.y + offset, g.width(), g.height())
             };
-            let cards: Vec<(String, (f32, f32, f32, f32))> = marked.iter().filter(|(k, _)| k == "card")
-                .map(|(_, e)| (e.accessible_label().unwrap_or_default().to_string(), rect(e))).collect();
+            let sections: Vec<(f32, f32, &String)> = self.section_words[t].iter()
+                .map(|(id, words)| (number(&format!("{id}-top")), number(&format!("{id}-tall")), words)).collect();
+            let cards: Vec<(String, (f32, f32, f32, f32), String)> = marked.iter().filter(|(k, _)| k == "card")
+                .map(|(_, e)| (say(e, AccessibleStringProperty::Label), rect(e), words_of(e, "card-words"))).collect();
             for (kind, e) in &marked {
-                let label = e.accessible_label().unwrap_or_default().to_string();
+                let label = say(e, AccessibleStringProperty::Label);
                 if label.trim().is_empty() {
                     continue;
                 }
                 let r = rect(e);
-                let card = cards.iter().filter(|(_, c)| kind == "setting" && r.1 >= c.1 && r.1 < c.1 + c.3).map(|(n, _)| n.clone()).next_back().unwrap_or_default();
+                let is_card = kind == "card";
+                let card = cards.iter().filter(|c| !is_card && r.1 >= c.1.1 && r.1 < c.1.1 + c.1.3).next_back();
+                let section = sections.iter().find(|s| r.1 >= s.0 && r.1 < s.0 + s.1).map_or("", |s| s.2.as_str());
                 out.push(Entry {
-                    card: if kind == "card" { label.clone() } else { card },
+                    card: card.map(|c| c.0.clone()).unwrap_or_default(),
+                    detail: say(e, AccessibleStringProperty::Description),
+                    extra: if is_card { String::new() } else { controls_of(e, &label) },
+                    keywords: if is_card { format!("{} {words}", words_of(e, "card-words")) } else { words_of(e, "setting-words") },
+                    card_keywords: format!("{} {words}", card.map_or("", |c| c.2.as_str())),
+                    tab_keywords: section.to_string(),
                     name: label,
-                    detail: e.accessible_description().unwrap_or_default().to_string(),
-                    keywords: if kind == "card" { words.clone() } else { String::new() },
-                    card_keywords: words.clone(),
-                    card_entry: kind == "card",
+                    card_entry: is_card,
                     tab_entry: false,
                     target: r,
                     ..base.clone()
@@ -560,7 +611,10 @@ impl Settings {
             self.leave_search();
             return;
         }
-        let (hits, partial) = search_ex(&self.entries(), text, 12);
+        if self.ui.get_property("searching") != Ok(SValue::Bool(true)) {
+            *self.entries.borrow_mut() = self.entries();
+        }
+        let (hits, partial) = search_ex(&self.entries.borrow(), text, 12);
         let rows: Vec<SValue> = hits.iter().map(|e| SValue::Struct(Struct::from_iter([("name".to_string(), s(&e.name)), ("path".to_string(), s(&e.path()))]))).collect();
         let _ = self.ui.set_property("results", model(rows));
         let _ = self.ui.set_property("result", SValue::Number(0.0));
