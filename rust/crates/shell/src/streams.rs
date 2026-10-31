@@ -1,8 +1,9 @@
 //! The window's side of the stream flow (app.py's _FlowHost and _SourceHost, and the worker's signals): sources by
 //! id, workers, the footer and tiles, and what phones' threads report back.
 
+use telescope_core::i18n::Fields;
 use crate::session::{Source, SourceRef, Worker};
-use crate::sources::{camera_error_text, heat_text, limited_by_camera, truthy, PhoneKind, PlanNow, PluginKind, Report, StreamPlan};
+use crate::sources::{limited_by_camera, on_alive, on_camera_check, on_phone_state, recovery_probed, show_heat, start_action, truthy, wake_progress, PhoneKind, PlanNow, PluginKind, Report, SourceHost, StreamPlan};
 use crate::stream_flow::{FlowHost, Hook, Later, StreamFlow, MAX_SLOTS};
 use crate::texts::fill;
 use crate::window::{with_window, Window};
@@ -17,17 +18,17 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
-use telescope_core::link::PhoneStatus;
 use telescope_core::media::FrameSlot;
 use telescope_core::source::{RouteSpec, StreamSource};
 use telescope_core::ui::{Issue, IssueAction, IssueDoes};
+
+/// How long a stream going behind the panels waits for its LUT, which no later refresh brings it.
+const COLOUR_SETTLE: Duration = Duration::from_secs(1);
 
 /// How long a phone gets to reopen its camera at a new size: a camera reopen and a possible brief reconnect.
 const RESOLUTION_WAIT: Duration = Duration::from_secs(8);
 /// How long the footer stays red after a size that didn't land.
 const RESOLUTION_FAILED_SHOWN: Duration = Duration::from_secs(4);
-/// A banner action's id: turn the camera on again on the source after it.
-pub(crate) const CAMERA_AGAIN: &str = "camera_again:";
 
 /// A running worker as the flow sees it.
 pub struct ShellWorker {
@@ -136,7 +137,7 @@ impl Window {
             return s.clone();
         }
         let kind: Box<dyn crate::session::SourceKind> = match self.streams.plugin_sources.borrow().get(&k) {
-            Some(src) => Box::new(PluginKind::new(src.clone(), self.timer_hook())),
+            Some(src) => Box::new(PluginKind::new(src.clone(), Some(self.timer_hook()))),
             None => self.phone_kind(id),
         };
         let source = Source::new(id.map(String::from), kind);
@@ -155,7 +156,7 @@ impl Window {
 
     fn phone_kind(self: &Rc<Self>, id: Option<&str>) -> Box<dyn crate::session::SourceKind> {
         let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else {
-            return Box::new(PluginKind::new(Arc::new(Mutex::new(Arc::new(NoSource))), self.timer_hook()));
+            return Box::new(PluginKind::new(Arc::new(Mutex::new(Arc::new(NoSource))), None));
         };
         let weak = self.ui.as_weak();
         let post: crate::sources::Post = Arc::new(move |report| {
@@ -232,16 +233,6 @@ impl Window {
         let (on, shown) = { let st = self.state.borrow(); (!st.streams.camera_off, st.camera_on_shown) };
         if self.streams.flow.borrow().sessions.streams.is_empty() && on != shown {
             self.emit(Event::CameraOnChanged { on });
-        }
-    }
-
-    /// _camera_on_again: the switch is the panels' stream's.
-    pub(crate) fn camera_on_again(self: &Rc<Self>, source_id: &str) {
-        let id = source_id.to_string();
-        self.with_flow(move |flow, host| flow.focus_stream(host, &id));
-        let source = self.source(Some(source_id).filter(|s| !s.is_empty()));
-        if self.is_shown(&source) {
-            self.set_camera_on(true, false);
         }
     }
 
@@ -336,7 +327,11 @@ impl Window {
             }
         }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
+        self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
+            if !w.live.get() {
+                self.state.borrow().colour.settle(COLOUR_SETTLE); // no later refresh reaches a stream behind the panels
+            }
             let steps = self.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }
@@ -468,12 +463,12 @@ impl Window {
         let command = result.command.clone().unwrap_or_default();
         if result.ok {
             let linux = cfg!(target_os = "linux");
-            self.set_status(&if linux { tr("Loopback reloaded: {message}").replace("{message}", &result.message) } else { tr("Canvas updated") }, "ok");
+            self.set_status(&if linux { tr("Loopback reloaded: {message}").field("message", &result.message) } else { tr("Canvas updated") }, "ok");
             if restart {
                 self.with_flow(|flow, host| flow.start(host, true, None));
             }
         } else if command.is_empty() {
-            self.set_status(&tr("Reload failed: {message}").replace("{message}", &result.message), "err");
+            self.set_status(&tr("Reload failed: {message}").field("message", &result.message), "err");
         } else {
             self.set_status(&tr("Not streaming"), "dim");
         }
@@ -860,10 +855,7 @@ impl Window {
         match report {
             Report::WakeProgress { source_id, wake_id, text } => {
                 let source = self.source(Some(&source_id).filter(|s| !s.is_empty()).map(|s| s.as_str()));
-                let current = source.kind.as_phone().is_some_and(|p| p.wake_id() == wake_id);
-                if current && self.streams.flow.borrow().sessions.waking {
-                    self.with_flow(|_, host| host.source_status(&source, &text, "dim"));
-                }
+                wake_progress(self, &source, wake_id, &text);
             }
             Report::WakeDone { source_id, wake_id, result } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
@@ -873,7 +865,7 @@ impl Window {
                     // Stopped while it woke: the stop may have reached the phone first, leaving its camera on
                     if let Ok(session) = result {
                         let its_own_wake = crate::session::same(&self.streams.flow.borrow().sessions.wake_source, &source);
-                        if phone.stops_late_wake() && !its_own_wake && !source.has_session() {
+                        if !its_own_wake && !source.has_session() {
                             phone.stop_late(session);
                         } else {
                             std::thread::spawn(move || session.release());
@@ -896,7 +888,21 @@ impl Window {
             }
             Report::RecoveryProbed { source_id, session_id, generation, resolution } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
-                self.recovery_probed(&source, session_id, generation, resolution);
+                recovery_probed(self, &source, session_id, generation, &resolution);
+            }
+            Report::MoveFailed { source_id } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                if let Some(phone) = source.kind.as_phone() {
+                    phone.move_failed();
+                }
+            }
+            Report::Alive { source_id, session_id, ok } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                on_alive(self, &source, session_id, ok);
+            }
+            Report::CameraCheck { source_id, session_id, state } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                on_camera_check(self, &source, session_id, state.as_ref());
             }
             Report::HandedOver { source_id, session_id, url, session } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
@@ -913,11 +919,12 @@ impl Window {
             }
             Report::Moved { source_id, session_id, route, session } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                let Some(phone) = source.kind.as_phone() else { return };
                 let Some(current) = source.session().filter(|s| s.id == session_id) else {
+                    phone.move_failed();
                     session.release();
                     return;
                 };
-                let Some(phone) = source.kind.as_phone() else { return };
                 let url = session.video_url();
                 let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video().map(crate::worker::Opened::from)) };
                 if let Some(controls) = session.controls() {
@@ -939,35 +946,7 @@ impl Window {
             Report::Heat { source_id, session_id, state } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 if let Some(state) = state.filter(|_| source.session().is_some_and(|s| s.id == session_id)) {
-                    self.show_heat(&source, &state);
-                }
-            }
-            Report::Alive { source_id, session_id, ok } => {
-                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
-                let Some(phone) = source.kind.as_phone() else { return };
-                if source.session().is_none_or(|s| s.id != session_id || s.worker.is_some()) {
-                    return;
-                }
-                let lost = phone.note_alive(ok);
-                if ok && source.recovering() {
-                    self.with_flow(|flow, host| flow.mic_reconnected(host, &source));
-                } else if lost && !source.recovering() {
-                    self.start_reconnecting_animation(&tr("Lost the phone - reconnecting"));
-                    self.with_flow(|flow, host| flow.begin_recovery(host, Some(source.clone())));
-                }
-            }
-            Report::CameraCheck { source_id, session_id, state } => {
-                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
-                let Some(state) = state else { return };
-                if source.session().is_none_or(|s| s.id != session_id) || source.camera_off() {
-                    return;
-                }
-                // The phone says whether the camera came back on; one that couldn't (in use elsewhere) stays off
-                if truthy(&state, "camera_off") && truthy(&state, "camera_error") {
-                    source.state.borrow_mut().camera_off = true;
-                    self.with_flow(|flow, host| flow.camera_stayed_off(host, &source));
-                    let again = IssueAction { label: tr("Try again"), does: IssueDoes::Plugin { id: format!("{CAMERA_AGAIN}{}", source.id_str()) } };
-                    self.show_issue("camera", &tr("The camera didn't turn back on"), &camera_error_text(&state), vec![again]);
+                    show_heat(self, &source, &state);
                 }
             }
             Report::CameraRate { source_id, session_id, arrival, rates } => {
@@ -1178,7 +1157,7 @@ impl Window {
         }
         self.process();
         if state.as_object().is_some_and(|o| !o.is_empty()) && source.has_session() {
-            self.on_phone_state(source, &state);
+            on_phone_state(self, source, &state);
             self.process();
         }
     }
@@ -1196,108 +1175,8 @@ impl Window {
         crate::profiles::device_config(&cfg, source.id.as_deref(), "stream_output").get("format").and_then(Value::as_str) != Some("mjpeg")
     }
 
-    /// PhoneSource.on_phone_state: the camera taken by another app, and the heat note.
-    fn on_phone_state(self: &Rc<Self>, source: &SourceRef, state: &Value) {
-        let key = format!("camera_taken:{}", source.id_str());
-        if state.get("camera_taken").and_then(Value::as_bool) == Some(true) {
-            // Android gives the camera to the app on screen; the phone opens it again once that app lets go
-            self.show_issue(&key, &tr("Another app on the phone is using the camera"),
-                            &tr("The stream comes back by itself once that app closes or lets go of it."), vec![]);
-        } else {
-            self.clear_issue(&key);
-        }
-        self.show_heat(source, state);
-        let toggle = truthy(state, "camera_toggle");
-        source.state.borrow_mut().camera_toggle = Some(toggle);
-        if !toggle {
-            if source.camera_off() {
-                self.set_camera_on(true, false);
-                self.show_issue("camera", &tr("This phone can't turn its camera off yet"),
-                                &tr("Update Telescope on the phone to stream the mic with the camera off."), vec![]);
-            }
-            return;
-        }
-        if truthy(state, "camera_off") != source.camera_off() {
-            if let Some(session) = source.session() {
-                session.client.send(&serde_json::json!({"action": "camera_on", "value": if source.camera_off() { 0 } else { 1 }}));
-            }
-        }
-    }
-
-    /// Says so while the phone streams a smaller picture than asked because it's critically hot.
-    fn show_heat(self: &Rc<Self>, source: &SourceRef, state: &Value) {
-        let heat_key = format!("heat:{}", source.id_str());
-        match heat_text(state) {
-            Some(text) => {
-                self.show_issue(&heat_key, &tr("The phone is very hot"), &text, vec![]);
-                if let Some(p) = source.kind.as_phone() {
-                    p.note_heat(true);
-                }
-            }
-            None => {
-                if source.kind.as_phone().is_some_and(|p| p.note_heat(false)) {
-                    self.clear_issue(&heat_key);
-                }
-            }
-        }
-    }
-
-    fn recovery_probed(self: &Rc<Self>, source: &SourceRef, session_id: u64, generation: u64, res: telescope_core::link::Resolution) {
-        let Some(phone) = source.kind.as_phone() else { return };
-        let Some(session) = source.session() else { return };
-        if !source.recovering() || generation != phone.recovery_generation() || session.id != session_id {
-            return;
-        }
-        let streaming = self.streams.flow.borrow().sessions.streams.len() > 1;
-        let name = source.kind.name();
-        match res.status {
-            PhoneStatus::NotPaired | PhoneStatus::LocalOnly | PhoneStatus::PhoneOutdated | PhoneStatus::DesktopOutdated => {
-                // The phone answers but won't take the stream back: say why instead of retrying forever.
-                let s = source.clone();
-                self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
-                phone.show_problem(&res);
-                return;
-            }
-            PhoneStatus::Ready if !res.streaming_for.is_empty() => {
-                // Another computer started the phone while this one couldn't reach it: that stream is theirs.
-                let s = source.clone();
-                self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
-                let title = if !streaming {
-                    fill(&tr("The phone is streaming to {computer}"), &[("computer", &res.streaming_for)])
-                } else {
-                    sentence(&fill(&tr("{phone} is streaming to {computer}"), &[("phone", &name), ("computer", &res.streaming_for)]))
-                };
-                self.show_issue(&format!("stopped:{}", source.id_str()), &title,
-                                &tr("Stop it there or on the phone, then start again."), vec![start_action(source.id.clone())]);
-                return;
-            }
-            PhoneStatus::Ready if !res.streaming && !res.busy => {
-                // Stopped on the phone, or by its idle watchdog while we couldn't reach it.
-                let s = source.clone();
-                self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
-                let title = if !streaming {
-                    tr("The phone stopped streaming")
-                } else {
-                    sentence(&fill(&tr("{phone} stopped streaming"), &[("phone", &name)]))
-                };
-                self.show_issue(&format!("stopped:{}", source.id_str()), &title, &tr("Start again when you're ready."),
-                                vec![start_action(source.id.clone())]);
-                return;
-            }
-            PhoneStatus::Ready if res.streaming => {
-                let tries = session.worker.as_ref().map(|w| w.failed_tries());
-                if let Some(route) = res.route.clone() {
-                    if Some(&route) != phone.recovery_route().as_ref() || phone.forward_failed(tries) {
-                        phone.move_to(session_id, route);
-                    }
-                }
-            }
-            _ => {}
-        }
-        phone.retry_recovery();
-    }
-
-    /// A phone source's timers: park, the unreachable banner, the next recovery probe, the heat check.
+    /// A source's timers: park, the unreachable banner, the next recovery probe, the heat check, the phone's checks while its
+    /// camera is off.
     fn source_timer(self: &Rc<Self>, what: &str, sid: &str) {
         let source = self.source(Some(sid).filter(|s| !s.is_empty()));
         match what {
@@ -1314,7 +1193,7 @@ impl Window {
                 }
                 source.kind.note_unreachable(true);
                 let title = fill(&tr("Can't reach {name}"), &[("name", &source.kind.name())]);
-                self.show_issue(&format!("stopped:{}", source.id_str()), &title, &source.kind.lost_hint(), vec![]);
+                Window::show_issue(self, &format!("stopped:{}", source.id_str()), &title, &source.kind.lost_hint(), vec![]);
             }
             "clear_unreachable" => self.clear_issue(&format!("stopped:{}", source.id_str())),
             "clear_camera_taken" => self.clear_issue(&format!("camera_taken:{}", source.id_str())),
@@ -1332,13 +1211,11 @@ impl Window {
                 }
             }
             "alive" => {
-                if let (Some(p), Some(session)) = (source.kind.as_phone(), source.session()) {
-                    if session.worker.is_none() {
-                        p.check_alive(session.id);
-                    }
+                if let (Some(p), Some(session)) = (source.kind.as_phone(), source.session().filter(|s| s.worker.is_none())) {
+                    p.check_alive(session.id);
                 }
             }
-            "camera_check" => {
+            "camera_on_check" => {
                 if let (Some(p), Some(session)) = (source.kind.as_phone(), source.session().filter(|_| !source.camera_off())) {
                     p.check_camera_on(session.id);
                 }
@@ -1366,17 +1243,42 @@ impl Window {
     }
 }
 
-fn start_action(source_id: Option<String>) -> IssueAction {
-    IssueAction { label: tr("Start"), does: IssueDoes::StartAgain { source_id, before: None } }
+impl SourceHost for Rc<Window> {
+    fn show_issue(&self, key: &str, title: &str, text: &str, actions: Vec<IssueAction>) {
+        Window::show_issue(self, key, title, text, actions);
+    }
+    fn clear_issue(&self, key: &str) {
+        Window::clear_issue(self, key);
+    }
+    fn is_streaming(&self) -> bool {
+        Window::is_streaming(self)
+    }
+    fn is_waking(&self) -> bool {
+        self.streams.flow.borrow().sessions.waking
+    }
+    fn wake_progress(&self, source: &SourceRef, msg: &str) {
+        self.with_flow(|_, host| host.source_status(source, msg, "dim"));
+    }
+    fn stop_source(&self, source: &SourceRef) {
+        let s = source.clone();
+        self.with_flow(move |flow, host| flow.stop(host, false, Some(s), false));
+    }
+    fn set_camera_on(&self, on: bool) {
+        self.state.borrow_mut().effects.push(crate::shell::Effect::CameraOn { on, auto: false });
+    }
+    fn camera_stayed_off(&self, source: &SourceRef) {
+        self.with_flow(|flow, host| flow.camera_stayed_off(host, source));
+    }
+    fn mic_reconnected(&self, source: &SourceRef) {
+        self.with_flow(|flow, host| flow.mic_reconnected(host, source));
+    }
+    fn lost_contact(&self, source: &SourceRef) {
+        self.start_reconnecting_animation(&tr("Lost the phone - reconnecting"));
+        let s = source.clone();
+        self.with_flow(move |flow, host| flow.begin_recovery(host, Some(s)));
+    }
 }
 
-/// The first letter in capitals (i18n.sentence), for a text that starts with a name.
-fn sentence(text: &str) -> String {
-    let mut chars = text.chars();
-    chars.next().map_or_else(String::new, |c| c.to_uppercase().collect::<String>() + chars.as_str())
-}
-
-/// A source for a window without services (scene renders): nothing to stream.
 struct NoSource;
 
 impl StreamSource for NoSource {
@@ -1595,6 +1497,7 @@ impl FlowHost for Host<'_> {
     }
     fn freeze_steps(&mut self, source: &SourceRef) {
         if let Some(w) = self.w.worker_of(source) {
+            self.w.state.borrow().colour.settle(COLOUR_SETTLE); // no later refresh reaches a stream behind the panels
             let steps = self.w.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }

@@ -17,12 +17,8 @@ pub struct Catalog {
     english: HashMap<String, String>,
 }
 
-/// Whether a form can be filled with its English's fields, found out as the catalog loads; a spec only counts on a plural's {n}, as other fields go through str::replace.
+/// Whether a form can be filled with its English's fields, found out as the catalog loads.
 fn fits(english: &str, plural: &str, form: &str) -> bool {
-    let is_plural = !plural.is_empty();
-    if super::spec_fields(form).iter().any(|name| !is_plural || name != "n") {
-        return false;
-    }
     let mut allowed: Vec<(String, u8)> = fields(english).into_iter().chain(fields(plural)).map(|f| (f, 0)).collect();
     allowed.push(("n".into(), 0));
     let values: Vec<(&str, &dyn std::fmt::Display)> = allowed.iter().map(|(k, v)| (k.as_str(), v as &dyn std::fmt::Display)).collect();

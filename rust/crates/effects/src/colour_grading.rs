@@ -1,6 +1,7 @@
 //! The Colour grading plugin (plugins/colour_grading.py): wheels, curves and LUT files for the look of the picture. It hands the
 //! colour pipeline its grade baked into a lattice (and into exact per-channel tables when each channel only depends on itself).
 
+use telescope_core::i18n::Fields;
 use crate::cube::{read_cube, write_cube, CubeLut, ReadError};
 use crate::editors::{Change, Curve, Kind, Wheel};
 use crate::grade::{self, Grade, CHANNELS, LINEAR, MASTER_DEFAULT, MASTER_RANGE, WHEELS};
@@ -338,7 +339,7 @@ impl ColourGradingPlugin {
         graded.apply(&mut cube);
         self.replace = None;
         self.export_note = match write_cube(path, &cube, size, "Telescope grade") {
-            Ok(()) => (tr(SAVED).replace("{file}", &path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()), "dim"),
+            Ok(()) => (tr(SAVED).field("file", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()), "dim"),
             Err(_) => (tr(CANT_SAVE), "warn"),
         };
         self.show(host, &self.export_props());
@@ -417,7 +418,7 @@ impl ColourGradingPlugin {
 
     fn export_props(&self) -> Value {
         let (text, kind) = match &self.replace {
-            Some(path) => (tr("{file} is already there. Replace it?").replace("{file}", &path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()), "none"),
+            Some(path) => (tr("{file} is already there. Replace it?").field("file", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()), "none"),
             None => self.export_note.clone(),
         };
         json!({"export-note": text, "export-kind": kind, "replace-open": self.replace.is_some()})
@@ -472,7 +473,7 @@ impl ColourGradingPlugin {
         json!({
             "switch-name": tr("Colour grading"),
             "switch-help": tr(SWITCH_TIP),
-            "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").replace("{wheel}", &tr(w))).collect::<Vec<_>>(),
+            "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").field("wheel", tr(w))).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
             "master-tips": WHEEL_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
             "wheel-tips": WHEEL_TIPS.iter().map(|t| format!("{}\n{}", tr(t), tr(WHEEL_HINT))).collect::<Vec<_>>(),

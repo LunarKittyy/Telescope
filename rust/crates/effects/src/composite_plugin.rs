@@ -7,6 +7,7 @@
 //! streams carry on to their own cameras as before. It's a CPU step: a shader step's picture keeps the size it came in at and
 //! its textures are fixed when it's handed over, while this one is a new size and reads every stream's newest frame.
 
+use telescope_core::i18n::Fields;
 use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement, Layout, MAX_LAYOUTS, STALE_S};
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
@@ -418,11 +419,11 @@ impl CompositePlugin {
         } else if live < 2 {
             tr("It takes over once two of its streams are running.")
         } else if self.target.is_none() {
-            tr("It goes out on {camera}, and no stream goes there now.").replace("{camera}", camera)
+            tr("It goes out on {camera}, and no stream goes there now.").field("camera", camera)
         } else if self.shared.store().stream_frame(self.target.as_deref()).is_none() {
-            tr("It goes out on {camera} once the stream there sends a picture.").replace("{camera}", camera)
+            tr("It goes out on {camera} once the stream there sends a picture.").field("camera", camera)
         } else {
-            tr("Goes out on {camera}.").replace("{camera}", camera)
+            tr("Goes out on {camera}.").field("camera", camera)
         };
         host.set_ui_props("card", &self.card_props());
         self.show_editor(host);
@@ -579,7 +580,7 @@ impl Plugin for CompositePlugin {
                 if pick {
                     self.pick(host, &name);
                 }
-                Some(tr("{label}: {value}").replace("{label}", &tr("Picture layout")).replace("{value}", &name))
+                Some(tr("{label}: {value}").field("label", tr("Picture layout")).field("value", &name))
             }
             _ => None,
         }

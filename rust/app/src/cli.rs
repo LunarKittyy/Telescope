@@ -141,17 +141,74 @@ pub fn control(args: &Args, services: &Services, body: &str) -> Result<(), Strin
     Ok(())
 }
 
-/// Prints what this app makes of a config fixture folder, in the shape of its expected.json.
-pub fn config_snapshot(folder: Option<&str>) -> Result<(), String> {
+/// config_fixtures.py's NOW, 28 October 2026, for what the app forgets after a while.
+pub const SNAPSHOT_NOW: f64 = 1793188800.0;
+
+/// No virtual cameras to touch, for config-snapshot.
+pub struct NoCameras;
+
+impl telescope_core::output::Outputs for NoCameras {
+    fn slots(&self) -> Vec<telescope_core::output::Slot> {
+        Vec::new()
+    }
+    fn formats(&self) -> Vec<telescope_core::PixelFormat> {
+        Vec::new()
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn telescope_core::output::VideoOutput>, String> {
+        Err("no cameras in a snapshot".into())
+    }
+}
+
+/// No servers, and the address quiet_sign gives the On Air sign, for config-snapshot.
+pub struct NoServers;
+
+impl telescope_core::web::Web for NoServers {
+    fn addresses(&self) -> Vec<String> {
+        vec!["192.168.1.20".into()]
+    }
+    fn certificate(&self, _folder: &Path, _hosts: &[String]) -> Result<telescope_core::web::Certificate, String> {
+        Err("no servers in a snapshot".into())
+    }
+    fn serve(&self, _certificate: &telescope_core::web::Certificate, _serve: &telescope_core::web::Serve, _handler: Arc<dyn telescope_core::web::PageHandler>) -> Result<Box<dyn telescope_core::web::WebServer>, String> {
+        Err("no servers in a snapshot".into())
+    }
+}
+
+/// A throwaway profile for config-snapshot, with the environment pointed at it, before anything reads a folder.
+pub fn snapshot_profile() -> Result<std::path::PathBuf, String> {
+    let scratch = std::env::temp_dir().join(format!("telescope-rs-config-snapshot-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).map_err(|e| e.to_string())?;
+    // Only this thread runs yet, so changing the environment can't race anything
+    std::env::set_var(telescope_core::config::DEV_PROFILE_ENV, &scratch);
+    for (name, folder) in [("XDG_CONFIG_HOME", "xdg"), ("XDG_DATA_HOME", "xdg-data"), ("APPDATA", "appdata"), ("LOCALAPPDATA", "localappdata")] {
+        std::env::set_var(name, scratch.join(folder));
+    }
+    Ok(scratch)
+}
+
+/// Prints what the real window, with every built-in plugin, makes of a config fixture folder, in the shape of its expected.json.
+pub fn config_snapshot(folder: Option<&str>, services: Arc<Services>, scratch: &Path) -> Result<(), String> {
+    use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
     let folder = Path::new(folder.ok_or("Usage: telescope-rs config-snapshot <fixture folder>")?);
     if !folder.is_dir() {
         return Err(format!("{} isn't a folder", folder.display()));
     }
-    let scratch = std::env::temp_dir().join(format!("telescope-rs-config-snapshot-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&scratch);
-    std::fs::create_dir_all(&scratch).map_err(|e| e.to_string())?;
-    let result = telescope_core::snapshot::snapshot(folder, &scratch, &[], &[]);
-    let _ = std::fs::remove_dir_all(&scratch);
-    print!("{}", telescope_core::snapshot::dump(&result.map_err(|e| e.to_string())?));
+    let source = folder.join(CONFIG_FILENAME);
+    let file = scratch.join(CONFIG_FILENAME);
+    if source.exists() {
+        std::fs::copy(&source, &file).map_err(|e| e.to_string())?;
+    }
+    telescope_shell::offscreen::install();
+    let window = telescope_shell::window::build_app(ConfigFile::at(&file), services, None)?;
+    window.process();
+    let plugins: Vec<String> = {
+        let mut state = window.state.borrow_mut();
+        state.save_now();
+        state.slots.iter().map(|s| s.info.name.clone()).filter(|n| !n.is_empty()).collect()
+    };
+    let result = telescope_core::snapshot::result(folder, scratch, &plugins).map_err(|e| e.to_string());
+    let _ = std::fs::remove_dir_all(scratch);
+    print!("{}", telescope_core::snapshot::dump(&result?));
     Ok(())
 }

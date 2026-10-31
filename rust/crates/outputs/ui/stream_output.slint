@@ -51,6 +51,8 @@ export component StreamOutputCard inherits Card {
     in property <[string]> fps-items;
     in-out property <int> fps-current;
     in property <string> fps-tip;
+    // Rates past what the lens can do: greyed out and can't be picked
+    in property <[bool]> fps-gone;
     in property <[string]> ar-items: ["—"];
     in-out property <int> ar-current;
     in property <bool> ar-enabled;
@@ -64,6 +66,8 @@ export component StreamOutputCard inherits Card {
     in-out property <float> bitrate: 0;
     in property <string> bitrate-readout;
     in property <string> bitrate-tip;
+    // value_label's fits: the column both readouts share, wide enough for "100 Mbps" and the words it can show
+    in property <length> readout-width: 64px;
     callback res-picked(int);
     callback fps-picked(int);
     callback ar-picked(int);
@@ -89,7 +93,8 @@ export component StreamOutputCard inherits Card {
             caption: @tr("Frame rate");
             items: root.fps-items;
             current <=> root.fps-current;
-            accessible-description: root.fps-tip;
+            gone: root.fps-gone;
+            tip: root.fps-tip;
             picked(i) => { root.fps-picked(i); }
         }
         ChoiceField {
@@ -133,8 +138,13 @@ export component StreamOutputCard inherits Card {
             maximum: 95;
             value <=> root.quality;
             readout: root.quality-readout;
+            readout-width: root.readout-width;
             label: @tr("JPEG quality");
             hue: root.hue;
+            tip: root.quality-tip;
+            marks: [85];
+            has-default: true;
+            default-value: 85;
             moved(v) => { root.quality-moved(v); }
         }
     }
@@ -148,8 +158,12 @@ export component StreamOutputCard inherits Card {
             maximum: 101;
             value <=> root.bitrate;
             readout: root.bitrate-readout;
+            readout-width: root.readout-width;
             label: @tr("Bitrate");
             hue: root.hue;
+            tip: root.bitrate-tip;
+            has-default: true;
+            default-value: 0;
             moved(v) => { root.bitrate-moved(v); }
         }
     }

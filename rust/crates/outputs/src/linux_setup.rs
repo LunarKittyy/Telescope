@@ -2,6 +2,7 @@
 //! removing the extra cameras, each behind one password prompt. Nothing here runs as root by itself: pkexec asks, sudo
 //! is only tried where it can't ask, and otherwise the command to paste into a terminal comes back.
 
+use telescope_core::i18n::Fields;
 use telescope_core::i18n::{n_, tr};
 use telescope_core::output::SetupResult;
 
@@ -170,11 +171,11 @@ impl Setup<'_> {
     pub fn setup(&self, persist: bool) -> SetupResult {
         if self.module_loaded() {
             return failed(tr("v4l2loopback is already loaded with other settings, so {device} isn't there. Close any app using a virtual camera, click Unload and then Load.")
-                .replace("{device}", PHONE_DEV));
+                .field("device", PHONE_DEV));
         }
         for dev in [PHONE_DEV, OBS_DEV] {
             if self.sys.exists(dev) {
-                return failed(tr("{device} already exists and is not a v4l2loopback device.").replace("{device}", dev));
+                return failed(tr("{device} already exists and is not a v4l2loopback device.").field("device", dev));
             }
         }
         let (modprobe_conf, modules_conf) = self.persist_status();
@@ -184,7 +185,7 @@ impl Setup<'_> {
         steps.push(modprobe_step());
         let r = self.privileged(&steps, 60, &tr("modprobe failed"));
         if r.ok {
-            return ok(tr("Loaded: {phone} + {obs}").replace("{phone}", PHONE_DEV).replace("{obs}", OBS_DEV));
+            return ok(tr("Loaded: {phone} + {obs}").field("phone", PHONE_DEV).field("obs", OBS_DEV));
         }
         if r.message.to_lowercase().contains("not found") {
             return failed(tr("v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again."));
@@ -233,17 +234,17 @@ impl Setup<'_> {
     pub fn persist_enable(&self) -> SetupResult {
         let (a, b) = self.persist_status();
         if a || b {
-            return ok(tr("Already persisted: {path}").replace("{path}", PERSIST_MODPROBE_CONF));
+            return ok(tr("Already persisted: {path}").field("path", PERSIST_MODPROBE_CONF));
         }
         let conflicts = self.conflicting_confs();
         if !conflicts.is_empty() {
-            return failed(tr("Existing v4l2loopback config found in {paths} - remove it first").replace("{paths}", &conflicts.join(", ")));
+            return failed(tr("Existing v4l2loopback config found in {paths} - remove it first").field("paths", conflicts.join(", ")));
         }
         let r = self.privileged(&persist_steps(), 30, &tr("Failed to write persistence files"));
         if !r.ok {
             return r;
         }
-        ok(tr("Wrote {first} and {second}").replace("{first}", PERSIST_MODPROBE_CONF).replace("{second}", PERSIST_MODULES_CONF))
+        ok(tr("Wrote {first} and {second}").field("first", PERSIST_MODPROBE_CONF).field("second", PERSIST_MODULES_CONF))
     }
 
     /// Remove Telescope's boot files; doesn't unload the running module.
@@ -257,7 +258,7 @@ impl Setup<'_> {
         if !r.ok {
             return r;
         }
-        ok(tr("Removed {paths}").replace("{paths}", &existing.join(", ")))
+        ok(tr("Removed {paths}").field("paths", existing.join(", ")))
     }
 }
 

@@ -349,29 +349,47 @@ pub fn confirm(directory: &Path) {
     }
 }
 
-/// A logout or shutdown (SIGTERM, SIGHUP) before confirm() is the system's doing, not a failed start: confirm, then die
-/// the way the signal would have. Call first thing in main, before any other thread starts, so they all leave the two
-/// signals to the thread that waits for them. Not on Windows, where a shutdown closes the window instead.
+/// The write end of the pipe the terminate handler wakes its thread through.
+#[cfg(unix)]
+static TERMINATE_PIPE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+
+/// A signal handler may do next to nothing, so it hands the signal to the thread that confirms.
+#[cfg(unix)]
+extern "C" fn on_terminate(signal: libc::c_int) {
+    let byte = signal as u8;
+    let fd = TERMINATE_PIPE.load(std::sync::atomic::Ordering::SeqCst);
+    // SAFETY: write is async-signal-safe and this is one byte from a local
+    unsafe { libc::write(fd, (&byte as *const u8).cast(), 1) };
+}
+
+/// A logout or shutdown (SIGTERM, SIGHUP) before confirm() is the system's doing, not a failed start: confirm, then die the way the signal would have.
+/// A handler rather than a blocked mask, which every program this one starts would inherit. Not on Windows, where a shutdown closes the window instead.
 #[cfg(unix)]
 pub fn confirm_on_terminate(directory: PathBuf) {
-    // SAFETY: plain libc signal-set calls on a local set; the mask is set before other threads exist
-    unsafe {
-        let mut set: libc::sigset_t = std::mem::zeroed();
-        libc::sigemptyset(&mut set);
-        libc::sigaddset(&mut set, libc::SIGTERM);
-        libc::sigaddset(&mut set, libc::SIGHUP);
-        if libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut()) != 0 {
-            return;
-        }
-        let _ = std::thread::Builder::new().name("terminate".into()).spawn(move || {
-            let mut sig: libc::c_int = 0;
-            if libc::sigwait(&set, &mut sig) == 0 {
-                confirm(&directory);
-                libc::signal(sig, libc::SIG_DFL);
-                libc::pthread_sigmask(libc::SIG_UNBLOCK, &set, std::ptr::null_mut());
-                libc::kill(libc::getpid(), sig);
+    let mut ends = [0; 2];
+    // SAFETY: room for the two descriptors
+    if unsafe { libc::pipe2(ends.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+        return;
+    }
+    TERMINATE_PIPE.store(ends[1], std::sync::atomic::Ordering::SeqCst);
+    let spawned = std::thread::Builder::new().name("terminate".into()).spawn(move || {
+        let mut byte = 0u8;
+        // SAFETY: reads one byte into a local from a pipe this thread's handler end keeps open
+        if unsafe { libc::read(ends[0], (&mut byte as *mut u8).cast(), 1) } == 1 {
+            confirm(&directory);
+            // SAFETY: back to the default action, then that action
+            unsafe {
+                libc::signal(byte as libc::c_int, libc::SIG_DFL);
+                libc::kill(libc::getpid(), byte as libc::c_int);
             }
-        });
+        }
+    });
+    if spawned.is_err() {
+        return;
+    }
+    for signal in [libc::SIGTERM, libc::SIGHUP] {
+        // SAFETY: the handler has the signature signal expects and stays for the life of the process
+        unsafe { libc::signal(signal, on_terminate as *const () as libc::sighandler_t) };
     }
 }
 

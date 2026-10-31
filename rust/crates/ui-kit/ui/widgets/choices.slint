@@ -143,8 +143,8 @@ export component ChoiceField inherits Rectangle {
     function step(by: int) -> int {
         let next = current + by;
         let past = next + by;
-        if (next >= 0 && next < items.length && !headings[next]) { return next; }
-        if (headings[next] && past >= 0 && past < items.length && !headings[past]) { return past; }
+        if (next >= 0 && next < items.length && !headings[next] && !gone[next]) { return next; }
+        if ((headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
         return current;
     }
     height: compact ? 32px : 48px;
@@ -159,6 +159,7 @@ export component ChoiceField inherits Rectangle {
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[current];
+    accessible-description: tip;
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }

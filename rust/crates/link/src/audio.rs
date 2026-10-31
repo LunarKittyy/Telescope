@@ -1,6 +1,7 @@
 //! The phone's microphone as it arrives (/v1/audio: 48 kHz mono s16le), for the audio crate's worker (audio.py's
 //! reading half), and the reason the phone gives when it won't send it.
 
+use telescope_core::i18n::Fields;
 use crate::https::{Aborter, PhoneAuth, Request, Response};
 use std::io::Read;
 use std::time::Duration;
@@ -55,7 +56,7 @@ fn refusal(mut resp: Response) -> String {
                 .unwrap_or_else(|| format!("HTTP {status}"));
             phone_mic_reason(body.get("code").and_then(|c| c.as_str()), &english)
         }
-        Err(()) => tr("The phone refused the microphone (HTTP {code}).").replace("{code}", &status.to_string()),
+        Err(()) => tr("The phone refused the microphone (HTTP {code}).").field("code", status.to_string()),
     }
 }
 

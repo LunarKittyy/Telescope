@@ -5,7 +5,7 @@
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
-use telescope_core::i18n::{self, lang, po};
+use telescope_core::i18n::{self, lang, po, Fields};
 
 static LOCK: Mutex<()> = Mutex::new(());
 
@@ -224,7 +224,15 @@ fn a_field_takes_the_format_specs_python_does() {
     }
 }
 
-// A broken plural form falls back on its own, the others stay (i18n.py's trn), and a spec on {n} is kept for the counts
+// A field among code's own blocks is still found, and what isn't a field is left alone
+#[test]
+fn one_field_at_a_time_leaves_everything_else() {
+    assert_eq!("a { b: {left}; } {right} {{left}}".field("left", 1), "a { b: 1; } {right} {{left}}");
+    assert_eq!("{n:02d} of {all}".field("n", 5).field("all", 9), "05 of 9");
+    assert_eq!("{n:02d}".field("n", "x"), "x", "a spec the value can't take");
+}
+
+// A broken plural form falls back on its own, the others stay (i18n.py's trn), and format specs are kept
 #[test]
 fn a_broken_plural_form_shows_the_english_for_that_form_alone() {
     let po = r#"msgid ""
@@ -248,8 +256,8 @@ msgstr "{seconds:.1f} s"
     let catalog = i18n::Catalog::from_po(po.as_bytes()).unwrap();
     assert_eq!(catalog.get("{n} phone").unwrap(), ["{n} telefon", ""]);
     assert_eq!(catalog.get("{n} cam").unwrap(), ["{n:02d} kamera", "{n:02d} kameror"]);
-    // Everything but a plural's {n} is filled in with replace, which wouldn't find a field with a spec
-    assert!(catalog.get("Took {seconds} s").is_none());
+    assert_eq!(catalog.get("Took {seconds} s").unwrap(), ["{seconds:.1f} s"]);
+    assert_eq!(catalog.get("Took {seconds} s").unwrap()[0].field("seconds", 2.25), "2.2 s");
 }
 
 // test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english

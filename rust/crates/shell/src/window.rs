@@ -251,7 +251,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
     state.set_plugin_problems(&problems);
-    state.load_builtins(plugins);
+    state.load_builtins(plugins)?;
     state.apply_saved_config();
     let phones = state.plugin_config("connection").map_or_else(
         || phones_from_file(&state.file).phones.len() as u32,
@@ -527,10 +527,14 @@ impl Window {
                 }
                 self.start_source(source_id);
             }
-            Pressed::Action(IssueDoes::Plugin { id }) => match id.strip_prefix(crate::streams::CAMERA_AGAIN) {
-                Some(source_id) => self.camera_on_again(source_id),
-                None => self.tell_issue(key, &id),
-            },
+            Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
+            Pressed::Action(IssueDoes::CameraOnAgain { source_id }) => {
+                // The switch is the panels' stream's
+                if let Some(id) = source_id.as_deref() {
+                    self.with_flow(|flow, host| flow.focus_stream(host, id));
+                }
+                self.state.borrow_mut().effects.push(Effect::CameraOn { on: true, auto: false });
+            }
             Pressed::Dismissed => {
                 if key == "plugins_off" {
                     let s = self.state.borrow_mut();
@@ -1220,13 +1224,18 @@ pub(crate) fn windowing() -> &'static str {
     }
 }
 
-pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
-    let gpu_painter = crate::preview::select_wgpu_backend();
-    let window = build(ConfigFile::default(), |bus| {
+/// The window with every built-in plugin, on file.
+pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
+    build(file, |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
         plugins.extend((services.plugins)());
         crate::plugins::in_order(plugins)
-    }, Some(services.clone()), Some(opts.clone()))?;
+    }, Some(services.clone()), opts)
+}
+
+pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
+    let gpu_painter = crate::preview::select_wgpu_backend();
+    let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
     *window.painter.borrow_mut() = gpu_painter;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;

@@ -4,6 +4,7 @@
 //! Nothing here draws. A change is asked for with `request`, which says whether the person has to answer a question first; `commit` then
 //! does it and says what to tell them. `run` does both for the tests, which answer the questions themselves like the Python ones.
 
+use telescope_core::i18n::Fields;
 use crate::texts::{fill, trn};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -572,7 +573,7 @@ impl Panel {
 
     /// The tab's name, with how many built-in plugins are off this run.
     pub fn tab_title(off: usize) -> String {
-        if off == 0 { String::new() } else { tr("Plugins ({n} off)").replace("{n}", &off.to_string()) }
+        if off == 0 { String::new() } else { tr("Plugins ({n} off)").field("n", off.to_string()) }
     }
 
     fn tile(&self, name: &str) -> Option<Tile> {

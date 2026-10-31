@@ -2,6 +2,7 @@
 //! people on the call. The card holds up to nine saved sets and sends the open one with its style (size, scroll speed, playing) as
 //! /v1/control bodies through Host::phone_control; what the phone says back (its state) says whether they are up.
 
+use telescope_core::i18n::Fields;
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -209,7 +210,7 @@ impl NotesPlugin {
 
     fn set_label(index: usize, text: &str) -> String {
         let name = set_name(text);
-        if name.is_empty() { tr("Notes {n}").replace("{n}", &(index + 1).to_string()) } else { name }
+        if name.is_empty() { tr("Notes {n}").field("n", (index + 1).to_string()) } else { name }
     }
 
     // ── What the card shows ───────────────────────────────────────────
@@ -633,7 +634,7 @@ impl Plugin for NotesPlugin {
                     self.send_style(host);
                 }
                 let state = if self.playing { tr("playing") } else { tr("paused") };
-                Some(tr("{label}: {value}").replace("{label}", &tr("Scroll notes")).replace("{value}", &state))
+                Some(tr("{label}: {value}").field("label", tr("Scroll notes")).field("value", &state))
             }
             "notes.speed" if self.scroll_auto => {
                 let target = actions::slider_target(params, self.speed, 1.0, 1, SPEED_MAX, Some(SPEED_DEFAULT))?;

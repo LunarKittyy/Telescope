@@ -71,7 +71,8 @@ def compare(expected: dict, actual: dict, done: set, builtin: set, everything: b
     diffs = []
 
     def same(path, want, got):
-        if want != got:
+        # As JSON, since Python's == calls 50 and 50.0 the same and the two apps must save the same text
+        if show(want) != show(got):
             diffs.append(f"{path}: expected {show(want)}, got {show(got)}")
 
     def plugin_configs(path, want, got, scope):

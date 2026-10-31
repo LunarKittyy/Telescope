@@ -2,6 +2,7 @@
 //! phones dialogs, the Start banners and the UDP setting. Its decisions are connection.rs's; its state is shared with
 //! LinkService (shared.rs), which the window's stream flow calls, so the window never reaches into this plugin.
 
+use telescope_core::i18n::Fields;
 use crate::adb_download;
 use crate::connection::{self, fix_actions, outdated_action, problem_text, route_text, status_line,
                         Check, Connection, Fix, ProbeOutcome, RouteChange, UsbWatch, UseRoute, PAIR_USB_POLL,
@@ -419,7 +420,7 @@ impl ConnectionPlugin {
                 Err(panic) => {
                     let error = panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned());
                     log::error!("Phone app install failed: {error:?}");
-                    json!({"ok": false, "detail": tr("Couldn't update the phone app: {error}").replace("{error}", &error.unwrap_or_default())})
+                    json!({"ok": false, "detail": tr("Couldn't update the phone app: {error}").field("error", error.unwrap_or_default())})
                 }
             }
         });
@@ -566,7 +567,7 @@ impl ConnectionPlugin {
             return;
         };
         let picks: Vec<Value> = usable(&add.usb_states).into_iter()
-            .map(|(serial, name)| json!({"serial": serial, "label": tr("Pair {phone}").replace("{phone}", &name), "enabled": add.chosen.as_ref() != Some(&serial)}))
+            .map(|(serial, name)| json!({"serial": serial, "label": tr("Pair {phone}").field("phone", &name), "enabled": add.chosen.as_ref() != Some(&serial)}))
             .collect();
         let paired = add.paired.is_some();
         host.set_ui_props("card", &json!({
@@ -575,7 +576,7 @@ impl ConnectionPlugin {
             "qr-cells": add.qr.0, "qr-size": add.qr.1,
             "wifi-text": add.wifi_text, "usb-text": add.usb_text, "usb-kind": add.usb_kind, "usb-action": add.usb_action, "usb-pick-action": add.usb_pick_action,
             "picks": picks, "paired": paired,
-            "result-text": add.paired.as_ref().map(|n| tr("Paired with {name}").replace("{name}", n)).unwrap_or_default(),
+            "result-text": add.paired.as_ref().map(|n| tr("Paired with {name}").field("name", n)).unwrap_or_default(),
         }));
     }
 
@@ -592,7 +593,7 @@ impl ConnectionPlugin {
         }
         if let Some(chosen) = add.chosen.clone() {
             let name = usable.iter().find(|(s, _)| *s == chosen).map(|(_, n)| n.clone()).unwrap_or_default();
-            add.usb_text = tr("Pairing {phone}. Keep Telescope open on it until it's done.").replace("{phone}", &name);
+            add.usb_text = tr("Pairing {phone}. Keep Telescope open on it until it's done.").field("phone", &name);
             add.usb_kind = "status_dim";
             self.send_offer(&chosen);
         } else if !usable.is_empty() {
@@ -642,7 +643,7 @@ impl ConnectionPlugin {
             add.confirming = true;
             add.usb_text = format!("{} {}", tr("USB needs adb, Google's tool for talking to Android phones."),
                                    tr("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: {url}")
-                                       .replace("{size}", adb_download::APPROX_SIZE).replace("{url}", adb_download::LICENSE_URL));
+                                       .field("size", adb_download::APPROX_SIZE).field("url", adb_download::LICENSE_URL));
             add.usb_kind = "status_dim";
             add.usb_action = tr("Agree and download");
             self.render_add(host, true);
@@ -778,7 +779,7 @@ impl ConnectionPlugin {
         let name = old.name.clone();
         let issue = Issue {
             title: tr("Same phone?"),
-            text: tr("Is this {name} again?").replace("{name}", &name) + " " + &tr("A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.").replace("{name}", &name),
+            text: tr("Is this {name} again?").field("name", &name) + " " + &tr("A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.").field("name", &name),
             actions: vec![IssueAction { label: tr("Yes"), does: IssueDoes::Plugin { id: "same_phone:yes".into() } },
                           IssueAction { label: tr("No"), does: IssueDoes::Plugin { id: "same_phone:no".into() } }],
             kind: "info".into(), details: String::new(), tell_dismiss: true,
@@ -1032,8 +1033,8 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         let text = match &ctx.source {
             None => tr("No phone yet"),
             Some(_) if c.streaming && live => tr_ctx("status", "Streaming"),
-            Some(source) if c.streaming => tr("Waiting for {source}…").replace("{source}", source),
-            Some(source) => tr("{source}, no phone needed").replace("{source}", source),
+            Some(source) if c.streaming => tr("Waiting for {source}…").field("source", source),
+            Some(source) => tr("{source}, no phone needed").field("source", source),
         };
         p.insert("status-kind".into(), json!(if live { "status_ok" } else { "status_dim" }));
         p.insert("status-text".into(), json!(text));
@@ -1076,7 +1077,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     }
     let action = if c.streaming { None } else { outdated_action(res, ctx.apk_bundled, ctx.adb_available) };
     if action == Some(Fix::UpdateOverUsb) && ctx.update_note.is_none() && !ctx.updating_phone {
-        note = tr("The Telescope app on {phone} is older than this one.").replace("{phone}", &phone.name); // the button is the how
+        note = tr("The Telescope app on {phone} is older than this one.").field("phone", &phone.name); // the button is the how
     }
     let preference = c.pending_route.unwrap_or(c.route_pref);
     json!({
@@ -1152,19 +1153,19 @@ pub fn phone_rows(phones: &[PairedPhone], remembered: &[RememberedSource]) -> Ve
     let mut rows = Vec::new();
     for phone in phones {
         let ip = phone.active_ip.clone().or_else(|| phone.ips.first().cloned()).unwrap_or_default();
-        let sub = if ip.is_empty() { tr("Phone") } else { tr("Phone · {ip}").replace("{ip}", &ip) };
+        let sub = if ip.is_empty() { tr("Phone") } else { tr("Phone · {ip}").field("ip", &ip) };
         let confirm = tr("Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it.")
-            .replace("{name}", &phone.name);
+            .field("name", &phone.name);
         rows.push(json!({"id": phone.id, "name": phone.name, "sub": sub, "renamable": true,
-                         "rename-label": tr("Rename {name}").replace("{name}", &phone.name),
-                         "remove-label": tr("Remove {name}").replace("{name}", &phone.name),
+                         "rename-label": tr("Rename {name}").field("name", &phone.name),
+                         "remove-label": tr("Remove {name}").field("name", &phone.name),
                          "confirm-title": tr("Remove phone"), "confirm": confirm}));
     }
     for source in remembered {
         let confirm = tr("Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults.")
-            .replace("{name}", &source.name);
+            .field("name", &source.name);
         rows.push(json!({"id": source.id, "name": source.name, "sub": source.detail, "renamable": false,
-                         "remove-label": tr("Remove {name}").replace("{name}", &source.name),
+                         "remove-label": tr("Remove {name}").field("name", &source.name),
                          "confirm-title": tr("Remove browser"), "confirm": confirm}));
     }
     rows
@@ -1350,14 +1351,14 @@ impl Plugin for ConnectionPlugin {
                 let from = current.unwrap_or(if op == "next" { n - 1 } else { 0 });
                 let next = (from + step) % n;
                 if Some(next) == current {
-                    return Some(tr("{label}: {value}").replace("{label}", &tr("Phone")).replace("{value}", &options[next].1));
+                    return Some(tr("{label}: {value}").field("label", tr("Phone")).field("value", &options[next].1));
                 }
                 next
             }
         };
         let (pid, name) = options[target].clone();
         self.select(host, Some(&pid), false, true);
-        Some(tr("{label}: {value}").replace("{label}", &tr("Phone")).replace("{value}", &name))
+        Some(tr("{label}: {value}").field("label", tr("Phone")).field("value", &name))
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
@@ -1449,7 +1450,7 @@ impl Plugin for ConnectionPlugin {
             host.show_issue("start", Issue {
                 title: tr("Virtual camera is set up differently"),
                 text: tr("v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:")
-                    .replace("{device}", V4L2_PHONE_DEV),
+                    .field("device", V4L2_PHONE_DEV),
                 actions: vec![copy_action(command)], kind: "err".into(), details: command.into(), tell_dismiss: false,
             });
             return false;

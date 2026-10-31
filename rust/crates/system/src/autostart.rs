@@ -1,5 +1,6 @@
 //! Open Telescope at sign-in: an XDG autostart entry on Linux, the per-user Run key on Windows; also the Linux app-menu entry and the hidden one the portal needs (platform/autostart.py).
 
+use telescope_core::i18n::Fields;
 use std::path::{Path, PathBuf};
 
 use telescope_core::i18n::tr;
@@ -224,7 +225,7 @@ pub fn enable(command: &[String], place: &Place) -> Result<(), String> {
         }
         Place::Registry(key) => key.set(&run_line(command)),
     };
-    done.map_err(|e| tr("Couldn't set Telescope to open at sign-in: {error}").replace("{error}", &e))
+    done.map_err(|e| tr("Couldn't set Telescope to open at sign-in: {error}").field("error", &e))
 }
 
 /// If opening at sign-in is on but points at another copy (the folder moved), points it at this one.
@@ -250,7 +251,7 @@ pub fn disable(place: &Place) -> Result<(), String> {
         },
         Place::Registry(key) => key.delete(),
     };
-    done.map_err(|e| tr("Couldn't stop Telescope opening at sign-in: {error}").replace("{error}", &e))
+    done.map_err(|e| tr("Couldn't stop Telescope opening at sign-in: {error}").field("error", &e))
 }
 
 /// The real Run key, through advapi32 like winreg, so a path outside the code page survives.

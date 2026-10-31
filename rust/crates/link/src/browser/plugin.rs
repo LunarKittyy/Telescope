@@ -12,6 +12,7 @@
 //! The sources run on the host's thread without the plugin to hand, so what they need to know (whether Start waits,
 //! which browser is idle, the rate) is shared, and what they ask for (prepare, cancel) is posted to the plugin.
 
+use telescope_core::i18n::Fields;
 use super::feed::{BrowserFeed, BrowserHub, BrowserVideo, Sent};
 use super::rtc::{RtcMaker, RtcSession, StrSession};
 use super::server::{BrowserServer, BROWSER_PORT};
@@ -78,7 +79,7 @@ pub fn sending_text(codec: &str, sent: &Sent) -> String {
     if let (Some(w), Some(h)) = (sent.width.filter(|w| *w > 0), sent.height.filter(|h| *h > 0)) {
         let size = format!("{w}×{h}");
         parts.push(match sent.fps.filter(|f| *f > 0) {
-            Some(fps) => tr("{size} at {fps} fps").replace("{size}", &size).replace("{fps}", &fps.to_string()),
+            Some(fps) => tr("{size} at {fps} fps").field("size", &size).field("fps", fps.to_string()),
             None => size,
         });
     }
@@ -96,7 +97,7 @@ pub fn waiting_hint(stats: Option<&ServerStats>, connected: bool, now: Instant) 
     }
     if stats.nothing_arrived() && now.saturating_duration_since(stats.started) >= HINT_AFTER {
         return tr("Nothing has reached this computer yet. Check that the device is on the same network as the address in the \
-                   code, and that the firewall allows port {port}.").replace("{port}", &stats.port.to_string());
+                   code, and that the firewall allows port {port}.").field("port", stats.port.to_string());
     }
     String::new()
 }
@@ -425,6 +426,8 @@ pub struct Seen {
 
 pub struct BrowserCameraPlugin {
     make_server: ServerMaker,
+    /// Seconds since 1970, for when a browser was last seen.
+    clock: Box<dyn Fn() -> f64 + Send>,
     addresses: Box<dyn Fn() -> Vec<String> + Send>,
     pub hub: Arc<BrowserHub>,
     shared: Arc<Shared>,
@@ -464,7 +467,7 @@ impl BrowserCameraPlugin {
         }));
         let shared = Arc::new(Shared { fps: AtomicU32::new(DEFAULT_FPS), ..Shared::default() });
         BrowserCameraPlugin {
-            make_server, addresses: Box::new(addresses), hub, shared, room, browsers: Vec::new(), started: Vec::new(),
+            make_server, clock: Box::new(unix_now), addresses: Box::new(addresses), hub, shared, room, browsers: Vec::new(), started: Vec::new(),
             joining: false, join_again: false, cutting: false, handover: String::new(), known: Vec::new(), server: None,
             problem: String::new(), selected_id: String::new(), size: DEFAULT_SIZE.into(), fps: DEFAULT_FPS,
             address: String::new(), candidates: Vec::new(),
@@ -559,7 +562,7 @@ impl BrowserCameraPlugin {
                 (if sent.limit == "cpu" { "status_warn" } else { "status_ok" }, text)
             }
         } else if connected.len() > 1 {
-            ("status_ok", tr("{n} connected").replace("{n}", &connected.len().to_string()))
+            ("status_ok", tr("{n} connected").field("n", connected.len().to_string()))
         } else if let Some(only) = connected.first() {
             ("status_ok", only.name.clone())
         } else {
@@ -568,7 +571,7 @@ impl BrowserCameraPlugin {
         let lines: Vec<String> = connected.iter().map(|s| {
             let out = h.stream_output(&s.source_id());
             let value = if out.is_empty() { tr("not streaming") } else { out };
-            tr("{label}: {value}").replace("{label}", &s.name).replace("{value}", &value)
+            tr("{label}: {value}").field("label", &s.name).field("value", &value)
         }).collect();
         let mic = match (&server, &feed) {
             (Some(_), Some(feed)) if feed.connected() => feed.mic_error(),
@@ -585,7 +588,7 @@ impl BrowserCameraPlugin {
             "status-tip": tip,
             "list-text": lines.join("\n"),
             "show-list": lines.len() > 1,
-            "mic-text": if mic.is_empty() { String::new() } else { tr("No microphone: {problem}").replace("{problem}", &mic) },
+            "mic-text": if mic.is_empty() { String::new() } else { tr("No microphone: {problem}").field("problem", &mic) },
             "hint-text": hint,
             "url": url,
             "qr-cells": cells,
@@ -818,13 +821,13 @@ impl BrowserCameraPlugin {
             Ok(server) => server,
             Err(e) => {
                 log::warn!("Browser camera server didn't start: {e}");
-                self.problem = tr("Couldn't start: {error}").replace("{error}", &e);
+                self.problem = tr("Couldn't start: {error}").field("error", &e);
                 return false;
             }
         };
         if let Err(e) = server.start() {
             log::warn!("Browser camera server didn't start: {e}");
-            self.problem = tr("Couldn't start: {error}").replace("{error}", &e);
+            self.problem = tr("Couldn't start: {error}").field("error", &e);
             return false;
         }
         self.server = Some(server);
@@ -853,6 +856,12 @@ impl BrowserCameraPlugin {
     }
 
     /// The old code stops working and every browser on it is cut off: their streams end (they wouldn't come back).
+    /// The same with its own idea of the time, for what it forgets after a while.
+    pub fn with_clock(mut self, clock: impl Fn() -> f64 + Send + 'static) -> Self {
+        self.clock = Box::new(clock);
+        self
+    }
+
     pub fn new_link(&mut self, h: &mut dyn BrowserHost) {
         let Some(server) = &self.server else { return };
         self.cutting = true; // a browser still connected must not start in the place of one that was stopped
@@ -956,7 +965,7 @@ impl BrowserCameraPlugin {
     // ── Remembered browsers ──
 
     fn note_seen(&mut self, h: &mut dyn BrowserHost, bid: &str, name: &str) {
-        let now = unix_now();
+        let now = (self.clock)();
         let entry = self.known.iter_mut().find(|(id, _)| id == bid);
         match entry {
             Some((_, seen)) if seen.name == name && now - seen.seen <= 3600.0 => {}
@@ -973,7 +982,7 @@ impl BrowserCameraPlugin {
 
     /// Forget browsers that haven't connected for REMEMBER_DAYS, and ones that never had a setting changed.
     pub fn tidy_known(&mut self, h: &mut dyn BrowserHost) {
-        let cutoff = unix_now() - REMEMBER_DAYS * 86400.0;
+        let cutoff = (self.clock)() - REMEMBER_DAYS * 86400.0;
         let entries = std::mem::take(&mut self.known);
         for (bid, seen) in entries {
             let sid = format!("{BROWSER_PREFIX}{bid}");
@@ -998,7 +1007,7 @@ impl BrowserCameraPlugin {
         list.into_iter().filter_map(|(bid, seen)| {
             let sid = format!("{BROWSER_PREFIX}{bid}");
             h.has_device_settings(&sid).then(|| RememberedSource {
-                id: sid, name: seen.name.clone(), detail: tr("Browser, last connected {date}").replace("{date}", &ymd(seen.seen)),
+                id: sid, name: seen.name.clone(), detail: tr("Browser, last connected {date}").field("date", ymd(seen.seen)),
             })
         }).collect()
     }

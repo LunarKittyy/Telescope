@@ -4,6 +4,7 @@
 //! and the stream running and writes silence; it isn't saved. Setting up and removing the virtual mic, and stopping the
 //! worker, all wait on other processes or threads, so they run in order on one background thread.
 
+use telescope_core::i18n::Fields;
 use crate::backend::{default_backend, MicBackend, INSTALL};
 use crate::meter::{LevelMeter, FLOOR_DB};
 use crate::vb_cable::{VB_CABLE_DONATIONWARE, VB_CABLE_ORIGIN, VB_CABLE_URL};
@@ -414,7 +415,7 @@ impl MicrophonePlugin {
         let (mut text, mut kind, mut action) = (text.to_string(), kind.to_string(), action);
         if let Some((_, name)) = &self.elsewhere {
             // this card is about another stream's mic: it says where this one is
-            text = if self.enabled { tr("On for {name}. Turning it on here turns it off there.").replace("{name}", name) } else { String::new() };
+            text = if self.enabled { tr("On for {name}. Turning it on here turns it off there.").field("name", name) } else { String::new() };
             kind = "dim".into();
             action = None;
         }
@@ -609,7 +610,7 @@ impl MicrophonePlugin {
                 tr("Use the phone's microphone on this computer while streaming. Apps list it as “{name}”.")
             } else {
                 tr("Use the browser's microphone on this computer while streaming. Apps list it as “{name}”.")
-            }.replace("{name}", &name),
+            }.field("name", &name),
             "gain-tip": if phone {
                 tr("Makes the phone mic louder or quieter for other apps. The range is in Advanced.")
             } else {
@@ -673,7 +674,7 @@ impl MicrophonePlugin {
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.prepare())).unwrap_or_else(|e| {
                 log::error!("Microphone setup failed: {}", panic_text(&e));
-                tr("Couldn't create the virtual microphone: {error}").replace("{error}", &panic_text(&e))
+                tr("Couldn't create the virtual microphone: {error}").field("error", panic_text(&e))
             });
             if let Some(p) = poster {
                 p.post(P_PREPARED, json!({"gen": gen, "error": err}));
@@ -766,7 +767,7 @@ impl MicrophonePlugin {
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.install())).unwrap_or_else(|e| {
                 log::error!("VB-Cable install failed: {}", panic_text(&e));
-                tr("Couldn't install VB-Cable: {error}").replace("{error}", &panic_text(&e))
+                tr("Couldn't install VB-Cable: {error}").field("error", panic_text(&e))
             });
             if let Some(p) = poster {
                 p.post(P_INSTALLED, json!({"error": err}));
@@ -912,7 +913,7 @@ impl MicrophonePlugin {
     }
 
     fn run(&mut self, h: &mut dyn MicHost, id: &str, params: &Value) -> Option<String> {
-        let group_label = |label: String, value: String| tr("{label}: {value}").replace("{label}", &label).replace("{value}", &value);
+        let group_label = |label: String, value: String| tr("{label}: {value}").field("label", &label).field("value", &value);
         match id {
             "microphone.mute" => {
                 if !self.control_ready_mute() {

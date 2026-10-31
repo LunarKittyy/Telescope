@@ -518,7 +518,7 @@ mod tests {
     fn every_built_in_plugin_picks_its_category_and_icon() {
         let bus = telescope_core::EventBus::new();
         // The app's own list, as the real window loads it
-        let s = crate::services(None, telescope_system::shortcuts::RemoteActions::default(), false);
+        let s = crate::services(crate::Machine::real(None), telescope_system::shortcuts::RemoteActions::default(), false);
         let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
         plugins.extend((s.plugins)());
         assert!(plugins.len() > 25, "{} plugins", plugins.len());
@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn every_card_takes_its_plugins_group_colour_and_a_main_card_its_icon() {
         let bus = telescope_core::EventBus::new();
-        let s = crate::services(None, telescope_system::shortcuts::RemoteActions::default(), false);
+        let s = crate::services(crate::Machine::real(None), telescope_system::shortcuts::RemoteActions::default(), false);
         let mut plugins = telescope_shell::plugins::builtins(Some(&s), &bus.sender());
         plugins.extend((s.plugins)());
         let mut found = 0;

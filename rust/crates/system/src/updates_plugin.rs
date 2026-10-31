@@ -2,6 +2,7 @@
 //! button in the header. Updating downloads, verifies, swaps the files and restarts, waiting for a running stream to stop first. A copy
 //! that can't replace itself gets the release page instead. The network and the install go through a Backend, so tests stand in for them.
 
+use telescope_core::i18n::Fields;
 use std::io;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
@@ -329,12 +330,12 @@ impl UpdatesPlugin {
     }
 
     fn status_while(&self, streaming: bool) -> (String, &'static str) {
-        let with_version = |text: &str, m: &Manifest| tr(text).replace("{version}", &m.display_version());
+        let with_version = |text: &str, m: &Manifest| tr(text).field("version", m.display_version());
         match self.phase {
             Phase::Downloading => {
                 let (done, total) = self.progress;
                 if let Some(percent) = (done * 100).checked_div(total) {
-                    return (tr("Downloading {percent}%…").replace("{percent}", &percent.to_string()), "status_dim");
+                    return (tr("Downloading {percent}%…").field("percent", percent.to_string()), "status_dim");
                 }
                 return (tr("Downloading…"), "status_dim");
             }
@@ -383,7 +384,7 @@ impl UpdatesPlugin {
     }
 
     fn refresh(&self, host: &mut dyn Host) {
-        let tip = self.available.as_ref().map(|m| tr("Telescope {version} is available").replace("{version}", &m.display_version()));
+        let tip = self.available.as_ref().map(|m| tr("Telescope {version} is available").field("version", m.display_version()));
         host.set_ui_props("header", &json!({"shown": self.available.is_some(), "tip": tip.unwrap_or_default()}));
         host.set_ui_props(SECTION, &self.section_props(host.is_streaming()));
     }

@@ -1,6 +1,7 @@
 //! Setting up the extra virtual cameras when a second stream needs one (app.py _set_up_slots, _ask_slots, _on_slots_ready):
 //! it takes a password, so it asks first, and what wanted a camera in the meantime starts once they're there.
 
+use telescope_core::i18n::Fields;
 use crate::window::{with_window, Window};
 use slint::ComponentHandle;
 use slint_interpreter::{ComponentInstance, Value as SValue};
@@ -81,9 +82,9 @@ impl Window {
         let outputs = self.services.as_ref().map(|s| s.outputs.clone());
         let label = |slot| outputs.as_ref().map_or_else(String::new, |o| o.slot_label(slot));
         let last = outputs.as_ref().map_or(1, |o| o.max_slots().saturating_sub(1));
-        let names = tr("{first} to {last}").replace("{first}", &label(1)).replace("{last}", &label(last));
+        let names = tr("{first} to {last}").field("first", label(1)).field("last", label(last));
         let asks = if cfg!(target_os = "linux") { tr("This asks for your password.") } else { tr("Windows asks for permission.") };
-        let text = format!("{} {asks}", tr("To stream several cameras at once, Telescope adds more virtual cameras ({names}).").replace("{names}", &names));
+        let text = format!("{} {asks}", tr("To stream several cameras at once, Telescope adds more virtual cameras ({names}).").field("names", &names));
         let built = crate::compile::compile("slots-question.slint", QUESTION, Vec::new(), "SlotsQuestion").and_then(|d| d.create().map_err(|e| e.to_string()));
         let ui = match built {
             Ok(ui) => ui,

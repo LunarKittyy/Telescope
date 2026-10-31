@@ -3,6 +3,7 @@
 //! Each release carries a manifest.json with the version, the build number and every file's SHA-256; builds compare by
 //! build number, so switching channel never downgrades. Installing swaps the files through update_guard's journal.
 
+use telescope_core::i18n::Fields;
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -189,7 +190,7 @@ impl Updates<'_> {
             return Ok(None);
         }
         if reply.status >= 400 {
-            return Err(UpdateError(tr("Couldn't check for updates (HTTP {code}).").replace("{code}", &reply.status.to_string())));
+            return Err(UpdateError(tr("Couldn't check for updates (HTTP {code}).").field("code", reply.status.to_string())));
         }
         let mut raw = Vec::new();
         if reply.body.take(MAX_MANIFEST_BYTES as u64 + 1).read_to_end(&mut raw).is_err() {
@@ -430,14 +431,14 @@ fn merged(journal: &Value, changes: Value) -> Value {
 fn swap(directory: &Path, journal: Value, mv: Mover) -> Result<Vec<String>> {
     let journaled = update_guard::write_journal(directory, &merged(&journal, json!({"state": "swapping", "from_build": version::build()})));
     if let Err(e) = journaled {
-        return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").replace("{error}", &strerror(&e))));
+        return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").field("error", strerror(&e))));
     }
     let mut skipped = Vec::new();
     if let Err(e) = update_guard::finish_swap(directory, &journal, &mut skipped, mv) {
         if let Err(back) = update_guard::roll_back(directory, &journal, false, &mut |a, b| std::fs::rename(a, b)) {
             log::error!("Putting the old version back failed; the next start tries again: {back}");
         }
-        return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").replace("{error}", &strerror(&e))));
+        return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").field("error", strerror(&e))));
     }
     // The old version stays until the new one has started once (update_guard::confirm)
     if let Err(e) = update_guard::write_journal(directory, &merged(&journal, json!({"state": "trial", "started": false}))) {
@@ -458,7 +459,7 @@ pub fn install_windows(archive: &Path, directory: &Path, build: i64, mv: Mover) 
         match std::fs::remove_file(directory.join(leftover)) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => {
                 let _ = std::fs::remove_dir_all(&staging);
-                return Err(UpdateError(tr("{file} is in use, so the update wasn't installed. Try again after a restart.").replace("{file}", leftover)));
+                return Err(UpdateError(tr("{file} is in use, so the update wasn't installed. Try again after a restart.").field("file", leftover)));
             }
             _ => {}
         }

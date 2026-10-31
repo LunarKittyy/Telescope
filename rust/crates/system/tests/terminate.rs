@@ -12,6 +12,9 @@ fn main() {
     if let Some(app) = std::env::var_os("TELESCOPE_TERMINATE_APP") {
         let app = PathBuf::from(app);
         confirm_on_terminate(app.clone());
+        // What a relaunched copy starts with, whatever this copy did about the signals
+        let line = format!("grep -E 'Sig(Blk|Ign)' /proc/self/status > '{0}.tmp'; mv '{0}.tmp' '{0}'", app.join("child-signals").display());
+        telescope_system::update_guard::launch(&["/bin/sh".to_string(), "-c".to_string(), line]).unwrap();
         std::fs::write(app.join("ready"), "").unwrap();
         std::thread::sleep(Duration::from_secs(20));
         return;
@@ -28,6 +31,16 @@ fn main() {
         while !app.join("ready").exists() {
             assert!(waited.elapsed() < Duration::from_secs(10), "the child never got ready");
             std::thread::sleep(Duration::from_millis(10));
+        }
+        while !app.join("child-signals").exists() {
+            assert!(waited.elapsed() < Duration::from_secs(10), "the relaunched copy never said");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let signals = std::fs::read_to_string(app.join("child-signals")).unwrap();
+        for line in signals.lines() {
+            let mask = u64::from_str_radix(line.rsplit('\t').next().unwrap(), 16).unwrap();
+            let held = (1u64 << (libc::SIGTERM - 1)) | (1u64 << (libc::SIGHUP - 1));
+            assert_eq!(mask & held, 0, "a relaunched copy has to hear a logout: {line}");
         }
         // SAFETY: a signal to the child this test started and hasn't reaped
         unsafe { libc::kill(child.id() as i32, signal) };

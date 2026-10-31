@@ -3,6 +3,7 @@
 //! just streaming. The answer is debounced and then goes to a sign page another device keeps open and to a webhook, either or both.
 //! camera_watched comes from Wait screen; without it this plugin watches the camera itself.
 
+use telescope_core::i18n::Fields;
 use crate::on_air::{self, Debounce, Sign, WebhookRequest, WebhookSender, DEFAULT_TRIGGER, METHODS, ON_AIR_PORT, RETRY_S, TRIGGERS};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -252,7 +253,7 @@ impl OnAirPlugin {
             self.test_result = if error.is_empty() {
                 (tr("It went through."), "status_ok")
             } else {
-                (tr("It didn't go through: {error}").replace("{error}", error), "status_err")
+                (tr("It didn't go through: {error}").field("error", error), "status_err")
             };
         }
         self.refresh(host);
@@ -273,7 +274,7 @@ impl OnAirPlugin {
             log::warn!("On Air webhook didn't go through: {error}");
             host.show_issue(ISSUE, Issue {
                 title: tr("The On Air webhook didn't go through"),
-                text: tr("It answered: {error}").replace("{error}", error),
+                text: tr("It answered: {error}").field("error", error),
                 actions: vec![IssueAction { label: tr("Settings"), does: IssueDoes::OpenSettings { tab: TAB.into() } }],
                 kind: "warn".into(),
                 details: String::new(),
@@ -316,7 +317,7 @@ impl OnAirPlugin {
             }
             Err(error) => {
                 log::error!("On Air sign server didn't start: {error}");
-                self.problem = tr("Couldn't start: {error}").replace("{error}", &error);
+                self.problem = tr("Couldn't start: {error}").field("error", &error);
             }
         }
     }

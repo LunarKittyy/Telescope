@@ -5,6 +5,7 @@
 //! Windows: VB-Audio Virtual Cable, installed separately (vb_cable.rs); Telescope plays into "CABLE Input" and apps
 //! record from "CABLE Output".
 
+use telescope_core::i18n::Fields;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use telescope_core::config::dev_profile;
@@ -149,7 +150,7 @@ pub fn linux_setup(run: Run, fifo: Option<PathBuf>) -> (Vec<u32>, String) {
     linux_teardown(&stale_modules(&out), run);
     let fifo = match fifo.map(Ok).unwrap_or_else(fifo_path) {
         Ok(f) => f,
-        Err(e) => return (Vec::new(), tr("Couldn't create the virtual microphone: {error}").replace("{error}", &e.to_string())),
+        Err(e) => return (Vec::new(), tr("Couldn't create the virtual microphone: {error}").field("error", e.to_string())),
     };
     let _ = std::fs::remove_file(&fifo);
     let base = vec![
@@ -171,7 +172,7 @@ pub fn linux_setup(run: Run, fifo: Option<PathBuf>) -> (Vec<u32>, String) {
         last = out;
     }
     let error = if last.is_empty() { "pactl failed".to_string() } else { last };
-    (Vec::new(), tr("Couldn't create the virtual microphone: {error}").replace("{error}", &error))
+    (Vec::new(), tr("Couldn't create the virtual microphone: {error}").field("error", &error))
 }
 
 pub fn linux_teardown(module_ids: &[u32], run: Run) {

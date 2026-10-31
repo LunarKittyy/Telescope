@@ -2,6 +2,7 @@
 //! JPEG quality or bitrate the phone sends at. It tells the phone through host.phone_control while a stream runs, and
 //! the window reads its format and bitrate from its settings when a stream starts.
 
+use telescope_core::i18n::Fields;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use telescope_core::event::Event;
@@ -57,9 +58,9 @@ pub fn codec_error_text(state: &Value) -> String {
     };
     match code {
         Some("encoder_stopped") => return tr("The phone's H.264 encoder stopped"),
-        Some("h264_unavailable") if !size.is_empty() => return tr("H.264 isn't available at {size} on this phone").replace("{size}", &size),
-        Some("camera_cant_feed") if !size.is_empty() => return tr("The camera can't feed H.264 at {size} on this phone").replace("{size}", &size),
-        Some("camera_stopped") if !size.is_empty() => return tr("H.264 at {size} stopped the camera on this phone").replace("{size}", &size),
+        Some("h264_unavailable") if !size.is_empty() => return tr("H.264 isn't available at {size} on this phone").field("size", &size),
+        Some("camera_cant_feed") if !size.is_empty() => return tr("The camera can't feed H.264 at {size} on this phone").field("size", &size),
+        Some("camera_stopped") if !size.is_empty() => return tr("H.264 at {size} stopped the camera on this phone").field("size", &size),
         _ => {}
     }
     match state.get("codec_error") {
@@ -283,7 +284,7 @@ impl StreamOutputPlugin {
     fn quality_tip(&self) -> String {
         let label = quality_label(self.quality);
         tr("{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS.")
-            .replace("{quality}", &label).replace("{default}", &DEFAULT_QUALITY.to_string())
+            .field("quality", &label).field("default", DEFAULT_QUALITY.to_string())
     }
 
     fn bitrate_text(&self) -> String {
@@ -315,6 +316,7 @@ impl StreamOutputPlugin {
             "res-items": res_items, "res-current": self.sizes.res_current, "res-enabled": self.sizes.enabled,
             "ar-items": ar_items, "ar-current": self.sizes.ar, "ar-enabled": self.sizes.enabled,
             "fps-items": FPS_CHOICES.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": self.fps_current,
+            "fps-gone": FPS_CHOICES.iter().map(|f| self.camera_max_fps != 0 && *f > self.camera_max_fps).collect::<Vec<_>>(),
             "fps-tip": tr("The phone's capture rate and the virtual camera's. Lower saves data and battery."),
             "h264": self.stream_format() == FORMAT_H264, "h264-enabled": self.h264_offered(),
             "light-tip": self.light_tip(), "heavy-tip": tr(HEAVY_TIP),
@@ -566,11 +568,11 @@ impl StreamOutputPlugin {
                                                  does: IssueDoes::StartAgain { source_id: sid.clone(), before: Some(A_HEAVY.into()) } }];
             let error = codec_error_text(state);
             let text = if let Some(size) = &back {
-                actions.insert(0, IssueAction { label: tr("Start at {size}").replace("{size}", size),
+                actions.insert(0, IssueAction { label: tr("Start at {size}").field("size", size),
                                                 does: IssueDoes::StartAgain { source_id: sid, before: None } });
-                tr("{error}. It's set back to {size}, the last size that worked.").replace("{error}", &error).replace("{size}", size)
+                tr("{error}. It's set back to {size}, the last size that worked.").field("error", &error).field("size", size)
             } else {
-                tr("{error}. Try a lower resolution or FPS, or switch to Heavy.").replace("{error}", &error)
+                tr("{error}. Try a lower resolution or FPS, or switch to Heavy.").field("error", &error)
             };
             host.show_issue("encoder", Issue { title: tr("Too much for the phone's H.264 encoder"), text, actions, kind: "warn".into(),
                                                details: String::new(), tell_dismiss: false });
@@ -578,7 +580,7 @@ impl StreamOutputPlugin {
             // The phone went back to MJPEG; so does the stream, or it would keep asking for H.264
             host.show_issue("h264", Issue {
                 title: tr("Switched to Heavy"),
-                text: tr("{error}. You can try Light again in Stream output.").replace("{error}", &codec_error_text(state)),
+                text: tr("{error}. You can try Light again in Stream output.").field("error", codec_error_text(state)),
                 actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false,
             });
             self.set_format(host, FORMAT_MJPEG);
@@ -600,7 +602,7 @@ impl StreamOutputPlugin {
 
     fn wifi_text(&self) -> String {
         let (band, rssi, mbps) = &self.wifi;
-        let parts = [band.as_ref().map(|b| format!("{b} GHz")), rssi.map(|r| format!("{r} dBm")),
+        let parts = [band.as_ref().filter(|b| !b.is_empty()).map(|b| format!("{b} GHz")), rssi.map(|r| format!("{r} dBm")),
                      mbps.filter(|m| *m != 0).map(|m| format!("{m} Mbps link"))];
         parts.into_iter().flatten().collect::<Vec<_>>().join(", ")
     }
@@ -681,7 +683,7 @@ fn size_of(s: &Value) -> Option<(u32, u32)> {
 }
 
 fn dim(state: &Value, key: &str) -> Option<u32> {
-    state.get(key).filter(|v| v.is_i64()).and_then(Value::as_i64).map(|v| v as u32)
+    state.get(key).filter(|v| v.is_i64()).and_then(Value::as_i64).filter(|v| *v > 0).map(|v| v as u32)
 }
 
 /// Python's truthiness for a JSON value.
@@ -699,7 +701,7 @@ fn truthy(v: Option<&Value>) -> bool {
 /// widgets.common.quality_label: what a JPEG quality looks like, in words.
 fn quality_label(q: i64) -> String {
     let text = if q >= 91 { tr("{q}%: High") } else if q >= 80 { tr("{q}%: Balanced") } else if q >= 60 { tr("{q}%: Low") } else { tr("{q}%: Very low") };
-    text.replace("{q}", &q.to_string())
+    text.field("q", q.to_string())
 }
 
 impl Plugin for StreamOutputPlugin {
@@ -804,10 +806,12 @@ impl Plugin for StreamOutputPlugin {
             }
             "fps-picked" => {
                 let Some(i) = arg(0).as_u64().map(|i| i as usize).filter(|i| *i < FPS_CHOICES.len()) else { return };
-                self.fps_current = i;
-                self.wanted_fps = self.fps();
-                self.apply_fps(host);
-                host.schedule_save();
+                if self.camera_max_fps == 0 || FPS_CHOICES[i] <= self.camera_max_fps {
+                    self.fps_current = i;
+                    self.wanted_fps = self.fps();
+                    self.apply_fps(host);
+                    host.schedule_save();
+                }
             }
             "format-picked" => {
                 host.clear_issue(Some("h264"), None);
@@ -856,7 +860,7 @@ impl Plugin for StreamOutputPlugin {
     }
 
     fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
-        let said = |label: String, value: String| Some(tr("{label}: {value}").replace("{label}", &label).replace("{value}", &value));
+        let said = |label: String, value: String| Some(tr("{label}: {value}").field("label", &label).field("value", &value));
         let out = match id {
             "stream.aspect_ratio" | "stream.resolution" if !self.sizes.enabled => return None,
             "stream.aspect_ratio" => {
@@ -1027,7 +1031,7 @@ impl Plugin for StreamOutputPlugin {
             ("Bitrate".into(), format!("{}{}", if self.dynamic() { "Dynamic".to_string() } else if self.bitrate > 0 { format!("{} Mbps", self.bitrate) } else { "Auto".into() },
                                       if self.dynamic() && self.phone_dynamic == Some(false) { " (phone uses Auto)" } else { "" })),
         ];
-        if let Some(profile) = &self.h264_profile {
+        if let Some(profile) = self.h264_profile.as_ref().filter(|p| !p.is_empty()) {
             out.push(("H.264 profile".into(), profile.clone()));
             out.push(("H.264 refresh".into(), if self.intra_refresh { "intra refresh" } else { "keyframes" }.into()));
         }

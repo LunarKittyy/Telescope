@@ -1,8 +1,14 @@
-"""The parity tools' own logic, without the Python app or a Rust binary: python -m pytest -q rust/parity/tests"""
+"""The parity tools' own logic, without the Python app, and the real settings compare where a built telescope-rs is
+found (TELESCOPE_RS, or debug/telescope-rs under CARGO_TARGET_DIR or rust/target): python -m pytest -q rust/parity/tests"""
 
+import json
+import os
+import shutil
 import sys
 import tomllib
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import compare_config  # noqa: E402
@@ -278,3 +284,45 @@ def test_the_blur_forgives_glyph_edges_but_not_a_missing_box():
     boxed = base.copy()
     boxed[20:30, 20:40, :3] = 200  # a button one side doesn't have
     assert compare_scenes.difference(base, boxed, 24, 1.0)[0] > 0.03
+
+
+def built_binary():
+    folders = [Path(os.environ["CARGO_TARGET_DIR"])] if os.environ.get("CARGO_TARGET_DIR") else []
+    named = [Path(os.environ["TELESCOPE_RS"])] if os.environ.get("TELESCOPE_RS") else []
+    for path in named + [f / "debug" / "telescope-rs" for f in folders + [compare_config.REPO / "rust" / "target"]]:
+        if path.is_file():
+            return path.resolve()
+    return None
+
+
+@pytest.fixture
+def binary():
+    path = built_binary()
+    if path is None:
+        pytest.skip("no built telescope-rs")
+    return str(path)
+
+
+def test_the_real_app_saves_what_python_saved_for_every_fixture(binary):
+    assert compare_config.main(["--binary", binary, "--all"]) == 0
+
+
+def test_the_snapshot_comes_from_the_real_plugins(binary):
+    # Compared with nothing loaded, every setting would be missing on both sides of a filter and this would pass quietly
+    fresh = compare_config.snapshot([binary], compare_config.FIXTURES / "fresh-install")
+    with compare_config.LEDGER.open("rb") as f:
+        _done, builtin, _whole = compare_config.ported_settings(tomllib.load(f))
+    assert len(fresh["plugins"]) >= 16
+    configs = fresh["saved"]["plugin_configs"]
+    assert {p for p in fresh["plugins"] if p in builtin} & set(configs)
+    assert configs["updates"]["channel"] == "stable"
+
+
+def test_the_real_compare_notices_a_setting_that_changed(binary, tmp_path):
+    fixtures = tmp_path / "configs"
+    shutil.copytree(compare_config.FIXTURES / "fresh-install", fixtures / "fresh-install")
+    path = fixtures / "fresh-install" / "expected.json"
+    expected = json.loads(path.read_text(encoding="utf-8"))
+    expected["saved"]["plugin_configs"]["updates"]["auto_check"] = False
+    path.write_text(json.dumps(expected), encoding="utf-8")
+    assert compare_config.main(["--binary", binary, "--fixtures", str(fixtures)]) == 1

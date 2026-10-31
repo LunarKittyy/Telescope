@@ -1,5 +1,6 @@
 //! What a stream comes from: a paired phone, or a plugin's StreamSource (sources.py).
 
+use crate::i18n::tr;
 use crate::media::{Codec, Decoder, VideoFeed};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -81,7 +82,7 @@ pub trait StreamSource: Send + Sync {
     }
     /// What to check when it can't be reached for a while.
     fn lost_hint(&self) -> String {
-        String::new()
+        tr("Open the Telescope page in it again.")
     }
     /// A decoder for packets only the source itself understands (a webcam's raw frames); None: media decodes them as
     /// open_feed's codec says. Asked each time a feed opens, after open_feed.

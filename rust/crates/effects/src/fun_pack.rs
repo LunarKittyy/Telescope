@@ -5,6 +5,7 @@
 //! The empty room and the clones are taken from the next frame the shown stream makes, so the step puts what it took in a mailbox
 //! and posts to the plugin, as Python's worker thread signals the card.
 
+use telescope_core::i18n::Fields;
 use crate::cpu::Rgb;
 use crate::fun_effects::{self as fx, Clones, Effect, Inputs, Look, PlateMask};
 use crate::imgops::Gray;
@@ -335,13 +336,13 @@ impl FunPackPlugin {
         let counting = self.counting;
         let n = self.countdown.to_string();
         let plate_text = if counting == Some(Grab::Plate) {
-            tr("Taking it in {n}…").replace("{n}", &n)
+            tr("Taking it in {n}…").field("n", &n)
         } else if self.plate.is_some() {
             tr("Take the empty room again")
         } else {
             tr("Take the empty room")
         };
-        let clone_text = if counting == Some(Grab::Clone) { tr("Copying you in {n}…").replace("{n}", &n) } else { tr("Add a clone") };
+        let clone_text = if counting == Some(Grab::Clone) { tr("Copying you in {n}…").field("n", &n) } else { tr("Add a clone") };
         let full = self.clones.as_ref().is_some_and(|c| c.count >= Clones::MAX);
         let shows = |effects: &[&str]| effects.contains(&effect) && !unavailable;
         let problem = if effect == "mosh" {

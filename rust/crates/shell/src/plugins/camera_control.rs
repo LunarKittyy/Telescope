@@ -2,6 +2,7 @@
 //! widgets live here as plain state, changed the way Qt changes them (a value set while signals flow runs its handler),
 //! and camera.slint only draws them; its callbacks come back as UiEvents and the settings go out through Host::phone_control.
 
+use telescope_core::i18n::Fields;
 use serde_json::{json, Value};
 use telescope_core::actions::{self, Choice, LogSliderSpec, SliderSpec};
 use telescope_core::event::Event;
@@ -49,7 +50,7 @@ pub fn diopters_to_label(d: f64) -> String {
     if d <= 0.01 {
         return "∞".into(); // focused at infinity: the same in every language
     }
-    tr("{n} m").replace("{n}", &number(1.0 / d, 2, false))
+    tr("{n} m").field("n", number(1.0 / d, 2, false))
 }
 
 /// ns_to_display: an exposure time as the shutter row shows it.
@@ -59,7 +60,7 @@ pub fn ns_to_display(ns: i64) -> String {
     }
     let s = ns as f64 / 1e9;
     if s >= 1.0 {
-        return tr("{n} s").replace("{n}", &number(s, 1, false));
+        return tr("{n} s").field("n", number(s, 1, false));
     }
     let denom = actions::round_half_even(1.0 / s) as i64;
     let digits = denom.to_string();
@@ -74,7 +75,7 @@ pub fn ns_to_display(ns: i64) -> String {
 }
 
 fn ev_text(ev: f64) -> String {
-    tr("{n} EV").replace("{n}", &number(ev, 1, true))
+    tr("{n} EV").field("n", number(ev, 1, true))
 }
 
 fn signed(v: i64) -> String {
@@ -260,6 +261,12 @@ impl LogRow {
         actions::log_pos_to_val(self.pos, LOG_STEPS, self.v_min, self.v_max)
     }
 
+    /// get_value as saved: an end of a whole-number range comes back as that number, which Python's max and min hand on as it is.
+    fn saved_number(&self) -> Value {
+        let value = self.get_value();
+        if (value == self.v_min || value == self.v_max) && value.fract() == 0.0 { json!(value as i64) } else { json!(value) }
+    }
+
     fn set_value(&mut self, val: f64) {
         self.pos = actions::val_to_log_pos(val, LOG_STEPS, self.v_min, self.v_max);
         self.spin = self.to_spin(val);
@@ -378,6 +385,8 @@ impl Lenses {
 }
 
 pub struct CameraControl {
+    /// The ranges and lenses the shortcut actions were last made from.
+    actions_made_from: String,
     phones: u32,
     /// A source that isn't a phone is picked: the card goes away then (dim_until_paired with phone_only).
     source: String,
@@ -451,7 +460,8 @@ impl CameraControl {
     pub fn new() -> CameraControl {
         let mut focus = Segments::new(3);
         focus.enabled[1] = false;
-        CameraControl {
+        let mut card = CameraControl {
+            actions_made_from: String::new(),
             phones: 0,
             source: String::new(),
             stream: None,
@@ -494,7 +504,9 @@ impl CameraControl {
             torch_on: false,
             held: [None; 4],
             out: Outbox::default(),
-        }
+        };
+        card.actions_made_from = card.actions_key();
+        card
     }
 
     fn send(&mut self, body: Value) {
@@ -751,13 +763,13 @@ impl CameraControl {
         self.info_text = if full { tr("Full manual control") } else { tr("Limited manual control") };
         let mut lines = Vec::new();
         if !hw_level.is_empty() {
-            lines.push(tr("Camera level: {level}").replace("{level}", &hw_level));
+            lines.push(tr("Camera level: {level}").field("level", &hw_level));
         }
         if !have.is_empty() {
-            lines.push(tr("Supports: {features}").replace("{features}", &have.join(", ")));
+            lines.push(tr("Supports: {features}").field("features", have.join(", ")));
         }
         if !missing.is_empty() {
-            lines.push(tr("Not supported: {features}").replace("{features}", &missing.join(", ")));
+            lines.push(tr("Not supported: {features}").field("features", missing.join(", ")));
         }
         self.info_tip = lines.join("\n");
     }
@@ -1068,7 +1080,7 @@ impl CameraControl {
     fn config(&self) -> Value {
         json!({
             "exp_manual": self.exp.index == 1,
-            "iso": self.iso.get_value(),
+            "iso": self.iso.saved_number(),
             "shutter_ns": self.shutter.get_value(),
             "ois": self.ois.checked,
             "focus_manual": self.focus.index == 2,
@@ -1186,6 +1198,18 @@ impl CameraControl {
             host.schedule_save();
         }
         host.set_ui_props("card", &self.props());
+        // The sliders' ranges and the lens list move with the lens; a shortcut's bounds and choices go with them
+        let made_from = self.actions_key();
+        if made_from != self.actions_made_from {
+            self.actions_made_from = made_from;
+            host.refresh_actions();
+        }
+    }
+
+    /// What the shortcut actions are made from, besides what never changes.
+    fn actions_key(&self) -> String {
+        let lenses: Vec<String> = self.lenses.cameras.iter().map(|c| format!("{}={}", lens_value(c), lens_name(&lens_label(c)))).collect();
+        format!("{} {} {} {} {} {} {} {lenses:?}", self.iso.v_min, self.iso.v_max, self.shutter.v_min, self.shutter.v_max, self.ae.min, self.ae.max, self.ae_step)
     }
 
     // ── Shortcuts ──

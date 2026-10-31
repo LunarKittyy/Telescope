@@ -7,6 +7,7 @@
 //! Everything that asks the system (lsmod, the registry, adb, a root prompt) runs on a thread of its own and comes back as
 //! a post, so the settings window never waits on it.
 
+use telescope_core::i18n::Fields;
 use crate::py;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -419,7 +420,7 @@ impl SetupPlugin {
         let made = tr("Made by <a href=\"{url}\">LunarKittyy</a>");
         let (before, link, after) = split_link(&made);
         json!({
-            "version-text": tr("Version {version}").replace("{version}", &self.version),
+            "version-text": tr("Version {version}").field("version", &self.version),
             "made-before": before, "made-link": link, "made-after": after,
             "diag-text": if self.panel.copied { tr("Copied") } else { tr("Copy diagnostics") },
             "log-shown": self.log_path.is_some(),
@@ -486,7 +487,7 @@ impl SetupPlugin {
     pub fn show_graphics_card(&mut self, device: Option<&str>) {
         self.panel.hw_enabled = device.is_some();
         self.panel.hw_line = match device {
-            Some(d) => tr("Found {device}").replace("{device}", &hw_name(d)),
+            Some(d) => tr("Found {device}").field("device", hw_name(d)),
             None => tr("No graphics card Telescope can use"),
         };
     }
@@ -504,9 +505,9 @@ impl SetupPlugin {
     /// _v4l_check's answer, and _refresh_persist_status's with it.
     pub fn show_v4l_status(&mut self, ready: bool, loaded: bool, persisted: bool) {
         self.panel.v4l = if ready {
-            Line::new(tr("Ready: {phone} + {obs}").replace("{phone}", V4L2_PHONE_DEV).replace("{obs}", V4L2_OBS_DEV), "status_ok")
+            Line::new(tr("Ready: {phone} + {obs}").field("phone", V4L2_PHONE_DEV).field("obs", V4L2_OBS_DEV), "status_ok")
         } else if loaded {
-            Line::new(tr("Module loaded but {device} not found - another config active").replace("{device}", V4L2_PHONE_DEV), "status_warn")
+            Line::new(tr("Module loaded but {device} not found - another config active").field("device", V4L2_PHONE_DEV), "status_warn")
         } else {
             Line::new(tr("Not loaded - click Load"), "status_err")
         };
@@ -534,7 +535,7 @@ impl SetupPlugin {
             (true, true) => tr("Unloaded - {message}"),
             (false, _) => tr("Failed - {message}"),
         };
-        self.panel.v4l = Line::new(text.replace("{message}", msg), if ok { "status_ok" } else { "status_err" });
+        self.panel.v4l = Line::new(text.field("message", msg), if ok { "status_ok" } else { "status_err" });
         self.panel.v4l_command = command.into();
     }
 
@@ -587,7 +588,7 @@ impl SetupPlugin {
         } else if msg == CANCELLED {
             self.refresh_extras(host, None, "status_dim");
         } else {
-            self.refresh_extras(host, Some(tr("Couldn't remove them: {message}").replace("{message}", msg)), "status_err");
+            self.refresh_extras(host, Some(tr("Couldn't remove them: {message}").field("message", msg)), "status_err");
         }
     }
 
@@ -620,8 +621,8 @@ impl SetupPlugin {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if !uc_name.is_empty() {
             // Registered by an older Telescope under UnityCapture's own name: works, just harder to find
-            (Line::new(tr("Apps list it as “{name}”").replace("{name}", uc_name), "status_warn"), tr("Rename"),
-             tr("Register it again as “{name}”").replace("{name}", UC_NAME), true)
+            (Line::new(tr("Apps list it as “{name}”").field("name", uc_name), "status_warn"), tr("Rename"),
+             tr("Register it again as “{name}”").field("name", UC_NAME), true)
         } else {
             let dlls = mf == "offer" || dlls; // the Windows 11 one comes with Telescope
             let text = if dlls { tr("Not installed") } else { tr("Not installed (Install driver downloads it first)") };
@@ -664,7 +665,7 @@ impl SetupPlugin {
             p.uc_button = tr("Reinstall");
             p.uc_tip = String::new();
         } else {
-            p.uc = Line::new(tr("Failed: {message}").replace("{message}", msg), "status_err");
+            p.uc = Line::new(tr("Failed: {message}").field("message", msg), "status_err");
             p.uc_button = tr("Retry");
         }
     }
@@ -696,9 +697,9 @@ impl SetupPlugin {
         if ok {
             p.adb_row = false;
             let text = match (p.adb_from_google, detail.is_empty()) {
-                (true, false) => tr("Ready (adb {version}, from Google)").replace("{version}", detail),
+                (true, false) => tr("Ready (adb {version}, from Google)").field("version", detail),
                 (true, true) => tr("Ready (adb, from Google)"),
-                (false, false) => tr("Ready (adb {version})").replace("{version}", detail),
+                (false, false) => tr("Ready (adb {version})").field("version", detail),
                 (false, true) => tr("Ready (adb)"),
             };
             p.adb = Line::new(text, "status_ok");
@@ -828,7 +829,7 @@ impl SetupPlugin {
         } else if msg.to_lowercase().contains("in use") {
             Line::new(tr("Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."), "status_err")
         } else {
-            Line::new(tr("Failed: {message}").replace("{message}", msg), "status_err")
+            Line::new(tr("Failed: {message}").field("message", msg), "status_err")
         });
     }
 

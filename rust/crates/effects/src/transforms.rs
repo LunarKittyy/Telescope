@@ -2,6 +2,7 @@
 //! view and hands it to the window (host.set_view); the window's view step does the pixels (core::view_step) and shares the zoom
 //! with the phone. What the card knows about the phone's lenses comes from the view_status events and the phone's state.
 
+use telescope_core::i18n::Fields;
 use crate::shared::{number_in, Paired};
 use serde_json::{json, Map, Value};
 use telescope_core::actions::{self, Choice, SliderSpec};
@@ -57,7 +58,7 @@ pub fn lens_note(zoom: f64, sent_ratio: f64, caps: Option<&PhoneZoomCaps>, live:
     let mut lines: Vec<String> = Vec::new();
     let mut level = "";
     if !live.is_empty() && !default.is_empty() && live != default {
-        lines.push(tr("Switched to {lens}").replace("{lens}", &lens_name(live)));
+        lines.push(tr("Switched to {lens}").field("lens", lens_name(live)));
         level = "on";
     }
     if let Some(caps) = caps.filter(|c| !c.lens_zooms.is_empty()) {
@@ -65,11 +66,11 @@ pub fn lens_note(zoom: f64, sent_ratio: f64, caps: Option<&PhoneZoomCaps>, live:
         let tele_name = || if tele.is_empty() { tr("the telephoto") } else { lens_name(tele) };
         if centred > sent_ratio + 1e-3 {
             let live_name = if live.is_empty() { tr("the main camera") } else { lens_name(live) };
-            lines.push(tr("Panned past what {tele} can see, so it's on {live}. Pan back to switch again.").replace("{tele}", &tele_name()).replace("{live}", &live_name));
+            lines.push(tr("Panned past what {tele} can see, so it's on {live}. Pan back to switch again.").field("tele", tele_name()).field("live", &live_name));
             level = "off";
         } else if sent_ratio > 1.0 + 1e-3 && settled && !live.is_empty() && live == default {
             lines.push(tr("The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can.")
-                .replace("{live}", &lens_name(live)).replace("{tele}", &tele_name()));
+                .field("live", lens_name(live)).field("tele", tele_name()));
             level = "off";
         }
     }
@@ -219,7 +220,7 @@ impl TransformsPlugin {
     // ── What the card shows ───────────────────────────────────────────
 
     fn zoom_text(&self) -> String {
-        tr("{n}\u{d7}").replace("{n}", &number(self.zoom, 1, false))
+        tr("{n}\u{d7}").field("n", number(self.zoom, 1, false))
     }
 
     fn pan_label(pan: f64) -> String {
@@ -228,7 +229,7 @@ impl TransformsPlugin {
     }
 
     fn pan_text(&self) -> String {
-        tr("H {x}\nV {y}").replace("{x}", &Self::pan_label(self.pan_x)).replace("{y}", &Self::pan_label(self.pan_y))
+        tr("H {x}\nV {y}").field("x", Self::pan_label(self.pan_x)).field("y", Self::pan_label(self.pan_y))
     }
 
     fn zoom_where_text(&self) -> String {
@@ -237,7 +238,7 @@ impl TransformsPlugin {
             text += &format!("\n{}", tr("Dots mark where the phone switches to another lens"));
         }
         if !self.taken_by.is_empty() {
-            text = tr("{owner} is moving the zoom and pan").replace("{owner}", &tr(&self.taken_by));
+            text = tr("{owner} is moving the zoom and pan").field("owner", tr(&self.taken_by));
         }
         // A slider with a default says how to use it
         format!("{text}\n{}", tr(RESET_HINT)).trim_start_matches('\n').to_string()
