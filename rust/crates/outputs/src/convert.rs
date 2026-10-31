@@ -93,6 +93,22 @@ pub fn i420_to_rgba_flipped(frame: &Frame) -> Vec<u8> {
     out
 }
 
+/// An I420 frame as BGR bytes, top row first (an odd-sized v4l2 camera, which I420 can't be).
+pub fn i420_to_bgr(frame: &Frame) -> Vec<u8> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let mut out = vec![0u8; w * h * 3];
+    let Some((py, pu, pv)) = frame.i420_planes() else { return out };
+    let cw = w.div_ceil(2);
+    for row in 0..h {
+        for col in 0..w {
+            let ci = (row / 2) * cw + col / 2;
+            let [r, g, b] = yuv_to_rgb(py[row * w + col], pu[ci], pv[ci]);
+            out[(row * w + col) * 3..][..3].copy_from_slice(&[b, g, r]);
+        }
+    }
+    out
+}
+
 /// RGBA (or RGB with stride 3) pixels as an I420 frame; odd sizes round the chroma up. mirror flips left to right.
 pub fn rgb_to_i420(pixels: &[u8], width: u32, height: u32, channels: usize, mirror: bool) -> Frame {
     let (w, h) = (width as usize, height as usize);

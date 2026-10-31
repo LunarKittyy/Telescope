@@ -81,7 +81,12 @@ impl VideoOutput for V4l2 {
         if frame.format != PixelFormat::I420 || (frame.width, frame.height) != (self.0.width, self.0.height) {
             return Err(format!("{} takes I420 at {}x{}", self.0.device, self.0.width, self.0.height));
         }
-        self.0.send(&frame.data).map_err(|e| format!("{}: {e}", self.0.device))
+        let wrote = if v4l2::takes_bgr(frame.width, frame.height) {
+            self.0.send(&convert::i420_to_bgr(frame))
+        } else {
+            self.0.send(&frame.data)
+        };
+        wrote.map_err(|e| format!("{}: {e}", self.0.device))
     }
 
     fn size(&self) -> (u32, u32) {
@@ -489,6 +494,68 @@ mod tests {
         assert_eq!(wincam::filter_probe_for(reg.as_ref(), 1), None);
         assert_eq!(wincam::filter_probe_for(reg.as_ref(), 2), Some(wincam::FilterProbe::Shared));
         assert_eq!(wincam::filter_probe_for(&FakeRegistry::uc(&[(0, "Telescope")]), 0), Some(wincam::FilterProbe::Image));
+    }
+
+    /// open_windows on UnityCapture, with the camera number it picked.
+    fn opened_number(reg: FakeRegistry, slot: u32) -> Result<(u32, String), String> {
+        let (number, picked) = (Arc::new(Mutex::new(None)), Arc::default());
+        let (shared, seen) = (MfMemory::new(None), number.clone());
+        let cam = open_windows(Arc::new(reg), slot, 8, 4, || shared.opener(), move |num| {
+            *seen.lock().unwrap() = Some(num);
+            Box::new(NoFilter(picked))
+        })?;
+        let num = number.lock().unwrap().expect("a filter");
+        Ok((num, cam.device()))
+    }
+
+    #[test]
+    fn windows_opens_the_camera_named_telescope_or_any_older_registration() {
+        assert_eq!(opened_number(FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), 0), Ok((3, "Telescope".to_string())));
+        assert_eq!(opened_number(FakeRegistry::uc(&[(2, "Unity Video Capture"), (5, "Other")]), 0), Ok((2, "Telescope".to_string())), "registered before it had the name");
+        assert!(opened_number(FakeRegistry::uc(&[]), 0).is_err());
+    }
+
+    #[test]
+    fn another_slot_opens_its_own_camera() {
+        assert_eq!(opened_number(FakeRegistry::uc(&[(0, "Telescope"), (4, "Telescope #3")]), 2), Ok((4, "Telescope #3".to_string())));
+        let Err(why) = opened_number(FakeRegistry::uc(&[(0, "Telescope")]), 2) else { panic!("a slot with no registration opened") };
+        assert_eq!(why, "Telescope #3 isn't set up", "only the main camera takes any older one");
+    }
+
+    #[cfg(target_os = "linux")]
+    fn written(width: u32, height: u32, frame: &Frame) -> Vec<u8> {
+        let path = telescope_core::testing::scratch_dir("vcam-wire").join("frame");
+        let file = std::fs::File::create(&path).unwrap();
+        V4l2(v4l2::VirtualCamera::on_file(file, width, height)).send(frame).unwrap();
+        std::fs::read(&path).unwrap()
+    }
+
+    #[test]
+    fn the_virtual_camera_opens_in_its_own_format() {
+        assert_eq!(VirtualCameras::default().formats(), [PixelFormat::I420], "what the stream hands over");
+        #[cfg(target_os = "linux")]
+        {
+            let fourcc = |(format, line, frame): (u32, u32, u32)| (format.to_le_bytes(), line, frame);
+            assert_eq!(fourcc(v4l2::wire_format(4, 4)), (*b"YU12", 4, 24));
+            assert_eq!(fourcc(v4l2::wire_format(5, 4)), (*b"BGR3", 15, 60), "I420 needs even sizes");
+            assert_eq!(fourcc(v4l2::wire_format(4, 3)), (*b"BGR3", 12, 36));
+            // What's handed over is what the camera opened for
+            let even = convert::grey(4, 4, 200);
+            assert_eq!(written(4, 4, &even), *even.data);
+            let odd = written(5, 4, &convert::grey(5, 4, 235));
+            assert_eq!(odd.len(), 60);
+            assert!(odd.iter().all(|&c| c > 250), "white stays white in BGR: {:?}", &odd[..6]);
+            let mut blue = convert::grey(5, 4, 41);
+            let luma = 5 * 4;
+            let chroma = blue.data.len() - luma;
+            blue.data_mut()[luma..luma + chroma / 2].fill(240);
+            blue.data_mut()[luma + chroma / 2..].fill(110);
+            let pixel = written(5, 4, &blue);
+            assert!(pixel[0] > 240 && pixel[1] < 15 && pixel[2] < 15, "blue comes first: {:?}", &pixel[..3]);
+        }
+        // Windows' two cameras take the same frames and turn them into what they need themselves
+        let (reg, shared) = (Arc::new(FakeRegistry::uc(&[(0, "Telescope")])), MfMemory::new(None));
+        windows_camera(&reg, 0, &shared, &Arc::default()).send(&convert::grey(8, 4, 0)).unwrap();
     }
 
     // test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera

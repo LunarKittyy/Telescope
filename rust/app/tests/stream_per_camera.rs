@@ -9,6 +9,9 @@ use telescope_core::plugin::Plugin;
 use telescope_core::ui::UiEvent;
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::fun_pack::{FunPackPlugin, EFFECTS};
+use i_slint_backend_testing::ElementHandle;
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::{ComponentHandle, LogicalPosition};
 use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::plugins::presets::PresetsPlugin;
 
@@ -349,4 +352,142 @@ fn coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again() {
     assert_eq!(sent(&r, "pixel"), [] as [Value; 0]);
     r.w.stop_all_streams();
     r.pump();
+}
+
+// test_widgets.py's LogSliderRow and LensPanel on the real Camera card in the real window, with the real mouse.
+
+fn shown(name: &str) -> Rig {
+    let r = with_camera(name);
+    r.w.ui.window().set_size(slint::LogicalSize::new(1400.0, 1400.0));
+    r.w.ui.show().unwrap();
+    r
+}
+
+fn found(r: &Rig, label: &str) -> Option<ElementHandle> {
+    ElementHandle::find_by_accessible_label(&r.w.ui, label).next()
+}
+
+fn click_at(r: &Rig, position: LogicalPosition) {
+    let window = r.w.ui.window();
+    window.dispatch_event(WindowEvent::PointerMoved { position });
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    r.w.process();
+    r.pump();
+}
+
+fn click_on(r: &Rig, e: &ElementHandle) {
+    let (p, s) = (e.absolute_position(), e.size());
+    click_at(r, LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0));
+}
+
+/// The named slider, and a click at its right-hand end.
+fn slider(r: &Rig, label: &str) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(&r.w.ui, label).find(|e| e.accessible_value_maximum().is_some()).unwrap_or_else(|| panic!("no {label} slider"))
+}
+
+fn to_the_top(r: &Rig, label: &str) {
+    let e = slider(r, label);
+    let (p, s) = (e.absolute_position(), e.size());
+    click_at(r, LogicalPosition::new(p.x + s.width - 1.0, p.y + s.height / 2.0));
+}
+
+fn iso_sent(r: &Rig) -> Vec<i64> {
+    sent(r, "pixel").iter().filter(|m| m["action"] == "iso").filter_map(|m| m["value"].as_i64()).collect()
+}
+
+fn manual(name: &str, min: i64, max: i64) -> Rig {
+    let r = shown(name);
+    r.start();
+    r.phone_says("pixel", camera_state(json!({"isoMin": min, "isoMax": max}), json!({"auto": false, "iso": 100})));
+    r.pump();
+    r
+}
+
+#[test]
+fn integer_log_slider_syncs_slider_spin_and_signal() {
+    let r = manual("log-sync", 10, 1000);
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("1000"), "100 is half way along 10 to 1000");
+    assert!(found(&r, "ISO 100").is_some(), "the readout says it");
+    forget_sent(&r, "pixel");
+    to_the_top(&r, "ISO");
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("2000"));
+    assert_eq!(iso_sent(&r), [999], "the value and not the place on the slider, cut to a whole number as Python's int() does");
+    assert!(found(&r, "ISO 1000").is_some(), "and the readout follows the hand");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn log_slider_range_and_enabled_state() {
+    let r = manual("log-range", 10, 1000);
+    r.phone_says("pixel", camera_state(json!({"isoMin": 20, "isoMax": 2000}), json!({"auto": false, "iso": 100})));
+    r.pump();
+    forget_sent(&r, "pixel");
+    to_the_top(&r, "ISO");
+    assert_eq!(iso_sent(&r), [1999], "the slider's top is the lens's top");
+    // The lens can't do manual exposure: the Manual segment goes, and the row with it
+    r.phone_says("pixel", camera_state(json!({"supportsManualSensor": false}), json!({})));
+    r.pump();
+    assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "ISO").next().is_none());
+    r.phone_says("pixel", camera_state(json!({"isoMin": 20, "isoMax": 2000}), json!({"auto": false, "iso": 100})));
+    r.pump();
+    // With no phone the card's controls are off, slider and all
+    r.w.stop_all_streams();
+    r.pump();
+    r.emit(telescope_core::event::Event::PhonesChanged { count: 0 });
+    r.pump();
+    forget_sent(&r, "pixel");
+    let before = slider(&r, "ISO").accessible_value();
+    to_the_top(&r, "ISO");
+    assert_eq!(slider(&r, "ISO").accessible_value(), before, "a disabled slider doesn't move");
+    assert_eq!(iso_sent(&r), [] as [i64; 0]);
+}
+
+fn tiles(lenses: Value) -> Value {
+    let mut state = camera_state(json!({}), json!({}));
+    state["cameras"] = lenses;
+    state
+}
+
+fn lens(id: &str, label: &str, current: bool) -> Value {
+    camera_state(json!({"id": id, "label": label, "current": current}), json!({}))["cameras"][0].clone()
+}
+
+fn card_prop(r: &Rig, name: &str) -> slint_interpreter::Value {
+    let id = r.w.ui.definition().properties().map(|p| p.0).find(|n| n.ends_with("-lens-placeholder")).expect("the camera card");
+    r.w.ui.get_property(&format!("{}{name}", id.trim_end_matches("lens-placeholder"))).unwrap()
+}
+
+#[test]
+fn empty_lenses_show_a_placeholder() {
+    let r = shown("lens-empty");
+    r.start();
+    r.phone_says("pixel", tiles(json!([])));
+    r.pump();
+    assert!(found(&r, "No cameras available").is_some(), "it's on the card");
+    assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Back").next().is_none(), "with no tiles");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn lens_panel_load_select_placeholder_and_clear() {
+    let r = shown("lens-panel");
+    assert!(found(&r, "Start streaming to load lenses").is_some());
+    r.start();
+    r.phone_says("pixel", tiles(json!([lens("wide", "Wide", false), lens("tele", "Tele", true)])));
+    r.pump();
+    assert_eq!((found(&r, "Loading lenses...").is_none(), found(&r, "Start streaming to load lenses").is_none()), (true, true), "tiles in its place: {:?}", card_prop(&r, "lens-placeholder"));
+    let tile = |name: &str| ElementHandle::find_by_accessible_label(&r.w.ui, name).find(|e| e.accessible_checked().is_some()).unwrap_or_else(|| panic!("no {name} tile"));
+    assert_eq!((tile("Wide").accessible_checked(), tile("Tele").accessible_checked()), (Some(false), Some(true)));
+    forget_sent(&r, "pixel");
+    click_on(&r, &tile("Wide"));
+    assert_eq!(sent(&r, "pixel").iter().filter(|m| m["action"] == "camera").map(|m| m["id"].clone()).collect::<Vec<_>>(), [json!("wide")], "the lens the tile was for");
+    assert_eq!((tile("Wide").accessible_checked(), tile("Tele").accessible_checked()), (Some(true), Some(false)));
+    assert_eq!(card_prop(&r, "current-lens"), slint_interpreter::Value::Number(0.0));
+    r.w.stop_all_streams();
+    r.pump();
+    assert!(found(&r, "Start streaming to load lenses").is_some(), "cleared");
+    assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Wide").next().is_none());
 }

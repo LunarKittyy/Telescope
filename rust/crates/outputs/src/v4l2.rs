@@ -7,6 +7,7 @@ use std::os::fd::AsRawFd;
 
 const V4L2_BUF_TYPE_VIDEO_OUTPUT: u32 = 2;
 const V4L2_PIX_FMT_YUV420: u32 = u32::from_le_bytes(*b"YU12");
+const V4L2_PIX_FMT_BGR24: u32 = u32::from_le_bytes(*b"BGR3");
 const V4L2_FIELD_NONE: u32 = 1;
 const V4L2_COLORSPACE_SRGB: u32 = 8;
 const VIDIOC_S_FMT: libc::c_ulong = 0xc0d0_5605; // _IOWR('V', 5, struct v4l2_format), 208 bytes
@@ -61,6 +62,20 @@ pub struct VirtualCamera {
     pub device: String,
     pub width: u32,
     pub height: u32,
+}
+
+/// _vcam_format: I420 needs even sizes, so an odd one goes in BGR.
+pub fn takes_bgr(width: u32, height: u32) -> bool {
+    width % 2 != 0 || height % 2 != 0
+}
+
+/// (pixel format, bytes per line, bytes per frame) a camera of this size opens with.
+pub fn wire_format(width: u32, height: u32) -> (u32, u32, u32) {
+    if takes_bgr(width, height) {
+        (V4L2_PIX_FMT_BGR24, width * 3, width * height * 3)
+    } else {
+        (V4L2_PIX_FMT_YUV420, width, width * height * 3 / 2)
+    }
 }
 
 /// What apps list slot's camera as on Linux.
@@ -138,14 +153,14 @@ pub fn camera_holders(device: &str, own_pid: u32, proc_root: &str) -> Vec<u32> {
 impl VirtualCamera {
     pub fn open(device: &str, width: u32, height: u32, fps: u32) -> std::io::Result<VirtualCamera> {
         let file = OpenOptions::new().read(true).write(true).open(device)?;
-        let size = width * height * 3 / 2;
+        let (pixelformat, bytesperline, sizeimage) = wire_format(width, height);
         // SAFETY: zeroed is a valid bit pattern for both structs, and the ioctls write within their declared sizes
         unsafe {
             let mut fmt: Format = std::mem::zeroed();
             fmt.type_ = V4L2_BUF_TYPE_VIDEO_OUTPUT;
             fmt.pix = PixFormat {
-                width, height, pixelformat: V4L2_PIX_FMT_YUV420, field: V4L2_FIELD_NONE, bytesperline: width,
-                sizeimage: size, colorspace: V4L2_COLORSPACE_SRGB, priv_: 0, flags: 0, ycbcr_enc: 0, quantization: 0, xfer_func: 0,
+                width, height, pixelformat, field: V4L2_FIELD_NONE, bytesperline,
+                sizeimage, colorspace: V4L2_COLORSPACE_SRGB, priv_: 0, flags: 0, ycbcr_enc: 0, quantization: 0, xfer_func: 0,
             };
             if libc::ioctl(file.as_raw_fd(), VIDIOC_S_FMT, &mut fmt) < 0 {
                 return Err(std::io::Error::last_os_error());
@@ -163,8 +178,15 @@ impl VirtualCamera {
         Ok(VirtualCamera { file, device: device.to_string(), width, height })
     }
 
-    pub fn send(&mut self, i420: &[u8]) -> std::io::Result<()> {
-        self.file.write_all(i420)
+    /// Writes one frame in the camera's wire_format.
+    pub fn send(&mut self, frame: &[u8]) -> std::io::Result<()> {
+        self.file.write_all(frame)
+    }
+
+    /// A camera writing to file, without the driver.
+    #[cfg(test)]
+    pub(crate) fn on_file(file: File, width: u32, height: u32) -> VirtualCamera {
+        VirtualCamera { file, device: "/dev/video-test".into(), width, height }
     }
 }
 
@@ -198,6 +220,16 @@ mod tests {
         assert!(why.contains("Phone Camera 2"), "{why}");
         assert_eq!(slot_label(0), "Phone Camera");
         assert_eq!(slot_label(3), "Phone Camera 4");
+    }
+
+    // test_stream.py::test_another_slot_opens_its_own_camera, the Linux half
+    #[test]
+    fn another_slot_opens_its_own_device() {
+        let dir = sysfs(&[("video9942", "Phone Camera 3", "")]);
+        let device = slot_device_in(&dir.to_string_lossy(), 2);
+        assert_eq!(device.as_deref(), Some("/dev/video9942"));
+        let Err(why) = crate::open_node(device, 2, 4, 4, 30) else { panic!("no such device here") };
+        assert!(why.starts_with("/dev/video9942:"), "{why}");
     }
 
     // test_vcam.py::test_locked_size_reads_the_drivers_format
