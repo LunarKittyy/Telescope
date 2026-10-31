@@ -22,11 +22,15 @@ pub fn snapshot(folder: &Path, scratch: &Path, plugins: &[String], sections: &[P
     let mut cfg = file.load_strict()?;
     config::merge_for_save(&mut cfg, &window, sections);
     file.save(&mut cfg);
+    result(folder, scratch, plugins)
+}
 
+/// What came of folder's settings file once it was saved in scratch, by this code or the real window.
+pub fn result(folder: &Path, scratch: &Path, plugins: &[String]) -> std::io::Result<Value> {
     let set_aside = std::fs::read_dir(scratch)?.flatten()
         .any(|e| e.file_name().to_string_lossy().starts_with(&format!("{CONFIG_FILENAME}.invalid-")));
-    let mut saved = read(&path).unwrap_or(Value::Null);
-    mark_new(&mut saved, &read(&source).unwrap_or(Value::Null));
+    let mut saved = read(&scratch.join(CONFIG_FILENAME)).unwrap_or(Value::Null);
+    mark_new(&mut saved, &read(&folder.join(CONFIG_FILENAME)).unwrap_or(Value::Null));
     let mut plugins = plugins.to_vec();
     plugins.sort();
     Ok(json!({"set_aside": set_aside, "plugins": plugins, "saved": saved}))
