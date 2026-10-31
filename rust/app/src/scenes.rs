@@ -513,6 +513,9 @@ pub fn run(words: &[String]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    // The plugins that say category = "extras" themselves in Python
+    const IN_EXTRAS: [&str; 4] = ["onboarding", "presets", "shortcuts", "updates"];
+
     // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
     #[test]
     fn every_built_in_plugin_picks_its_category_and_icon() {
@@ -526,8 +529,18 @@ mod tests {
         for plugin in &plugins {
             let info = plugin.info();
             assert!(telescope_core::plugin::PLUGIN_CATEGORIES.iter().any(|(id, _)| *id == info.category), "{} needs a category", info.name);
+            // Extras and the plug are what a plugin gets by saying nothing
+            assert!(info.category != "extras" || IN_EXTRAS.contains(&info.name.as_str()), "{} needs a category, not Extras by default", info.name);
+            assert_ne!(info.icon, "plug", "{} needs an icon, not the plug by default", info.name);
             let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file());
             assert!(known, "{} needs an icon the kit has, not {:?}", info.name, info.icon);
+        }
+    }
+
+    fn slint_text(source: &telescope_core::ui::SlintSource) -> String {
+        match source {
+            telescope_core::ui::SlintSource::Text(t) => t.clone(),
+            telescope_core::ui::SlintSource::File(p) => std::fs::read_to_string(p).unwrap_or_default(),
         }
     }
 
@@ -555,8 +568,24 @@ mod tests {
         plugins.extend((s.plugins)());
         let mut found = 0;
         let mut wrong = Vec::new();
+        let group = |g: &str| telescope_core::plugin::PLUGIN_CATEGORIES.iter().any(|(id, _)| *id == g);
         for plugin in &mut plugins {
             let info = plugin.info();
+            // A card names another group's colour only as a group that exists; without one it's the app's purple instead
+            let mut sources: Vec<String> = plugin.card().iter().map(|c| slint_text(&c.ui.source)).collect();
+            for section in plugin.settings_sections() {
+                sources.push(slint_text(&section.ui.source));
+                if let Some(own) = section.ui.props.get("card-group") {
+                    assert!(own.as_str().is_some_and(group), "{}: {own}", info.name);
+                }
+            }
+            for line in sources.iter().flat_map(|t| t.lines()) {
+                let Some(value) = line.trim().strip_prefix("hue: ") else { continue };
+                assert!(!value.starts_with("Theme.accent"), "{}: a card with the app's purple instead of its group's colour", info.name);
+                if let Some(name) = value.strip_prefix("Theme.plugin-hue(\"") {
+                    assert!(group(name.split('"').next().unwrap_or("")), "{}: {value}", info.name);
+                }
+            }
             let Some(icon) = card_icon(plugin.as_mut()) else { continue };
             found += 1;
             if icon.trim_start_matches("v_") != info.icon.trim_start_matches("v_") {

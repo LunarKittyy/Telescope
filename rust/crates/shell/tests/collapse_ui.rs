@@ -16,7 +16,7 @@ export component Test inherits Window {
     height: 900px;
     in property <bool> dim;
     in property <bool> hide-light-1;
-    in property <bool> grow;
+    in property <bool> hide-focus-0;
     in property <bool> plain-card;
     in property <bool> second-card: true;
     in-out property <length> extra: 0px;
@@ -43,14 +43,13 @@ export component Test inherits Window {
                 icon: Icons.sun;
                 Text { text: "Light 0"; }
                 if !hide-light-1: Text { text: "Light 1"; }
-                if grow: Rectangle { min-height: 60px; }
             }
             Section {
                 scope: "p/Things";
                 key: "Focus";
                 title: "Focus";
                 icon: Icons.sun;
-                Text { text: "Focus 0"; }
+                if !hide-focus-0: Text { text: "Focus 0"; }
                 Text { text: "Focus 1"; }
             }
         }
@@ -80,8 +79,9 @@ struct Rig {
     version: Rc<RefCell<f64>>,
 }
 
+thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
+
 fn rig() -> Rig {
-    thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
     INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
     let def = telescope_shell::compile::compile("collapse.slint", DOC, vec![], "Test").expect("the document compiles");
     let ui = def.create().unwrap();
@@ -142,6 +142,15 @@ impl Rig {
     /// The height of the second card, which is only there while second-card is on.
     fn other_height(&self) -> f64 {
         ElementHandle::find_by_accessible_label(&self.ui, "other-card").next().expect("the second card is there").size().height as f64
+    }
+
+    /// Whether a row is there and takes up room inside its card, by the words on it.
+    fn row_shown(&self, name: &str) -> bool {
+        let card = ElementHandle::find_by_accessible_label(&self.ui, "things-card").next().expect("the card");
+        let bottom = card.absolute_position().y + card.size().height;
+        ElementHandle::find_by_accessible_label(&self.ui, name).next().is_some_and(|row| {
+            row.size().height > 0.0 && row.absolute_position().y + row.size().height <= bottom
+        })
     }
 
     fn set(&self, name: &str, value: Value) {
@@ -268,16 +277,26 @@ fn folding_moves_focus_out_of_the_rows_it_hides() {
 #[test]
 fn unfolding_a_card_keeps_rows_a_plugin_hid_itself() {
     let r = rig();
-    r.set("hide-light-1", Value::Bool(true));
-    let before = open(&r);
+    r.set("hide-light-1", Value::Bool(true)); // what a mode toggle does
     r.click(&r.title("Things", 0));
     // A plugin changing rows while the card is folded
+    r.set("hide-focus-0", Value::Bool(true));
     r.set("hide-light-1", Value::Bool(false));
-    r.set("hide-light-1", Value::Bool(true));
     r.click(&r.title("Things", 0));
-    assert_eq!(open(&r), before);
-    r.set("hide-light-1", Value::Bool(false));
-    assert!(open(&r) > before);
+    assert!(r.row_shown("Light 1") && !r.row_shown("Focus 0"));
+    assert!(r.row_shown("Light 0"));
+}
+
+#[test]
+fn everything_starts_open() {
+    let r = rig();
+    assert!(r.state.borrow().keys().is_empty());
+    for row in ["loose", "Light 0", "Light 1", "Focus 0", "Focus 1"] {
+        assert!(r.row_shown(row), "{row} starts folded away");
+    }
+    for title in ["Things", "Light", "Focus"] {
+        assert_eq!(r.title(title, 0).accessible_checked(), Some(true), "{title}");
+    }
 }
 
 #[test]
@@ -331,14 +350,99 @@ fn widgets_without_a_card_header_are_left_alone() {
     assert!(r.state.borrow().keys().is_empty() && r.other_height() == before);
 }
 
+const STRETCH: &str = r#"
+import { Card, Section, Folds, Icons } from "@ui-kit/ui-kit.slint";
+export { Folds }
+export component Test inherits Window {
+    width: 420px;
+    height: 700px;
+    in property <bool> in-section;
+    VerticalLayout {
+        Card {
+            title: "Things";
+            icon: Icons.sun;
+            fold-key: "p/Things";
+            Rectangle { accessible-role: text; accessible-label: "fixed"; height: 20px; }
+            if !in-section: Rectangle { accessible-role: text; accessible-label: "grow"; vertical-stretch: 1; min-height: 10px; }
+            if in-section: Section {
+                scope: "p/Things";
+                key: "Light";
+                title: "Light";
+                icon: Icons.sun;
+                vertical-stretch: 1;
+                Rectangle { accessible-role: text; accessible-label: "grow"; vertical-stretch: 1; min-height: 10px; }
+            }
+        }
+    }
+}
+"#;
+
 #[test]
 fn a_row_keeps_its_stretch_inside_the_fold() {
-    // The kit's rows live in one container; a card given spare height still hands it to a row that stretches
-    // (checked on the Camera card's stage in the window; here with a plain row that grows when its card does)
-    let r = rig();
-    let before = open(&r);
-    r.set("grow", Value::Bool(true));
-    assert!(open(&r) > before + 50.0, "a row that grows once folding is installed gets its new height: {} to {}", before, open(&r));
+    INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
+    for in_section in [false, true] {
+        let ui = telescope_shell::compile::compile("stretch.slint", STRETCH, vec![], "Test").expect("the document compiles").create().unwrap();
+        ui.window().set_size(slint::LogicalSize::new(420.0, 700.0));
+        ui.set_property("in-section", Value::Bool(in_section)).unwrap();
+        ui.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        ui.show().unwrap();
+        let height = |name: &str| ElementHandle::find_by_accessible_label(&ui, name).next().unwrap_or_else(|| panic!("no {name}")).size().height;
+        assert_eq!(height("fixed"), 20.0);
+        assert!(height("grow") > 450.0, "the card's spare height goes to the row that stretches: {}, in a section: {in_section}", height("grow"));
+    }
+}
+
+const RAIL: &str = r#"
+import { Folds, Icons } from "@ui-kit/ui-kit.slint";
+import { CameraCard, Lens } from "cards/camera.slint";
+export { Folds }
+export component Test inherits Window {
+    width: 420px;
+    height: 1800px;
+    in property <[Lens]> lenses;
+    in property <int> columns: 1;
+    VerticalLayout {
+        alignment: start;
+        CameraCard {
+            accessible-role: groupbox;
+            accessible-label: "camera-card";
+            active: true;
+            fold-key: "camera_control/Camera";
+            lenses: root.lenses;
+            lens-columns: root.columns;
+        }
+    }
+}
+"#;
+
+// The real Camera card's lens row, which is filled in after the card is up, like LensPanel in the Python test
+#[test]
+fn a_row_that_grows_once_folding_is_installed_gets_its_new_height() {
+    INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
+    let card_text = include_str!("../ui/cards/camera.slint").to_string();
+    let ui = telescope_shell::compile::compile("rail.slint", RAIL, vec![("cards/camera.slint".into(), card_text)], "Test").expect("the document compiles").create().unwrap();
+    ui.window().set_size(slint::LogicalSize::new(420.0, 1800.0));
+    ui.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+    ui.show().unwrap();
+    let card = || ElementHandle::find_by_accessible_label(&ui, "camera-card").next().expect("the card");
+    let empty = card().size().height;
+    let lenses: Vec<Value> = (0..5).map(|i| Value::Struct(slint_interpreter::Struct::from_iter([
+        ("id".to_string(), Value::String(i.to_string().into())), ("number".to_string(), Value::String(i.to_string().into())),
+        ("unit".to_string(), Value::String("mm".into())), ("rest".to_string(), Value::String("".into())),
+        ("name".to_string(), Value::String(format!("Back {i}mm").into())),
+    ]))).collect();
+    ui.set_property("columns", Value::Number(3.0)).unwrap();
+    ui.set_property("lenses", Value::Model(slint::ModelRc::new(slint::VecModel::from(lenses)))).unwrap();
+    slint::platform::update_timers_and_animations();
+    let bottom = card().absolute_position().y + card().size().height;
+    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
+    let first_row = tiles[0].absolute_position().y;
+    let last_row = tiles[4].absolute_position().y;
+    assert!(last_row > first_row, "two rows of tiles");
+    for tile in &tiles {
+        assert!(tile.size().height > 0.0 && tile.absolute_position().y + tile.size().height < bottom, "the card holds every tile");
+    }
+    assert!(card().size().height >= empty + (last_row - first_row), "{} from {empty}", card().size().height);
 }
 
 const HEADER: &str = r#"
@@ -373,7 +477,6 @@ export component Test inherits Window {
 
 #[test]
 fn a_dimmed_cards_header_buttons_take_no_click() {
-    thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
     INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
     for (dim, heard) in [(false, 3.0), (true, 0.0)] {
         let ui = telescope_shell::compile::compile("header.slint", HEADER, vec![], "Test").expect("the document compiles").create().unwrap();
