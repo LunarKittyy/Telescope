@@ -174,7 +174,8 @@ export component MicrophoneCard inherits Card {
     in property <string> fix-text;
     in property <bool> fix-shown;
     // The Install VB-Cable question
-    in property <bool> confirm-open;
+    // Goes up each time the install has to be asked about: a click outside closes the question with no answer, and the next ask has to open it again
+    in property <int> confirm-asked;
     in property <string> origin;
     in property <string> donationware;
     // The donate link's words, translated, without its markup
@@ -208,8 +209,8 @@ export component MicrophoneCard inherits Card {
     switch-tip: toggle-tip;
     switch-toggled(v) => { root.toggled(v); }
 
-    changed confirm-open => {
-        if (confirm-open) { question.show(); }
+    changed confirm-asked => {
+        question.show();
     }
 
     if here: FormRow {

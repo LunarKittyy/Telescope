@@ -103,6 +103,10 @@ export component Card inherits Rectangle {
     property <length> lift: fold-key != "" ? 3px : has-switch ? 1px : 0px;
     // The header stays out of `blocked`'s cover, so its buttons go off by themselves; the title still folds
     property <bool> live: enabled && !blocked;
+    // What Settings' search finds a card by, and the settings under it
+    accessible-role: groupbox;
+    accessible-id: "card";
+    accessible-label: title;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;

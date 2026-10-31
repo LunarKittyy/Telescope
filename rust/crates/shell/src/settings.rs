@@ -265,7 +265,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         }
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
-    let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
+    let def = crate::compile::compile_with("settings.slint", &text, files, "TelescopeSettings", true)?;
     let ui = def.create().map_err(|e| e.to_string())?;
     let settings = Rc::new(Settings {
         ui,
@@ -492,8 +492,21 @@ impl Settings {
 
     /// Every setting the search can find, read off the window as it is now (settings_search.collect).
     pub fn entries(&self) -> Vec<Entry> {
+        // Only what shows can be read, so each page shows for its turn, and nothing draws before they're put back
+        let (current, searching) = (self.ui.get_property("current"), self.ui.get_property("searching"));
+        let _ = self.ui.set_property("searching", SValue::Bool(false));
+        let out = self.entries_of_each_page();
+        if let (Ok(current), Ok(searching)) = (current, searching) {
+            let _ = self.ui.set_property("current", current);
+            let _ = self.ui.set_property("searching", searching);
+        }
+        out
+    }
+
+    fn entries_of_each_page(&self) -> Vec<Entry> {
         let mut out = Vec::new();
         for (t, (tab, name)) in self.tabs.iter().enumerate() {
+            let _ = self.ui.set_property("current", SValue::Number(t as f64));
             // The Plugins tab and each of its groups are also found by what people call plugins
             let words = if tab == "plugins" { plugins_tab::search_keywords() } else { String::new() };
             let base = Entry {

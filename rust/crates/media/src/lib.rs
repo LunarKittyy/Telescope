@@ -53,6 +53,19 @@ pub fn test_h264_moving(count: usize, w: u32, h: u32, gop: u32, profile: &str) -
     }
 }
 
+/// H.264 of flat greys for tests in other crates, one packet a frame with a delimiter after each, as the phone sends them. noisy: with
+/// noise on the greys, so frames span several datagrams.
+#[doc(hidden)]
+pub fn test_h264(values: &[u8], w: u32, h: u32, gop: u32, noisy: bool) -> Option<Vec<Vec<u8>>> {
+    #[cfg(ffmpeg)]
+    return if noisy { testenc::h264_noisy(values, w, h, gop) } else { testenc::h264(values, w, h, gop) };
+    #[cfg(not(ffmpeg))]
+    {
+        let _ = (values, w, h, gop, noisy);
+        None
+    }
+}
+
 /// Whether FFmpeg can be called here (h264_reader.available()). Windows loads its DLLs on first use, so a copy that lost one still
 /// starts: H.264, VP8 and Opus are then missing, MJPEG goes through plain_jpeg and pictures through picture. Without this, nothing
 /// may touch FFmpeg, its destructors included.

@@ -44,7 +44,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang pkg-config libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev
+            libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev \
+            fonts-inter fonts-noto-core fonts-noto-cjk
 
       - uses: Swatinem/rust-cache@v2
         with:

@@ -228,8 +228,8 @@ fn folder_is_the_pack(folder: &Path, pins: &Pins) -> bool {
     check().unwrap_or(false)
 }
 
-/// Opens a program as admin in a folder (ShellExecute's runas); the Windows error code when it can't.
-pub type Start<'a> = &'a dyn Fn(&Path, &Path) -> Result<(), i32>;
+/// Opens a program with a ShellExecute verb in a folder; the Windows error code when it can't.
+pub type Start<'a> = &'a dyn Fn(&Path, &str, &Path) -> Result<(), i32>;
 
 /// Opens VB-Audio's setup as admin, after checking it and everything beside it once more; "" once it's open, else why
 /// not.
@@ -239,7 +239,7 @@ pub fn run_vb_cable_setup(setup: &Path, start: Start, pins: &Pins) -> String {
         return tr("VB-Cable's setup changed after it was checked, so it wasn't opened.");
     }
     // the setup's own folder, wherever it looks for its files
-    match start(setup, folder) {
+    match start(setup, "runas", folder) {
         Ok(()) => String::new(),
         Err(ERROR_CANCELLED) => tr("Windows didn't get permission to install VB-Cable."),
         Err(code) => {
@@ -249,9 +249,9 @@ pub fn run_vb_cable_setup(setup: &Path, start: Start, pins: &Pins) -> String {
     }
 }
 
-/// ShellExecuteW with "runas": UAC asks for the setup itself.
+/// ShellExecuteW: with "runas", UAC asks for the setup itself.
 #[cfg(windows)]
-pub fn start_as_admin(program: &Path, folder: &Path) -> Result<(), i32> {
+pub fn start_as_admin(program: &Path, verb: &str, folder: &Path) -> Result<(), i32> {
     use std::os::windows::ffi::OsStrExt;
     #[link(name = "shell32")]
     extern "system" {
@@ -263,7 +263,7 @@ pub fn start_as_admin(program: &Path, folder: &Path) -> Result<(), i32> {
         fn GetLastError() -> u32;
     }
     let wide = |s: &std::ffi::OsStr| s.encode_wide().chain([0]).collect::<Vec<u16>>();
-    let (op, file, dir) = (wide("runas".as_ref()), wide(program.as_os_str()), wide(folder.as_os_str()));
+    let (op, file, dir) = (wide(verb.as_ref()), wide(program.as_os_str()), wide(folder.as_os_str()));
     // SAFETY: every string is NUL-terminated UTF-16 that outlives the call; SW_SHOWNORMAL is 1
     let result = unsafe { ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), file.as_ptr(), std::ptr::null(), dir.as_ptr(), 1) };
     if result > 32 {
@@ -274,7 +274,7 @@ pub fn start_as_admin(program: &Path, folder: &Path) -> Result<(), i32> {
 }
 
 #[cfg(not(windows))]
-pub fn start_as_admin(_program: &Path, _folder: &Path) -> Result<(), i32> {
+pub fn start_as_admin(_program: &Path, _verb: &str, _folder: &Path) -> Result<(), i32> {
     Err(50) // ERROR_NOT_SUPPORTED: only Windows has VB-Cable's setup
 }
 
@@ -402,12 +402,12 @@ pub(crate) mod tests {
         let dir = scratch("admin");
         let setup = unpacked(&dir);
         let calls = RefCell::new(Vec::new());
-        let start = |p: &Path, cwd: &Path| {
-            calls.borrow_mut().push((p.to_path_buf(), cwd.to_path_buf()));
+        let start = |p: &Path, verb: &str, cwd: &Path| {
+            calls.borrow_mut().push((p.to_path_buf(), verb.to_string(), cwd.to_path_buf()));
             Ok(())
         };
         assert_eq!(run_vb_cable_setup(&setup, &start, &pinned(&good())), "");
-        assert_eq!(*calls.borrow(), vec![(setup.clone(), dir.clone())]);
+        assert_eq!(*calls.borrow(), vec![(setup.clone(), "runas".to_string(), dir.clone())]);
         std::fs::write(&setup, b"swapped after the check").unwrap();
         assert!(run_vb_cable_setup(&setup, &start, &pinned(&good())).contains("changed"));
         assert_eq!(calls.borrow().len(), 1);
@@ -425,7 +425,7 @@ pub(crate) mod tests {
             let setup = unpacked(&dir);
             tamper(&dir);
             let calls = RefCell::new(0);
-            let start = |_: &Path, _: &Path| {
+            let start = |_: &Path, _: &str, _: &Path| {
                 *calls.borrow_mut() += 1;
                 Ok(())
             };
@@ -438,7 +438,7 @@ pub(crate) mod tests {
     fn saying_no_to_uac_is_reported_plainly() {
         let dir = scratch("uac");
         let setup = unpacked(&dir);
-        assert_eq!(run_vb_cable_setup(&setup, &|_, _| Err(ERROR_CANCELLED), &pinned(&good())),
+        assert_eq!(run_vb_cable_setup(&setup, &|_, _, _| Err(ERROR_CANCELLED), &pinned(&good())),
                    "Windows didn't get permission to install VB-Cable.");
     }
 
@@ -469,7 +469,7 @@ pub(crate) mod tests {
         let setup = download_vb_cable(Some(&dir), &dir, &serving(p.clone(), &seen), &pinned(&p)).unwrap();
         assert!(!dir.join(".hidden").exists());
         let calls = RefCell::new(0);
-        let start = |_: &Path, _: &Path| {
+        let start = |_: &Path, _: &str, _: &Path| {
             *calls.borrow_mut() += 1;
             Ok(())
         };

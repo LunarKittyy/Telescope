@@ -22,5 +22,7 @@ ureq = { workspace = true, features = ["platform-verifier"] }
 roxmltree.workspace = true
 
 [dev-dependencies]
+# real video through the real decoder and reader
+telescope-media.workspace = true
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true

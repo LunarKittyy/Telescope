@@ -1794,12 +1794,20 @@ mod tests {
         assert_eq!(clean_value(&number, Some(&json!("2.26"))), json!(2.3));
         assert_eq!(clean_value(&number, Some(&json!("lots"))), json!(1.0));
         assert_eq!(clean_value(&number, Some(&json!(true))), json!(1.0));
+        // NaN from telescope --action; JSON has no NaN of its own
+        assert_eq!(clean_value(&number, Some(&json!("nan"))), json!(1.0));
+        assert_eq!(clean_value(&number, Some(&json!("inf"))), json!(1.0));
         let fixed = json!({"name": "mode", "kind": "choice", "default": "toggle", "choices": [["toggle", "T"], ["on", "On"]]});
         assert_eq!(clean_value(&fixed, Some(&json!("on"))), json!("on"));
         assert_eq!(clean_value(&fixed, Some(&json!("sideways"))), json!("toggle"));
         let dynamic = json!({"name": "name", "kind": "choice", "default": "", "choices": [["Desk", "Desk"]], "dynamic": true});
         assert_eq!(clean_value(&dynamic, Some(&json!("Gone"))), json!("Gone"));
         assert_eq!(clean_value(&dynamic, Some(&json!(3))), json!(""));
+        let always = json!({"name": "op", "kind": "choice", "default": "a", "choices": [["a", "A"], ["b", "B"]]});
+        assert!(shown(&always, &Map::new()));
+        let set_only = json!({"name": "v", "kind": "number", "shown_if": ["op", ["set"]]});
+        assert!(!shown(&set_only, json!({"op": "up"}).as_object().unwrap()));
+        assert!(shown(&set_only, json!({"op": "set"}).as_object().unwrap()));
     }
 
     #[test]
