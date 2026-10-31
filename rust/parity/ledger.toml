@@ -3379,7 +3379,7 @@
 "test_platform.py::test_a_server_someone_else_runs_is_left_alone" = { status = "ported", rust = "rust/crates/link/src/adb.rs::telescope_starts_adbs_server_as_its_own_child_once" }
 "test_platform.py::test_adb_broadcast_pair_builds_serial_specific_command" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_broadcast_pair_builds_serial_specific_command" }
 "test_platform.py::test_adb_broadcast_pair_surfaces_error" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_broadcast_pair_surfaces_error" }
-"test_platform.py::test_adb_commands_make_sure_the_server_is_up_first" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run", note = "no test" }
+"test_platform.py::test_adb_commands_make_sure_the_server_is_up_first" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_commands_make_sure_the_server_is_up_first" }
 "test_platform.py::test_adb_device_models_names_each_phone" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_device_models_names_each_phone" }
 "test_platform.py::test_adb_devices_returns_empty_on_command_failure" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_devices_returns_empty_on_command_failure" }
 "test_platform.py::test_adb_devices_returns_only_authorized_serials" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_devices_returns_only_authorized_serials" }
@@ -3392,11 +3392,11 @@
 "test_platform.py::test_adb_model_asks_the_phone" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_model_asks_the_phone" }
 "test_platform.py::test_adb_reverse_builds_serial_specific_command" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_reverse_builds_serial_specific_command" }
 "test_platform.py::test_adb_reverse_surfaces_error_and_unreverse_ignores_it" = { status = "ported", rust = "rust/crates/link/src/adb.rs::adb_reverse_surfaces_error_and_unreverse_ignores_it" }
-"test_platform.py::test_bundled_apk_path_returns_existing_file" = { status = "ported", rust = "rust/crates/link/src/adb.rs::bundled_apk_path", note = "no test" }
-"test_platform.py::test_off_windows_adb_runs_its_own_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::off_windows_adb_runs_its_own_server", note = "no test" }
+"test_platform.py::test_bundled_apk_path_returns_existing_file" = { status = "ported", rust = "rust/crates/link/src/adb.rs::bundled_apk_path_returns_existing_file" }
+"test_platform.py::test_off_windows_adb_runs_its_own_server" = { status = "ported", rust = "rust/crates/link/src/adb.rs::off_windows_adb_runs_its_own_server" }
 "test_platform.py::test_platform_tools_dir_uses_desktop_source_tree" = { status = "dropped", reason = "the Rust app has no source-tree run that looks in desktop/platform-tools; TELESCOPE_ADB or PATH instead" }
-"test_platform.py::test_platform_tools_dir_uses_executable_when_frozen" = { status = "ported", rust = "rust/crates/link/src/adb.rs::platform_tools_dir", note = "always next to the executable" }
-"test_platform.py::test_run_hides_the_console_window_on_windows" = { status = "ported", rust = "rust/crates/link/src/adb.rs::hide_window", note = "Windows only, untested" }
+"test_platform.py::test_platform_tools_dir_uses_executable_when_frozen" = { status = "ported", rust = "rust/crates/link/src/adb.rs::platform_tools_dir_uses_executable_when_frozen", note = "always next to the executable" }
+"test_platform.py::test_run_hides_the_console_window_on_windows" = { status = "todo", note = "Proposed dropped: std's Command doesn't let a test read its creation flags back, so this can't be checked the way Python does. adb.rs::hide_window has the flag; only a look at Windows shows no console flashing up" }
 "test_platform.py::test_run_normalizes_expected_subprocess_failures" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run_normalizes_expected_subprocess_failures" }
 "test_platform.py::test_run_reports_a_command_that_cant_run_as_a_failure" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run_reports_a_command_that_cant_run_as_a_failure" }
 "test_platform.py::test_run_returns_process_result" = { status = "ported", rust = "rust/crates/link/src/adb.rs::run_returns_process_result" }
