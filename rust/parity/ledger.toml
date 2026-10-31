@@ -2823,7 +2823,7 @@
 "test_face_exposure.py::test_walking_in_moves_the_point_once_you_settle" = { status = "ported", rust = "rust/crates/effects/src/face_exposure_tests.rs::walking_in_moves_the_point_once_you_settle" }
 # ── frames
 "test_frames.py::test_a_dropped_stream_keeps_its_last_frame_which_only_gets_older" = { status = "ported", rust = "rust/crates/media/src/frames.rs::a_dropped_stream_keeps_its_last_frame_which_only_gets_older" }
-"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from" }
+"test_frames.py::test_a_frame_step_can_tell_which_stream_its_frame_is_from" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from", note = "Python's answers outside frame processing and for an unknown worker have no twin: FrameContext is a step's argument, so a step can't ask outside one" }
 "test_frames.py::test_a_published_frame_carries_a_number_and_when_it_was_made" = { status = "ported", rust = "rust/crates/media/src/frames.rs::a_published_frame_carries_a_number_and_when_it_was_made" }
 "test_frames.py::test_frames_are_handed_out_read_only_and_without_copying" = { status = "ported", rust = "rust/crates/media/src/frames.rs::frames_are_handed_out_read_only_and_without_copying" }
 "test_frames.py::test_reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" = { status = "ported", rust = "rust/crates/media/src/frames.rs::reading_while_streams_publish_and_come_and_go_never_sees_a_torn_frame" }
@@ -2977,7 +2977,7 @@
 "test_ip_utils.py::test_pairing_addresses_put_a_vpn_tunnel_behind_the_real_lan" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_put_a_vpn_tunnel_behind_the_real_lan" }
 "test_ip_utils.py::test_pairing_addresses_skip_container_and_vm_only_adapters" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_skip_container_and_vm_only_adapters" }
 "test_ip_utils.py::test_pairing_addresses_skip_loopback_link_local_ipv6_and_duplicates" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_skip_loopback_link_local_ipv6_and_duplicates" }
-"test_ip_utils.py::test_pairing_addresses_tolerate_enumeration_failure" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses", note = "no test: a failing get_if_addrs gives an empty list" }
+"test_ip_utils.py::test_pairing_addresses_tolerate_enumeration_failure" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_tolerate_enumeration_failure" }
 "test_ip_utils.py::test_pairing_addresses_trim_very_long_interface_names" = { status = "ported", rust = "rust/crates/link/src/net.rs::pairing_addresses_trim_very_long_interface_names" }
 # ── jpeg_guard
 "test_jpeg_guard.py::test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs::a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocating" }
@@ -3037,10 +3037,10 @@
 "test_mjpeg_reader.py::test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering" }
 "test_mjpeg_reader.py::test_open_returns_false_on_connection_failure" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::open_returns_false_on_connection_failure" }
 "test_mjpeg_reader.py::test_read_before_open_returns_false" = { status = "dropped", reason = "a feed only exists once it opened, so nothing can read one before" }
-"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::reads_authenticated_frames_in_order_then_reports_eof" }
+"test_mjpeg_reader.py::test_reads_authenticated_frames_in_order_then_reports_eof" = { status = "ported", rust = "rust/app/tests/mjpeg_reader.rs::reads_authenticated_frames_in_order_then_reports_eof" }
 "test_mjpeg_reader.py::test_rejects_non_multipart_response" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::rejects_non_multipart_response" }
-"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::reads_authenticated_frames_in_order_then_reports_eof" }
-"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::returns_a_frame_without_waiting_for_the_next_one" }
+"test_mjpeg_reader.py::test_rejects_when_unauthorized" = { status = "ported", rust = "rust/app/tests/mjpeg_reader.rs::reads_authenticated_frames_in_order_then_reports_eof" }
+"test_mjpeg_reader.py::test_returns_a_frame_without_waiting_for_the_next_one" = { status = "ported", rust = "rust/app/tests/mjpeg_reader.rs::returns_a_frame_without_waiting_for_the_next_one" }
 # ── models
 "test_models.py::test_camera_capabilities_from_dict_round_trips_all_fields" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_from_dict_round_trips_all_fields" }
 "test_models.py::test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them" = { status = "ported", rust = "rust/crates/core/src/models.rs::camera_capabilities_reads_phone_zoom_fields_and_defaults_them" }

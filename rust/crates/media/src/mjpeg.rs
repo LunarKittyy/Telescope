@@ -2,7 +2,7 @@
 //! anything is allocated. Each JPEG stands alone, so a stream can run several of these side by side.
 
 use crate::ffmpeg::Codec;
-use crate::jpeg_guard::within_limits;
+use crate::jpeg_guard::decode_checked;
 use telescope_core::frame::Frame;
 use telescope_core::media::{Decoded, Decoder, Packet};
 
@@ -17,12 +17,11 @@ impl Mjpeg {
 
     /// The frame in jpeg, or None if it doesn't decode or declares more pixels than we'll allocate (decode_jpeg).
     pub fn decode_jpeg(&mut self, jpeg: &[u8]) -> Option<Frame> {
-        if !within_limits(jpeg) {
-            return None;
-        }
-        let mut out = None;
-        self.codec.decode(jpeg, |f| out = Some(f)).ok()?;
-        out
+        decode_checked(jpeg, |jpeg| {
+            let mut out = None;
+            self.codec.decode(jpeg, |f| out = Some(f)).ok()?;
+            out
+        })
     }
 }
 
@@ -60,7 +59,17 @@ mod tests {
         let f = dec.decode_jpeg(&good).unwrap();
         assert_eq!((f.width, f.height), (64, 48));
         assert!((f.data[0] as i32 - 119).abs() <= 3, "a full-range JPEG grey of 120 is 119 in the limited range: {}", f.data[0]);
-        assert!(dec.decode_jpeg(&patch_size(&good, 32767, 32767)).is_none());
+        let huge = patch_size(&good, 32767, 32767);
+        assert!(dec.decode_jpeg(&huge).is_none());
+        let reached = std::cell::Cell::new(0);
+        let decoder = |_: &[u8]| {
+            reached.set(reached.get() + 1);
+            Some(())
+        };
+        assert_eq!(crate::jpeg_guard::decode_checked(&huge, decoder), None);
+        assert_eq!(reached.get(), 0, "never reached the decoder");
+        assert_eq!(crate::jpeg_guard::decode_checked(&good, decoder), Some(()));
+        assert_eq!(reached.get(), 1);
     }
 
     #[test]

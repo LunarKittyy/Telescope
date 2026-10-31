@@ -231,6 +231,21 @@ mod tests {
         assert!(open_feed(&url, &PhoneAuth::new("wrong", ""), Duration::from_secs(3)).is_err());
     }
 
+    // test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only: _new_reader goes by the URL, as this does
+    #[test]
+    fn a_feed_goes_by_what_the_url_asks_for() {
+        let server = serve(None, Arc::new(|req| if req.path.contains(".h264") {
+            (200, "video/h264".into(), b"\x00\x00\x00\x01".to_vec())
+        } else {
+            (200, "multipart/x-mixed-replace; boundary=--frame".into(), Vec::new())
+        }));
+        let open = |path: &str| open_feed(&format!("{}{path}", server.base(false)), &PhoneAuth::new("t", ""), Duration::from_secs(3)).map(|(codec, _)| codec);
+        assert_eq!(open("/v1/video.h264"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.h264?x=1"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.mjpeg"), Ok(Codec::Mjpeg));
+        assert_eq!(open("/v1/video"), Ok(Codec::Mjpeg));
+    }
+
     #[test]
     fn rejects_non_multipart_response() {
         let server = serve(None, Arc::new(|_| (200, "text/html".into(), b"<html>".to_vec())));
