@@ -573,6 +573,21 @@ fn stream_output_saved_resolution_does_not_leak_into_the_next_device() {
     assert_eq!(p.pending_resolution_text, None);
 }
 
+// test_plugins.py runs this for Monitoring too; its half is in setup's monitoring_tests.rs
+#[test]
+fn the_card_is_greyed_out_until_a_phone_is_paired() {
+    let (mut p, mut host) = (plugin(), FakeHost::new());
+    assert_eq!(p.card().unwrap().ui.props["active"], json!(false));
+    p.on_event(&mut host, &Event::PhonesChanged { count: 1 });
+    assert_eq!(p.card().unwrap().ui.props["active"], json!(true));
+    p.on_event(&mut host, &Event::PhonesChanged { count: 0 });
+    assert_eq!(p.card().unwrap().ui.props["active"], json!(false));
+    // A source that isn't a phone counts as paired, and takes the card away
+    p.on_event(&mut host, &Event::SourceSelected { source_id: "browser:1".into() });
+    assert_eq!(p.card().unwrap().ui.props["active"], json!(true));
+    assert_eq!(p.card().unwrap().ui.props["phone-only-hidden"], json!(true));
+}
+
 #[test]
 fn light_is_the_default_and_switching_reconnects() {
     let (mut p, mut host) = phone_a();
@@ -695,7 +710,9 @@ fn falling_behind_on_light_offers_dynamic() {
     assert_eq!(i.text, "Try Dynamic or lower quality.");
     assert_eq!(labels(i), ["Switch to Dynamic"]);
 
-    p.on_issue_action(&mut host, "behind", A_DYNAMIC);
+    let IssueDoes::Plugin { id } = &i.actions[0].does else { panic!("the plugin's own button") };
+    let id = id.clone();
+    p.on_issue_action(&mut host, "behind", &id);
     assert_eq!(sent(&host).last().unwrap(), &json!({"action": "bitrate", "value": -1}));
     assert_eq!(p.props()["bitrate-readout"], "Dynamic");
     assert_eq!(p.get_config()["bitrate_mbps"], -1);
@@ -761,6 +778,8 @@ fn h264_too_much_for_the_encoder_stops_and_offers_heavy() {
     host.focused = Some("phone-b".into());
     p.on_phone_state(&mut host, &json!({"cameras": [], "codecs": ["mjpeg", "h264"], "codec": "mjpeg",
         "codec_error": "H.264 isn't available at 4096x3072 on this phone", "codec_unsupported": true}));
+    assert!(host.is_scheduled(T_STOP));
+    assert_eq!(host.calls.iter().filter(|c| c.starts_with("stop_stream")).count(), 0, "after the other plugins have this state");
     p.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_STOP.into() });
     assert_eq!(host.calls.iter().filter(|c| c.starts_with("stop_stream")).count(), 1);
     assert!(host.calls.contains(&r#"stop_stream Some("phone-b")"#.to_string()));
@@ -786,7 +805,6 @@ fn bitrate_goes_up_to_100_mbps() {
     assert_eq!(sent(&host).last().unwrap(), &json!({"action": "bitrate", "value": 100_000_000}));
     assert_eq!(p.props()["bitrate-readout"], "100 Mbps");
     assert_eq!(DYNAMIC_POS, 101);
-    assert!(UI.contains("maximum: 101;"));
     p.set_config(&json!({"bitrate_mbps": 80})).unwrap();
     assert_eq!(p.props()["bitrate-readout"], "80 Mbps");
 }
@@ -806,7 +824,6 @@ fn bitrate_is_sent_in_bits_per_second() {
 fn jpeg_quality_stops_at_95_and_marks_the_recommended_spot() {
     let mut p = plugin();
     assert_eq!(MAX_QUALITY, 95);
-    assert!(UI.contains("maximum: 95;") && UI.contains("marks: [85];"));
     assert!(p.props()["quality-tip"].as_str().unwrap().contains("recommended"));
     p.set_config(&json!({"jpeg_quality": 100})).unwrap();
     assert_eq!(p.get_config()["jpeg_quality"], 95);

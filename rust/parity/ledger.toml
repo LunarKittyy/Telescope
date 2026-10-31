@@ -2445,7 +2445,7 @@
 "test_colour.py::test_a_3d_cube_reads_red_fastest" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_3d_cube_reads_red_fastest" }
 "test_colour.py::test_a_bake_that_fails_doesnt_leave_the_baking_thread_stuck" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_bake_that_fails_doesnt_leave_the_baking_thread_stuck" }
 "test_colour.py::test_a_cube_written_reads_back_the_same" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_cube_written_reads_back_the_same" }
-"test_colour.py::test_a_failing_stage_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_stage_that_fails_is_left_out" }
+"test_colour.py::test_a_failing_stage_is_left_out" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_failing_stage_is_left_out" }
 "test_colour.py::test_a_file_that_starts_with_a_byte_order_mark" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_file_that_starts_with_a_byte_order_mark" }
 "test_colour.py::test_a_huge_file_is_turned_away" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::a_huge_file_is_turned_away" }
 "test_colour.py::test_a_lattice_is_red_fastest_and_cubes_are_blue_major" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_lattice_is_red_fastest_and_cubes_are_blue_major" }
@@ -2461,7 +2461,7 @@
 "test_colour.py::test_diagnostics_say_how_long_the_lut_takes" = { status = "ported", rust = "rust/crates/core/src/colour.rs::diagnostics_say_which_lut_runs", note = "the LUT runs as a shader step, so the line names the LUT and has no time of its own" }
 "test_colour.py::test_files_telescope_cant_use_say_why" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::files_telescope_cant_use_say_why" }
 "test_colour.py::test_new_stages_are_baked_off_the_stream_thread" = { status = "ported", rust = "rust/crates/core/src/colour.rs::new_stages_are_baked_off_the_stream_thread" }
-"test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does" = { status = "ported", rust = "rust/crates/core/src/colour.rs::a_3d_lut_is_interpolated_trilinearly" }
+"test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does" = { status = "ported", rust = "rust/crates/media/src/gpu.rs::the_card_applies_a_3d_lut_like_trilinear_interpolation_does", note = "The shader does what OpenCV does in Python. It needs a graphics card; colour.rs::a_3d_lut_is_interpolated_trilinearly checks Baked::apply the same way without one" }
 "test_colour.py::test_per_channel_stages_become_exact_tables" = { status = "ported", rust = "rust/crates/core/src/colour.rs::per_channel_stages_become_exact_tables" }
 "test_colour.py::test_real_cube_files_load_and_survive_a_round_trip" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::real_cube_files_load_and_survive_a_round_trip" }
 "test_colour.py::test_stages_run_in_order_and_values_are_clipped_between_them" = { status = "ported", rust = "rust/crates/core/src/colour.rs::stages_run_in_order_and_values_are_clipped_between_them" }
@@ -2469,7 +2469,7 @@
 "test_colour.py::test_tabs_after_keywords_and_a_hash_inside_a_quoted_title" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::tabs_after_keywords_and_a_hash_inside_a_quoted_title" }
 "test_colour.py::test_the_bake_size_is_what_the_stages_need" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_bake_size_is_what_the_stages_need" }
 "test_colour.py::test_the_composed_lut_follows_the_order" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_composed_lut_follows_the_order" }
-"test_colour.py::test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_picture_before_the_colour_step_shows_left_of_the_split", note = "the preview draws on the full frame here, so Python's resize to a smaller preview has no twin" }
+"test_colour.py::test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" = { status = "todo", note = "colour.rs::the_picture_before_the_colour_step_shows_left_of_the_split has the drawing and the split coming and going, and shell.rs::comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview the kept picture. Nothing tests window.rs::with_colour_split, which joins them and hands back the frame untouched without a split. Python's resize to a smaller preview has no twin: the preview draws on the full frame" }
 "test_colour.py::test_the_split_is_only_drawn_on_the_stream_it_came_from" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_split_is_only_drawn_on_the_stream_it_came_from" }
 "test_colour.py::test_the_window_finds_which_stream_a_frame_is_from" = { status = "dropped", reason = "Python's frame steps ask which stream a frame is from. Here each stream's steps are made for its source id (State::pipeline_steps, checked by a_stream_gets_the_colour_stages_set_for_it_alone), so there's nothing to look up." }
 "test_colour.py::test_without_stages_frames_go_through_untouched" = { status = "ported", rust = "rust/crates/core/src/colour.rs::without_stages_frames_go_through_untouched" }
@@ -3564,7 +3564,7 @@
 "test_plugins.py::test_an_encoder_failure_goes_back_to_mjpeg_with_a_banner" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::an_encoder_failure_goes_back_to_mjpeg_with_a_banner" }
 "test_plugins.py::test_another_phone_does_not_keep_this_one_s_sizes" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::another_phone_does_not_keep_this_one_s_sizes" }
 "test_plugins.py::test_another_stream_falling_behind_says_nothing_but_catching_up_clears_the_note" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::another_stream_falling_behind_says_nothing_but_catching_up_clears_the_note" }
-"test_plugins.py::test_bitrate_goes_up_to_100_mbps" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::bitrate_goes_up_to_100_mbps" }
+"test_plugins.py::test_bitrate_goes_up_to_100_mbps" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::bitrate_goes_up_to_100_mbps" }
 "test_plugins.py::test_bitrate_is_sent_in_bits_per_second" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::bitrate_is_sent_in_bits_per_second" }
 "test_plugins.py::test_diagnostics_show_the_phones_wifi" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::diagnostics_show_the_phones_wifi" }
 "test_plugins.py::test_dynamic_is_no_wider_than_the_readouts_already_there" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::dynamic_is_no_wider_than_the_readouts_already_there" }
@@ -3575,12 +3575,12 @@
 "test_plugins.py::test_falling_behind_says_when_the_phones_wifi_is_why" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::falling_behind_says_when_the_phones_wifi_is_why" }
 "test_plugins.py::test_falling_behind_without_light_to_offer_has_no_button" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::falling_behind_without_light_to_offer_has_no_button" }
 "test_plugins.py::test_h264_needs_a_decoder_here" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::h264_needs_a_decoder_here" }
-"test_plugins.py::test_h264_too_much_for_the_encoder_stops_and_offers_heavy" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::h264_too_much_for_the_encoder_stops_and_offers_heavy" }
+"test_plugins.py::test_h264_too_much_for_the_encoder_stops_and_offers_heavy" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::h264_too_much_for_the_encoder_stops_and_offers_heavy", note = "stream_output/tests.rs has the same name for the stop waiting on its timer" }
 "test_plugins.py::test_hardware_decoding_is_off_unless_turned_on" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::hardware_decoding_is_off_unless_turned_on" }
-"test_plugins.py::test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::jpeg_quality_stops_at_95_and_marks_the_recommended_spot" }
-"test_plugins.py::test_light_is_the_default_and_switching_reconnects" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::light_is_the_default_and_switching_reconnects" }
+"test_plugins.py::test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::jpeg_quality_stops_at_95_and_marks_the_recommended_spot" }
+"test_plugins.py::test_light_is_the_default_and_switching_reconnects" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::light_is_the_default_and_switching_reconnects" }
 "test_plugins.py::test_light_lists_only_the_sizes_the_phone_s_encoder_takes" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::light_lists_only_the_sizes_the_phone_s_encoder_takes" }
-"test_plugins.py::test_monitoring_alert_settings_round_trip_and_defaults" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_alert_settings_round_trip_and_defaults" }
+"test_plugins.py::test_monitoring_alert_settings_round_trip_and_defaults" = { status = "todo", note = "Python's set_config schedules a save through its spin boxes' signals. Plugin::set_config has no host here, so that assertion can't be made; the rest is in monitoring_tests.rs" }
 "test_plugins.py::test_monitoring_alerts_once_then_rearm_after_hysteresis" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_alerts_once_then_rearm_after_hysteresis" }
 "test_plugins.py::test_monitoring_bus_subscription_and_config" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_bus_subscription_and_config" }
 "test_plugins.py::test_monitoring_charging_and_rising_never_stops" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_charging_and_rising_never_stops" }
@@ -3591,13 +3591,13 @@
 "test_plugins.py::test_monitoring_display_colours" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_display_colours" }
 "test_plugins.py::test_monitoring_does_not_warn_again_when_the_same_stream_reconnects" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_does_not_warn_again_when_the_same_stream_reconnects" }
 "test_plugins.py::test_monitoring_doesnt_warn_again_after_a_tile_switch" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_doesnt_warn_again_after_a_tile_switch" }
-"test_plugins.py::test_monitoring_drops_a_reading_from_a_stream_that_ended" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_drops_a_reading_from_a_stream_that_ended" }
-"test_plugins.py::test_monitoring_fetch_emits_only_valid_battery_state" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_fetch_emits_only_valid_battery_state" }
+"test_plugins.py::test_monitoring_drops_a_reading_from_a_stream_that_ended" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::monitoring_drops_a_reading_from_a_stream_that_ended" }
+"test_plugins.py::test_monitoring_fetch_emits_only_valid_battery_state" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::monitoring_fetch_emits_only_valid_battery_state" }
 "test_plugins.py::test_monitoring_ignores_state_without_battery" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_ignores_state_without_battery" }
-"test_plugins.py::test_monitoring_poll_starts_daemon_fetch_thread" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_poll_starts_daemon_fetch_thread" }
-"test_plugins.py::test_monitoring_says_why_it_stopped_in_the_window_and_can_start_anyway" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_says_why_it_stopped_in_the_window_and_can_start_anyway" }
+"test_plugins.py::test_monitoring_poll_starts_daemon_fetch_thread" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::monitoring_poll_starts_daemon_fetch_thread" }
+"test_plugins.py::test_monitoring_says_why_it_stopped_in_the_window_and_can_start_anyway" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::monitoring_says_why_it_stopped_in_the_window_and_can_start_anyway" }
 "test_plugins.py::test_monitoring_skips_a_reading_it_cant_read" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_skips_a_reading_it_cant_read" }
-"test_plugins.py::test_monitoring_start_anyway_for_heat_still_stops_for_battery" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_start_anyway_for_heat_still_stops_for_battery" }
+"test_plugins.py::test_monitoring_start_anyway_for_heat_still_stops_for_battery" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::monitoring_start_anyway_for_heat_still_stops_for_battery" }
 "test_plugins.py::test_monitoring_stops_again_after_a_restart_past_the_limit" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_stops_again_after_a_restart_past_the_limit" }
 "test_plugins.py::test_monitoring_stops_for_heat_only_when_asked" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_stops_for_heat_only_when_asked" }
 "test_plugins.py::test_monitoring_stops_for_low_battery_only_when_asked" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::monitoring_stops_for_low_battery_only_when_asked" }
@@ -3632,7 +3632,7 @@
 "test_plugins.py::test_stream_output_saved_resolution_wins_over_default_and_live" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::stream_output_saved_resolution_wins_over_default_and_live" }
 "test_plugins.py::test_stream_quality_and_bitrate_reset_on_a_double_click" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::stream_quality_and_bitrate_reset_on_a_double_click" }
 "test_plugins.py::test_switching_away_from_a_phone_without_an_encoder_keeps_the_next_ones_light" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::switching_away_from_a_phone_without_an_encoder_keeps_the_next_ones_light" }
-"test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired", note = "Monitoring's half; the test also runs on Stream output, which its port checks separately or not at all" }
+"test_plugins.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/setup/src/monitoring_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired", note = "Python's other parameter, Stream output, is stream_output/tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
 "test_plugins.py::test_without_a_known_size_the_start_leaves_it_to_the_phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::without_a_known_size_the_start_leaves_it_to_the_phone" }
 # ── plugins_panel
 "test_plugins_panel.py::test_a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" = { status = "ported", rust = "rust/crates/shell/tests/plugins_tab_ui.rs::a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once" }
@@ -3976,7 +3976,7 @@
 "test_smoke_check.py::test_construction_check_shuts_down_and_destroys_its_window" = { status = "dropped", reason = "scripts/smoke_check.py is the release's packaging smoke check, run against a built bundle: it constructs the Python app's Qt window, probes adb and the virtual camera and does an MJPEG round trip. It stays Python; the Rust packages need a smoke run of their own once they're built (not written yet)" }
 # ── sources
 "test_sources.py::test_a_camera_that_stays_off_says_so" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_camera_that_stays_off_says_so" }
-"test_sources.py::test_a_phone_stopped_meanwhile_gets_a_banner_whose_start_starts_it_again" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_phone_stopped_meanwhile_gets_a_banner_whose_start_starts_it_again" }
+"test_sources.py::test_a_phone_stopped_meanwhile_gets_a_banner_whose_start_starts_it_again" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::recovery_stops_the_stream_when_the_phone_stopped_streaming" }
 "test_sources.py::test_a_phone_that_cant_turn_its_camera_off_gets_it_back_on" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_phone_that_cant_turn_its_camera_off_gets_it_back_on" }
 "test_sources.py::test_a_phone_that_wont_take_the_stream_back_stops_it_and_says_why" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_phone_that_wont_take_the_stream_back_stops_it_and_says_why" }
 "test_sources.py::test_a_quiet_phone_with_its_camera_off_is_looked_for" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_quiet_phone_with_its_camera_off_is_looked_for" }
@@ -3984,8 +3984,8 @@
 "test_sources.py::test_a_wake_long_after_a_stop_doesnt_wait_for_the_phone_to_settle" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_wake_long_after_a_stop_doesnt_wait_for_the_phone_to_settle" }
 "test_sources.py::test_a_wake_right_after_stop_waits_for_the_stop_to_reach_the_phone" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_wake_right_after_stop_waits_for_the_stop_to_reach_the_phone" }
 "test_sources.py::test_a_wifi_route_that_hasnt_connected_yet_isnt_moved_again" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::a_wifi_route_that_hasnt_connected_yet_isnt_moved_again" }
-"test_sources.py::test_mic_only_session_can_hand_over_to_usb" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::mic_only_session_can_hand_over_to_usb", note = "the session on the new route opens on a thread and comes back as HandedOver" }
-"test_sources.py::test_the_same_cable_back_after_a_fresh_forward_died_gets_another" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::the_same_cable_back_after_a_fresh_forward_died_gets_another" }
+"test_sources.py::test_mic_only_session_can_hand_over_to_usb" = { status = "ported", rust = "rust/app/tests/stream_camera_off.rs::mic_only_session_can_hand_over_to_usb", note = "the session on the new route opens on a thread and comes back as HandedOver" }
+"test_sources.py::test_the_same_cable_back_after_a_fresh_forward_died_gets_another" = { status = "ported", rust = "rust/app/tests/stream_recovery.rs::the_same_cable_back_after_a_fresh_forward_died_gets_another" }
 "test_sources.py::test_the_window_offers_every_call_a_source_makes" = { status = "dropped", reason = "SourceHost is a Rust trait implemented on the window in streams.rs: a call the window doesn't offer is a compile error." }
 "test_sources.py::test_wake_progress_only_counts_while_the_host_is_waking" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::wake_progress_only_counts_while_the_host_is_waking" }
 "test_sources.py::test_with_others_streaming_the_banner_names_the_phone" = { status = "ported", rust = "rust/crates/shell/src/sources.rs::with_others_streaming_the_banner_names_the_phone" }
@@ -4356,7 +4356,7 @@
 "test_udp_reader.py::test_reports_say_how_much_got_through" = { status = "ported", rust = "rust/crates/link/src/udp.rs::frames_arrive_over_udp_and_lost_datagrams_are_sent_again" }
 "test_udp_reader.py::test_seals_exactly_like_the_phone" = { status = "ported", rust = "rust/crates/link/src/udp.rs::seals_exactly_like_the_phone" }
 # ── update_guard
-"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_confirmed_update_stays_and_its_leftovers_go" }
+"test_update_guard.py::test_a_confirmed_update_stays_and_its_leftovers_go" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_confirmed_update_stays_and_its_leftovers_go", note = "lib-131 has no PyQt6 here: this app has no lib folder of its own, so one with PyQt6 would count as a leftover" }
 "test_update_guard.py::test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole" }
 "test_update_guard.py::test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_install_cut_short_anywhere_is_finished_by_the_next_start" }
 "test_update_guard.py::test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build" }
@@ -4364,21 +4364,21 @@
 "test_update_guard.py::test_a_roll_back_cut_short_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_roll_back_cut_short_is_finished_by_the_next_start" }
 "test_update_guard.py::test_a_second_copy_starting_leaves_the_update_to_the_running_one" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_second_copy_starting_leaves_the_update_to_the_running_one" }
 "test_update_guard.py::test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone" }
-"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_linux_update_that_never_confirms_rolls_back" }
+"test_update_guard.py::test_a_start_that_dies_with_no_signal_still_rolls_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs::a_start_that_dies_with_no_signal_still_rolls_back" }
 "test_update_guard.py::test_a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_windows_install_cut_short_anywhere_is_finished_by_the_next_start" }
 "test_update_guard.py::test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again" }
 "test_update_guard.py::test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::after_an_update_the_new_copy_waits_for_the_old_one_to_exit" }
 "test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to" }
 "test_update_guard.py::test_clean_up_waits_while_an_update_is_unconfirmed" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::clean_up_waits_while_an_update_is_unconfirmed" }
 "test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::right_after_an_update_a_copy_from_before_the_per_user_lock_counts" }
-"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs::main" }
-"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::confirming_with_no_update_in_progress_leaves_no_journal_behind" }
+"test_update_guard.py::test_sigterm_during_the_first_start_confirms_instead_of_rolling_back" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs::sigterm_during_the_first_start_confirms_instead_of_rolling_back" }
+"test_update_guard.py::test_sigterm_with_no_update_in_progress_leaves_no_journal_behind" = { status = "ported", rust = "rust/crates/system/tests/terminate.rs::sigterm_with_no_update_in_progress_leaves_no_journal_behind" }
 "test_update_guard.py::test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::the_guard_sees_a_running_copy_through_the_same_address_the_app_binds" }
-"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "ported", rust = "rust/crates/system/src/update_guard.rs::confirm_on_terminate", note = "confirm_on_terminate is a no-op off unix" }
+"test_update_guard.py::test_windows_installs_no_terminate_handler" = { status = "todo", note = "confirm_on_terminate has an empty body off unix, but no test runs it on Windows and checks the handlers stay as they were" }
 # ── updates
 "test_updates.py::test_a_check_without_internet_fails_with_a_message" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_check_without_internet_fails_with_a_message" }
 "test_updates.py::test_a_download_without_internet_fails_and_leaves_nothing" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_download_without_internet_fails_and_leaves_nothing" }
-"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_folder_build_update_adds_its_own_libs_and_the_old_ones_wait_for_the_confirm", note = "This app has no lib folder of its own, so clean_up_after_update removes every lib-* once confirmed" }
+"test_updates.py::test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start", note = "This app has no lib folder of its own, so clean_up_after_update removes every lib-* holding PyQt6 once confirmed; lib-131 here has none, so it stays as Python's running one does" }
 "test_updates.py::test_a_rolled_back_build_is_named_and_can_be_tried_again" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_rolled_back_build_is_named_and_can_be_tried_again" }
 "test_updates.py::test_a_source_checkout_or_read_only_folder_only_gets_a_link" = { status = "ported", rust = "rust/crates/system/src/updates.rs::a_source_checkout_or_read_only_folder_only_gets_a_link" }
 "test_updates.py::test_an_archive_escaping_its_folder_is_refused" = { status = "ported", rust = "rust/crates/system/src/updates.rs::an_archive_escaping_its_folder_is_refused" }
@@ -4398,7 +4398,7 @@
 "test_updates.py::test_note_installed_version_updates_the_apps_entry" = { status = "ported", rust = "rust/crates/system/src/setup_move_tests.rs::note_installed_version_updates_the_apps_entry" }
 "test_updates.py::test_parses_a_manifest_and_names_its_version" = { status = "ported", rust = "rust/crates/system/src/updates.rs::parses_a_manifest_and_names_its_version" }
 "test_updates.py::test_rejects_a_manifest_it_cant_trust" = { status = "ported", rust = "rust/crates/system/src/updates.rs::rejects_a_manifest_it_cant_trust" }
-"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_first_folder_build_installs_over_the_single_exe" }
+"test_updates.py::test_the_first_folder_build_installs_over_the_single_exe" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_first_folder_build_installs_over_the_single_exe", note = "Python keeps its running lib-130 after the clean-up. This app runs from no lib folder, so a Python build's goes" }
 "test_updates.py::test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped" = { status = "ported", rust = "rust/crates/system/src/updates.rs::the_new_lib_folder_is_in_place_before_the_exe_is_swapped" }
 "test_updates.py::test_windows_install_refuses_an_archive_without_the_app" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_refuses_an_archive_without_the_app" }
 "test_updates.py::test_windows_install_renames_the_running_exe_and_replaces_changed_files" = { status = "ported", rust = "rust/crates/system/src/updates.rs::windows_install_renames_the_running_exe_and_replaces_changed_files" }

@@ -176,6 +176,8 @@ pub struct FakeLink {
     pub prepared: Mutex<Option<String>>,
     /// Stops take this long to get there: a phone that's gone.
     pub stops_hang: AtomicBool,
+    /// The video URLs of the next USB routes opened, each on a forward of its own.
+    pub usb_forwards: Mutex<std::collections::VecDeque<String>>,
 }
 
 impl FakeLink {
@@ -262,7 +264,9 @@ impl Link for FakeLink {
         note(&self.log, format!("open {} with {}", phone.id, phone.token));
         let released = Arc::<AtomicBool>::default();
         self.released.lock().unwrap().push(released.clone());
-        Ok(Box::new(Session { route: route.clone(), url: format!("https://{host}:8080{video_path}"), controls: self.control(&phone.id), released }))
+        let forward = if matches!(route, RouteSpec::Usb { .. }) { self.usb_forwards.lock().unwrap().pop_front() } else { None };
+        let url = forward.unwrap_or_else(|| format!("https://{host}:8080{video_path}"));
+        Ok(Box::new(Session { route: route.clone(), url, controls: self.control(&phone.id), released }))
     }
     fn ensure_streaming(&self, phone: &PairedPhone, _route: &RouteSpec, opening: Option<StreamRequest>, after_stop: bool,
                         progress: &dyn Fn(&str)) -> Result<(), String> {
