@@ -176,6 +176,8 @@ impl ConnectionPlugin {
     fn catch_up(&mut self, host: &mut dyn Host) {
         if self.stale {
             self.stale = false;
+            let udp = self.conn().udp;
+            host.set_ui_props("udp", &json!({"udp": udp}));
             self.refresh_picker(host);
             self.render(host);
             self.announce_source(host);
@@ -261,7 +263,13 @@ impl ConnectionPlugin {
     fn on_resolved(&mut self, host: &mut dyn Host, data: &Value) {
         let (Some(check_id), Some(phone_id), Ok(res)) = (data["check_id"].as_u64(), data["phone_id"].as_str(),
                                                          serde_json::from_value::<Resolution>(data["resolution"].clone())) else { return };
-        self.drop_stale_update_note(&res);
+        let current = {
+            let c = self.conn();
+            check_id == c.check_id && Some(phone_id) == c.selected_id.as_deref()
+        };
+        if current {
+            self.drop_stale_update_note(&res);
+        }
         let (save, ready) = self.conn().on_resolved(check_id, phone_id, res);
         if save {
             host.schedule_save();
@@ -938,6 +946,10 @@ impl ConnectionPlugin {
     }
 
     fn refresh_transport(&mut self, host: &mut dyn Host) {
+        // What Stream output says now, not what the stream opened with: Dynamic on or off is why this runs
+        if let Some(cfg) = host.plugin_config("stream_output") {
+            self.shared.set_format(connection::stream_format(Some(&cfg), true));
+        }
         let format = self.shared.format();
         if self.conn().transport_needs_reconnect(format) {
             host.reconnect_stream();
@@ -969,10 +981,16 @@ impl ConnectionPlugin {
                     ("status_err".into(), data["detail"].as_str().unwrap_or_default().to_string())
                 });
                 self.render(host);
+                self.check_status(host);
             }
             POST_CHANGED => {
                 if data["save"].as_bool() == Some(true) {
                     host.schedule_save();
+                }
+                // Start's own check counts too
+                let res = self.conn().resolution.clone();
+                if let Some(res) = res {
+                    self.drop_stale_update_note(&res);
                 }
                 self.render(host);
             }
@@ -1205,6 +1223,9 @@ impl Plugin for ConnectionPlugin {
 
     fn on_plugins_ready(&mut self, host: &mut dyn Host) {
         self.catch_up(host);
+        // sync_active_profile: the restored selection, so the first real change is the one that switches profiles
+        let selected = self.conn().selected_id.clone();
+        self.active_key = selected;
         let count = self.conn().phones.len() as u32;
         host.emit(Event::PhonesChanged { count });
         self.announce_source(host);
@@ -1532,6 +1553,7 @@ mod tests {
     use crate::connection::Tunnels;
     use std::sync::Mutex;
     use std::time::Duration;
+    use telescope_core::host::HostStreams;
     use telescope_core::link::{PhoneSession, RoutePrefs, Unreachable};
     use telescope_core::output::{SetupStatus, Slot, VideoOutput};
     use telescope_core::PixelFormat;
@@ -1555,6 +1577,12 @@ mod tests {
         offer: Mutex<Option<Arc<FakeOffer>>>,
         adb: Mutex<bool>,
         offline: Mutex<bool>,
+        /// The phones checked, in order.
+        checks: Mutex<Vec<String>>,
+        /// (serial, apk) of each install.
+        installs: Mutex<Vec<(String, String)>>,
+        /// The computer name each pairing offer went out with.
+        offered_as: Mutex<Vec<String>>,
     }
 
     impl FakeLink {
@@ -1562,6 +1590,7 @@ mod tests {
             Arc::new(FakeLink {
                 answer: Mutex::new(Resolution::new(PhoneStatus::Unreachable)), unpaired: Mutex::default(),
                 install: Mutex::new(Ok(())), install_panics: Mutex::default(), offer: Mutex::default(), adb: Mutex::new(true), offline: Mutex::new(false),
+                checks: Mutex::default(), installs: Mutex::default(), offered_as: Mutex::default(),
             })
         }
 
@@ -1610,12 +1639,14 @@ mod tests {
         fn resolve(&self, _phone: &PairedPhone, _prefs: RoutePrefs) -> Result<Box<dyn PhoneSession>, Unreachable> {
             Err(Unreachable::NoAnswer)
         }
-        fn pair(&self, _cid: &str, _name: &str) -> Result<Arc<dyn PairingOffer>, String> {
+        fn pair(&self, _cid: &str, name: &str) -> Result<Arc<dyn PairingOffer>, String> {
+            self.offered_as.lock().unwrap().push(name.to_string());
             let offer = Arc::new(FakeOffer { offline: *self.offline.lock().unwrap(), ..Default::default() });
             *self.offer.lock().unwrap() = Some(offer.clone());
             Ok(offer)
         }
-        fn check(&self, _phone: &PairedPhone, _preference: RoutePreference) -> Resolution {
+        fn check(&self, phone: &PairedPhone, _preference: RoutePreference) -> Resolution {
+            self.checks.lock().unwrap().push(phone.id.clone());
             self.answer.lock().unwrap().clone()
         }
         fn unpair(&self, phone: &PairedPhone) {
@@ -1627,15 +1658,21 @@ mod tests {
         fn adb_available(&self) -> bool {
             *self.adb.lock().unwrap()
         }
-        fn install_app(&self, _serial: &str, _apk: &str) -> Result<(), String> {
+        fn install_app(&self, serial: &str, apk: &str) -> Result<(), String> {
+            self.installs.lock().unwrap().push((serial.to_string(), apk.to_string()));
             assert!(!*self.install_panics.lock().unwrap(), "no space left");
             self.install.lock().unwrap().clone()
         }
     }
 
     fn phone(pid: &str, name: &str) -> PairedPhone {
-        PairedPhone { id: pid.into(), name: name.into(), token: "tok".into(), ips: vec!["10.0.0.5".into()], active_ip: None,
+        PairedPhone { id: pid.into(), name: name.into(), token: "tok".into(), ips: vec!["10.0.0.5".into()], active_ip: Some("10.0.0.5".into()),
                       cert_sha256: "ab".repeat(32) }
+    }
+
+    /// The same phone or a reinstalled one, paired with a token and address of its own.
+    fn repaired(pid: &str, name: &str, token: &str, ip: &str) -> PairedPhone {
+        PairedPhone { token: token.into(), ips: vec![ip.into()], active_ip: Some(ip.into()), ..phone(pid, name) }
     }
 
     fn ready(route: RouteSpec) -> Resolution {
@@ -1658,8 +1695,12 @@ mod tests {
     }
 
     fn env() -> Env {
+        env_over(Arc::new(NoTunnels))
+    }
+
+    fn env_over(tunnels: Arc<dyn Tunnels>) -> Env {
         let link = FakeLink::new();
-        let shared = Shared::new(Arc::new(NoTunnels));
+        let shared = Shared::new(tunnels);
         let mut plugin = ConnectionPlugin::new(link.clone(), shared.clone());
         let mut host = FakeHost::new();
         plugin.setup(&mut host);
@@ -1714,6 +1755,96 @@ mod tests {
 
         fn phones_changed(&self) -> Vec<u32> {
             self.host.events.iter().filter_map(|e| match e { Event::PhonesChanged { count } => Some(*count), _ => None }).collect()
+        }
+
+        fn pair(&mut self, phone: PairedPhone) {
+            self.plugin.phone_paired(&mut self.host, phone);
+            self.settle();
+        }
+
+        /// A check's answer landing on the card, as the current check for the picked phone.
+        fn resolve(&mut self, res: Resolution) {
+            let data = {
+                let c = self.shared.conn();
+                json!({"check_id": c.check_id, "phone_id": c.selected_id, "resolution": res})
+            };
+            self.plugin.on_event(&mut self.host, &Event::Posted { owner: NAME.into(), token: P_RESOLVED.into(), data });
+        }
+
+        fn count(&self, call: &str) -> usize {
+            self.host.calls.iter().filter(|c| c.starts_with(call)).count()
+        }
+
+        fn switches(&self) -> Vec<&str> {
+            self.host.calls.iter().filter(|c| c.starts_with("switch_device")).map(String::as_str).collect()
+        }
+
+        fn ids(&self) -> Vec<String> {
+            self.shared.phones().iter().map(|p| p.id.clone()).collect()
+        }
+
+        fn issue(&self, key: &str) -> Option<Issue> {
+            self.host.issues.iter().find(|(k, _)| k == key).map(|(_, i)| i.clone())
+        }
+
+        fn labels(&self, key: &str) -> Vec<String> {
+            self.issue(key).unwrap().actions.iter().map(|a| a.label.clone()).collect()
+        }
+
+        /// A banner's button, as the window runs it.
+        fn press(&mut self, key: &str, button: usize) {
+            match self.issue(key).unwrap().actions[button].does.clone() {
+                IssueDoes::Plugin { id } => self.plugin.on_issue_action(&mut self.host, key, &id),
+                IssueDoes::StartAgain { source_id, before } => {
+                    if let Some(before) = before {
+                        self.plugin.on_issue_action(&mut self.host, key, &before);
+                    }
+                    self.host.start_again(source_id.as_deref());
+                }
+                other => panic!("{other:?}"),
+            }
+            self.settle();
+        }
+
+        /// get_stream_info: the video URL, or None with the reason on a banner.
+        fn ask_start(&mut self) -> Option<String> {
+            let link = self.link.clone();
+            let format = self.shared.format();
+            let target = self.shared.start_route(None, format, &|p, pref| link.check(p, pref));
+            self.settle();
+            target.ok().map(|t| t.video_url)
+        }
+
+        /// _streaming_over: started, and frames arrived.
+        fn stream_over(&mut self, route: RouteSpec) {
+            self.link.answer(ready(route));
+            let url = self.ask_start().expect("a route");
+            self.plugin.on_stream_start(&mut self.host, &StreamInfo { source_id: "id-a".into(), url, session: 0 });
+            self.plugin.on_event(&mut self.host, &Event::StreamConnected { source_id: String::new() });
+        }
+
+        fn stream_config(&mut self, cfg: Value) {
+            self.host.plugin_configs.insert("stream_output".into(), cfg);
+        }
+    }
+
+    /// Forwards that count who holds them (_FakeTunnels).
+    #[derive(Default)]
+    struct HeldTunnels {
+        held: Mutex<u32>,
+        refuse: Mutex<bool>,
+    }
+
+    impl Tunnels for HeldTunnels {
+        fn acquire(&self, _serial: &str, _remote_port: u16) -> Option<u16> {
+            if *self.refuse.lock().unwrap() {
+                return None;
+            }
+            *self.held.lock().unwrap() += 1;
+            Some(41000)
+        }
+        fn release(&self, _serial: &str, _remote_port: u16) {
+            *self.held.lock().unwrap() -= 1;
         }
     }
 
@@ -1881,6 +2012,7 @@ mod tests {
         let mut e = env();
         e.settle();
         assert_eq!(e.status(), "No phone yet");
+        assert_eq!(e.props("card")["note-text"], ""); // the Add phone button in the card header says the rest
         assert_eq!(e.props("card")["route-shown"], false);
         assert_eq!(e.props("card")["using-shown"], false);
     }
@@ -1900,9 +2032,10 @@ mod tests {
         e.link.answer(ready(wifi()));
         e.add("id-a", "Pixel");
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
+        assert_eq!(e.shared.phones()[0].active_ip.as_deref(), Some("10.0.0.5"));
         assert_eq!(e.props("header")["names"], json!(["Pixel"]));
         assert_eq!(e.props("header")["current"], 0);
-        assert!(e.called("switch_device None Some(\"id-a\")"));
+        assert_eq!(e.switches(), ["switch_device None Some(\"id-a\")"]);
         assert!(e.called("save_now"));
         // Its first check landed on the card
         assert_eq!(e.status(), "Ready");
@@ -1912,8 +2045,9 @@ mod tests {
     fn phone_count_is_announced_on_the_bus() {
         let mut e = env();
         e.add("id-a", "Pixel");
-        e.add("id-b", "Galaxy");
-        assert_eq!(e.phones_changed().last(), Some(&2));
+        assert!(e.phones_changed().contains(&1));
+        e.plugin.forget_phone(&mut e.host, "id-a");
+        assert_eq!(e.phones_changed().last(), Some(&0));
     }
 
     #[test]
@@ -1956,38 +2090,53 @@ mod tests {
     fn phones_dialog_lists_renames_and_removes() {
         let mut e = env();
         e.add("id-a", "Pixel");
-        e.add("id-b", "Galaxy");
         e.ui("header", "manage", vec![]);
+        assert_eq!(e.props("header")["phones-open"], true);
         let rows = e.props("header")["rows"].clone();
-        assert_eq!(rows.as_array().unwrap().len(), 2);
+        assert_eq!(rows.as_array().unwrap().iter().map(|r| r["id"].clone()).collect::<Vec<_>>(), [json!("id-a")]);
         assert_eq!(rows[0]["sub"], "Phone · 10.0.0.5");
         assert!(rows[0]["confirm"].as_str().unwrap().starts_with("Remove \"Pixel\"?"));
         assert_eq!((&rows[0]["rename-label"], &rows[0]["remove-label"], &rows[0]["confirm-title"]),
                    (&json!("Rename Pixel"), &json!("Remove Pixel"), &json!("Remove phone")));
-        e.ui("header", "remove", vec![json!("id-b")]);
-        assert_eq!(e.props("header")["rows"].as_array().unwrap().len(), 1);
+        e.ui("header", "rename", vec![json!("id-a"), json!("Renamed")]);
+        assert_eq!(e.props("header")["rows"][0]["name"], "Renamed");
+        e.ui("header", "remove", vec![json!("id-a")]);
+        assert_eq!(e.props("header")["rows"], json!([])); // "No phones yet" shows on an empty list
+        assert!(e.called("forget_device_settings id-a"));
     }
 
     #[test]
     fn phones_dialog_lists_remembered_browsers_to_remove() {
         let mut e = env();
-        let browser = RememberedSource { id: "browser:1".into(), name: "Laptop browser".into(), detail: "Browser".into() };
+        e.add("id-a", "A");
+        let browser = RememberedSource { id: "browser:pixel-aaaaaaaa".into(), name: "Chrome on Android".into(), detail: "Browser".into() };
         e.plugin.on_event(&mut e.host, &Event::RememberedSources { sources: vec![browser] });
         e.ui("header", "manage", vec![]);
-        assert_eq!(e.props("header")["rows"][0]["name"], "Laptop browser");
-        e.ui("header", "remove", vec![json!("browser:1")]);
-        assert!(e.host.events.iter().any(|ev| matches!(ev, Event::ForgetSourceRequested { source_id } if source_id == "browser:1")));
+        let rows = e.props("header")["rows"].clone();
+        assert_eq!(rows.as_array().unwrap().iter().map(|r| r["name"].clone()).collect::<Vec<_>>(), [json!("A"), json!("Chrome on Android")]);
+        assert_eq!((&rows[1]["renamable"], &rows[1]["remove-label"]), (&json!(false), &json!("Remove Chrome on Android")));
+        assert_eq!(rows[0]["renamable"], true);
+        e.ui("header", "remove", vec![json!("browser:pixel-aaaaaaaa")]);
+        assert_eq!(e.host.events.iter().filter(|ev| matches!(ev, Event::ForgetSourceRequested { source_id } if source_id == "browser:pixel-aaaaaaaa")).count(), 1);
+        assert_eq!(e.ids(), ["id-a"]);
     }
 
     #[test]
     fn forgetting_a_phone_revokes_it_and_drops_its_settings() {
         let mut e = env();
-        e.add("id-a", "Pixel");
-        e.plugin.forget_phone(&mut e.host, "id-a");
+        e.add("id-a", "A");
+        e.add("id-b", "B");
+        e.plugin.forget_phone(&mut e.host, "id-b");
         std::thread::sleep(Duration::from_millis(50));
-        assert_eq!(*e.link.unpaired.lock().unwrap(), vec!["id-a".to_string()]);
-        assert!(e.called("forget_device_settings id-a"));
-        assert!(e.shared.phones().is_empty());
+        assert_eq!(e.ids(), ["id-a"]);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
+        assert_eq!(e.count("forget_device_settings"), 1);
+        assert!(e.called("forget_device_settings id-b"));
+        assert_eq!(*e.link.unpaired.lock().unwrap(), vec!["id-b".to_string()]);
+
+        e.plugin.forget_phone(&mut e.host, "id-a");
+        assert_eq!(e.shared.picked_source(), None);
+        assert_eq!(e.status(), "No phone yet");
     }
 
     #[test]
@@ -2005,10 +2154,11 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into(), session: 0 });
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (noted, shared) = (seen.clone(), e.shared.clone());
+        e.host.on_stop = Some(Box::new(move || noted.lock().unwrap().push(shared.conn().session_target(None).0.is_some_and(|p| !p.token.is_empty()))));
         e.plugin.forget_phone(&mut e.host, "id-a");
-        let stop = e.host.calls.iter().position(|c| c == "stop_stream None").unwrap();
-        let forget = e.host.calls.iter().position(|c| c == "forget_device_settings id-a").unwrap();
-        assert!(stop < forget);
+        assert_eq!(seen.lock().unwrap().first(), Some(&true));
     }
 
     #[test]
@@ -2028,46 +2178,82 @@ mod tests {
     #[test]
     fn start_without_a_phone_explains_and_refuses() {
         let mut e = env();
-        let link = e.link.clone();
-        assert!(e.shared.start_route(None, Default::default(), &|p, pref| link.check(p, pref)).is_err());
-        e.settle();
-        assert!(e.called("show_issue start No phone yet"));
+        assert_eq!(e.ask_start(), None);
+        assert_eq!(e.issue("start").unwrap().title, "No phone yet");
+        e.press("start", 0);
+        assert_eq!(e.props("card")["add-open"], true);
     }
 
     #[test]
     fn pairing_a_phone_takes_down_the_no_phone_banner() {
         let mut e = env();
-        let link = e.link.clone();
-        let _ = e.shared.start_route(None, Default::default(), &|p, pref| link.check(p, pref));
-        e.settle();
+        e.ask_start();
         e.add("id-a", "Pixel");
-        assert!(e.called("clear_issue Some(\"start\")"));
+        assert!(e.issue("start").is_none());
+        e.ask_start(); // a later problem with the phone stays up when another phone pairs
+        e.add("id-b", "Galaxy");
+        assert_eq!(e.issue("start").unwrap().title, "Can't connect to the phone");
     }
 
     #[test]
     fn start_on_an_unreachable_phone_shows_the_fix() {
         let mut e = env();
         e.add("id-a", "Pixel");
-        let link = e.link.clone();
-        assert!(e.shared.start_route(None, Default::default(), &|p, pref| link.check(p, pref)).is_err());
-        e.settle();
-        assert!(e.called("show_issue start Can't connect to the phone"));
+        assert_eq!(e.ask_start(), None);
+        assert!(e.issue("start").unwrap().text.contains("Open Telescope on Pixel"));
+        assert_eq!(e.labels("start"), ["Try again"]);
+        e.press("start", 0);
+        assert!(e.called("start_again Some(\"id-a\")"));
+    }
+
+    #[test]
+    fn start_failures_offer_the_matching_fix() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.link.answer(Resolution::new(PhoneStatus::NotPaired));
+        e.ask_start();
+        assert_eq!(e.labels("start"), ["Add phone"]);
+
+        e.shared.conn().route_pref = RoutePreference::Usb;
+        e.link.answer(Resolution::new(PhoneStatus::UsbNeedsAttention));
+        e.ask_start();
+        assert_eq!(e.labels("start"), ["Switch to Automatic", "Try again"]);
+        e.press("start", 0);
+        assert_eq!(e.shared.conn().route_pref, RoutePreference::Auto);
+        assert_eq!(e.count("start_again"), 1);
+
+        e.link.answer(Resolution::new(PhoneStatus::DesktopOutdated));
+        e.ask_start();
+        assert_eq!(e.labels("start"), ["Update this app"]);
+    }
+
+    #[test]
+    fn start_over_usb_reports_a_failed_forward() {
+        let tunnels = Arc::new(HeldTunnels::default());
+        *tunnels.refuse.lock().unwrap() = true;
+        let mut e = env_over(tunnels);
+        e.add("id-a", "Pixel");
+        e.link.answer(ready(usb()));
+        assert_eq!(e.ask_start(), None);
+        assert!(e.issue("start").unwrap().text.contains("adb"));
     }
 
     #[test]
     fn the_help_button_asks_for_the_setup_guide() {
         let mut e = env();
         e.ui("card", "guide", vec![]);
-        assert!(e.host.events.contains(&Event::SetupGuideRequested));
+        assert_eq!(e.host.events.iter().filter(|ev| **ev == Event::SetupGuideRequested).count(), 1);
     }
 
     #[test]
     fn add_phone_request_on_the_bus_opens_pairing() {
         let mut e = env();
+        e.ui("header", "rename-computer", vec![json!("Studio PC")]);
         e.plugin.on_event(&mut e.host, &Event::AddPhoneRequested);
         assert_eq!(e.props("card")["add-open"], true);
         assert!(e.props("card")["qr-size"].as_u64().unwrap() > 0);
         assert!(e.host.is_scheduled(T_PAIR_POLL));
+        assert_eq!(*e.link.offered_as.lock().unwrap(), ["Studio PC"]);
     }
 
     #[test]
@@ -2114,10 +2300,73 @@ mod tests {
     #[test]
     fn a_problem_shows_its_fix_on_the_card() {
         let mut e = env();
-        e.link.answer(Resolution { route: Some(usb()), ..Resolution::new(PhoneStatus::PhoneOutdated) });
         e.add("id-a", "Pixel");
+        e.resolve(Resolution::new(PhoneStatus::NotPaired));
+        assert!(e.status().contains("Needs pairing again"), "{}", e.status());
+        assert!(e.props("card")["note-text"].as_str().unwrap().contains("Add phone"));
+    }
+
+    #[test]
+    fn resolution_updates_the_card_and_remembers_the_address_that_answered() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        let saves = e.count("schedule_save");
+        e.shared.conn().check_id = 7;
+        let res = Resolution { usb_note: Some(telescope_core::link::UsbNote::NoCable), ..ready(RouteSpec::Network { address: "10.0.0.77".into() }) };
+        e.resolve(res);
+        assert_eq!(e.status(), "Ready");
+        assert_eq!(e.props("card")["using-text"], "Wi-Fi · 10.0.0.77");
+        assert_eq!(e.props("card")["note-text"], ""); // no cable, nothing to explain
+        let phone = e.shared.phones()[0].clone();
+        assert_eq!(phone.active_ip.as_deref(), Some("10.0.0.77"));
+        assert!(phone.ips.contains(&"10.0.0.77".to_string()));
+        assert!(e.count("schedule_save") > saves);
+    }
+
+    #[test]
+    fn a_cable_that_is_not_used_gets_explained() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.resolve(Resolution { usb_note: Some(telescope_core::link::UsbNote::AppClosed), ..ready(wifi()) });
+        assert_eq!(e.props("card")["note-text"], "Not using USB: phone plugged in, but Telescope isn't open on it.");
+    }
+
+    #[test]
+    fn an_outdated_phone_on_usb_can_be_updated_from_here() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        let outdated = |route| Resolution { route: Some(route), ..Resolution::new(PhoneStatus::PhoneOutdated) };
+        e.resolve(outdated(wifi()));
+        assert_eq!(e.props("card")["update-shown"], false); // over Wi-Fi the phone updates itself
+        e.resolve(outdated(usb()));
+        assert_eq!(e.props("card")["update-shown"], true);
         assert_eq!(e.props("card")["update-text"], "Update over USB");
-        assert_eq!(e.props("card")["note-text"], "The Telescope app on Pixel is older than this one.");
+        e.link.checks.lock().unwrap().clear();
+        e.ui("card", "update", vec![]);
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert_eq!(*e.link.installs.lock().unwrap(), [("serial-1".to_string(), "Telescope.apk".to_string())]);
+        assert_eq!(e.props("card")["note-text"], "Phone app updated. Open Telescope on the phone.");
+        assert_eq!(*e.link.checks.lock().unwrap(), ["id-a"]); // how the phone is doing now
+        e.resolve(ready(usb()));
+        assert_eq!(e.props("card")["update-shown"], false);
+        assert_eq!(e.props("card")["note-text"], "");
+    }
+
+    #[test]
+    fn a_stale_check_leaves_the_update_note_and_starts_own_check_clears_it() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.resolve(Resolution { route: Some(usb()), ..Resolution::new(PhoneStatus::PhoneOutdated) });
+        e.ui("card", "update", vec![]);
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        let stale = json!({"check_id": 0, "phone_id": "id-a", "resolution": ready(wifi())});
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_RESOLVED.into(), data: stale });
+        assert_eq!(e.props("card")["note-text"], "Phone app updated. Open Telescope on the phone.");
+        e.link.answer(ready(wifi()));
+        e.ask_start();
+        assert_eq!(e.props("card")["note-text"], "");
     }
 
     #[test]
@@ -2211,7 +2460,7 @@ mod tests {
         e.add("id-b", "Galaxy");
         e.ui("header", "picked", vec![json!(0)]);
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
-        assert!(!e.called("start_stream"));
+        assert!(!e.called("stop_stream") && !e.called("start_stream"));
     }
 
     #[test]
@@ -2220,8 +2469,11 @@ mod tests {
         e.add("id-a", "Pixel");
         e.add("id-b", "Galaxy");
         e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-b".into(), url: "u".into(), session: 0 });
+        e.host.calls.clear();
         e.ui("header", "picked", vec![json!(0)]);
-        assert!(e.called("stop_stream None") && e.called("start_stream true"));
+        assert_eq!((e.count("stop_stream"), e.count("start_stream")), (1, 1));
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
+        assert_eq!(e.switches(), ["switch_device Some(\"id-b\") Some(\"id-a\")"]);
     }
 
     #[test]
@@ -2239,9 +2491,10 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.add("id-b", "Galaxy");
-        assert!(e.called("switch_device Some(\"id-a\") Some(\"id-b\")"));
+        e.host.calls.clear();
         e.ui("header", "picked", vec![json!(0)]);
-        assert!(e.called("switch_device Some(\"id-b\") Some(\"id-a\")"));
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
+        assert_eq!(e.switches(), ["switch_device Some(\"id-b\") Some(\"id-a\")"]);
     }
 
     #[test]
@@ -2264,44 +2517,94 @@ mod tests {
         e.add("id-a", "Pixel");
         e.host.streaming = true;
         e.host.focused = Some("id-a".into());
+        e.host.calls.clear();
         e.add("id-b", "Galaxy");
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-a"));
         assert!(!e.called("stop_stream"));
+        assert_eq!(e.switches(), Vec::<&str>::new());
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "Galaxy"]));
+        assert_eq!(e.props("header")["current"], 0);
+    }
+
+    #[test]
+    fn re_pairing_the_streaming_phone_reconnects_with_the_new_token() {
+        let mut e = env();
+        e.pair(repaired("id-a", "Pixel", "old", "10.0.0.5"));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
+        e.host.live = vec!["id-a".into()];
+        e.pair(repaired("id-a", "Pixel", "new", "10.0.0.5"));
+        assert_eq!(e.shared.phones()[0].token, "new");
+        assert_eq!(e.count("reconnect_source id-a"), 1);
+        e.add("id-b", "Other"); // pairing a different phone doesn't touch the stream
+        assert_eq!(e.host.calls.iter().filter(|c| c.starts_with("reconnect")).count(), 1);
     }
 
     #[test]
     fn pairing_while_idle_still_picks_the_new_phone() {
         let mut e = env();
         e.add("id-a", "Pixel");
+        e.host.focused = Some("id-a".into());
         e.add("id-b", "Galaxy");
         assert_eq!(e.shared.picked_source().as_deref(), Some("id-b"));
+        assert_eq!(e.props("header")["current"], 1);
+    }
+
+    #[test]
+    fn a_reinstalled_phone_takes_the_old_ones_place_once_confirmed() {
+        let mut e = env();
+        e.add("id-old", "Pixel");
+        e.add("id-b", "Other");
+        e.link.answer(Resolution::new(PhoneStatus::NotPaired)); // the old id: the phone doesn't know this computer anymore
+        e.host.calls.clear();
+        e.pair(repaired("id-new", "Pixel", "tok-new", "10.0.0.7"));
+        assert_eq!(e.count("show_issue same_phone"), 1);
+        assert!(e.issue("same_phone").unwrap().text.starts_with("Is this Pixel again?"));
+        assert_eq!(e.ids(), ["id-old", "id-b"], "nothing moves until it's answered");
+        e.press("same_phone", 0);
+        assert_eq!(e.ids(), ["id-new", "id-b"]); // in the old one's place
+        assert_eq!(e.shared.phones()[0].token, "tok-new");
+        assert_eq!(e.count("move_device_settings"), 1);
+        assert!(e.called("move_device_settings id-old id-new"));
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-new"));
+        assert_eq!(e.switches(), ["switch_device Some(\"id-b\") Some(\"id-new\")"]);
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(e.link.unpaired.lock().unwrap().is_empty()); // nothing to unpair: the phone forgot it already
     }
 
     #[test]
     fn saying_no_to_a_reinstalled_phone_adds_it_next_to_the_old_one() {
         let mut e = env();
-        e.add("id-a", "Pixel");
-        e.add("id-b", "Galaxy");
-        e.link.answer(Resolution::new(PhoneStatus::NotPaired));
-        e.add("id-c", "Pixel");
+        e.add("id-old", "Pixel");
+        e.pair(repaired("id-new", "Pixel", "tok-new", "10.0.0.7"));
         assert!(e.called("show_issue same_phone Same phone?"));
-        e.plugin.on_issue_action(&mut e.host, "same_phone", "same_phone:no");
-        e.settle();
-        assert_eq!(e.shared.phones().iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["id-a", "id-b", "id-c"]);
+        e.press("same_phone", 1);
+        assert_eq!(e.ids(), ["id-old", "id-new"]);
+        assert!(!e.called("move_device_settings"));
+    }
+
+    #[test]
+    fn a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about() {
+        let mut e = env();
+        e.add("id-old", "Pixel");
+        e.resolve(ready(wifi()));
+        e.pair(repaired("id-new", "Pixel", "tok-new", "10.0.0.7"));
+        assert!(!e.called("show_issue same_phone"));
+        assert_eq!(e.ids(), ["id-old", "id-new"]);
     }
 
     #[test]
     fn a_reinstalled_phone_that_was_picked_keeps_the_settings_on_screen() {
         let mut e = env();
-        e.link.answer(Resolution::new(PhoneStatus::NotPaired));
-        e.add("id-a", "Pixel");
-        e.add("id-c", "Pixel");
-        e.plugin.on_issue_action(&mut e.host, "same_phone", "same_phone:yes");
-        e.settle();
-        assert!(e.called("move_device_settings id-a id-c"));
-        assert_eq!(e.shared.phones().iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["id-c"]);
-        // The panels held id-a's settings, which are id-c's now: no switch back and forth
-        assert!(!e.called("switch_device Some(\"id-c\")"));
+        e.add("id-old", "Pixel");
+        e.resolve(Resolution::new(PhoneStatus::Unreachable)); // its last check
+        e.host.calls.clear();
+        e.link.checks.lock().unwrap().clear();
+        e.pair(repaired("id-new", "Pixel", "tok-new", "10.0.0.7"));
+        e.press("same_phone", 0);
+        assert!(!e.link.checks.lock().unwrap().iter().any(|id| id == "id-old")); // the last check was enough
+        assert_eq!(e.ids(), ["id-new"]);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("id-new"));
+        assert_eq!(e.switches(), Vec::<&str>::new()); // the panels hold its settings already
     }
 
     #[test]
@@ -2317,6 +2620,243 @@ mod tests {
         e.settle();
         assert!(e.called("show_issue route Can't reach Pixel over USB"));
         assert_eq!(e.plugin.get_config()["route"], "auto");
+    }
+
+    /// As _probe_now: the check answers with what the link says.
+    fn pick_route(e: &mut Env, index: i64) {
+        e.ui("card", "route-picked", vec![json!(index)]);
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+    }
+
+    fn streaming_on(e: &mut Env, route: RouteSpec) {
+        e.shared.conn().set_stream_route(Some(route));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
+        e.host.streaming = true;
+        e.host.focused = e.shared.picked_source();
+    }
+
+    #[test]
+    fn a_connect_via_the_phone_cant_be_reached_on_keeps_the_stream() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        streaming_on(&mut e, usb());
+        pick_route(&mut e, 2);
+        assert!(!e.called("reconnect_stream") && !e.called("stop_stream"));
+        assert_eq!(e.plugin.get_config()["route"], "auto");
+        assert_eq!(e.props("card")["route-current"], 0);
+        let issue = e.issue("route").unwrap();
+        assert_eq!(issue.title, "Can't reach Pixel over Wi-Fi");
+        assert!(issue.text.contains("Still streaming over USB, so Connect via stays on Automatic."));
+        e.link.answer(ready(wifi())); // on the same Wi-Fi now
+        e.press("route", 0);
+        std::thread::sleep(Duration::from_millis(50));
+        e.settle();
+        assert_eq!(e.count("reconnect_stream"), 1);
+        assert_eq!(e.plugin.get_config()["route"], "wifi");
+        assert!(e.issue("route").is_none());
+    }
+
+    #[test]
+    fn a_connect_via_check_for_one_phone_leaves_the_next_one_shown_alone() {
+        for res in [Resolution::new(PhoneStatus::Unreachable), ready(usb())] {
+            // USB picked for A, then the panels move to B streaming over Wi-Fi: A's answer mustn't reconnect B
+            let mut e = env();
+            e.add("id-b", "B");
+            e.add("id-a", "A");
+            streaming_on(&mut e, wifi());
+            e.link.answer(res);
+            e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "route-picked".into(), args: vec![json!(1)] });
+            e.plugin.show_selected(&mut e.host, Some("id-b"));
+            assert_eq!(e.props("card")["route-current"], 0);
+            std::thread::sleep(Duration::from_millis(50));
+            e.settle();
+            assert!(!e.called("reconnect_stream"));
+            assert_eq!(e.plugin.get_config()["route"], "auto");
+            assert!(e.issue("route").is_none());
+        }
+    }
+
+    #[test]
+    fn changing_the_route_saves_and_reconnects_a_live_stream() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
+        e.ui("card", "route-picked", vec![json!(1)]);
+        assert_eq!(e.plugin.get_config()["route"], "usb");
+        assert_eq!(e.count("reconnect_stream"), 1);
+        e.plugin.set_route_preference(&mut e.host, RoutePreference::Wifi);
+        assert_eq!(e.props("card")["route-current"], 2);
+        assert_eq!(connection::route_choice_label(e.shared.conn().route_pref), "Wi-Fi only");
+    }
+
+    #[test]
+    fn a_failed_hand_over_lets_go_of_usb_and_offers_the_button_instead() {
+        let tunnels = Arc::new(HeldTunnels::default());
+        let mut e = env_over(tunnels.clone());
+        e.add("id-a", "Pixel");
+        e.shared.conn().set_stream_route(Some(wifi()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "u".into(), session: 0 });
+        e.shared.conn().set_hold("id-a", Some(wifi()), None);
+        assert!(e.shared.prepare_route("id-a", &usb()).is_some());
+        e.shared.drop_route("id-a", true);
+        e.settle();
+        assert_eq!(*tunnels.held.lock().unwrap(), 0);
+        assert_eq!(e.shared.conn().hold("id-a"), Some(&(Some(wifi()), None)));
+        assert_eq!(e.props("card")["switch-usb-shown"], true);
+        e.shared.conn().watch_id = 4;
+        e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB.into(), data: json!({"watch_id": 4, "route": usb()}) });
+        e.settle();
+        assert!(!e.called("hand_over_stream")); // USB sits out, and the button does it by hand
+        e.ui("card", "switch-usb", vec![]);
+        assert_eq!(e.count("reconnect_stream"), 1);
+        assert_eq!(e.props("card")["switch-usb-shown"], false);
+    }
+
+    #[test]
+    fn a_lost_stream_says_reconnecting_until_frames_return() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.stream_over(wifi());
+        assert_eq!(e.status(), "Streaming over Wi-Fi");
+        assert!(e.host.is_scheduled(T_USB_WATCH));
+
+        e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: String::new() });
+        assert_eq!(e.status(), "Reconnecting…");
+        assert!(!e.host.is_scheduled(T_USB_WATCH)); // recovery picks USB up by itself
+
+        e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: String::new() });
+        assert_eq!(e.status(), "Streaming over Wi-Fi");
+    }
+
+    #[test]
+    fn another_streams_drop_leaves_the_card_alone() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.stream_over(wifi());
+        e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: "id-b".into() });
+        assert_eq!(e.status(), "Streaming over Wi-Fi");
+    }
+
+    #[test]
+    fn recovery_moves_a_usb_stream_to_wifi_and_lets_go_of_the_forward() {
+        let tunnels = Arc::new(HeldTunnels::default());
+        let mut e = env_over(tunnels.clone());
+        e.add("id-a", "Pixel");
+        e.stream_over(usb());
+        assert_eq!(*tunnels.held.lock().unwrap(), 1);
+        assert_eq!(e.shared.adopt_route(None, &wifi()).as_deref(), Some("https://10.0.0.5:8080/v1/video"));
+        e.settle();
+        assert_eq!(*tunnels.held.lock().unwrap(), 0);
+        assert_eq!(e.props("card")["using-text"], "Wi-Fi · 10.0.0.5");
+        e.plugin.on_stream_stop(&mut e.host);
+        assert_eq!(*tunnels.held.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn computer_name_is_cleaned_and_capped() {
+        let mut e = env();
+        e.plugin.set_computer_name(&mut e.host, &("A".repeat(500) + "\0<b>"));
+        let name = |e: &Env| e.plugin.get_config()["computer_name"].as_str().unwrap().to_string();
+        assert_eq!(name(&e), "A".repeat(crate::util::MAX_NAME_CHARS));
+        e.plugin.set_config(&json!({"computer_name": format!("Desk\0 <PC>{}", "x".repeat(200))})).unwrap();
+        assert!(name(&e).starts_with("Desk PC"), "{}", name(&e));
+        assert_eq!(name(&e).chars().count(), crate::util::MAX_NAME_CHARS);
+        let kept = name(&e);
+        e.plugin.set_computer_name(&mut e.host, "\0<>");
+        assert_eq!(name(&e), kept); // nothing printable left keeps the old name
+    }
+
+    #[test]
+    fn idle_checks_tell_whether_the_phone_is_ready() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        let seen = |e: &Env| e.host.events.iter().filter_map(|ev| match ev { Event::PhoneReady { ready, .. } => Some(*ready), _ => None }).collect::<Vec<_>>();
+        e.host.events.clear();
+        e.resolve(ready(wifi()));
+        e.resolve(Resolution::new(PhoneStatus::Unreachable));
+        assert_eq!(seen(&e), [true, false]);
+        e.link.answer(ready(wifi()));
+        e.ask_start(); // Start's own resolve must not announce it (it would start again)
+        assert_eq!(seen(&e), [true, false]);
+    }
+
+    #[test]
+    fn udp_is_used_on_wifi_only_when_switched_on_and_dynamic_only_where_the_phone_runs_it() {
+        let h264 = telescope_core::link::StreamFormat { h264: true, dynamic: false };
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.shared.set_format(h264);
+        e.stream_config(json!({"format": "h264"}));
+        e.stream_over(usb());
+        let adopt = |e: &Env, route: &RouteSpec| e.shared.adopt_route(Some("id-a"), route).unwrap();
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video.h264")); // off by default
+
+        let sections = e.plugin.settings_sections(); // in the Settings window, not on the card
+        assert_eq!((sections.len(), sections[0].tab.as_str(), &sections[0].ui.props["udp"]), (1, "streaming", &json!(false)));
+        e.ui("udp", "udp-toggled", vec![json!(true)]);
+        assert_eq!(e.plugin.get_config()["udp"], true);
+        assert_eq!(adopt(&e, &wifi()), "https://10.0.0.5:8080/v1/video.udp");
+        assert!(adopt(&e, &usb()).ends_with("/v1/video.h264")); // a cable: TCP
+        e.shared.conn().set_hold("id-a", Some(wifi()), None);
+        assert!(e.shared.prepare_route("id-a", &usb()).unwrap().ends_with("/v1/video.h264")); // handing over to the cable too
+        e.shared.drop_route("id-a", false);
+
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": -1})); // an older phone measures TCP's queue
+        e.plugin.on_event(&mut e.host, &Event::StreamTransportChanged);
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video.h264"));
+        e.resolve(Resolution { udp_dynamic: true, ..ready(wifi()) }); // a newer one runs it from our reports
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video.udp"));
+        e.resolve(Resolution::new(PhoneStatus::Unreachable)); // a check that didn't reach it doesn't forget that
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video.udp"));
+        e.resolve(ready(wifi())); // downgraded
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video.h264"));
+        e.stream_config(json!({"format": "mjpeg"}));
+        e.plugin.on_event(&mut e.host, &Event::StreamTransportChanged);
+        assert!(adopt(&e, &wifi()).ends_with("/v1/video")); // Heavy is never UDP
+    }
+
+    #[test]
+    fn udp_switch_reconnects_a_running_wifi_stream() {
+        let mut e = env();
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": 0}));
+        e.shared.conn().set_stream_route(Some(wifi()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: String::new(), url: "https://phone/v1/video.h264".into(), session: 0 });
+        e.ui("udp", "udp-toggled", vec![json!(true)]);
+        assert_eq!(e.count("reconnect_stream"), 1);
+    }
+
+    #[test]
+    fn dynamic_keeps_udp_on_a_phone_that_runs_it_there() {
+        let mut e = env();
+        e.add("id-a", "Pixel");
+        e.resolve(Resolution { udp_dynamic: true, ..ready(wifi()) });
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": 0}));
+        e.ui("udp", "udp-toggled", vec![json!(true)]);
+        e.shared.conn().set_stream_route(Some(wifi()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://phone/v1/video.udp".into(), session: 0 });
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": -1}));
+        e.plugin.on_event(&mut e.host, &Event::StreamTransportChanged);
+        assert_eq!(e.count("reconnect_stream"), 0);
+    }
+
+    #[test]
+    fn dynamic_replaces_a_running_udp_stream_with_tcp_on_an_older_phone() {
+        let mut e = env();
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": 0}));
+        e.ui("udp", "udp-toggled", vec![json!(true)]);
+        e.shared.conn().set_stream_route(Some(wifi()));
+        e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: String::new(), url: "https://phone/v1/video.udp".into(), session: 0 });
+        e.stream_config(json!({"format": "h264", "bitrate_mbps": -1}));
+        e.plugin.on_event(&mut e.host, &Event::StreamTransportChanged);
+        assert_eq!(e.count("reconnect_stream"), 1);
+
+        let mut cfg = e.plugin.get_config();
+        cfg["udp"] = json!(false);
+        e.plugin.set_config(&cfg).unwrap();
+        e.settle();
+        e.plugin.on_event(&mut e.host, &Event::WindowShown { shown: true });
+        assert_eq!(e.props("udp")["udp"], false); // the switch on screen follows
     }
 
     #[test]
