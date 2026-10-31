@@ -6,6 +6,7 @@ use crate::cpu::Rgb;
 use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
 use crate::imgops::{compose, times_table, Gray};
 use std::collections::VecDeque;
+use telescope_core::image::{over_rows, rint};
 use std::sync::Arc;
 
 /// Masks from the empty room are worked out at a quarter of the size.
@@ -535,8 +536,8 @@ fn roll(g: &Gray, n: usize) -> Gray {
 pub struct Crt {
     w: usize,
     h: usize,
-    /// For each output pixel, where in the picture it looks (x, y), or None outside the bulge
-    maps: Vec<(f32, f32)>,
+    /// For each output pixel, where in the picture it looks (x, y), in 32nds of a pixel as cv2.convertMaps to CV_16SC2 keeps it
+    maps: Vec<(i32, i32)>,
     shade: Vec<[u8; 3]>,
 }
 
@@ -552,7 +553,8 @@ impl Crt {
                 let px = xs[x];
                 let r2 = px * px + py * py;
                 let bulge = 1.0 + 0.06 * r2;
-                maps.push(((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0));
+                let (mx, my) = ((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0);
+                maps.push((rint((mx * 32.0) as f64), rint((my * 32.0) as f64)));
                 let mut s = (1.15 - 0.45 * r2).clamp(0.0, 1.0);
                 if y % pitch == pitch - 1 {
                     s *= 0.55;
@@ -577,26 +579,31 @@ impl Crt {
             }
         };
         let mut bent = Rgb::new(w, h);
-        for (i, &(mx, my)) in self.maps.iter().enumerate() {
-            // cv2.convertMaps to CV_16SC2 and remap's fixed point: a 32nd of a pixel, weights out of 32768
-            let (qx, qy) = ((mx * 32.0).round_ties_even() as i32, (my * 32.0).round_ties_even() as i32);
-            let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, qx & 31, qy & 31);
-            let weights = [(32 - fy) * (32 - fx) * 32, (32 - fy) * fx * 32, fy * (32 - fx) * 32, fy * fx * 32];
-            for c in 0..3 {
-                let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
-                bent.data[i * 3 + c] = ((sum + (1 << 14)) >> 15).clamp(0, 255) as u8;
+        over_rows(&mut bent.data, w * 3, |y, line| {
+            for (o, &(qx, qy)) in line.as_chunks_mut::<3>().0.iter_mut().zip(&self.maps[y * w..]) {
+                // remap's fixed point: a 32nd of a pixel, weights out of 32768
+                let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, qx & 31, qy & 31);
+                let weights = [(32 - fy) * (32 - fx) * 32, (32 - fy) * fx * 32, fy * (32 - fx) * 32, fy * fx * 32];
+                for (c, v) in o.iter_mut().enumerate() {
+                    let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
+                    *v = ((sum + (1 << 14)) >> 15).clamp(0, 255) as u8;
+                }
             }
-        }
+        });
         // a little glow
         let glow = bent.box_blur(9, 9);
+        let quarter: [u32; 256] = std::array::from_fn(|v| (v as f32 * 0.25).round_ties_even() as u32);
         let times = times_table();
         let mut out = Rgb::new(w, h);
-        for i in 0..w * h {
-            for c in 0..3 {
-                let lit = (bent.data[i * 3 + c] as u32 + ((glow.data[i * 3 + c] as f32 * 0.25).round_ties_even() as u32)).min(255);
-                out.data[i * 3 + c] = times[lit as usize * 256 + self.shade[i][c] as usize];
+        over_rows(&mut out.data, w * 3, |y, line| {
+            for (x, o) in line.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                let i = y * w + x;
+                for (c, v) in o.iter_mut().enumerate() {
+                    let lit = (bent.data[i * 3 + c] as u32 + quarter[glow.data[i * 3 + c] as usize]).min(255);
+                    *v = times[lit as usize * 256 + self.shade[i][c] as usize];
+                }
             }
-        }
+        });
         out
     }
 }

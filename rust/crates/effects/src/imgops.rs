@@ -4,6 +4,7 @@
 
 use crate::cpu::Rgb;
 use std::sync::OnceLock;
+use telescope_core::image::{over_rows, rint};
 pub use telescope_core::image::{grey_of, resize_area, resize_linear_fixed};
 
 /// A single-channel 8-bit picture: a mask, or brightness.
@@ -25,7 +26,7 @@ impl Gray {
 }
 
 fn round8(v: f32) -> u8 {
-    v.round_ties_even().clamp(0.0, 255.0) as u8
+    rint(v as f64).clamp(0, 255) as u8
 }
 
 /// cv2.resize(INTER_LINEAR): pixel centres line up and the edges repeat.
@@ -371,24 +372,26 @@ fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec
     let across = {
         let mut a = vec![0f32; w * h * ch];
         let half = (kw / 2) as isize;
-        for y in 0..h {
+        // Where each column's kernel reads, once: reflect is the slow part
+        let columns: Vec<usize> = (0..w).flat_map(|x| (0..kw).map(move |j| reflect(x as isize + j as isize - half, w))).collect();
+        over_rows(&mut a, w * ch, |y, line| {
+            let row = &src[y * w * ch..][..w * ch];
             for x in 0..w {
                 for c in 0..ch {
-                    a[(y * w + x) * ch + c] = kx.iter().enumerate().map(|(j, wt)| src[(y * w + reflect(x as isize + j as isize - half, w)) * ch + c] as f32 * wt).sum();
+                    line[x * ch + c] = columns[x * kw..][..kw].iter().zip(&kx).map(|(at, wt)| row[at * ch + c] as f32 * wt).sum();
                 }
             }
-        }
+        });
         a
     };
     let half = (kh / 2) as isize;
     let mut out = vec![0u8; w * h * ch];
-    for y in 0..h {
-        for x in 0..w {
-            for c in 0..ch {
-                out[(y * w + x) * ch + c] = round8(ky.iter().enumerate().map(|(j, wt)| across[(reflect(y as isize + j as isize - half, h) * w + x) * ch + c] * wt).sum());
-            }
+    over_rows(&mut out, w * ch, |y, line| {
+        let rows: Vec<&[f32]> = (0..kh).map(|j| &across[reflect(y as isize + j as isize - half, h) * w * ch..][..w * ch]).collect();
+        for (i, o) in line.iter_mut().enumerate() {
+            *o = round8(rows.iter().zip(&ky).map(|(row, wt)| row[i] * wt).sum());
         }
-    }
+    });
     out
 }
 

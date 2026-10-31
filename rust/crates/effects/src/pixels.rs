@@ -1,6 +1,7 @@
 //! Frames as plain RGB, for Desk mode.
 
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::{byte, write_420};
 
 pub use telescope_core::image::frame_rgb as to_rgb;
 
@@ -13,33 +14,25 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
         PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(p)),
         PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
         PixelFormat::I420 | PixelFormat::Nv12 => {
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-            let (luma, chroma) = data.split_at_mut(w * h);
             let px = |x: usize, y: usize| (rgb[(y * w + x) * 3] as f32, rgb[(y * w + x) * 3 + 1] as f32, rgb[(y * w + x) * 3 + 2] as f32);
-            for y in 0..h {
-                for x in 0..w {
-                    let (r, g, b) = px(x, y);
-                    luma[y * w + x] = (16.0 + 0.257 * r + 0.504 * g + 0.098 * b).round().clamp(0.0, 255.0) as u8;
-                }
-            }
-            for cy in 0..ch {
-                for cx in 0..cw {
-                    let (mut su, mut sv, mut n) = (0.0, 0.0, 0.0);
-                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        let (x, y) = (cx * 2 + dx, cy * 2 + dy);
-                        if x < w && y < h {
-                            let (r, g, b) = px(x, y);
-                            su += 128.0 - 0.148 * r - 0.291 * g + 0.439 * b;
-                            sv += 128.0 + 0.439 * r - 0.368 * g - 0.071 * b;
-                            n += 1.0;
-                        }
+            let luma = |x: usize, y: usize| {
+                let (r, g, b) = px(x, y);
+                byte(16.0 + 0.257 * r + 0.504 * g + 0.098 * b)
+            };
+            let chroma = |cx: usize, cy: usize| {
+                let (mut su, mut sv, mut n) = (0.0, 0.0, 0.0);
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let (x, y) = (cx * 2 + dx, cy * 2 + dy);
+                    if x < w && y < h {
+                        let (r, g, b) = px(x, y);
+                        su += 128.0 - 0.148 * r - 0.291 * g + 0.439 * b;
+                        sv += 128.0 + 0.439 * r - 0.368 * g - 0.071 * b;
+                        n += 1.0;
                     }
-                    let i = cy * cw + cx;
-                    let (u, v) = if format == PixelFormat::Nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
-                    chroma[u] = (su / n).round().clamp(0.0, 255.0) as u8;
-                    chroma[v] = (sv / n).round().clamp(0.0, 255.0) as u8;
                 }
-            }
+                (byte(su / n), byte(sv / n))
+            };
+            write_420(data, w, h, format == PixelFormat::Nv12, luma, chroma);
         }
         _ => {}
     }

@@ -3,6 +3,7 @@
 
 use crate::imgops::{grey_of, resize_area, Gray};
 use telescope_core::actions::round_half_even;
+use telescope_core::image::{over_rows, rint};
 use telescope_core::view::{view_to_shown, Geometry};
 
 /// Width over height of a paper size, standing up.
@@ -232,49 +233,42 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
     let inv = invert_like_opencv(matrix);
     let m = [inv[0][0], inv[0][1], inv[0][2], inv[1][0], inv[1][1], inv[1][2], inv[2][0], inv[2][1], inv[2][2]];
     let mut out = vec![0u8; rw * rh * 3];
-    // OpenCV's block: 32 x 32 = 1024 pixels, 16 rows tall when the picture allows
+    // OpenCV's block: 32 x 32 = 1024 pixels, 16 rows tall when the picture allows. Its width sets where the rounding starts over
     let bh0 = 16.min(rh);
     let bw0 = (1024 / bh0).min(rw);
-    let bh0 = (1024 / bw0).min(rh);
     let (last_x, last_y) = (w as i64 - 1, h as i64 - 1);
-    let mut y = 0;
-    while y < rh {
-        let bh = bh0.min(rh - y);
+    over_rows(&mut out, rw * 3, |y, line| {
+        let row = y as f64;
         let mut x = 0;
         while x < rw {
             let bw = bw0.min(rw - x);
-            for y1 in 0..bh {
-                let row = (y + y1) as f64;
-                let x0 = m[0] * x as f64 + m[1] * row + m[2];
-                let y0 = m[3] * x as f64 + m[4] * row + m[5];
-                let w0 = m[6] * x as f64 + m[7] * row + m[8];
-                for x1 in 0..bw {
-                    let step = x1 as f64;
-                    let wd = w0 + m[6] * step;
-                    let wd = if wd != 0.0 { TAB_SIZE as f64 / wd } else { 0.0 };
-                    let fx = ((x0 + m[0] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64);
-                    let fy = ((y0 + m[3] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64);
-                    let (fx, fy) = (fx.round_ties_even() as i32, fy.round_ties_even() as i32);
-                    // The position as a short, and what is left of it in 1/32 pixels
-                    let sx = (fx >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
-                    let sy = (fy >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
-                    let (ax, ay) = (fx & (TAB_SIZE - 1), fy & (TAB_SIZE - 1));
-                    // The weights are exact: products of two 1/32 steps, in units of 1/32768
-                    let weights = [(TAB_SIZE - ay) * (TAB_SIZE - ax), (TAB_SIZE - ay) * ax, ay * (TAB_SIZE - ax), ay * ax].map(|v| v << (COEF_BITS - 2 * TAB_BITS));
-                    // BORDER_REPLICATE: a pixel outside the picture is the nearest one in it
-                    let (x_a, x_b) = (sx.clamp(0, last_x) as usize, (sx + 1).clamp(0, last_x) as usize);
-                    let (y_a, y_b) = (sy.clamp(0, last_y) as usize, (sy + 1).clamp(0, last_y) as usize);
-                    for c in 0..3 {
-                        let at = |xx: usize, yy: usize| src[(yy * w + xx) * 3 + c] as i32;
-                        let sum = at(x_a, y_a) * weights[0] + at(x_b, y_a) * weights[1] + at(x_a, y_b) * weights[2] + at(x_b, y_b) * weights[3];
-                        out[((y + y1) * rw + x + x1) * 3 + c] = ((sum + (1 << (COEF_BITS - 1))) >> COEF_BITS).clamp(0, 255) as u8;
-                    }
+            let x0 = m[0] * x as f64 + m[1] * row + m[2];
+            let y0 = m[3] * x as f64 + m[4] * row + m[5];
+            let w0 = m[6] * x as f64 + m[7] * row + m[8];
+            for x1 in 0..bw {
+                let step = x1 as f64;
+                let wd = w0 + m[6] * step;
+                let wd = if wd != 0.0 { TAB_SIZE as f64 / wd } else { 0.0 };
+                let fx = rint(((x0 + m[0] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64));
+                let fy = rint(((y0 + m[3] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64));
+                // The position as a short, and what is left of it in 1/32 pixels
+                let sx = (fx >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
+                let sy = (fy >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
+                let (ax, ay) = (fx & (TAB_SIZE - 1), fy & (TAB_SIZE - 1));
+                // The weights are exact: products of two 1/32 steps, in units of 1/32768
+                let weights = [(TAB_SIZE - ay) * (TAB_SIZE - ax), (TAB_SIZE - ay) * ax, ay * (TAB_SIZE - ax), ay * ax].map(|v| v << (COEF_BITS - 2 * TAB_BITS));
+                // BORDER_REPLICATE: a pixel outside the picture is the nearest one in it
+                let (x_a, x_b) = (sx.clamp(0, last_x) as usize, (sx + 1).clamp(0, last_x) as usize);
+                let (y_a, y_b) = (sy.clamp(0, last_y) as usize, (sy + 1).clamp(0, last_y) as usize);
+                for c in 0..3 {
+                    let at = |xx: usize, yy: usize| src[(yy * w + xx) * 3 + c] as i32;
+                    let sum = at(x_a, y_a) * weights[0] + at(x_b, y_a) * weights[1] + at(x_a, y_b) * weights[2] + at(x_b, y_b) * weights[3];
+                    line[(x + x1) * 3 + c] = ((sum + (1 << (COEF_BITS - 1))) >> COEF_BITS).clamp(0, 255) as u8;
                 }
             }
             x += bw0;
         }
-        y += bh0;
-    }
+    });
     out
 }
 

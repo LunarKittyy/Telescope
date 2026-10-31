@@ -3,6 +3,7 @@
 //! leave the same picture.
 
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::{byte as clamp8, read_420, write_420};
 
 /// A picture as 8-bit R, G, B, row after row.
 #[derive(Clone, Debug, PartialEq)]
@@ -10,10 +11,6 @@ pub struct Rgb {
     pub w: usize,
     pub h: usize,
     pub data: Vec<u8>,
-}
-
-fn clamp8(v: f32) -> u8 {
-    v.round().clamp(0.0, 255.0) as u8
 }
 
 fn from_yuv(y: u8, u: u8, v: u8) -> [u8; 3] {
@@ -65,17 +62,7 @@ impl Rgb {
                     o.copy_from_slice(&[p[r], p[1], p[b]]);
                 }
             }
-            PixelFormat::I420 | PixelFormat::Nv12 => {
-                let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-                let (y_plane, rest) = d.split_at(w * h);
-                for y in 0..h {
-                    for x in 0..w {
-                        let ci = (y / 2) * cw + x / 2;
-                        let (u, v) = if frame.format == PixelFormat::I420 { (rest[ci], rest[cw * ch + ci]) } else { (rest[ci * 2], rest[ci * 2 + 1]) };
-                        out.set(x, y, from_yuv(y_plane[y * w + x], u, v));
-                    }
-                }
-            }
+            PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out.data, from_yuv)?,
             _ => return None,
         }
         Some(out)
@@ -98,33 +85,23 @@ impl Rgb {
                 }
             }
             PixelFormat::I420 | PixelFormat::Nv12 => {
-                let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-                let (y_plane, rest) = d.split_at_mut(w * h);
-                for (i, p) in self.data.as_chunks::<3>().0.iter().enumerate() {
-                    y_plane[i] = clamp8(to_y(p[0] as f32, p[1] as f32, p[2] as f32));
-                }
-                for cy in 0..ch {
-                    for cx in 0..cw {
-                        let (mut u, mut v, mut n) = (0.0, 0.0, 0.0);
-                        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                            let (x, y) = ((cx * 2 + dx).min(w - 1), (cy * 2 + dy).min(h - 1));
-                            let p = self.at(x, y);
-                            let (r, g, b) = (p[0] as f32, p[1] as f32, p[2] as f32);
-                            u += to_u(r, g, b);
-                            v += to_v(r, g, b);
-                            n += 1.0;
-                        }
-                        let (u, v) = (clamp8(u / n), clamp8(v / n));
-                        let ci = cy * cw + cx;
-                        if format == PixelFormat::I420 {
-                            rest[ci] = u;
-                            rest[cw * ch + ci] = v;
-                        } else {
-                            rest[ci * 2] = u;
-                            rest[ci * 2 + 1] = v;
-                        }
+                let luma = |x: usize, y: usize| {
+                    let p = self.at(x, y);
+                    clamp8(to_y(p[0] as f32, p[1] as f32, p[2] as f32))
+                };
+                let chroma = |cx: usize, cy: usize| {
+                    let (mut u, mut v, mut n) = (0.0, 0.0, 0.0);
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let (x, y) = ((cx * 2 + dx).min(w - 1), (cy * 2 + dy).min(h - 1));
+                        let p = self.at(x, y);
+                        let (r, g, b) = (p[0] as f32, p[1] as f32, p[2] as f32);
+                        u += to_u(r, g, b);
+                        v += to_v(r, g, b);
+                        n += 1.0;
                     }
-                }
+                    (clamp8(u / n), clamp8(v / n))
+                };
+                write_420(d, w, h, format == PixelFormat::Nv12, luma, chroma);
             }
             _ => {}
         }
