@@ -589,8 +589,14 @@ impl MicrophonePlugin {
         h.set_card(&json!({"on": self.here(), "toggle-enabled": enabled}));
     }
 
+    /// dim_until_paired: a picked source counts as a paired phone, since it brings a mic of its own.
+    fn card_on(&self) -> bool {
+        self.phones > 0 || !self.picked.is_empty()
+    }
+
     fn on_source_selected(&mut self, h: &mut dyn MicHost, sid: &str) {
         self.picked = sid.to_string();
+        h.set_card(&json!({"active": self.card_on()}));
         self.show_source_words(h);
         self.show_toggle(h);
         self.refresh(h);
@@ -819,7 +825,7 @@ impl MicrophonePlugin {
     fn render(&mut self, h: &mut dyn MicHost) {
         let mut props = self.source_words();
         let nr_tip = if self.nr_problem.is_empty() { tr("Takes out typing, fans and room hiss.") } else { self.nr_problem.clone() };
-        props["active"] = json!(self.phones > 0);
+        props["active"] = json!(self.card_on());
         props["auto-level"] = json!(self.auto_level);
         props["nr"] = json!(self.noise_reduction && self.nr_problem.is_empty());
         props["nr-enabled"] = json!(self.nr_problem.is_empty());
@@ -867,7 +873,7 @@ impl MicrophonePlugin {
             Event::SourceSelected { source_id } => self.on_source_selected(h, source_id),
             Event::PhonesChanged { count } => {
                 self.phones = *count;
-                h.set_card(&json!({"active": *count > 0}));
+                h.set_card(&json!({"active": self.card_on()}));
             }
             Event::StreamConnected { source_id } if Some(source_id) == self.stream.as_ref() => self.follow_route(),
             _ => {}
