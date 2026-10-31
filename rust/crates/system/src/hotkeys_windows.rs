@@ -109,6 +109,22 @@ impl<U: User32> Registrar<U> {
         }
     }
 
+    /// One WM_HOTKEY for the thread's loop: from here it watches for the release.
+    #[cfg_attr(not(any(windows, test)), allow(dead_code))]
+    fn hotkey_came(&mut self, number: i32, watching: &mut bool) {
+        self.on_hotkey(number);
+        *watching = true;
+    }
+
+    /// The end of a turn of the thread's loop: how long to wait before looking at the keys again, None until something comes.
+    #[cfg_attr(not(any(windows, test)), allow(dead_code))]
+    fn next_wait(&mut self, watching: &mut bool) -> Option<u32> {
+        if *watching {
+            *watching = self.check_released();
+        }
+        watching.then_some(RELEASE_POLL_MS)
+    }
+
     /// Lets go of the keys that came back up; whether any are still down.
     pub fn check_released(&mut self) -> bool {
         let up: Vec<String> = self.held.iter().filter(|(_, vk)| !self.user32.key_down(**vk)).map(|(id, _)| id.clone()).collect();
@@ -224,8 +240,7 @@ mod real {
                     // SAFETY: msg is a live Msg for each call
                     while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
                         if msg.message == WM_HOTKEY {
-                            reg.on_hotkey(msg.wparam as i32);
-                            watching = true;
+                            reg.hotkey_came(msg.wparam as i32, &mut watching);
                         }
                     }
                     for cmd in rx.try_iter() {
@@ -238,10 +253,7 @@ mod real {
                             }
                         }
                     }
-                    if watching {
-                        watching = reg.check_released();
-                    }
-                    let wait = if watching { RELEASE_POLL_MS } else { INFINITE };
+                    let wait = reg.next_wait(&mut watching).unwrap_or(INFINITE);
                     // SAFETY: no handles, just this thread's queue
                     unsafe { MsgWaitForMultipleObjects(0, std::ptr::null(), 0, wait, QS_ALLINPUT) };
                 }
@@ -370,16 +382,20 @@ mod tests {
     fn presses_and_watches_for_the_release() {
         let (mut reg, posted) = registrar(Fake::default());
         reg.apply(&[hk("a", "Ctrl+Space")]);
+        let mut watching = false;
+        assert_eq!(reg.next_wait(&mut watching), None, "nothing to watch yet: it sleeps until a message comes");
         reg.user32.down.insert(0x20);
-        reg.on_hotkey(1);
+        reg.hotkey_came(1, &mut watching);
         // Still down: not pressed twice
-        reg.on_hotkey(1);
+        reg.hotkey_came(1, &mut watching);
         // Not ours
-        reg.on_hotkey(99);
-        assert!(reg.check_released());
+        reg.hotkey_came(99, &mut watching);
+        assert_eq!(reg.next_wait(&mut watching), Some(RELEASE_POLL_MS), "the loop comes back by itself");
+        assert_eq!(presses(&posted), ["pressed a"]);
+        assert_eq!(reg.next_wait(&mut watching), Some(RELEASE_POLL_MS));
         assert_eq!(presses(&posted), ["pressed a"]);
         reg.user32.down.clear();
-        assert!(!reg.check_released());
+        assert_eq!(reg.next_wait(&mut watching), None);
         assert_eq!(presses(&posted), ["pressed a", "released a"]);
     }
 

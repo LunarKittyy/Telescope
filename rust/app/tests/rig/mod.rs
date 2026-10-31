@@ -633,6 +633,22 @@ pub fn options() -> WindowOptions {
                     package: String::new(), autostart: false, quit_after: None, snapshot: None, minimized: false, on_shown: None }
 }
 
+/// Makes fake workers instead of the real ones, into `made`.
+pub fn worker_maker(made: Arc<Mutex<Vec<Arc<FakeWorker>>>>) -> WorkerMaker {
+    Rc::new(move |setup: WorkerSetup, slot, events| {
+        let after_the_others = made.lock().unwrap().iter().all(|w| w.is_stopped());
+        let worker = Arc::new(FakeWorker {
+            url: Mutex::new(setup.url), width: setup.width, height: setup.height, fps: setup.fps, canvas: setup.canvas,
+            camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
+            parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
+            steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
+            refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), packets: telescope_media::packets::Tap::new(), after_the_others,
+        });
+        made.lock().unwrap().push(worker.clone());
+        worker
+    })
+}
+
 impl Rig {
     /// A window with "pixel" and "oneplus" paired and "pixel" picked, and the plugins listening.
     pub fn new(name: &str) -> Rig {
@@ -692,20 +708,7 @@ impl Rig {
         let list = plugins(&link, &heard);
         let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| list, with_services.then_some(services), Some(options())).unwrap();
         let workers: Arc<Mutex<Vec<Arc<FakeWorker>>>> = Arc::default();
-        let made = workers.clone();
-        let maker: WorkerMaker = Rc::new(move |setup: WorkerSetup, slot, events| {
-            let after_the_others = made.lock().unwrap().iter().all(|w| w.is_stopped());
-            let worker = Arc::new(FakeWorker {
-                url: Mutex::new(setup.url), width: setup.width, height: setup.height, fps: setup.fps, canvas: setup.canvas,
-                camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
-                parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
-                steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
-                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), packets: telescope_media::packets::Tap::new(), after_the_others,
-            });
-            made.lock().unwrap().push(worker.clone());
-            worker
-        });
-        *w.streams.maker.borrow_mut() = Some(maker);
+        *w.streams.maker.borrow_mut() = Some(worker_maker(workers.clone()));
         Rig { w, link, cameras, workers, heard, dir, tray, notes, _turn: turn }
     }
 

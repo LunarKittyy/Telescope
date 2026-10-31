@@ -341,6 +341,8 @@ fn a_code_in_the_picture_goes_to_the_clipboard_once() {
     assert!(rig.props()["copy-shown"] == true);
     rig.timer("check");
     assert_eq!(rig.notified(), ["send_notification QR code copied"]);
+    assert_eq!(rig.host.notifications, [("QR code copied".to_string(), "Copied the password for Telescope".to_string(), false)]);
+    assert!(rig.host.calls.iter().any(|c| c == "refresh_preview"), "the outline shows on a paused preview too");
     assert_eq!(rig.props()["status"], "Copied the password for Telescope");
     assert_eq!(rig.props()["status-kind"], "status_ok");
     // Still in view: not copied over and over

@@ -815,13 +815,21 @@ mod tests {
 
     #[test]
     fn only_tabs_with_something_in_them_show_in_the_fixed_order() {
-        let tabs = ordered_tabs(&[section("a", "video", 0), section("b", "general", 0)], "");
+        // Python's test window has no Plugins tab because the app is what adds it; here ordered_tabs does
+        let tabs = ordered_tabs(&[section("a", "about", 0), section("b", "general", 0), section("c", "video", 0)], "");
         let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
-        assert_eq!(ids, ["general", "video", "plugins"]);
+        assert_eq!(ids, ["general", "video", "plugins", "about"]);
+        assert_eq!(tabs[3].1, "Updates & About");
     }
 
     #[test]
     fn a_tab_a_plugin_makes_goes_before_plugins() {
+        let mut mine = section("c", "mine", 0);
+        mine.1.tab_title = "My thing".into();
+        let tabs = ordered_tabs(&[section("a", "shortcuts", 0), mine, section("b", "general", 0)], "");
+        let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(ids, ["general", "shortcuts", "mine", "plugins"]);
+        assert_eq!(tabs[2].1, "My thing");
         let tabs = ordered_tabs(&[section("a", "on_air", 0), section("b", "about", 0)], "");
         let ids: Vec<&str> = tabs.iter().map(|t| t.0.as_str()).collect();
         assert_eq!(ids, ["on_air", "plugins", "about"]);

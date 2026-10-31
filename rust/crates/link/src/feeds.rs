@@ -234,7 +234,8 @@ mod tests {
     // test_packets.py::test_the_stream_worker_gives_its_tap_to_light_readers_only: _new_reader goes by the URL, as this does
     #[test]
     fn a_feed_goes_by_what_the_url_asks_for() {
-        let server = serve(None, Arc::new(|req| if req.path.contains(".h264") {
+        // UDP that doesn't get going falls back to the same feed on .h264, so .udp asks for it here too
+        let server = serve(None, Arc::new(|req| if req.path.contains(".h264") || req.path.contains(".udp") {
             (200, "video/h264".into(), b"\x00\x00\x00\x01".to_vec())
         } else {
             (200, "multipart/x-mixed-replace; boundary=--frame".into(), Vec::new())
@@ -242,6 +243,7 @@ mod tests {
         let open = |path: &str| open_feed(&format!("{}{path}", server.base(false)), &PhoneAuth::new("t", ""), Duration::from_secs(3)).map(|(codec, _)| codec);
         assert_eq!(open("/v1/video.h264"), Ok(Codec::H264));
         assert_eq!(open("/v1/video.h264?x=1"), Ok(Codec::H264));
+        assert_eq!(open("/v1/video.udp"), Ok(Codec::H264));
         assert_eq!(open("/v1/video.mjpeg"), Ok(Codec::Mjpeg));
         assert_eq!(open("/v1/video"), Ok(Codec::Mjpeg));
     }

@@ -1188,6 +1188,24 @@ mod tests {
         s
     }
 
+    // test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open
+    #[test]
+    fn the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open() {
+        let mut s = state();
+        s.bus.emit(Event::VisionDownloadFinished { error: String::new(), switch_on: "framing".into() });
+        s.deliver_events();
+        assert_eq!(crate::switches::optional_on(&s.file.load()).into_iter().collect::<Vec<_>>(), ["framing"]);
+    }
+
+    // test_vision_pack.py::test_a_failed_download_remembers_why_for_the_plugin_that_waited (vision's host_tests has what it remembers)
+    #[test]
+    fn a_failed_download_switches_nothing_on() {
+        let mut s = state();
+        s.bus.emit(Event::VisionDownloadFinished { error: "The download failed.".into(), switch_on: "framing".into() });
+        s.deliver_events();
+        assert!(crate::switches::optional_on(&s.file.load()).is_empty());
+    }
+
     #[test]
     fn a_config_that_was_set_aside_shows_a_banner() {
         let mut s = state();

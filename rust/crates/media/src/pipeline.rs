@@ -296,15 +296,18 @@ pub(crate) mod tests {
         let mut p = Pipeline::new();
         p.set_steps(vec![
             step("preview", FrameStage::Final, Push(9, seen.clone())),
-            step("grade", FrameStage::Colour, Push(8, seen.clone())),
-            step("name_tag", FrameStage::Overlay, Push(7, seen.clone())),
-            step("fun", FrameStage::Effects, Push(4, seen.clone())),
+            step("tag", FrameStage::Overlay, Push(7, seen.clone())),
+            step("grade", FrameStage::Colour, Push(6, seen.clone())),
+            // A plugin naming a stage that doesn't exist gets the default (core's test_a_stage_that_doesnt_exist_counts_as_effects)
+            step("odd", FrameStage::default(), Push(4, seen.clone())),
+            step("blur", FrameStage::Privacy, Push(10, seen.clone())),
+            step("key", FrameStage::Background, Push(3, seen.clone())),
             step("view", FrameStage::View, Push(1, seen.clone())),
-            step("fun2", FrameStage::Effects, Push(5, seen.clone())),
+            step("more", FrameStage::Effects, Push(5, seen.clone())),
             step("desk", FrameStage::Geometry, Push(2, seen.clone())),
         ]);
         let out = p.process(grey(4, 2, 0), &NoContext);
-        assert_eq!(*seen.lock().unwrap(), [1, 2, 4, 5, 8, 7, 9]);
+        assert_eq!(*seen.lock().unwrap(), [1, 2, 3, 4, 5, 6, 10, 7, 9]);
         assert_eq!(out.data[0], 9);
     }
 
