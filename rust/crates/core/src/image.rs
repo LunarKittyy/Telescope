@@ -29,7 +29,6 @@ pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
                 }
             }
         }
-        _ => return None,
     }
     Some(out)
 }

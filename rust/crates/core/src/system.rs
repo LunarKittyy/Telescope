@@ -116,12 +116,12 @@ pub fn os_words(e: &std::io::Error) -> String {
 #[cfg(test)]
 mod os_words_tests {
     use super::os_words;
-    use std::io::{Error, ErrorKind};
+    use std::io::Error;
 
     #[test]
     fn only_the_systems_own_words_are_left() {
         let words = os_words(&Error::from_raw_os_error(2));
         assert!(!words.is_empty() && !words.contains("os error") && !words.ends_with('.'), "{words}");
-        assert_eq!(os_words(&Error::new(ErrorKind::Other, "our own words.")), "our own words.");
+        assert_eq!(os_words(&Error::other("our own words.")), "our own words.");
     }
 }

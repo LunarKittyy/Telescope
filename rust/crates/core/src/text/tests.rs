@@ -423,7 +423,7 @@ fn sizes_are_in_64ths_of_a_pixel() {
 
 fn colour_face(px: f32) -> Option<Face> {
     let face = face(px)?;
-    if emoji_font(false).is_none() {
+    if emoji_font().is_none() {
         eprintln!("no colour font on this machine: emoji are skipped");
         return None;
     }

@@ -34,6 +34,9 @@ const FALLBACKS: &[&str] = &[
     "msyh", "yugoth", "malgun", "nirmala", "arial.",
 ];
 
+/// Colour fonts by file name, in lower case, for a system that doesn't name one.
+const EMOJI_FILES: [&str; 3] = ["seguiemj.ttf", "notocoloremoji.ttf", "noto-colrv1.ttf"];
+
 fn font_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec!["/usr/share/fonts".into(), "/usr/local/share/fonts".into()];
     if let Some(home) = std::env::home_dir() {
@@ -197,9 +200,13 @@ fn emoji_ranges(text: &str) -> Vec<Range<usize>> {
     text.grapheme_indices(true).filter(|(_, g)| !g.contains('\u{fe0e}') && (g.contains('\u{fe0f}') || g.chars().next().is_some_and(shows_as_emoji))).map(|(at, g)| at..at + g.len()).collect()
 }
 
-/// The system's colour font, which a character the main font lacks would go to anyway.
-fn emoji_font(heavy: bool) -> Option<FontArc> {
-    fallback_for('\u{1f319}', heavy).filter(FontArc::is_colour)
+/// The system's colour font: what a character the main font lacks would go to anyway, else the usual ones by name. One font for every
+/// weight, since emoji have just the one.
+fn emoji_font() -> Option<FontArc> {
+    static FONT: OnceLock<Option<FontArc>> = OnceLock::new();
+    FONT.get_or_init(|| fallback_for('\u{1f319}', false).filter(FontArc::is_colour).or_else(|| {
+        font_files().iter().find(|(file, _)| EMOJI_FILES.contains(&file.as_str())).and_then(|(_, path)| load(std::fs::read(path).ok()?, 400.0))
+    })).clone()
 }
 
 /// The script each character is written in: spaces, punctuation, digits and marks (Common and Inherited) take the script of the
@@ -299,7 +306,7 @@ impl Face {
         let mut last_script = None;
         let mut fallback: Option<FontArc> = None;
         let emoji = emoji_ranges(&text[run.clone()]);
-        let colour = if emoji.is_empty() || !self.fallbacks { None } else { emoji_font(self.heavy) };
+        let colour = if emoji.is_empty() || !self.fallbacks { None } else { emoji_font() };
         for (i, &(at, ch)) in chars.iter().enumerate() {
             let joiner = matches!(ch, '\u{200c}' | '\u{200d}');
             let stay = fallback.as_ref().filter(|f| joiner && f.glyph_id(ch).0 != 0).cloned();
