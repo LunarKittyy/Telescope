@@ -553,8 +553,9 @@ pub fn with_split(before: &Frame, after: &Frame, position: f32) -> Frame {
         return after.clone();
     }
     let (w, h) = (after.width as usize, after.height as usize);
-    let x = (w as f32 * position.clamp(0.0, 1.0)).round() as usize;
-    let line = (w as f32 / 480.0).round().max(1.0) as usize;
+    // round_ties_even: Python's round()
+    let x = (w as f32 * position.clamp(0.0, 1.0)).round_ties_even() as usize;
+    let line = (w as f32 / 480.0).round_ties_even().max(1.0) as usize;
     let (from, to) = (x.saturating_sub(line), (x + line).min(w));
     let mut out = after.clone();
     let data = out.data_mut();
@@ -603,8 +604,14 @@ mod tests {
         ColourStage::new(size, Arc::new(rgb), table)
     }
 
+    /// Noise the size of the tests' frames.
     fn pixels() -> Vec<[u8; 3]> {
-        (0u32..200).map(|i| [(i * 37 % 256) as u8, (i * 91 % 256) as u8, (i * 53 % 256) as u8]).collect()
+        let mut x = 1u32;
+        let mut next = || {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            (x >> 24) as u8
+        };
+        (0..128 * 72).map(|_| [next(), next(), next()]).collect()
     }
 
     fn graded(f: impl Fn(f32) -> f32, px: [u8; 3]) -> [u8; 3] {
@@ -628,10 +635,30 @@ mod tests {
         let lut = bake(&[&a, &b], None).unwrap();
         assert_eq!(lut.kind(), "1D");
         for px in pixels() {
-            let want = graded(|v| (1.0 - v) * (1.0 - v), px);
-            let got = lut.apply(px);
-            assert!((0..3).all(|c| (got[c] as i32 - want[c] as i32).abs() <= 1), "{px:?} {got:?} {want:?}");
+            assert_eq!(lut.apply(px), graded(|v| (1.0 - v) * (1.0 - v), px), "{px:?}");
         }
+        for level in 0..=255 {
+            assert_eq!(lut.apply([level; 3]), graded(|v| (1.0 - v) * (1.0 - v), [level; 3]));
+        }
+    }
+
+    /// A cube read the long way round, one axis at a time, so the check doesn't lean on sample_cube.
+    fn trilinear(cube: &[f32], n: usize, rgb: [f32; 3]) -> [u8; 3] {
+        let cell = rgb.map(|v| {
+            let at = v as f64 * (n - 1) as f64;
+            let low = (at.floor() as usize).min(n - 2);
+            (low, at - low as f64)
+        });
+        let (r, g, b) = (cell[0], cell[1], cell[2]);
+        let lerp = |a: f64, b: f64, t: f64| a + (b - a) * t;
+        let mut out = [0u8; 3];
+        for (c, o) in out.iter_mut().enumerate() {
+            let point = |bi: usize, gi: usize, ri: usize| cube[(bi * n * n + gi * n + ri) * 3 + c] as f64;
+            let line = |bi: usize, gi: usize| lerp(point(bi, gi, r.0), point(bi, gi, r.0 + 1), r.1);
+            let plane = |bi: usize| lerp(line(bi, g.0), line(bi, g.0 + 1), g.1);
+            *o = (lerp(plane(b.0), plane(b.0 + 1), b.1).clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
+        }
+        out
     }
 
     #[test]
@@ -648,9 +675,8 @@ mod tests {
             let cube = warm(size as usize);
             let lut = Baked::Cube { size: size as usize, rgb: cube.clone() };
             for px in pixels() {
-                let x = px.map(|v| v as f32 / 255.0);
-                let want = sample_cube(&cube, size as usize, x).map(|v| (v * 255.0 + 0.5) as u8);
-                assert_eq!(lut.apply(px), want);
+                let (got, want) = (lut.apply(px), trilinear(&cube, size as usize, px.map(|v| v as f32 / 255.0)));
+                assert!((0..3).all(|c| got[c].abs_diff(want[c]) <= 1), "{px:?} {got:?} {want:?}");
             }
         }
     }
@@ -691,7 +717,10 @@ mod tests {
         let lut = bake(&[&broken, &stage(|v| 1.0 - v, false, 33)], None).unwrap();
         assert_eq!(lut.apply([0, 0, 0]), [255, 255, 255]);
         let short = ColourStage::new(33, Arc::new(lattice(33)), Some(Arc::new(vec![0.0; 4])));
-        assert_eq!(bake(&[&short], None).unwrap().apply([10, 20, 30]), [10, 20, 30]);
+        let lut = bake(&[&short], None).unwrap();
+        for px in pixels() {
+            assert!((0..3).all(|c| lut.apply(px)[c].abs_diff(px[c]) <= 1), "{px:?}");
+        }
     }
 
     #[test]
@@ -715,8 +744,7 @@ mod tests {
         p.set_stage("invert", Some(stage(|v| 1.0 - v, true, 33)), -1, None);
         let lut = p.lut(None).unwrap();
         for px in pixels() {
-            let want = graded(|v| (1.0 - v) * (1.0 - v), px);
-            assert!((0..3).all(|c| (lut.apply(px)[c] as i32 - want[c] as i32).abs() <= 1));
+            assert_eq!(lut.apply(px), graded(|v| (1.0 - v) * (1.0 - v), px), "{px:?}");
         }
     }
 
@@ -729,7 +757,7 @@ mod tests {
         assert!((at(&mut p, "a") - 100).abs() <= 1);
         assert!((at(&mut p, "b") - 28).abs() <= 1); // 55 inverted, then halved
         p.set_stage("match", None, -1, Some("b"));
-        assert_eq!(p.stages(Some("b")).len(), p.stages(Some("a")).len());
+        assert_eq!(p.stages(Some("b")), p.stages(Some("a")));
     }
 
     #[test]
@@ -807,11 +835,30 @@ mod tests {
 
     const SETTLE: Duration = Duration::from_secs(5);
 
+    /// Keeps what's logged, per thread as tests run side by side.
+    struct Caught;
+
+    static LOGGED: Mutex<Vec<(std::thread::ThreadId, String)>> = Mutex::new(Vec::new());
+
+    impl log::Log for Caught {
+        fn enabled(&self, _: &log::Metadata) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record) {
+            LOGGED.lock().unwrap().push((std::thread::current().id(), record.args().to_string()));
+        }
+        fn flush(&self) {}
+    }
+
     #[test]
-    fn a_stage_that_fails_is_left_out() {
+    fn a_failing_stage_is_left_out() {
+        let _ = log::set_logger(&Caught);
+        log::set_max_level(log::LevelFilter::Error);
         let broken = stage(|v| v, false, 33).with_eval(|_: &mut [f32]| panic!("no"));
-        let lut = bake(&[&stage(|v| 1.0 - v, false, 33), &broken], None).unwrap();
+        let lut = bake(&[&broken, &stage(|v| 1.0 - v, false, 33)], None).unwrap();
         assert_eq!(lut.apply([0, 0, 0]), [255, 255, 255]);
+        let me = std::thread::current().id();
+        assert!(LOGGED.lock().unwrap().iter().any(|(who, text)| *who == me && text.contains("colour stage failed")));
     }
 
     #[test]
@@ -966,17 +1013,39 @@ mod tests {
 
     #[test]
     fn the_picture_before_the_colour_step_shows_left_of_the_split() {
+        let mut p = ColourPipeline::inline();
+        p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
         let rgba = |v: u8| Frame::new(80, 40, PixelFormat::Rgba, [v, v, v, 255].repeat(80 * 40));
-        let (before, after) = (rgba(10), rgba(245));
-        let shown = with_split(&before, &after, 0.5);
-        let px = |row: usize, col: usize| shown.data[(row * 80 + col) * 4];
-        assert!(px(3, 0) == 10 && px(3, 37) == 10 && px(3, 45) == 245);
-        assert_eq!(px(3, 40), SPLIT_LINE);
-        assert_eq!(after.data[0], 245, "drawn on a copy");
+        let before = rgba(10);
+        let after = rgba(p.lut(None).unwrap().apply([10; 3])[0]);
+        assert_eq!(p.split(), None, "no split asked for");
+        p.set_split("grade", Some(0.5));
+        let shown = with_split(&before, &after, p.split().unwrap());
+        assert!(after.data.chunks(4).all(|px| px[..3] == [245; 3]), "drawn on a copy");
+        for row in shown.data.chunks(80 * 4) {
+            let grey: Vec<u8> = row.chunks(4).map(|px| px[0]).collect();
+            assert!(grey[..39].iter().all(|v| *v == 10) && grey[41..].iter().all(|v| *v == 245), "{grey:?}");
+            assert_eq!(grey[39..41], [SPLIT_LINE; 2], "the line between them");
+        }
+        p.set_split("grade", None);
+        assert_eq!(p.split(), None);
         let tall = Frame::new(40, 80, PixelFormat::Rgba, vec![0; 40 * 80 * 4]);
         assert_eq!(with_split(&tall, &after, 0.5).data, after.data);
         let yuv = |y: u8| Frame::new(80, 40, PixelFormat::I420, [vec![y; 80 * 40], vec![128; 2 * 40 * 20]].concat());
         let shown = with_split(&yuv(40), &yuv(200), 0.25);
         assert!(shown.data[0] == 40 && shown.data[60] == 200 && shown.data.len() == 80 * 40 * 3 / 2);
+    }
+
+    // Python's round(): a tie goes to the even neighbour
+    #[test]
+    fn the_split_rounds_as_python_does() {
+        let rgba = |w: u32, v: u8| Frame::new(w, 1, PixelFormat::Rgba, [v, v, v, 255].repeat(w as usize));
+        let grey = |f: Frame| f.data.chunks(4).map(|px| px[0]).collect::<Vec<u8>>();
+        // 1200 / 480 is 2.5: a line of 2 either side of 600
+        let row = grey(with_split(&rgba(1200, 10), &rgba(1200, 245), 0.5));
+        assert!(row[..598].iter().all(|v| *v == 10) && row[598..602].iter().all(|v| *v == SPLIT_LINE) && row[602..].iter().all(|v| *v == 245));
+        // 5 * 0.5 is 2.5: the line sits at 2
+        let row = grey(with_split(&rgba(5, 10), &rgba(5, 245), 0.5));
+        assert_eq!(row, [10, SPLIT_LINE, SPLIT_LINE, 245, 245]);
     }
 }

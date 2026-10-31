@@ -676,6 +676,70 @@ mod tests {
         assert!((out.data[0] as i32 - 16).abs() <= 2, "{}", out.data[0]);
     }
 
+    // test_colour.py::test_an_identity_lut_leaves_frames_alone: the lattice isn't rounded to whole levels on its way to the card
+    #[test]
+    fn an_identity_lut_on_the_card_leaves_frames_alone() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut x = 11u32;
+        let mut next = || {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            (x >> 24) as u8
+        };
+        let mut data = Vec::new();
+        for _ in 0..128 * 72 {
+            data.extend([next(), next(), next(), 255]);
+        }
+        let frame = Frame::new(128, 72, PixelFormat::Rgba, data);
+        for size in telescope_core::colour::SIZES.map(|s| s as usize) {
+            let lut = telescope_core::colour::Baked::Cube { size, rgb: telescope_core::colour::lattice(size) };
+            let out = run(&gpu, &frame, &mut [ShaderSlot::new(lut.shader())]);
+            assert_eq!(out.data, frame.data, "size {size}");
+        }
+    }
+
+    // test_colour.py::test_opencv_applies_a_3d_lut_like_trilinear_interpolation_does: here the card applies it
+    #[test]
+    fn the_card_applies_a_3d_lut_like_trilinear_interpolation_does() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut x = 7u32;
+        let mut next = || {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            (x >> 24) as u8
+        };
+        let mut data = Vec::new();
+        for _ in 0..128 * 72 {
+            data.extend([next(), next(), next(), 255]);
+        }
+        let frame = Frame::new(128, 72, PixelFormat::Rgba, data);
+        for size in telescope_core::colour::SIZES.map(|s| s as usize) {
+            let mut cube = telescope_core::colour::lattice(size);
+            for px in cube.as_chunks_mut::<3>().0 {
+                let (r, g, b) = (px[0], px[1], px[2]);
+                px.copy_from_slice(&[r.powf(0.8), g * 0.9 + b * 0.1, b.sqrt()]);
+            }
+            let lut = telescope_core::colour::Baked::Cube { size, rgb: cube.clone() };
+            let out = run(&gpu, &frame, &mut [ShaderSlot::new(lut.shader())]);
+            let point = |b: usize, g: usize, r: usize, c: usize| cube[(b * size * size + g * size + r) * 3 + c] as f64;
+            let lerp = |a: f64, b: f64, t: f64| a + (b - a) * t;
+            let mut worst = 0;
+            for (px, shown) in frame.data.chunks(4).zip(out.data.chunks(4)) {
+                let cell = [px[0], px[1], px[2]].map(|v| {
+                    let at = v as f64 / 255.0 * (size - 1) as f64;
+                    let low = (at.floor() as usize).min(size - 2);
+                    (low, at - low as f64)
+                });
+                let (r, g, b) = (cell[0], cell[1], cell[2]);
+                for (c, got) in shown.iter().take(3).enumerate() {
+                    let line = |bi: usize, gi: usize| lerp(point(bi, gi, r.0, c), point(bi, gi, r.0 + 1, c), r.1);
+                    let plane = |bi: usize| lerp(line(bi, g.0), line(bi, g.0 + 1), g.1);
+                    let want = (lerp(plane(b.0), plane(b.0 + 1), b.1) * 255.0 + 0.5) as i32;
+                    worst = worst.max((*got as i32 - want).abs());
+                }
+            }
+            assert!(worst <= 1, "off by {worst} at size {size}");
+        }
+    }
+
     #[test]
     fn a_plugin_texture_is_there_to_sample() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
