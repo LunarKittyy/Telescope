@@ -48,7 +48,7 @@ pub enum Report {
     State { source_id: String, session_id: u64, state: Value },
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
     /// recovery moved the stream to a new route: its session there.
-    Moved { source_id: String, session_id: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
+    Moved { source_id: String, session_id: u64, generation: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
     /// A hand-over with the camera off opened its session on url (None: it couldn't).
     HandedOver { source_id: String, session_id: u64, url: String, session: Option<Arc<dyn PhoneSession>> },
     /// The regular heat check's answer.
@@ -649,6 +649,19 @@ impl PhoneKind {
         self.inner.borrow_mut().moving = false;
     }
 
+    /// A move that landed after its recovery ended: the stream stays on the route it's on, which goes back to being the one
+    /// the link holds for it (the move took that over before it opened anything).
+    pub fn move_too_late(&self, session: Arc<dyn PhoneSession>) {
+        self.move_failed();
+        let (link, id, route) = (self.link.clone(), self.id.clone(), self.inner.borrow().route.clone());
+        std::thread::spawn(move || {
+            session.release();
+            if let Some(route) = route {
+                link.adopt_route(id.as_deref(), &route);
+            }
+        });
+    }
+
     /// The stream couldn't connect over the USB forward recovery made: the same cable back needs a fresh one. failed_tries:
     /// the worker's, None with the camera off, where the mic has no tries of its own to count.
     pub fn forward_failed(&self, failed_tries: Option<u32>) -> bool {
@@ -695,12 +708,12 @@ impl PhoneKind {
             return;
         }
         let controls = self.session().and_then(|s| s.controls());
-        let (link, post, id, sid) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid());
+        let (link, post, id, sid, generation) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.recovery_generation());
         std::thread::spawn(move || {
             let opened = link.adopt_route(id.as_deref(), &route).ok_or_else(|| "no route".to_string())
                 .and_then(|url| link.open_route(&phone, &route, video_path(&url), controls));
             match opened {
-                Ok(session) => post(Report::Moved { source_id: sid, session_id, route, session: session.into() }),
+                Ok(session) => post(Report::Moved { source_id: sid, session_id, generation, route, session: session.into() }),
                 Err(e) => {
                     log::info!("Moving the stream to {route:?} failed: {e}");
                     post(Report::MoveFailed { source_id: sid });

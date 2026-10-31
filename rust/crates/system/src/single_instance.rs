@@ -614,7 +614,7 @@ mod tests {
     #[test]
     fn a_raise_still_works_next_to_actions() {
         let run = Running::new("raise-and-action");
-        assert_eq!(send_action(&run.address, &run.key_path(), &json!({"action": "x"})).0, true);
+        assert!(send_action(&run.address, &run.key_path(), &json!({"action": "x"})).0);
         assert_eq!(run.raise(), b"ok");
     }
 

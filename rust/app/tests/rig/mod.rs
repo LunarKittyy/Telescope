@@ -12,7 +12,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::Event;
-use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::frame::{Frame, FrameStep, PixelFormat};
 use telescope_core::host::Host;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
 use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, PacketTap, StagedStep, VideoFeed};
@@ -334,6 +334,9 @@ impl VideoWorker for FakeWorker {
     fn set_steps(&self, steps: Vec<StagedStep>) {
         self.steps.lock().unwrap().push(steps.iter().map(|s| s.owner.clone()).collect());
     }
+    fn set_colour(&self, steps: Vec<FrameStep>) {
+        note(&self.log, format!("colour {}", steps.len()));
+    }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         note(&self.log, format!("update_output {width:?} {height:?} {fps:?}"));
     }
@@ -405,8 +408,12 @@ impl Plugin for Listener {
     fn on_stream_start(&mut self, _host: &mut dyn Host, info: &StreamInfo) {
         note(&self.heard, format!("{} start {}", self.name, info.source_id));
     }
-    fn on_stream_stop(&mut self, _host: &mut dyn Host) {
+    fn on_stream_starting(&mut self, _host: &mut dyn Host) {
+        note(&self.heard, format!("{} starting", self.name));
+    }
+    fn on_stream_stop(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} stop", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
     fn on_focus_gained(&mut self, _host: &mut dyn Host, info: &StreamInfo) {
         note(&self.heard, format!("{} focus {}", self.name, info.source_id));
@@ -417,16 +424,21 @@ impl Plugin for Listener {
     fn on_phone_state(&mut self, _host: &mut dyn Host, state: &Value) {
         note(&self.heard, format!("{} state {state}", self.name));
     }
-    fn on_camera_off(&mut self, _host: &mut dyn Host) {
+    fn on_camera_off(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} camera off", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
-    fn on_camera_on(&mut self, _host: &mut dyn Host) {
+    fn on_camera_on(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} camera on", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
-    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+    fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::StreamBehind { source_id, behind } => note(&self.heard, format!("{} behind {source_id} {behind}", self.name)),
-            Event::CameraOnChanged { on } => note(&self.heard, format!("{} camera_on_changed {on}", self.name)),
+            Event::CameraOnChanged { on } => {
+                note(&self.heard, format!("{} camera_on_changed {on}", self.name));
+                note(&self.heard, format!("{} sees camera {} can turn off {}", self.name, host.is_camera_on(), host.can_turn_camera_off().0));
+            }
             Event::StreamLost { source_id } => note(&self.heard, format!("{} lost {source_id}", self.name)),
             Event::StreamConnected { source_id } => note(&self.heard, format!("{} connected {source_id}", self.name)),
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),

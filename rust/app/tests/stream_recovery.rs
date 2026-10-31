@@ -5,10 +5,12 @@ mod rig;
 use rig::{state_with, Rig};
 use serde_json::json;
 use slint_interpreter::Value as SValue;
-use std::sync::atomic::Ordering;
-use telescope_core::link::{PhoneStatus, Resolution};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use telescope_core::link::{Link, PhoneStatus, Resolution};
 use telescope_core::source::RouteSpec;
 use telescope_shell::sources::{Report, RECOVER_RETRY};
+use telescope_shell::worker::WorkerEvent;
 
 const RETRY: u64 = RECOVER_RETRY.as_millis() as u64 + 50;
 
@@ -104,6 +106,50 @@ fn a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled() {
     assert_eq!(r.source("pixel").session().unwrap().url, "https://pixel:8080/v1/video.h264");
     assert!(!r.link.control("pixel").closed.load(Ordering::SeqCst), "the same client, so it keeps what it sent");
     assert!(r.source("pixel").recovering(), "until frames actually come back");
+}
+
+/// A move that was on its way since generation lands now, on a USB route.
+fn usb_move_lands(r: &Rig, generation: u64) -> Arc<AtomicBool> {
+    let phone = r.link.phones().into_iter().find(|p| p.id == "pixel").unwrap();
+    let route = RouteSpec::Usb { serial: "SER".into() };
+    let session = r.link.open_route(&phone, &route, "/v1/video.h264", None).unwrap();
+    let released = r.link.released.lock().unwrap().last().unwrap().clone();
+    r.w.phone_report(Report::Moved { source_id: "pixel".into(), session_id: r.session_id("pixel"), generation, route, session: session.into() });
+    r.pump();
+    released
+}
+
+#[test]
+fn a_move_landing_after_the_stream_came_back_leaves_it_where_it_is() {
+    let r = unreachable("move-too-late");
+    let generation = r.source("pixel").kind.as_phone().unwrap().recovery_generation();
+    r.worker(0).event(WorkerEvent::Reconnected);
+    r.pump();
+    assert!(!r.source("pixel").recovering());
+    let url = r.source("pixel").session().unwrap().url;
+
+    let released = usb_move_lands(&r, generation);
+    assert!(!r.worker(0).did("retarget https://usb-SER:8080/v1/video.h264"));
+    assert_eq!(r.source("pixel").session().unwrap().url, url);
+    let held = RouteSpec::Network { address: "10.0.0.2".into() };
+    r.until("the new route let go and the old one held again", |r| released.load(Ordering::SeqCst) && r.link.logged(&format!("adopt pixel {held:?}")) == 1);
+}
+
+#[test]
+fn a_move_from_an_earlier_recovery_isnt_taken_for_this_ones() {
+    let r = unreachable("move-earlier-recovery");
+    let generation = r.source("pixel").kind.as_phone().unwrap().recovery_generation();
+    r.worker(0).event(WorkerEvent::Reconnected);
+    r.pump();
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
+    r.pump();
+    assert!(r.source("pixel").recovering());
+    usb_move_lands(&r, generation);
+    assert!(!r.worker(0).did("retarget https://usb-SER:8080/v1/video.h264"));
+
+    let current = r.source("pixel").kind.as_phone().unwrap().recovery_generation();
+    usb_move_lands(&r, current);
+    assert!(r.worker(0).did("retarget https://usb-SER:8080/v1/video.h264"));
 }
 
 #[test]

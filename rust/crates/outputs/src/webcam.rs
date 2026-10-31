@@ -682,7 +682,7 @@ impl WebcamPlugin {
             "size-items": size_items, "size-current": size_i, "size-enabled": !key.is_empty(),
             "size-tip": tr("The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"),
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
-            "has-action": !rows.is_empty(),
+            "has-controls": !rows.is_empty(),
             "rows": rows,
         })
     }

@@ -5,7 +5,8 @@ use rig::{state_with, Listener, Output, Rig};
 use serde_json::json;
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
-use telescope_core::host::RequestId;
+use std::sync::Arc;
+use telescope_core::host::{ColourStage, RequestId};
 use telescope_core::plugin::Plugin;
 use telescope_outputs::stream_output::StreamOutputPlugin;
 
@@ -51,6 +52,20 @@ fn hooks(r: &Rig, plugin: &str) -> Vec<String> {
     r.heard().iter().filter(|l| l.starts_with(&format!("{plugin} "))).filter(of_interest).cloned().collect()
 }
 
+#[test]
+fn a_lut_baked_after_the_panels_moved_on_reaches_the_stream_left_behind() {
+    let r = two_of(Rig::new("bake-behind"));
+    focus(&r, "oneplus");
+    let stage = ColourStage::new(2, Arc::new(vec![0.5; 24]), None);
+    {
+        let mut state = r.w.state.borrow_mut();
+        state.colour.set_stage("grade", Some(stage), 0, Some("pixel"));
+        assert!(state.colour.lut(Some("pixel")).is_none(), "the bake isn't through yet, so that's what the freeze got");
+    }
+    r.until("the LUT reached it", |r| r.worker(0).did("colour 1"));
+    assert!(!r.worker(1).did("colour 1"));
+}
+
 fn press_tile_stop(r: &Rig, id: &str) {
     r.w.ui.invoke("tile-stop", &[SValue::String(id.into())]).unwrap();
     r.pump();
@@ -74,7 +89,7 @@ fn a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own() {
     assert_eq!(r.streaming(), ["pixel", "oneplus"]);
     assert_eq!(r.shown().as_deref(), Some("oneplus"));
     assert_eq!(tiles(&r), ["pixel", "oneplus"]);
-    assert_eq!(r.heard().iter().filter(|l| l.starts_with("microphone start")).collect::<Vec<_>>(), ["microphone start pixel"], "the mic stays with the first phone");
+    assert_eq!(r.heard().iter().filter(|l| l.starts_with("microphone start ")).collect::<Vec<_>>(), ["microphone start pixel"], "the mic stays with the first phone");
 }
 
 #[test]

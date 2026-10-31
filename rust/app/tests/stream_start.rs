@@ -5,10 +5,14 @@ use rig::{state_with, Listener, Output, Rig};
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
 use slint_interpreter::Value as SValue;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use telescope_core::frame::PixelFormat;
 use telescope_core::host::OutputChange;
+use telescope_core::output::{Held, Outputs, Slot, VideoOutput, WaitScreen};
 use telescope_core::plugin::Plugin;
 use telescope_outputs::stream_output::StreamOutputPlugin;
+use telescope_outputs::wait_screen_plugin::WaitScreenPlugin;
 use telescope_shell::shell::Effect;
 use telescope_shell::sources::Report;
 use telescope_shell::worker::WorkerEvent;
@@ -32,6 +36,90 @@ fn waking(name: &str) -> Rig {
 
 fn stops(r: &Rig, id: &str) -> usize {
     r.link.logged(&format!("stop {id}"))
+}
+
+#[test]
+fn a_wake_stopped_and_started_again_isnt_stopped_by_the_first_one_landing() {
+    let r = waking("wake-again-same-phone");
+    r.w.toggle_stream();
+    r.until("the stop", |r| stops(r, "pixel") == 1);
+    r.w.toggle_stream();
+    r.until("the second wake", |r| r.link.logged("wake pixel") == 2);
+    r.link.hold_wakes(false);
+    r.until("the stream", |r| r.workers_made() == 1);
+    r.pump();
+    r.skip(100);
+    assert_eq!(stops(&r, "pixel"), 1, "the phone is meant to be streaming");
+    assert_eq!(r.link.logged("release pixel"), 1, "by the stop alone");
+    assert_eq!(r.streaming(), ["pixel"]);
+}
+
+#[test]
+fn a_late_wake_under_another_phones_only_stops_its_own() {
+    let r = waking("wake-late-other-phone");
+    r.w.toggle_stream();
+    r.until("the stop", |r| stops(r, "pixel") == 1);
+    r.link.pair("oneplus", "OnePlus");
+    r.pick("oneplus");
+    r.w.toggle_stream();
+    r.until("the other wake", |r| r.link.logged("wake oneplus") == 1);
+    r.link.hold_wakes(false);
+    r.until("the first phone stopped for good", |r| stops(r, "pixel") == 2);
+    r.until("the other stream", |r| r.workers_made() == 1);
+    r.pump();
+    assert_eq!(stops(&r, "oneplus"), 0);
+    assert_eq!(r.link.logged("release oneplus"), 0);
+    assert_eq!(r.streaming(), ["oneplus"]);
+}
+
+/// Remembers the main camera's wait screen being shown or let go.
+#[derive(Clone, Default)]
+struct Screens(Arc<Mutex<Vec<&'static str>>>);
+
+impl Held for Screens {
+    fn start(&self) {}
+    fn stop(&self) {
+        self.0.lock().unwrap().push("stop");
+    }
+    fn running(&self) -> bool {
+        false
+    }
+}
+
+impl WaitScreen for Screens {
+    fn show(&self, _width: u32, _height: u32, _path: Option<&str>, _mirror: bool) {
+        self.0.lock().unwrap().push("show");
+    }
+    fn set_watched(&self, _watched: bool) {}
+}
+
+impl Outputs for Screens {
+    fn slots(&self) -> Vec<Slot> {
+        Vec::new()
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        vec![PixelFormat::Rgba]
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no cameras in tests".into())
+    }
+    fn wait_screen(&self, slot: u32) -> Option<Box<dyn WaitScreen>> {
+        (slot == 0).then(|| Box::new(self.clone()) as Box<dyn WaitScreen>)
+    }
+}
+
+#[test]
+fn stopping_the_last_stream_brings_the_wait_screen_back() {
+    let screens = Screens::default();
+    let shown = screens.0.clone();
+    let r = Rig::with("wait-screen-back", move |_, _| vec![Box::new(WaitScreenPlugin::new(Arc::new(screens))) as Box<dyn Plugin>]);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    shown.lock().unwrap().clear();
+    r.stop(None);
+    r.pump();
+    assert_eq!(*shown.lock().unwrap(), ["show"]);
 }
 
 fn wake_id(r: &Rig) -> u64 {

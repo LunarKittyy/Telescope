@@ -4,12 +4,18 @@ mod rig;
 use rig::Rig;
 use serde_json::json;
 use slint::ComponentHandle;
+use std::sync::{Arc, Mutex};
+use telescope_core::host::Host;
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::ui::TrayAction;
 
-struct Muting;
+#[derive(Default)]
+struct Muting(Arc<Mutex<Vec<String>>>);
 
 impl Plugin for Muting {
+    fn on_tray_action(&mut self, _host: &mut dyn Host, action: &str) {
+        self.0.lock().unwrap().push(action.to_string());
+    }
     fn info(&self) -> PluginInfo {
         PluginInfo { name: "muting".into(), title: "Muting".into(), ..Default::default() }
     }
@@ -71,9 +77,20 @@ fn tray_show_quit_and_activation() {
 
 #[test]
 fn plugin_tray_actions_go_between_show_and_quit() {
-    let r = Rig::built_tray("tray-plugins", |_, _| vec![Box::new(Muting) as Box<dyn Plugin>]);
+    let r = Rig::built_tray("tray-plugins", |_, _| vec![Box::new(Muting::default()) as Box<dyn Plugin>]);
     r.w.refresh_tray_menu();
     assert_eq!(r.tray.lock().unwrap().items, ["Show", "Mute microphone", "Quit"]);
+}
+
+#[test]
+fn a_plugins_tray_action_reaches_it() {
+    let clicked = Muting::default();
+    let heard = clicked.0.clone();
+    let r = Rig::built_tray("tray-plugin-click", move |_, _| vec![Box::new(clicked) as Box<dyn Plugin>]);
+    click(&r, "muting/mute");
+    assert_eq!(*heard.lock().unwrap(), ["mute"]);
+    click(&r, "nobody/mute");
+    assert_eq!(heard.lock().unwrap().len(), 1);
 }
 
 #[test]

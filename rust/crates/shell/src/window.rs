@@ -84,7 +84,7 @@ pub struct Window {
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
-    plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
+    pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
 }
 
@@ -570,6 +570,7 @@ impl Window {
 
     /// Delivers queued events and carries out what plugins asked for, until nothing more comes.
     pub fn process(self: &Rc<Self>) {
+        self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
             self.state.borrow_mut().deliver_events();
             let effects: Vec<Effect> = std::mem::take(&mut self.state.borrow_mut().effects);
@@ -891,6 +892,7 @@ impl Window {
             });
             slint::CloseRequestResponse::HideWindow
         });
+        crate::keys::watch_plugin_keys(ui.window(), Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
@@ -909,7 +911,7 @@ impl Window {
         };
         let Some((_, _, ui)) = gone else { return };
         let _ = ui.hide();
-        drop(ui);
+        slint::Timer::single_shot(Duration::ZERO, move || drop(ui)); // a key the plugin answered by closing it is still on its way out of it
         self.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: "closed".into(), args: Vec::new() });
         self.process();
     }

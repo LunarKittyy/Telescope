@@ -3,9 +3,15 @@ mod rig;
 
 use rig::{state_with, Listener, Rig};
 use serde_json::{json, Value};
+use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 use telescope_core::event::Event;
-use telescope_core::plugin::Plugin;
+use telescope_core::host::Host;
+use telescope_core::link::{PhoneStatus, Resolution};
+use telescope_core::plugin::{Plugin, PluginInfo};
+use telescope_core::source::RouteSpec;
+use telescope_shell::plugins::preview::Preview;
 use telescope_shell::sources::Report;
 
 fn with_mic(name: &str, enabled: bool) -> Rig {
@@ -22,6 +28,28 @@ fn on_air(name: &str) -> Rig {
     r.worker(0).says("ok", "Streaming");
     r.pump();
     r
+}
+
+/// The real Preview next to a mic, as what's asked is what it shows.
+fn previewing(name: &str, enabled: bool) -> Rig {
+    Rig::with(name, move |_, heard| {
+        let mut mic = Listener::new("microphone", heard);
+        mic.config = json!({"enabled": enabled});
+        vec![Box::new(Preview::default()) as Box<dyn Plugin>, Box::new(mic)]
+    })
+}
+
+/// A plugin that turns the camera off from its tray action and says what it reads back.
+struct Asks(Arc<Mutex<Vec<bool>>>);
+
+impl Plugin for Asks {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "asks".into(), title: "Asks".into(), ..Default::default() }
+    }
+    fn on_tray_action(&mut self, host: &mut dyn Host, _action: &str) {
+        host.set_camera_on(false, false);
+        self.0.lock().unwrap().push(host.is_camera_on());
+    }
 }
 
 fn sent(r: &Rig) -> Vec<Value> {
@@ -148,6 +176,109 @@ fn a_camera_that_wont_come_back_on_stays_off_and_says_why() {
     assert!(r.source("pixel").session().unwrap().worker.is_none() && r.worker(1).is_stopped());
     assert_eq!(changes(&r), ["false", "true", "false"]);
     assert!(r.banner("camera").is_some());
+}
+
+#[test]
+fn the_preview_follows_the_camera_off_and_back_on() {
+    let r = previewing("camera-preview", true);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(r.flag("p0-camera-on") && !r.flag("p0-camera-off"));
+    r.w.set_camera_on(false, false);
+    r.pump();
+    assert!(!r.flag("p0-camera-on") && r.flag("p0-camera-off"));
+    r.w.set_camera_on(true, false);
+    r.pump();
+    assert!(r.flag("p0-camera-on") && !r.flag("p0-camera-off"), "paint_preview turns frames away otherwise");
+}
+
+#[test]
+fn hooks_and_events_about_the_camera_read_it_as_it_is_now() {
+    let r = on_air("camera-hooks-read");
+    r.forget_heard();
+    r.w.set_camera_on(false, false);
+    r.pump();
+    assert!(r.did_hear("panel sees streaming true camera false"), "{:?}", r.heard());
+    assert!(r.did_hear("panel sees camera false can turn off true"), "{:?}", r.heard());
+    r.forget_heard();
+    r.w.set_camera_on(true, false);
+    r.pump();
+    assert!(r.did_hear("panel sees camera true can turn off true"), "{:?}", r.heard());
+}
+
+#[test]
+fn the_mic_coming_on_lets_the_preview_turn_the_camera_off() {
+    let r = previewing("camera-mic-enables", false);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(!r.flag("p0-camera-enabled"), "nothing would stream with the camera off");
+    {
+        let mut state = r.w.state.borrow_mut();
+        let mic = state.index("microphone").unwrap();
+        state.slots[mic].plugin.as_mut().unwrap().set_config(&json!({"enabled": true})).unwrap();
+    }
+    r.emit(Event::MicChanged { enabled: true, muted: false });
+    r.pump();
+    assert!(r.flag("p0-camera-enabled"));
+}
+
+#[test]
+fn a_plugin_reads_back_the_camera_it_just_turned_off() {
+    let said = Arc::<Mutex<Vec<bool>>>::default();
+    let asks = Asks(said.clone());
+    let r = Rig::built_tray("camera-reads-back", move |_, heard| {
+        let mut mic = Listener::new("microphone", heard);
+        mic.config = json!({"enabled": true});
+        vec![Box::new(mic) as Box<dyn Plugin>, Box::new(asks)]
+    });
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.tray.lock().unwrap().clicks.push("asks/off".into());
+    r.w.poll_tray();
+    r.pump();
+    assert_eq!(*said.lock().unwrap(), [false]);
+    assert!(!r.host_says_camera_on());
+    assert_eq!(sent(&r), [json!(0)]);
+}
+
+#[test]
+fn the_banners_try_again_turns_the_camera_back_on() {
+    let r = on_air("camera-try-again");
+    r.w.set_camera_on(false, false);
+    r.pump();
+    r.w.set_camera_on(true, false);
+    r.pump();
+    let session_id = r.session_id("pixel");
+    r.w.phone_report(Report::CameraCheck { source_id: "pixel".into(), session_id,
+                                           state: Some(json!({"camera_toggle": true, "camera_off": true, "camera_error": "Another app may be using it."})) });
+    r.pump();
+    assert!(!r.host_says_camera_on());
+    r.w.ui.invoke("banner-action", &[SValue::String("camera".into()), SValue::Number(0.0)]).unwrap();
+    r.pump();
+    assert!(r.host_says_camera_on());
+    assert_eq!(sent(&r).last(), Some(&json!(1)));
+    assert_eq!(r.workers_made(), 3);
+    assert!(r.banner("camera").is_none());
+}
+
+#[test]
+fn a_mic_stream_that_moves_route_says_so_and_the_mic_goes_with_it() {
+    let r = on_air("camera-off-moves");
+    r.w.set_camera_on(false, false);
+    r.pump();
+    let wifi = RouteSpec::Network { address: "192.168.1.20".into() };
+    r.link.answers_recovery("pixel", Resolution { route: Some(wifi.clone()), streaming: true, ..Resolution::new(PhoneStatus::Ready) });
+    let session_id = r.session_id("pixel");
+    r.forget_heard();
+    r.w.phone_report(Report::Alive { source_id: "pixel".into(), session_id, ok: false });
+    r.w.phone_report(Report::Alive { source_id: "pixel".into(), session_id, ok: false });
+    r.until("the mic moved", |r| r.did_hear("microphone start pixel"));
+    assert_eq!(r.link.logged(&format!("adopt pixel {wifi:?}")), 1);
+    assert_eq!(r.source("pixel").session().unwrap().url, "https://pixel:8080/v1/video.h264");
+    assert_eq!(r.text("status"), "Streaming the mic, camera off");
 }
 
 #[test]

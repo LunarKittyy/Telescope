@@ -40,6 +40,8 @@ export component WebcamCard inherits Card {
     in-out property <int> fps-current;
     in property <bool> fps-enabled;
     in property <[ControlRow]> rows;
+    in property <bool> has-controls;
+    has-action: has-controls;
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);

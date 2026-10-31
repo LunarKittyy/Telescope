@@ -367,7 +367,7 @@ impl State {
                 let mut colour = ColourPipeline::new();
                 // Python's frames pick a new LUT up by themselves; here the steps are made again for it
                 colour.set_on_baked(Arc::new(|| {
-                    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.refresh_frame_steps()));
+                    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.colour_baked()));
                 }));
                 colour
             },

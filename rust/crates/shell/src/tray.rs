@@ -93,7 +93,8 @@ impl Window {
                 QUIT => self.quit("The user quit from the tray"),
                 id => {
                     let Some((plugin, action)) = id.split_once('/') else { continue };
-                    if let Some(i) = self.state.borrow().index(plugin) {
+                    let at = self.state.borrow().index(plugin);
+                    if let Some(i) = at {
                         self.state.borrow_mut().call(i, |p, host| p.on_tray_action(host, action));
                     }
                     self.process();

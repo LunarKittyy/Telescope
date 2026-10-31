@@ -212,6 +212,9 @@ impl HostCamera for Ctx<'_> {
         self.state.streams.can_turn_off.clone()
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
+        // Asked from inside a plugin, so it happens after this call; a plugin reading it back has the answer now
+        self.state.streams.camera_off = !on;
+        self.state.streams.camera_off_auto = !on && auto;
         self.state.effects.push(Effect::CameraOn { on, auto });
     }
 }
