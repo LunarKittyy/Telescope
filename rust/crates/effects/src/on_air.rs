@@ -241,12 +241,10 @@ pub fn webhook_request(url: &str, method: &str, payload: &str, on: bool) -> Webh
 
 /// strerror for an io error: the system's words for it without the code.
 fn os_text(e: &std::io::Error) -> String {
-    let text = e.to_string();
-    match text.rsplit_once(" (os error ") {
-        Some((words, _)) => words.to_string(),
-        None if e.kind() == std::io::ErrorKind::TimedOut => "timed out".into(),
-        None => text,
+    if e.raw_os_error().is_none() && e.kind() == std::io::ErrorKind::TimedOut {
+        return "timed out".into();
     }
+    telescope_core::system::os_words(e)
 }
 
 /// What a failed send says, short and never the address (it can hold a secret): Python's strerror for the things that go wrong on

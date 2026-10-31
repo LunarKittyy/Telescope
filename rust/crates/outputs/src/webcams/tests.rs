@@ -241,6 +241,7 @@ fn sysfs() -> PathBuf {
 }
 
 // test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest
+#[cfg(unix)]
 #[test]
 fn scanning_lists_capture_nodes_and_skips_the_rest() {
     let root = sysfs();
@@ -319,6 +320,7 @@ fn identical_webcams_without_a_serial_are_told_apart_by_their_port() {
 }
 
 // test_webcams.py::test_a_key_that_fell_back_to_the_node_is_looked_up_again
+#[cfg(unix)]
 #[test]
 fn a_key_that_fell_back_to_the_node_is_looked_up_again() {
     let root = sysfs();
@@ -343,6 +345,7 @@ fn a_node_that_cant_be_opened_is_tried_again() {
 }
 
 // test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones
+#[cfg(unix)]
 #[test]
 fn other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones() {
     let root = sysfs();

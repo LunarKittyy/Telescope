@@ -442,6 +442,7 @@ pub(crate) mod tests {
                    "Windows didn't get permission to install VB-Cable.");
     }
 
+    #[cfg(unix)] // a folder can't be opened as a file to age it
     #[test]
     fn an_earlier_tries_folder_is_cleared_first() {
         let temp = scratch("earlier");

@@ -327,11 +327,7 @@ pub fn run_setup(argv: &[String], timeout: Duration) -> SetupRun {
 
 /// What an OSError's strerror says: the system's words for it, without Rust's "(os error N)" after.
 fn strerror(e: &io::Error) -> String {
-    let text = e.to_string();
-    match (e.raw_os_error(), text.rfind(" (os error ")) {
-        (Some(_), Some(at)) => text[..at].to_string(),
-        _ => text,
-    }
+    telescope_core::system::os_words(e)
 }
 
 /// What install_with_setup needs from the computer, so a test can stand in for it.

@@ -1519,7 +1519,8 @@ mod tests {
         assert_eq!(props["editor-open"], json!(true));
         let mute = row_of(&plugin, "Microphone", "Mute");
         ui(&mut plugin, &mut host, "control-picked", json!([mute]));
-        assert_eq!(plugin.section_props()["problem"], json!("Press a key, with Ctrl, Alt, Shift or Meta if you like."));
+        let meta = if cfg!(windows) { "Win" } else { "Meta" };
+        assert_eq!(plugin.section_props()["problem"], json!(format!("Press a key, with Ctrl, Alt, Shift or {meta} if you like.")));
         ui(&mut plugin, &mut host, "param-picked", json!([0, 3]));
         assert_eq!(plugin.section_props()["copy-enabled"], json!(false), "a command can't hold a key down");
         ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
@@ -2146,6 +2147,7 @@ mod tests {
         assert!(!matches(&mute, "silence"));
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn the_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help() {
         let (mut plugin, mut host, seen) = make(json!([b("a", "F9", "camera.torch", json!({}), true)]), false, true);

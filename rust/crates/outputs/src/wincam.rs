@@ -456,7 +456,7 @@ pub(crate) mod tests {
     // test_platform_windows.py::test_a_registration_from_the_app_folder_is_flagged
     #[test]
     fn a_registration_from_the_app_folder_is_flagged() {
-        let (app, protected) = (PathBuf::from("/app/unitycapture"), PathBuf::from("/pf/Telescope/UnityCapture"));
+        let (app, protected) = (PathBuf::from("/app/unitycapture"), PathBuf::from("/pf").join("Telescope").join("UnityCapture"));
         for protected_install in [true, false] {
             let dll = if protected_install { protected.join(UC_DLL_64) } else { app.join(UC_DLL_64) };
             let reg = FakeRegistry { program_files: Some(PathBuf::from("/pf")), ..filter_registry(&dll, Some("Telescope")) };
@@ -497,5 +497,18 @@ pub(crate) mod tests {
         assert!(camera_access_off(&reg));
         reg.machine_values.lock().unwrap().insert((CONSENT.into(), "Value".into()), "Allow".into());
         assert!(!camera_access_off(&reg));
+    }
+}
+
+#[cfg(all(test, windows))]
+mod real_registry {
+    use super::*;
+
+    #[test]
+    fn the_real_registry_answers() {
+        let name = System.machine_string(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ProductName");
+        assert!(name.is_some_and(|n| n.contains("Windows")));
+        assert!(System.build() >= 22000, "the test machine is Windows 11");
+        assert!(!System.classes_subkeys("CLSID").is_empty());
     }
 }

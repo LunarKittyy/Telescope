@@ -713,6 +713,7 @@ mod tests {
         assert_eq!(download_adb(&google, Some(&dest), &quiet), Ok(String::new()));
     }
 
+    #[cfg(unix)] // a folder can't be opened as a file to age it
     #[test]
     fn a_cut_short_download_s_work_folder_is_cleared_later() {
         let root = tmp();

@@ -481,6 +481,7 @@ fn setup_plugin_builds_its_cards_and_syncs_config() {
     assert!(r.host.calls.contains(&format!("open_url {BUG_REPORT_URL}")));
 }
 
+#[cfg(unix)]
 #[test]
 fn open_log_shows_once_there_is_a_log_and_opens_it_with_any_name() {
     let mut r = Rig::linux();
