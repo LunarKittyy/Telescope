@@ -119,6 +119,23 @@ pub fn slot_ready(reg: &dyn Registry, slot: u32) -> bool {
     slot == 0 || use_mf(reg, slot) || uc_names(reg).iter().any(|(_, n)| *n == slot_label(slot))
 }
 
+/// What tells the wait screen an app has opened a camera (vcam._filter_probe_for).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterProbe {
+    /// The Windows 11 camera's shared memory exists.
+    Shared,
+    /// UnityCapture's shared image exists. Only the main camera has a filter to watch for.
+    Image,
+}
+
+/// What tells whether an app has opened slot's camera, or None.
+pub fn filter_probe_for(reg: &dyn Registry, slot: u32) -> Option<FilterProbe> {
+    if use_mf(reg, slot) {
+        return Some(FilterProbe::Shared);
+    }
+    (slot == 0).then_some(FilterProbe::Image)
+}
+
 /// An older Telescope's Windows 11 camera is installed, and this one has a newer one (with its DLL at dll) to put
 /// in its place.
 pub fn mf_outdated(reg: &dyn Registry, dll_here: bool) -> bool {
@@ -267,6 +284,16 @@ pub(crate) mod tests {
                     clsid.to_lowercase());
             }
             self
+        }
+    }
+
+    impl FakeRegistry {
+        /// Windows 11 cameras as other has them, in place of this one's: an install or removal while the app runs.
+        pub fn take_cameras_from(&self, other: &FakeRegistry) {
+            *self.machine.lock().unwrap() = other.machine.lock().unwrap().clone();
+            *self.machine_values.lock().unwrap() = other.machine_values.lock().unwrap().clone();
+            self.classes.lock().unwrap().extend(other.classes.lock().unwrap().clone());
+            self.files.lock().unwrap().extend(other.files.lock().unwrap().clone());
         }
     }
 

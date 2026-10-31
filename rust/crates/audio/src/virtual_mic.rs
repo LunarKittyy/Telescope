@@ -143,12 +143,16 @@ pub fn remove_stale_source(run: Run) {
 /// Creates the source. Anything a crashed run left behind is unloaded first, so the FIFO is always the one this run
 /// writes to. (module ids to unload later, error text or "").
 pub fn linux_setup(run: Run, fifo: Option<PathBuf>) -> (Vec<u32>, String) {
+    linux_setup_at(run, || fifo.map(Ok).unwrap_or_else(fifo_path))
+}
+
+fn linux_setup_at(run: Run, fifo: impl FnOnce() -> std::io::Result<PathBuf>) -> (Vec<u32>, String) {
     let (ok, out) = run(&strings(&["pactl", "list", "short", "modules"]));
     if !ok {
         return (Vec::new(), tr("The sound server didn't answer (pactl list failed)."));
     }
     linux_teardown(&stale_modules(&out), run);
-    let fifo = match fifo.map(Ok).unwrap_or_else(fifo_path) {
+    let fifo = match fifo() {
         Ok(f) => f,
         Err(e) => return (Vec::new(), tr("Couldn't create the virtual microphone: {error}").field("error", e.to_string())),
     };
@@ -304,6 +308,9 @@ mod tests {
         std::os::unix::fs::symlink(&elsewhere, &folder).unwrap();
         let err = fifo_path_in(None, &temp).unwrap_err();
         assert!(err.to_string().contains("private folder"));
+        let p = Pactl::new("", false);
+        let (ids, err) = linux_setup_at(&|c| p.run(c), || fifo_path_in(None, &temp));
+        assert!(ids.is_empty() && err.contains("private folder"), "{err}");
     }
 
     #[test]

@@ -109,17 +109,18 @@ impl VirtualCameras {
         }
         v4l2::slot_device_in(v4l2::SYSFS, slot)
     }
-
-    fn opener(&self) -> wait_screen::OpenCamera {
-        let device = self.device.clone();
-        Arc::new(move |w, h, fps, _fmt| VirtualCameras { device: device.clone() }.open(0, w, h, fps))
-    }
 }
 
 /// Open slot's camera on this system (vcam.open_camera).
 #[cfg(target_os = "linux")]
 fn open_slot(cams: &VirtualCameras, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
-    let Some(device) = cams.node(slot) else {
+    open_node(cams.node(slot), slot, width, height, fps)
+}
+
+/// Open device for slot, which isn't set up without one.
+#[cfg(target_os = "linux")]
+fn open_node(device: Option<String>, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+    let Some(device) = device else {
         return Err(format!("{} isn't set up", slot_label(slot)));
     };
     v4l2::VirtualCamera::open(&device, width, height, fps)
@@ -129,21 +130,42 @@ fn open_slot(cams: &VirtualCameras, slot: u32, width: u32, height: u32, fps: u32
 
 #[cfg(windows)]
 fn open_slot(_cams: &VirtualCameras, slot: u32, width: u32, height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
-    let reg = wincam::System;
-    let still = move || wincam::use_mf(&wincam::System, slot);
-    if wincam::use_mf(&reg, slot) {
-        return Ok(Box::new(mf::MfCamera::new(width, height, slot_label(slot), Box::new(move || mf::open_shared(slot)), Box::new(still))));
+    let shared = || Box::new(move || mf::open_shared(slot)) as mf::Opener;
+    open_windows(Arc::new(wincam::System), slot, width, height, shared, |num| Box::new(unitycapture::Shared::new(num)))
+}
+
+/// Windows: slot's camera, the Windows 11 one where it's set up, else UnityCapture. Either kind counts as outdated once
+/// the slot goes to the other (vcam.camera_changed). shared reaches the former's memory, filter the latter's number.
+#[cfg(any(windows, test))]
+fn open_windows(
+    reg: Arc<dyn wincam::Registry>, slot: u32, width: u32, height: u32, shared: impl FnOnce() -> mf::Opener,
+    filter: impl FnOnce(u32) -> Box<dyn unitycapture::Target>,
+) -> Result<Box<dyn VideoOutput>, String> {
+    let label = wincam::slot_label(slot);
+    let to_mf = {
+        let reg = reg.clone();
+        move || wincam::use_mf(reg.as_ref(), slot)
+    };
+    if to_mf() {
+        return Ok(Box::new(mf::MfCamera::new(width, height, label, shared(), Box::new(to_mf))));
     }
-    let names = wincam::uc_names(&reg);
-    let label = slot_label(slot);
+    let names = wincam::uc_names(reg.as_ref());
     let num = match names.iter().find(|(_, n)| *n == label) {
         Some((num, _)) => *num,
         // Registered before it was named Telescope ("Unity Video Capture"): any one will do for the main camera
         None if slot == 0 && !names.is_empty() => names[0].0,
         None => return Err(format!("{label} isn't set up")),
     };
-    let target = Box::new(unitycapture::Shared::new(num));
-    Ok(Box::new(unitycapture::UcCamera::new(width, height, label, target, Box::new(still))))
+    Ok(Box::new(unitycapture::UcCamera::new(width, height, label, filter(num), Box::new(to_mf))))
+}
+
+/// Windows: the size slot's camera is stuck at, which only the Windows 11 camera has (vcam._mf_locked_size).
+#[cfg(any(windows, test))]
+fn locked_size_on(reg: &dyn wincam::Registry, slot: u32, open: impl FnOnce() -> Option<mf::SharedView>) -> Option<(u32, u32)> {
+    if !wincam::use_mf(reg, slot) {
+        return None;
+    }
+    open()?.reader_size()
 }
 
 #[cfg(not(any(target_os = "linux", windows)))]
@@ -186,7 +208,7 @@ impl Outputs for VirtualCameras {
             return true;
         }
         #[cfg(target_os = "linux")]
-        return self.node(slot).is_some();
+        return v4l2::slot_ready_in(v4l2::SYSFS, slot);
         #[cfg(windows)]
         return wincam::slot_ready(&wincam::System, slot);
         #[cfg(not(any(target_os = "linux", windows)))]
@@ -197,12 +219,7 @@ impl Outputs for VirtualCameras {
         #[cfg(target_os = "linux")]
         return v4l2::locked_size_in(v4l2::SYSFS, &self.node(slot)?);
         #[cfg(windows)]
-        {
-            if !wincam::use_mf(&wincam::System, slot) {
-                return None;
-            }
-            return mf::open_shared(slot)?.reader_size();
-        }
+        return locked_size_on(&wincam::System, slot, || mf::open_shared(slot));
         #[cfg(not(any(target_os = "linux", windows)))]
         {
             let _ = slot;
@@ -270,9 +287,8 @@ impl Outputs for VirtualCameras {
         #[cfg(target_os = "linux")]
         {
             let setup = linux_setup::Setup { sys: &linux_setup::Real };
-            let (a, b) = setup.persist_status();
             let loaded = setup.module_loaded();
-            return SetupStatus { installed: setup.module_installed(), loaded, ready: setup.devices_ready(), persisted: a || b,
+            return SetupStatus { installed: setup.module_installed(), loaded, ready: setup.devices_ready(), persisted: setup.persisted(),
                                  ..SetupStatus::default() };
         }
         #[cfg(windows)]
@@ -329,21 +345,25 @@ impl Outputs for VirtualCameras {
 impl VirtualCameras {
     /// The wait screen's ties to slot's camera.
     pub fn screen_deps(&self, slot: u32) -> wait_screen::Deps {
-        let me = VirtualCameras { device: self.device.clone() };
-        let open: wait_screen::OpenCamera = if slot == 0 {
-            self.opener()
-        } else {
-            let device = self.device.clone();
-            Arc::new(move |w, h, fps, _fmt| open_slot(&VirtualCameras { device: device.clone() }, slot, w, h, fps))
-        };
-        wait_screen::Deps {
-            open_camera: open,
-            loader: Arc::new(|path, w, h| Ok(wait_screen::load_frames(path, w, h))),
-            locked: Arc::new(move || me.locked_size(slot)),
-            filter_probe: filter_probe(slot),
-            i420: true,
-            pace: wait_screen::Pace::default(),
-        }
+        let (one, other) = (VirtualCameras { device: self.device.clone() }, VirtualCameras { device: self.device.clone() });
+        let open = Arc::new(move |slot, w, h, fps| open_slot(&one, slot, w, h, fps));
+        screen_deps_on(slot, open, Arc::new(move |slot| other.locked_size(slot)))
+    }
+}
+
+/// Opens a slot's camera at width x height, fps.
+type OpenSlot = Arc<dyn Fn(u32, u32, u32, u32) -> Result<Box<dyn VideoOutput>, String> + Send + Sync>;
+/// The size an app still reading a slot's camera holds it at.
+type LockedSlot = Arc<dyn Fn(u32) -> Option<(u32, u32)> + Send + Sync>;
+
+fn screen_deps_on(slot: u32, open: OpenSlot, locked: LockedSlot) -> wait_screen::Deps {
+    wait_screen::Deps {
+        open_camera: Arc::new(move |w, h, fps, _fmt| open(slot, w, h, fps)),
+        loader: Arc::new(|path, w, h, convert| Ok(wait_screen::load_frames_as(path, w, h, convert))),
+        locked: Arc::new(move || locked(slot)),
+        filter_probe: filter_probe(slot),
+        i420: true,
+        pace: wait_screen::Pace::default(),
     }
 }
 
@@ -364,19 +384,16 @@ fn install_for(action: SetupAction, release: impl FnOnce() -> Released, install:
 fn filter_probe(slot: u32) -> Option<wait_screen::FilterProbe> {
     #[cfg(windows)]
     {
-        if wincam::use_mf(&wincam::System, slot) {
-            return Some(Arc::new(move || {
+        Some(match wincam::filter_probe_for(&wincam::System, slot)? {
+            wincam::FilterProbe::Shared => Arc::new(move || {
                 Some(Box::new(move || mf::open_shared(slot).is_some()) as Box<dyn Fn() -> bool + Send>)
-            }));
-        }
-        if slot == 0 {
+            }),
             // An app's filter makes the shared image when it opens the camera; until then every send goes nowhere
-            return Some(Arc::new(|| {
+            wincam::FilterProbe::Image => Arc::new(|| {
                 let name = wincam::uc_object_name("Data", wincam::uc_number(&wincam::System, wincam::UC_NAME));
                 Some(Box::new(move || win::mapping_exists(&name)) as Box<dyn Fn() -> bool + Send>)
-            }));
-        }
-        None
+            }),
+        })
     }
     #[cfg(not(windows))]
     {
@@ -388,6 +405,8 @@ fn filter_probe(slot: u32) -> Option<wait_screen::FilterProbe> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mf::tests::Opener as MfMemory;
+    use crate::wincam::tests::FakeRegistry;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Mutex;
     use telescope_core::output::{Held as _, WaitScreen as _};
@@ -410,35 +429,116 @@ mod tests {
     // test_vcam.py::test_a_wait_screen_on_an_extra_camera_opens_that_one
     #[test]
     fn a_wait_screen_on_an_extra_camera_opens_that_one() {
-        let cams = VirtualCameras::default();
-        let mut deps = cams.screen_deps(2);
-        let opened = Arc::new(Mutex::new(Vec::new()));
-        let asked = Arc::new(Mutex::new(Vec::new()));
+        let (opened, asked) = (Arc::new(Mutex::new(Vec::new())), Arc::new(Mutex::new(Vec::new())));
         let sent = Arc::new(AtomicBool::new(false));
-        // The real deps are bound to slot 2; check that by asking them, then stand in so nothing touches a device
-        let (o, s) = (opened.clone(), sent.clone());
-        let real_open = deps.open_camera.clone();
-        deps.open_camera = Arc::new(move |w, h, fps, fmt| {
-            o.lock().unwrap().push(real_open(w, h, fps, fmt).err().unwrap_or_default());
+        let (o, a, s) = (opened.clone(), asked.clone(), sent.clone());
+        let open: OpenSlot = Arc::new(move |slot, _, _, _| {
+            o.lock().unwrap().push(slot);
             Ok(Box::new(Nothing(s.clone())) as Box<dyn VideoOutput>)
         });
-        let (a, real_locked) = (asked.clone(), deps.locked.clone());
-        deps.locked = Arc::new(move || {
-            a.lock().unwrap().push(real_locked());
+        let deps = screen_deps_on(2, open, Arc::new(move |slot| {
+            a.lock().unwrap().push(slot);
             None
-        });
+        }));
         let screen = wait_screen::WaitScreen::new(deps, &Arc::new(Gate::default()));
         screen.show(64, 36, None, false);
+        wait_until(|| sent.load(Ordering::SeqCst));
+        screen.stop();
+        assert_eq!((opened.lock().unwrap()[0], asked.lock().unwrap()[0]), (2, 2));
+    }
+
+    fn wait_until(what: impl Fn() -> bool) {
         let until = std::time::Instant::now() + Duration::from_secs(2);
-        while !sent.load(Ordering::SeqCst) {
-            assert!(std::time::Instant::now() < until);
+        while !what() {
+            assert!(std::time::Instant::now() < until, "timed out");
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    /// Nowhere for UnityCapture's frames to go, but it says when it's let go of.
+    struct NoFilter(Arc<AtomicBool>);
+
+    impl unitycapture::Target for NoFilter {
+        fn send(&mut self, _rgba: &[u8], _width: u32, _height: u32) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    impl Drop for NoFilter {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn windows_camera(reg: &Arc<FakeRegistry>, slot: u32, shared: &MfMemory, closed: &Arc<AtomicBool>) -> Box<dyn VideoOutput> {
+        let closed = closed.clone();
+        let reg: Arc<dyn wincam::Registry> = reg.clone();
+        open_windows(reg, slot, 8, 4, || shared.opener(), |_num| Box::new(NoFilter(closed))).ok().unwrap()
+    }
+
+    // test_vcam.py::test_windows_opens_the_windows_11_camera_where_it_is_set_up
+    #[test]
+    fn windows_opens_the_windows_11_camera_where_it_is_set_up() {
+        let reg = Arc::new(FakeRegistry::default().with_mf(&[0, 2]));
+        let shared = MfMemory::new(Some(crate::mf::tests::reading(8, 4)));
+        let mut cam = windows_camera(&reg, 2, &shared, &Arc::default());
+        assert_eq!(cam.device(), "Telescope #3");
+        cam.send(&convert::grey(8, 4, 0)).unwrap();
+        assert_eq!(shared.header().counter, 2, "frames reach the Windows 11 camera's memory");
+        assert!(wincam::slot_ready(reg.as_ref(), 2) && !wincam::slot_ready(reg.as_ref(), 1));
+        assert_eq!(wincam::filter_probe_for(reg.as_ref(), 1), None);
+        assert_eq!(wincam::filter_probe_for(reg.as_ref(), 2), Some(wincam::FilterProbe::Shared));
+        assert_eq!(wincam::filter_probe_for(&FakeRegistry::uc(&[(0, "Telescope")]), 0), Some(wincam::FilterProbe::Image));
+    }
+
+    // test_vcam.py::test_camera_changed_compares_the_kind_with_the_slots_camera
+    #[test]
+    fn a_camera_is_outdated_once_its_slot_goes_to_the_other_kind() {
+        let reg = Arc::new(FakeRegistry::uc(&[(0, "Telescope"), (1, "Telescope #2")]).with_mf(&[0]));
+        let shared = MfMemory::new(None);
+        let (mf_cam, uc_cam) = (windows_camera(&reg, 0, &shared, &Arc::default()), windows_camera(&reg, 1, &shared, &Arc::default()));
+        assert!(!mf_cam.outdated() && !uc_cam.outdated());
+        let moved = FakeRegistry::default().with_mf(&[1]);
+        reg.take_cameras_from(&moved);
+        assert!(mf_cam.outdated(), "slot 0 left the Windows 11 camera");
+        assert!(uc_cam.outdated(), "slot 1 moved to it");
+        // Linux has one kind of camera, so its cameras keep the trait's answer
+        assert!(!Nothing(Arc::default()).outdated());
+    }
+
+    // test_vcam.py::test_the_wait_screen_moves_to_a_camera_installed_while_it_runs
+    #[test]
+    fn the_wait_screen_moves_to_a_camera_installed_while_it_runs() {
+        let reg = Arc::new(FakeRegistry { build: wincam::MF_MIN_BUILD, ..FakeRegistry::uc(&[(0, "Telescope")]) });
+        let attempts = Arc::new(Mutex::new(0));
+        let closed: Arc<AtomicBool> = Arc::default();
+        let (r, a, c) = (reg.clone(), attempts.clone(), closed.clone());
+        let shared = MfMemory::new(None);
+        let open: OpenSlot = Arc::new(move |slot, _, _, _| {
+            *a.lock().unwrap() += 1;
+            Ok(windows_camera(&r, slot, &shared, &c))
+        });
+        let mut deps = screen_deps_on(0, open, Arc::new(|_| None));
+        deps.pace = wait_screen::Pace { idle: Duration::from_millis(20), ..wait_screen::Pace::default() };
+        let screen = wait_screen::WaitScreen::new(deps, &Arc::new(Gate::default()));
+        screen.show(8, 8, None, false);
+        wait_until(|| *attempts.lock().unwrap() > 0);
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(*attempts.lock().unwrap(), 1, "the same kind: kept");
+        reg.take_cameras_from(&FakeRegistry::default().with_mf(&[0]));
+        wait_until(|| *attempts.lock().unwrap() >= 2);
         screen.stop();
-        let why = opened.lock().unwrap()[0].clone();
-        // A real Telescope running here holds the device, which the error then names instead
-        assert!(why.contains(&slot_label(2)) || why.is_empty() || why.contains("busy"), "{why}");
-        assert!(!asked.lock().unwrap().is_empty());
+        assert!(closed.load(Ordering::SeqCst));
+    }
+
+    // test_vcam.py::test_locked_size_is_linux_only (the Windows 11 camera has the size its reader picked, UnityCapture none)
+    #[test]
+    fn only_the_windows_11_camera_has_a_locked_size_on_windows() {
+        let reader = || MfMemory::new(Some(crate::mf::tests::reading(8, 4))).opener()();
+        assert_eq!(locked_size_on(&FakeRegistry::uc(&[(0, "Telescope")]), 0, reader), None);
+        let reg = FakeRegistry::default().with_mf(&[0]);
+        assert_eq!(locked_size_on(&reg, 0, reader), Some((8, 4)));
+        assert_eq!(locked_size_on(&reg, 0, || None), None);
     }
 
     // app.py's remove_extra_cameras: with vcam.device_released() around install_camera

@@ -24,6 +24,8 @@ struct TestHost {
     events: Vec<Event>,
     copied: String,
     posted: Arc<Mutex<Vec<(String, Value)>>>,
+    /// Timers asked for, by token.
+    timers: Vec<String>,
 }
 
 impl BrowserHost for TestHost {
@@ -82,7 +84,9 @@ impl BrowserHost for TestHost {
     fn emit(&mut self, event: Event) {
         self.events.push(event);
     }
-    fn schedule(&mut self, _after_ms: u64, _token: &str) {}
+    fn schedule(&mut self, _after_ms: u64, token: &str) {
+        self.timers.push(token.into());
+    }
     fn copy_text(&mut self, text: &str) {
         self.copied = text.into();
     }
@@ -102,6 +106,8 @@ struct ServerLog {
     started: AtomicBool,
     stopped: AtomicBool,
     token: Mutex<String>,
+    /// What stats() says from now on, for a server that's been up a while.
+    aged: Mutex<Option<Arc<ServerStats>>>,
 }
 
 struct FakeServer {
@@ -124,7 +130,7 @@ impl Serving for FakeServer {
         *self.log.token.lock().unwrap() = "t2".into();
     }
     fn stats(&self) -> Option<Arc<ServerStats>> {
-        Some(self.stats.clone())
+        Some(self.log.aged.lock().unwrap().clone().unwrap_or_else(|| self.stats.clone()))
     }
 }
 
@@ -395,19 +401,36 @@ fn closing_the_waiting_tile_or_the_banner_hides_the_code() {
     r.pump();
     assert!(r.card()["shown"] == false && r.server().stopped.load(Ordering::SeqCst) && !launcher.waiting());
 
-    r.host.streams.clear();
-    launcher.prepare(true);
-    r.pump();
-    let cancel = r.host.issues["start"].actions[0].clone();
-    assert!(matches!(&cancel.does, IssueDoes::Plugin { id } if id == POST_CANCEL));
-    r.plugin.cancel_waiting(&mut r.host); // Cancel, with nothing else streaming
-    assert!(r.server().stopped.load(Ordering::SeqCst) && !r.host.issues.contains_key("start"));
+    // The banner goes through the plugin as the window runs it, with nothing else streaming
+    let (maker, servers) = fake_servers(|| ServerStats::new(8767, 8767, false, "Browser camera"));
+    let mut plugin = BrowserCameraPlugin::new(maker, || vec!["192.168.1.20".into()]);
+    let mut host = telescope_core::testing::FakeHost::new();
+    plugin.setup(&mut host);
+    let launcher = plugin.launcher();
+    let wait = |plugin: &mut BrowserCameraPlugin, host: &mut telescope_core::testing::FakeHost| {
+        launcher.prepare(true);
+        for (token, data) in host.take_posted() {
+            plugin.on_event(host, &Event::Posted { owner: NAME.into(), token, data });
+        }
+    };
+    let shown = |host: &telescope_core::testing::FakeHost| {
+        let last = host.calls.iter().rfind(|c| c.starts_with("set_ui_props card ") && c.contains("\"shown\"")).unwrap();
+        last.contains("\"shown\":true")
+    };
+    let last_stopped = |servers: &Servers| servers.lock().unwrap().last().unwrap().0.stopped.load(Ordering::SeqCst);
 
-    launcher.prepare(true);
-    r.pump();
-    assert!(r.host.issues["start"].tell_dismiss);
-    r.plugin.cancel_waiting(&mut r.host); // the banner's X
-    assert!(r.card()["shown"] == false && r.server().stopped.load(Ordering::SeqCst));
+    wait(&mut plugin, &mut host);
+    assert!(!last_stopped(&servers));
+    let cancel = host.issues.iter().find(|(k, _)| k == "start").unwrap().1.actions[0].clone();
+    assert_eq!(cancel.label, "Cancel");
+    let IssueDoes::Plugin { id } = cancel.does else { panic!("{:?}", cancel.does) };
+    plugin.on_issue_action(&mut host, "start", &id); // Cancel
+    assert!(!shown(&host) && last_stopped(&servers) && !host.issues.iter().any(|(k, _)| k == "start"));
+
+    wait(&mut plugin, &mut host);
+    assert!(host.issues.iter().find(|(k, _)| k == "start").unwrap().1.tell_dismiss);
+    plugin.on_issue_action(&mut host, "start", "dismiss"); // the banner's X
+    assert!(!shown(&host) && last_stopped(&servers));
 }
 
 #[test]
@@ -505,8 +528,7 @@ fn a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten() {
 }
 
 #[test]
-fn without_cryptography_it_says_so_and_start_fails() {
-    // The certificate comes with the app now; what's left of this is a server that can't be made
+fn a_server_that_cant_be_made_says_why_and_start_fails() {
     let mut r = Rig::new();
     r.plugin.make_server = Box::new(|_, _| Err("no certificate".into()));
     r.select(SOURCE_ID);
@@ -516,8 +538,7 @@ fn without_cryptography_it_says_so_and_start_fails() {
 }
 
 #[test]
-fn without_aiortc_it_says_so_and_start_fails() {
-    // WebRTC comes with the app now; what's left of this is a server that won't start
+fn a_server_that_wont_start_says_why_and_start_fails() {
     struct Refuses;
     impl Serving for Refuses {
         fn start(&self) -> Result<(), String> {
@@ -581,13 +602,15 @@ fn waiting_hint_points_at_the_step_that_failed() {
 
 #[test]
 fn card_shows_the_firewall_hint_once_the_wait_is_long() {
-    let mut r = Rig::with(|| {
-        let mut stats = ServerStats::new(8767, 8767, false, "Browser camera");
-        stats.started -= HINT_AFTER;
-        stats
-    });
+    let mut r = Rig::new();
     r.select(SOURCE_ID);
-    assert!(r.card()["hint-text"].as_str().unwrap().contains("port 8767"));
+    assert_eq!(r.host.card["hint-text"], "");
+    assert_eq!(r.host.timers, [TIMER_HINT]);
+    let mut stats = ServerStats::new(8767, 8767, false, "Browser camera");
+    stats.started -= HINT_AFTER;
+    *r.server().aged.lock().unwrap() = Some(Arc::new(stats));
+    r.plugin.hear(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: TIMER_HINT.into() }); // what the timer does
+    assert!(r.host.card["hint-text"].as_str().unwrap().contains("port 8767"), "{}", r.host.card["hint-text"]);
 }
 
 #[test]

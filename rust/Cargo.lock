@@ -5671,8 +5671,10 @@ dependencies = [
 name = "telescope-app"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "flate2",
  "i-slint-backend-testing",
+ "image",
  "libc",
  "log",
  "qrcode",

@@ -891,6 +891,7 @@ impl BrowserCameraPlugin {
             return false;
         }
         self.set_waiting(h, true);
+        self.render(h); // the launcher said it waits already, so set_waiting saw no change
         if h.stream_count() == 0 {
             // next to other streams, its tile says it's waiting
             let cancel = IssueAction { label: tr("Cancel"), does: IssueDoes::Plugin { id: POST_CANCEL.into() } };

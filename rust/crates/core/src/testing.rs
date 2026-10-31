@@ -78,6 +78,8 @@ pub struct FakeHost {
     pub view: View,
     /// What view_aspect() answers.
     pub aspect: f32,
+    /// Every set_view, oldest first.
+    pub view_changes: Vec<ViewChange>,
     /// What took the view ("" for nobody): take_view fails for anyone else, as the real host's does.
     pub view_owner: String,
     /// Every steer_view, as (zoom, pan_x, pan_y).
@@ -164,6 +166,8 @@ pub struct FakeHost {
     pub plugin_hues: Option<bool>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
+    /// Runs inside stop_stream, for a test that looks at what the plugin holds at that moment.
+    pub on_stop: Option<Box<dyn FnMut() + Send>>,
     next_request: u64,
 }
 
@@ -252,6 +256,9 @@ impl HostStreams for FakeHost {
     fn stop_stream(&mut self, source_id: Option<&str>) {
         self.note(format!("stop_stream {source_id:?}"));
         self.starting = false;
+        if let Some(on_stop) = self.on_stop.as_mut() {
+            on_stop();
+        }
     }
     fn stop_all_streams(&mut self) {
         self.note("stop_all_streams");
@@ -348,8 +355,12 @@ impl HostShell for FakeHost {
         self.issues.retain(|(k, _)| k != key);
         self.issues.push((key.to_string(), issue));
     }
-    fn clear_issue(&mut self, key: Option<&str>, _issue: Option<&Issue>) {
+    fn clear_issue(&mut self, key: Option<&str>, issue: Option<&Issue>) {
         self.note(format!("clear_issue {key:?}"));
+        // Given an issue, only that one comes down: another that took its key stays, as the real host's does
+        if issue.is_some_and(|issue| !self.issues.iter().any(|(k, shown)| Some(k.as_str()) == key && shown == issue)) {
+            return;
+        }
         self.issues.retain(|(k, _)| key.is_some_and(|key| k != key));
     }
     fn send_notification(&mut self, title: &str, body: &str, urgent: bool) {
@@ -452,6 +463,7 @@ impl HostView for FakeHost {
     }
     fn set_view(&mut self, change: ViewChange) {
         self.note(format!("set_view {change:?}"));
+        self.view_changes.push(change.clone());
         let v = &mut self.view;
         if let Some(z) = change.zoom { v.zoom = z; }
         if let Some(x) = change.pan_x { v.pan_x = x; }

@@ -149,7 +149,9 @@ fn scrolling_over_a_stream_zooms_into_it() {
 #[test]
 fn the_streams_list_puts_streams_in_and_takes_them_out() {
     let mut r = open();
-    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("gone", "Old phone", 0.0, 0.0, 1.0, 1.0)]);
+    let tiles = vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("gone", "Old phone", 0.0, 0.0, 1.0, 1.0)];
+    r.picture(tiles.clone());
+    r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
     assert_eq!(texts, ["Phone A", "Phone B", "Old phone (not streaming)"]);
     r.ui("stream-toggled", json!([1, true]));

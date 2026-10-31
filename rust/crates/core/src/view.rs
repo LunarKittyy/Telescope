@@ -353,8 +353,11 @@ mod tests {
     #[test]
     fn pan_puts_the_window_where_asked() {
         assert_eq!(pan_for(0.5, 2.0), 0.0);
+        assert_eq!(pan_for(0.75, 2.0), 1.0);
+        assert_eq!(pan_for(0.9, 2.0), 1.0, "it clamps");
         assert!((window_centre(2.0, pan_for(0.6, 2.0)) - 0.6).abs() < 1e-9);
         assert_eq!(pan_for(0.9, 1.0), 0.0);
+        assert_eq!(pan_for(0.6, 1.0), 0.0, "nothing to pan at 1x");
     }
 
     #[test]
@@ -583,6 +586,13 @@ mod tests {
         // Rotated a quarter turn, the box's sides swap axes
         let (_, _, y0, _, y1) = lens_boxes(Some(&tele()), &Geometry { zoom: 2.0, pan_x: 1.0, rotation: Some(90), ..Default::default() })[0].clone();
         assert!((y0 - (lo - 0.5) * 2.0).abs() < 1e-9 && (y1 - (hi - 0.5) * 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_lens_step_never_lands_under_the_lens() {
+        assert_eq!(lens_step(3.0), 300);
+        assert_eq!(lens_step(3.004), 301);
+        assert_eq!(lens_step(3.7), 370);
     }
 
     #[test]

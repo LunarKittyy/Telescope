@@ -222,6 +222,7 @@ export component CameraCard inherits Card {
                 marks: [0];
                 has-default: true;
                 default-value: 0;
+                tip: @tr("Double-click to reset");
                 moved(v) => { ae-moved(v); }
             }
         }
@@ -249,6 +250,7 @@ export component CameraCard inherits Card {
                 readout: kelvin-text;
                 has-default: true;
                 default-value: 5500;
+                tip: @tr("Double-click to reset");
                 moved(v) => { kelvin-moved(v); }
             }
         }
@@ -265,6 +267,7 @@ export component CameraCard inherits Card {
                 readout: tint-text;
                 has-default: true;
                 default-value: 0;
+                tip: @tr("Double-click to reset");
                 moved(v) => { tint-moved(v); }
             }
         }

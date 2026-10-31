@@ -1,16 +1,19 @@
 //! Several cameras against what the Python app does. crates/effects/tests/fixtures holds what Python made
 //! (make_composite_fixtures.py): the test streams, each layout the Compositor drew from them, and what the plugin saves after
-//! loading odd settings. The two "through real workers" tests run the plugin's step in media's frame pipeline and slots, as
-//! a stream's worker does.
+//! loading odd settings. The two "through real workers" tests run the plugin's step on the app's own stream worker, with a decoder
+//! that hands it the test's frames. Background pictures here are real PNG files through the app's own picture reader.
 
 use serde_json::{json, Value};
+use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
 use telescope_core::host::FrameStore;
-use telescope_core::media::{FrameSlot, StagedStep, StreamFrames};
-use telescope_core::media::FramePipeline;
+use telescope_core::media::{Codec, DecodeOptions, Decoded, Decoder, FeedEnd, FeedStopper, FramePipeline, FrameSlot, Media, Packet, Scaler, StagedStep, StreamFrames, VideoFeed};
+use telescope_core::output::{Outputs, Slot as OutputSlot, VideoOutput};
 use telescope_core::plugin::{Plugin, StreamInfo};
 use telescope_core::testing::FakeHost;
 use telescope_core::time::monotonic_ns;
@@ -21,6 +24,7 @@ use telescope_effects::compositor::{Compositor, Frames};
 use telescope_effects::pixels::{put_rgb, to_rgb};
 use telescope_media::frames::{Frames as StreamStore, Slot};
 use telescope_media::pipeline::Pipeline;
+use telescope_shell::worker::{Opener, StreamWorker, WorkerSetup};
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/effects/tests/fixtures")
@@ -127,20 +131,6 @@ fn in_i420_the_picture_is_python_s_but_for_the_shared_colour_samples() {
     compare(PixelFormat::I420, (255, 4.0, 0.4), (2, 0.3));
 }
 
-struct Ctx(&'static str);
-
-impl FrameContext for Ctx {
-    fn source_id(&self) -> &str {
-        self.0
-    }
-    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
-        None
-    }
-    fn colour_preview(&self, frame: &Frame) -> Frame {
-        frame.clone()
-    }
-}
-
 fn solid(bgr: [u8; 3], (h, w): (u32, u32)) -> Frame {
     Frame::new(w, h, PixelFormat::Bgra, [bgr[0], bgr[1], bgr[2], 255].repeat((w * h) as usize))
 }
@@ -159,10 +149,90 @@ impl CpuStep for Cover {
     }
 }
 
-/// A stream's worker: its frame steps, then its slot (StreamWorker._publish).
+/// The frames a worker has still to decode.
+type Waiting = Arc<Mutex<VecDeque<Frame>>>;
+
+struct NoStop;
+
+impl FeedStopper for NoStop {
+    fn stop(&self) {}
+}
+
+/// A packet for each frame waiting.
+struct Feed(Waiting, Arc<AtomicBool>);
+
+impl VideoFeed for Feed {
+    fn read(&mut self) -> Result<Packet, FeedEnd> {
+        while self.0.lock().unwrap().is_empty() {
+            if self.1.load(Ordering::SeqCst) {
+                return Err(FeedEnd::Stopped);
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        Ok(Packet { data: vec![0], time_ns: 0 })
+    }
+    fn stopper(&self) -> Box<dyn FeedStopper> {
+        Box::new(NoStop)
+    }
+}
+
+struct Handing(Waiting);
+
+impl Decoder for Handing {
+    fn decode(&mut self, _packet: &Packet) -> Decoded {
+        Decoded { newest: self.0.lock().unwrap().pop_front(), count: 1 }
+    }
+    fn hardware(&self) -> bool {
+        false
+    }
+}
+
+struct NoScaling;
+
+impl Scaler for NoScaling {
+    fn rgb(&mut self, _frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+        vec![0; (width * height * 3) as usize]
+    }
+}
+
+/// The app's frame pipeline, and a decoder that hands over the frames waiting.
+struct TestMedia(Waiting);
+
+impl Media for TestMedia {
+    fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+        Ok(Box::new(Handing(self.0.clone())))
+    }
+    fn scaler(&self) -> Box<dyn Scaler> {
+        Box::new(NoScaling)
+    }
+    fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+        Ok(Box::new(Pipeline::new()))
+    }
+}
+
+/// No camera to send to: what's checked is what the worker makes of frames.
+struct NoCameras;
+
+impl Outputs for NoCameras {
+    fn slots(&self) -> Vec<OutputSlot> {
+        Vec::new()
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        vec![PixelFormat::I420]
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no camera here".into())
+    }
+    fn locked_size(&self, _slot: u32) -> Option<(u32, u32)> {
+        None
+    }
+}
+
+/// A stream's real worker (StreamWorker), whose decoder hands over the test's frames.
 struct Worker {
-    sid: &'static str,
-    pipeline: Pipeline,
+    worker: StreamWorker,
+    waiting: Waiting,
+    stopped: Arc<AtomicBool>,
     slot: Arc<Slot>,
 }
 
@@ -172,18 +242,35 @@ impl Worker {
         if let Some(c) = cover {
             steps.push(StagedStep { owner: "wait_screen".into(), stage: FrameStage::Cover, step: FrameStep::Cpu(Box::new(Cover(c))) });
         }
-        let mut pipeline = Pipeline::new();
-        pipeline.set_steps(steps);
-        Worker { sid, pipeline, slot: Slot::new() }
+        let (waiting, stopped, slot) = (Waiting::default(), Arc::new(AtomicBool::new(false)), Slot::new());
+        let (w, s) = (waiting.clone(), stopped.clone());
+        let opener: Opener = Arc::new(move || Ok((Codec::Mjpeg, Box::new(Feed(w.clone(), s.clone())) as Box<dyn VideoFeed>).into()));
+        let setup = WorkerSetup { url: "url".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, source_id: sid.into(),
+                                  hardware_decode: false, plugin_source: false, waiting_text: None, vision: None, steps, gate: None };
+        let worker = StreamWorker::start(setup, Arc::new(TestMedia(waiting.clone())), Arc::new(NoCameras), slot.clone() as Arc<dyn FrameSlot>, Arc::new(|_| {})).unwrap();
+        Worker { worker, waiting, stopped, slot }
     }
 
+    /// The frame through the worker, as it comes back from the decoder.
     fn publish(&mut self, frame: Frame) {
-        let out = self.pipeline.process(frame, &Ctx(self.sid));
-        self.slot.publish(out);
+        let before = self.slot.published().map(|f| f.number);
+        self.waiting.lock().unwrap().push_back(frame);
+        let until = Instant::now() + Duration::from_secs(5);
+        while self.slot.published().map(|f| f.number) == before {
+            assert!(Instant::now() < until, "the worker never published");
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
 
     fn latest(&self) -> Frame {
         self.slot.latest().unwrap().0
+    }
+}
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.stopped.store(true, Ordering::SeqCst);
+        self.worker.request_stop();
     }
 }
 
@@ -207,6 +294,63 @@ fn workers_rig(cover: Option<Frame>) -> (CompositePlugin, FakeHost, Arc<StreamSt
 }
 
 const SECOND: u64 = 1_000_000_000;
+
+// np.full((40, 30, 3), (10, 20, 30)) and np.full((8, 8, 3), (10, 20, 30)) as cv2 writes them
+const PNG_30_40: &[u8] = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52\x00\x00\x00\x1e\x00\x00\x00\x28\x08\x02\x00\x00\x00\x66\x71\xdd\x45\x00\x00\x00\x86\x49\x44\x41\x54\x48\x0d\xb5\xc1\x21\x01\x00\x00\x00\xc2\x30\xb0\xe8\x6b\xfa\xc7\x24\x05\x9b\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\x87\x4b\xf4\xe1\x12\x7d\xb8\x44\x1f\x2e\xd1\xc7\x00\x77\x2f\x09\x89\x2e\x78\x89\xc1\x00\x00\x00\x00\x49\x45\x4e\x44\xae\x42\x60\x82";
+const PNG_8_8: &[u8] = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52\x00\x00\x00\x08\x00\x00\x00\x08\x08\x02\x00\x00\x00\x4b\x6d\x29\xdc\x00\x00\x00\x2c\x49\x44\x41\x54\x08\x1d\x6d\xc1\x21\x01\x00\x00\x00\xc2\x30\xb0\xe8\x6b\xfa\xc7\xa4\x00\x9b\x4b\xf4\xb8\x44\x8f\x4b\xf4\xb8\x44\x8f\x4b\xf4\xb8\x44\x8f\x4b\xf4\xb8\x44\xcf\x00\xd4\x1c\x01\xe9\xc0\x10\x35\xd7\x00\x00\x00\x00\x49\x45\x4e\x44\xae\x42\x60\x82";
+
+/// A compositor reading pictures the way the app does; None in a build without FFmpeg, which only reads JPEGs.
+fn compositor() -> Option<Compositor> {
+    use telescope_core::media::Media as _;
+    if telescope_media::FfmpegMedia.decode_picture(PNG_8_8).is_err() {
+        eprintln!("this build can't read a PNG: the picture isn't checked");
+        return None;
+    }
+    Some(Compositor::new(telescope_effects::shared::picture_reader(Arc::new(telescope_media::FfmpegMedia))))
+}
+
+fn picture_layout(path: &std::path::Path, background: &str) -> Layout {
+    Layout { picture: path.to_string_lossy().into(), background: background.into(), ..Layout::default() }
+}
+
+#[test]
+fn the_background_picture_covers_the_picture() {
+    let dir = telescope_core::testing::scratch_dir("composite-bg");
+    let path = dir.join("bg.png");
+    std::fs::write(&path, PNG_30_40).unwrap();
+    let Some(mut comp) = compositor() else { return };
+    comp.prepare(&picture_layout(&path, "#000000"), (64, 36));
+    let out = comp.render(&Frames::new(), PixelFormat::Bgra).unwrap();
+    assert!((out.width, out.height) == (64, 36) && px(&out, 18, 32) == [10, 20, 30], "{:?}", px(&out, 18, 32));
+    comp.prepare(&picture_layout(&dir.join("missing.png"), "#ffffff"), (8, 8));
+    assert_eq!(px(&comp.render(&Frames::new(), PixelFormat::Bgra).unwrap(), 0, 0), [255, 255, 255]);
+}
+
+#[test]
+fn a_missing_background_picture_is_read_again_once_its_there() {
+    let path = telescope_core::testing::scratch_dir("composite-later").join("later.png");
+    let layout = picture_layout(&path, "#ffffff");
+    let Some(mut comp) = compositor() else { return };
+    comp.prepare(&layout, (8, 8));
+    assert_eq!(px(&comp.render(&Frames::new(), PixelFormat::Bgra).unwrap(), 0, 0), [255, 255, 255]);
+    std::fs::write(&path, PNG_8_8).unwrap();
+    comp.prepare(&layout, (8, 8));
+    assert_eq!(px(&comp.render(&Frames::new(), PixelFormat::Bgra).unwrap(), 0, 0), [10, 20, 30]);
+}
+
+#[test]
+fn moving_a_tile_doesnt_scale_the_background_picture_again() {
+    let path = telescope_core::testing::scratch_dir("composite-move").join("bg.png");
+    std::fs::write(&path, PNG_30_40).unwrap();
+    let picture: String = path.to_string_lossy().into();
+    let Some(mut comp) = compositor() else { return };
+    for x in [0.0, 0.1, 0.2] {
+        comp.prepare(&Layout { picture: picture.clone(), ..Layout::of(vec![Tile::boxed("a", "", x, 0.0, 0.5, 0.5)]) }, (64, 36));
+    }
+    assert_eq!(comp.covered, [(64, 36)]);
+    comp.prepare(&Layout { picture, ..Layout::default() }, (32, 18));
+    assert_eq!(comp.covered, [(64, 36), (32, 18)]);
+}
 
 #[test]
 fn through_real_workers_the_main_stream_sends_the_picture_and_the_other_its_own() {

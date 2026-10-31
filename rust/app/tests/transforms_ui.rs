@@ -1,14 +1,17 @@
-//! The Transforms card drawn on a real (offscreen) Slint window: while Auto framing has the view, the zoom's handle and value look
-//! switched off (test_transforms.py's test_auto_framing_visibly_disables_the_zoom_handle_and_value).
+//! The Transforms card drawn on a real (offscreen) Slint window and driven with the pointer and the keys, what it does going to the
+//! plugin as it does in the app.
 
 use serde_json::Value as Json;
-use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance};
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance, Value};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::rc::Rc;
 use telescope_core::event::Event;
 use telescope_core::plugin::Plugin;
 use telescope_core::testing::FakeHost;
-use telescope_core::ui::SlintSource;
+use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_effects::transforms::TransformsPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::source::from_json;
@@ -50,8 +53,10 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     }
     let doc = format!(
         "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nimport {{ {c} }} from \"plugin/card.slint\";\n\
-         export component W inherits Window {{\n    width: {WIDTH}px;\n    height: 760px;\n    callback zoom-moved(float);\n{declared}    \
-         {c} {{ hue: Theme.hue-camera; {passed}zoom-moved(v) => {{ root.zoom-moved(v); }} }}\n}}",
+         export component W inherits Window {{\n    width: {WIDTH}px;\n    height: 760px;\n    callback zoom-moved(float);\n    \
+         callback pad-pointer(float, float);\n    callback pad-key(string, bool);\n    callback pad-reset();\n{declared}    \
+         {c} {{ hue: Theme.hue-camera; {passed}zoom-moved(v) => {{ root.zoom-moved(v); }} pad-pointer(x, y) => {{ root.pad-pointer(x, y); }} \
+         pad-key(k, s) => {{ root.pad-key(k, s); }} pad-reset => {{ root.pad-reset(); }} }}\n}}",
         c = card.ui.component
     );
     let mut compiler = Compiler::default();
@@ -120,6 +125,149 @@ fn recoloured(before: &[u8], after: &[u8], from: [u8; 3], to: [u8; 3]) -> Vec<Ve
     groups
 }
 
+type Rig = Rc<RefCell<(TransformsPlugin, FakeHost)>>;
+
+/// The plugin as the window starts it, a phone paired if `phone`.
+fn rig(phone: bool) -> Rig {
+    let (mut plugin, mut host) = (TransformsPlugin::new(), FakeHost::new());
+    plugin.setup(&mut host);
+    plugin.set_config(&serde_json::json!({})).unwrap();
+    if phone {
+        plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
+    }
+    Rc::new(RefCell::new((plugin, host)))
+}
+
+fn tell(rig: &Rig, callback: &str, args: Vec<Json>) {
+    let (plugin, host) = &mut *rig.borrow_mut();
+    plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: callback.into(), args });
+}
+
+/// The card is shown what the plugin last said.
+fn sync(rig: &Rig, w: &ComponentInstance) -> Vec<u8> {
+    let (plugin, host) = &mut *rig.borrow_mut();
+    show(w, &props(host, plugin))
+}
+
+fn to_json(v: &Value) -> Json {
+    match v {
+        Value::Number(n) => serde_json::json!(n),
+        Value::Bool(b) => serde_json::json!(b),
+        Value::String(s) => serde_json::json!(s.as_str()),
+        _ => Json::Null,
+    }
+}
+
+/// These of the card's callbacks go to the plugin, as the shell sends them.
+fn wire(rig: &Rig, w: &ComponentInstance, callbacks: &[&'static str]) {
+    for callback in callbacks {
+        let (rig, callback) = (rig.clone(), *callback);
+        w.set_callback(callback, move |args| {
+            tell(&rig, callback, args.iter().map(to_json).collect());
+            Value::Void
+        }).unwrap();
+    }
+}
+
+/// The handle's or dot's middle: the disc that goes grey when `property` goes off.
+fn disc(w: &ComponentInstance, property: &str) -> (f64, f64) {
+    let draw = |on: bool| {
+        w.set_property(property, Value::Bool(on)).unwrap();
+        offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture").rgba
+    };
+    let (on, off) = (draw(true), draw(false));
+    draw(true);
+    let groups = recoloured(&on, &off, HUE_CAMERA, TEXT_DISABLED);
+    let found = groups.iter().find(|g| g.len() >= 100).expect("the disc");
+    (found.iter().map(|p| p.0 as f64).sum::<f64>() / found.len() as f64 + 0.5, found.iter().map(|p| p.1 as f64).sum::<f64>() / found.len() as f64 + 0.5)
+}
+
+fn drag(w: &ComponentInstance, from: (f64, f64), to: (f64, f64)) {
+    let (window, button) = (w.window(), PointerEventButton::Left);
+    window.dispatch_event(WindowEvent::PointerMoved { position: point(from.0, from.1) });
+    window.dispatch_event(WindowEvent::PointerPressed { position: point(from.0, from.1), button });
+    window.dispatch_event(WindowEvent::PointerMoved { position: point(to.0, to.1) });
+    window.dispatch_event(WindowEvent::PointerReleased { position: point(to.0, to.1), button });
+}
+
+fn double_click(w: &ComponentInstance, at: (f64, f64)) {
+    let (window, position, button) = (w.window(), point(at.0, at.1), PointerEventButton::Left);
+    window.dispatch_event(WindowEvent::PointerMoved { position });
+    for _ in 0..2 {
+        window.dispatch_event(WindowEvent::PointerPressed { position, button });
+        window.dispatch_event(WindowEvent::PointerReleased { position, button });
+    }
+}
+
+fn key(w: &ComponentInstance, key: slint::platform::Key) {
+    w.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+    w.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+}
+
+fn the_card_is_greyed_out_until_a_phone_is_paired() {
+    let rig = rig(false);
+    let w = window(&mut rig.borrow_mut().0);
+    wire(&rig, &w, &["zoom-moved"]);
+    sync(&rig, &w);
+    w.set_property("active", Value::Bool(true)).unwrap();
+    let handle = disc(&w, "zoom-free");
+    let greyed = sync(&rig, &w);
+    assert_eq!(w.get_property("active").unwrap(), Value::Bool(false));
+    drag(&w, handle, (handle.0 + 60.0, handle.1));
+    assert_eq!(rig.borrow().0.zoom(), 1.0, "nothing on it answers without a phone");
+    {
+        let (plugin, host) = &mut *rig.borrow_mut();
+        plugin.on_event(host, &Event::PhonesChanged { count: 1 });
+    }
+    assert!(sync(&rig, &w) != greyed, "it comes on");
+    assert_eq!(w.get_property("active").unwrap(), Value::Bool(true));
+    drag(&w, handle, (handle.0 + 60.0, handle.1));
+    assert!(rig.borrow().0.zoom() > 1.0, "and answers");
+}
+
+fn the_pan_pad_works_from_the_keyboard() {
+    use slint::platform::Key;
+    let rig = rig(true);
+    tell(&rig, "zoom-moved", vec![serde_json::json!(2.0)]);
+    let w = window(&mut rig.borrow_mut().0);
+    wire(&rig, &w, &["pad-key"]);
+    sync(&rig, &w);
+    // Tab reaches it, like any control that takes keys
+    for _ in 0..30 {
+        key(&w, Key::Tab);
+        key(&w, Key::RightArrow);
+        if rig.borrow().0.pan().0 > 0.0 {
+            break;
+        }
+    }
+    assert!(rig.borrow().0.pan().0 > 0.0, "the pad never took the key");
+    w.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+    key(&w, Key::DownArrow);
+    w.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+    assert_eq!(rig.borrow().0.pan().1, 0.1);
+    key(&w, Key::Home);
+    assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
+}
+
+fn a_double_click_resets_zoom_and_pan() {
+    let rig = rig(true);
+    tell(&rig, "zoom-moved", vec![serde_json::json!(4.2)]);
+    let w = window(&mut rig.borrow_mut().0);
+    wire(&rig, &w, &["zoom-moved", "pad-pointer", "pad-reset"]);
+    sync(&rig, &w);
+    let zoom = disc(&w, "zoom-free");
+    tell(&rig, "pad-pointer", vec![serde_json::json!(0.6), serde_json::json!(0.0)]);
+    sync(&rig, &w);
+    // On the dot, off centre: only the double-click itself can bring it back
+    let dot = disc(&w, "pan-enabled");
+    double_click(&w, dot);
+    assert_eq!((rig.borrow().0.pan().0, rig.borrow().0.zoom()), (0.0, 4.2));
+    tell(&rig, "pad-pointer", vec![serde_json::json!(0.6), serde_json::json!(0.0)]);
+    sync(&rig, &w);
+    double_click(&w, zoom);
+    assert_eq!((rig.borrow().0.zoom(), rig.borrow().0.pan().0), (1.0, 0.0));
+}
+
 fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     let mut plugin = TransformsPlugin::new();
     let mut host = FakeHost::new();
@@ -127,36 +275,34 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     plugin.set_config(&serde_json::json!({})).unwrap();
     plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
     let w = window(&mut plugin);
+    let moved = Rc::new(RefCell::new(0));
+    let count = moved.clone();
+    w.set_callback("zoom-moved", move |_| {
+        *count.borrow_mut() += 1;
+        Value::Void
+    }).unwrap();
     let free = show(&w, &props(&host, &mut plugin));
+    let handle = disc(&w, "zoom-free");
 
     plugin.on_event(&mut host, &Event::ViewTaken { owner: "Auto framing".into() });
     let taken = show(&w, &props(&host, &mut plugin));
+    drag(&w, handle, (handle.0 + 60.0, handle.1));
+    assert_eq!(*moved.borrow(), 0, "the slider is off while it's taken");
     // The handle is a filled 14 px disc that went from the camera's colour to the disabled one, and so did the value's text
     let groups = recoloured(&free, &taken, HUE_CAMERA, TEXT_DISABLED);
-    let handle = groups.iter().find(|g| {
+    let grey_handle = groups.iter().find(|g| {
         let (x0, x1) = (g.iter().map(|p| p.0).min().unwrap(), g.iter().map(|p| p.0).max().unwrap());
         let (y0, y1) = (g.iter().map(|p| p.1).min().unwrap(), g.iter().map(|p| p.1).max().unwrap());
         (11..=15).contains(&(x1 - x0 + 1)) && (11..=15).contains(&(y1 - y0 + 1)) && g.len() >= 100
     });
-    assert!(handle.is_some(), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
+    assert!(grey_handle.is_some(), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
     assert!(groups.iter().any(|g| g.len() < 100), "the value's text went grey too");
 
     plugin.on_event(&mut host, &Event::ViewTaken { owner: String::new() });
     let released = show(&w, &props(&host, &mut plugin));
     assert!(released == free, "everything comes back when it lets go");
-}
-
-/// Where the zoom slider's handle is, as the middle of the disc that goes grey when the zoom is switched off.
-fn zoom_handle(w: &ComponentInstance) -> (f64, f64) {
-    let draw = |free: bool| {
-        w.set_property("zoom-free", slint_interpreter::Value::Bool(free)).unwrap();
-        offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture").rgba
-    };
-    let (free, off) = (draw(true), draw(false));
-    draw(true);
-    let groups = recoloured(&free, &off, HUE_CAMERA, TEXT_DISABLED);
-    let disc = groups.iter().find(|g| g.len() >= 100).expect("the handle");
-    (disc.iter().map(|p| p.0 as f64).sum::<f64>() / disc.len() as f64 + 0.5, disc.iter().map(|p| p.1 as f64).sum::<f64>() / disc.len() as f64 + 0.5)
+    drag(&w, handle, (handle.0 + 60.0, handle.1));
+    assert!(*moved.borrow() > 0, "and the slider answers again");
 }
 
 fn point(x: f64, y: f64) -> slint::LogicalPosition {
@@ -164,26 +310,23 @@ fn point(x: f64, y: f64) -> slint::LogicalPosition {
 }
 
 fn dragging_the_zoom_sticks_to_a_lens_but_keys_dont() {
-    use slint::platform::{PointerEventButton, WindowEvent};
-    use slint_interpreter::Value;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    let mut plugin = TransformsPlugin::new();
-    let w = window(&mut plugin);
+    let rig = rig(true);
+    let w = window(&mut rig.borrow_mut().0);
     for (name, value) in [("zoom-max", Value::Number(10.0)), ("active", Value::Bool(true)), ("zoom-marks", from_json(&serde_json::json!([3.7])))] {
         w.set_property(name, value).unwrap();
     }
     // The handle at 1x and at 10x say where the track runs
     w.set_property("zoom", Value::Number(1.0)).unwrap();
-    let (x1, y) = zoom_handle(&w);
+    let (x1, y) = disc(&w, "zoom-free");
     w.set_property("zoom", Value::Number(10.0)).unwrap();
-    let (x10, _) = zoom_handle(&w);
+    let (x10, _) = disc(&w, "zoom-free");
     let at = |zoom: f64| x1 + (zoom - 1.0) / 9.0 * (x10 - x1);
     let moved = Rc::new(RefCell::new(Vec::<f64>::new()));
-    let seen = moved.clone();
+    let (seen, to_plugin) = (moved.clone(), rig.clone());
     w.set_callback("zoom-moved", move |args| {
         if let Value::Number(n) = &args[0] {
             seen.borrow_mut().push((n * 1000.0).round() / 1000.0);
+            tell(&to_plugin, "zoom-moved", vec![serde_json::json!(n)]);
         }
         Value::Void
     }).unwrap();
@@ -196,6 +339,7 @@ fn dragging_the_zoom_sticks_to_a_lens_but_keys_dont() {
     window.dispatch_event(WindowEvent::PointerMoved { position: point(at(3.7) - 3.0, y) });
     window.dispatch_event(WindowEvent::PointerReleased { position: point(at(3.7) - 3.0, y), button });
     assert_eq!(moved.borrow().last(), Some(&3.7), "{:?}", moved.borrow());
+    assert_eq!(rig.borrow().0.zoom(), 3.7, "the plugin's zoom goes with it");
     // Keys step off it freely: Tab to the slider and press left
     moved.borrow_mut().clear();
     for _ in 0..20 {
@@ -215,6 +359,7 @@ fn dragging_the_zoom_sticks_to_a_lens_but_keys_dont() {
     window.dispatch_event(WindowEvent::PointerReleased { position: point(at(2.0), y), button });
     let last = *moved.borrow().last().expect("moved");
     assert!((1.9..2.1).contains(&last), "{:?}", moved.borrow());
+    assert!((1.9..2.1).contains(&rig.borrow().0.zoom()));
 }
 
 /// The slint platform lives on the thread that made it, so the window tests take turns on one.
@@ -222,4 +367,7 @@ fn dragging_the_zoom_sticks_to_a_lens_but_keys_dont() {
 fn the_transforms_card_in_a_window() {
     auto_framing_visibly_disables_the_zoom_handle_and_value();
     dragging_the_zoom_sticks_to_a_lens_but_keys_dont();
+    the_card_is_greyed_out_until_a_phone_is_paired();
+    the_pan_pad_works_from_the_keyboard();
+    a_double_click_resets_zoom_and_pan();
 }
