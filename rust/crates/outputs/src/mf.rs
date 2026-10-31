@@ -318,8 +318,9 @@ pub(crate) mod tests {
         send(&mut c, &o, &grey(16, 16, 235));
         let buf = o.buf.lock().unwrap().clone().unwrap();
         assert_eq!((o.header().frame_width, o.header().frame_height), (8, 4));
-        let luma = &buf[64..96];
-        assert!(luma[3] > 200 && luma[4] > 200 && luma[0] < 30, "white in the middle, black bars at the sides: {luma:?}");
+        for row in buf[64..96].chunks(8) {
+            assert!(row[3] > 200 && row[4] > 200 && row[0] < 30, "white in the middle, black bars at the sides: {row:?}");
+        }
     }
 
     // test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera

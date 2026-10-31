@@ -93,6 +93,11 @@ pub fn slot_device_in(sysfs: &str, slot: u32) -> Option<String> {
     find_by_label_in(sysfs, &slot_label(slot))
 }
 
+/// Whether slot's camera is set up to stream to (the first one is whenever Telescope is).
+pub fn slot_ready_in(sysfs: &str, slot: u32) -> bool {
+    slot == 0 || slot_device_in(sysfs, slot).is_some()
+}
+
 /// The size device is held at while a reader still has buffers ("YU12:1280x720@30" in sysfs), else None.
 /// v4l2loopback silently ignores a new writer asking for another size, so the next writer has to use this one.
 pub fn locked_size_in(sysfs: &str, device: &str) -> Option<(u32, u32)> {
@@ -183,12 +188,14 @@ mod tests {
     // test_vcam.py::test_extra_slots_are_found_by_their_label
     #[test]
     fn extra_slots_are_found_by_their_label() {
-        let dir = sysfs(&[("video11", "Phone Camera", ""), ("video3", "Phone Camera 3", ""), ("video2", "Phone Camera 2", "")]);
+        let dir = sysfs(&[("video11", "Phone Camera", ""), ("video20", "Phone Camera 3", ""), ("video21", "Other", "")]);
         let root = dir.to_string_lossy();
         assert_eq!(slot_device_in(&root, 0).as_deref(), Some(PHONE_DEV));
-        assert_eq!(slot_device_in(&root, 1).as_deref(), Some("/dev/video2"));
-        assert_eq!(slot_device_in(&root, 2).as_deref(), Some("/dev/video3"));
-        assert_eq!(slot_device_in(&root, 3), None);
+        assert_eq!(slot_device_in(&root, 2).as_deref(), Some("/dev/video20"));
+        assert_eq!(slot_device_in(&root, 1), None);
+        assert!(slot_ready_in(&root, 2) && !slot_ready_in(&root, 1) && slot_ready_in(&root, 0));
+        let Err(why) = crate::open_node(slot_device_in(&root, 1), 1, 4, 4, 30) else { panic!("an unset slot opened") };
+        assert!(why.contains("Phone Camera 2"), "{why}");
         assert_eq!(slot_label(0), "Phone Camera");
         assert_eq!(slot_label(3), "Phone Camera 4");
     }

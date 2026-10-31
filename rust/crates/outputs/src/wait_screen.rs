@@ -296,10 +296,32 @@ fn fit_image(img: &image::RgbaImage, width: u32, height: u32) -> Rgb {
     Rgb { width, height, data }
 }
 
+/// What a prepared picture costs to keep in memory, which is what FRAME_BUDGET counts.
+pub trait KeptPicture {
+    fn nbytes(&self) -> usize;
+}
+
+impl KeptPicture for Rgb {
+    fn nbytes(&self) -> usize {
+        self.data.len()
+    }
+}
+
+impl KeptPicture for Frame {
+    fn nbytes(&self) -> usize {
+        self.data.len()
+    }
+}
+
 /// The image or animation at path as [(picture, seconds)] fitted to width x height; empty if it won't load. An
 /// animation keeps every nth frame if all of them wouldn't fit in FRAME_BUDGET (vcam.read_image_frames).
 pub fn read_image_frames(path: &str, width: u32, height: u32) -> Vec<(Rgb, f64)> {
-    match read_frames(path, width, height) {
+    read_image_frames_as(path, width, height, &|rgb| rgb)
+}
+
+/// read_image_frames, with convert turning each picture into what gets kept as it loads, so the budget counts that.
+pub fn read_image_frames_as<T: KeptPicture>(path: &str, width: u32, height: u32, convert: &dyn Fn(Rgb) -> T) -> Vec<(T, f64)> {
+    match read_frames(path, width, height, FRAME_BUDGET, convert) {
         Ok(frames) if !frames.is_empty() => frames,
         Ok(_) => {
             log::warn!("Wait screen image {path:?} didn't load: no frames");
@@ -312,8 +334,22 @@ pub fn read_image_frames(path: &str, width: u32, height: u32) -> Vec<(Rgb, f64)>
     }
 }
 
-fn read_frames(path: &str, width: u32, height: u32) -> Result<Vec<(Rgb, f64)>, String> {
-    use image::{AnimationDecoder, ImageDecoder};
+/// The frames of the animation at path, or None for a picture that isn't one (a WebP can be either).
+fn animation_frames(path: &str, format: Option<image::ImageFormat>) -> Result<Option<image::Frames<'static>>, String> {
+    use image::AnimationDecoder;
+    let file = || std::fs::File::open(path).map(std::io::BufReader::new).map_err(|e| e.to_string());
+    Ok(match format {
+        Some(image::ImageFormat::Gif) => Some(image::codecs::gif::GifDecoder::new(file()?).map_err(|e| e.to_string())?.into_frames()),
+        Some(image::ImageFormat::WebP) => {
+            let decoder = image::codecs::webp::WebPDecoder::new(file()?).map_err(|e| e.to_string())?;
+            decoder.has_animation().then(|| decoder.into_frames())
+        }
+        _ => None,
+    })
+}
+
+fn read_frames<T: KeptPicture>(path: &str, width: u32, height: u32, budget: usize, convert: &dyn Fn(Rgb) -> T) -> Result<Vec<(T, f64)>, String> {
+    use image::ImageDecoder;
     let open = || -> Result<image::ImageReader<std::io::BufReader<std::fs::File>>, String> {
         let mut reader = image::ImageReader::open(path).map_err(|e| e.to_string())?.with_guessed_format().map_err(|e| e.to_string())?;
         // A huge photo is scaled down as it's read, but nothing is allowed to ask for more than this
@@ -322,27 +358,25 @@ fn read_frames(path: &str, width: u32, height: u32) -> Result<Vec<(Rgb, f64)>, S
         reader.limits(limits);
         Ok(reader)
     };
-    if open()?.format() == Some(image::ImageFormat::Gif) {
-        let file = std::io::BufReader::new(std::fs::File::open(path).map_err(|e| e.to_string())?);
-        let count = image::codecs::gif::GifDecoder::new(file).map_err(|e| e.to_string())?.into_frames().count();
-        if count > 1 {
-            let file = std::io::BufReader::new(std::fs::File::open(path).map_err(|e| e.to_string())?);
-            let decoder = image::codecs::gif::GifDecoder::new(file).map_err(|e| e.to_string())?;
-            let size = (width * height * 3) as usize;
-            let keep_every = (count * size).div_ceil(FRAME_BUDGET).max(1);
-            let mut frames: Vec<(Rgb, f64)> = Vec::new();
-            for (i, frame) in decoder.into_frames().enumerate() {
-                let frame = frame.map_err(|e| e.to_string())?;
-                let (num, den) = frame.delay().numer_denom_ms();
-                let seconds = (num as f64 / den.max(1) as f64 / 1000.0).max(MIN_GIF_PERIOD);
-                if i % keep_every == 0 && frames.len() * size < FRAME_BUDGET {
-                    frames.push((fit_image(frame.buffer(), width, height), seconds));
-                } else if let Some(last) = frames.last_mut() {
-                    last.1 += seconds;
+    let format = open()?.format();
+    let count = animation_frames(path, format)?.map_or(0, |frames| frames.count());
+    if count > 1 {
+        let mut keep_every = 1;
+        let mut frames: Vec<(T, f64)> = Vec::new();
+        for (i, frame) in animation_frames(path, format)?.into_iter().flatten().enumerate() {
+            let frame = frame.map_err(|e| e.to_string())?;
+            let (num, den) = frame.delay().numer_denom_ms();
+            let seconds = (num as f64 / den.max(1) as f64 / 1000.0).max(MIN_GIF_PERIOD);
+            if i % keep_every == 0 && frames.first().is_none_or(|first| frames.len() * first.0.nbytes() < budget) {
+                frames.push((convert(fit_image(frame.buffer(), width, height)), seconds));
+                if i == 0 {
+                    keep_every = (count * frames[0].0.nbytes()).div_ceil(budget).max(1);
                 }
+            } else if let Some(last) = frames.last_mut() {
+                last.1 += seconds;
             }
-            return Ok(frames);
         }
+        return Ok(frames);
     }
     let mut decoder = open()?.into_decoder().map_err(|e| e.to_string())?;
     let orientation = decoder.orientation().ok();
@@ -350,7 +384,7 @@ fn read_frames(path: &str, width: u32, height: u32) -> Result<Vec<(Rgb, f64)>, S
     if let Some(o) = orientation {
         img.apply_orientation(o);
     }
-    Ok(vec![(fit_image(&img.to_rgba8(), width, height), STILL_PERIOD)])
+    Ok(vec![(convert(fit_image(&img.to_rgba8(), width, height)), STILL_PERIOD)])
 }
 
 /// What Qt's allocation limit is by default, which Python's wait screen measures a photo against.
@@ -388,9 +422,14 @@ fn decode_still(decoder: impl image::ImageDecoder, longest: u32, limit: u64) -> 
 /// The wait screen as [(picture, seconds)] fitted to width x height: the image or animation at path, or the default
 /// screen when there's no path or it won't load (vcam.load_frames).
 pub fn load_frames(path: Option<&str>, width: u32, height: u32) -> Vec<(Rgb, f64)> {
-    let mut frames = path.map(|p| read_image_frames(p, width, height)).unwrap_or_default();
+    load_frames_as(path, width, height, &|rgb| rgb)
+}
+
+/// load_frames, with convert turning each picture into what gets kept as it loads.
+pub fn load_frames_as<T: KeptPicture>(path: Option<&str>, width: u32, height: u32, convert: &dyn Fn(Rgb) -> T) -> Vec<(T, f64)> {
+    let mut frames = path.map(|p| read_image_frames_as(p, width, height, convert)).unwrap_or_default();
     if frames.is_empty() {
-        frames = vec![(default_screen(width, height), STILL_PERIOD)];
+        frames = vec![(convert(default_screen(width, height)), STILL_PERIOD)];
     }
     if frames.len() == 1 {
         frames[0].1 = STILL_PERIOD;
@@ -404,6 +443,8 @@ pub fn load_frames(path: Option<&str>, width: u32, height: u32) -> Vec<(Rgb, f64
 pub type OpenCamera = Arc<dyn Fn(u32, u32, u32, PixelFormat) -> Result<Box<dyn VideoOutput>, String> + Send + Sync>;
 /// The wait screen's pictures for (path, width, height); Err when they couldn't be made at all.
 pub type Loader = Arc<dyn Fn(Option<&str>, u32, u32) -> Result<Vec<(Rgb, f64)>, String> + Send + Sync>;
+/// The wait screen's frames for (path, width, height), each turned into what's sent as it loads.
+pub type FrameLoader = Arc<dyn Fn(Option<&str>, u32, u32, &dyn Fn(Rgb) -> Frame) -> Result<Vec<(Frame, f64)>, String> + Send + Sync>;
 /// The size an app still reading the camera holds it at.
 pub type Locked = Arc<dyn Fn() -> Option<(u32, u32)> + Send + Sync>;
 /// Windows: a check made once per opening, telling whether an app has opened the camera yet.
@@ -413,7 +454,7 @@ pub type FilterProbe = Arc<dyn Fn() -> Option<Box<dyn Fn() -> bool + Send>> + Se
 #[derive(Clone)]
 pub struct Deps {
     pub open_camera: OpenCamera,
-    pub loader: Loader,
+    pub loader: FrameLoader,
     pub locked: Locked,
     pub filter_probe: Option<FilterProbe>,
     /// Prepare frames as I420 (the camera's own format) when the size allows; RGBA otherwise.
@@ -437,16 +478,15 @@ impl ScreenJob {
             let s = self.shown.lock().unwrap();
             (s.1.clone(), s.2)
         };
-        let pictures = (self.deps.loader)(path.as_deref(), width, height)?;
         let i420 = self.deps.i420 && width.is_multiple_of(2) && height.is_multiple_of(2);
-        let frames = pictures.into_iter().map(|(rgb, secs)| {
-            let frame = if i420 {
+        let convert = |rgb: Rgb| {
+            if i420 {
                 rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror)
             } else {
                 Frame::new(rgb.width, rgb.height, PixelFormat::Rgba, rgba(&rgb, mirror))
-            };
-            (frame, secs)
-        }).collect();
+            }
+        };
+        let frames = (self.deps.loader)(path.as_deref(), width, height, &convert)?;
         Ok((if i420 { PixelFormat::I420 } else { PixelFormat::Rgba }, frames))
     }
 
@@ -794,7 +834,11 @@ mod tests {
             Ok(Box::new(Cam(cam, outdated.clone())) as Box<dyn VideoOutput>)
         });
         let gate = Arc::new(Gate::default());
-        let deps = Deps { open_camera: open, loader: setup.loader, locked: setup.locked, filter_probe: setup.filter, i420: true, pace: setup.pace };
+        let pictures = setup.loader;
+        let loader: FrameLoader = Arc::new(move |path, w, h, convert| {
+            Ok(pictures(path, w, h)?.into_iter().map(|(rgb, seconds)| (convert(rgb), seconds)).collect())
+        });
+        let deps = Deps { open_camera: open, loader, locked: setup.locked, filter_probe: setup.filter, i420: true, pace: setup.pace };
         (WaitScreen::new(deps, &gate), log, gate)
     }
 
@@ -1000,6 +1044,8 @@ mod tests {
         let (s, log, _g) = screen(Setup { pace, outdated: outdated.clone(), ..Setup::default() });
         s.show(8, 8, None, false);
         wait_for(|| !log.cams().is_empty(), 2.0);
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(log.attempts.lock().unwrap().len(), 1, "the same kind: kept");
         outdated.store(true, Ordering::SeqCst);
         wait_for(|| log.cams().len() >= 2, 2.0);
         assert!(log.cams()[0].closed.load(Ordering::SeqCst));
@@ -1030,11 +1076,18 @@ mod tests {
         let frames = load_frames(Some(&bad.to_string_lossy()), 64, 36);
         assert_eq!(frames.len(), 1);
         assert_eq!(frames[0].0, default_screen(64, 36));
+        let frames = load_frames(Some(&dir.join("missing.gif").to_string_lossy()), 64, 36);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].0, default_screen(64, 36));
     }
 
     // test_vcam.py::test_read_image_frames_is_empty_for_an_image_that_wont_load
     #[test]
     fn read_image_frames_is_empty_for_an_image_that_wont_load() {
+        let dir = telescope_core::testing::scratch_dir("wait");
+        let bad = dir.join("bad.png");
+        std::fs::write(&bad, b"not an image").unwrap();
+        assert!(read_image_frames(&bad.to_string_lossy(), 64, 36).is_empty());
         assert!(read_image_frames("/nonexistent/picture.png", 64, 36).is_empty());
     }
 
@@ -1068,7 +1121,7 @@ mod tests {
         let path = dir.join("claims.jpg");
         std::fs::write(&path, jpeg_claiming(30000, 30000)).unwrap();
         // Not unwrap_err: a picture that did load would be printed pixel by pixel
-        let Err(why) = read_frames(&path.to_string_lossy(), 64, 36) else { panic!("a 30000 x 30000 photo was decoded") };
+        let Err(why) = read_frames(&path.to_string_lossy(), 64, 36, FRAME_BUDGET, &|rgb| rgb) else { panic!("a 30000 x 30000 photo was decoded") };
         assert!(why.to_lowercase().contains("limit") || why.to_lowercase().contains("memory"), "{why}");
     }
 
@@ -1086,7 +1139,7 @@ mod tests {
                 "ico" => image::DynamicImage::ImageRgb8(img).to_rgba8().save(&path).unwrap(),
                 _ => img.save(&path).unwrap(),
             }
-            let frames = match read_frames(&path.to_string_lossy(), 64, 36) {
+            let frames = match read_frames(&path.to_string_lossy(), 64, 36, FRAME_BUDGET, &|rgb| rgb) {
                 Ok(frames) => frames,
                 Err(why) => panic!("{ext} didn't load: {why}"),
             };
@@ -1135,28 +1188,79 @@ mod tests {
         }
     }
 
+    // 8x4, three frames: red 100 ms, blue 300 ms, green 50 ms (test_vcam.py's _GIF)
+    const WAIT_GIF: &[u8] = b"\x47\x49\x46\x38\x39\x61\x08\x00\x04\x00\x81\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x21\xff\x0b\x4e\x45\x54\x53\x43\x41\x50\x45\x32\x2e\x30\x03\x01\x00\x00\x00\x21\xf9\x04\x00\x0a\x00\x00\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x21\xf9\x04\x01\x1e\x00\x01\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x81\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x21\xf9\x04\x01\x05\x00\x01\x00\x2c\x00\x00\x00\x00\x08\x00\x04\x00\x81\x00\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x0c\x00\x01\x08\x1c\x48\xb0\xa0\xc1\x83\x04\x03\x02\x00\x3b";
+    // 8x4, two frames: red 100 ms, blue 300 ms
+    const WAIT_WEBP: &[u8] = b"\x52\x49\x46\x46\x84\x00\x00\x00\x57\x45\x42\x50\x56\x50\x38\x58\x0a\x00\x00\x00\x02\x00\x00\x00\x07\x00\x00\x03\x00\x00\x41\x4e\x49\x4d\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x41\x4e\x4d\x46\x28\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x03\x00\x00\x64\x00\x00\x02\x56\x50\x38\x4c\x0f\x00\x00\x00\x2f\x07\xc0\x00\x00\x07\x10\xfd\x8f\xfe\x07\x22\xa2\xff\x01\x00\x41\x4e\x4d\x46\x28\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x03\x00\x00\x2c\x01\x00\x00\x56\x50\x38\x4c\x0f\x00\x00\x00\x2f\x07\xc0\x00\x00\x07\x10\xd1\xff\xfe\x07\x22\xa2\xff\x01\x00";
+
+    fn wait_gif() -> String {
+        let path = telescope_core::testing::scratch_dir("wait").join("wait.gif");
+        std::fs::write(&path, WAIT_GIF).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    fn pixel(picture: &Rgb, y: u32, x: u32) -> [u8; 3] {
+        let at = ((y * picture.width + x) * 3) as usize;
+        picture.data[at..at + 3].try_into().unwrap()
+    }
+
     // test_vcam.py::test_an_animation_keeps_its_frames_and_timing_fitted_to_the_camera
     #[test]
     fn an_animation_keeps_its_frames_and_timing_fitted_to_the_camera() {
-        let dir = telescope_core::testing::scratch_dir("wait");
-        let path = dir.join("anim.gif");
-        gif(&path, 3, 100);
-        let frames = read_image_frames(&path.to_string_lossy(), 64, 36);
-        assert_eq!(frames.len(), 3);
-        assert!(frames.iter().all(|(f, s)| f.width == 64 && f.height == 36 && (*s - 0.1).abs() < 0.011));
+        let frames = load_frames(Some(&wait_gif()), 16, 16);
+        let seconds: Vec<f64> = frames.iter().map(|f| (f.1 * 1000.0).round() / 1000.0).collect();
+        assert_eq!(seconds, [0.1, 0.3, (MIN_GIF_PERIOD * 1000.0).round() / 1000.0]);
+        let red = &frames[0].0;
+        assert_eq!((red.width, red.height, red.data.len()), (16, 16, 16 * 16 * 3));
+        assert_eq!(pixel(red, 8, 8), [255, 0, 0], "the 8x4 image scaled to fit, centred");
+        assert_ne!(pixel(red, 0, 8), [255, 0, 0], "letterboxed above and below");
+    }
+
+    // Not in Python's tests, but Qt plays an animated WebP the same way
+    #[test]
+    fn an_animated_webp_keeps_its_frames_and_timing() {
+        let path = telescope_core::testing::scratch_dir("wait").join("wait.webp");
+        std::fs::write(&path, WAIT_WEBP).unwrap();
+        let frames = load_frames(Some(&path.to_string_lossy()), 16, 16);
+        assert_eq!(frames.iter().map(|f| (f.1 * 1000.0).round() / 1000.0).collect::<Vec<_>>(), [0.1, 0.3]);
+        assert_eq!(pixel(&frames[0].0, 8, 8), [255, 0, 0]);
+        assert!(pixel(&frames[1].0, 8, 8)[2] > 250);
     }
 
     // test_vcam.py::test_a_long_animation_is_thinned_to_the_memory_budget
     #[test]
     fn a_long_animation_is_thinned_to_the_memory_budget() {
-        let dir = telescope_core::testing::scratch_dir("wait");
-        let path = dir.join("long.gif");
-        gif(&path, 40, 100);
-        // Each 1920x1080 frame is about 6 MB, so 64 MB keeps every fourth of 40
-        let frames = read_image_frames(&path.to_string_lossy(), 1920, 1080);
-        assert!(frames.len() <= 11 && frames.len() >= 9, "{}", frames.len());
+        let path = wait_gif();
+        // Room for two frames of three
+        let frames = read_frames(&path, 16, 16, 16 * 16 * 3 * 2, &|rgb| rgb).unwrap();
+        assert_eq!(frames.len(), 2);
         let total: f64 = frames.iter().map(|f| f.1).sum();
-        assert!((total - 4.0).abs() < 0.05, "the dropped frames' time goes to the ones kept: {total}");
+        assert_eq!((total * 1000.0).round(), ((0.1 + 0.3 + MIN_GIF_PERIOD) * 1000.0).round(), "same loop length");
+    }
+
+    // The budget counts what's kept, as vcam's len(frames) * frames[0].nbytes does: half the bytes fit twice the frames
+    #[test]
+    fn the_budget_counts_the_frames_as_they_are_kept() {
+        let half = |rgb: Rgb| Rgb { data: rgb.data[..rgb.data.len() / 2].to_vec(), ..rgb };
+        let frames = read_frames(&wait_gif(), 16, 16, 16 * 16 * 3 * 2, &half).unwrap();
+        assert_eq!(frames.len(), 3);
+    }
+
+    // 41 frames at 1080p: Python keeps 11 as RGB and 21 as the I420 it sends on Linux, one over the budget by its own sums
+    #[test]
+    fn frames_for_the_camera_fit_the_budget_in_the_cameras_format() {
+        let path = telescope_core::testing::scratch_dir("wait").join("long.gif");
+        gif(&path, 41, 100);
+        let path = path.to_string_lossy().into_owned();
+        let loader: FrameLoader = Arc::new(|p, w, h, convert| Ok(load_frames_as(p, w, h, convert)));
+        let job = ScreenJob {
+            deps: Deps { open_camera: Arc::new(|_, _, _, _| Err("none".into())), loader, locked: Arc::new(|| None), filter_probe: None, i420: true, pace: Pace::default() },
+            shown: Mutex::new(((1920, 1080), Some(path.clone()), false)), watched: AtomicBool::new(false), nudge: Nudge::default(),
+        };
+        let (fmt, frames) = job.prepare(1920, 1080).unwrap();
+        assert_eq!((fmt, frames.len()), (PixelFormat::I420, 21));
+        assert!((frames.iter().map(|f| f.1).sum::<f64>() - 4.1).abs() < 0.05, "the dropped frames' time goes to the ones kept");
+        assert_eq!(read_image_frames(&path, 1920, 1080).len(), 11);
     }
 
     // test_vcam.py::test_convert_runs_on_each_frame_as_it_loads (frames are made in the camera's format as they're prepared)
