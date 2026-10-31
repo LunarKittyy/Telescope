@@ -862,3 +862,10 @@ fn diagnostics_show_the_phones_wifi() {
     p.on_phone_state(&mut host, &json!({"cameras": []}));
     assert!(!diag(&p).contains_key("Phone Wi-Fi"));
 }
+
+#[test]
+fn quality_label_boundaries() {
+    for (quality, suffix) in [(95, "High"), (91, "High"), (90, "Balanced"), (80, "Balanced"), (79, "Low"), (60, "Low"), (59, "Very low")] {
+        assert_eq!(quality_label(quality), format!("{quality}%: {suffix}"));
+    }
+}

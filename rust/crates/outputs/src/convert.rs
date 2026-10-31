@@ -156,6 +156,13 @@ mod tests {
     }
 
     #[test]
+    fn frames_reach_an_i420_camera_converted() {
+        let out = rgb_to_i420(&[255; 4 * 2 * 4], 4, 2, 4, false);
+        assert_eq!(out.data.len(), 4 * 2 * 3 / 2);
+        assert!(out.data[..8].iter().all(|y| *y == 235), "white's luma in the video range: {:?}", &out.data[..8]);
+    }
+
+    #[test]
     fn nv12_interleaves_u_and_v() {
         let mut f = grey(2, 2, 10);
         let d = f.data_mut();

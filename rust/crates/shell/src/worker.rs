@@ -1179,8 +1179,10 @@ fn fit_inside(w: u32, h: u32, fw: u32, fh: u32) -> (u32, u32) {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
-    use telescope_core::media::{Decoded, Packet, Scaler};
+    use telescope_core::media::{Decoded, Packet, ReadFrame, Scaler};
     use telescope_core::output::Slot as OutSlot;
+
+    type Log = Arc<Mutex<Vec<WorkerEvent>>>;
 
     fn grey(w: u32, h: u32, y: u8) -> Frame {
         let mut data = vec![y; (w * h) as usize];
@@ -1377,6 +1379,10 @@ mod tests {
     struct Cams {
         opened: Mutex<Vec<(u32, u32, u32, u32)>>,
         sent: Mutex<Vec<u8>>,
+        sent_at: Mutex<Vec<(u8, Instant)>>,
+        formats: Mutex<Vec<PixelFormat>>,
+        /// It takes NV12, like the Windows camera's shared memory.
+        nv12: AtomicBool,
         /// What locked_size answers.
         locked: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
@@ -1388,6 +1394,8 @@ mod tests {
     impl VideoOutput for Cam {
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
             self.0.sent.lock().unwrap().push(frame.data[0]);
+            self.0.sent_at.lock().unwrap().push((frame.data[0], Instant::now()));
+            self.0.formats.lock().unwrap().push(frame.format);
             Ok(())
         }
         fn size(&self) -> (u32, u32) {
@@ -1408,7 +1416,7 @@ mod tests {
             vec![OutSlot { slot: 0, name: "Telescope".into(), device: "/dev/video9".into() }]
         }
         fn formats(&self) -> Vec<PixelFormat> {
-            vec![PixelFormat::I420]
+            vec![if self.0.nv12.load(Ordering::SeqCst) { PixelFormat::Nv12 } else { PixelFormat::I420 }]
         }
         fn open(&self, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
             self.0.opened.lock().unwrap().push((slot, width, height, fps));
@@ -1433,16 +1441,24 @@ mod tests {
 
     fn worker_with(opener: Opener, waiting_text: Option<WaitingText>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>,
                    plugin_source: bool) -> StreamWorker {
-        let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
-                                  canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text, vision: None,
-                                  plugin_source, steps: Vec::new(), gate: None };
+        start(WorkerSetup { waiting_text, plugin_source, ..setup(opener) }, Arc::new(FakeMedia), &cams, &log)
+    }
+
+    fn setup(opener: Opener) -> WorkerSetup {
+        WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
+                      canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text: None, vision: None,
+                      plugin_source: false, steps: Vec::new(), gate: None }
+    }
+
+    fn start(setup: WorkerSetup, media: Arc<dyn Media>, cams: &Arc<Cams>, log: &Log) -> StreamWorker {
+        let log = log.clone();
         let events: Events = Arc::new(move |e| {
             if !matches!(e, WorkerEvent::Preview(..)) {
                 log.lock().unwrap().push(e)
             }
         });
         let slot: Arc<dyn FrameSlot> = telescope_media_free_slot();
-        StreamWorker::start(setup, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams)), slot, events).unwrap()
+        StreamWorker::start(setup, media, Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap()
     }
 
     /// A FrameSlot without media's: the newest frame and a count.
@@ -1648,6 +1664,519 @@ mod tests {
         }
         assert_eq!(w.url(), "https://usb/v1/video");
         wait_for(|| cams.sent.lock().unwrap().contains(&77)); // its frames reach the camera
+        w.stop();
+    }
+
+    // test_stream.py's reader and reconnect checks: a feed told what to do, which says when the worker lets go of it.
+
+    #[derive(Clone)]
+    enum Step {
+        Frame(u8),
+        Sized(u8, usize),
+        Pause(Duration),
+        End,
+        Crash,
+    }
+
+    struct Script {
+        steps: VecDeque<Step>,
+        stop: Arc<AtomicBool>,
+        gone: Arc<AtomicU32>,
+    }
+
+    impl VideoFeed for Script {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            loop {
+                if self.stop.load(Ordering::SeqCst) {
+                    return Err(FeedEnd::Stopped);
+                }
+                match self.steps.pop_front() {
+                    Some(Step::Frame(y)) => return Ok(Packet { data: vec![y], time_ns: 0 }),
+                    Some(Step::Sized(y, size)) => return Ok(Packet { data: vec![y; size], time_ns: 0 }),
+                    Some(Step::Pause(time)) => std::thread::sleep(time),
+                    Some(Step::End) => return Err(FeedEnd::Closed),
+                    Some(Step::Crash) => panic!("bad packet"),
+                    None => std::thread::sleep(Duration::from_millis(5)),
+                }
+            }
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(self.stop.clone()))
+        }
+    }
+
+    impl Drop for Script {
+        fn drop(&mut self) {
+            self.gone.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    /// How often a scripted opener was asked, and how many of its feeds were let go of.
+    #[derive(Clone, Default)]
+    struct Opens {
+        calls: Arc<AtomicU32>,
+        gone: Arc<AtomicU32>,
+    }
+
+    impl Opens {
+        fn calls(&self) -> u32 {
+            self.calls.load(Ordering::SeqCst)
+        }
+        fn gone(&self) -> u32 {
+            self.gone.load(Ordering::SeqCst)
+        }
+    }
+
+    /// Each try takes the next line: its steps, then it waits to be stopped, or None for a route that won't open. Past the
+    /// end they don't open.
+    fn scripted(tries: Vec<Option<Vec<Step>>>) -> (Opener, Opens) {
+        let (opens, tries) = (Opens::default(), Mutex::new(VecDeque::from(tries)));
+        let seen = opens.clone();
+        let opener: Opener = Arc::new(move || {
+            seen.calls.fetch_add(1, Ordering::SeqCst);
+            let steps = tries.lock().unwrap().pop_front().flatten().ok_or("refused")?;
+            let feed = Script { steps: steps.into(), stop: Arc::default(), gone: seen.gone.clone() };
+            Ok((Codec::Mjpeg, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        (opener, opens)
+    }
+
+    fn flowing(y: u8, frames: usize) -> Vec<Step> {
+        (0..frames).flat_map(|_| [Step::Frame(y), Step::Pause(Duration::from_millis(10))]).collect()
+    }
+
+    fn started(setup: WorkerSetup, cams: &Arc<Cams>, log: &Log) -> StreamWorker {
+        start(setup, Arc::new(FakeMedia), cams, log)
+    }
+
+    /// A worker sitting in its first read, for a test to call its reconnect() directly.
+    fn sitting(opener: Opener, opens: &Opens) -> (StreamWorker, Arc<Cams>, Log) {
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| opens.calls() == 1);
+        (w, cams, log)
+    }
+
+    /// DROP_RETRY_DELAY of nothing while it lives: reconnect() tries again straight away.
+    struct NoDelay(Arc<AtomicBool>);
+
+    impl Drop for NoDelay {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn no_delay(w: &StreamWorker) -> NoDelay {
+        let (done, shared) = (Arc::new(AtomicBool::new(false)), w.shared.clone());
+        let over = done.clone();
+        std::thread::spawn(move || {
+            while !over.load(Ordering::SeqCst) {
+                shared.retry_now.store(true, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        });
+        NoDelay(done)
+    }
+
+    fn kinds(log: &Log) -> Vec<String> {
+        log.lock().unwrap().iter().filter_map(|e| if let WorkerEvent::Status(kind, _) = e { Some(kind.clone()) } else { None }).collect()
+    }
+
+    #[test]
+    fn update_output_distinguishes_omitted_from_pass_through() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { width: Some(1280), height: Some(720), ..setup(opener) }, &cams, &log);
+        wait_for(|| opens.calls() == 1);
+        w.update_output(Some(None), None, None);
+        assert_eq!(*w.shared.size.lock().unwrap(), (None, Some(720)));
+        assert_eq!(w.shared.fps.load(Ordering::SeqCst), 30);
+        assert!(!w.shared.restart_vcam.is_set());
+        w.update_output(None, None, Some(60));
+        assert_eq!(w.shared.fps.load(Ordering::SeqCst), 60);
+        assert!(w.shared.restart_vcam.is_set());
+        w.stop();
+    }
+
+    #[test]
+    fn request_stop_sets_both_stop_signals() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (w, _cams, _log) = sitting(opener, &opens);
+        w.request_stop();
+        assert!(w.shared.stopped() && w.shared.restart_vcam.is_set());
+        wait_for(|| opens.gone() == 1); // the read it was blocked in stops too
+        w.stop();
+    }
+
+    #[test]
+    fn reconnect_returns_first_capture_with_a_readable_frame() {
+        let (opener, opens) = scripted(vec![Some(vec![]), None, Some(vec![Step::End]), Some(vec![Step::Frame(9)])]);
+        let (w, _cams, _log) = sitting(opener, &opens);
+        let fast = no_delay(&w);
+        let good = w.shared.reconnect();
+        drop(fast);
+        assert!(good.is_some());
+        assert_eq!(opens.calls(), 4);
+        assert_eq!(opens.gone(), 1, "the one without a frame was let go of, the good one wasn't");
+        assert_eq!(w.failed_tries(), 2);
+        assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 9, "its frame goes out");
+        drop(good);
+        assert_eq!(opens.gone(), 2);
+        w.stop();
+    }
+
+    #[test]
+    fn retarget_reconnects_to_the_new_url_without_waiting_out_the_delay() {
+        let (old, old_opens) = scripted(vec![Some(vec![])]);
+        let (new, new_opens) = scripted(vec![Some(vec![Step::Frame(5)])]);
+        let (w, _cams, _log) = sitting(old, &old_opens);
+        w.retarget("http://10.0.0.5:8080/v1/video", new);
+        let started = Instant::now();
+        assert!(w.shared.reconnect().is_some());
+        assert!(started.elapsed() < DROP_RETRY_DELAY / 2, "{:?}", started.elapsed());
+        assert_eq!(w.url(), "http://10.0.0.5:8080/v1/video");
+        assert_eq!((old_opens.calls(), new_opens.calls()), (1, 1));
+        w.stop();
+    }
+
+    #[test]
+    fn failed_tries_count_only_the_url_it_was_pointed_at() {
+        // A recovery reads it to tell a dead USB forward from one it's still trying
+        let shared: Arc<Mutex<Option<Arc<Shared>>>> = Arc::default();
+        let (tries, inner) = (Arc::new(AtomicU32::new(0)), shared.clone());
+        let counted = tries.clone();
+        let opener: Opener = Arc::new(move || {
+            let n = counted.fetch_add(1, Ordering::SeqCst);
+            if n == 2 {
+                // Moved while the second try was out
+                *inner.lock().unwrap().as_ref().unwrap().url.lock().unwrap() = "http://127.0.0.1:41001/v1/video".into();
+            }
+            match n {
+                0 | 4 => {
+                    let feed = Script { steps: VecDeque::from([Step::Frame(1)]), stop: Arc::default(), gone: Arc::default() };
+                    Ok((Codec::Mjpeg, Box::new(feed) as Box<dyn VideoFeed>).into())
+                }
+                _ => Err("refused".into()),
+            }
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        *shared.lock().unwrap() = Some(w.shared.clone());
+        wait_for(|| tries.load(Ordering::SeqCst) == 1);
+        let fast = no_delay(&w);
+        assert!(w.shared.reconnect().is_some());
+        drop(fast);
+        assert_eq!(w.failed_tries(), 2);
+        w.stop();
+    }
+
+    #[test]
+    fn reconnect_stops_without_opening_when_cancelled() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (w, _cams, _log) = sitting(opener, &opens);
+        w.request_stop();
+        assert!(w.shared.reconnect().is_none());
+        assert_eq!(opens.calls(), 1);
+        w.stop();
+    }
+
+    #[test]
+    fn frames_stopping_for_a_photo_reconnect_quietly() {
+        let (opener, opens) = scripted(vec![Some(vec![]), Some(vec![Step::Frame(1)]), Some(vec![Step::Frame(2)])]);
+        let (w, _cams, log) = sitting(opener, &opens);
+        let fast = no_delay(&w);
+        log.lock().unwrap().clear();
+        w.hold_for_photo(5.0);
+        assert!(w.shared.reconnect().is_some());
+        *w.shared.photo_until.lock().unwrap() = None; // the hold ran out: a stop is a dropped stream again
+        assert!(w.shared.reconnect().is_some());
+        drop(fast);
+        assert_eq!(kinds(&log), ["info", "reconnecting"]);
+        w.stop();
+    }
+
+    /// Adds one to the picture, and notes the size it was given.
+    struct PlusOne(Arc<Mutex<Option<(u32, u32)>>>);
+
+    impl FramePipeline for PlusOne {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, mut frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            *self.0.lock().unwrap() = Some((frame.width, frame.height));
+            frame.data_mut().iter_mut().for_each(|b| *b += 1);
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    /// FakeMedia with a pipeline of its own.
+    struct WithPipeline(Box<dyn Fn() -> Box<dyn FramePipeline> + Send + Sync>);
+
+    impl Media for WithPipeline {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            FakeMedia.decoder(codec, options)
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok((self.0)())
+        }
+    }
+
+    #[test]
+    fn stream_reader_resizes_and_runs_pipeline_keeping_bgr() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(10)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let seen: Arc<Mutex<Option<(u32, u32)>>> = Arc::default();
+        let media = { let seen = seen.clone(); WithPipeline(Box::new(move || Box::new(PlusOne(seen.clone())))) };
+        let w = start(WorkerSetup { width: Some(4), height: Some(4), ..setup(opener) }, Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&11));
+        assert_eq!(*seen.lock().unwrap(), Some((4, 4)), "resized before the steps");
+        let (frame, _) = w.shared.slot.latest().unwrap();
+        assert_eq!((frame.width, frame.height, frame.data[0]), (4, 4, 11));
+        w.stop();
+        assert_eq!(opens.gone(), 1);
+    }
+
+    #[test]
+    fn stream_reader_accumulates_bytes_from_successful_reads() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Sized(1, 12_345), Step::Sized(2, 12_345)])]);
+        let (w, _cams, _log) = sitting(opener, &opens);
+        wait_for(|| w.shared.bytes_total.load(Ordering::SeqCst) == 2 * 12_345);
+        w.stop();
+    }
+
+    struct Broken;
+
+    impl FramePipeline for Broken {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, _frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            panic!("bad transform")
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    // The real pipeline guards each step (media's pipeline.rs), so this is one that breaks past that: nothing goes out and
+    // the phone's connection is let go of. Python's next frame would try again; here it ends with an error.
+    #[test]
+    fn stream_reader_drops_pipeline_errors_and_releases_capture() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(WithPipeline(Box::new(|| Box::new(Broken)))), &cams, &log);
+        wait_for(|| opens.gone() == 1);
+        assert!(w.shared.slot.latest().is_none());
+        wait_for(|| log.lock().unwrap().last() == Some(&WorkerEvent::Status("idle".into(), "Not streaming".into())));
+        assert!(cams.sent.lock().unwrap().is_empty());
+        w.stop();
+    }
+
+    #[test]
+    fn a_crashing_reader_wakes_the_vcam_instead_of_freezing_it() {
+        let (opener, opens) = scripted(vec![Some(vec![Step::Frame(1), Step::Crash]), Some(vec![])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| !cams.opened.lock().unwrap().is_empty());
+        wait_for(|| opens.calls() == 2 && opens.gone() == 1);
+        wait_for(|| w.shared.vcam_free.is_set());
+        w.stop();
+    }
+
+    #[test]
+    fn a_crash_in_the_worker_ends_with_an_error_and_idle() {
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let opener: Opener = Arc::new(|| panic!("boom"));
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| log.lock().unwrap().last() == Some(&WorkerEvent::Status("idle".into(), "Not streaming".into())));
+        assert!(log.lock().unwrap().contains(&WorkerEvent::Status("error".into(), "Stream error: boom".into())));
+        w.stop();
+    }
+
+    #[test]
+    fn a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick() {
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { fps: 2, ..setup(opener) }, &cams, &log); // a tick every 0.5 s would be far too late
+        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        std::thread::sleep(Duration::from_millis(300)); // past the burst pacing (half a period) after the first send
+        let published_at = Instant::now();
+        assert!(w.shared.publish(1000, grey(4, 2, 7)));
+        wait_for(|| cams.sent_at.lock().unwrap().iter().any(|(y, _)| *y == 7));
+        let sent = cams.sent_at.lock().unwrap().iter().find(|(y, _)| *y == 7).unwrap().1;
+        w.stop();
+        assert!(sent - published_at < Duration::from_millis(100), "{:?}", sent - published_at);
+    }
+
+    #[test]
+    fn the_fps_readout_counts_frames_from_the_phone_not_resends() {
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(1)])]); // one frame, then the phone sends nothing new
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { fps: 60, ..setup(opener) }, &cams, &log);
+        wait_for(|| kinds(&log).iter().any(|k| k == "fps"));
+        let fps = log.lock().unwrap().iter().find_map(|e| match e { WorkerEvent::Status(k, m) if k == "fps" => Some(m.clone()), _ => None }).unwrap();
+        w.stop();
+        assert!(fps.starts_with("0.0 fps"), "{fps}");
+        assert!(cams.sent.lock().unwrap().len() > 10, "the last frame was resent meanwhile");
+    }
+
+    struct Slow;
+
+    impl Decoder for Slow {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            std::thread::sleep(Duration::from_millis(100));
+            Jpeg.decode(packet)
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_slow_decoder_skips_to_the_newest_packet() {
+        let steps = VecDeque::from([1, 2, 3, 4, 5].map(Step::Frame));
+        let steps = Mutex::new(Some(steps));
+        let opener: Opener = Arc::new(move || {
+            let steps = steps.lock().unwrap().take().unwrap_or_default();
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)) })
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some_and(|(f, _)| f.data[0] == 5));
+        assert!(w.shared.slot.latest().unwrap().1 < 5, "the ones in between were skipped");
+        w.stop();
+    }
+
+    /// A reader whose every read took in three frames and kept the newest.
+    struct Burst(u8, Arc<AtomicBool>);
+
+    impl FrameReader for Burst {
+        fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
+            if self.0 == 0 {
+                while !self.1.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                return Err(FeedEnd::Stopped);
+            }
+            self.0 -= 1;
+            Ok(ReadFrame { frame: grey(4, 2, self.0), bytes: 1, count: 3 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(self.1.clone()))
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    struct BurstMedia;
+
+    impl Media for BurstMedia {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            FakeMedia.decoder(codec, options)
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            Ok(Box::new(Burst(3, Arc::default())))
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(Pass))
+        }
+    }
+
+    #[test]
+    fn frames_that_arrived_together_all_count_as_arrived() {
+        let (opener, _opens) = (Arc::new(|| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        }) as Opener, ());
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(BurstMedia), &cams, &log);
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 9);
+        assert!(w.shared.slot.latest().unwrap().1 <= 3);
+        w.stop();
+    }
+
+    #[test]
+    fn another_slot_opens_its_own_camera() {
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(WorkerSetup { slot: 2, ..setup(opener) }, &cams, &log);
+        wait_for(|| !cams.opened.lock().unwrap().is_empty());
+        w.stop();
+        assert_eq!(cams.opened.lock().unwrap()[0].0, 2);
+    }
+
+    #[test]
+    fn the_virtual_camera_opens_in_its_own_format() {
+        for (nv12, format) in [(false, PixelFormat::I420), (true, PixelFormat::Nv12)] {
+            let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(1)])]);
+            let (cams, log) = (Arc::new(Cams::default()), Log::default());
+            cams.nv12.store(nv12, Ordering::SeqCst);
+            let w = started(setup(opener), &cams, &log);
+            wait_for(|| !cams.formats.lock().unwrap().is_empty());
+            w.stop();
+            assert_eq!(cams.formats.lock().unwrap()[0], format);
+        }
+    }
+
+    #[test]
+    fn hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one() {
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = worker_from(Arc::default(), cams.clone(), log.clone(), false, Some(1)); // the old route keeps going
+        wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        // Never HANDOVER_HEALTHY without a gap past HANDOVER_GAP
+        let steps: Vec<Step> = (0..8).flat_map(|_| flowing(2, 150).into_iter().chain([Step::Pause(HANDOVER_GAP + Duration::from_millis(200))])).collect();
+        let (new, opens) = scripted(vec![Some(steps)]);
+        let url = "https://127.0.0.1:41000/v1/video";
+        assert!(w.hand_over(url, new));
+        let until = Instant::now() + HANDOVER_TIMEOUT + Duration::from_secs(3);
+        while !log.lock().unwrap().contains(&WorkerEvent::MoveFailed(url.into())) && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(log.lock().unwrap().contains(&WorkerEvent::MoveFailed(url.into())));
+        assert!(!log.lock().unwrap().contains(&WorkerEvent::Moved(url.into())));
+        assert_eq!(opens.gone(), 1);
+        assert_eq!(w.url(), "http://phone/v1/video");
+        assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 1);
+        assert!(w.hand_over(url, Arc::new(|| Err("no".into()))), "it can try again later");
+        w.stop();
+    }
+
+    #[test]
+    fn a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (w, _cams, log) = sitting(opener, &opens);
+        let (new, _new_opens) = scripted(vec![Some(flowing(2, 400))]);
+        let url = "https://127.0.0.1:41000/v1/video";
+        assert!(w.hand_over(url, new));
+        wait_for(|| w.shared.handover_ready.lock().unwrap().is_some());
+        let fast = no_delay(&w);
+        assert!(w.shared.reconnect().is_some());
+        drop(fast);
+        assert!(log.lock().unwrap().contains(&WorkerEvent::Moved(url.into())));
+        assert_eq!(w.url(), url);
+        assert_eq!(opens.calls(), 1, "the old route isn't tried again");
+        w.stop();
+    }
+
+    #[test]
+    fn a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken() {
+        let (opener, opens) = scripted(vec![Some(vec![])]);
+        let (w, _cams, log) = sitting(opener, &opens);
+        let (new, new_opens) = scripted(vec![Some(flowing(2, 400))]);
+        assert!(w.hand_over("https://127.0.0.1:41000/v1/video", new));
+        wait_for(|| w.shared.handover_ready.lock().unwrap().is_some());
+        w.request_stop();
+        let started = Instant::now();
+        w.shared.join_handover();
+        assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
+        assert_eq!(new_opens.gone(), 1);
+        assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Moved(_) | WorkerEvent::MoveFailed(_))));
         w.stop();
     }
 

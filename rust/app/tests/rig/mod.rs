@@ -348,6 +348,8 @@ pub struct FakeWorker {
     pub settled: AtomicU32,
     pub steps: Mutex<Vec<Vec<String>>>,
     pub first_steps: Vec<String>,
+    /// The steps themselves, the newest ones it was given, for a test to run frames through.
+    pub staged: Mutex<Vec<StagedStep>>,
     pub size: Mutex<Option<(u32, u32)>>,
     /// hand_over() says no.
     pub refuses_hand_over: AtomicBool,
@@ -397,6 +399,7 @@ impl VideoWorker for FakeWorker {
     }
     fn set_steps(&self, steps: Vec<StagedStep>) {
         self.steps.lock().unwrap().push(steps.iter().map(|s| s.owner.clone()).collect());
+        *self.staged.lock().unwrap() = steps;
     }
     fn set_colour(&self, steps: Vec<FrameStep>) {
         note(&self.log, format!("colour {}", steps.len()));
@@ -695,7 +698,7 @@ impl Rig {
                 url: Mutex::new(setup.url), width: setup.width, height: setup.height, fps: setup.fps, canvas: setup.canvas,
                 camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
                 parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
-                steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
+                steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), staged: Mutex::new(setup.steps), size: Mutex::new(None),
                 refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), packets: telescope_media::packets::Tap::new(), after_the_others,
             });
             made.lock().unwrap().push(worker.clone());

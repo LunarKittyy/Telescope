@@ -309,6 +309,13 @@ pub(crate) mod tests {
         assert!(slot_ready(&reg, 1) && !slot_ready(&reg, 2));
     }
 
+    #[test]
+    fn windows_opens_the_camera_named_telescope_or_any_older_registration() {
+        assert_eq!(uc_number(&FakeRegistry::uc(&[(0, "OBS"), (3, "Telescope")]), UC_NAME), 3);
+        assert_eq!(uc_number(&FakeRegistry::uc(&[(2, "Telescope Webcam"), (5, "Other")]), UC_NAME), 2, "the first one there is");
+        assert_eq!(uc_number(&FakeRegistry::uc(&[]), UC_NAME), 0);
+    }
+
     // test_vcam.py::test_unitycapture_event_follows_the_camera_number
     #[test]
     fn unitycapture_objects_follow_the_camera_number() {

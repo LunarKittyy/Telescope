@@ -3,6 +3,8 @@ mod rig;
 
 use rig::{state_with, Listener, Rig};
 use serde_json::{json, Value};
+use std::sync::Arc;
+use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::UiEvent;
 use telescope_effects::colour_grading::ColourGradingPlugin;
@@ -82,18 +84,56 @@ fn runs(r: &Rig, worker: usize, owner: &str) -> bool {
     running(r, worker).iter().any(|o| o == owner)
 }
 
+struct Plain;
+
+impl FrameContext for Plain {
+    fn source_id(&self) -> &str {
+        ""
+    }
+    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        None
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+/// A picture with something in it to change.
+fn picture() -> Frame {
+    let (w, h) = (64, 36);
+    let mut data: Vec<u8> = (0..w * h).map(|i| (i % w * 255 / w) as u8).collect();
+    data.extend(std::iter::repeat_n(90, w * h / 2));
+    Frame::new(w as u32, h as u32, PixelFormat::I420, data)
+}
+
+/// picture() through the steps a worker runs now, as bytes. Each CPU step is real; a shader needs a graphics card, so a test
+/// picks an effect that has none.
+fn through(r: &Rig, worker: usize) -> Vec<u8> {
+    let w = r.worker(worker);
+    let mut frame = picture();
+    for staged in w.staged.lock().unwrap().iter_mut() {
+        match &mut staged.step {
+            FrameStep::Cpu(step) => step.process(&mut frame, &Plain),
+            FrameStep::Shader(_) => assert_ne!(staged.owner, "fun_pack", "pick a CPU effect"),
+        }
+    }
+    frame.data.to_vec()
+}
+
 #[test]
 fn a_fun_pack_effect_stays_on_the_camera_it_was_turned_on_for() {
     let r = per_camera("fun-stays");
     r.start();
-    pick_effect(&r, "game_boy");
+    pick_effect(&r, "webcam");
     second(&r);
     assert_eq!(effect(&r), "off");
+    assert_eq!(through(&r, 1), *picture().data, "the camera it wasn't turned on for");
     assert!(!runs(&r, 1, "fun_pack"));
-    assert!(runs(&r, 0, "fun_pack"), "still on behind the panels");
+    assert_ne!(through(&r, 0), *picture().data, "still on behind the panels");
     on(&r, "pixel");
-    assert_eq!(effect(&r), "game_boy");
-    assert!(!runs(&r, 1, "fun_pack"));
+    assert_eq!(effect(&r), "webcam");
+    assert_ne!(through(&r, 0), *picture().data);
+    assert_eq!(through(&r, 1), *picture().data);
     on(&r, "oneplus");
     assert_eq!(effect(&r), "off");
     r.w.stop_all_streams();
@@ -214,7 +254,9 @@ fn camera_state(camera: Value, more: Value) -> Value {
 }
 
 fn with_camera(name: &str) -> Rig {
-    let r = with(name, vec![Box::new(CameraControl::new())]);
+    let r = Rig::with(name, |link, heard| {
+        vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(rig::Picker(link.clone())), Box::new(CameraControl::new())]
+    });
     r.emit(telescope_core::event::Event::PhonesChanged { count: 2 });
     r.pump();
     r
@@ -246,6 +288,8 @@ fn coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing() {
     on(&r, "pixel");
     assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0);
     assert_eq!(sent(&r, "pixel"), [] as [Value; 0], "the phone still has them");
+    ui(&r, "camera_control", "card", "iso-moved", vec![json!(2000)]);
+    assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0, "the slider's top is this lens's 6400 again");
     r.w.stop_all_streams();
     r.pump();
 }
@@ -278,6 +322,8 @@ fn coming_back_to_a_stream_keeps_its_focus_point() {
     forget_sent(&r, "pixel");
     on(&r, "pixel");
     assert_eq!(focus(&r).as_deref(), Some("panel focus mode point"));
+    let picked = r.w.ui.definition().properties().map(|p| p.0).find(|n| n.ends_with("-focus-mode")).expect("the camera card");
+    assert_eq!(r.w.ui.get_property(&picked), Ok(slint_interpreter::Value::Number(1.0)), "the Point choice is selected");
     assert_eq!(sent(&r, "pixel"), [] as [Value; 0]);
     r.w.stop_all_streams();
     r.pump();

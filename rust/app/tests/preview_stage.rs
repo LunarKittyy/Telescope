@@ -228,6 +228,15 @@ fn a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored() {
 }
 
 #[test]
+fn a_click_doesnt_focus_where_the_picture_only_pans() {
+    let s = letterboxed("stage-pan-only");
+    s.r.w.emit(Event::ViewPannable { pannable: true });
+    s.click(s.at(0.25, 0.5));
+    assert_eq!(s.picked(), []);
+    assert!(!s.on("marker-shown"));
+}
+
+#[test]
 fn dragging_the_preview_pans_instead_of_focusing() {
     let s = letterboxed("stage-drag");
     s.r.w.emit(Event::FocusPointAvailable { available: true });
@@ -517,6 +526,11 @@ fn a_frame_from_just_before_the_camera_went_off_is_dropped() {
     r.worker(0).says("ok", "Streaming");
     r.pump();
     let s = Stage { r, heard };
+    let p = s.pop_out();
+    s.r.w.call_ui("preview", "card", "popout-closed");
+    s.r.w.paint_preview();
+    assert!(s.r.w.popout_window().is_none());
+    drop(p);
     s.show(0, grey(32, 18));
     assert!(s.has_frame());
     s.r.w.set_camera_on(false, false);

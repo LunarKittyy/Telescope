@@ -4094,11 +4094,11 @@
 "test_stream.py::test_a_slow_decoder_skips_to_the_newest_packet" = { status = "todo" }
 "test_stream.py::test_a_stop_doesnt_wait_for_a_ready_hand_over_to_be_taken" = { status = "todo" }
 "test_stream.py::test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route" = { status = "todo" }
-"test_stream.py::test_an_h264_stream_says_it_is_getting_ready_while_pyav_still_loads" = { status = "todo" }
-"test_stream.py::test_an_mjpeg_stream_does_not_wait_for_pyav" = { status = "todo" }
+"test_stream.py::test_an_h264_stream_says_it_is_getting_ready_while_pyav_still_loads" = { status = "dropped", reason = "PyAV loads slowly on a thread in Python; FFmpeg is linked into the Rust build, so there is nothing to wait for and no Getting ready text on a stream" }
+"test_stream.py::test_an_mjpeg_stream_does_not_wait_for_pyav" = { status = "dropped", reason = "PyAV loads slowly on a thread in Python; FFmpeg is linked into the Rust build, so no stream waits for it" }
 "test_stream.py::test_another_slot_opens_its_own_camera" = { status = "todo" }
 "test_stream.py::test_failed_tries_count_only_the_url_it_was_pointed_at" = { status = "todo" }
-"test_stream.py::test_fit_frame_letterboxes_and_preserves_dtype" = { status = "todo" }
+"test_stream.py::test_fit_frame_letterboxes_and_preserves_dtype" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_letterboxes" }
 "test_stream.py::test_fit_frame_pillarboxes_narrow_input" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_pillarboxes_narrow_input" }
 "test_stream.py::test_fit_frame_resizes_same_aspect_ratio" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_resizes_same_aspect_ratio" }
 "test_stream.py::test_fit_frame_returns_matching_frame_without_copy" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::fit_frame_returns_matching_frame_without_copy" }
@@ -4111,7 +4111,7 @@
 "test_stream.py::test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::hand_over_moves_to_the_new_route_once_it_keeps_frames_coming" }
 "test_stream.py::test_newest_hands_over_only_the_latest_item" = { status = "ported", rust = "rust/crates/core/src/media.rs::newest_hands_over_only_the_latest_item" }
 "test_stream.py::test_old_lens_frames_before_the_gap_do_not_count_as_back" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::old_lens_frames_before_the_gap_do_not_count_as_back" }
-"test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "todo" }
+"test_stream.py::test_open_cap_constructs_authenticated_reader_and_opens" = { status = "ported", rust = "rust/crates/link/src/feeds.rs::reads_authenticated_frames_in_order_then_reports_eof" }
 "test_stream.py::test_reconnect_returns_first_capture_with_a_readable_frame" = { status = "todo", note = "no test yet: a_dropped_stream_reconnects_and_says_so reconnects first time, nothing tries an unopened and an empty capture before the good one or checks they are let go" }
 "test_stream.py::test_reconnect_stops_without_opening_when_cancelled" = { status = "todo" }
 "test_stream.py::test_request_stop_sets_both_stop_signals" = { status = "todo" }

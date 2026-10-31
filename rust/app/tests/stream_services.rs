@@ -235,6 +235,32 @@ fn packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe() {
 }
 
 #[test]
+fn packet_steps_stay_with_the_panels_and_both_streams_get_a_keyframe() {
+    struct Nothing;
+    impl telescope_core::host::PacketStepFactory for Nothing {
+        fn make(&self) -> Box<dyn telescope_core::host::PacketStep> {
+            unimplemented!("no packets in this test")
+        }
+    }
+    let r = Rig::new("packets-move");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.worker(1).says("ok", "Streaming");
+    r.pump();
+    asks(&r, |host| host.change_packets("fun", Some(Arc::new(Nothing))));
+    assert!(r.worker(1).packets.on() && !r.worker(0).packets.on());
+    let keyframes = |id: &str| r.link.control(id).sent.lock().unwrap().iter().filter(|s| s["action"] == "keyframe").count();
+    let before = (keyframes("pixel"), keyframes("oneplus"));
+    r.w.with_flow(|flow, host| flow.focus_stream(host, "pixel"));
+    r.pump();
+    assert!(r.worker(0).packets.on() && !r.worker(1).packets.on());
+    assert_eq!((keyframes("pixel"), keyframes("oneplus")), (before.0 + 1, before.1 + 1), "a start for the new one, the picture back on the one left");
+}
+
+#[test]
 fn a_preview_frame_from_the_last_stream_isnt_shown_on_the_next() {
     let r = Rig::new("preview-last");
     r.start();
