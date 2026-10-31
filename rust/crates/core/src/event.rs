@@ -45,6 +45,10 @@ macro_rules! events {
                 match self { $( Event::$variant { .. } => $name ),* }
             }
 
+            /// Every event with its fields, as (name, type) in the order they're declared. The plugin API freezes these.
+            pub const FIELDS: &'static [(&'static str, &'static [(&'static str, &'static str)])] =
+                &[$(($name, &[$($((stringify!($field), stringify!($ty))),*)?])),*];
+
             /// Every event name, in plugin.py's order.
             pub const NAMES: &'static [&'static str] = &[$($name),*];
         }
