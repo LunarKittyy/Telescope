@@ -305,6 +305,34 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     assert!(*moved.borrow() > 0, "and the slider answers again");
 }
 
+fn pan_slider_clamps_resets_and_emits() {
+    let rig = rig(true);
+    tell(&rig, "zoom-moved", vec![serde_json::json!(2.0)]);
+    let w = window(&mut rig.borrow_mut().0);
+    wire(&rig, &w, &["pad-pointer", "pad-reset"]);
+    sync(&rig, &w);
+    let centre = disc(&w, "pan-enabled");
+    // A little way along: in steps of 1/200 of the way, as the slider it replaces
+    drag(&w, centre, (centre.0 + 11.0, centre.1));
+    let x = rig.borrow().0.pan().0;
+    assert!(x > 0.0 && (x * 200.0 - (x * 200.0).round()).abs() < 1e-3, "{x}");
+    assert_eq!(rig.borrow().0.pan().1, 0.0);
+    assert_eq!(rig.borrow().1.view.pan_x, x as f32, "what the view was told");
+    // Past the end stops at the end
+    sync(&rig, &w);
+    drag(&w, disc(&w, "pan-enabled"), (centre.0 + 600.0, centre.1 - 600.0));
+    assert_eq!(rig.borrow().0.pan(), (1.0, -1.0));
+    sync(&rig, &w);
+    double_click(&w, disc(&w, "pan-enabled"));
+    assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
+    // With nothing to pan around in, the pad's off
+    tell(&rig, "zoom-moved", vec![serde_json::json!(1.0)]);
+    sync(&rig, &w);
+    assert_eq!(w.get_property("pan-enabled").unwrap(), Value::Bool(false));
+    drag(&w, centre, (centre.0 + 30.0, centre.1));
+    assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
+}
+
 fn point(x: f64, y: f64) -> slint::LogicalPosition {
     slint::LogicalPosition::new(x as f32, y as f32)
 }
@@ -340,11 +368,12 @@ fn dragging_the_zoom_sticks_to_a_lens_but_keys_dont() {
     window.dispatch_event(WindowEvent::PointerReleased { position: point(at(3.7) - 3.0, y), button });
     assert_eq!(moved.borrow().last(), Some(&3.7), "{:?}", moved.borrow());
     assert_eq!(rig.borrow().0.zoom(), 3.7, "the plugin's zoom goes with it");
-    // Keys step off it freely: Tab to the slider and press left
+    // Keys step off it freely: back through the card to the slider and press left (Left walks a segment row's options
+    // the same way, where Tab forwards would meet it coming back)
     moved.borrow_mut().clear();
-    for _ in 0..20 {
-        window.dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Tab.into() });
-        window.dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Tab.into() });
+    for _ in 0..40 {
+        window.dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Backtab.into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Backtab.into() });
         window.dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::LeftArrow.into() });
         window.dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::LeftArrow.into() });
         if !moved.borrow().is_empty() {
@@ -370,4 +399,5 @@ fn the_transforms_card_in_a_window() {
     the_card_is_greyed_out_until_a_phone_is_paired();
     the_pan_pad_works_from_the_keyboard();
     a_double_click_resets_zoom_and_pan();
+    pan_slider_clamps_resets_and_emits();
 }

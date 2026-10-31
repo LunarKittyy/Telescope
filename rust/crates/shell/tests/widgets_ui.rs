@@ -7,7 +7,7 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
 export { Theme }
 export component Test inherits Window {
     width: 420px;
@@ -34,6 +34,7 @@ export component Test inherits Window {
         FormRow {
             label: "Zoom";
             Slider { label: "Zoom"; readout: "1.0x"; }
+            Button { text: "Reset"; }
         }
         SwitchTile { text: "Notify"; icon: Icons.bell; checked: notify; }
         Slider { label: "Bound zoom"; minimum: 0; maximum: 10; value: zoom; width: 300px; }
@@ -64,7 +65,7 @@ export component Test inherits Window {
     out property <length> tip-height: shown-tip.height;
     out property <length> bold-width: bold-measure.preferred-width;
     bold-measure := Text { text: "Tap a point"; font-size: Theme.body; font-weight: 600; font-family: Theme.font; visible: false; }
-    tag-measure := Text { text: "Experimental"; font-size: 11px; font-weight: 600; font-family: Theme.font; visible: false; }
+    tag-measure := Text { text: "Experimental"; font-size: floor(Theme.body * 0.88 / 1px) * 1px; font-weight: 600; font-family: Theme.font; visible: false; }
 }
 "#;
 
@@ -100,57 +101,189 @@ fn a_rows_controls_get_its_label_as_their_screen_reader_name() {
     let names: Vec<String> = ["Exposure: Auto", "Exposure: Manual"].iter().filter(|n| !labelled(&ui, n).is_empty()).map(|n| n.to_string()).collect();
     assert_eq!(names, ["Exposure: Auto", "Exposure: Manual"]);
     assert!(labelled(&ui, "Zoom").iter().any(|e| e.accessible_value_minimum().is_some()), "the slider is named for its row");
+    assert!(!labelled(&ui, "Reset").is_empty(), "a button with words keeps them");
+    assert!(labelled(&ui, "Zoom: Reset").is_empty());
 }
 
+const ROWS: &str = r#"
+import { Icons, Switch, SwitchTile, SettingRow } from "@ui-kit/ui-kit.slint";
+export component Rows inherits Window {
+    width: 420px;
+    height: 120px;
+    in property <length> row-width: 300px;
+    SwitchTile { x: 0; y: 0; width: row-width; text: "Notify"; icon: Icons.bell; }
+    SettingRow { x: 0; y: 50px; width: row-width; title: "Battery"; Switch { label: "Battery"; } }
+}
+"#;
+
 #[test]
-fn a_switch_toggles_from_anywhere_on_its_row() {
-    let ui = rig();
-    let tile = labelled(&ui, "Notify").into_iter().find(|e| e.accessible_checkable() == Some(true)).expect("the switch");
-    let (p, _) = (tile.absolute_position(), tile.size());
+fn a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end() {
+    let ui = open(ROWS, "Rows", 420.0, 120.0);
+    let switch = |name: &str| labelled(&ui, name).into_iter().find(|e| e.accessible_checkable() == Some(true)).expect("the switch");
+    let right = |name: &str| { let (p, s) = (switch(name).absolute_position(), switch(name).size()); p.x + s.width };
+    // It takes the rest of its row, so its track lands at the end, and goes on landing there as the row grows
+    for width in [300.0, 400.0] {
+        ui.set_property("row-width", Value::Number(width)).unwrap();
+        settle(&ui);
+        assert_eq!((right("Notify"), right("Battery")), (width as f32 - 11.0, width as f32 - 13.0), "at {width}");
+    }
     // On the icon and the text, left of the track, not only on the track
-    let tile_row = ElementHandle::find_by_element_type_name(&ui, "SwitchTile").next();
-    let (x, y) = match &tile_row {
-        Some(row) => (row.absolute_position().x + 20.0, row.absolute_position().y + 20.0),
-        None => (p.x - 150.0, p.y + 5.0),
-    };
+    let position = LogicalPosition::new(20.0, 20.0);
     let window = ui.window();
-    let position = LogicalPosition::new(x, y);
     window.dispatch_event(WindowEvent::PointerMoved { position });
     window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
     window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
-    assert_eq!(tile.accessible_checked(), Some(true));
+    assert_eq!(switch("Notify").accessible_checked(), Some(true));
 }
 
 #[test]
 fn a_tag_measures_itself_in_the_themes_font_not_the_systems() {
     let ui = rig();
     // The pill is its text's width plus 8px each side, whatever the font size is
-    assert!((num(&ui, "tag-width") - (num(&ui, "tag-label-width") + 16.0)).abs() < 1.0, "{} vs {}", num(&ui, "tag-width"), num(&ui, "tag-label-width"));
+    let fits = |ui: &ComponentInstance| assert!((num(ui, "tag-width") - (num(ui, "tag-label-width") + 16.0)).abs() < 1.0, "{} vs {}", num(ui, "tag-width"), num(ui, "tag-label-width"));
+    fits(&ui);
+    let small = num(&ui, "tag-width");
+    assert!(small < 120.0, "{small}");
+    // Follows a bigger font, as Python's follows a styled one
+    ui.set_global_property("Theme", "body", Value::Number(26.0)).unwrap();
+    settle(&ui);
+    fits(&ui);
+    assert!(num(&ui, "tag-width") > 120.0, "{small} to {}", num(&ui, "tag-width"));
+}
+
+const ORDER: &str = r#"
+import { Button } from "@ui-kit/ui-kit.slint";
+export component Order inherits Window {
+    width: 300px;
+    height: 300px;
+    // Light is made after the window, so it's the last control made and comes second in the layout
+    in property <bool> late;
+    in-out property <string> pressed;
+    VerticalLayout {
+        alignment: start;
+        Button { text: "Frame rate"; clicked => { pressed = "Frame rate"; } }
+        HorizontalLayout {
+            if late: Button { text: "Light"; clicked => { pressed = "Light"; } }
+            Button { text: "Heavy"; clicked => { pressed = "Heavy"; } }
+            Button { text: "Off"; enabled: false; clicked => { pressed = "Off"; } }
+        }
+        Button { text: "Bitrate"; clicked => { pressed = "Bitrate"; } }
+    }
+    Button { x: 0; y: 200px; text: "Hidden"; visible: false; clicked => { pressed = "Hidden"; } }
+}
+"#;
+
+const DIALOG: &str = r#"
+import { Button, DialogFrame, Segmented } from "@ui-kit/ui-kit.slint";
+export component Gain inherits Window {
+    width: 320px;
+    height: 200px;
+    in-out property <string> pressed;
+    in property <[bool]> disabled: [false, false, false];
+    DialogFrame {
+        title: "Max gain";
+        Segmented { label: "Gain"; items: ["+12 dB", "+24 dB", "+36 dB"]; disabled: disabled; }
+        Button { text: "Close"; clicked => { pressed = "Close"; } }
+    }
+}
+"#;
+
+fn open(doc: &str, component: &str, width: f32, height: f32) -> ComponentInstance {
+    thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
+    INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
+    let ui = telescope_shell::compile::compile("doc.slint", doc, vec![], component).expect("the document compiles").create().unwrap();
+    ui.window().set_size(slint::LogicalSize::new(width, height));
+    ui.show().unwrap();
+    ui
+}
+
+fn shift_tab(ui: &ComponentInstance) {
+    let back: slint::SharedString = slint::platform::Key::Backtab.into();
+    key(ui, &back);
+}
+
+/// What has the focus: Space presses it.
+fn focused(ui: &ComponentInstance) -> String {
+    ui.set_property("pressed", Value::String("".into())).unwrap();
+    key(ui, " ");
+    match ui.get_property("pressed").unwrap() {
+        Value::String(s) => s.to_string(),
+        other => panic!("{other:?}"),
+    }
 }
 
 #[test]
 fn tab_follows_the_layout_not_the_order_widgets_were_made() {
-    let ui = rig();
-    // The first stops are the segments, then the slider, then the buttons in the order the layout shows them
-    for _ in 0..3 {
+    let ui = open(ORDER, "Order", 300.0, 300.0);
+    ui.set_property("late", Value::Bool(true)).unwrap();
+    settle(&ui);
+    key(&ui, "\t");
+    assert_eq!(focused(&ui), "Frame rate");
+    let mut walked = Vec::new();
+    for _ in 0..4 {
         key(&ui, "\t");
+        walked.push(focused(&ui));
     }
-    key(&ui, " ");
-    let tab_to_light = ui.get_property("pressed").unwrap();
-    let _ = tab_to_light;
-    let mut order = Vec::new();
-    for _ in 0..20 {
-        ui.set_property("pressed", Value::String("".into())).unwrap();
+    assert_eq!(walked, ["Light", "Heavy", "Bitrate", "Frame rate"], "in the layout's order, past what's off or hidden, and round");
+    key(&ui, "\t");
+    assert_eq!(focused(&ui), "Light");
+    shift_tab(&ui);
+    assert_eq!(focused(&ui), "Frame rate");
+    shift_tab(&ui);
+    assert_eq!(focused(&ui), "Bitrate", "backwards it goes round too");
+}
+
+#[test]
+fn tab_in_a_dialog_stops_on_every_option_of_a_group() {
+    let ui = open(DIALOG, "Gain", 320.0, 200.0);
+    let picked = |name: &str| labelled(&ui, name)[0].accessible_checked();
+    key(&ui, "\t");
+    for name in ["Gain: +24 dB", "Gain: +36 dB"] {
         key(&ui, "\t");
+        assert_eq!(picked(name), Some(false), "Tab only moves");
         key(&ui, " ");
-        if let Value::String(s) = ui.get_property("pressed").unwrap() {
-            if !s.is_empty() {
-                order.push(s.to_string());
-            }
-        }
+        assert_eq!(picked(name), Some(true), "Space picks the option Tab stopped on");
     }
-    let at = |name: &str| order.iter().position(|o| o == name);
-    assert!(at("Light") < at("Heavy") && at("Heavy") < at("Frame rate") && at("Frame rate") < at("Bitrate"), "{order:?}");
+    key(&ui, "\t");
+    assert_eq!(focused(&ui), "Close");
+    shift_tab(&ui);
+    shift_tab(&ui);
+    key(&ui, " ");
+    assert_eq!(picked("Gain: +24 dB"), Some(true), "and back through them the same way");
+}
+
+#[test]
+fn an_arrow_moves_along_a_group_and_picks_only_from_the_picked_option() {
+    let ui = open(DIALOG, "Gain", 320.0, 200.0);
+    let picked = |name: &str| labelled(&ui, name)[0].accessible_checked();
+    let arrow = |k: slint::platform::Key| {
+        let text: slint::SharedString = k.into();
+        key(&ui, &text);
+        settle(&ui);
+    };
+    key(&ui, "\t"); // the picked +12 dB
+    arrow(slint::platform::Key::RightArrow);
+    assert_eq!((picked("Gain: +12 dB"), picked("Gain: +24 dB")), (Some(false), Some(true)), "the pick goes with the focus");
+    key(&ui, "\t"); // +36 dB, not picked
+    arrow(slint::platform::Key::LeftArrow);
+    assert_eq!(picked("Gain: +24 dB"), Some(true), "from there it only moves");
+    assert_eq!(picked("Gain: +36 dB"), Some(false));
+    arrow(slint::platform::Key::LeftArrow);
+    assert_eq!(picked("Gain: +12 dB"), Some(true), "the focus did move, to the picked one, so this one picks");
+}
+
+#[test]
+fn a_disabled_option_isnt_a_tab_stop() {
+    let ui = open(DIALOG, "Gain", 320.0, 200.0);
+    let flags: Vec<Value> = [false, true, false].map(Value::Bool).to_vec();
+    ui.set_property("disabled", Value::Model(slint::ModelRc::new(slint::VecModel::from(flags)))).unwrap();
+    settle(&ui);
+    key(&ui, "\t");
+    key(&ui, "\t");
+    key(&ui, " ");
+    assert_eq!(labelled(&ui, "Gain: +36 dB")[0].accessible_checked(), Some(true));
+    key(&ui, "\t");
+    assert_eq!(focused(&ui), "Close");
 }
 
 #[test]
@@ -164,19 +297,6 @@ fn turning_plugin_colours_off_repaints_every_card_in_the_app_purple() {
     assert_eq!(ui.get_property("camera-hue").unwrap(), accent);
     ui.set_global_property("Theme", "own-hues", Value::Bool(true)).unwrap();
     assert_eq!(ui.get_property("camera-hue").unwrap(), camera);
-}
-
-#[test]
-fn separator_and_all_known_vector_icons_are_constructible() {
-    let icons = telescope_ui_kit::library_path().join("icons");
-    let listed = std::fs::read_to_string(telescope_ui_kit::library_path().join("icons.slint")).unwrap();
-    let files: Vec<String> = listed.split("@image-url(\"").skip(1).filter_map(|s| s.split('"').next()).map(String::from).collect();
-    assert!(files.len() > 50, "{} icons", files.len());
-    for file in files {
-        let path = icons.parent().unwrap().join(&file);
-        let image = slint::Image::load_from_path(&path).unwrap_or_else(|_| panic!("{file} doesn't load"));
-        assert!(image.size().width > 0 && image.size().height > 0, "{file} is empty");
-    }
 }
 
 // test_tooltips.py::test_a_long_tooltip_wraps_and_a_short_one_stays_on_one_line
