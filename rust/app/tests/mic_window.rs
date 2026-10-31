@@ -1,5 +1,4 @@
-//! The real Microphone plugin in the window with two cameras (test_microphone.py's two_cams): the mic stays with the main stream and
-//! moves with the window's own flow.
+//! test_microphone.py's two_cams: the real Microphone plugin in the window, moved by the window's own flow.
 mod rig;
 
 use rig::{Listener, Rig};

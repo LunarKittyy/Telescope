@@ -1,5 +1,4 @@
-//! A browser's video and mic through the real stream and audio workers (test_browser_server.py's worker tests): H.264 from this
-//! build's encoder, handed to the feed the way the WebRTC side does.
+//! test_browser_server.py's worker tests: this build's H.264 and a tone into the feed, through the real stream and audio workers.
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};

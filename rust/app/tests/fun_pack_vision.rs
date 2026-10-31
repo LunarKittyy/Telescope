@@ -1,5 +1,4 @@
-//! The Fun pack card with the real vision service behind it and a fake MediaPipe, whose pack gets downloaded part way through
-//! (test_fun_pack.py's _VisionHost).
+//! test_fun_pack.py's _VisionHost: the real vision service and a fake MediaPipe, whose pack arrives part way through.
 
 use serde_json::{json, Value};
 use std::cell::Cell;

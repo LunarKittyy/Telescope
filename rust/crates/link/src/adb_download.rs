@@ -735,8 +735,9 @@ mod tests {
         let mut folder = std::fs::File::options();
         #[cfg(windows)]
         {
-            // FILE_FLAG_BACKUP_SEMANTICS: what lets Windows open a folder at all
-            std::os::windows::fs::OpenOptionsExt::custom_flags(folder.write(true), 0x0200_0000);
+            // FILE_WRITE_ATTRIBUTES, and FILE_FLAG_BACKUP_SEMANTICS, which is what lets Windows open a folder at all
+            use std::os::windows::fs::OpenOptionsExt;
+            folder.access_mode(0x0100).custom_flags(0x0200_0000);
         }
         #[cfg(not(windows))]
         folder.read(true);

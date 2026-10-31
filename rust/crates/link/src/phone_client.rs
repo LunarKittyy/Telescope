@@ -814,7 +814,7 @@ mod tests {
         let sent = ("https://192.168.1.20:8080/v1".to_string(), json!({"action": "iso", "value": 500}));
         client.end_queue();
         client.run_worker();
-        assert_eq!(*tries.lock().unwrap(), [sent.clone()]);
+        assert_eq!(*tries.lock().unwrap(), std::slice::from_ref(&sent));
         client.resend_settings();
         client.end_queue();
         client.run_worker();

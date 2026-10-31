@@ -36,10 +36,6 @@ impl Rig {
         self.host.calls.iter().rev().find_map(|c| c.strip_prefix("set_colour_stage colour_grading ").map(|r| r.starts_with("true")))
     }
 
-    fn publishes(&self) -> usize {
-        self.host.calls.iter().filter(|c| c.starts_with("set_colour_stage colour_grading")).count()
-    }
-
     fn shown(&self, key: &str) -> Value {
         self.host.calls.iter().rev().filter_map(|c| c.strip_prefix("set_ui_props card ")).filter_map(|j| serde_json::from_str::<Value>(j).ok())
             .find_map(|v| v.get(key).cloned()).unwrap_or(Value::Null)

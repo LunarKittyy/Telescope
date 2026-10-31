@@ -582,8 +582,7 @@ impl Window {
             if queued == 0 {
                 break;
             }
-            // One at a time off the front: an effect that starts its own process (the stream flow's do) has to carry out what
-            // was asked before it first, or those older settings land on top of what its hooks just set
+            // Off the front, so a nested process (the stream flow's) carries out older effects before the ones its hooks add
             for _ in 0..queued {
                 let next = {
                     let mut state = self.state.borrow_mut();

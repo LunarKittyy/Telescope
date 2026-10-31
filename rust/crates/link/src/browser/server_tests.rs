@@ -125,8 +125,7 @@ fn server() -> Run {
     serve(Arc::new(BrowserHub::single(Arc::new(BrowserFeed::new()))), false)
 }
 
-/// What's logged goes through one process-wide logger, so a test that reads it runs in a process of its own: true in the first
-/// run, once that process has passed; false in the process itself, which goes on with the test.
+/// The logger is process-wide, so a test that reads it reruns itself alone: true once that passed, false inside that rerun.
 fn on_its_own(test: &str) -> bool {
     const ALONE: &str = "TELESCOPE_TEST_ALONE";
     if std::env::var_os(ALONE).is_some() {
