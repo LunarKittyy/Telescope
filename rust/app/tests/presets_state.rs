@@ -2,6 +2,7 @@
 //! what a preset holds, what applying one leaves in each plugin, what ends up in the settings file and which phone owns it.
 
 use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
 use telescope_core::config::ConfigFile;
 use telescope_core::host::Host;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
@@ -32,6 +33,22 @@ impl Plugin for Picky {
             panic!("broken");
         }
         Err(ConfigRejected("no".into()))
+    }
+}
+
+/// A plugin in presets after the ones that fail, keeping what it's given.
+struct Taker(Arc<Mutex<Vec<Value>>>);
+
+impl Plugin for Taker {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "taker".into(), in_presets: true, ..Default::default() }
+    }
+    fn get_config(&self) -> Value {
+        json!({"y": 2})
+    }
+    fn apply_preset(&mut self, _host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        self.0.lock().unwrap().push(cfg.clone());
+        Ok(())
     }
 }
 
@@ -155,8 +172,9 @@ fn the_header_hears_the_presets_after_a_phone_is_picked() {
 // test_presets.py::test_a_section_that_fails_to_apply_leaves_the_rest_applied
 #[test]
 fn a_section_that_fails_to_apply_leaves_the_rest_applied() {
-    // One plugin that says no and one that panics, between the real ones, in presets like any other
-    let (mut s, _) = fresh(vec![Box::new(Picky { name: "refuses", panics: false }), Box::new(Picky { name: "breaks", panics: true })]);
+    // One plugin that says no and one that panics, then one that takes its section, in presets like any other
+    let taken: Arc<Mutex<Vec<Value>>> = Arc::default();
+    let (mut s, _) = fresh(vec![Box::new(Picky { name: "refuses", panics: false }), Box::new(Picky { name: "breaks", panics: true }), Box::new(Taker(taken.clone()))]);
     set(&mut s, "transforms", json!({"zoom": 2.0}));
     save_as(&mut s, "A");
     assert_eq!(s.plugin_config("presets").unwrap()["presets"][0]["refuses"], json!({"x": 1}));
@@ -167,6 +185,7 @@ fn a_section_that_fails_to_apply_leaves_the_rest_applied() {
     assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 2.0);
     // name_tag registers after transforms and before the two that fail: it took its section too
     assert_ne!(s.plugin_config("name_tag").unwrap()["name"], "Sam");
+    assert_eq!(*taken.lock().unwrap(), [json!({"y": 2})], "the one after the two that failed took its section");
     assert_eq!(s.effects.iter().filter(|e| **e == Effect::SaveSoon).count(), 1);
     assert!(s.slots.iter().all(|slot| slot.plugin.is_some()), "a plugin that broke is back in its place");
 }
@@ -201,8 +220,10 @@ fn full_round_trip_follows_the_lens_switch() {
     let (mut s, _) = fresh(vec![Box::new(CameraControl::new())]);
     let stream = StreamInfo { source_id: "phone".into(), url: "https://phone/v1/video".into(), session: 0 };
     let sizes = json!([{"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]);
+    // Only the wide lens has this size, so stream output can only offer it once it follows the switch
+    let wide = json!([{"width": 1920, "height": 1080}, {"width": 640, "height": 480}]);
     let cams = json!([{"id": "0", "label": "Back camera", "current": true, "maxFps": 60, "supportedSizes": sizes, "h264Sizes": sizes},
-                      {"id": "2", "label": "Back camera (wide)", "current": false, "supportedSizes": sizes, "h264Sizes": sizes}]);
+                      {"id": "2", "label": "Back camera (wide)", "current": false, "supportedSizes": wide, "h264Sizes": wide}]);
     let state = json!({"codecs": ["h264", "mjpeg"], "codec": "h264", "cameras": cams, "auto": true, "stream_width": 1920, "stream_height": 1080});
     for name in ["camera_control", "stream_output"] {
         let i = s.index(name).unwrap();
@@ -215,6 +236,7 @@ fn full_round_trip_follows_the_lens_switch() {
     set(&mut s, "transforms", json!({}));
     let mut presets = s.plugin_config("presets").unwrap();
     presets["presets"][0]["camera"]["lens"] = json!("2");
+    presets["presets"][0]["stream"]["resolution"] = json!("640 x 480");
     set(&mut s, "presets", presets);
     s.effects.clear();
     ui(&mut s, "apply", vec![json!("Wide")]);
@@ -224,7 +246,7 @@ fn full_round_trip_follows_the_lens_switch() {
     assert_eq!(s.plugin_config("camera_control").unwrap()["lens"], "2");
     let t = s.plugin_config("transforms").unwrap();
     assert_eq!((t["zoom"].as_f64(), t["flip_h"].as_bool()), (Some(2.0), Some(true)));
-    assert_eq!(s.plugin_config("stream_output").unwrap()["resolution"], "1920 x 1080");
+    assert_eq!(s.plugin_config("stream_output").unwrap()["resolution"], "640 x 480");
 }
 
 #[test]

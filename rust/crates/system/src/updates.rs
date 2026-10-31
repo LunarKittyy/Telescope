@@ -312,7 +312,12 @@ impl Updates<'_> {
 }
 
 pub fn platform_asset(manifest: &Manifest) -> Option<&Asset> {
-    manifest.assets.get(if cfg!(windows) { WINDOWS_ASSET } else { LINUX_ASSET })
+    platform_asset_on(manifest, cfg!(windows))
+}
+
+/// The same for either system.
+pub fn platform_asset_on(manifest: &Manifest, windows: bool) -> Option<&Asset> {
+    manifest.assets.get(if windows { WINDOWS_ASSET } else { LINUX_ASSET })
 }
 
 pub fn setup_asset(manifest: &Manifest) -> Option<&Asset> {

@@ -5,11 +5,16 @@
 use serde_json::{json, Value};
 use std::io::Read;
 use std::path::PathBuf;
+use telescope_core::event::Event;
+use telescope_core::host::RequestId;
 use telescope_core::plugin::Plugin;
+use telescope_core::testing::FakeHost;
+use telescope_core::ui::UiEvent;
 use telescope_effects::on_air::{self, Method};
 use telescope_effects::on_air_plugin::OnAirPlugin;
 use telescope_effects::photos::{self, PhotosPlugin, StillCaps};
 use telescope_effects::qr_reader::{self, QrReaderPlugin};
+use telescope_link::stills::StillResult;
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/effects/tests/fixtures")
@@ -163,4 +168,22 @@ fn the_reader_finds_what_python_finds_in_the_same_pictures() {
         }
     }
     assert!(missed.is_empty(), "{missed:#?}");
+}
+
+// test_photos.py::test_a_failed_photo_shows_why
+#[test]
+fn a_failed_photo_shows_why() {
+    let (mut plugin, mut host) = (PhotosPlugin::new(), FakeHost::new());
+    host.still_caps = Some(json!({"size": [1920, 1080]}));
+    host.streaming = true;
+    plugin.setup(&mut host);
+    plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
+    plugin.set_config(&json!({"folder": "/tmp/photos"})).unwrap();
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: json!({}) });
+    plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "take-clicked".into(), args: vec![] });
+    assert_eq!(host.stills_taken.len(), 1);
+    let failed = serde_json::to_value(StillResult::failed("camera_off", "", &[])).unwrap();
+    plugin.on_event(&mut host, &Event::RequestDone { request: RequestId(1), ok: false, message: String::new(), data: failed });
+    let last = host.calls.iter().rev().find(|c| c.starts_with("set_ui_props card ") && c.contains("\"status\"")).unwrap();
+    assert!(last.contains("camera is off"), "{last}");
 }
