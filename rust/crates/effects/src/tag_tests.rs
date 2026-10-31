@@ -248,3 +248,24 @@ fn an_emoji_in_a_name_keeps_its_colours() {
         assert!(!std::fs::read_dir("/usr/share/fonts/google-noto-color-emoji-fonts").is_ok_and(|mut d| d.next().is_some()));
     }
 }
+
+/// The same picture in the Windows camera's format gets the same tag.
+#[test]
+fn a_tag_goes_on_nv12_as_on_i420() {
+    let (w, h) = (64usize, 48usize);
+    let tag = Tag { x: 8, y: 8, width: 16, height: 16, ink: vec![200; 16 * 16 * 3], keep: vec![40; 16 * 16] };
+    let mut i420 = vec![120u8; w * h];
+    i420.extend(vec![90u8; (w / 2) * (h / 2)]);
+    i420.extend(vec![170u8; (w / 2) * (h / 2)]);
+    let mut nv12 = vec![120u8; w * h];
+    nv12.extend([90u8, 170].repeat((w / 2) * (h / 2)));
+    let (mut a, mut b) = (Frame::new(w as u32, h as u32, PixelFormat::I420, i420), Frame::new(w as u32, h as u32, PixelFormat::Nv12, nv12));
+    apply(&mut a, &tag);
+    apply(&mut b, &tag);
+    assert_eq!(a.data[..w * h], b.data[..w * h]);
+    let (cw, ch) = (w / 2, h / 2);
+    for i in 0..cw * ch {
+        assert_eq!((a.data[w * h + i], a.data[w * h + cw * ch + i]), (b.data[w * h + i * 2], b.data[w * h + i * 2 + 1]));
+    }
+    assert_ne!(a.data[8 * w + 8], 120);
+}

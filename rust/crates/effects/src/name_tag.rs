@@ -59,8 +59,13 @@ fn index_of(keys: &[&str], key: &str, default: &str) -> usize {
     keys.iter().position(|k| *k == key).or_else(|| keys.iter().position(|k| *k == default)).unwrap_or(0)
 }
 
+/// QLineEdit.setMaxLength counts UTF-16 units, so an emoji takes two; this never splits one.
 fn cut(text: &str) -> String {
-    text.chars().take(MAX_CHARS).collect()
+    let mut units = 0;
+    text.chars().take_while(|c| {
+        units += c.len_utf16();
+        units <= MAX_CHARS
+    }).collect()
 }
 
 impl NameTagPlugin {

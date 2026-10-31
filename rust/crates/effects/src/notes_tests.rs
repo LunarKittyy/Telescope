@@ -508,3 +508,8 @@ fn sent_notes_are_followed_by_asking_the_phone_its_state() {
     r.event(Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });
     assert_eq!(asks(&r), 2);
 }
+
+#[test]
+fn a_set_is_named_by_python_line_breaks() {
+    assert_eq!(set_name("\u{2028}\u{b}  Talk\u{2029}second"), "Talk");
+}

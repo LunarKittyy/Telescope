@@ -78,17 +78,25 @@ struct CoverCache {
     failed: Vec<(CoverKey, Instant)>,
 }
 
-/// An RGB picture as a frame in the stream's format and mirrored or not; None for a format nothing can be drawn in.
+/// An RGB picture as a frame in the stream's format and mirrored or not.
 fn picture_in(rgb: &Rgb, format: PixelFormat, mirror: bool) -> Option<Frame> {
     Some(match format {
         PixelFormat::I420 => rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror),
+        PixelFormat::Nv12 => {
+            let i420 = rgb_to_i420(&rgb.data, rgb.width, rgb.height, 3, mirror);
+            let luma = rgb.width as usize * rgb.height as usize;
+            let (y, chroma) = i420.data.split_at(luma);
+            let (u, v) = chroma.split_at(chroma.len() / 2);
+            let mut data = y.to_vec();
+            data.extend(u.iter().zip(v).flat_map(|(u, v)| [*u, *v]));
+            Frame::new(rgb.width, rgb.height, PixelFormat::Nv12, data)
+        }
         PixelFormat::Rgba => Frame::new(rgb.width, rgb.height, PixelFormat::Rgba, wait_screen::rgba(rgb, mirror)),
         PixelFormat::Bgra => {
             let mut data = wait_screen::rgba(rgb, mirror);
             data.as_chunks_mut::<4>().0.iter_mut().for_each(|p| p.swap(0, 2));
             Frame::new(rgb.width, rgb.height, PixelFormat::Bgra, data)
         }
-        _ => return None,
     })
 }
 
@@ -472,7 +480,7 @@ impl WaitScreenPlugin {
     fn refresh(&mut self, host: &mut dyn Host, pick_error: &str) {
         host.cancel_schedule(TICK);
         let (w, h) = self.size(host);
-        let height = (PREVIEW_W as f64 * h as f64 / w as f64).round().max(1.0) as u32;
+        let height = (PREVIEW_W as f64 * h as f64 / w as f64).round_ties_even().max(1.0) as u32;
         let pictures = self.image_path.as_deref().map(|p| wait_screen::read_image_frames(p, PREVIEW_W, height)).unwrap_or_default();
         let unreadable = self.image_path.is_some() && pictures.is_empty();
         self.animation = if pictures.is_empty() { wait_screen::load_frames(None, PREVIEW_W, height) } else { pictures };
@@ -569,8 +577,8 @@ impl Plugin for WaitScreenPlugin {
                 }
             }
             Event::CoverRequested { owner, on } => self.on_cover_requested(host, owner, *on),
-            Event::Posted { token, data, .. } if token == "watched" => self.on_watched(host, data.as_bool().unwrap_or(false)),
-            Event::TimerFired { token, .. } if token == TICK => self.tick(host),
+            Event::Posted { owner, token, data } if owner == NAME && token == "watched" => self.on_watched(host, data.as_bool().unwrap_or(false)),
+            Event::TimerFired { owner, token } if owner == NAME && token == TICK => self.tick(host),
             Event::RequestDone { request, ok, data, .. } if self.picking == Some(*request) => {
                 self.picking = None;
                 if *ok {

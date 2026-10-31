@@ -50,10 +50,9 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
     match format {
         PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(p)),
         PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
-        PixelFormat::I420 => {
+        PixelFormat::I420 | PixelFormat::Nv12 => {
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (luma, chroma) = data.split_at_mut(w * h);
-            let (us, vs) = chroma.split_at_mut(cw * ch);
             let px = |x: usize, y: usize| (rgb[(y * w + x) * 3] as f32, rgb[(y * w + x) * 3 + 1] as f32, rgb[(y * w + x) * 3 + 2] as f32);
             for y in 0..h {
                 for x in 0..w {
@@ -73,8 +72,10 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
                             n += 1.0;
                         }
                     }
-                    us[cy * cw + cx] = (su / n).round().clamp(0.0, 255.0) as u8;
-                    vs[cy * cw + cx] = (sv / n).round().clamp(0.0, 255.0) as u8;
+                    let i = cy * cw + cx;
+                    let (u, v) = if format == PixelFormat::Nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
+                    chroma[u] = (su / n).round().clamp(0.0, 255.0) as u8;
+                    chroma[v] = (sv / n).round().clamp(0.0, 255.0) as u8;
                 }
             }
         }
@@ -85,6 +86,17 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nv12_takes_a_picture_back_as_i420_does() {
+        let (w, h) = (8, 6);
+        let rgb: Vec<u8> = (0..w * h).flat_map(|i| [(i * 5) as u8, 90, (200 - i * 3) as u8]).collect();
+        let mut nv12 = Frame::new(w as u32, h as u32, PixelFormat::Nv12, vec![0; PixelFormat::Nv12.size(w as u32, h as u32)]);
+        let mut i420 = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(w as u32, h as u32)]);
+        put_rgb(&mut nv12, &rgb);
+        put_rgb(&mut i420, &rgb);
+        assert_eq!(to_rgb(&nv12).unwrap(), to_rgb(&i420).unwrap());
+    }
 
     #[test]
     fn luma_below_black_counts_as_black_like_opencv() {

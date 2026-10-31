@@ -531,7 +531,7 @@ impl Plugin for StartupPlugin {
             Event::StreamsChanged { count } => self.on_streams_changed(host, *count),
             Event::CameraWatched { watched } => self.on_camera_watched(host, *watched),
             Event::WindowShown { shown } => self.on_window_shown(*shown),
-            Event::TimerFired { token, .. } if token == IDLE_STOP => self.stop_idle_now(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == IDLE_STOP => self.stop_idle_now(host),
             _ => {}
         }
     }

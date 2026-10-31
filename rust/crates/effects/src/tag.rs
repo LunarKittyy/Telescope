@@ -7,7 +7,7 @@
 use telescope_core::actions::round_half_even;
 use telescope_core::frame::{Frame, PixelFormat};
 use crate::pixels::gaussian_blur;
-use telescope_core::text::{app_font, Face, FontArc, Weight};
+use telescope_core::text::{app_font, py_strip, Face, FontArc, Weight};
 
 pub const STYLES: [&str; 4] = ["bar", "pill", "light", "shadow"];
 pub const POSITIONS: [&str; 5] = ["bottom_left", "bottom_centre", "bottom_right", "top_left", "top_right"];
@@ -52,7 +52,7 @@ impl Default for Spec {
 
 impl Spec {
     pub fn empty(&self) -> bool {
-        self.name.trim().is_empty() && self.pronouns.trim().is_empty() && self.second.trim().is_empty()
+        py_strip(&self.name).is_empty() && py_strip(&self.pronouns).is_empty() && py_strip(&self.second).is_empty()
     }
 
     fn size_factor(&self) -> f64 {
@@ -151,9 +151,9 @@ pub fn layout_with(spec: &Spec, w: u32, h: u32, fonts: &Fonts) -> Option<Layout>
     let fm_pron = Face::em(fonts.regular.clone(), pixel_size(em * PRONOUNS));
     let fm_second = Face::em(fonts.regular.clone(), pixel_size(em * SECOND));
 
-    let mut name = spec.name.trim().to_string();
-    let mut pronouns = spec.pronouns.trim().to_string();
-    let mut second = spec.second.trim().to_string();
+    let mut name = py_strip(&spec.name).to_string();
+    let mut pronouns = py_strip(&spec.pronouns).to_string();
+    let mut second = py_strip(&spec.second).to_string();
     let pron_gap = if !name.is_empty() && !pronouns.is_empty() { em * 0.45 } else { 0.0 };
     let mut pron_w = if pronouns.is_empty() { 0.0 } else { fm_pron.advance(&pronouns) as f64 };
     if pron_w > room * 0.5 && !name.is_empty() {
@@ -395,11 +395,13 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
                 }
             }
         }
-        PixelFormat::I420 => {
+        PixelFormat::I420 | PixelFormat::Nv12 => {
+            let nv12 = frame.format == PixelFormat::Nv12;
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let data = frame.data_mut();
             let (luma, chroma) = data.split_at_mut(w * h);
-            let (us, vs) = chroma.split_at_mut(cw * ch);
+            // Where a chroma cell's U and V are
+            let places = |i: usize| if nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
             for ty in 0..tag.height {
                 for tx in 0..tag.width {
                     let t = ty * tag.width + tx;
@@ -435,9 +437,9 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
                             n += 1.0;
                         }
                     }
-                    let i = cy * cw + cx;
-                    us[i] = (us[i] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
-                    vs[i] = (vs[i] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                    let (u, v) = places(cy * cw + cx);
+                    chroma[u] = (chroma[u] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                    chroma[v] = (chroma[v] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
                 }
             }
         }

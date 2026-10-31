@@ -233,3 +233,9 @@ fn the_card_hears_the_settings_that_were_loaded() {
     r.plugin.on_event(&mut r.host, &Event::PhonesChanged { count: 1 });
     assert_eq!((r.shown("on"), r.shown("name"), r.shown("style-current"), r.shown("size-current")), (json!(true), json!("Luna"), json!(2), json!(2)));
 }
+
+#[test]
+fn the_limit_counts_as_qts_does() {
+    assert_eq!(cut(&"\u{1f319}".repeat(50)).chars().count(), MAX_CHARS / 2);
+    assert_eq!(cut(&"a".repeat(90)).len(), MAX_CHARS);
+}
