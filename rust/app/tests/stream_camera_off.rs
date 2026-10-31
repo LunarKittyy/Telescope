@@ -56,6 +56,16 @@ fn sent(r: &Rig) -> Vec<Value> {
     r.link.control("pixel").actions().into_iter().filter(|(a, _)| a == "camera_on").map(|(_, v)| v).collect()
 }
 
+/// The mic's camera hooks, in order.
+fn mic_calls(r: &Rig) -> Vec<String> {
+    r.heard().into_iter().filter_map(|l| match l.as_str() {
+        "microphone starting" => Some("starting".to_string()),
+        "microphone camera off" => Some("off".to_string()),
+        "microphone camera on" => Some("on".to_string()),
+        _ => None,
+    }).collect()
+}
+
 fn changes(r: &Rig) -> Vec<String> {
     r.heard().into_iter().filter_map(|l| l.strip_prefix("panel camera_on_changed ").map(String::from)).collect()
 }
@@ -67,26 +77,28 @@ fn can_turn_off(r: &Rig) -> (bool, String) {
 #[test]
 fn the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on() {
     let r = on_air("camera-off-on");
+    assert_eq!(mic_calls(&r), ["starting"]);
     r.w.set_camera_on(false, false);
     r.pump();
     assert_eq!(sent(&r), [json!(0)]);
     assert!(r.worker(0).is_stopped() && r.source("pixel").session().unwrap().worker.is_none());
     assert_eq!(r.streaming(), ["pixel"]);
     assert!(!r.host_says_camera_on());
-    assert!(r.did_hear("microphone camera off"));
+    assert_eq!(mic_calls(&r), ["starting", "off"]);
     assert_eq!(changes(&r), ["false"]);
     assert_eq!(r.text("status"), "Streaming the mic, camera off");
     let control = r.link.control("pixel");
     let asked = control.asked.load(Ordering::SeqCst);
     r.skip(5_000);
-    r.until("no video, so the phone is asked it's there", |_| control.asked.load(Ordering::SeqCst) > asked);
+    r.until("no video, so the phone is asked it's there", |_| control.asked.load(Ordering::SeqCst) == asked + 1);
 
     r.w.set_camera_on(true, false);
     r.pump();
     assert_eq!(sent(&r).last(), Some(&json!(1)));
     assert_eq!(r.workers_made(), 2);
     assert!(r.source("pixel").session().unwrap().worker.is_some());
-    assert!(r.did_hear("microphone camera on"));
+    assert_eq!((r.w.workers_running(), r.worker(1).is_stopped()), (1, false), "the new worker is the stream's");
+    assert_eq!(mic_calls(&r)[2..], ["starting", "on"], "the wait screen lets go before the new worker opens the camera");
     assert_eq!(changes(&r), ["false", "true"]);
     assert!(r.host_says_camera_on());
     let asked = control.asked.load(Ordering::SeqCst);
@@ -117,6 +129,7 @@ fn start_mic_only_opens_the_phone_with_its_camera_off() {
     r.until("the stream", |r| r.streaming() == ["pixel"]);
     assert!(r.link.openings.lock().unwrap().last().expect("an opening").1.camera_off);
     assert_eq!(r.workers_made(), 0);
+    assert_eq!(mic_calls(&r), ["off"]);
     assert_eq!(r.text("start-text"), "Stop streaming");
     r.stop(None);
     r.pump();
@@ -277,7 +290,7 @@ fn a_mic_stream_that_moves_route_says_so_and_the_mic_goes_with_it() {
     r.w.phone_report(Report::Alive { source_id: "pixel".into(), session_id, ok: false });
     r.until("the mic moved", |r| r.did_hear("microphone start pixel"));
     assert_eq!(r.link.logged(&format!("adopt pixel {wifi:?}")), 1);
-    assert_eq!(r.source("pixel").session().unwrap().url, "https://pixel:8080/v1/video.h264");
+    assert_eq!(r.source("pixel").session().unwrap().url, "https://192.168.1.20:8080/v1/video.h264");
     assert_eq!(r.text("status"), "Streaming the mic, camera off");
 }
 
@@ -310,6 +323,9 @@ fn with_the_camera_off_a_phone_that_stops_answering_is_looked_for() {
     r.pump();
     assert!(!r.source("pixel").recovering());
     assert_eq!(r.text("status"), "Streaming the mic, camera off");
+    alive(false); // the count started over
+    r.pump();
+    assert!(!r.source("pixel").recovering());
 }
 
 #[test]
@@ -329,9 +345,10 @@ fn reconnecting_the_mics_stream_keeps_the_mic_on_it() {
     let source = r.source("pixel");
     r.w.with_flow(|flow, host| flow.move_focus(host, &source));
     r.forget_heard();
-    r.w.with_flow(|flow, host| flow.reconnect_stream(host, Some("pixel")));
+    r.w.with_flow(|flow, host| flow.reconnect_stream(host, None));
     r.until("both stream again", |r| r.streaming().len() == 2);
     r.pump();
     assert_eq!(r.w.streams.flow.borrow().sessions.main.as_ref().map(|m| m.id_str().to_string()).as_deref(), Some("pixel"));
-    assert_eq!(r.heard().iter().filter(|l| *l == "microphone start pixel").count(), 1, "{:?}", r.heard());
+    assert_eq!(r.times_heard("microphone start pixel"), 1, "{:?}", r.heard());
+    assert!(r.heard().iter().any(|l| l.starts_with("microphone url https://pixel:8080/v1/video.h264 ")), "{:?}", r.heard());
 }

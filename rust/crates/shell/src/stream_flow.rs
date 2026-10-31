@@ -40,6 +40,8 @@ pub trait FlowHost {
     /// Every plugin as (name, follows_focus), in registration order.
     fn plugins(&self) -> Vec<(String, bool)>;
     fn call(&mut self, plugins: &[String], hook: &Hook);
+    /// A plugin hears a banner's action.
+    fn tell_issue(&mut self, _key: &str, _action: &str) {}
     /// Brings what plugins read up to date with the flow, before a hook.
     fn sync(&mut self, _flow: &StreamFlow) {}
     fn emit(&mut self, event: Event);
@@ -101,6 +103,8 @@ pub struct StreamFlow {
     pub start_id: Option<String>,
     /// Source id: the extra virtual camera it went to last, so it goes there again.
     pub slot_memory: BTreeMap<String, u32>,
+    /// Source id: the banner action to tell once the panels show it, as it starts next to the others.
+    befores: BTreeMap<String, (String, String)>,
 }
 
 fn info(source: &Source, session: &StreamSession) -> StreamInfo {
@@ -435,10 +439,19 @@ impl StreamFlow {
     }
 
     /// Start streaming source_id next to what streams already, to a virtual camera of its own.
+    /// add_stream with what a banner runs once the panels show it, kept while the extra cameras are set up.
+    pub fn add_stream_after(&mut self, host: &mut dyn FlowHost, source_id: &str, before: Option<(String, String)>) {
+        if let Some(before) = before {
+            self.befores.insert(source_id.to_string(), before);
+        }
+        self.add_stream(host, source_id);
+    }
+
     pub fn add_stream(&mut self, host: &mut dyn FlowHost, source_id: &str) {
         let s = &self.sessions;
         if s.is_starting() || s.streams.is_empty() || s.streams.len() as u32 >= MAX_SLOTS
             || s.is_streaming_from(Some(source_id)) {
+            self.befores.remove(source_id);
             return;
         }
         let source = host.source_by_id(Some(source_id));
@@ -451,6 +464,10 @@ impl StreamFlow {
             self.set_camera_on(host, true, false); // one camera off is for the mic alone; with two it would just be confusing
         }
         self.move_focus(host, &source); // its own settings first, so it starts with them
+        if let Some((key, action)) = self.befores.remove(source_id) {
+            host.sync(self);
+            host.tell_issue(&key, &action);
+        }
         self.start(host, true, Some(source));
     }
 

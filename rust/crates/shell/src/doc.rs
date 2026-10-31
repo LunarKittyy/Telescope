@@ -224,6 +224,11 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
 }
 
 const FRAME_TOP: &str = r#"
+struct AddChoice {
+    id: string,
+    name: string,
+}
+
 export component TelescopeWindow inherits Window {
     in property <string> window-title: "Telescope";
     in property <string> start-text;
@@ -233,6 +238,7 @@ export component TelescopeWindow inherits Window {
     in property <bool> start-enabled: true;
     in property <bool> add-visible;
     in property <bool> add-enabled: true;
+    in property <[AddChoice]> add-choices;
     in property <[BannerData]> banners;
     in property <[TileData]> tiles;
     in property <string> status;
@@ -246,7 +252,7 @@ export component TelescopeWindow inherits Window {
     property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.text;
     callback start-clicked;
     callback settings-clicked;
-    callback add-clicked;
+    callback add-picked(string);
     callback banner-action(string, int);
     callback banner-dismissed(string);
     callback tile-focus(string);
@@ -294,6 +300,18 @@ export component TelescopeWindow inherits Window {
 "#;
 
 const HEADER: &str = r#"
+    add-menu := ContextMenuArea {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        Menu {
+            for choice in root.add-choices: MenuItem {
+                title: choice.name;
+                activated => { root.add-picked(choice.id); }
+            }
+        }
+    }
     keys := FocusScope {
         x: 0;
         y: 0;
@@ -341,7 +359,7 @@ const HEADER: &str = r#"
                 label: @tr("Add camera");
                 tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
                 enabled: add-enabled;
-                clicked => { root.add-clicked(); }
+                clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
             }
             StartButton {
                 y: (parent.height - self.height) / 2;

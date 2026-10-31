@@ -1,7 +1,7 @@
 // The tray and closing the window: what stays running, and what the plugins hear about the window being on screen.
 mod rig;
 
-use rig::Rig;
+use rig::{Listener, Rig};
 use serde_json::json;
 use slint::ComponentHandle;
 use std::sync::{Arc, Mutex};
@@ -33,6 +33,10 @@ fn quits() -> usize {
     telescope_core::diagnostics::events().lines(10_000).iter().filter(|l| l.contains("QUIT")).count()
 }
 
+fn last_quit() -> String {
+    telescope_core::diagnostics::events().lines(10_000).into_iter().filter(|l| l.contains("QUIT")).next_back().unwrap_or_default()
+}
+
 fn click(r: &Rig, what: &str) {
     r.tray.lock().unwrap().clicks.push(what.into());
     r.w.poll_tray();
@@ -42,21 +46,20 @@ fn click(r: &Rig, what: &str) {
 #[test]
 fn the_tray_icon_says_what_streams() {
     let r = Rig::built_with_mic_tray("tray-says");
+    let settle = || {
+        r.pump();
+        r.w.poll_tray(); // the timer, as nothing else tells it
+    };
     r.emit(telescope_core::event::Event::MicChanged { enabled: true, muted: false });
-    r.pump();
-    r.w.refresh_tray_tip();
+    settle();
     r.start();
-    r.pump();
-    r.w.refresh_tray_tip();
+    settle();
     r.w.set_camera_on(false, false);
-    r.pump();
-    r.w.refresh_tray_tip();
+    settle();
     r.emit(telescope_core::event::Event::MicChanged { enabled: true, muted: true });
-    r.pump();
-    r.w.refresh_tray_tip();
+    settle();
     r.stop(None);
-    r.pump();
-    r.w.refresh_tray_tip();
+    settle();
     assert_eq!(r.tray.lock().unwrap().tips, ["Telescope", "Telescope: streaming the camera and mic", "Telescope: streaming the mic, camera off",
                                              "Telescope: streaming the mic, camera off (muted)", "Telescope"]);
 }
@@ -64,22 +67,27 @@ fn the_tray_icon_says_what_streams() {
 #[test]
 fn tray_show_quit_and_activation() {
     let r = Rig::with_tray("tray-activation");
-    r.w.show_window();
-    assert!(r.w.ui.window().is_visible());
+    click(&r, "show");
+    assert!(r.w.ui.window().is_visible() && !r.w.ui.window().is_minimized());
     click(&r, ""); // the icon, with the window up
     assert!(!r.w.ui.window().is_visible());
     click(&r, "");
     assert!(r.w.ui.window().is_visible());
+    r.start();
     let before = quits();
     click(&r, "quit");
     assert_eq!(quits(), before + 1);
+    assert!(last_quit().ends_with("The user quit from the tray"), "{}", last_quit());
+    assert!(r.w.state.borrow().tray_close_notified);
+    r.w.shut_down();
+    assert!(r.streaming().is_empty(), "the stop comes with it");
 }
 
 #[test]
 fn plugin_tray_actions_go_between_show_and_quit() {
     let r = Rig::built_tray("tray-plugins", |_, _| vec![Box::new(Muting::default()) as Box<dyn Plugin>]);
     r.w.refresh_tray_menu();
-    assert_eq!(r.tray.lock().unwrap().items, ["Show", "Mute microphone", "Quit"]);
+    assert_eq!(r.tray.lock().unwrap().items, ["Show", "Mute microphone", "", "Quit"]);
 }
 
 #[test]
@@ -103,20 +111,24 @@ fn close_event_minimizes_active_stream_to_tray() {
     close(&r);
     assert_eq!(r.streaming(), ["pixel"]);
     assert_eq!(quits(), before);
+    assert_eq!(r.notes.0.lock().unwrap().len(), 1);
+    assert!(!r.notes.0.lock().unwrap()[0].2, "informational, shouldn't pin itself on screen");
     close(&r);
-    let notes = r.notes.0.lock().unwrap();
-    assert_eq!(notes.len(), 1, "it's said once");
-    assert!(!notes[0].2, "informational, shouldn't pin itself on screen");
+    assert_eq!(r.notes.0.lock().unwrap().len(), 1, "it's said once");
 }
 
 #[test]
 fn close_event_stops_and_accepts_without_background_stream() {
-    let r = Rig::with_tray("tray-close-idle");
+    let r = Rig::new("tray-close-idle");
     r.w.show_window();
+    r.start();
     let before = quits();
     close(&r);
     assert_eq!(quits(), before + 1);
+    assert!(last_quit().ends_with("The user closed the window"), "{}", last_quit());
     assert!(r.notes.0.lock().unwrap().is_empty());
+    r.w.shut_down();
+    assert!(r.streaming().is_empty(), "the stop comes with it");
 }
 
 #[test]
@@ -147,11 +159,12 @@ fn the_window_says_when_it_is_on_screen() {
     let r = Rig::with_tray("tray-shown");
     r.w.start_hidden();
     r.w.show_window();
-    r.w.ui.window().set_minimized(true);
-    r.w.report_shown();
-    r.w.show_window();
+    r.w.ui.window().set_minimized(true); // by the window manager, so nothing here is told
+    r.w.watch_focus();
+    r.w.ui.window().set_minimized(false);
+    r.w.watch_focus();
     r.w.ui.hide().unwrap();
-    r.w.report_shown();
+    r.w.watch_focus();
     r.w.process();
     let seen: Vec<String> = r.heard().into_iter().filter_map(|l| l.strip_prefix("panel shown ").map(String::from)).collect();
     assert_eq!(seen, ["false", "true", "false", "true", "false"]);
@@ -159,10 +172,14 @@ fn the_window_says_when_it_is_on_screen() {
 
 #[test]
 fn a_setting_changed_just_before_quit_is_saved() {
-    let r = Rig::with("quit-saves", |_, _| vec![Box::new(rig::Output { config: json!({"fps": 1}) }) as Box<dyn telescope_core::plugin::Plugin>]);
-    r.w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::SaveSoon);
-    r.w.process();
+    let r = Rig::with("quit-saves", |_, heard| {
+        let mut plugin = Listener::new("global", heard);
+        plugin.global = true;
+        plugin.config = json!({"a": 1});
+        vec![Box::new(plugin) as Box<dyn Plugin>]
+    });
+    r.configure("global", json!({"a": 2}));
+    r.w.schedule_save();
     r.w.shut_down();
-    assert_eq!(r.w.state.borrow().file.load()["selected_device"], serde_json::Value::Null);
-    assert!(r.w.state.borrow().file.path().exists(), "the save that was waiting went out");
+    assert_eq!(r.w.state.borrow().file.load()["plugin_configs"]["global"], json!({"a": 2}));
 }

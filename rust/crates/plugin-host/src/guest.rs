@@ -364,7 +364,7 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "make_main" => return out(host.make_main(&arg::<String>(args, "source_id")?)),
         "update_stream_output" => host.update_stream_output(arg::<OutputChange>(args, "change")?, src),
         "canvas_size" => return out(host.canvas_size()),
-        "restart_vcam_canvas" => return out(host.restart_vcam_canvas(arg(args, "width")?, arg(args, "height")?)),
+        "restart_vcam_canvas" => return out(host.restart_vcam_canvas(arg(args, "width")?, arg(args, "height")?, false)),
         "stream_output" => return out(host.stream_output(&arg::<String>(args, "source_id")?)),
         "stream_on_camera" => return out(host.stream_on_camera(arg::<Option<u32>>(args, "slot")?.unwrap_or(0))),
         "remove_extra_cameras" => return out(host.remove_extra_cameras()),

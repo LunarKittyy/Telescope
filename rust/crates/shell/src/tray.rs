@@ -66,6 +66,7 @@ impl Window {
                 enabled: true,
             }));
         }
+        items.push(item(String::new(), String::new())); // a line above Quit
         items.push(item(QUIT.into(), tr("Quit")));
         self.with_tray(|t| t.set_items(&items));
     }
@@ -106,8 +107,10 @@ impl Window {
 
     /// _tray_show: up, not minimized, in front.
     pub fn show_window(&self) {
+        use slint::winit_030::WinitWindowAccessor;
         let _ = self.ui.show();
         self.ui.window().set_minimized(false);
+        self.ui.window().with_winit_window(|w| w.focus_window());
         self.report_shown();
     }
 
@@ -141,7 +144,8 @@ impl Window {
     }
 
     /// _report_shown: the plugins hear whether the window is on screen (the tray and minimized both count as not).
-    pub fn report_shown(&self) {
+    /// Whether that changed.
+    pub fn report_shown(&self) -> bool {
         let w = self.ui.window();
         let shown = w.is_visible() && !w.is_minimized();
         let changed = {
@@ -153,6 +157,7 @@ impl Window {
         if changed {
             self.state.borrow_mut().bus.emit(Event::WindowShown { shown });
         }
+        changed
     }
 
     /// closeEvent: into the tray while something streams or a plugin keeps Telescope there (saying so the first time),

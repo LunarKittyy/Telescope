@@ -135,7 +135,7 @@ pub enum Effect {
     /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
     PluginHues(bool),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
-    RestartCanvas { plugin: String, request: RequestId },
+    RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
     RemoveExtras { plugin: String, request: RequestId },
     /// Host::open_url: a link for the browser.
@@ -425,8 +425,8 @@ impl State {
         };
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
-        if self.calls == 0 && std::mem::take(&mut self.save_after_call) {
-            self.save_now();
+        if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
+            self.effects.push(Effect::SaveSoon); // a file that can't be read now isn't saved over, and is tried again
         }
         match result {
             Ok(r) => Some(r),

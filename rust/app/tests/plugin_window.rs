@@ -261,13 +261,13 @@ fn the_canvas_waits_until_only_one_camera_streams_and_then_the_cameras_reload() 
     let (w, cameras, heard) = camera_window("window-canvas");
     w.stream_plugin_source("browser:a");
     w.stream_plugin_source("browser:b");
-    w.restart_canvas("asks", RequestId(1));
+    w.restart_canvas("asks", RequestId(1), true);
     w.process();
     assert_eq!(*heard.lock().unwrap(), [(false, "Stop all but one camera first, then apply again".to_string())]);
     assert!(cameras.asked.lock().unwrap().is_empty());
     assert_eq!(streams(&w), (2, false), "both carry on");
     w.with_flow(|flow, host| flow.stop_stream(host, Some("browser:b")));
-    w.restart_canvas("asks", RequestId(2));
+    w.restart_canvas("asks", RequestId(2), true);
     assert_eq!(streams(&w), (0, true), "it stops for the restart, to start again after");
     if cfg!(target_os = "linux") {
         assert!(set_up_asked(&cameras, SetupAction::Reload));
@@ -319,7 +319,7 @@ fn a_try_again_picks_the_failed_source_before_it_starts_so_its_settings_are_in()
     let h = heard.clone();
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Order(h)) as Box<dyn Plugin>], Some(services), None).unwrap();
     w.add_plugin_source(Arc::new(Browser("browser:a")));
-    w.start_source(Some("browser:a".into()));
+    w.start_source(Some("browser:a".into()), None);
     w.process();
     assert_eq!(*heard.lock().unwrap(), ["select browser:a", "started browser:"]);
 }

@@ -257,7 +257,8 @@ pub trait HostStreams {
     /// The canvas Setup asks for, or (None, None) for Auto.
     fn canvas_size(&self) -> (Option<u32>, Option<u32>);
     /// Recreate the virtual camera at a new size; RequestDone says how it went (data: {"command": ...} to run by hand).
-    fn restart_vcam_canvas(&mut self, width: u32, height: u32) -> RequestId;
+    /// A RequestDone says how it went. shows_command: the plugin shows a command to run by hand itself; otherwise a banner does.
+    fn restart_vcam_canvas(&mut self, width: u32, height: u32, shows_command: bool) -> RequestId;
     fn stream_output(&self, source_id: &str) -> String;
     /// (source id, width, height) of the stream going to this virtual camera slot.
     fn stream_on_camera(&self, slot: u32) -> Option<(String, Option<u32>, Option<u32>)>;

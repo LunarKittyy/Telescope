@@ -427,6 +427,13 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("add-picked", move |args| {
+            if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
+                w.with_flow(|flow, host| flow.add_stream(host, id));
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("tile-stop", move |args| {
             if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
                 let id = id.to_string();
@@ -522,10 +529,7 @@ impl Window {
             Pressed::Action(IssueDoes::OpenUrl { url }) => self.follow_url(&url),
             Pressed::Action(IssueDoes::StartAgain { source_id, before }) => {
                 // The plugin that showed it changes something first (Connect via back to Automatic)
-                if let Some(before) = before {
-                    self.tell_issue(key, &before);
-                }
-                self.start_source(source_id);
+                self.start_source(source_id, before.map(|action| (key.to_string(), action)));
             }
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
             Pressed::Action(IssueDoes::CameraOnAgain { source_id }) => {
@@ -548,7 +552,7 @@ impl Window {
     }
 
     /// A banner's plugin button: every plugin hears it and the one that showed it knows its key.
-    fn tell_issue(&self, key: &str, id: &str) {
+    pub(crate) fn tell_issue(&self, key: &str, id: &str) {
         let (key, id) = (key.to_string(), id.to_string());
         self.state.borrow_mut().each(|p, host| p.on_issue_action(host, &key, &id));
     }
@@ -582,6 +586,7 @@ impl Window {
             }
         }
         self.sync_camera();
+        self.show_add_button();
         self.show_banners();
         self.paint_pick();
         self.paint_layers();
@@ -995,11 +1000,11 @@ impl Window {
                 }
             }
             Effect::Start { interactive } => {
-                if !self.is_streaming() {
+                if !self.is_streaming() && !self.streams.flow.borrow().sessions.preparing {
                     self.with_flow(|flow, host| flow.start(host, interactive, None));
                 }
             }
-            Effect::StartAgain(id) => self.start_source(id),
+            Effect::StartAgain(id) => self.start_source(id, None),
             Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
             Effect::StopAll => self.stop_all_streams(),
             Effect::Reconnect(id) => self.with_flow(move |flow, host| flow.reconnect_stream(host, id.as_deref())),
@@ -1056,7 +1061,7 @@ impl Window {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
                 crate::settings::set_hues(on);
             }
-            Effect::RestartCanvas { plugin, request } => self.restart_canvas(&plugin, request),
+            Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
             Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
             Effect::PickFile { plugin, request, dialog } => {

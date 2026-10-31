@@ -117,7 +117,10 @@ impl Window {
 
     /// Whether one of Telescope's windows is in front, checked on the preview's timer: when that changes the plugins'
     /// host.window_active() follows, and a window losing focus tells them held keys won't come back up.
-    pub(crate) fn watch_focus(self: &Rc<Self>) {
+    pub fn watch_focus(self: &Rc<Self>) {
+        if self.report_shown() {
+            self.process(); // minimized or back: the window manager says so to nobody else
+        }
         let active = |w: &slint::Window| i_slint_core::window::WindowInner::from_pub(w).active();
         let now = active(self.ui.window()) || crate::settings::window().is_some_and(|s| active(s.window()))
             || self.plugin_windows.borrow().iter().any(|(_, _, ui)| active(ui.window()));

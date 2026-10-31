@@ -4,6 +4,7 @@ mod rig;
 
 use rig::{state_with, Rig};
 use serde_json::json;
+use std::rc::Rc;
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -13,6 +14,8 @@ use telescope_shell::sources::{Report, RECOVER_RETRY};
 use telescope_shell::worker::WorkerEvent;
 
 const RETRY: u64 = RECOVER_RETRY.as_millis() as u64 + 50;
+
+const WIFI_URL: &str = "https://192.168.1.20:8080/v1/video.h264";
 
 fn wifi() -> RouteSpec {
     RouteSpec::Network { address: "192.168.1.20".into() }
@@ -53,19 +56,27 @@ fn unreachable(name: &str) -> Rig {
 #[test]
 fn a_dropped_stream_asks_the_phone_why_quietly() {
     let r = unreachable("drop-asks");
-    assert!(r.did_hear("panel lost pixel"));
+    assert_eq!(r.times_heard("panel lost pixel"), 1);
     let control = r.link.control("pixel");
     let asked = || control.asked.load(Ordering::SeqCst);
-    r.until("the phone was asked", |_| asked() >= 2); // the start's fetch, then the probe's
+    r.until("the phone was asked", |_| asked() == 1);
+    r.pump();
     r.forget_heard();
     probe_again(&r); // got nothing: mid-stream that's no news, not an empty state
+    r.until("the next ask", |_| asked() == 2);
     *control.state.lock().unwrap() = Some(state_with(json!({"codec": "h264"})));
     probe_again(&r); // nothing about why it stopped: plugins keep what they have
+    r.until("the next ask", |_| asked() == 3);
     r.pump();
     assert!(!r.heard().iter().any(|l| l.starts_with("panel state")), "{:?}", r.heard());
     *control.state.lock().unwrap() = Some(state_with(json!({"codec_error": "Too big"})));
     probe_again(&r);
     r.until("the state came through", |r| r.heard().iter().any(|l| l.starts_with("panel state") && l.contains("Too big")));
+    assert_eq!(r.heard().iter().filter(|l| l.starts_with("panel state")).count(), 1);
+    assert_eq!(asked(), 4);
+    *control.state.lock().unwrap() = None;
+    probe_again(&r);
+    r.until("the ask is free again", |_| asked() == 5);
 }
 
 #[test]
@@ -73,10 +84,11 @@ fn a_dropped_stream_keeps_asking_the_phone_why() {
     let r = unreachable("drop-keeps-asking");
     let control = r.link.control("pixel");
     let asked = || control.asked.load(Ordering::SeqCst);
-    r.until("the probe asked", |_| asked() >= 2);
-    let before = asked();
+    r.until("the probe asked", |_| asked() == 1);
     probe_again(&r);
-    r.until("the next probe asked", |_| asked() > before);
+    r.until("the next probe asked", |_| asked() == 2);
+    r.pump();
+    assert_eq!(asked(), 2, "one ask a round");
     r.worker(0).event(telescope_shell::worker::WorkerEvent::Reconnected);
     r.pump();
     let before = checks(&r);
@@ -89,9 +101,10 @@ fn a_dropped_stream_keeps_asking_the_phone_why() {
 #[test]
 fn a_camera_another_app_took_is_named_until_the_stream_is_back() {
     let r = unreachable("drop-camera-taken");
-    r.phone_says("pixel", state_with(json!({"camera_taken": true})));
-    r.pump();
-    assert_eq!(r.banner("camera_taken:pixel").expect("a banner")["title"], "Another app on the phone is using the camera");
+    *r.link.control("pixel").state.lock().unwrap() = Some(state_with(json!({"camera_taken": true})));
+    probe_again(&r);
+    r.until("the banner", |r| r.banner("camera_taken:pixel").is_some());
+    assert_eq!(r.banner("camera_taken:pixel").unwrap()["title"], "Another app on the phone is using the camera");
     r.worker(0).event(telescope_shell::worker::WorkerEvent::Reconnected);
     r.pump();
     assert!(r.banner("camera_taken:pixel").is_none());
@@ -99,13 +112,23 @@ fn a_camera_another_app_took_is_named_until_the_stream_is_back() {
 
 #[test]
 fn a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled() {
-    let r = dropped("drop-moves", ready(wifi(), true));
-    r.until("the worker moved", |r| r.worker(0).did("retarget https://pixel:8080/v1/video.h264"));
+    let r = Rig::new("drop-moves");
+    r.link.answers_recovery("pixel", ready(wifi(), true));
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    let client = r.source("pixel").session().unwrap().client;
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
+    r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {WIFI_URL}")));
     assert!(r.did_hear("panel lost pixel"));
     assert_eq!(r.link.logged(&format!("adopt pixel {:?}", wifi())), 1);
-    assert_eq!(r.source("pixel").session().unwrap().url, "https://pixel:8080/v1/video.h264");
-    assert!(!r.link.control("pixel").closed.load(Ordering::SeqCst), "the same client, so it keeps what it sent");
+    let session = r.source("pixel").session().unwrap();
+    assert_eq!(session.url, WIFI_URL);
+    assert!(Rc::ptr_eq(&session.client, &client), "the same client, so it keeps what it sent");
+    assert_eq!(*r.link.control("pixel").retargeted.lock().unwrap(), [WIFI_URL], "once");
+    assert!(!r.link.control("pixel").closed.load(Ordering::SeqCst));
     assert!(r.source("pixel").recovering(), "until frames actually come back");
+    probe_again(&r); // and it keeps looking meanwhile
 }
 
 /// A move that was on its way since generation lands now, on a USB route.
@@ -168,7 +191,7 @@ fn recovery_keeps_looking_while_the_phone_is_unreachable() {
 #[test]
 fn recovery_moves_the_stream_once_per_route() {
     let r = dropped("drop-once", ready(wifi(), true));
-    r.until("the worker moved", |r| r.worker(0).did("retarget https://pixel:8080/v1/video.h264"));
+    r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {WIFI_URL}")));
     probe_again(&r);
     assert_eq!(r.link.logged(&format!("adopt pixel {:?}", wifi())), 1, "the worker keeps retrying it on its own");
 }
@@ -194,6 +217,7 @@ fn a_probe_from_before_the_stream_came_back_is_dropped() {
     r.w.phone_report(Report::RecoveryProbed { source_id: "pixel".into(), session_id, generation, resolution: ready(wifi(), true) });
     r.pump();
     assert_eq!(r.link.log.lock().unwrap().iter().filter(|l| l.starts_with("adopt")).count(), 0);
+    assert!(!r.worker(0).log.lock().unwrap().iter().any(|l| l.starts_with("retarget")));
 }
 
 #[test]
@@ -204,8 +228,10 @@ fn recovery_stops_the_stream_when_the_phone_stopped_streaming() {
     assert!(!r.source("pixel").recovering());
     assert_eq!(r.banner("stopped:pixel").expect("a banner")["title"], "The phone stopped streaming");
     let workers = r.workers_made();
+    let starts = r.link.logged("start_route pixel");
     r.w.ui.invoke("banner-action", &[SValue::String("stopped:pixel".into()), SValue::Number(0.0)]).unwrap();
     r.until("this phone starts", |r| r.workers_made() > workers);
+    assert_eq!(r.link.logged("start_route pixel"), starts + 1, "named, not whatever's picked");
     assert_eq!(r.streaming(), ["pixel"]);
 }
 
@@ -214,6 +240,7 @@ fn recovery_leaves_a_stream_another_computer_started_alone() {
     let r = dropped("drop-other-computer", Resolution { streaming_for: "Office PC".into(), ..ready(wifi(), true) });
     assert!(r.streaming().is_empty());
     assert_eq!(r.link.log.lock().unwrap().iter().filter(|l| l.starts_with("adopt")).count(), 0);
+    assert!(!r.worker(0).log.lock().unwrap().iter().any(|l| l.starts_with("retarget")));
     assert_eq!(r.link.logged("stop pixel"), 0);
     assert!(!r.source("pixel").recovering());
     assert_eq!(r.banner("stopped:pixel").expect("a banner")["title"], "The phone is streaming to Office PC");
@@ -237,7 +264,8 @@ fn a_stream_that_never_got_its_first_frame_looks_for_the_phone_too() {
     r.link.answers_recovery("pixel", ready(wifi(), true));
     r.start();
     r.worker(0).says("waiting", "Can't reach the phone's stream. Trying again in 3 s…");
-    r.until("the worker moved", |r| r.worker(0).did("retarget https://pixel:8080/v1/video.h264"));
+    r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {WIFI_URL}")));
+    assert_eq!(r.link.logged(&format!("adopt pixel {:?}", wifi())), 1);
 }
 
 #[test]
@@ -252,29 +280,42 @@ fn recovery_waits_while_the_phone_is_mid_start() {
 fn a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back() {
     let r = unreachable("gone-banner");
     let worker = r.worker(0);
+    r.forget_heard();
     assert!(!worker.is_parked());
-    r.skip(10_000);
+    r.skip(9_900);
+    assert!(!worker.is_parked());
+    r.skip(200);
     assert!(worker.is_parked(), "the wait screen takes the camera, not the last frame");
     assert!(r.idle_outputs().starts_with("[0"), "{}", r.idle_outputs());
-    r.skip(20_000);
+    r.skip(19_700);
+    assert!(r.banner("stopped:pixel").is_none());
+    r.skip(200);
     let banner = r.banner("stopped:pixel").expect("a banner");
     assert_eq!((banner["title"].as_str(), banner["text"].as_str()), ("Can't reach Pixel", "Open Telescope on it."));
     assert!(r.source("pixel").recovering(), "still looking for it");
+    probe_again(&r);
 
+    assert_eq!(r.times_heard("panel starting"), 0);
     worker.event(telescope_shell::worker::WorkerEvent::Reconnected);
     r.pump();
     assert!(!worker.is_parked());
+    assert_eq!(r.times_heard("panel starting"), 1, "the wait screen lets go first");
     assert!(!r.idle_outputs().starts_with("[0"), "{}", r.idle_outputs());
+    assert!(r.banner("stopped:pixel").is_none());
+    r.skip(30_000); // its clocks went with it
+    assert!(!worker.is_parked());
     assert!(r.banner("stopped:pixel").is_none());
 }
 
 #[test]
 fn a_phone_back_before_the_wait_screen_keeps_its_camera() {
     let r = unreachable("gone-back-early");
+    r.forget_heard();
     r.worker(0).event(telescope_shell::worker::WorkerEvent::Reconnected);
     r.pump();
     r.skip(10_000);
     assert!(!r.worker(0).is_parked());
+    assert_eq!(r.times_heard("panel starting"), 0, "the wait screen never had it");
     let source = r.source("pixel");
     r.w.with_flow(|flow, host| flow.park(host, &source)); // a timeout that was already on its way
     assert!(!r.worker(0).is_parked());
@@ -359,7 +400,9 @@ fn stream_reconnected_resends_settings_to_every_plugin() {
     r.forget_heard();
     r.worker(0).event(telescope_shell::worker::WorkerEvent::Reconnected);
     r.pump();
-    assert!(r.did_hear("panel start pixel") && r.did_hear("microphone start pixel"), "{:?}", r.heard());
+    assert_eq!((r.times_heard("panel start pixel"), r.times_heard("microphone start pixel")), (1, 1), "{:?}", r.heard());
+    let url = format!("url https://pixel:8080/v1/video.h264 session {}", r.session_id("pixel"));
+    assert_eq!((r.times_heard(&format!("panel {url}")), r.times_heard(&format!("microphone {url}"))), (1, 1));
 }
 
 #[test]
