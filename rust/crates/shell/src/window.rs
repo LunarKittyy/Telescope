@@ -525,7 +525,7 @@ impl Window {
     }
 
     /// Colour grading's compare: the shown stream's picture before its colour step left of the line.
-    fn with_colour_split(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
+    pub fn with_colour_split(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
         let st = self.state.borrow();
         let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) else { return frame };
         let before = st.colour_before.lock().unwrap().get(id).cloned();

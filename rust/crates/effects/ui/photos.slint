@@ -135,7 +135,7 @@ export component PhotosCard inherits Card {
     }
     if status != "": Rectangle {
         height: 20px;
-        Text {
+        shown-status := Text {
             width: parent.width;
             height: parent.height;
             text: status;
@@ -144,6 +144,7 @@ export component PhotosCard inherits Card {
             color: Status.color(status-kind);
             vertical-alignment: center;
             overflow: elide;
+            if shown-status.preferred-width > shown-status.width: Tooltip { TipBody { says: shown-status.text; } }
         }
         Tooltip { TipBody { says: root.status; } }
     }
@@ -268,7 +269,7 @@ export component PhotosCard inherits Card {
             spacing: 8px;
             Rectangle {
                 horizontal-stretch: 1;
-                Text {
+                shown-folder-name := Text {
                     width: parent.width;
                     height: parent.height;
                     text: folder-name;
@@ -277,6 +278,7 @@ export component PhotosCard inherits Card {
                     color: active ? Theme.text : Theme.text-disabled;
                     vertical-alignment: center;
                     overflow: elide;
+                    if shown-folder-name.preferred-width > shown-folder-name.width: Tooltip { TipBody { says: shown-folder-name.text; } }
                 }
                 Tooltip { TipBody { says: root.folder-tip; } }
             }

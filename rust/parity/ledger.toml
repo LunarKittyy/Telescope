@@ -2469,7 +2469,7 @@
 "test_colour.py::test_tabs_after_keywords_and_a_hash_inside_a_quoted_title" = { status = "ported", rust = "rust/crates/effects/src/cube.rs::tabs_after_keywords_and_a_hash_inside_a_quoted_title" }
 "test_colour.py::test_the_bake_size_is_what_the_stages_need" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_bake_size_is_what_the_stages_need" }
 "test_colour.py::test_the_composed_lut_follows_the_order" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_composed_lut_follows_the_order" }
-"test_colour.py::test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" = { status = "todo", note = "colour.rs::the_picture_before_the_colour_step_shows_left_of_the_split has the drawing and the split coming and going, and shell.rs::comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview the kept picture. Nothing tests window.rs::with_colour_split, which joins them and hands back the frame untouched without a split. Python's resize to a smaller preview has no twin: the preview draws on the full frame" }
+"test_colour.py::test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::the_preview_shows_the_picture_before_the_colour_step_left_of_the_split" }
 "test_colour.py::test_the_split_is_only_drawn_on_the_stream_it_came_from" = { status = "ported", rust = "rust/crates/core/src/colour.rs::the_split_is_only_drawn_on_the_stream_it_came_from" }
 "test_colour.py::test_the_window_finds_which_stream_a_frame_is_from" = { status = "dropped", reason = "Python's frame steps ask which stream a frame is from. Here each stream's steps are made for its source id (State::pipeline_steps, checked by a_stream_gets_the_colour_stages_set_for_it_alone), so there's nothing to look up." }
 "test_colour.py::test_without_stages_frames_go_through_untouched" = { status = "ported", rust = "rust/crates/core/src/colour.rs::without_stages_frames_go_through_untouched" }
@@ -4675,16 +4675,16 @@
 "test_widgets.py::test_a_tag_measures_itself_in_the_themes_font_not_the_systems" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_tag_measures_itself_in_the_themes_font_not_the_systems" }
 "test_widgets.py::test_control_row_starts_the_control_at_the_label_column" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_control_row_widget_is_hideable" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
-"test_widgets.py::test_double_log_slider_converts_scaled_spin_value" = { status = "todo" }
-"test_widgets.py::test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin" = { status = "todo" }
-"test_widgets.py::test_eliding_label_keeps_its_full_text_available" = { status = "todo" }
+"test_widgets.py::test_double_log_slider_converts_scaled_spin_value" = { status = "todo", note = "ISO and shutter have no box to type a value in yet: LogRow keeps spin and the card shows a readout only. Needs the typing box on the camera card first." }
+"test_widgets.py::test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin" = { status = "dropped", reason = "Qt only: a QStyledItemDelegate's row height; the kit's ChoiceField has no separator row, and it marks the picked item by its fill" }
+"test_widgets.py::test_eliding_label_keeps_its_full_text_available" = { status = "ported", rust = "rust/app/tests/stream_status.rs::eliding_label_keeps_its_full_text_available" }
 "test_widgets.py::test_empty_lenses_show_a_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::empty_lenses_show_a_placeholder" }
 "test_widgets.py::test_fit_on_screen_leaves_a_popup_that_fits_alone" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
 "test_widgets.py::test_fit_on_screen_shrinks_only_when_taller_than_the_screen" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
 "test_widgets.py::test_fit_on_screen_slides_popup_down_without_shrinking" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
 "test_widgets.py::test_fit_on_screen_slides_popup_up_off_the_bottom" = { status = "dropped", reason = "Qt only: a QComboBox put its list at screen coordinates and could open it off the screen; a ChoiceField's list is a Slint popup that Slint places inside its window" }
 "test_widgets.py::test_flow_layout_wraps_and_reports_height_for_width" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
-"test_widgets.py::test_focus_ring_shows_after_tab_and_not_after_a_click" = { status = "todo" }
+"test_widgets.py::test_focus_ring_shows_after_tab_and_not_after_a_click" = { status = "ported", rust = "rust/app/tests/widgets_drawn.rs::focus_ring_shows_after_tab_and_not_after_a_click" }
 "test_widgets.py::test_form_labels_are_left_aligned" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_integer_log_slider_syncs_slider_spin_and_signal" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::integer_log_slider_syncs_slider_spin_and_signal", note = "the model of the row; the Camera card has no number box to type in yet" }
 "test_widgets.py::test_lens_labels_keep_the_zoom_factor_when_shortened" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::lens_labels_keep_the_zoom_factor_when_shortened" }
@@ -4696,23 +4696,23 @@
 "test_widgets.py::test_log_slider_range_and_enabled_state" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::log_slider_range_and_enabled_state", note = "the model of the row; the Camera card has no number box yet" }
 "test_widgets.py::test_make_segmented_handles_a_lone_button" = { status = "dropped", reason = "Qt only: dynamic properties for the stylesheet to round the ends of a track of buttons; the kit Segmented draws its own track and pill" }
 "test_widgets.py::test_make_segmented_marks_ends_and_middles" = { status = "dropped", reason = "Qt only: dynamic properties for the stylesheet to round the ends of a track of buttons; the kit Segmented draws its own track and pill" }
-"test_widgets.py::test_menus_and_tooltips_have_see_through_corners" = { status = "todo" }
+"test_widgets.py::test_menus_and_tooltips_have_see_through_corners" = { status = "dropped", reason = "Qt only: Qt menus and tooltips are windows of their own; Slint draws them inside the window" }
 "test_widgets.py::test_ns_to_display" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::ns_to_display_reads_exposure_times" }
-"test_widgets.py::test_pan_slider_clamps_resets_and_emits" = { status = "todo" }
-"test_widgets.py::test_quality_label_boundaries" = { status = "todo" }
+"test_widgets.py::test_pan_slider_clamps_resets_and_emits" = { status = "ported", rust = "rust/crates/effects/src/transforms_tests.rs::the_pad_hands_over_values_the_sliders_quantise" }
+"test_widgets.py::test_quality_label_boundaries" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::quality_label_boundaries" }
 "test_widgets.py::test_run_off_ui_thread_keeps_the_event_loop_turning" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
 "test_widgets.py::test_run_off_ui_thread_reraises" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
 "test_widgets.py::test_run_off_ui_thread_returns_the_result_from_a_worker_thread" = { status = "dropped", reason = "Qt only: a helper to run a blocking call while the Qt event loop turns; the Rust app runs such work on its own threads and answers through the event loop" }
 "test_widgets.py::test_segmented_row_puts_the_buttons_in_one_track" = { status = "dropped", reason = "Qt only: the kit Segmented is one component with its track drawn inside it" }
 "test_widgets.py::test_separator_and_all_known_vector_icons_are_constructible" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::separator_and_all_known_vector_icons_are_constructible" }
-"test_widgets.py::test_slider_fill_doesnt_stick_out_past_the_handle_at_zero" = { status = "todo" }
-"test_widgets.py::test_stretch_slider_sets_a_floor_not_a_fixed_width" = { status = "todo" }
+"test_widgets.py::test_slider_fill_doesnt_stick_out_past_the_handle_at_zero" = { status = "ported", rust = "rust/app/tests/widgets_drawn.rs::slider_fill_doesnt_stick_out_past_the_handle_at_zero" }
+"test_widgets.py::test_stretch_slider_sets_a_floor_not_a_fixed_width" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::stretch_slider_sets_a_floor_not_a_fixed_width" }
 "test_widgets.py::test_tab_follows_the_layout_not_the_order_widgets_were_made" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::tab_follows_the_layout_not_the_order_widgets_were_made" }
 "test_widgets.py::test_tab_in_a_dialog_stops_on_every_option_of_a_group" = { status = "dropped", reason = "Qt only: Qt's own focus chain skips all but one button of an exclusive group, which the theme's style had to undo; a Slint item with a FocusScope is always a Tab stop" }
 "test_widgets.py::test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::turning_plugin_colours_off_repaints_every_card_in_the_app_purple" }
 "test_widgets.py::test_uniform_flow_divides_each_row_evenly" = { status = "dropped", reason = "Qt only: a QLayout helper (common.py); Slint lays rows out with its own layouts, which the cards are written in" }
 "test_widgets.py::test_value_to_log_position_endpoints_and_invalid_values" = { status = "ported", rust = "rust/crates/core/src/actions.rs::value_to_log_position_endpoints_and_invalid_values" }
-"test_widgets.py::test_zoom_slider_marks_sit_where_the_handle_would" = { status = "todo" }
+"test_widgets.py::test_zoom_slider_marks_sit_where_the_handle_would" = { status = "ported", rust = "rust/app/tests/widgets_drawn.rs::zoom_slider_marks_sit_where_the_handle_would" }
 
 [scene]
 # window scenes from the translation preview's SCENES

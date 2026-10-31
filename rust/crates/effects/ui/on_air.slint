@@ -74,13 +74,14 @@ export component OnAirSettings inherits VerticalLayout {
         Note { text: @tr("Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."); }
         FormRow {
             label: @tr("Now");
-            Text {
+            shown-state-text := Text {
                 text: state-text;
                 font-family: Theme.font;
                 font-size: Theme.body;
                 color: Status.color(state-kind);
                 vertical-alignment: center;
                 overflow: elide;
+                if shown-state-text.preferred-width > shown-state-text.width: Tooltip { TipBody { says: shown-state-text.text; } }
                 horizontal-stretch: 1;
             }
         }

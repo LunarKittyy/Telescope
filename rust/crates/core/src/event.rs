@@ -181,6 +181,8 @@ events! {
     /// Not in plugin.py: a stream's /v1/state as it arrives, the streams behind the panels too (Monitoring reads their
     /// batteries the way Python's ctrl.get_state() did).
     "stream_state" => StreamState { source_id: String, state: Value },
+    /// The answer to host.request_phone_state, to whoever polls and nobody else: the stream's session, and whether the panels show it.
+    "phone_polled" => PhonePolled { source_id: String, session: u64, shown: bool, state: Value },
     /// Not in plugin.py: a timer from Host::schedule went off; only the plugin that scheduled it (owner) hears it.
     "timer_fired" => TimerFired { owner: String, token: String },
     /// Not in plugin.py: a Poster's post arrived on the host thread; only the plugin it belongs to (owner) hears it.

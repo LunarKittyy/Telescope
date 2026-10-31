@@ -218,8 +218,7 @@ impl MonitoringPlugin {
         self.show(host);
     }
 
-    /// Each phone stream is asked for its state; the shown one's comes back as phone_state_updated, the others' as
-    /// stream_state.
+    /// Each phone stream is asked for its state; the answers come back as phone_polled, to this plugin alone.
     pub fn poll(&mut self, host: &mut dyn Host) {
         if self.shown.is_some() {
             host.request_phone_state(None);
@@ -239,15 +238,17 @@ impl MonitoringPlugin {
     }
 
     /// A stream the panels don't show: its own alerts, by the thresholds saved for it.
-    pub fn on_other_state(&mut self, host: &mut dyn Host, sid: &str, state: &Value) {
-        let Some(name) = host.background_streams().into_iter().find(|b| b.source_id == sid).map(|b| b.name) else {
+    pub fn on_other_state(&mut self, host: &mut dyn Host, sid: &str, session: u64, state: &Value) {
+        let behind = host.background_streams().into_iter().find(|b| b.source_id == sid && b.session == session);
+        let Some(name) = behind.map(|b| b.name) else {
             return; // stopped, or the panels show it now
         };
         let Some((level, charging, temp)) = reading(state) else { return };
-        let (session, mut warned) = self.others.remove(sid).unwrap_or_default();
+        // A stream restarted since the last reading starts over
+        let mut warned = self.others.remove(sid).filter(|(was, _)| *was == Some(session)).map(|(_, w)| w).unwrap_or_default();
         let cfg = Thresholds::from_saved(&host.device_config(Some(sid), NAME));
         self.alert(host, &mut warned, level, charging, temp, &cfg, Some(sid), &name);
-        self.others.insert(sid.to_string(), (session, warned));
+        self.others.insert(sid.to_string(), (Some(session), warned));
     }
 
     pub fn update_display(&mut self, host: &mut dyn Host, level: i64, charging: bool, temp_c: f64) {
@@ -455,7 +456,13 @@ impl Plugin for MonitoringPlugin {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::PhoneStateUpdated { state } => self.on_state(host, state),
-            Event::StreamState { source_id, state } => self.on_other_state(host, source_id, state),
+            Event::PhonePolled { source_id, session, shown, state } => {
+                if !*shown {
+                    self.on_other_state(host, source_id, *session, state);
+                } else if self.shown_session == Some(*session) {
+                    self.on_state(host, state); // a reading from a stream that has since been replaced is dropped
+                }
+            }
             Event::TimerFired { token, .. } if token == POLL => {
                 self.polling = false;
                 if host.is_streaming() {

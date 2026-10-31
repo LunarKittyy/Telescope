@@ -352,7 +352,7 @@ impl Window {
         st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
         st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
         st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
-            .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name() }).collect();
+            .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name(), session: x.session().map_or(0, |s| s.id) }).collect();
         (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
         let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
         st.streams.can_hand_over = s.streams.iter().filter(|src| {
@@ -967,6 +967,10 @@ impl Window {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 self.apply_state(&source, session_id, state);
             }
+            Report::Polled { source_id, session_id, state } => {
+                let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
+                self.state_polled(&source, session_id, state);
+            }
             Report::RecoveryProbed { source_id, session_id, generation, resolution } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 recovery_probed(self, &source, session_id, generation, &resolution);
@@ -1188,6 +1192,17 @@ impl Window {
             Some((base, phone)) => sensors.follow(Some(source.id_str()), Some(&base), Some(&phone), state),
             None => sensors.follow(Some(source.id_str()), None, None, state),
         }
+    }
+
+    /// A poll's answer goes to the poller as it is: a reading from a stream that has since stopped or restarted is dropped,
+    /// and the rest of the app doesn't hear it, or the Camera card would reload from the phone every poll.
+    fn state_polled(self: &Rc<Self>, source: &SourceRef, session_id: u64, state: Value) {
+        if source.session().is_none_or(|s| s.id != session_id) || state.get("battery").is_none() {
+            return;
+        }
+        let shown = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
+        self.state.borrow().bus.emit(Event::PhonePolled { source_id: source.id_str().into(), session: session_id, shown, state });
+        self.process();
     }
 
     /// _apply_state: the phone's state, to the plugins that hear about its stream.

@@ -153,7 +153,7 @@ fn focus(st: &mut State, to: &str, behind: &[&str]) {
     let names: Vec<String> = st.slots.iter().map(|s| s.info.name.clone()).collect();
     st.call_hook(&names, &Hook::FocusLost);
     st.streams.source_id = Some(to.into());
-    st.streams.background = behind.iter().map(|id| BackgroundStream { source_id: (*id).into(), name: (*id).into() }).collect();
+    st.streams.background = behind.iter().map(|id| BackgroundStream { session: 0, source_id: (*id).into(), name: (*id).into() }).collect();
     st.call_hook(&names, &Hook::FocusGained(StreamInfo { source_id: to.into(), url: format!("http://{to}"), session: 0 }));
     st.bus.emit(Event::StreamsChanged { count: behind.len() as u32 + 1 });
     st.deliver_events();

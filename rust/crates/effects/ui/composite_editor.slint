@@ -106,7 +106,7 @@ component PictureView inherits Rectangle {
             if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
             if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
             if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
-            if t.missing: Text {
+            if t.missing: shown-selected-tile-name := Text {
                 width: parent.width - 12px;
                 text: t.gone;
                 wrap: word-wrap;
@@ -439,6 +439,7 @@ export component CompositeEditor inherits Window {
                                     vertical-alignment: center;
                                     horizontal-stretch: 1;
                                     overflow: elide;
+                                    if shown-selected-tile-name.preferred-width > shown-selected-tile-name.width: Tooltip { TipBody { says: shown-selected-tile-name.text; } }
                                 }
                                 Rectangle {
                                     width: 36px;
@@ -568,7 +569,7 @@ export component CompositeEditor inherits Window {
                         LabelRow {
                             label-width: 72px;
                             label: @tr("Picture");
-                            Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; if shown-picture-name.preferred-width > shown-picture-name.width: Tooltip { TipBody { says: shown-picture-name.text; } } }
                             Button { y: 2px; text: @tr("Picture…"); tip: @tr("Put a picture behind the streams instead of the colour"); clicked => { root.picture-clicked(); } }
                             if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
                         }

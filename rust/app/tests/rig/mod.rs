@@ -523,6 +523,8 @@ impl Plugin for Listener {
             Event::StreamLost { source_id } => note(&self.heard, format!("{} lost {source_id}", self.name)),
             Event::StreamConnected { source_id } => note(&self.heard, format!("{} connected {source_id}", self.name)),
             Event::PhoneStateUpdated { state } => note(&self.heard, format!("{} bus state {state}", self.name)),
+            Event::PhonePolled { source_id, shown, .. } => note(&self.heard, format!("{} polled {source_id} {shown}", self.name)),
+            Event::StreamState { source_id, .. } => note(&self.heard, format!("{} stream state {source_id}", self.name)),
             Event::StreamStarted { url } => note(&self.heard, format!("{} stream_started {url}", self.name)),
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),
             Event::StreamStartFailed => note(&self.heard, format!("{} start_failed", self.name)),

@@ -364,7 +364,7 @@ export component ColourGradingCard inherits Card {
                     tip: @tr("Pick a .cube LUT to put on top of the grade");
                     clicked => { root.load-clicked(); }
                 }
-                Text {
+                shown-lut-text := Text {
                     text: lut-text;
                     horizontal-stretch: 1;
                     font-family: Theme.font;
@@ -372,6 +372,7 @@ export component ColourGradingCard inherits Card {
                     color: Theme.dim;
                     vertical-alignment: center;
                     overflow: elide;
+                    if shown-lut-text.preferred-width > shown-lut-text.width: Tooltip { TipBody { says: shown-lut-text.text; } }
                 }
                 if lut-loaded: Rectangle {
                     width: 34px;

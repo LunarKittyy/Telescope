@@ -114,6 +114,8 @@ fn the_pad_hands_over_values_the_sliders_quantise() {
     assert_eq!(r.shown("pan-text"), json!("H +50%\nV -100%"));
     r.ui("pad-reset", vec![]);
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
+    r.zoom(100);
+    assert_eq!(r.shown("pan-enabled"), json!(false));
 }
 
 #[test]

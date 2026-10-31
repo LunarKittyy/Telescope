@@ -148,7 +148,7 @@ export component ChromaKeyCard inherits Card {
             }
             Rectangle {
                 horizontal-stretch: 1;
-                Text {
+                shown-picture-text := Text {
                     width: parent.width;
                     height: parent.height;
                     text: picture-text;
@@ -157,6 +157,7 @@ export component ChromaKeyCard inherits Card {
                     color: Theme.text-dim;
                     vertical-alignment: center;
                     overflow: elide;
+                    if shown-picture-text.preferred-width > shown-picture-text.width: Tooltip { TipBody { says: shown-picture-text.text; } }
                 }
                 if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
             }

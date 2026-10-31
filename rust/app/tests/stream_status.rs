@@ -3,6 +3,7 @@ mod rig;
 
 use rig::{Listener, Rig};
 use serde_json::json;
+use slint::ComponentHandle;
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
 use telescope_core::event::Event;
@@ -351,4 +352,26 @@ fn the_cant_keep_up_note_goes_once_the_stream_keeps_up() {
     r.pump();
     assert_eq!(r.w.state.borrow().plugin_config("stream_output").unwrap()["bitrate_mbps"], -1);
     assert!(r.banner("behind").is_none());
+}
+
+#[test]
+fn eliding_label_keeps_its_full_text_available() {
+    let r = Rig::new("status-elided");
+    r.w.ui.window().set_size(slint::LogicalSize::new(560.0, 600.0));
+    r.w.ui.show().unwrap();
+    let long = "a considerably longer piece of status text that has no chance of fitting beside the two readouts of a window this narrow";
+    let says = |text: &str| i_slint_backend_testing::ElementHandle::find_by_accessible_label(&r.w.ui, text).count();
+    let hover = || {
+        let position = slint::LogicalPosition::new(40.0, 580.0);
+        r.w.ui.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+        r.skip(600);
+    };
+    r.w.ui.set_property("status", slint_interpreter::Value::String("Short".into())).unwrap();
+    hover();
+    assert_eq!(says("Short"), 1, "it all shows, so no tooltip");
+    r.w.ui.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position: slint::LogicalPosition::new(300.0, 200.0) });
+    r.skip(50);
+    r.w.ui.set_property("status", slint_interpreter::Value::String(long.into())).unwrap();
+    hover();
+    assert_eq!(says(long), 2, "the line and its tooltip");
 }

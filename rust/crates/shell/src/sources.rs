@@ -46,6 +46,8 @@ pub enum Report {
     /// Err(None): no route to start on, and the Connection plugin says why; Err(Some(reason)): the wake failed.
     WakeDone { source_id: String, wake_id: u64, result: Result<Arc<dyn PhoneSession>, Option<String>> },
     State { source_id: String, session_id: u64, state: Value },
+    /// A poll's answer (host.request_phone_state).
+    Polled { source_id: String, session_id: u64, state: Value },
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
     /// recovery moved the stream to a new route: its session there.
     Moved { source_id: String, session_id: u64, generation: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
@@ -733,13 +735,13 @@ impl PhoneKind {
         self.link.show_problem(self.id.as_deref(), res);
     }
 
-    /// Asks the phone for its state on a thread, for a plugin that wants it.
+    /// Asks the phone for its state on a thread, for the plugin that polls it: the answer goes to that plugin alone.
     pub fn ask_state(&self, session_id: u64) {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
         std::thread::spawn(move || {
             if let Some(state) = controls.get_state() {
-                post(Report::State { source_id: sid, session_id, state });
+                post(Report::Polled { source_id: sid, session_id, state });
             }
         });
     }

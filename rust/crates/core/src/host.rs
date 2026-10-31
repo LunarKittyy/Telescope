@@ -223,6 +223,9 @@ pub struct OutputChange {
 pub struct BackgroundStream {
     pub source_id: String,
     pub name: String,
+    /// Its session: a stream restarted since a reading was asked for has a new one.
+    #[serde(default)]
+    pub session: u64,
 }
 
 /// Starting, stopping and following streams, the one the panels show and those behind it.

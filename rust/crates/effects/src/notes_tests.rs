@@ -380,7 +380,7 @@ fn a_stream_still_running_behind_the_panels_keeps_its_notes() {
     r.type_text("For the first");
     r.click("send-clicked");
     r.streaming("other", default_state());
-    r.host.background = vec![BackgroundStream { source_id: "p".into(), name: "Phone".into() }];
+    r.host.background = vec![BackgroundStream { session: 1, source_id: "p".into(), name: "Phone".into() }];
     r.event(Event::StreamsChanged { count: 2 });
     assert!(r.plugin.sent.contains_key("p"));
 }

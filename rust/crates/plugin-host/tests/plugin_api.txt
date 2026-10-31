@@ -26,6 +26,7 @@ event mic_changed
 event motion_seen
 event people_seen
 event people_tracked
+event phone_polled
 event phone_ready
 event phone_state_updated
 event phone_wanted

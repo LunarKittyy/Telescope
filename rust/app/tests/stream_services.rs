@@ -235,6 +235,31 @@ fn packet_steps_coming_on_or_off_ask_the_phone_for_a_keyframe() {
 }
 
 #[test]
+fn a_poll_reaches_the_poller_and_no_other_plugin() {
+    let r = Rig::new("polled");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    *r.link.control("pixel").state.lock().unwrap() = Some(state_with(json!({})));
+    r.forget_heard();
+    r.w.request_phone_state(None);
+    r.until("the reading", |r| r.did_hear("panel polled pixel true"));
+    r.pump();
+    let others: Vec<String> = r.heard().into_iter().filter(|l| !l.ends_with("polled pixel true")).collect();
+    assert_eq!(others, [] as [String; 0], "no plugin reloads from it");
+
+    // A reading from a stream that has since stopped is dropped
+    let state = state_with(json!({}));
+    let session_id = r.session_id("pixel");
+    r.w.stop_all_streams();
+    r.pump();
+    r.forget_heard();
+    r.w.phone_report(telescope_shell::sources::Report::Polled { source_id: "pixel".into(), session_id, state });
+    r.pump();
+    assert!(!r.heard().iter().any(|l| l.contains("polled")));
+}
+
+#[test]
 fn packet_steps_stay_with_the_panels_and_both_streams_get_a_keyframe() {
     struct Nothing;
     impl telescope_core::host::PacketStepFactory for Nothing {

@@ -158,10 +158,11 @@ export component Footer inherits Rectangle {
         padding-top: 8px;
         padding-bottom: 8px;
         spacing: 14px;
-        Text {
+        shown-status := Text {
             horizontal-stretch: 1;
             text: status;
             overflow: elide;
+            if shown-status.preferred-width > shown-status.width: Tooltip { TipBody { says: shown-status.text; } }
             font-family: Theme.font;
             font-size: Theme.body;
             color: StatusColors.of(status-kind);

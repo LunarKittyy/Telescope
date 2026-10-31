@@ -526,11 +526,6 @@ fn a_frame_from_just_before_the_camera_went_off_is_dropped() {
     r.worker(0).says("ok", "Streaming");
     r.pump();
     let s = Stage { r, heard };
-    let p = s.pop_out();
-    s.r.w.call_ui("preview", "card", "popout-closed");
-    s.r.w.paint_preview();
-    assert!(s.r.w.popout_window().is_none());
-    drop(p);
     s.show(0, grey(32, 18));
     assert!(s.has_frame());
     s.r.w.set_camera_on(false, false);
@@ -538,6 +533,18 @@ fn a_frame_from_just_before_the_camera_went_off_is_dropped() {
     assert!(s.on("camera-off") && !s.has_frame(), "the stage says so");
     s.show(0, grey(32, 18));
     assert!(!s.has_frame());
+    let p = s.pop_out();
+    s.r.w.set_camera_on(true, false);
+    s.r.pump();
+    s.r.until("the new worker", |r| r.workers_made() == 2);
+    s.r.worker(1).says("ok", "Streaming");
+    s.r.pump();
+    s.show(1, grey(32, 18));
+    assert_eq!(p.get_property("has-frame").unwrap(), SValue::Bool(true));
+    s.r.w.set_camera_on(false, false);
+    s.r.pump();
+    s.r.w.paint_preview();
+    assert_eq!(p.get_property("has-frame").unwrap(), SValue::Bool(false), "and the pop-out goes blank with it");
 }
 
 #[test]
@@ -578,6 +585,22 @@ fn a_large_frame_does_not_pin_the_column_open() {
     assert!(s.has_frame());
     assert_eq!((s.number("stage-width"), s.r.w.card_rect("preview").unwrap().2), before);
     assert!(s.number("pic-width") <= before.0);
+}
+
+#[test]
+fn the_preview_shows_the_picture_before_the_colour_step_left_of_the_split() {
+    let s = on_air("stage-split");
+    let frame = Frame::new(80, 40, PixelFormat::Rgba, [245, 245, 245, 255].repeat(80 * 40));
+    assert!(Arc::ptr_eq(&s.r.w.with_colour_split(frame.clone()).data, &frame.data), "no split asked for");
+    s.r.w.state.borrow().colour_before.lock().unwrap().insert("pixel".into(), Frame::new(80, 40, PixelFormat::Rgba, [10, 10, 10, 255].repeat(80 * 40)));
+    s.r.w.state.borrow_mut().colour.set_split("grade", Some(0.5));
+    let shown = s.r.w.with_colour_split(frame.clone());
+    assert!(frame.data.chunks(4).all(|p| p[0] == 245), "drawn on a copy");
+    assert_eq!((shown.data[0], shown.data[60 * 4]), (10, 245));
+    s.r.w.state.borrow().colour_before.lock().unwrap().clear();
+    assert!(Arc::ptr_eq(&s.r.w.with_colour_split(frame.clone()).data, &frame.data), "nothing kept from this stream");
+    s.r.w.state.borrow_mut().colour.set_split("grade", None);
+    assert!(Arc::ptr_eq(&s.r.w.with_colour_split(frame.clone()).data, &frame.data));
 }
 
 #[test]

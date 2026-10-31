@@ -53,6 +53,8 @@ export component Test inherits Window {
         Button { text: "Frame rate"; clicked => { pressed = "Frame rate"; } }
         Button { text: "Bitrate"; clicked => { pressed = "Bitrate"; } }
         Button { text: "Tipped"; tip: "About the owner"; }
+        Rectangle { width: 300px; height: 36px; HorizontalLayout { Slider { label: "Wide room"; has-readout: false; } } }
+        Rectangle { width: 40px; height: 36px; HorizontalLayout { Slider { label: "Narrow room"; has-readout: false; } } }
         ChoiceField { caption: "Picked"; items: ["a", "b", "c"]; gone: [false, true, false]; tip: "About the field"; picked(i) => { pressed = "row " + i; } }
     }
     short-tip := TipBody { says: "Settings"; visible: false; }
@@ -317,6 +319,14 @@ fn tooltips_show_sooner() {
     assert!(labelled(&ui, "About the owner").is_empty(), "not straight away");
     wait(100);
     assert!(!labelled(&ui, "About the owner").is_empty(), "up in under 700 ms");
+}
+
+#[test]
+fn stretch_slider_sets_a_floor_not_a_fixed_width() {
+    let ui = rig();
+    let width = |name: &str| labelled(&ui, name).remove(0).size().width;
+    assert_eq!(width("Wide room"), 300.0, "it takes the room there is");
+    assert_eq!(width("Narrow room"), 84.0, "and doesn't go under its floor");
 }
 
 #[test]

@@ -46,11 +46,11 @@ impl Rig {
     }
 
     fn behind(&mut self, sid: &str, name: &str) {
-        self.host.background = vec![BackgroundStream { source_id: sid.into(), name: name.into() }];
+        self.host.background = vec![BackgroundStream { source_id: sid.into(), name: name.into(), session: 1 }];
     }
 
     fn other(&mut self, sid: &str, state: Value) {
-        self.event(Event::StreamState { source_id: sid.into(), state });
+        self.event(Event::PhonePolled { source_id: sid.into(), session: 1, shown: false, state });
     }
 
     fn ui(&mut self, callback: &str, args: Vec<Value>) {
@@ -466,4 +466,23 @@ fn odd_saved_values_load_as_the_spin_boxes_take_them() {
     p.set_config(&json!({"battery_alert": 0, "temp_alert": true})).unwrap();
     assert_eq!((p.battery_alert, p.temp_alert), (40, 35), "0 is skipped, True is 1");
     assert!(p.set_config(&json!({"battery_alert": "lots"})).is_err());
+}
+
+#[test]
+fn a_stream_restarted_behind_the_panels_warns_again() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.behind("other", "Pixel");
+    let low = json!({"battery": 5, "charging": false, "battery_temp_c": 25.0});
+    let warnings = |r: &Rig| r.host.notifications.len();
+    r.other("other", low.clone());
+    let once = warnings(&r);
+    assert_eq!(once, 1);
+    r.other("other", low.clone());
+    assert_eq!(warnings(&r), once, "said once");
+    r.host.background[0].session = 2;
+    r.event(Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: low.clone() });
+    assert_eq!(warnings(&r), once, "a reading from before the restart is dropped");
+    r.event(Event::PhonePolled { source_id: "other".into(), session: 2, shown: false, state: low });
+    assert!(warnings(&r) > once, "the restarted stream's own warning");
 }

@@ -254,20 +254,22 @@ export component ConnectionCard inherits Card {
                     spacing: 1px;
                     // Qt's two lines fit the icon's 35px; Slint's line boxes would make them a pixel taller
                     max-height: 35px;
-                    Text {
+                    shown-status-text := Text {
                         text: status-text;
                         font-family: Theme.font;
                         font-size: Theme.start * 1.08;
                         font-weight: 600;
                         color: Status.color(status-kind);
                         overflow: elide;
+                        if shown-status-text.preferred-width > shown-status-text.width: Tooltip { TipBody { says: shown-status-text.text; } }
                     }
-                    if using-shown: Text {
+                    if using-shown: shown-using-text := Text {
                         text: using-text;
                         font-family: Theme.font;
                         font-size: Theme.body;
                         color: Theme.text-dim;
                         overflow: elide;
+                        if shown-using-text.preferred-width > shown-using-text.width: Tooltip { TipBody { says: shown-using-text.text; } }
                     }
                 }
             }
