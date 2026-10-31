@@ -45,6 +45,9 @@ component OptionCard inherits Rectangle {
 }
 
 export component StreamOutputCard inherits Card {
+    // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
+    in property <bool> active: true;
+    in property <bool> phone-only-hidden;
     in property <[string]> res-items: ["—"];
     in-out property <int> res-current;
     in property <bool> res-enabled;
@@ -77,6 +80,10 @@ export component StreamOutputCard inherits Card {
 
     title: @tr("Stream output");
     icon: Icons.v-stream;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+    blocked: !active;
+    visible: !phone-only-hidden;
 
     HorizontalLayout {
         spacing: 8px;
