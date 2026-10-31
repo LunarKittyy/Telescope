@@ -983,7 +983,7 @@ mod tests {
 
     /// The mean brightness of each frame the real reader and decoder make of a feed, till it ends.
     fn read_video(feed: UdpFeed) -> (Vec<f64>, Arc<Mutex<UdpFeed>>) {
-        use telescope_core::media::{Codec, DecodeOptions, FrameReader, Media};
+        use telescope_core::media::{Codec, DecodeOptions, Media};
         let media = telescope_media::FfmpegMedia;
         let feed = Arc::new(Mutex::new(feed));
         let decoder = media.decoder(Codec::H264, &DecodeOptions::default()).unwrap();

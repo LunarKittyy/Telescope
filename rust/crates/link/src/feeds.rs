@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn a_reader_decodes_authenticated_frames_then_reports_eof() {
-        use telescope_core::media::{DecodeOptions, FrameReader, Media};
+        use telescope_core::media::{DecodeOptions, Media};
         let Some(packets) = telescope_media::test_h264(&[30, 90, 150, 210], 64, 48, 5, false) else { return };
         let body = packets.concat();
         let (sent, length) = (body.clone(), body.len() as u64);
