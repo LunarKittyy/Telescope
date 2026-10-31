@@ -2604,7 +2604,7 @@
 "test_config.py::test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings" }
 "test_config.py::test_valid_current_version_config_round_trips_through_migrate" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::valid_current_version_config_round_trips_through_migrate" }
 "test_config.py::test_windows_config_path_uses_appdata" = { status = "ported", rust = "rust/crates/core/src/config_tests.rs::windows_config_path_uses_appdata" }
-"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::config_level_parts_match_every_fixture", note = "Settings and sections are compared in Rust; each plugin's own settings are compared by parity/compare_config.py as their settings get ported" }
+"test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says" = { status = "ported", rust = "rust/app/tests/config_fixtures.rs::the_app_ends_up_where_the_fixture_says" }
 "test_config_fixtures.py::test_there_is_a_fixture_for_each_kind_of_file" = { status = "ported", rust = "rust/crates/core/src/snapshot.rs::there_is_a_fixture_for_each_kind_of_file" }
 # ── connection
 "test_connection.py::test_a_cable_that_is_not_used_gets_explained" = { status = "ported", rust = "rust/crates/link/src/plugin.rs::a_cable_that_is_not_used_gets_explained" }
@@ -3789,7 +3789,7 @@
 "test_qr_reader.py::test_what_goes_to_the_clipboard" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::what_goes_to_the_clipboard" }
 "test_qr_reader.py::test_wifi_codes_are_read_with_their_escapes" = { status = "ported", rust = "rust/crates/effects/src/qr_reader_tests.rs::wifi_codes_are_read_with_their_escapes" }
 # ── release_checklist
-"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "dropped", reason = ".github/checklist_due.py is the release process's own tool (it maps repo files to checklist sections) and stays Python. It needs rust/ and the new workflows mapped before the rewrite merges: it fails on this branch for every file under rust/" }
+"test_release_checklist.py::test_every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" = { status = "ported", rust = "rust/app/tests/release_checklist.rs::every_file_is_in_a_checklist_section_or_listed_as_shared_or_ignored" }
 # ── scopes
 "test_scopes.py::test_a_brighter_spot_glows_more" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::a_brighter_spot_glows_more" }
 "test_scopes.py::test_every_scope_makes_a_bgra_picture" = { status = "ported", rust = "rust/crates/effects/src/scopes_tests.rs::every_scope_makes_a_bgra_picture" }
