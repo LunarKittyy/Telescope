@@ -1,7 +1,8 @@
 //! JPEG without FFmpeg, as the Python app reads MJPEG through OpenCV whether or not PyAV is there: a copy whose FFmpeg
 //! didn't load, or a build without it, can still stream Heavy.
 
-use crate::jpeg_guard::within_limits;
+use crate::jpeg_guard::{jpeg_size, within_limits};
+use crate::picture::{exif_orientation, oriented, MAX_PIXELS};
 use crate::range::full_to_limited;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::media::{Decoded, Decoder, Packet};
@@ -12,13 +13,12 @@ use zune_jpeg::JpegDecoder;
 
 /// The pixels in `colour`, with their size and bytes per pixel; None for one that doesn't decode. A grey JPEG comes back grey whatever was asked.
 fn read(jpeg: &[u8], colour: ColorSpace) -> Option<(usize, usize, usize, Vec<u8>)> {
-    if !within_limits(jpeg) {
-        return None;
-    }
-    let mut decoder = JpegDecoder::new(ZCursor::new(jpeg));
+    // Set before the headers are read, which is when zune-jpeg picks its YCbCr converter; JPEG itself stops at 65535 a side
+    let options = DecoderOptions::default().set_max_width(65535).set_max_height(65535).jpeg_set_out_colorspace(colour);
+    let mut decoder = JpegDecoder::new_with_options(ZCursor::new(jpeg), options);
     decoder.decode_headers().ok()?;
     let colour = if decoder.info()?.components == 1 { ColorSpace::Luma } else { colour };
-    decoder.set_options(DecoderOptions::default().jpeg_set_out_colorspace(colour));
+    decoder.set_options(options.jpeg_set_out_colorspace(colour));
     let pixels = decoder.decode().ok()?;
     let (w, h) = decoder.dimensions()?;
     Some((w, h, colour.num_components(), pixels))
@@ -58,15 +58,24 @@ fn to_i420(w: usize, h: usize, step: usize, pixels: &[u8]) -> Vec<u8> {
 
 /// The JPEG in a packet as I420, or None if it doesn't decode or declares more pixels than we'll allocate.
 pub fn frame(jpeg: &[u8]) -> Option<Frame> {
+    if !within_limits(jpeg) {
+        return None;
+    }
     let (w, h, step, pixels) = read(jpeg, ColorSpace::YCbCr)?;
     Some(Frame::new(w as u32, h as u32, PixelFormat::I420, to_i420(w, h, step, &pixels)))
 }
 
-/// A JPEG picture as RGBA. Without FFmpeg it's the one kind of picture file that reads, and it isn't turned by its EXIF.
+/// A JPEG picture as RGBA, turned by its EXIF. A file someone picked isn't held to a peer's limits: phones take bigger photos than that.
 pub fn picture(jpeg: &[u8]) -> Option<Frame> {
-    let (w, h, step, pixels) = read(jpeg, ColorSpace::RGBA)?;
-    let rgba = if step == 1 { pixels.iter().flat_map(|&g| [g, g, g, 255]).collect() } else { pixels };
-    Some(Frame::new(w as u32, h as u32, PixelFormat::Rgba, rgba))
+    jpeg_size(jpeg).filter(|&(w, h)| w as u64 * h as u64 <= MAX_PIXELS)?;
+    // RGB and not RGBA: zune-jpeg's CMYK conversions step through RGBA rows three bytes at a time
+    let (w, h, step, pixels) = read(jpeg, ColorSpace::RGB)?;
+    let rgba = if step == 1 {
+        pixels.iter().flat_map(|&g| [g, g, g, 255]).collect()
+    } else {
+        pixels.as_chunks::<3>().0.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect()
+    };
+    Some(oriented(rgba, w, h, exif_orientation(jpeg)))
 }
 
 /// One JPEG per packet, like mjpeg::Mjpeg.
@@ -104,8 +113,19 @@ mod tests {
 
     #[test]
     fn a_picture_comes_back_as_rgba() {
-        let f = picture(&testenc::jpeg(128, 16, 16)).unwrap();
+        // Y 81, U 90, V 240 in a JPEG's full range is a strong red, which an RGB conversion written into RGBA rows smears into other colours
+        let f = picture(&testenc::jpeg_yuv(81, 90, 240, 16, 16)).unwrap();
         assert_eq!((f.width, f.height, f.format), (16, 16, PixelFormat::Rgba));
+        for px in f.data.as_chunks::<4>().0 {
+            assert!(px[..3].iter().zip([238, 14, 14]).all(|(&a, b)| a.abs_diff(b) <= 3) && px[3] == 255, "came out {px:?}");
+        }
+    }
+
+    #[test]
+    fn a_picture_is_not_held_to_a_streams_limits() {
+        let jpeg = testenc::jpeg(128, 20000, 2);
+        assert!(frame(&jpeg).is_none());
+        assert_eq!(picture(&jpeg).map(|f| (f.width, f.height)), Some((20000, 2)));
     }
 
     #[test]

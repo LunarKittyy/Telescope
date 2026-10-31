@@ -5781,6 +5781,7 @@ name = "telescope-media"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-sys-next",
+ "image",
  "libc",
  "libloading",
  "log",

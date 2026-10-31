@@ -73,6 +73,7 @@ roxmltree = "0.21"
 libloading = "0.8"
 zune-jpeg = "0.5"
 zune-core = "0.5"
+image = { version = "0.25", default-features = false }
 # The program's own icon and name on Windows, for Explorer, the tray and the firewall's question
 winresource = "0.1"
 cpal = "0.18"
