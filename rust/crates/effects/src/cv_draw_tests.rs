@@ -6,7 +6,7 @@ fn fnv(data: &[u8]) -> u64 {
     data.iter().fold(0xcbf29ce484222325, |h, b| (h ^ *b as u64).wrapping_mul(0x100000001b3))
 }
 
-/// Every case is a cv2 call recorded by tools/record_cv_draw.py: the same call here, the same bytes.
+/// Every case is a cv2 call recorded by tests/fixtures/make_cv_draw.py: the same call here, the same bytes.
 #[test]
 fn drawing_matches_opencv_byte_for_byte() {
     let mut cases = 0;

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# Records what cv2's drawing does for crates/effects/src/cv_draw_tests.rs: python3 rust/tools/record_cv_draw.py
+# Records what cv2's drawing does for crates/effects/src/cv_draw_tests.rs.
 import pathlib
 import random
 
 import cv2
 import numpy as np
 
-OUT = pathlib.Path(__file__).parents[1] / "crates/effects/tests/fixtures/cv_draw.txt"
+OUT = pathlib.Path(__file__).parent / "cv_draw.txt"
 
 
 def fnv(data: bytes) -> str:
