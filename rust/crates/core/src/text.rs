@@ -487,6 +487,36 @@ fn next_char_joins(text: &str, pos: usize) -> bool {
     !matches!(get_joining_type(ch), JoiningType::NonJoining | JoiningType::Transparent)
 }
 
+/// str.isspace(): Unicode's whitespace and the four separators Python counts too.
+pub fn py_space(ch: char) -> bool {
+    ch.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&ch)
+}
+
+/// str.strip().
+pub fn py_strip(text: &str) -> &str {
+    text.trim_matches(py_space)
+}
+
+/// str.splitlines(): every line break Python knows, \r\n as one, with no empty line after a last break.
+pub fn py_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut chars = text.char_indices().peekable();
+    while let Some((at, ch)) = chars.next() {
+        if matches!(ch, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}' | '\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}') {
+            lines.push(&text[start..at]);
+            if ch == '\r' && chars.peek().is_some_and(|&(_, next)| next == '\n') {
+                chars.next();
+            }
+            start = chars.peek().map_or(text.len(), |&(i, _)| i);
+        }
+    }
+    if start < text.len() {
+        lines.push(&text[start..]);
+    }
+    lines
+}
+
 /// QString::isRightToLeft: as right_to_left, leaving out what's inside an isolate. What a line is drawn by.
 fn qt_right_to_left(text: &str) -> bool {
     let mut isolates = 0;

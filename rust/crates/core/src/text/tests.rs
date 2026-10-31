@@ -471,3 +471,11 @@ fn text_around_an_emoji_stays_ink() {
     let (colours, plain) = painted(&face, "a\u{1f319}b");
     assert!(!colours.is_empty() && plain > 50);
 }
+
+#[test]
+fn strings_split_and_strip_as_python_does() {
+    assert_eq!(py_lines("a\r\nb\u{2028}c\u{b}\n"), ["a", "b", "c", ""]);
+    assert_eq!(py_lines("a\n"), ["a"]);
+    assert!(py_lines("").is_empty());
+    assert_eq!(py_strip("\u{1c} a\u{a0}\u{3000}"), "a");
+}

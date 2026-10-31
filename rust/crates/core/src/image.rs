@@ -11,13 +11,19 @@ pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     match frame.format {
         PixelFormat::Rgba => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend_from_slice(&p[..3])),
         PixelFormat::Bgra => frame.data.as_chunks::<4>().0.iter().for_each(|p| out.extend([p[2], p[1], p[0]])),
-        PixelFormat::I420 => {
-            let (y, u, v) = frame.i420_planes()?;
-            let cw = w.div_ceil(2);
+        PixelFormat::I420 | PixelFormat::Nv12 => {
+            let nv12 = frame.format == PixelFormat::Nv12;
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            if frame.data.len() < w * h + 2 * cw * ch {
+                return None;
+            }
+            let (y, chroma) = frame.data.split_at(w * h);
             for row in 0..h {
                 for col in 0..w {
+                    let cell = (row / 2) * cw + col / 2;
+                    let (u, v) = if nv12 { (chroma[cell * 2], chroma[cell * 2 + 1]) } else { (chroma[cell], chroma[cw * ch + cell]) };
                     let c = (y[row * w + col] as f32 - 16.0).max(0.0) * 1.164_383;
-                    let (du, dv) = (u[(row / 2) * cw + col / 2] as f32 - 128.0, v[(row / 2) * cw + col / 2] as f32 - 128.0);
+                    let (du, dv) = (u as f32 - 128.0, v as f32 - 128.0);
                     let q = |x: f32| x.round().clamp(0.0, 255.0) as u8;
                     out.extend([q(c + 1.596_027 * dv), q(c - 0.391_762 * du - 0.812_968 * dv), q(c + 2.017_232 * du)]);
                 }
