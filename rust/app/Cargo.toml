@@ -34,6 +34,7 @@ qrcode.workspace = true
 winresource.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 flate2.workspace = true
 zip.workspace = true
 # The settings window's tests drive it through Slint's testing backend (pinned like the shell's)

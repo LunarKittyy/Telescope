@@ -3150,9 +3150,9 @@
 # ── on_air
 "test_on_air.py::test_a_failed_state_is_sent_again_with_backoff_until_it_works" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::a_failed_state_is_sent_again_with_backoff_until_it_works" }
 "test_on_air.py::test_a_get_payload_is_encoded_so_it_cant_break_the_request" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_get_payload_is_encoded_so_it_cant_break_the_request" }
-"test_on_air.py::test_a_new_link_ends_the_wait_and_refuses_the_old_one" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_new_link_ends_the_wait_and_refuses_the_old_one" }
+"test_on_air.py::test_a_new_link_ends_the_wait_and_refuses_the_old_one" = { status = "ported", rust = "rust/app/tests/on_air_server.rs::a_new_link_ends_the_wait_and_refuses_the_old_one" }
 "test_on_air.py::test_a_newer_change_replaces_the_retries" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::a_newer_change_replaces_the_retries" }
-"test_on_air.py::test_a_page_waits_for_the_next_change" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_page_waits_for_the_next_change" }
+"test_on_air.py::test_a_page_waits_for_the_next_change" = { status = "ported", rust = "rust/app/tests/on_air_server.rs::a_page_waits_for_the_next_change" }
 "test_on_air.py::test_a_test_never_takes_the_place_of_a_state" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_test_never_takes_the_place_of_a_state" }
 "test_on_air.py::test_a_test_send_shows_its_result_but_never_a_banner" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::a_test_send_shows_its_result_but_never_a_banner" }
 "test_on_air.py::test_an_address_half_typed_is_a_problem_not_a_crash" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::an_address_half_typed_is_a_problem_not_a_crash" }
@@ -3161,7 +3161,7 @@
 "test_on_air.py::test_clearing_the_address_ends_the_retries_and_the_banner" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::clearing_the_address_ends_the_retries_and_the_banner" }
 "test_on_air.py::test_each_change_goes_to_the_webhook" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::each_change_goes_to_the_webhook" }
 "test_on_air.py::test_each_trigger_reads_what_it_says" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::each_trigger_reads_what_it_says" }
-"test_on_air.py::test_errors_never_carry_the_address" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::what_goes_wrong_is_said_without_quoting_the_address" }
+"test_on_air.py::test_errors_never_carry_the_address" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::what_goes_wrong_is_said_without_quoting_the_address", note = "checks the log; a panic's text still goes to diagnostics' crash line through the panic hook, which Python's logging of the type alone never does" }
 "test_on_air.py::test_get_adds_the_payload_to_the_query" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::get_adds_the_payload_to_the_query" }
 "test_on_air.py::test_going_off_waits_longer_so_an_app_reopening_the_camera_doesnt_flap" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::going_off_waits_longer_so_an_app_reopening_the_camera_doesnt_flap" }
 "test_on_air.py::test_going_on_waits_a_moment_and_a_blip_never_counts" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::going_on_waits_a_moment_and_a_blip_never_counts" }
@@ -3171,14 +3171,14 @@
 "test_on_air.py::test_quitting_off_air_sends_nothing" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::quitting_off_air_sends_nothing" }
 "test_on_air.py::test_quitting_while_on_air_turns_the_light_off" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::quitting_while_on_air_turns_the_light_off" }
 "test_on_air.py::test_send_reports_what_went_wrong_without_the_address" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::a_webhook_arrives_as_built_and_a_failure_says_what_went_wrong_without_the_address" }
-"test_on_air.py::test_serves_the_sign_and_its_script_and_nothing_else" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::serves_the_sign_and_its_script_and_nothing_else" }
+"test_on_air.py::test_serves_the_sign_and_its_script_and_nothing_else" = { status = "ported", rust = "rust/app/tests/on_air_server.rs::serves_the_sign_and_its_script_and_nothing_else" }
 "test_on_air.py::test_settings_section_and_header_follow_the_state" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_settings_section_and_the_header_follow_the_state" }
 "test_on_air.py::test_switching_the_page_off_stops_the_server" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::switching_the_page_off_stops_the_server" }
 "test_on_air.py::test_the_link_follows_a_network_change" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_follows_a_network_change" }
 "test_on_air.py::test_the_link_survives_a_restart_and_a_new_link_replaces_it" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_survives_a_restart_and_a_new_link_replaces_it" }
 "test_on_air.py::test_the_mic_trigger_follows_the_mic_while_streaming" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_mic_trigger_follows_the_mic_while_streaming" }
 "test_on_air.py::test_the_sender_only_sends_whats_true_at_the_end" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::the_sender_only_sends_whats_true_at_the_end" }
-"test_on_air.py::test_the_state_needs_the_token" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::the_state_needs_the_token" }
+"test_on_air.py::test_the_state_needs_the_token" = { status = "ported", rust = "rust/app/tests/on_air_server.rs::the_state_needs_the_token" }
 "test_on_air.py::test_url_carries_the_token_after_the_hash" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::the_link_survives_a_restart_and_a_new_link_replaces_it" }
 "test_on_air.py::test_waiting_for_the_sender_gives_up_at_the_deadline" = { status = "ported", rust = "rust/crates/effects/src/on_air_tests.rs::waiting_for_the_sender_gives_up_at_the_deadline" }
 "test_on_air.py::test_webhook_failures_make_one_quiet_banner_until_one_works" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin_tests.rs::webhook_failures_make_one_quiet_banner_until_one_works" }
