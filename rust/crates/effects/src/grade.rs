@@ -508,8 +508,7 @@ mod tests {
     #[test]
     fn saturation_mixes_with_rec709_luma() {
         check(&Grade { saturation: 1.6, ..Default::default() }, |x| x.map(|v| (lum(x) + 1.6 * (v - lum(x))).clamp(0.0, 1.0)), 1e-5);
-        let grey = Grade { saturation: 0.0, ..Default::default() }.eval([0.9, 0.2, 0.4]);
-        assert!((grey[0] - grey[1]).abs() < 1e-6);
+        check(&Grade { saturation: 0.0, ..Default::default() }, |x| [lum(x); 3], 1e-5);
         assert!(!Grade { saturation: 0.5, ..Default::default() }.per_channel());
     }
 
@@ -534,7 +533,7 @@ mod tests {
             assert!((monotone_curve(&pts, px) - py as f32).abs() < 1e-6);
         }
         let ys: Vec<f32> = (0..=400).map(|i| monotone_curve(&pts, i as f64 / 400.0)).collect();
-        assert!(ys.windows(2).all(|w| w[1] - w[0] >= -1e-6) && ys.iter().all(|y| (0.0..=1.0).contains(y)));
+        assert!(ys.windows(2).all(|w| w[1] - w[0] >= -1e-7) && ys.iter().all(|y| (0.0..=1.0).contains(y)));
         assert!((0..=400).all(|i| (monotone_curve(&LINEAR, i as f64 / 400.0) - i as f32 / 400.0).abs() < 1e-6));
     }
 

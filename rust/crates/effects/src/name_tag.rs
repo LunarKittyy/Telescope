@@ -68,6 +68,10 @@ impl NameTagPlugin {
         NameTagPlugin { on: false, spec: Spec::default(), paired: Paired::default(), held: None, pending: false }
     }
 
+    fn step(&self) -> TagStep {
+        TagStep { spec: self.spec.clone(), cache: TagCache::default() }
+    }
+
     /// Whether the tag is drawn at all: on, and something to say.
     fn shows(&self) -> bool {
         self.on && !self.spec.empty()
@@ -229,7 +233,7 @@ impl Plugin for NameTagPlugin {
 
     fn frame_step(&mut self) -> Option<FrameStep> {
         // A cache of its own: the streams can differ in size
-        self.shows().then(|| FrameStep::Cpu(Box::new(TagStep { spec: self.spec.clone(), cache: TagCache::default() })))
+        self.shows().then(|| FrameStep::Cpu(Box::new(self.step())))
     }
 
     fn get_config(&self) -> Value {

@@ -5700,12 +5700,14 @@ name = "telescope-audio"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "i-slint-backend-testing",
  "libc",
  "libloading",
  "log",
  "ring",
  "rustls",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "telescope-core",
  "telescope-ui-kit",
@@ -5772,6 +5774,7 @@ dependencies = [
  "slint-interpreter",
  "str0m",
  "telescope-core",
+ "telescope-media",
  "telescope-ui-kit",
  "ureq",
  "zip",

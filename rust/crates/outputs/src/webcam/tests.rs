@@ -85,6 +85,14 @@ fn a_webcam_plugged_in_joins_the_picker_and_one_pulled_out_leaves() {
 #[test]
 fn a_renamed_webcam_is_offered_again_under_its_new_name() {
     let mut env = cams();
+    env.plugged.lock().unwrap().push(Device { key: "usb-c920-2".into(), name: "HD Pro Webcam C920 (2)".into(), location: "/dev/video4".into(), modes: modes() });
+    env.plugin.rescan(&mut env.host);
+    assert_eq!(env.plugin.sources["usb-c920-2"].name(), "HD Pro Webcam C920 (2)");
+}
+
+#[test]
+fn a_webcam_whose_name_changes_under_the_same_key_is_named_afresh() {
+    let mut env = cams();
     env.plugged.lock().unwrap()[0].name = "HD Pro Webcam C920 (2)".into();
     env.plugin.rescan(&mut env.host);
     assert_eq!(env.plugin.sources["usb-c920"].name(), "HD Pro Webcam C920 (2)");
@@ -143,10 +151,11 @@ fn a_busy_webcam_gets_a_banner_naming_the_app_until_it_opens() {
     stream(&mut env, "usb-c920");
     pick(&mut env, Some("usb-c920"));
     report(&mut env, "usb-c920", "busy", "zoom");
-    assert!(env.host.calls.iter().any(|c| c == "show_issue webcam:usb-c920 Can't open HD Pro Webcam C920"));
+    let issue = &env.host.issues.iter().find(|(k, _)| k == "webcam:usb-c920").expect("a banner").1;
+    assert!(issue.title.contains("HD Pro Webcam C920") && issue.text.contains("zoom"), "{issue:?}");
     assert_eq!(status(&env), "In use by zoom");
     report(&mut env, "usb-c920", "ok", "1280×720, MJPEG, 30 fps");
-    assert!(env.host.calls.iter().any(|c| c == "clear_issue Some(\"webcam:usb-c920\")"));
+    assert!(!env.host.issues.iter().any(|(k, _)| k == "webcam:usb-c920"));
     assert_eq!(status(&env), "1280×720, MJPEG, 30 fps");
 }
 
@@ -156,7 +165,8 @@ fn a_busy_webcam_without_a_known_app_still_says_what_to_do() {
     let mut env = cams();
     stream(&mut env, "usb-c920");
     report(&mut env, "usb-c920", "busy", "");
-    assert!(env.host.calls.iter().any(|c| c.starts_with("show_issue webcam:usb-c920")));
+    let issue = &env.host.issues.iter().find(|(k, _)| k == "webcam:usb-c920").expect("a banner").1;
+    assert!(issue.text.contains("Another app"), "{issue:?}");
 }
 
 // test_webcam_plugin.py::test_the_card_shows_only_while_a_webcam_is_picked
@@ -250,6 +260,43 @@ fn the_source_reads_through_the_plugin() {
     assert!(src.lost_hint().contains("plugged in"));
     assert!(src.open_feed().is_err(), "the stand-in opener has no camera");
     assert_eq!(src.waiting_text(), webcam_capture::BUSY_TEXT);
+}
+
+struct OneFrame;
+
+struct NoStop;
+
+impl telescope_core::media::FeedStopper for NoStop {
+    fn stop(&self) {}
+}
+
+impl webcam_capture::Capture for OneFrame {
+    fn read(&mut self) -> Result<Vec<u8>, String> {
+        Ok(vec![0xFF, 0xD8, 0xFF, 0xD9])
+    }
+    fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
+        Box::new(NoStop)
+    }
+}
+
+// test_webcam_plugin.py::test_the_source_reads_through_the_plugin: with a camera there, the source gives the frames it read
+#[test]
+fn the_source_opens_a_feed_of_the_cameras_frames() {
+    let plugged = Arc::new(Mutex::new(vec![c920()]));
+    let p = plugged.clone();
+    let system = System {
+        opener: Arc::new(|_, _| Ok(Box::new(OneFrame) as Box<dyn webcam_capture::Capture>)),
+        users: Arc::new(|_| String::new()),
+        exists: Arc::new(|_| true),
+    };
+    let mut plugin = WebcamPlugin::new(Box::new(move || Ok(p.lock().unwrap().clone())), Box::new(|_| None), system);
+    let mut host = FakeHost::new();
+    plugin.setup(&mut host);
+    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_SCAN.into() });
+    let src = plugin.sources["usb-c920"].clone();
+    let (codec, mut feed) = src.open_feed().expect("a feed from the camera");
+    assert_eq!(codec, telescope_core::media::Codec::Mjpeg);
+    assert_eq!(feed.read().map(|p| p.data).unwrap(), [0xFF, 0xD8, 0xFF, 0xD9]);
 }
 
 // test_webcam_plugin.py::test_a_failing_scan_keeps_what_was_found
