@@ -526,8 +526,8 @@ mod tests {
         client.send(&json!({"action": "camera", "id": "cam2"}));
         phone.hold(false);
         phone.wait_for(3);
-        let ids: Vec<Value> = phone.received().iter().map(|r| r["id"].clone()).collect();
-        assert_eq!(ids, [json!("cam0"), json!("cam1"), json!("cam2")]);
+        assert_eq!(phone.received(), [json!({"action": "camera", "id": "cam0"}), json!({"action": "camera", "id": "cam1"}),
+                                      json!({"action": "camera", "id": "cam2"})]);
         client.close();
     }
 
@@ -565,8 +565,14 @@ mod tests {
         assert!(!client.closed());
         client.close();
         assert!(client.closed());
+        // the worker's thread lets go of the client when it ends
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Arc::strong_count(&client.inner) > 1 {
+            assert!(Instant::now() < deadline, "the worker still runs");
+            std::thread::sleep(Duration::from_millis(5));
+        }
         client.send(&json!({"action": "iso", "value": 1}));
-        std::thread::sleep(Duration::from_millis(50));
+        assert!(client.drain_queue().is_empty());
         assert!(phone.received().is_empty());
     }
 
@@ -582,17 +588,20 @@ mod tests {
 
     #[test]
     fn resend_settings_sends_the_last_of_each_in_the_order_last_sent() {
-        let (client, _) = scripted(vec![], quick());
+        let (client, tries) = scripted(vec![true; 10], quick());
         client.send(&json!({"action": "iso", "value": 100}));
         client.send(&json!({"action": "wb_auto"}));
-        client.send(&json!({"action": "torch", "value": "1"}));
-        client.send(&json!({"action": "auto"}));
+        client.send(&json!({"action": "torch", "value": "1"})); // a one-off, not a setting the phone keeps
+        client.send(&json!({"action": "auto"})); // back to auto exposure after the manual ISO
         client.send(&json!({"action": "zoom", "value": 2.0}));
-        assert_eq!(client.settings(), [json!({"action": "iso", "value": 100}), json!({"action": "wb_auto"}), json!({"action": "auto"}),
-                                       json!({"action": "zoom", "value": 2.0})]);
+        let settings = [json!({"action": "iso", "value": 100}), json!({"action": "wb_auto"}), json!({"action": "auto"}), json!({"action": "zoom", "value": 2.0})];
+        assert_eq!(client.settings(), settings);
         client.drain_queue();
+        client.forget_pending();
         client.resend_settings();
-        assert_eq!(client.drain_queue(), ["iso", "wb_auto", "auto", "zoom"].map(|a| Some(a.to_string())));
+        client.end_queue();
+        client.run_worker();
+        assert_eq!(*tries.lock().unwrap(), settings);
     }
 
     #[test]
@@ -608,12 +617,31 @@ mod tests {
         (server, client)
     }
 
+    /// A phone that takes requests and never answers, to time how long a client waits.
+    fn silent_phone() -> Server {
+        serve(None, Arc::new(|_| {
+            std::thread::sleep(Duration::from_secs(8));
+            (200, "application/json".into(), Vec::new())
+        }))
+    }
+
+    fn took_about(started: Instant, seconds: f64) {
+        let took = started.elapsed().as_secs_f64();
+        assert!((seconds - 0.1..seconds + 0.9).contains(&took), "{took}");
+    }
+
     #[test]
     fn get_state_decodes_json_and_sends_auth_header() {
         let (server, client) = state_server(200, r#"{"battery": 81}"#);
         assert_eq!(client.get_state(), Some(json!({"battery": 81})));
         let seen = server.seen.lock().unwrap();
         assert_eq!((seen[0].path.as_str(), seen[0].auth.as_deref()), ("/state", Some("Bearer tok123")));
+        drop(seen);
+        // Python's read_count: the decoded reply above is the body, read through to its end
+        let silent = silent_phone();
+        let started = Instant::now();
+        assert_eq!(ControlClient::unstarted(&format!("{}/video", silent.base(false)), PhoneAuth::new("tok", ""), quick(), None).get_state(), None);
+        took_about(started, 4.0);
     }
 
     #[test]
@@ -634,7 +662,15 @@ mod tests {
         assert!(send_now(&PhoneAuth::new("tok123", ""), &server.base(false), &json!({"action": "camera", "id": "wide angle"})));
         let seen = server.seen.lock().unwrap();
         assert_eq!((seen[0].method.as_str(), seen[0].path.as_str(), seen[0].auth.as_deref()), ("POST", "/control", Some("Bearer tok123")));
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].content_type.as_deref(), Some("application/json"));
         assert_eq!(serde_json::from_slice::<Value>(&seen[0].body).unwrap(), json!({"action": "camera", "id": "wide angle"}));
+        drop(seen);
+        // Python's read_count: a_reply_cut_off_mid_body_is_worth_sending_again shows the reply is read to its end
+        let silent = silent_phone();
+        let started = Instant::now();
+        assert!(!send_now(&PhoneAuth::new("tok", ""), &silent.base(false), &json!({"action": "iso", "value": 100})));
+        took_about(started, 3.0);
     }
 
     #[test]
@@ -670,7 +706,7 @@ mod tests {
         client.close();
         client.close();
         assert!(client.closed());
-        client.run_worker(); // ends on the one Stop
+        assert_eq!(client.drain_queue(), [None], "the one Stop");
     }
 
     #[test]
@@ -764,12 +800,25 @@ mod tests {
 
     #[test]
     fn a_new_route_takes_the_queue_and_the_settings_along() {
-        let (client, _) = scripted(vec![], quick());
-        client.retarget_url("http://127.0.0.1:40001/v1/video");
+        let tries: Arc<Mutex<Vec<(String, Value)>>> = Arc::default();
+        let record = tries.clone();
+        let sender: Sender = Box::new(move |base, params| {
+            record.lock().unwrap().push((base.to_string(), params.clone()));
+            true
+        });
+        let client = ControlClient::unstarted("http://127.0.0.1:40001/v1/video", PhoneAuth::new("tok", ""), quick(), Some(sender));
         client.send(&json!({"action": "iso", "value": 500}));
         client.retarget_url("https://192.168.1.20:8080/v1/video");
         assert_eq!(client.base(), "https://192.168.1.20:8080/v1");
-        assert_eq!(client.settings(), [json!({"action": "iso", "value": 500})]);
+        // The ISO waiting in the queue, then the one sent again, both go to the new route
+        let sent = ("https://192.168.1.20:8080/v1".to_string(), json!({"action": "iso", "value": 500}));
+        client.end_queue();
+        client.run_worker();
+        assert_eq!(*tries.lock().unwrap(), [sent.clone()]);
+        client.resend_settings();
+        client.end_queue();
+        client.run_worker();
+        assert_eq!(*tries.lock().unwrap(), [sent.clone(), sent]);
     }
 
     fn state() -> Value {
@@ -818,33 +867,47 @@ mod tests {
         assert_eq!(drifted_settings(&s, &with(json!({"focus_mode": "manual"}))), [json!({"action": "focus_mode", "value": "continuous"})]);
     }
 
+    /// A client polling a phone that always answers this state, and whose controls are recorded instead of sent.
+    fn polling(body: &'static str) -> (ControlClient, Server, Arc<Mutex<Vec<Value>>>) {
+        let server = serve(None, Arc::new(move |_| (200, "application/json".into(), body.as_bytes().to_vec())));
+        let tries: Arc<Mutex<Vec<Value>>> = Arc::default();
+        let record = tries.clone();
+        let sender: Sender = Box::new(move |_, params| {
+            record.lock().unwrap().push(params.clone());
+            true
+        });
+        (ControlClient::unstarted(&format!("{}/video", server.base(false)), PhoneAuth::new("tok", ""), quick(), Some(sender)), server, tries)
+    }
+
     #[test]
     fn a_state_that_doesnt_show_a_setting_sends_it_again_once() {
-        let (client, _) = scripted(vec![true; 10], quick());
+        let body: &'static str = Box::leak(with(json!({"phone_fps": 1})).to_string().into_boxed_str());
+        let (client, _server, tries) = polling(body);
         client.send(&json!({"action": "fps_target", "value": 30}));
-        client.forget_pending();
-        client.drain_queue();
-        let lost = with(json!({"phone_fps": 1}));
-        let mut resent = Vec::new();
+        client.end_queue();
+        client.run_worker();
+        tries.lock().unwrap().clear();
         for _ in 0..3 {
-            client.resync(&lost);
-            resent.extend(client.drain_queue());
-            client.forget_pending();
+            assert_eq!(client.get_state().unwrap()["phone_fps"], json!(1));
+            client.end_queue();
+            client.run_worker();
         }
-        assert_eq!(resent, [Some("fps_target".to_string())]);
+        // the phone may clamp it: no loop
+        assert_eq!(*tries.lock().unwrap(), [json!({"action": "fps_target", "value": 30})]);
     }
 
     #[test]
     fn picking_the_value_again_sends_it_again() {
-        let (client, _) = scripted(vec![], quick());
+        let body: &'static str = Box::leak(state().to_string().into_boxed_str());
+        let (client, _server, _) = polling(body);
         client.send(&json!({"action": "jpeg_quality", "value": 90}));
         client.forget_pending();
-        client.resync(&state()); // 85 on the phone: sent again
+        client.get_state(); // 85 on the phone: sent again
         client.forget_pending();
-        client.resync(&state()); // still 85: left alone
+        client.get_state(); // still 85: left alone
         client.send(&json!({"action": "jpeg_quality", "value": 90}));
         client.forget_pending();
-        client.resync(&state()); // a new pick: one more try
+        client.get_state(); // a new pick: one more try
         assert_eq!(client.drain_queue(), vec![Some("jpeg_quality".to_string()); 4]);
     }
 

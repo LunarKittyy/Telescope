@@ -506,6 +506,7 @@ pub(crate) mod testing {
         pub method: String,
         pub path: String,
         pub auth: Option<String>,
+        pub content_type: Option<String>,
         pub body: Vec<u8>,
     }
 
@@ -529,7 +530,7 @@ pub(crate) mod testing {
         reader.read_line(&mut line).ok()?;
         let mut parts = line.split_whitespace();
         let (method, path) = (parts.next()?.to_string(), parts.next()?.to_string());
-        let (mut auth, mut length) = (None, 0usize);
+        let (mut auth, mut content_type, mut length) = (None, None, 0usize);
         loop {
             let mut h = String::new();
             if reader.read_line(&mut h).ok()? == 0 || h.trim().is_empty() {
@@ -539,6 +540,9 @@ pub(crate) mod testing {
                 if k.eq_ignore_ascii_case("authorization") {
                     auth = Some(v.trim().to_string());
                 }
+                if k.eq_ignore_ascii_case("content-type") {
+                    content_type = Some(v.trim().to_string());
+                }
                 if k.eq_ignore_ascii_case("content-length") {
                     length = v.trim().parse().unwrap_or(0);
                 }
@@ -546,7 +550,7 @@ pub(crate) mod testing {
         }
         let mut body = vec![0; length];
         reader.read_exact(&mut body).ok()?;
-        Some(Seen { method, path, auth, body })
+        Some(Seen { method, path, auth, content_type, body })
     }
 
     fn reason(status: u16) -> &'static str {
