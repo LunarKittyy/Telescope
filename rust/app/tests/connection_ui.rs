@@ -312,12 +312,16 @@ fn press_key(w: &ComponentInstance, text: &str) {
 }
 
 const YOUR_PHONES: &str = r#"import { PhonePicker, PhoneRow } from "plugin/connection.slint";
+import { TextCap } from "@ui-kit/ui-kit.slint";
+export { TextCap }
 export component W inherits Window {
     width: 600px;
     height: 620px;
     in property <[PhoneRow]> rows;
     in property <bool> open;
     callback said(string, string);
+    clip := TextInput { visible: false; width: 0px; height: 0px; text: "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"; }
+    public function copy-long-text() { clip.select-all(); clip.copy(); }
     PhonePicker {
         x: 0; y: 0; width: 300px; height: 40px;
         rows: root.rows;
@@ -345,6 +349,35 @@ fn rename_dialog_line_edit_has_a_length_cap() {
     settle(&w);
     click(&w, 362.0, 287.0); // OK
     assert_eq!(*said.borrow(), ["x".repeat(telescope_link::util::MAX_NAME_CHARS)]);
+}
+
+fn a_paste_past_the_length_cap_is_cut_as_a_line_edit_cuts_it() {
+    let w = window(YOUR_PHONES);
+    w.set_global_callback("TextCap", "fit", |args| match args {
+        [Value::String(old), Value::String(new), Value::Number(cap)] => Value::String(telescope_core::names::fit_to_cap(old, new, *cap as usize).into()),
+        _ => Value::String("".into()),
+    }).unwrap();
+    let said = Rc::new(RefCell::new(Vec::new()));
+    let s = said.clone();
+    w.set_callback("said", move |args| {
+        if let Value::String(name) = &args[1] { s.borrow_mut().push(name.to_string()); }
+        Value::Void
+    }).unwrap();
+    w.set_property("rows", phones(2)).unwrap();
+    w.set_property("open", Value::Bool(true)).unwrap();
+    settle(&w);
+    w.invoke("copy-long-text", &[]).unwrap();
+    click(&w, 357.0, 185.0); // Phone 0's pencil
+    press_key(&w, "a");
+    press_key(&w, "b");
+    let control: slint::SharedString = slint::platform::Key::Control.into();
+    let window = w.window();
+    window.dispatch_event(slint::platform::WindowEvent::KeyPressed { text: control.clone() });
+    press_key(&w, "v");
+    window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text: control });
+    settle(&w);
+    click(&w, 362.0, 287.0); // OK
+    assert_eq!(*said.borrow(), [format!("ab{}", "y".repeat(62))]);
 }
 
 fn a_browser_row_has_a_bin_but_no_pencil() {
@@ -395,5 +428,6 @@ fn connection_dialogs() {
     header_holds_the_phone_picker_and_manage_button();
     the_help_button_is_named_setup_guide();
     rename_dialog_line_edit_has_a_length_cap();
+    a_paste_past_the_length_cap_is_cut_as_a_line_edit_cuts_it();
     a_browser_row_has_a_bin_but_no_pencil();
 }

@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing } from "basics.slint";
 import { TipBody } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
 
 // The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
 export component Slider inherits HorizontalLayout {
@@ -36,8 +37,20 @@ export component Slider inherits HorizontalLayout {
     in property <float> default-value;
     // A tooltip on the slider and its readout
     in property <string> tip;
+    // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there. Empty: only a readout.
+    in property <string> typing;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    property <bool> is-typing;
+    function typing-done(text: string) {
+        if (is-typing) {
+            is-typing = false;
+            if (text != typing) { typed(text); }
+        }
+    }
     callback moved(float);
     callback released(float);
+    callback typed(string);
     spacing: 8px;
     horizontal-stretch: 1;
     track := Rectangle {
@@ -136,18 +149,50 @@ export component Slider inherits HorizontalLayout {
                 }
             }
         }
+        if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
         if tip != "": Tooltip { TipBody { says: tip; } }
     }
-    if has-readout: Text {
+    if has-readout: Rectangle {
         width: readout-width;
-        text: readout;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: 600;
-        // QLabel#val outranks QLabel:disabled in the theme, so a disabled readout keeps the accent's soft shade
-        color: enabled ? hue : Theme.accent-soft;
-        horizontal-alignment: right;
-        vertical-alignment: center;
-        if tip != "": Tooltip { TipBody { says: tip; } }
+        if typing != "": TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: MouseCursor.text;
+            clicked => { is-typing = true; }
+        }
+        if !is-typing: Text {
+            width: parent.width;
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            // QLabel#val outranks QLabel:disabled in the theme, so a disabled readout keeps the accent's soft shade
+            color: enabled ? hue : Theme.accent-soft;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            if tip != "": Tooltip { TipBody { says: tip; } }
+        }
+        if is-typing: TextInput {
+            width: parent.width;
+            height: parent.height;
+            text: root.typing;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: hue;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: white;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            single-line: true;
+            accessible-label: root.label;
+            init => { self.focus(); self.select-all(); }
+            accepted => { root.typing-done(self.text); }
+            changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { root.is-typing = false; return accept; }
+                reject
+            }
+        }
     }
 }

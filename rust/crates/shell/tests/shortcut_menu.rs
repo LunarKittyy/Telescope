@@ -70,6 +70,45 @@ export component W inherits Window {
     assert_eq!(*seen.borrow(), ["pressed", "add microphone.mute"]);
 }
 
+#[test]
+fn a_right_click_on_a_slider_offers_a_shortcut_and_a_left_click_still_moves_it() {
+    telescope_shell::offscreen::install();
+    let src = r#"import { Slider, Shortcuts } from "@ui-kit/ui-kit.slint";
+export { Shortcuts }
+export component W inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <float> at;
+    Slider { x: 20px; y: 20px; width: 200px; has-readout: false; shortcut: "microphone.gain"; moved(v) => { root.at = v; } }
+}"#;
+    let mut compiler = Compiler::default();
+    compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
+    let result = spin_on(compiler.build_from_source(src.into(), Default::default()));
+    let errors: Vec<String> = result.diagnostics().map(|d| d.to_string()).collect();
+    let w = result.component("W").unwrap_or_else(|| panic!("{}", errors.join("\n"))).create().unwrap();
+    let added = Rc::new(RefCell::new(Vec::<String>::new()));
+    let s = added.clone();
+    w.set_global_callback("Shortcuts", "add", move |args| {
+        if let Some(Value::String(a)) = args.first() {
+            s.borrow_mut().push(a.to_string());
+        }
+        Value::Void
+    }).unwrap();
+    w.set_global_callback("Shortcuts", "bindings-for", |_| {
+        Value::Model(slint::ModelRc::new(slint::VecModel::from(Vec::<Value>::new())))
+    }).unwrap();
+    w.set_global_property("Shortcuts", "available", Value::Bool(true)).unwrap();
+    w.show().unwrap();
+    let window = w.window();
+    telescope_shell::offscreen::draw(window, 300.0, 200.0, 1.0);
+    click(window, 120.0, 38.0, PointerEventButton::Left);
+    assert!(matches!(w.get_property("at"), Ok(Value::Number(v)) if v > 30.0), "{:?}", w.get_property("at"));
+    click(window, 120.0, 38.0, PointerEventButton::Right);
+    telescope_shell::offscreen::draw(window, 300.0, 200.0, 1.0);
+    click(window, 140.0, 51.0, PointerEventButton::Left);
+    assert_eq!(*added.borrow(), ["microphone.gain"]);
+}
+
 const LATER: &str = r#"import { Button, Shortcuts } from "@ui-kit/ui-kit.slint";
 export { Shortcuts }
 export component W inherits Window {

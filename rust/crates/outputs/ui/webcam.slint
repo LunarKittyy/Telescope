@@ -76,7 +76,7 @@ export component WebcamCard inherits Card {
             current <=> root.size-current;
             enabled: root.size-enabled;
             accessible-description: root.size-tip;
-            picked(i) => { root.size-picked(i); }
+            picked(i) => { root.size-current = i; root.size-picked(i); }
         }
     }
     FormRow {
@@ -86,7 +86,7 @@ export component WebcamCard inherits Card {
             items: root.fps-items;
             current <=> root.fps-current;
             enabled: root.fps-enabled;
-            picked(i) => { root.fps-picked(i); }
+            picked(i) => { root.fps-current = i; root.fps-picked(i); }
         }
     }
     for row in root.rows: VerticalLayout {

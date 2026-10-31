@@ -1,6 +1,6 @@
 // The Camera card (desktop/telescope/plugins/camera_control.py), built from ui-kit's widgets.
 
-import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -32,6 +32,7 @@ component LensTile inherits Rectangle {
     accessible-label: lens.name;
     accessible-checked: on;
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    ShortcutMenu { action: "camera.lens"; }
     VerticalLayout {
         alignment: center;
         spacing: 2px;
@@ -87,9 +88,11 @@ export component CameraCard inherits Card {
     in property <bool> show-manual-exposure;
     in property <float> iso-pos;
     in property <string> iso-text;
+    in property <string> iso-spin;
     in property <bool> iso-enabled;
     in property <float> shutter-pos;
     in property <string> shutter-text;
+    in property <string> shutter-spin;
     in property <bool> shutter-enabled;
     in property <int> ae-comp;
     in property <int> ae-min: -8;
@@ -120,7 +123,9 @@ export component CameraCard inherits Card {
     callback lens-picked(int);
     callback exposure-picked(int);
     callback iso-moved(float);
+    callback iso-typed(string);
     callback shutter-moved(float);
+    callback shutter-typed(string);
     callback ae-moved(float);
     callback wb-picked(int);
     callback kelvin-moved(float);
@@ -172,6 +177,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("Exposure");
             Segmented {
+                shortcut: "camera.exposure_mode";
                 label: @tr("Exposure");
                 items: [@tr("Auto"), @tr("Manual")];
                 disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
@@ -183,6 +189,7 @@ export component CameraCard inherits Card {
         if show-manual-exposure: FormRow {
             label: "ISO";
             Slider {
+                shortcut: "camera.iso";
                 label: "ISO";
                 hue: root.hue;
                 enabled: active && iso-enabled;
@@ -191,12 +198,15 @@ export component CameraCard inherits Card {
                 step: 1;
                 value: iso-pos;
                 readout: iso-text;
+                typing: iso-spin;
                 moved(v) => { iso-moved(v); }
+                typed(t) => { iso-typed(t); }
             }
         }
         if show-manual-exposure: FormRow {
             label: @tr("Shutter");
             Slider {
+                shortcut: "camera.shutter";
                 label: @tr("Shutter");
                 hue: root.hue;
                 enabled: active && shutter-enabled;
@@ -205,12 +215,15 @@ export component CameraCard inherits Card {
                 step: 1;
                 value: shutter-pos;
                 readout: shutter-text;
+                typing: shutter-spin;
                 moved(v) => { shutter-moved(v); }
+                typed(t) => { shutter-typed(t); }
             }
         }
         FormRow {
             label: @tr("Brightness");
             Slider {
+                shortcut: "camera.compensation";
                 label: @tr("Brightness");
                 hue: root.hue;
                 enabled: active;
@@ -229,6 +242,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("White balance");
             Segmented {
+                shortcut: "camera.wb_mode";
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
                 disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
@@ -240,6 +254,7 @@ export component CameraCard inherits Card {
         if show-manual-wb: FormRow {
             label: @tr("Temperature");
             Slider {
+                shortcut: "camera.temperature";
                 label: @tr("Temperature");
                 hue: root.hue;
                 enabled: active && wb-enabled;
@@ -257,6 +272,7 @@ export component CameraCard inherits Card {
         if show-manual-wb: FormRow {
             label: @tr("Tint G–M");
             Slider {
+                shortcut: "camera.tint";
                 label: @tr("Tint G–M");
                 hue: root.hue;
                 enabled: active && wb-enabled;
@@ -281,6 +297,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("Focus");
             Segmented {
+                shortcut: "camera.focus_mode";
                 label: @tr("Focus");
                 items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];
                 disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
@@ -292,6 +309,7 @@ export component CameraCard inherits Card {
         if show-manual-focus: FormRow {
             label: @tr("Distance");
             Slider {
+                shortcut: "camera.focus";
                 label: @tr("Distance");
                 hue: root.hue;
                 enabled: active && focus-enabled;
@@ -316,6 +334,7 @@ export component CameraCard inherits Card {
             Row {
                 SwitchTile {
                     icon: Icons.stabilize;
+                    shortcut: "camera.stabilization";
                     text: @tr("Stabilization");
                     tip: ois.tip;
                     hue: root.hue;
@@ -325,6 +344,7 @@ export component CameraCard inherits Card {
                 }
                 SwitchTile {
                     icon: Icons.moon;
+                    shortcut: "camera.low_light";
                     text: @tr("Low light");
                     tip: low-light.tip;
                     hue: root.hue;
@@ -336,6 +356,7 @@ export component CameraCard inherits Card {
             Row {
                 SwitchTile {
                     icon: Icons.lock;
+                    shortcut: "camera.black_level_lock";
                     text: @tr("Black level lock");
                     tip: black-level-lock.tip;
                     hue: root.hue;
@@ -345,6 +366,7 @@ export component CameraCard inherits Card {
                 }
                 SwitchTile {
                     icon: Icons.torch;
+                    shortcut: "camera.torch";
                     text: @tr("Torch");
                     tip: torch.tip;
                     hue: root.hue;
@@ -359,6 +381,7 @@ export component CameraCard inherits Card {
             Row {
                 SwitchTile {
                     icon: Icons.stabilize;
+                    shortcut: "camera.stabilization";
                     text: @tr("Stabilization");
                     tip: ois.tip;
                     hue: root.hue;
@@ -368,6 +391,7 @@ export component CameraCard inherits Card {
                 }
                 SwitchTile {
                     icon: Icons.lock;
+                    shortcut: "camera.black_level_lock";
                     text: @tr("Black level lock");
                     tip: black-level-lock.tip;
                     hue: root.hue;
@@ -380,6 +404,7 @@ export component CameraCard inherits Card {
                 SwitchTile {
                     col: 0;
                     icon: Icons.torch;
+                    shortcut: "camera.torch";
                     text: @tr("Torch");
                     tip: torch.tip;
                     hue: root.hue;
@@ -392,6 +417,7 @@ export component CameraCard inherits Card {
         HorizontalLayout {
             spacing: 8px;
             ChoiceField {
+                shortcut: "camera.noise_reduction";
                 caption: @tr("Noise reduction");
                 items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;
@@ -399,6 +425,7 @@ export component CameraCard inherits Card {
                 picked(i) => { nr-picked(i); }
             }
             ChoiceField {
+                shortcut: "camera.sharpening";
                 caption: @tr("Sharpening");
                 items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;

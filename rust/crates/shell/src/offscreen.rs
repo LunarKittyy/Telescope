@@ -22,6 +22,10 @@ thread_local! {
     static WINDOWS: std::cell::RefCell<Vec<Rc<MinimalSoftwareWindow>>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+thread_local! {
+    static CLIPBOARD: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
 struct Offscreen;
 
 impl Platform for Offscreen {
@@ -39,6 +43,16 @@ impl Platform for Offscreen {
         static START: Mutex<Option<Instant>> = Mutex::new(None);
         let elapsed = START.lock().unwrap().get_or_insert_with(Instant::now).elapsed();
         elapsed + Duration::from_millis(SKIPPED_MS.load(Ordering::SeqCst))
+    }
+
+    fn set_clipboard_text(&self, text: &str, clipboard: slint::platform::Clipboard) {
+        if clipboard == slint::platform::Clipboard::DefaultClipboard {
+            CLIPBOARD.with(|c| *c.borrow_mut() = Some(text.to_string()));
+        }
+    }
+
+    fn clipboard_text(&self, clipboard: slint::platform::Clipboard) -> Option<String> {
+        (clipboard == slint::platform::Clipboard::DefaultClipboard).then(|| CLIPBOARD.with(|c| c.borrow().clone())).flatten()
     }
 }
 

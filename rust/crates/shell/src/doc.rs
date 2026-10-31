@@ -46,7 +46,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, ColumnScrollbar, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -56,7 +56,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal }\n");
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap }\n");
     out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL));
 
     // Column geometry for each mode, relative to the body's left edge
@@ -699,8 +699,10 @@ export component TelescopeSettings inherits Window {
     icon: app-icon;
     preferred-width: 940px;
     preferred-height: 680px;
-    min-width: 720px;
-    min-height: 480px;
+    in property <length> least-width: 720px;
+    in property <length> least-height: 480px;
+    min-width: least-width;
+    min-height: least-height;
     background: Theme.bg;
     default-font-family: Theme.font;
     default-font-size: Theme.body;

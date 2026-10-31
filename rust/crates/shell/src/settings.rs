@@ -25,6 +25,11 @@ use telescope_core::ui::{SettingsSection, SlintSource, UiEvent};
 use telescope_core::plugin_admin::PluginAdmin;
 
 const FLASH_MS: u64 = 1800;
+/// The size it opens at and its minimum, as in the window's source, in logical pixels.
+const SIZE: (f32, f32) = (940.0, 680.0);
+const LEAST: (f32, f32) = (720.0, 480.0);
+/// What a window keeps clear of the screen's edges (controls.SCREEN_MARGIN).
+const SCREEN_MARGIN: f32 = 48.0;
 
 type Rect = (f32, f32, f32, f32);
 
@@ -121,6 +126,7 @@ pub struct Settings {
     /// A message is on screen (it has no commit to wait for).
     telling: Cell<bool>,
     window: Weak<Window>,
+    fitted: Cell<bool>,
     flash: slint::Timer,
     /// Looks at the download and the update check while the window is up, and shows what they found.
     watch: slint::Timer,
@@ -197,19 +203,17 @@ pub fn open(window: &Rc<Window>, tab: &str) {
             }
         },
     };
+    let coming_up = !settings.ui.window().is_visible();
     if !tab.is_empty() {
         settings.show_tab(tab);
     }
     crate::window::set_app_icon(&settings.ui);
     let _ = settings.ui.show();
-    settings.tell_shown();
-    let _ = settings.ui.invoke("focus-search", &[]);
-    // Each section hears the window came up, to bring itself up to date (SettingsSection.on_show)
-    let sections: Vec<(String, String)> = settings.pieces.iter().filter(|p| !p.1.ends_with("-footer")).map(|p| (p.0.clone(), p.1.clone())).collect();
-    for (plugin, id) in sections {
-        window.state.borrow_mut().ui_event(&plugin, UiEvent { ui: id, callback: "shown".into(), args: Vec::new() });
+    if coming_up {
+        settings.keep_on_screen();
+        settings.tell_shown();
     }
-    window.process();
+    let _ = settings.ui.invoke("focus-search", &[]);
 }
 
 /// Drops the settings window, so the next open builds it again (each scene has a window of its own).
@@ -293,6 +297,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         notices: RefCell::new(VecDeque::new()),
         telling: Cell::new(false),
         window: Rc::downgrade(window),
+        fitted: Cell::new(false),
         flash: slint::Timer::default(),
         watch: slint::Timer::default(),
         seen: RefCell::new(String::new()),
@@ -499,10 +504,36 @@ impl Settings {
     /// Go to the tab with this id; false if there isn't one.
     pub fn show_tab(&self, tab: &str) -> bool {
         let Some(i) = self.tabs.iter().position(|(id, _)| id == tab) else { return false };
-        self.leave_search();
+        let moved = self.leave_search() || self.current_tab() != tab;
         let _ = self.ui.set_property("current", SValue::Number(i as f64));
         self.show_row(i);
+        if moved && self.ui.window().is_visible() {
+            self.tell_shown();
+        }
         true
+    }
+
+    /// The first time it opens: _fit_to_screen, from the screen it came up on.
+    fn keep_on_screen(&self) {
+        use slint::winit_030::WinitWindowAccessor;
+        if self.fitted.replace(true) {
+            return;
+        }
+        let window = self.ui.window();
+        let scale = window.scale_factor();
+        let screen = window.with_winit_window(|w| w.current_monitor().or_else(|| w.primary_monitor()).map(|m| m.size().to_logical::<f32>(scale as f64))).flatten();
+        if let Some(screen) = screen {
+            self.fit_to_screen((screen.width, screen.height));
+        }
+    }
+
+    /// Opens at its usual size unless the screen is smaller, keeping clear of its edges; a small screen also wins over
+    /// the window's minimum. In logical pixels.
+    pub fn fit_to_screen(&self, screen: (f32, f32)) {
+        let (w, h) = (SIZE.0.min(screen.0 - SCREEN_MARGIN), SIZE.1.min(screen.1 - SCREEN_MARGIN));
+        let _ = self.ui.set_property("least-width", SValue::Number(LEAST.0.min(w) as f64));
+        let _ = self.ui.set_property("least-height", SValue::Number(LEAST.1.min(h) as f64));
+        self.ui.window().set_size(slint::LogicalSize::new(w, h));
     }
 
     fn show_row(&self, row: usize) {
@@ -536,13 +567,16 @@ impl Settings {
         }
     }
 
-    fn leave_search(&self) {
+    /// Back on the tab; true if it was showing results.
+    fn leave_search(&self) -> bool {
+        let was = self.ui.get_property("searching") == Ok(SValue::Bool(true));
         let _ = self.ui.set_property("query", s_empty());
         let _ = self.ui.set_property("searching", SValue::Bool(false));
         self.entries.borrow_mut().clear();
         self.hits.borrow_mut().clear();
         let i = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };
         self.show_row(i);
+        was
     }
 
     /// Every setting the search can find, read off the window as it is now (settings_search.collect). The items are
@@ -610,7 +644,9 @@ impl Settings {
     fn on_query(&self, text: &str) {
         let text = text.trim();
         if text.is_empty() {
-            self.leave_search();
+            if self.leave_search() {
+                self.tell_shown();
+            }
             return;
         }
         if self.ui.get_property("searching") != Ok(SValue::Bool(true)) {
@@ -645,7 +681,6 @@ impl Settings {
     /// Shows the tab the setting is on, scrolled to it and lit up for a moment.
     pub fn go_to(self: &Rc<Self>, entry: &Entry) {
         self.show_tab(&entry.tab);
-        self.tell_shown();
         if entry.tab_entry {
             return;
         }

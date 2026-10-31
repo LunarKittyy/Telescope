@@ -93,7 +93,7 @@ export component StreamOutputCard inherits Card {
             items: root.res-items;
             current <=> root.res-current;
             enabled: root.res-enabled;
-            picked(i) => { root.res-picked(i); }
+            picked(i) => { root.res-current = i; root.res-picked(i); }
         }
         ChoiceField {
             horizontal-stretch: 2;
@@ -102,7 +102,7 @@ export component StreamOutputCard inherits Card {
             current <=> root.fps-current;
             gone: root.fps-gone;
             tip: root.fps-tip;
-            picked(i) => { root.fps-picked(i); }
+            picked(i) => { root.fps-current = i; root.fps-picked(i); }
         }
         ChoiceField {
             horizontal-stretch: 2;
@@ -110,7 +110,7 @@ export component StreamOutputCard inherits Card {
             items: root.ar-items;
             current <=> root.ar-current;
             enabled: root.ar-enabled;
-            picked(i) => { root.ar-picked(i); }
+            picked(i) => { root.ar-current = i; root.ar-picked(i); }
         }
     }
     HorizontalLayout {

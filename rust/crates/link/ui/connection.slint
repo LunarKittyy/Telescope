@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, TipBody, Button, IconButton, Card, FormRow, Segmented, ChoiceField, TextField, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, TipBody, Button, IconButton, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -595,17 +595,17 @@ export component PhonePicker inherits HorizontalLayout {
                     title: name-title;
                     Note { text: name-label; kind: ""; }
                     name-field := TextField {
-                        // setMaxLength(MAX_NAME_CHARS): Slint can't cut a text short, so a keystroke past the cap is undone
+                        // setMaxLength(MAX_NAME_CHARS)
                         property <string> kept: name-text;
                         text: name-text;
                         label: name-label;
                         init => { self.focus-all(); }
                         edited(text) => {
                             if (text.character-count > 64) {
-                                self.text = self.kept;
-                            } else {
-                                self.kept = text;
+                                let fitted = TextCap.fit(self.kept, text, 64);
+                                self.text = fitted != "" ? fitted : self.kept;
                             }
+                            self.kept = self.text;
                         }
                         accepted => { ok.clicked(); }
                     }

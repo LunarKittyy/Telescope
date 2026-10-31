@@ -60,7 +60,7 @@ export component AutomaticSettings inherits Card {
             caption: start-title;
             items: start-items;
             current <=> root.start-current;
-            picked(i) => { root.start-picked(i); }
+            picked(i) => { root.start-current = i; root.start-picked(i); }
         }
     }
     SettingRow {
@@ -73,7 +73,7 @@ export component AutomaticSettings inherits Card {
             caption: stop-title;
             items: stop-items;
             current <=> root.stop-current;
-            picked(i) => { root.stop-picked(i); }
+            picked(i) => { root.stop-current = i; root.stop-picked(i); }
         }
     }
     if stops: Text {
@@ -113,7 +113,7 @@ export component AutomaticSettings inherits Card {
                     caption: delay-title;
                     items: unit-items;
                     current <=> root.unit-current;
-                    picked(i) => { root.unit-picked(i); }
+                    picked(i) => { root.unit-current = i; root.unit-picked(i); }
                 }
                 Rectangle {
                     visible: false;

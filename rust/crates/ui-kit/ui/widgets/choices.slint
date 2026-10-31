@@ -133,20 +133,30 @@ export component ChoiceField inherits Rectangle {
     in property <[bool]> headings;
     // Shown while nothing is picked (current is -1)
     in property <string> placeholder;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
     in-out property <int> current;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // A tooltip, when there's something to say beyond the label
     in property <string> tip;
     callback picked(int);
-    // The row the arrows move to from current, or current when there's none that way
+    // The row the arrows move to from where it is, or there when there's none that way
     function step(by: int) -> int {
-        let next = current + by;
+        let next = shown + by;
         let past = next + by;
         if (next >= 0 && next < items.length && !headings[next] && !gone[next]) { return next; }
         if ((headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
-        return current;
+        return shown;
     }
     height: compact ? 32px : 48px;
     horizontal-stretch: 1;
@@ -160,15 +170,15 @@ export component ChoiceField inherits Rectangle {
     border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption;
-    accessible-value: items[current];
+    accessible-value: items[shown];
     accessible-description: tip;
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == Key.UpArrow && step(-1) != current) { current = step(-1); picked(current); return accept; }
-            if (e.text == Key.DownArrow && step(1) != current) { current = step(1); picked(current); return accept; }
+            if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
+            if (e.text == Key.DownArrow && step(1) != shown) { pick(step(1)); return accept; }
             if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
             reject
         }
@@ -200,11 +210,11 @@ export component ChoiceField inherits Rectangle {
         padding-right: 30px;
         alignment: center;
         Text {
-            text: current < 0 ? placeholder : items[current];
+            text: shown < 0 ? placeholder : items[shown];
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: bold ? 600 : 400;
-            color: current < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
+            color: shown < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
             overflow: elide;
         }
     }
@@ -225,7 +235,7 @@ export component ChoiceField inherits Rectangle {
         x: has-icon ? 32px : 12px;
         y: first-baseline + 18px - 13px * 1984 / 2048;
         width: root.width - self.x - 30px;
-        text: items[current];
+        text: items[shown];
         font-family: Theme.font;
         font-size: Theme.body;
         font-weight: 600;
@@ -268,7 +278,7 @@ export component ChoiceField inherits Rectangle {
                     property <bool> is-gone: gone[i];
                     height: headings[i] ? 32px : 26px;
                     border-radius: 5px;
-                    background: headings[i] || is-gone ? transparent : i == current ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                    background: headings[i] || is-gone ? transparent : i == shown ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
                     if headings[i]: Rectangle {
                         y: 2px;
                         height: parent.height - 3px;
@@ -277,8 +287,7 @@ export component ChoiceField inherits Rectangle {
                     item-touch := TouchArea {
                         enabled: !headings[i] && !is-gone;
                         clicked => {
-                            current = i;
-                            picked(i);
+                            pick(i);
                         }
                     }
                     Text {
@@ -287,7 +296,7 @@ export component ChoiceField inherits Rectangle {
                         font-family: Theme.font;
                         font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
                         font-weight: headings[i] ? 700 : 400;
-                        color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == current ? white : Theme.text;
+                        color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == shown ? white : Theme.text;
                         vertical-alignment: center;
                     }
                 }

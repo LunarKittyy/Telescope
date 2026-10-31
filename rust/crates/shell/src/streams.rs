@@ -1596,8 +1596,12 @@ impl FlowHost for Host<'_> {
         let Some(w) = self.w.shell_worker(&worker) else { return };
         self.w.streams.workers.borrow_mut().retain(|x| x.id != w.id);
         let inner = w.inner.clone();
-        if let (Some(vision), Some(id)) = (self.w.state.borrow().vision.clone(), inner.source_id()) {
-            vision.drop_stream(id);
+        if let Some(id) = inner.source_id() {
+            let st = self.w.state.borrow();
+            if let Some(vision) = &st.vision {
+                vision.drop_stream(id);
+            }
+            st.motion.drop_stream(id);
         }
         // Off the UI thread, so a stalled read can't freeze the window.
         std::thread::spawn(move || inner.stop());

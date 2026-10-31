@@ -220,7 +220,7 @@ export component VideoSettings inherits Card {
                 caption: @tr("Canvas size");
                 items: root.canvas-items;
                 current <=> root.canvas-current;
-                picked(i) => { root.canvas-picked(i); }
+                picked(i) => { root.canvas-current = i; root.canvas-picked(i); }
             }
         }
         if custom-shown: HorizontalLayout {
@@ -286,7 +286,7 @@ export component MicrophoneLimits inherits Card {
             label: @tr("Max gain");
             items: root.gain-items;
             current <=> root.gain-current;
-            picked(i) => { root.gain-picked(i); }
+            picked(i) => { root.gain-current = i; root.gain-picked(i); }
         }
     }
     Strip {
@@ -359,6 +359,7 @@ export component PhoneAppSettings inherits Card {
                     caption: @tr("Select device");
                     items: root.pick-items;
                     current <=> root.pick-current;
+                    picked(i) => { root.pick-current = i; }
                 }
                 Button { text: "OK"; role: "primary"; clicked => { root.pick-done(root.pick-current); } }
                 Button { text: "Cancel"; clicked => { root.pick-cancelled(); } }
@@ -395,7 +396,7 @@ export component LookSettings inherits Card {
             // Qt has this on the Colourful segment alone; the kit's segments have no tooltips of their own
             items: [@tr("Colourful"), @tr("Monochrome")];
             current <=> root.hues-current;
-            picked(i) => { root.hues-picked(i); }
+            picked(i) => { root.hues-current = i; root.hues-picked(i); }
         }
     }
     Strip {
@@ -409,7 +410,7 @@ export component LookSettings inherits Card {
                 caption: @tr("Language");
                 items: root.lang-items;
                 current <=> root.lang-current;
-                picked(i) => { root.lang-picked(i); }
+                picked(i) => { root.lang-current = i; root.lang-picked(i); }
             }
         }
         // A first draft says so; any other language asks for help, both beside the same button

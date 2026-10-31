@@ -634,6 +634,28 @@ fn integer_log_slider_syncs_slider_spin_and_signal() {
     assert_eq!(row.to_spin(row.get_value()), 1000.0);
 }
 
+// tests/test_widgets.py::test_double_log_slider_converts_scaled_spin_value
+#[test]
+fn double_log_slider_converts_scaled_spin_value() {
+    let mut row = LogRow::new(100_000.0, 1_000_000_000.0, 1e-6, true, true);
+    let val = row.typed("20.5").unwrap();
+    assert!(close(val, 20_500_000.0, 1e-9), "{val}");
+    assert!(close(row.get_value(), 20_500_000.0, 0.01));
+    assert_eq!((row.spin, row.spin_text().as_str()), (20.5, "20.50"));
+    assert_eq!(row.text(), ns_to_display(20_500_000));
+    row.typed("0,5");
+    assert_eq!(row.spin, 0.5, "a comma is a point too");
+    row.typed("9999");
+    assert_eq!(row.spin, 1000.0, "held to the box's range");
+    row.typed("0.0044");
+    assert!(close(row.spin, 0.1, 1e-9), "and to its range after two decimals");
+    assert_eq!(row.typed("soon"), None);
+    assert!(close(row.spin, 0.1, 1e-9), "not a number: nothing moves");
+    let mut iso = LogRow::new(50.0, 6400.0, 1.0, false, false);
+    assert_eq!(iso.typed("400.4"), Some(400.0));
+    assert_eq!(iso.spin_text(), "400");
+}
+
 // tests/test_widgets.py::test_log_slider_range_and_enabled_state
 #[test]
 fn log_slider_range_and_enabled_state() {
@@ -898,4 +920,14 @@ fn a_keys_range_and_choices_move_with_the_lens() {
     r.clear();
     r.flush();
     assert!(!r.host.calls.iter().any(|c| c == "refresh_actions"), "only when something moved");
+}
+
+// shortcuts.py gives every action its widgets: the control is where a right-click offers it
+#[test]
+fn every_camera_action_is_offered_on_its_control() {
+    let mut r = Rig::new();
+    let card = include_str!("../../ui/cards/camera.slint");
+    for action in r.cam.actions() {
+        assert!(card.contains(&format!("shortcut: \"{}\"", action.id)) || card.contains(&format!("action: \"{}\"", action.id)), "{}", action.id);
+    }
 }

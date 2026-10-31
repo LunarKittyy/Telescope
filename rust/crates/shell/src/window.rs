@@ -445,6 +445,14 @@ impl Window {
         }
     }
 
+    /// The TextCap global behind a text field with a cap.
+    fn wire_text_cap(&self) {
+        let _ = self.ui.set_global_callback("TextCap", "fit", |args| match args {
+            [SValue::String(old), SValue::String(new), SValue::Number(cap)] => SValue::String(telescope_core::names::fit_to_cap(old, new, *cap as usize).into()),
+            _ => SValue::String("".into()),
+        });
+    }
+
     fn wire(self: &Rc<Self>, files: &[(String, String)], cards: &[CardPlace], headers: &[HeaderPlace]) {
         let ui = &self.ui;
         let state = self.state.clone();
@@ -481,6 +489,7 @@ impl Window {
         }
         let _ = files;
         self.wire_shortcut_menu();
+        self.wire_text_cap();
         let weak = Rc::downgrade(self);
         let _ = ui.set_global_callback("Reveal", "show", move |args| {
             if let (Some(w), [SValue::Number(x), SValue::Number(y), _, SValue::Number(h)]) = (weak.upgrade(), args) {

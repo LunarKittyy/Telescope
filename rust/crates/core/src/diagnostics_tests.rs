@@ -220,7 +220,11 @@ fn install_records_thread_crashes_and_keeps_old_hooks() {
     let original = std::panic::take_hook();
     let recorder = seen.clone();
     std::panic::set_hook(Box::new(move |info| {
-        recorder.lock().unwrap().push(describe_panic(info));
+        // The hook is the process's: a test panicking on another thread at this moment lands here too
+        let said = describe_panic(info);
+        if said.contains("worker died") {
+            recorder.lock().unwrap().push(said);
+        }
     }));
     start(events, &dir.join("tmp"), Some(&dir.join("app")), "0.5.0 dev");
     fs::create_dir_all(dir.join("app")).unwrap();

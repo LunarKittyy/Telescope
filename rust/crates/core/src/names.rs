@@ -29,6 +29,18 @@ pub fn clean_name(raw: &str) -> String {
     text.split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ").chars().take(MAX_NAME_CHARS).collect()
 }
 
+/// What a line edit with setMaxLength keeps when new, its text after an edit, is over the cap: only what the edit put in
+/// is cut, from its end. old is its text before.
+pub fn fit_to_cap(old: &str, new: &str, cap: usize) -> String {
+    let (old, new): (Vec<char>, Vec<char>) = (old.chars().collect(), new.chars().collect());
+    let start = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - start;
+    let end = old.iter().rev().zip(new.iter().rev()).take(room).take_while(|(a, b)| a == b).count();
+    let put_in = &new[start..new.len() - end];
+    let keeps = cap.saturating_sub(start + end).min(put_in.len());
+    new[..start].iter().chain(&put_in[..keeps]).chain(&new[new.len() - end..]).collect()
+}
+
 /// str(value) as Python writes it for what a settings file can hold, for the fields it reads with str().
 pub fn py_str(value: &Value) -> String {
     match value {
@@ -60,6 +72,16 @@ mod tests {
         assert_eq!(clean_name("  \t "), "");
         assert_eq!(clean_name("a\u{202e}b\u{1c}c"), "ab c");
         assert_eq!(clean_name("Des\x00k\n<b>"), "Desk b");
+    }
+
+    #[test]
+    fn a_paste_over_the_cap_is_cut_where_it_went_in() {
+        assert_eq!(fit_to_cap("ab", "abcdefgh", 5), "abcde");
+        assert_eq!(fit_to_cap("ab", "a12345678b", 5), "a123b", "the text after the cursor stays");
+        assert_eq!(fit_to_cap("abcd", "a12345678d", 5), "a123d", "a selection goes first");
+        assert_eq!(fit_to_cap("abcde", "abxxcde", 5), "abcde", "no room: nothing goes in");
+        assert_eq!(fit_to_cap("aaa", "aaaaaaaa", 5), "aaaaa");
+        assert_eq!(fit_to_cap("éé", "éééééééé", 5), "ééééé", "characters, not bytes");
     }
 
     #[test]

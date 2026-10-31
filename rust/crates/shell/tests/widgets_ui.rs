@@ -2,7 +2,7 @@
 // readers, where a switch takes a click, the plugin colours, Tab order and the icons. Driven through Slint's testing
 // backend: nothing reaches the desktop.
 use i_slint_backend_testing::ElementHandle;
-use slint::platform::{PointerEventButton, WindowEvent};
+use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
@@ -56,6 +56,8 @@ export component Test inherits Window {
         Rectangle { width: 300px; height: 36px; HorizontalLayout { Slider { label: "Wide room"; has-readout: false; } } }
         Rectangle { width: 40px; height: 36px; HorizontalLayout { Slider { label: "Narrow room"; has-readout: false; } } }
         ChoiceField { caption: "Picked"; items: ["a", "b", "c"]; gone: [false, true, false]; tip: "About the field"; picked(i) => { pressed = "row " + i; } }
+        ChoiceField { caption: "Bound list"; items: ["a", "b", "c"]; current: mode; }
+        HorizontalLayout { alignment: start; Slider { width: 200px; label: "Typed slider"; readout: "x"; typing: "1.00"; typed(t) => { pressed = "typed " + t; } } }
     }
     // One tooltip body at the size a Tooltip gives it, below the window: its text changes in place, like Qt's reused tip window
     in property <string> tip-text: "Settings";
@@ -294,6 +296,59 @@ fn a_segment_picked_by_hand_still_follows_the_value_bound_to_it() {
     ui.set_property("mode", Value::Number(2.0)).unwrap();
     settle(&ui);
     assert_eq!((checked("Bound mode: b"), checked("Bound mode: c")), (Some(false), Some(true)));
+}
+
+#[test]
+fn a_dropdown_picked_by_hand_still_follows_the_value_bound_to_it() {
+    let ui = rig();
+    let shown = || labelled(&ui, "Bound list").into_iter().next().and_then(|e| e.accessible_value()).map(|v| v.to_string());
+    assert_eq!(shown().as_deref(), Some("a"));
+    click(&ui, &labelled(&ui, "Bound list")[0]);
+    settle(&ui);
+    for key in [Key::Escape, Key::DownArrow] {
+        ui.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+        ui.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        settle(&ui);
+    }
+    assert_eq!(shown().as_deref(), Some("b"), "the arrows picked it");
+    ui.set_property("mode", Value::Number(2.0)).unwrap();
+    settle(&ui);
+    assert_eq!(shown().as_deref(), Some("c"));
+}
+
+#[test]
+fn a_slider_can_take_a_typed_value_over_its_readout() {
+    let ui = rig();
+    let box_at = |ui: &ComponentInstance| {
+        let slider = labelled(ui, "Typed slider").into_iter().next().unwrap();
+        let (p, s) = (slider.absolute_position(), slider.size());
+        LogicalPosition::new(p.x + s.width + 30.0, p.y + s.height / 2.0)
+    };
+    let press = |ui: &ComponentInstance, text: &str| {
+        ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.into() });
+        ui.window().dispatch_event(WindowEvent::KeyReleased { text: text.into() });
+    };
+    let click = |ui: &ComponentInstance| {
+        let position = box_at(ui);
+        ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+        ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+        settle(ui);
+    };
+    click(&ui);
+    press(&ui, "2");
+    press(&ui, "0");
+    press(&ui, ".");
+    press(&ui, "5");
+    press(&ui, "\n");
+    settle(&ui);
+    assert_eq!(ui.get_property("pressed").unwrap(), Value::String("typed 20.5".into()));
+    ui.set_property("pressed", Value::String("".into())).unwrap();
+    click(&ui);
+    press(&ui, "9");
+    press(&ui, &slint::SharedString::from(Key::Escape));
+    press(&ui, "\n");
+    settle(&ui);
+    assert_eq!(ui.get_property("pressed").unwrap(), Value::String("".into()), "Escape leaves it as it was");
 }
 
 #[test]

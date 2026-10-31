@@ -257,6 +257,21 @@ impl LogRow {
         sv.max(lo.min(hi)).min(hi.max(lo))
     }
 
+    /// _on_spin: a value typed in its box, in the box's units. None if it isn't a number.
+    fn typed(&mut self, text: &str) -> Option<f64> {
+        let typed = text.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite())?;
+        self.spin = self.to_spin(typed / self.spin_scale);
+        let val = self.spin / self.spin_scale;
+        self.pos = actions::val_to_log_pos(val, LOG_STEPS, self.v_min, self.v_max);
+        self.shown = val;
+        Some(val)
+    }
+
+    /// What the box holds.
+    fn spin_text(&self) -> String {
+        if self.double { format!("{:.2}", self.spin) } else { format!("{}", self.spin as i64) }
+    }
+
     fn get_value(&self) -> f64 {
         actions::log_pos_to_val(self.pos, LOG_STEPS, self.v_min, self.v_max)
     }
@@ -1179,6 +1194,8 @@ impl CameraControl {
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
+        props["iso-spin"] = json!(self.iso.spin_text());
+        props["shutter-spin"] = json!(self.shutter.spin_text());
         props["exposure-tips"] = json!(self.exp.tips);
         props["wb-tips"] = json!(self.wb.tips);
         props["focus-tips"] = json!(self.focus.tips);
@@ -1521,6 +1538,16 @@ impl Plugin for CameraControl {
                 row.spin = row.to_spin(val);
                 row.shown = val;
                 if event.callback == "iso-moved" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+            }
+            "iso-typed" | "shutter-typed" => {
+                let row = if event.callback == "iso-typed" { &mut self.iso } else { &mut self.shutter };
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                if !row.enabled {
+                    return;
+                }
+                if let Some(val) = row.typed(text) {
+                    if event.callback == "iso-typed" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+                }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),
             "wb-picked" => {
