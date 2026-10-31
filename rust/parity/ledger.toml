@@ -5644,10 +5644,10 @@
 "device.transforms.stretch_y" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "device.transforms.zoom" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 # ── updates
-"global.updates.auto_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"global.updates.channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"global.updates.keep_portable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
-"global.updates.last_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs" }
+"global.updates.auto_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::what_python_saved_in_the_config_fixtures_comes_back_the_same" }
+"global.updates.channel" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::what_python_saved_in_the_config_fixtures_comes_back_the_same" }
+"global.updates.keep_portable" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::what_python_saved_in_the_config_fixtures_comes_back_the_same" }
+"global.updates.last_check" = { status = "ported", rust = "rust/crates/system/src/updates_plugin.rs::what_python_saved_in_the_config_fixtures_comes_back_the_same" }
 # ── wait_screen
 "global.wait_screen.image" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }
 "global.wait_screen.last_size" = { status = "ported", rust = "rust/crates/outputs/src/wait_screen_plugin.rs", note = "Compared with what Python saves in rust/app/tests/cards3_parity.rs" }

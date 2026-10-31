@@ -1343,6 +1343,27 @@ mod tests {
         assert_eq!(plugin.get_config()["keep_portable"], true);
     }
 
+    // The four saved keys against what Python saved for every config fixture
+    #[test]
+    fn what_python_saved_in_the_config_fixtures_comes_back_the_same() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs");
+        let mut seen = 0;
+        for fixture in std::fs::read_dir(root).unwrap().flatten() {
+            let Ok(text) = std::fs::read_to_string(fixture.path().join("expected.json")) else { continue };
+            let expected: Value = serde_json::from_str(&text).unwrap();
+            let saved = &expected["saved"]["plugin_configs"]["updates"];
+            if saved.is_null() {
+                continue;
+            }
+            seen += 1;
+            let mut plugin = UpdatesPlugin::new(Arc::new(Fake::default()), "dev");
+            plugin.set_config(saved).unwrap();
+            assert_eq!(&plugin.get_config(), saved, "{:?}", fixture.path());
+        }
+        assert!(seen > 0);
+        assert_eq!(UpdatesPlugin::new(Arc::new(Fake::default()), "dev").get_config(), json!({"channel": "stable", "auto_check": true, "last_check": 0.0, "keep_portable": false}));
+    }
+
     #[test]
     fn a_newer_phone_app_opens_settings_on_updates() {
         let (mut plugin, mut host, _fake) = env();
