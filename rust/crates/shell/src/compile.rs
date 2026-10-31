@@ -15,6 +15,7 @@ pub fn shell_files() -> Vec<(String, String)> {
     vec![
         ("shell/frame.slint".into(), include_str!("../ui/frame.slint").into()),
         ("shell/settings.slint".into(), include_str!("../ui/settings.slint").into()),
+        ("shell/preview.slint".into(), include_str!("../ui/preview.slint").into()),
     ]
 }
 

@@ -1,0 +1,194 @@
+// What the card's stage and the pop-out both draw on the picture (FrameLabel). Their windows have Theme globals of their
+// own, so colours and the font come in as properties.
+
+export struct LensOutline { label: string, x0: float, y0: float, x1: float, y1: float }
+export struct SkeletonLine { x0: float, y0: float, x1: float, y1: float, sure: bool, out: bool }
+
+// Fills the picture's rect. Skeleton first, lens boxes on top, as paintEvent has them
+export component PreviewMarks {
+    in property <[SkeletonLine]> skeleton-lines;
+    in property <[LensOutline]> lens-boxes;
+    in property <float> boxes-opacity;
+    in property <color> bone;
+    in property <color> held-out;
+    in property <string> font;
+
+    Rectangle {
+        clip: true;
+        for line in skeleton-lines: Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            stroke: #0000006e;
+            stroke-width: 5px;
+            stroke-line-cap: round;
+            MoveTo { x: line.x0 * root.width / 1px; y: line.y0 * root.height / 1px; }
+            LineTo { x: line.x1 * root.width / 1px; y: line.y1 * root.height / 1px; }
+        }
+        for line in skeleton-lines: Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            stroke: (line.out ? held-out : bone).with-alpha(line.sure ? 235 / 255 : 110 / 255);
+            stroke-width: line.out ? 3px : 2px;
+            stroke-line-cap: round;
+            MoveTo { x: line.x0 * root.width / 1px; y: line.y0 * root.height / 1px; }
+            LineTo { x: line.x1 * root.width / 1px; y: line.y1 * root.height / 1px; }
+        }
+        if boxes-opacity > 0 && lens-boxes.length > 0: Rectangle {
+            opacity: boxes-opacity;
+            for b in lens-boxes: Rectangle {
+                // Edges on whole px, so the lines stay crisp
+                property <length> left: round(b.x0 * root.width / 1px) * 1px;
+                property <length> top: round(b.y0 * root.height / 1px) * 1px;
+                property <length> right: round(b.x1 * root.width / 1px) * 1px;
+                property <length> bottom: round(b.y1 * root.height / 1px) * 1px;
+                // The label sits in the corner of the part of the box still in view
+                property <length> seen-x: max(left, 0px);
+                property <length> seen-y: max(top, 0px);
+                property <length> seen-right: min(right, root.width);
+                property <length> seen-bottom: min(bottom, root.height);
+                Rectangle {
+                    x: left - 2px;
+                    y: top - 2px;
+                    width: right - left + 4px;
+                    height: bottom - top + 4px;
+                    border-width: 4px;
+                    border-color: #00000078;
+                }
+                Rectangle {
+                    x: left - 1px;
+                    y: top - 1px;
+                    width: right - left + 2px;
+                    height: bottom - top + 2px;
+                    border-width: 2px;
+                    border-color: #ffffffeb;
+                }
+                tag := Rectangle {
+                    x: seen-x + 6px;
+                    y: seen-y + 6px;
+                    width: label.preferred-width + 8px;
+                    height: label.preferred-height + 4px;
+                    // Only a sliver of the box in view: a label there would stick out of it
+                    visible: self.x + self.width + 4px <= seen-right && self.y + self.height + 4px <= seen-bottom;
+                    background: #00000096;
+                    border-radius: 3px;
+                    label := Text {
+                        text: b.label;
+                        color: white;
+                        font-family: font;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// A pick under way (overlays.rs): what's drawn for it, in px of the picture's rect, and the mouse and keys while it lasts
+export component PreviewPick {
+    in property <length> pic-x;
+    in property <length> pic-y;
+    in property <length> pic-width;
+    in property <length> pic-height;
+    in property <string> pick-dim;
+    in property <string> pick-line;
+    in property <string> pick-handles;
+    in property <string> pick-hint;
+    in property <string> pick-cursor;
+    in property <string> font;
+    callback pick-pointer(string, float, float, float, float);
+    callback pick-key(string);
+
+    Rectangle {
+        x: pic-x;
+        y: pic-y;
+        width: pic-width;
+        height: pic-height;
+        if pick-dim != "": Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: pick-dim;
+            fill: #0000005a;
+            fill-rule: evenodd;
+        }
+        if pick-line != "": Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: pick-line;
+            stroke: #00000082;
+            stroke-width: 4px;
+        }
+        if pick-line != "": Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: pick-line;
+            stroke: #ffffffeb;
+            stroke-width: 2px;
+        }
+        if pick-handles != "": Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: pick-handles;
+            fill: #ffffffeb;
+            stroke: #00000082;
+            stroke-width: 2px;
+        }
+        // The hint chip at the top of the picture, as _paint_hint draws it
+        Rectangle {
+            y: 12px;
+            width: min(hint.preferred-width + 12px, parent.width - 12px);
+            height: hint.preferred-height + 6px;
+            background: #000000aa;
+            border-radius: 4px;
+            hint := Text {
+                width: parent.width - 6px;
+                text: pick-hint;
+                font-family: font;
+                font-size: 12px;
+                font-weight: 700;
+                color: white;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+    keys := FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Return || e.text == Key.Escape {
+                root.pick-key(e.text);
+                return accept;
+            }
+            reject
+        }
+        TouchArea {
+            mouse-cursor: pick-cursor == "cross" ? MouseCursor.crosshair : pick-cursor == "move" ? MouseCursor.move : pick-cursor == "grab" ? MouseCursor.grab : MouseCursor.default;
+            pointer-event(e) => {
+                let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                let kind = e.kind == PointerEventKind.move ? "move"
+                    : e.button == PointerEventButton.right ? (e.kind == PointerEventKind.down ? "right" : "")
+                    : e.button != PointerEventButton.left ? ""
+                    : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
+                if kind == "down" {
+                    keys.focus();
+                }
+                if kind != "" {
+                    root.pick-pointer(kind, u, v, pic-width / 1px, pic-height / 1px);
+                }
+            }
+        }
+    }
+}

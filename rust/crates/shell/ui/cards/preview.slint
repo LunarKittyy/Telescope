@@ -1,6 +1,7 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
 import { Theme, Icons, Button } from "@ui-kit/ui-kit.slint";
+import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
@@ -45,6 +46,16 @@ export component PreviewCard inherits Rectangle {
     out property <length> pic-height: pic-width / max(aspect, 0.01);
     property <length> pic-x: (surface.width - pic-width) / 2;
     property <length> pic-y: (surface.height - pic-height) / 2;
+    // The phone's other lenses and the people vision finds, drawn over the picture (preview.slint). warped: a plugin moved
+    // the picture, so they'd land in the wrong place
+    in property <[LensOutline]> lens-boxes;
+    in property <float> boxes-opacity;
+    in property <[SkeletonLine]> skeleton-lines;
+    in property <bool> warped;
+    in property <bool> lenses-enabled;
+    in property <bool> lenses-on;
+    in property <bool> skeleton-shown;
+    in property <bool> skeleton-on;
     // Clicks and drags on the picture (FrameLabel): what the mouse would do here, and the square where it last focused
     in property <string> stage-cursor;
     in property <bool> marker-shown;
@@ -58,6 +69,8 @@ export component PreviewCard inherits Rectangle {
     callback camera-clicked;
     callback pop-out;
     callback popout-closed;
+    callback lenses-clicked;
+    callback skeleton-clicked;
 
     visible: visible-card;
     preferred-height: 240px + 2px + 55px;
@@ -116,6 +129,18 @@ export component PreviewCard inherits Rectangle {
                     font-size: t.size;
                 }
             }
+            if has-frame && !warped: PreviewMarks {
+                x: pic-x;
+                y: pic-y;
+                width: pic-width;
+                height: pic-height;
+                skeleton-lines: skeleton-lines;
+                lens-boxes: lens-boxes;
+                boxes-opacity: boxes-opacity;
+                bone: Theme.plugin-hue("vision");
+                held-out: Theme.warn;
+                font: Theme.font;
+            }
             if !has-frame: VerticalLayout {
                 alignment: center;
                 spacing: 12px;
@@ -161,93 +186,21 @@ export component PreviewCard inherits Rectangle {
                 border-color: Theme.accent-soft;
                 border-radius: 6px;
             }
-            if picking: Rectangle {
-                x: pic-x;
-                y: pic-y;
-                width: pic-width;
-                height: pic-height;
-                if pick-dim != "": Path {
-                    width: parent.width;
-                    height: parent.height;
-                    viewbox-width: self.width / 1px;
-                    viewbox-height: self.height / 1px;
-                    commands: pick-dim;
-                    fill: #0000005a;
-                    fill-rule: evenodd;
-                }
-                if pick-line != "": Path {
-                    width: parent.width;
-                    height: parent.height;
-                    viewbox-width: self.width / 1px;
-                    viewbox-height: self.height / 1px;
-                    commands: pick-line;
-                    stroke: #00000082;
-                    stroke-width: 4px;
-                }
-                if pick-line != "": Path {
-                    width: parent.width;
-                    height: parent.height;
-                    viewbox-width: self.width / 1px;
-                    viewbox-height: self.height / 1px;
-                    commands: pick-line;
-                    stroke: #ffffffeb;
-                    stroke-width: 2px;
-                }
-                if pick-handles != "": Path {
-                    width: parent.width;
-                    height: parent.height;
-                    viewbox-width: self.width / 1px;
-                    viewbox-height: self.height / 1px;
-                    commands: pick-handles;
-                    fill: #ffffffeb;
-                    stroke: #00000082;
-                    stroke-width: 2px;
-                }
-                // The hint chip at the top of the picture, as _paint_hint draws it
-                Rectangle {
-                    y: 12px;
-                    width: min(hint.preferred-width + 12px, parent.width - 12px);
-                    height: hint.preferred-height + 6px;
-                    background: #000000aa;
-                    border-radius: 4px;
-                    hint := Text {
-                        width: parent.width - 6px;
-                        text: pick-hint;
-                        font-family: Theme.font;
-                        font-size: 12px;
-                        font-weight: 700;
-                        color: white;
-                        horizontal-alignment: center;
-                        overflow: elide;
-                    }
-                }
-            }
-            if picking: keys := FocusScope {
-                init => { self.focus(); }
-                key-pressed(e) => {
-                    if e.text == Key.Return || e.text == Key.Escape {
-                        root.pick-key(e.text);
-                        return accept;
-                    }
-                    reject
-                }
-                TouchArea {
-                    mouse-cursor: pick-cursor == "cross" ? MouseCursor.crosshair : pick-cursor == "move" ? MouseCursor.move : pick-cursor == "grab" ? MouseCursor.grab : MouseCursor.default;
-                    pointer-event(e) => {
-                        let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
-                        let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
-                        let kind = e.kind == PointerEventKind.move ? "move"
-                            : e.button == PointerEventButton.right ? (e.kind == PointerEventKind.down ? "right" : "")
-                            : e.button != PointerEventButton.left ? ""
-                            : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
-                        if kind == "down" {
-                            keys.focus();
-                        }
-                        if kind != "" {
-                            root.pick-pointer(kind, u, v, pic-width / 1px, pic-height / 1px);
-                        }
-                    }
-                }
+            if picking: PreviewPick {
+                width: parent.width;
+                height: parent.height;
+                pic-x: pic-x;
+                pic-y: pic-y;
+                pic-width: pic-width;
+                pic-height: pic-height;
+                pick-dim: pick-dim;
+                pick-line: pick-line;
+                pick-handles: pick-handles;
+                pick-hint: pick-hint;
+                pick-cursor: pick-cursor;
+                font: Theme.font;
+                pick-pointer(kind, u, v, w, h) => { root.pick-pointer(kind, u, v, w, h); }
+                pick-key(key) => { root.pick-key(key); }
             }
         }
         Rectangle {
@@ -284,6 +237,18 @@ export component PreviewCard inherits Rectangle {
                     clicked => { root.camera-clicked(); }
                 }
                 Rectangle { horizontal-stretch: 1; }
+                if skeleton-shown: Button {
+                    width: 36px;
+                    role: "quiet";
+                    padding-x: 0px;
+                    has-icon: true;
+                    icon: Icons.skeleton;
+                    icon-size: 16px;
+                    icon-tint: skeleton-on ? Theme.accent-soft : Theme.text-dim;
+                    tip: @tr("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.");
+                    accessible-label: @tr("Skeleton");
+                    clicked => { root.skeleton-clicked(); }
+                }
                 Button {
                     width: 36px;
                     role: "quiet";
@@ -291,10 +256,11 @@ export component PreviewCard inherits Rectangle {
                     has-icon: true;
                     icon: Icons.v-lenses;
                     icon-size: 16px;
-                    icon-tint: Theme.text-disabled;
-                    enabled: false;
+                    icon-tint: !lenses-enabled ? Theme.text-disabled : lenses-on ? Theme.accent-soft : Theme.text-dim;
+                    enabled: lenses-enabled;
                     tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
                     accessible-label: @tr("Lens outlines");
+                    clicked => { root.lenses-clicked(); }
                 }
                 Button {
                     text: @tr("Pop out");

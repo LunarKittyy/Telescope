@@ -90,6 +90,8 @@ pub struct Window {
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
+import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
+
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
 export struct LayerText { x: length, y: length, text: string, color: color, size: length }
 
@@ -110,6 +112,18 @@ export component PreviewPopout inherits Window {
     in property <[LayerPath]> layer-paths;
     in property <[LayerText]> layer-texts;
     in property <string> layer-font;
+    in property <color> bone;
+    in property <color> held-out;
+    in property <[LensOutline]> lens-boxes;
+    in property <float> boxes-opacity;
+    in property <[SkeletonLine]> skeleton-lines;
+    in property <bool> warped;
+    in property <bool> picking;
+    in property <string> pick-dim;
+    in property <string> pick-line;
+    in property <string> pick-handles;
+    in property <string> pick-hint;
+    in property <string> pick-cursor;
     property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : root.width / max(1px, root.height);
     out property <length> pic-width: min(root.width, root.height * aspect);
     out property <length> pic-height: pic-width / max(aspect, 0.01);
@@ -117,6 +131,8 @@ export component PreviewPopout inherits Window {
     property <length> pic-y: (root.height - pic-height) / 2;
     callback view-pointer(string, float, float, float, float);
     callback view-wheel(float, float, float);
+    callback pick-pointer(string, float, float, float, float);
+    callback pick-key(string);
     if has-frame: Image {
         width: parent.width;
         height: parent.height;
@@ -156,6 +172,18 @@ export component PreviewPopout inherits Window {
             font-size: t.size;
         }
     }
+    if has-frame && !warped: PreviewMarks {
+        x: pic-x;
+        y: pic-y;
+        width: pic-width;
+        height: pic-height;
+        skeleton-lines: skeleton-lines;
+        lens-boxes: lens-boxes;
+        boxes-opacity: boxes-opacity;
+        bone: bone;
+        held-out: held-out;
+        font: layer-font;
+    }
     // The card's stage, as it's the same FrameLabel in Qt
     if has-frame: TouchArea {
         mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
@@ -186,6 +214,22 @@ export component PreviewPopout inherits Window {
         border-width: 2px;
         border-color: marker-colour;
         border-radius: 6px;
+    }
+    if picking: PreviewPick {
+        width: parent.width;
+        height: parent.height;
+        pic-x: pic-x;
+        pic-y: pic-y;
+        pic-width: pic-width;
+        pic-height: pic-height;
+        pick-dim: pick-dim;
+        pick-line: pick-line;
+        pick-handles: pick-handles;
+        pick-hint: pick-hint;
+        pick-cursor: pick-cursor;
+        font: layer-font;
+        pick-pointer(kind, u, v, w, h) => { root.pick-pointer(kind, u, v, w, h); }
+        pick-key(key) => { root.pick-key(key); }
     }
 }
 "#;
@@ -602,16 +646,26 @@ impl Window {
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
         if let Some(p) = &popout {
-            for name in ["stage-cursor", "marker-shown", "marker-u", "marker-v"] {
+            for name in ["stage-cursor", "marker-shown", "marker-u", "marker-v", "lens-boxes", "boxes-opacity", "skeleton-lines"] {
                 if let Some(value) = prop(name) {
-                    let _ = p.set_property(name, value);
+                    if p.get_property(name).ok().as_ref() != Some(&value) {
+                        let _ = p.set_property(name, value);
+                    }
                 }
             }
+        }
+        // _clear: nothing to show, on the pop-out too, and the next stream's first frame is a new one whatever its number
+        if !on("camera-on") || !self.is_streaming() {
+            if let Some(p) = &popout {
+                let _ = p.set_property("has-frame", SValue::Bool(false));
+            }
+            self.painted.set(0);
+            return;
         }
         let card = on("visible-card") && on("showing");
         let window = self.ui.window();
         let seen = window.is_visible() && !window.is_minimized();
-        if !crate::preview::wants_frames(popout.is_some(), card, seen) || !on("camera-on") || !self.is_streaming() {
+        if !crate::preview::wants_frames(popout.is_some(), card, seen) {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
@@ -703,6 +757,10 @@ impl Window {
         let target = popout.as_ref().unwrap_or(&self.ui);
         let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
         let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let warped = SValue::Bool(self.state.borrow().overlays.warping());
+        if target.get_property(&name("warped")).ok().as_ref() != Some(&warped) {
+            let _ = target.set_property(&name("warped"), warped);
+        }
         let drawing = crate::overlays::layer_drawing(&self.state.borrow().layers, number("pic-width"), number("pic-height"));
         if *self.layers_drawn.borrow() == drawing {
             return;
@@ -734,14 +792,17 @@ impl Window {
         *self.layers_drawn.borrow_mut() = drawing;
     }
 
-    /// The pick under way on the preview card's picture (overlays.rs), drawn from the overlays as they are now.
+    /// The pick under way on the preview's picture (overlays.rs), drawn from the overlays as they are now, on the pop-out
+    /// while it's open and the card otherwise.
     fn paint_pick(&self) {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
-        let name = |n: &str| format!("{}-{n}", r.id);
-        let number = |n: &str| match self.ui.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
+        let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        let target = popout.as_ref().unwrap_or(&self.ui);
+        let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
+        let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
         let st = self.state.borrow();
         let drawing = st.overlays.pick_drawing(&st.view);
-        let shown = self.ui.get_property(&name("picking")) == Ok(SValue::Bool(true));
+        let shown = target.get_property(&name("picking")) == Ok(SValue::Bool(true));
         if drawing.is_none() && !shown {
             return;
         }
@@ -753,8 +814,8 @@ impl Window {
         let props = [("picking", SValue::Bool(picking)), ("pick-dim", text(&dim)), ("pick-line", text(&line)),
             ("pick-handles", text(&handles)), ("pick-hint", text(&hint)), ("pick-cursor", text(cursor))];
         for (n, v) in props {
-            if self.ui.get_property(&name(n)).ok().as_ref() != Some(&v) {
-                let _ = self.ui.set_property(&name(n), v);
+            if target.get_property(&name(n)).ok().as_ref() != Some(&v) {
+                let _ = target.set_property(&name(n), v);
             }
         }
     }
@@ -772,7 +833,7 @@ impl Window {
                         });
                         slint::CloseRequestResponse::HideWindow
                     });
-                    for callback in ["view-pointer", "view-wheel"] {
+                    for callback in ["view-pointer", "view-wheel", "pick-pointer", "pick-key"] {
                         let weak = Rc::downgrade(self);
                         let _ = p.set_callback(callback, move |args| {
                             if let Some(w) = weak.upgrade() {
@@ -788,6 +849,12 @@ impl Window {
                     }
                     if let Ok(font) = self.ui.get_global_property("Theme", "font") {
                         let _ = p.set_property("layer-font", font);
+                    }
+                    if let Ok(colour) = self.ui.get_global_property("Theme", "warn") {
+                        let _ = p.set_property("held-out", colour);
+                    }
+                    if let Ok(colour) = self.ui.invoke_global("Theme", "plugin-hue", &[SValue::String("vision".into())]) {
+                        let _ = p.set_property("bone", colour);
                     }
                     let _ = p.show();
                     *self.popout.borrow_mut() = Some(p);
@@ -1327,5 +1394,26 @@ mod popout_tests {
     fn the_pop_out_compiles() {
         i_slint_backend_testing::init_no_event_loop();
         crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap();
+    }
+
+    #[test]
+    fn popout_set_frame_and_resize_guards() {
+        use slint::ComponentHandle;
+        i_slint_backend_testing::init_no_event_loop();
+        let p = crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap().create().unwrap();
+        let size = |w, h| p.window().set_size(slint::PhysicalSize::new(w, h));
+        let now = || (p.window().size().width, p.window().size().height);
+        size(640, 400);
+        super::fit_popout(&p, 160, 90);
+        assert_eq!(now(), (640, 360), "by its width, the stream's shape");
+        size(640, 362);
+        super::fit_popout(&p, 160, 90);
+        assert_eq!(now(), (640, 362), "off by less than 4 px stays");
+        size(640, 365);
+        super::fit_popout(&p, 160, 90);
+        assert_eq!(now(), (640, 360));
+        size(500, 300);
+        super::fit_popout(&p, 0, 0);
+        assert_eq!(now(), (500, 300), "no frame to take the shape of");
     }
 }

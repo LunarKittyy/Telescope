@@ -3697,43 +3697,43 @@
 "test_presets.py::test_stream_output_preset_sends_fps_quality_and_resolution" = { status = "ported", rust = "rust/app/tests/presets_state.rs::a_stream_output_preset_sends_fps_quality_and_resolution_to_the_phone" }
 "test_presets.py::test_switching_lens_keeps_the_manual_focus_distance" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control_tests.rs::switching_lens_keeps_the_manual_focus_distance" }
 # ── preview
-"test_preview.py::test_a_click_on_a_warped_picture_focuses_where_it_came_from" = { status = "todo" }
-"test_preview.py::test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored" = { status = "todo" }
-"test_preview.py::test_a_frame_from_just_before_the_camera_went_off_is_dropped" = { status = "todo" }
-"test_preview.py::test_a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours" = { status = "todo" }
-"test_preview.py::test_a_frame_that_arrives_after_stop_does_not_cover_the_idle_text" = { status = "todo" }
-"test_preview.py::test_a_frame_that_fails_to_show_still_frees_the_preview" = { status = "todo" }
-"test_preview.py::test_a_large_frame_does_not_pin_the_column_open" = { status = "todo" }
-"test_preview.py::test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame" = { status = "todo" }
-"test_preview.py::test_a_pick_shows_a_hidden_preview" = { status = "todo" }
-"test_preview.py::test_a_pick_takes_the_mouse_from_focusing_and_panning" = { status = "todo" }
+"test_preview.py::test_a_click_on_a_warped_picture_focuses_where_it_came_from" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_click_on_a_warped_picture_focuses_where_it_came_from" }
+"test_preview.py::test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored" }
+"test_preview.py::test_a_frame_from_just_before_the_camera_went_off_is_dropped" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_frame_from_just_before_the_camera_went_off_is_dropped" }
+"test_preview.py::test_a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours" }
+"test_preview.py::test_a_frame_that_arrives_after_stop_does_not_cover_the_idle_text" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_frame_that_arrives_after_stop_does_not_cover_the_idle_text" }
+"test_preview.py::test_a_frame_that_fails_to_show_still_frees_the_preview" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_frame_that_fails_to_show_still_frees_the_preview" }
+"test_preview.py::test_a_large_frame_does_not_pin_the_column_open" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_large_frame_does_not_pin_the_column_open" }
+"test_preview.py::test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame" }
+"test_preview.py::test_a_pick_shows_a_hidden_preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::a_pick_shows_a_hidden_preview" }
+"test_preview.py::test_a_pick_takes_the_mouse_from_focusing_and_panning" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::a_pick_takes_the_mouse_from_focusing_and_panning" }
 "test_preview.py::test_a_popout_opened_with_the_card_hidden_leaves_it_hidden" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::a_popout_opened_with_the_card_hidden_leaves_it_hidden" }
-"test_preview.py::test_card_preview_copies_small_frame_and_popout_keeps_full_resolution" = { status = "todo" }
-"test_preview.py::test_card_preview_downscales_large_frame_before_signal" = { status = "todo" }
-"test_preview.py::test_dragging_the_preview_pans_instead_of_focusing" = { status = "todo" }
-"test_preview.py::test_frames_are_scaled_to_the_view_on_the_stream_thread" = { status = "todo" }
-"test_preview.py::test_host_filter_reports_hide_and_show" = { status = "todo" }
-"test_preview.py::test_host_hide_pauses_the_card_without_turning_it_off" = { status = "todo" }
-"test_preview.py::test_layers_tint_the_preview_copy_and_not_the_frame_apps_get" = { status = "todo" }
-"test_preview.py::test_lens_boxes_show_for_a_moment_after_a_move_then_fade" = { status = "todo" }
-"test_preview.py::test_on_frame_updates_card_pixmap_and_clears_busy" = { status = "todo" }
+"test_preview.py::test_card_preview_copies_small_frame_and_popout_keeps_full_resolution" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::card_preview_copies_small_frame_and_popout_keeps_full_resolution" }
+"test_preview.py::test_card_preview_downscales_large_frame_before_signal" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::card_preview_downscales_large_frame_before_signal" }
+"test_preview.py::test_dragging_the_preview_pans_instead_of_focusing" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::dragging_the_preview_pans_instead_of_focusing" }
+"test_preview.py::test_frames_are_scaled_to_the_view_on_the_stream_thread" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::frames_are_scaled_to_the_view_on_the_stream_thread" }
+"test_preview.py::test_host_filter_reports_hide_and_show" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::host_hide_pauses_the_card_without_turning_it_off" }
+"test_preview.py::test_host_hide_pauses_the_card_without_turning_it_off" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::host_hide_pauses_the_card_without_turning_it_off" }
+"test_preview.py::test_layers_tint_the_preview_copy_and_not_the_frame_apps_get" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::layers_tint_the_preview_copy_and_not_the_frame_apps_get" }
+"test_preview.py::test_lens_boxes_show_for_a_moment_after_a_move_then_fade" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::lens_boxes_show_for_a_moment_after_a_move_then_fade" }
+"test_preview.py::test_on_frame_updates_card_pixmap_and_clears_busy" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::on_frame_updates_card_pixmap_and_clears_busy" }
 "test_preview.py::test_open_and_close_popout_disables_then_restores_toggle" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::open_and_close_popout_disables_then_restores_toggle" }
-"test_preview.py::test_popout_set_frame_and_resize_guards" = { status = "todo" }
+"test_preview.py::test_popout_set_frame_and_resize_guards" = { status = "ported", rust = "rust/crates/shell/src/window.rs::popout_set_frame_and_resize_guards" }
 "test_preview.py::test_preview_placeholder_says_waiting_while_a_stream_is_up" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::preview_placeholder_says_waiting_while_a_stream_is_up" }
 "test_preview.py::test_preview_starts_active_and_toggles_off_and_back_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::preview_starts_active_and_toggles_off_and_back_on" }
-"test_preview.py::test_process_frame_is_zero_copy_when_inactive_or_busy" = { status = "todo" }
+"test_preview.py::test_process_frame_is_zero_copy_when_inactive_or_busy" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::process_frame_is_zero_copy_when_inactive_or_busy" }
 "test_preview.py::test_second_popout_request_reuses_visible_window" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::second_popout_request_reuses_visible_window" }
 "test_preview.py::test_stream_start_and_stop_swap_the_placeholder" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::stream_start_and_stop_swap_the_placeholder" }
 "test_preview.py::test_the_camera_button_turns_the_camera_off_and_says_so" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_camera_button_turns_the_camera_off_and_says_so" }
 "test_preview.py::test_the_camera_can_only_go_off_with_the_mic_on" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_camera_can_only_go_off_with_the_mic_on" }
 "test_preview.py::test_the_idle_text_names_the_browser_while_a_browser_source_is_picked" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_idle_text_names_the_browser_while_a_browser_source_is_picked" }
-"test_preview.py::test_the_popout_pans_zooms_and_shows_boxes_too" = { status = "todo" }
+"test_preview.py::test_the_popout_pans_zooms_and_shows_boxes_too" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::the_popout_pans_zooms_and_shows_boxes_too" }
 "test_preview.py::test_the_preview_copy_is_never_scaled_above_the_stream" = { status = "ported", rust = "rust/crates/shell/src/preview.rs::frames_shrink_to_the_stage_but_never_grow" }
-"test_preview.py::test_the_skeleton_button_only_shows_with_the_vision_download" = { status = "todo" }
-"test_preview.py::test_the_skeleton_draws_the_shown_streams_people_over_the_preview" = { status = "todo" }
-"test_preview.py::test_the_skeleton_follows_the_zoom_and_marks_an_arm_held_out" = { status = "todo" }
-"test_preview.py::test_the_stage_says_the_camera_is_off_and_why" = { status = "todo" }
-"test_preview.py::test_the_wheel_over_the_frame_zooms_around_the_mouse" = { status = "todo" }
+"test_preview.py::test_the_skeleton_button_only_shows_with_the_vision_download" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_skeleton_button_only_shows_with_the_vision_download" }
+"test_preview.py::test_the_skeleton_draws_the_shown_streams_people_over_the_preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_skeleton_draws_the_shown_streams_people_over_the_preview" }
+"test_preview.py::test_the_skeleton_follows_the_zoom_and_marks_an_arm_held_out" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_skeleton_follows_the_zoom_and_marks_an_arm_held_out" }
+"test_preview.py::test_the_stage_says_the_camera_is_off_and_why" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs::the_stage_says_the_camera_is_off_and_why" }
+"test_preview.py::test_the_wheel_over_the_frame_zooms_around_the_mouse" = { status = "ported", rust = "rust/app/tests/preview_stage.rs::the_wheel_over_the_frame_zooms_around_the_mouse" }
 # ── privacy_blur
 "test_privacy_blur.py::test_a_second_person_flickering_in_and_out_keeps_it_on" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_second_person_flickering_in_and_out_keeps_it_on" }
 "test_privacy_blur.py::test_a_stream_behind_the_panels_blurs_whenever_the_shown_one_does" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur_tests.rs::a_stream_behind_the_panels_blurs_whenever_the_shown_one_does" }

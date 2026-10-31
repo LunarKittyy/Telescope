@@ -4,8 +4,11 @@
 use serde_json::{json, Value};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::event::LensBox;
+use telescope_core::pose::{self, Person};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
-use telescope_core::{Event, Host};
+use telescope_core::view::{upright_to_shown, Geometry};
+use telescope_core::{vision, Event, Host};
 
 // Translators: the preview area doesn't wrap lines, so keep the line breaks and each line about as long as this one
 const IDLE_TEXT: &str = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.";
@@ -24,6 +27,40 @@ const WHEEL_STEP: f64 = 1.1;
 /// How long the square stays where you clicked.
 const MARKER_MS: u64 = 1000;
 const MARKER_TIMER: &str = "focus-marker";
+/// The lens boxes stay this long after the framing last moved, then fade over FADE_STEPS of FADE_STEP_MS.
+const BOXES_HOLD_MS: u64 = 1000;
+const FADE_STEP_MS: u64 = 50;
+const FADE_STEPS: f32 = 6.0;
+const BOXES_HOLD_TIMER: &str = "boxes-hold";
+const BOXES_FADE_TIMER: &str = "boxes-fade";
+/// What asks vision for people while the skeleton is on.
+const SKELETON_OWNER: &str = "Preview skeleton";
+
+/// One line of a skeleton, in the frame as shown (0..1): sure when the model is sure of both ends, out for an arm Auto
+/// framing would count as held out.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Line {
+    pub from: (f64, f64),
+    pub to: (f64, f64),
+    pub sure: bool,
+    pub out: bool,
+}
+
+/// skeleton: the lines to draw for people.
+pub fn skeleton(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64), aspect: f64) -> Vec<Line> {
+    let mut lines = Vec::new();
+    for person in people {
+        let out_sides = pose::hands_out(std::slice::from_ref(person), aspect);
+        for (a, b) in pose::BONES {
+            let (Some(pa), Some(pb)) = (person.point(a, pose::ARM_SEEN), person.point(b, pose::ARM_SEEN)) else { continue };
+            let sure = person.point(a, pose::SEEN).is_some() && person.point(b, pose::SEEN).is_some();
+            let (side, part) = b.split_once('_').unwrap_or(("", b));
+            let out = out_sides.contains(&side) && ["elbow", "wrist", "index", "pinky", "thumb"].contains(&part);
+            lines.push(Line { from: map_point(pa.0, pa.1), to: map_point(pb.0, pb.1), sure, out });
+        }
+    }
+    lines
+}
 
 /// The left button while it's down on the frame: where it went down, as (u, v) and in px of the frame on screen.
 struct Press {
@@ -46,9 +83,14 @@ pub struct Preview {
     hid_for_popout: bool,
     /// Times Pop out was pressed while the window was open: the window comes to the front for each.
     popout_asks: i64,
-    /// The Lens outlines button, kept as saved though it stays disabled until lenses send boxes.
+    /// The Lens outlines button: the boxes stay on. It stays disabled until lenses send boxes.
     lens_boxes: bool,
+    /// What the phone's other lenses see, and how far the boxes have faded since the framing last moved.
+    boxes: Vec<LensBox>,
+    boxes_opacity: f32,
+    /// The Skeleton button, and the people it draws.
     skeleton: bool,
+    people: Vec<Person>,
     /// A click focuses there, and a drag pans (FrameLabel).
     pickable: bool,
     pannable: bool,
@@ -105,9 +147,79 @@ impl Preview {
         host.set_ui_props("card", &props);
     }
 
+    /// _push_boxes. A box the whole frame fits inside has no edge to show.
+    fn show_boxes(&self, host: &mut dyn Host) {
+        const EPS: f32 = 1e-3;
+        let boxes: Vec<Value> = self.boxes.iter().filter(|b| !(b.x0 <= EPS && b.y0 <= EPS && b.x1 >= 1.0 - EPS && b.y1 >= 1.0 - EPS))
+            .map(|b| json!({"label": b.label, "x0": b.x0, "y0": b.y0, "x1": b.x1, "y1": b.y1})).collect();
+        host.set_ui_props("card", &json!({
+            "lens-boxes": boxes,
+            "boxes-opacity": if self.lens_boxes { 1.0 } else { self.boxes_opacity },
+            "lenses-enabled": !self.boxes.is_empty(),
+            "lenses-on": self.lens_boxes,
+        }));
+    }
+
+    fn lens_boxes_seen(&mut self, host: &mut dyn Host, boxes: &[LensBox], moved: bool) {
+        self.boxes = boxes.to_vec();
+        if moved && !boxes.is_empty() {
+            host.cancel_schedule(BOXES_FADE_TIMER);
+            host.cancel_schedule(BOXES_HOLD_TIMER);
+            self.boxes_opacity = 1.0;
+            host.schedule(BOXES_HOLD_MS, BOXES_HOLD_TIMER);
+        }
+        self.show_boxes(host);
+    }
+
+    /// _show_skeleton_btn: only with the vision download there; MediaPipe itself loads when the button goes on.
+    fn skeleton_there(host: &dyn Host) -> bool {
+        let state = host.vision_state();
+        state != vision::MISSING && state != vision::FAILED
+    }
+
+    /// _push_skeleton, and the button as vision is now.
+    fn show_skeleton(&self, host: &mut dyn Host) {
+        let lines = if self.people.is_empty() {
+            Vec::new()
+        } else {
+            let geometry = Geometry::from(&host.view());
+            let aspect = match host.view_aspect() {
+                a if a > 0.0 => a as f64,
+                _ => 16.0 / 9.0,
+            };
+            skeleton(&self.people, &|x, y| upright_to_shown(&geometry, x, y), aspect)
+        };
+        let lines: Vec<Value> = lines.iter().map(|l| json!({"x0": l.from.0, "y0": l.from.1, "x1": l.to.0, "y1": l.to.1, "sure": l.sure, "out": l.out})).collect();
+        host.set_ui_props("card", &json!({"skeleton-lines": lines, "skeleton-shown": Self::skeleton_there(host), "skeleton-on": self.skeleton}));
+    }
+
+    /// _on_skeleton.
+    fn set_skeleton(&mut self, host: &mut dyn Host, on: bool) {
+        self.skeleton = on;
+        host.want_people(SKELETON_OWNER, on);
+        if !on {
+            self.people.clear();
+        }
+        self.show_skeleton(host);
+        host.schedule_save();
+    }
+
+    /// Saved settings or the plugins' start reached the toolbar: a button vision can't back goes off.
+    fn settle(&mut self, host: &mut dyn Host) {
+        self.skeleton &= Self::skeleton_there(host);
+        host.want_people(SKELETON_OWNER, self.skeleton);
+        self.show_skeleton(host);
+        self.show_boxes(host);
+    }
+
     fn toggle(&mut self, host: &mut dyn Host) {
         self.hidden = !self.hidden;
         self.render(host, true);
+    }
+
+    fn toggle_lenses(&mut self, host: &mut dyn Host) {
+        self.lens_boxes = !self.lens_boxes;
+        self.show_boxes(host);
     }
 
     fn stage_cursor(&self) -> &'static str {
@@ -230,18 +342,26 @@ impl Plugin for Preview {
 
     fn on_plugins_ready(&mut self, host: &mut dyn Host) {
         self.render(host, true);
+        self.settle(host);
+    }
+
+    fn on_profile_applied(&mut self, host: &mut dyn Host) {
+        self.settle(host);
     }
 
     fn actions(&mut self) -> Vec<ActionSpec> {
         let action = |id: &str, label: String| ActionSpec { id: id.into(), label, group: tr("Preview"), params: Vec::new(),
                                                              repeats: false, on_release: false, current: None, keywords: String::new() };
-        vec![action("show_hide", tr("Show or hide the preview")), action("pop_out", tr("Pop out the preview"))]
+        vec![action("show_hide", tr("Show or hide the preview")), action("lens_outlines", tr("Lens outlines")),
+             action("skeleton", tr("Skeleton")), action("pop_out", tr("Pop out the preview"))]
     }
 
     fn run_action(&mut self, host: &mut dyn Host, id: &str, _params: &Value) -> Option<String> {
         match id {
             // Hide waits while the pop-out is open, as its button does
             "show_hide" if !self.popout => self.toggle(host),
+            "lens_outlines" if !self.boxes.is_empty() => self.toggle_lenses(host),
+            "skeleton" if Self::skeleton_there(host) => self.set_skeleton(host, !self.skeleton),
             "pop_out" => self.open_popout(host),
             _ => return None,
         }
@@ -264,6 +384,36 @@ impl Plugin for Preview {
             Event::TimerFired { owner, token } if owner == "preview" && token == MARKER_TIMER => {
                 return host.set_ui_props("card", &json!({"marker-shown": false}));
             }
+            Event::TimerFired { owner, token } if owner == "preview" && (token == BOXES_HOLD_TIMER || token == BOXES_FADE_TIMER) => {
+                self.boxes_opacity = if token == BOXES_HOLD_TIMER { 1.0 } else { (self.boxes_opacity - 1.0 / FADE_STEPS).max(0.0) };
+                if self.boxes_opacity > 1e-3 {
+                    host.schedule(FADE_STEP_MS, BOXES_FADE_TIMER);
+                } else {
+                    self.boxes_opacity = 0.0;
+                }
+                return self.show_boxes(host);
+            }
+            Event::LensBoxes { boxes, moved } => return self.lens_boxes_seen(host, boxes, *moved),
+            Event::PeopleSeen { source_id, people } => {
+                if self.skeleton && *source_id == host.focused_source_id().unwrap_or_default() {
+                    self.people = people.iter().filter_map(Person::from_value).collect();
+                    self.show_skeleton(host);
+                }
+                return;
+            }
+            Event::ViewChanged { .. } | Event::VisionStateChanged { .. } => {
+                if self.skeleton && !Self::skeleton_there(host) {
+                    return self.set_skeleton(host, false);
+                }
+                return self.show_skeleton(host);
+            }
+            // A pick needs the picture to pick on
+            Event::PreviewPickChanged { owner } => {
+                if !owner.is_empty() && self.hidden && !self.popout {
+                    self.toggle(host);
+                }
+                return;
+            }
             _ => return,
         }
         self.render(host, false);
@@ -275,8 +425,10 @@ impl Plugin for Preview {
 
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         self.press = None;
+        self.people.clear();
         self.render(host, true);
         self.show_cursor(host);
+        self.show_skeleton(host);
     }
 
     fn on_camera_off(&mut self, host: &mut dyn Host) {
@@ -292,6 +444,8 @@ impl Plugin for Preview {
             "toggle" if !self.popout => self.toggle(host),
             "pop-out" => self.open_popout(host),
             "popout-closed" => self.popout_closed(host),
+            "lenses-clicked" => self.toggle_lenses(host),
+            "skeleton-clicked" => self.set_skeleton(host, !self.skeleton),
             "view-pointer" => {
                 let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
                 let kind = event.args.first().and_then(Value::as_str).unwrap_or("");
@@ -316,8 +470,8 @@ impl Plugin for Preview {
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         self.lens_boxes = cfg.get("lens_boxes") == Some(&Value::Bool(true));
-        // The Skeleton button only shows once vision is ported, and a hidden button stays off
-        self.skeleton = false;
+        // Whether vision can back it comes in settle, which has the host
+        self.skeleton = cfg.get("skeleton") == Some(&Value::Bool(true));
         Ok(())
     }
 }
@@ -532,5 +686,245 @@ mod tests {
         p.on_camera_off(&mut host);
         let c = card(&host);
         assert_eq!((c["stage-text"].as_str(), c["camera-off"].as_bool()), (Some(CAMERA_OFF_TEXT), Some(true)));
+    }
+
+    #[test]
+    fn the_stage_says_the_camera_is_off_and_why() {
+        let (mut p, mut host) = ready();
+        host.streaming = true;
+        let stream = telescope_core::plugin::StreamInfo { url: "u".into(), source_id: "phone-1".into(), session: 0 };
+        p.on_stream_start(&mut host, &stream);
+        host.camera_off = true;
+        p.on_camera_off(&mut host);
+        let c = card(&host);
+        assert_eq!((c["stage-text"].as_str(), c["camera-off"].as_bool(), c["has-frame"].as_bool()), (Some(CAMERA_OFF_TEXT), Some(true), Some(false)));
+        host.camera_off_auto = true;
+        p.on_camera_off(&mut host);
+        assert_eq!(card(&host)["stage-text"], CAMERA_OFF_AUTO_TEXT);
+        host.camera_off = false;
+        p.on_camera_on(&mut host);
+        let c = card(&host);
+        assert_eq!((c["stage-text"].as_str(), c["camera-off"].as_bool()), (Some(WAITING_TEXT), Some(false)));
+    }
+
+    #[test]
+    fn a_pick_shows_a_hidden_preview() {
+        let (mut p, mut host) = ready();
+        click(&mut p, &mut host, "toggle");
+        assert_eq!(card(&host)["showing"], false);
+        p.on_event(&mut host, &Event::PreviewPickChanged { owner: String::new() });
+        assert_eq!(card(&host)["showing"], false, "the end of a pick shows nothing");
+        p.on_event(&mut host, &Event::PreviewPickChanged { owner: "test".into() });
+        assert_eq!(card(&host)["showing"], true);
+
+        // The pop-out has the picture to pick on, so the card stays hidden for it
+        click(&mut p, &mut host, "pop-out");
+        p.on_event(&mut host, &Event::PreviewPickChanged { owner: "test".into() });
+        assert_eq!(card(&host)["showing"], false);
+    }
+
+    fn boxes() -> Vec<LensBox> {
+        vec![LensBox { label: "3\u{d7}".into(), x0: 0.33, y0: 0.33, x1: 0.67, y1: 0.67 }]
+    }
+
+    fn fire(p: &mut Preview, host: &mut FakeHost, token: &str) {
+        assert!(host.is_scheduled(token), "{token} isn't waiting");
+        host.scheduled.retain(|(_, t)| t != token);
+        p.on_event(host, &Event::TimerFired { owner: "preview".into(), token: token.into() });
+    }
+
+    #[test]
+    fn lens_boxes_show_for_a_moment_after_a_move_then_fade() {
+        let (mut p, mut host) = ready();
+        assert_eq!(card(&host)["lenses-enabled"], false);
+        p.on_event(&mut host, &Event::LensBoxes { boxes: boxes(), moved: false });
+        let c = card(&host);
+        assert_eq!((c["boxes-opacity"].as_f64(), c["lenses-enabled"].as_bool()), (Some(0.0), Some(true)), "known, but nothing moved");
+        assert_eq!(c["lens-boxes"][0]["label"], "3\u{d7}");
+        assert!((c["lens-boxes"][0]["x1"].as_f64().unwrap() - 0.67).abs() < 1e-6);
+        assert!(!host.is_scheduled(BOXES_HOLD_TIMER));
+        p.on_event(&mut host, &Event::LensBoxes { boxes: boxes(), moved: true });
+        assert_eq!(card(&host)["boxes-opacity"], 1.0);
+        assert_eq!(host.scheduled.iter().find(|(_, t)| t == BOXES_HOLD_TIMER).map(|(ms, _)| *ms), Some(1000));
+        fire(&mut p, &mut host, BOXES_HOLD_TIMER);
+        assert_eq!(card(&host)["boxes-opacity"], 1.0, "the fade starts here");
+        let mut steps = 0;
+        while host.is_scheduled(BOXES_FADE_TIMER) {
+            let before = card(&host)["boxes-opacity"].as_f64().unwrap();
+            fire(&mut p, &mut host, BOXES_FADE_TIMER);
+            assert!(card(&host)["boxes-opacity"].as_f64().unwrap() < before);
+            steps += 1;
+        }
+        assert_eq!(card(&host)["boxes-opacity"], 0.0);
+        assert_eq!(steps as u64 * FADE_STEP_MS, 300);
+
+        click(&mut p, &mut host, "lenses-clicked");
+        assert_eq!((card(&host)["boxes-opacity"].as_f64(), card(&host)["lenses-on"].as_bool()), (Some(1.0), Some(true)), "always on");
+        assert_eq!(p.get_config(), json!({"lens_boxes": true, "skeleton": false}));
+        p.set_config(&json!({"lens_boxes": false})).unwrap();
+        p.on_profile_applied(&mut host);
+        assert_eq!((card(&host)["boxes-opacity"].as_f64(), card(&host)["lenses-on"].as_bool()), (Some(0.0), Some(false)));
+
+        p.on_event(&mut host, &Event::LensBoxes { boxes: vec![], moved: false });
+        assert_eq!(card(&host)["lenses-enabled"], false);
+    }
+
+    #[test]
+    fn another_move_starts_the_moment_over() {
+        let (mut p, mut host) = ready();
+        p.on_event(&mut host, &Event::LensBoxes { boxes: boxes(), moved: true });
+        fire(&mut p, &mut host, BOXES_HOLD_TIMER);
+        fire(&mut p, &mut host, BOXES_FADE_TIMER);
+        p.on_event(&mut host, &Event::LensBoxes { boxes: boxes(), moved: true });
+        assert_eq!(card(&host)["boxes-opacity"], 1.0);
+        assert!(!host.is_scheduled(BOXES_FADE_TIMER) && host.is_scheduled(BOXES_HOLD_TIMER));
+    }
+
+    #[test]
+    fn a_box_the_whole_frame_fits_inside_has_no_edge_to_show() {
+        let (mut p, mut host) = ready();
+        let whole = LensBox { label: "1\u{d7}".into(), x0: 0.0, y0: 0.0, x1: 1.0, y1: 1.0 };
+        p.on_event(&mut host, &Event::LensBoxes { boxes: vec![whole, boxes().remove(0)], moved: true });
+        let c = card(&host);
+        assert_eq!(c["lens-boxes"].as_array().unwrap().len(), 1);
+        assert_eq!(c["lens-boxes"][0]["label"], "3\u{d7}");
+    }
+
+    /// Shoulders at 0.45 and 0.55 of the width, 0.4 down; the person's left arm straight out on request.
+    fn figure(arm_out: bool) -> Value {
+        let mut points = vec![("left_shoulder", 0.55, 0.4, 0.99), ("right_shoulder", 0.45, 0.4, 0.99), ("left_hip", 0.53, 0.75, 0.9),
+                              ("right_hip", 0.47, 0.75, 0.9), ("nose", 0.5, 0.28, 0.99), ("left_eye", 0.51, 0.26, 0.99), ("left_ear", 0.53, 0.27, 0.9)];
+        if arm_out {
+            points.extend([("left_elbow", 0.62, 0.42, 0.9), ("left_wrist", 0.69, 0.42, 0.9)]);
+        }
+        Person::new(points).to_value()
+    }
+
+    fn skeleton_card(state: &str) -> (Preview, FakeHost) {
+        let (mut p, mut host) = (Preview::default(), FakeHost::new());
+        host.vision = Some(state.into());
+        host.focused = Some("phone".into());
+        p.on_plugins_ready(&mut host);
+        (p, host)
+    }
+
+    fn seen(p: &mut Preview, host: &mut FakeHost, source: &str, people: Vec<Value>) {
+        p.on_event(host, &Event::PeopleSeen { source_id: source.into(), people });
+    }
+
+    fn lines(host: &FakeHost) -> Vec<Value> {
+        card(host)["skeleton-lines"].as_array().cloned().unwrap_or_default()
+    }
+
+    fn close(a: &Value, b: f64) -> bool {
+        (a.as_f64().unwrap() - b).abs() < 1e-6
+    }
+
+    #[test]
+    fn the_skeleton_button_only_shows_with_the_vision_download() {
+        for (state, shown) in [(vision::MISSING, false), (vision::FAILED, false), (vision::OFF, true), (vision::READY, true)] {
+            let (_, host) = skeleton_card(state);
+            assert_eq!(card(&host)["skeleton-shown"], shown, "{state}");
+        }
+        // The download went away with the button on
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        click(&mut p, &mut host, "skeleton-clicked");
+        host.vision = Some(vision::MISSING.into());
+        host.calls.clear();
+        p.on_event(&mut host, &Event::VisionStateChanged { state: vision::MISSING.into() });
+        assert_eq!((card(&host)["skeleton-shown"].as_bool(), card(&host)["skeleton-on"].as_bool()), (Some(false), Some(false)));
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton false"));
+    }
+
+    #[test]
+    fn the_skeleton_draws_the_shown_streams_people_over_the_preview() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        seen(&mut p, &mut host, "phone", vec![figure(false)]);
+        assert!(lines(&host).is_empty(), "not asked for");
+        host.calls.clear();
+        click(&mut p, &mut host, "skeleton-clicked");
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton true"));
+        assert!(host.calls.iter().any(|c| c == "schedule_save"));
+        seen(&mut p, &mut host, "another phone", vec![figure(false)]);
+        assert!(lines(&host).is_empty());
+        seen(&mut p, &mut host, "phone", vec![figure(false)]);
+        let all = lines(&host);
+        let shoulders: Vec<&Value> = all.iter().filter(|l| close(&l["y0"], 0.4) && close(&l["y1"], 0.4)).collect();
+        assert_eq!(shoulders.len(), 1);
+        let mut xs = [shoulders[0]["x0"].as_f64().unwrap(), shoulders[0]["x1"].as_f64().unwrap()];
+        xs.sort_by(f64::total_cmp);
+        assert!((xs[0] - 0.45).abs() < 1e-6 && (xs[1] - 0.55).abs() < 1e-6, "{xs:?}");
+        host.calls.clear();
+        click(&mut p, &mut host, "skeleton-clicked");
+        assert!(lines(&host).is_empty());
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton false"));
+    }
+
+    #[test]
+    fn the_skeleton_follows_the_zoom_and_marks_an_arm_held_out() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        click(&mut p, &mut host, "skeleton-clicked");
+        seen(&mut p, &mut host, "phone", vec![figure(true)]);
+        assert!(lines(&host).iter().any(|l| close(&l["y0"], 0.4) && close(&l["y1"], 0.4)), "zoomed out to begin with");
+        host.view.zoom = 2.0;
+        let view = host.view.clone();
+        p.on_event(&mut host, &Event::ViewChanged { view });
+        let all = lines(&host);
+        let shoulders = all.iter().find(|l| close(&l["y0"], 0.3) && close(&l["y1"], 0.3)).expect("the shoulders, moved by the zoom");
+        let mut xs = [shoulders["x0"].as_f64().unwrap(), shoulders["x1"].as_f64().unwrap()];
+        xs.sort_by(f64::total_cmp);
+        assert!((xs[0] - 0.4).abs() < 1e-6 && (xs[1] - 0.6).abs() < 1e-6 && shoulders["out"] == false, "{xs:?}");
+        assert_eq!(all.iter().filter(|l| l["out"] == true).count(), 2, "shoulder to elbow and elbow to wrist, not the side of the body or the face");
+    }
+
+    #[test]
+    fn the_skeleton_line_is_sure_only_of_two_points_the_model_is_sure_of() {
+        let person = Person::new([("left_shoulder", 0.5, 0.4, 0.3), ("right_shoulder", 0.4, 0.4, 0.9), ("left_hip", 0.5, 0.7, 0.9), ("right_hip", 0.4, 0.7, 0.9)]);
+        let lines = skeleton(&[person], &|x, y| (x, y), 16.0 / 9.0);
+        let at = |from: (f64, f64), to: (f64, f64)| lines.iter().find(|l| (l.from == from && l.to == to) || (l.from == to && l.to == from)).unwrap().sure;
+        assert!(!at((0.5, 0.4), (0.4, 0.4)));
+        assert!(at((0.5, 0.7), (0.4, 0.7)));
+    }
+
+    #[test]
+    fn people_go_when_the_stream_stops() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        click(&mut p, &mut host, "skeleton-clicked");
+        seen(&mut p, &mut host, "phone", vec![figure(false)]);
+        assert!(!lines(&host).is_empty());
+        p.on_stream_stop(&mut host);
+        assert!(lines(&host).is_empty());
+        assert_eq!(card(&host)["skeleton-on"], true, "the button stays on");
+    }
+
+    #[test]
+    fn the_skeleton_is_saved_and_comes_back_only_with_vision_there() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        p.set_config(&json!({"skeleton": true})).unwrap();
+        host.calls.clear();
+        p.on_profile_applied(&mut host);
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton true"));
+        assert_eq!(p.get_config()["skeleton"], true);
+
+        let (mut p, mut host) = skeleton_card(vision::MISSING);
+        p.set_config(&json!({"skeleton": true})).unwrap();
+        host.calls.clear();
+        p.on_profile_applied(&mut host);
+        assert_eq!(p.get_config()["skeleton"], false, "a hidden button stays off");
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton false"));
+    }
+
+    #[test]
+    fn the_lens_and_skeleton_buttons_have_keys() {
+        let (mut p, mut host) = skeleton_card(vision::MISSING);
+        assert!(p.actions().iter().any(|a| a.id == "lens_outlines") && p.actions().iter().any(|a| a.id == "skeleton"));
+        assert_eq!(p.run_action(&mut host, "lens_outlines", &Value::Null), None, "nothing to outline yet");
+        assert_eq!(p.run_action(&mut host, "skeleton", &Value::Null), None, "hidden");
+        p.on_event(&mut host, &Event::LensBoxes { boxes: boxes(), moved: false });
+        assert!(p.run_action(&mut host, "lens_outlines", &Value::Null).is_some());
+        assert_eq!(card(&host)["lenses-on"], true);
+        host.vision = Some(vision::OFF.into());
+        assert!(p.run_action(&mut host, "skeleton", &Value::Null).is_some());
+        assert_eq!(card(&host)["skeleton-on"], true);
     }
 }
