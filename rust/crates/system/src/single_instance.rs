@@ -428,6 +428,172 @@ mod tests {
         }
     }
 
+    /// A running copy at a test address: how many raises reached it, and the actions, as they arrived.
+    struct Running {
+        address: Address,
+        raised: Arc<Mutex<u32>>,
+        actions: Arc<Mutex<Vec<Value>>>,
+        dir: PathBuf,
+    }
+
+    impl Running {
+        fn with_key(name: &str, key: impl FnOnce(&Path) -> Option<String>) -> Running {
+            let address = test_address(name);
+            let Acquired::Lock(lock) = acquire(&address, Duration::ZERO) else { panic!("no lock") };
+            let (raised, actions) = (Arc::new(Mutex::new(0)), Arc::new(Mutex::new(Vec::new())));
+            let dir = std::env::temp_dir().join(format!("telescope-si-{name}-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let control_key = key(&control_key_path(&dir.join("telescope_config.json")));
+            let (r, a) = (raised.clone(), actions.clone());
+            listen(lock, move || *r.lock().unwrap() += 1, move |request| {
+                a.lock().unwrap().push(request);
+                json!({"ok": true, "text": "Torch: on"})
+            }, control_key);
+            Running { address, raised, actions, dir }
+        }
+
+        fn new(name: &str) -> Running {
+            Running::with_key(name, write_control_key)
+        }
+
+        fn key_path(&self) -> PathBuf {
+            control_key_path(&self.dir.join("telescope_config.json"))
+        }
+
+        fn raises(&self) -> u32 {
+            *self.raised.lock().unwrap()
+        }
+
+        /// What it answers these bytes with, all of it.
+        fn says(&self, words: &[u8]) -> Vec<u8> {
+            let mut c = connect(&self.address, Duration::from_secs(5)).unwrap();
+            c.write_all(words).unwrap();
+            let mut reply = Vec::new();
+            let _ = c.read_to_end(&mut reply); // read_to_end returning means it closed the connection
+            reply
+        }
+
+        fn raise(&self) -> Vec<u8> {
+            self.says(&[RAISE, user_token().as_bytes()].concat())
+        }
+    }
+
+    impl Drop for Running {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[test]
+    fn a_running_telescope_answers_a_raise_with_ok() {
+        let run = Running::new("answers");
+        assert_eq!(run.raise(), b"ok");
+        assert_eq!(run.raises(), 1);
+    }
+
+    #[test]
+    fn listen_for_raise_invokes_callback_and_closes_connection() {
+        let run = Running::new("closes");
+        assert_eq!(run.raise(), b"ok"); // says() only returns once the other end closed
+    }
+
+    #[test]
+    fn listen_for_raise_ignores_wrong_message_and_timeouts() {
+        let run = Running::new("wrong");
+        assert_eq!(run.says(b"other"), b"");
+        assert_eq!(run.raises(), 0);
+        assert_eq!(run.raise(), b"ok", "still listening");
+    }
+
+    #[test]
+    fn a_silent_connection_does_not_stop_later_raises() {
+        // Anything on this machine that connects and says nothing used to block the listener for good
+        let run = Running::new("silent-peer");
+        let silent = connect(&run.address, Duration::from_secs(5)).unwrap();
+        assert_eq!(run.raise(), b"ok");
+        drop(silent);
+    }
+
+    #[test]
+    fn a_reset_connection_does_not_stop_later_raises() {
+        let run = Running::new("reset");
+        drop(connect(&run.address, Duration::from_secs(5)).unwrap());
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(run.raise(), b"ok");
+    }
+
+    #[test]
+    fn the_listener_only_raises_for_the_same_user() {
+        let run = Running::new("other-user");
+        assert_eq!(run.says(&[RAISE, b"0000000000000000"].concat()), b"other");
+        assert_eq!(run.raises(), 0);
+    }
+
+    #[test]
+    fn another_users_telescope_on_a_shared_port_answers_other() {
+        let address = test_address("shared-port");
+        let Acquired::Lock(lock) = acquire(&address, Duration::ZERO) else { panic!("no lock") };
+        std::thread::spawn(move || {
+            let mut conn = lock.accept().unwrap();
+            let _ = conn.read(&mut [0u8; 64]);
+            conn.write_all(b"other").unwrap();
+        });
+        let acquired = acquire(&address, Duration::ZERO);
+        assert!(matches!(acquired, Acquired::OtherUser));
+        assert!(notice(&acquired, &address).unwrap().1.contains("another user"));
+    }
+
+    #[test]
+    fn a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok() {
+        let run = Running::new("second-copy");
+        assert!(matches!(acquire(&run.address, Duration::ZERO), Acquired::Raised));
+        assert_eq!(run.raises(), 1);
+        assert!(matches!(acquire(&test_address("second-copy-another-user"), Duration::ZERO), Acquired::Lock(_)), "a different user's name binds alongside");
+    }
+
+    #[test]
+    fn an_action_reaches_the_running_copy_with_its_key() {
+        let run = Running::new("action");
+        let request = json!({"action": "camera.torch", "params": {"mode": "on"}});
+        assert_eq!(send_action(&run.address, &run.key_path(), &request), (true, "Torch: on".into()));
+        assert_eq!(*run.actions.lock().unwrap(), [request], "the key isn't passed on");
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(run.key_path()).unwrap().permissions()) & 0o077, 0, "nobody else can read it");
+    }
+
+    #[test]
+    fn an_action_without_the_right_key_is_turned_down() {
+        let run = Running::new("action-no-key");
+        std::fs::write(run.key_path(), "not-the-key").unwrap();
+        let (ok, text) = send_action(&run.address, &run.key_path(), &json!({"action": "camera.torch"}));
+        assert!(!ok && text.contains("turned that down"), "{text}");
+        assert!(run.actions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_action_with_nothing_running() {
+        let dir = std::env::temp_dir().join(format!("telescope-si-idle-{}", std::process::id()));
+        assert_eq!(send_action(&test_address("idle"), &dir.join("no-key"), &json!({"list": true})), (false, "Telescope isn't running.".into()));
+    }
+
+    #[test]
+    fn a_raise_still_works_next_to_actions() {
+        let run = Running::new("raise-and-action");
+        assert_eq!(send_action(&run.address, &run.key_path(), &json!({"action": "x"})).0, true);
+        assert_eq!(run.raise(), b"ok");
+    }
+
+    #[test]
+    fn an_action_when_the_key_couldnt_be_written() {
+        let run = Running::with_key("action-unwritten", |path| {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "old-run").unwrap();
+            None
+        });
+        let (ok, text) = send_action(&run.address, &run.key_path(), &json!({"action": "x"}));
+        assert!(!ok && text.contains("Restart it"), "{text}");
+    }
+
     #[test]
     fn a_second_start_raises_the_first_and_actions_need_the_key() {
         let address = test_address("raise");

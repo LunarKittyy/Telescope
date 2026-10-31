@@ -1127,7 +1127,7 @@ mod tests {
     fn offer(host: &mut Host, ready: bool) -> std::sync::Arc<Offered> {
         let offered = std::sync::Arc::new(Offered { ready, prepared: AtomicU32::new(0) });
         let source: std::sync::Arc<dyn telescope_core::source::StreamSource> = offered.clone();
-        let kind = crate::sources::PluginKind { source: std::sync::Arc::new(std::sync::Mutex::new(source)) };
+        let kind = crate::sources::PluginKind::new(std::sync::Arc::new(std::sync::Mutex::new(source)), Rc::new(|_, _| {}));
         host.sources.insert("browser:".into(), Source::new(Some("browser:".into()), Box::new(kind)));
         host.select_device(Some("browser:"));
         offered

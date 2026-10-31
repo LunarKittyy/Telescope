@@ -7,7 +7,7 @@ use crate::session::{Client, Source, SourceKind};
 use crate::texts::fill;
 use crate::worker::{Opened, Opener};
 use serde_json::Value;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -595,12 +595,15 @@ impl PhoneKind {
         std::mem::replace(&mut self.inner.borrow_mut().heat_shown, shown)
     }
 
-    pub fn note_unreachable(&self, shown: bool) -> bool {
-        std::mem::replace(&mut self.inner.borrow_mut().unreachable_shown, shown)
-    }
 }
 
 impl SourceKind for PhoneKind {
+    fn note_unreachable(&self, shown: bool) -> bool {
+        std::mem::replace(&mut self.inner.borrow_mut().unreachable_shown, shown)
+    }
+    fn lost_hint(&self) -> String {
+        tr("Open Telescope on it.")
+    }
     fn name(&self) -> String {
         self.phone().map_or_else(|| tr("the phone"), |p| p.name)
     }
@@ -799,15 +802,43 @@ fn finish_stops(stopping: &Mutex<Vec<std::thread::JoinHandle<()>>>, stopped_at: 
 pub struct PluginKind {
     /// Shared with Streams, so the same source offered again (a new name) reaches a stream that already runs from it.
     pub source: SharedSource,
+    on_timer: TimerHook,
+    park_timer: slint::Timer,
+    gone_timer: slint::Timer,
+    unreachable_shown: Cell<bool>,
 }
 
 impl PluginKind {
+    pub fn new(source: SharedSource, on_timer: TimerHook) -> PluginKind {
+        PluginKind { source, on_timer, park_timer: slint::Timer::default(), gone_timer: slint::Timer::default(), unreachable_shown: Cell::new(false) }
+    }
+
     fn source(&self) -> Arc<dyn StreamSource> {
         self.source.lock().unwrap().clone()
     }
 }
 
 impl SourceKind for PluginKind {
+    fn start_lost_clock(&self, source: &Source) {
+        let (cb, sid) = (self.on_timer.clone(), source.id_str().to_string());
+        self.park_timer.start(slint::TimerMode::SingleShot, PARK_AFTER, move || cb("park", &sid));
+        let (cb, sid) = (self.on_timer.clone(), source.id_str().to_string());
+        self.gone_timer.start(slint::TimerMode::SingleShot, UNREACHABLE_AFTER, move || cb("unreachable", &sid));
+    }
+    fn end_recovery(&self, source: &Source) {
+        source.state.borrow_mut().recovering = false;
+        self.park_timer.stop();
+        self.gone_timer.stop();
+        if self.unreachable_shown.replace(false) {
+            (self.on_timer)("clear_unreachable", source.id_str());
+        }
+    }
+    fn note_unreachable(&self, shown: bool) -> bool {
+        self.unreachable_shown.replace(shown)
+    }
+    fn lost_hint(&self) -> String {
+        Some(self.source().lost_hint()).filter(|h| !h.is_empty()).unwrap_or_else(|| tr("Open the Telescope page in it again."))
+    }
     fn name(&self) -> String {
         self.source().name()
     }
@@ -963,7 +994,7 @@ mod tests {
     fn a_reconnect_opens_the_source_as_it_was_offered_last() {
         let first: Arc<dyn StreamSource> = Arc::new(Offered("first"));
         let shared: SharedSource = Arc::new(Mutex::new(first));
-        let opener = PluginKind { source: shared.clone() }.opener().unwrap();
+        let opener = PluginKind::new(shared.clone(), Rc::new(|_, _| {})).opener().unwrap();
         *shared.lock().unwrap() = Arc::new(Offered("second"));
         assert_eq!(opener().err().as_deref(), Some("second"));
     }

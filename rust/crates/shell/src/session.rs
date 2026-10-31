@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+use telescope_core::i18n::tr;
 
 /// What the stream flow asks of a stream's video worker (StreamWorker).
 pub trait Worker {
@@ -195,6 +196,14 @@ pub trait SourceKind {
     fn lost(&self, _source: &Source) {}
     /// The stream just dropped: after a while the wait screen takes over, and later a banner says so.
     fn start_lost_clock(&self, _source: &Source) {}
+    /// Whether its "can't reach" banner is up, set to shown: what it was.
+    fn note_unreachable(&self, _shown: bool) -> bool {
+        false
+    }
+    /// What to do when it can't be reached for a while.
+    fn lost_hint(&self) -> String {
+        tr("Check that it's still on.")
+    }
     /// The stream is back or over: what start_lost_clock started stops.
     fn end_recovery(&self, source: &Source) {
         source.state.borrow_mut().recovering = false;

@@ -199,6 +199,31 @@ fn the_main_camera_counts_as_free_while_only_an_extra_one_streams() {
 }
 
 #[test]
+fn the_wait_screen_hears_which_extra_cameras_are_free() {
+    let r = two_streams("two-free-cameras");
+    r.w.with_flow(|flow, host| flow.streams_changed(host));
+    r.pump();
+    assert_eq!(r.idle_outputs(), "[2, 3]");
+    r.stop(Some("oneplus"));
+    r.pump();
+    assert_eq!(r.idle_outputs(), "[1, 2, 3]");
+}
+
+#[test]
+fn a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one() {
+    let r = Rig::new("two-remembered-camera");
+    r.w.streams.flow.borrow_mut().slot_memory.insert("pixel".into(), 2); // camera 3 in an earlier run; alone it starts on camera 1
+    r.start();
+    r.add("oneplus");
+    focus(&r, "pixel");
+    assert_eq!(r.source("pixel").slot(), 0);
+    r.w.with_flow(|flow, host| flow.reconnect_stream(host, None));
+    r.until("the restart", |r| r.workers_made() == 3);
+    r.pump();
+    assert_eq!(r.last_worker().camera_slot, 0);
+}
+
+#[test]
 fn a_starting_tiles_stop_cancels_its_start() {
     let r = two_streams("two-starting-tile");
     r.link.pair("third", "Third");

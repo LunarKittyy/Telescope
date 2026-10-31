@@ -15,12 +15,12 @@ use telescope_core::event::Event;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::host::Host;
 use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
-use telescope_core::media::{Codec, FrameSlot, PacketTap, StagedStep, VideoFeed};
+use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, PacketTap, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::services::Services;
 use telescope_core::ui::Issue;
-use telescope_core::source::{ControlClient, PairedPhone, RouteSpec};
+use telescope_core::source::{ControlClient, PairedPhone, RouteSpec, StreamSource};
 use telescope_shell::offscreen;
 use telescope_shell::session::SourceRef;
 use telescope_shell::sources::Report;
@@ -169,6 +169,10 @@ impl FakeLink {
     /// This phone's controls.
     pub fn control(&self, id: &str) -> Arc<Control> {
         self.controls.lock().unwrap().entry(id.into()).or_default().clone()
+    }
+
+    pub fn picked_now(&self) -> Option<String> {
+        self.picked.lock().unwrap().clone()
     }
 
     pub fn logged(&self, what: &str) -> usize {
@@ -554,6 +558,17 @@ impl Rig {
         self.pump();
     }
 
+    /// A plugin offers this source.
+    pub fn offer(&self, source: FakeSource) -> Arc<FakeSource> {
+        let source = Arc::new(source);
+        self.w.add_plugin_source(source.clone());
+        source
+    }
+
+    pub fn pick(&self, id: &str) {
+        *self.link.picked.lock().unwrap() = Some(id.into());
+    }
+
     /// A banner up, as a plugin would put it.
     pub fn show_issue(&self, key: &str, title: &str) {
         self.w.state.borrow_mut().banners.show(key, issue(title));
@@ -680,6 +695,93 @@ fn rows_of(model: &ModelRc<SValue>) -> Vec<BTreeMap<String, String>> {
             _ => String::new(),
         })).collect()
     }).collect()
+}
+
+/// A plugin's stream source, a browser in these tests.
+#[derive(Default)]
+pub struct FakeSource {
+    pub id: String,
+    pub name: String,
+    pub goes_to: Option<String>,
+    pub canvas: Option<(u32, u32)>,
+    pub hint: String,
+    /// prepare() says no, and something is on its way to it.
+    pub waits: bool,
+    pub cancels: AtomicU32,
+}
+
+impl FakeSource {
+    pub fn new(id: &str) -> FakeSource {
+        FakeSource { id: id.into(), name: "Browser camera".into(), ..Default::default() }
+    }
+}
+
+struct NoFeed;
+
+impl FeedStopper for NoFeed {
+    fn stop(&self) {}
+}
+
+impl VideoFeed for NoFeed {
+    fn read(&mut self) -> Result<Packet, FeedEnd> {
+        Err(FeedEnd::Stopped)
+    }
+    fn stopper(&self) -> Box<dyn FeedStopper> {
+        Box::new(NoFeed)
+    }
+}
+
+impl StreamSource for FakeSource {
+    fn id(&self) -> String {
+        self.id.clone()
+    }
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    fn url(&self) -> String {
+        format!("{}://camera", self.id)
+    }
+    fn prepare(&self, _interactive: bool) -> bool {
+        !self.waits
+    }
+    fn open_feed(&self) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+        Ok((Codec::H264, Box::new(NoFeed)))
+    }
+    fn control_client(&self) -> Option<Box<dyn ControlClient>> {
+        None
+    }
+    fn fps(&self) -> u32 {
+        30
+    }
+    fn redirect(&self) -> Option<String> {
+        self.goes_to.clone()
+    }
+    fn auto_canvas(&self) -> Option<(u32, u32)> {
+        self.canvas
+    }
+    fn lost_hint(&self) -> String {
+        self.hint.clone()
+    }
+    fn waiting(&self) -> bool {
+        self.waits
+    }
+    fn cancel_wait(&self) {
+        self.cancels.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+/// Connection's part in picking a source: the pick moves when the window asks.
+pub struct Picker(pub Arc<FakeLink>);
+
+impl Plugin for Picker {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "picker".into(), title: "picker".into(), ..Default::default() }
+    }
+    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+        if let Event::SelectSource { source_id } = event {
+            *self.0.picked.lock().unwrap() = Some(source_id.clone()).filter(|s| !s.is_empty());
+        }
+    }
 }
 
 /// What shapes the stream: it follows the panels, and each phone has its own numbers.

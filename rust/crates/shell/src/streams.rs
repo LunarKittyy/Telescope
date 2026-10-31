@@ -136,7 +136,7 @@ impl Window {
             return s.clone();
         }
         let kind: Box<dyn crate::session::SourceKind> = match self.streams.plugin_sources.borrow().get(&k) {
-            Some(src) => Box::new(PluginKind { source: src.clone() }),
+            Some(src) => Box::new(PluginKind::new(src.clone(), self.timer_hook())),
             None => self.phone_kind(id),
         };
         let source = Source::new(id.map(String::from), kind);
@@ -144,20 +144,24 @@ impl Window {
         source
     }
 
+    fn timer_hook(self: &Rc<Self>) -> crate::sources::TimerHook {
+        let me = Rc::downgrade(self);
+        Rc::new(move |what, sid| {
+            if let Some(w) = me.upgrade() {
+                w.source_timer(what, sid);
+            }
+        })
+    }
+
     fn phone_kind(self: &Rc<Self>, id: Option<&str>) -> Box<dyn crate::session::SourceKind> {
         let (Some(services), Some(opts)) = (self.services.clone(), self.opts.clone()) else {
-            return Box::new(crate::sources::PluginKind { source: Arc::new(Mutex::new(Arc::new(NoSource))) });
+            return Box::new(PluginKind::new(Arc::new(Mutex::new(Arc::new(NoSource))), self.timer_hook()));
         };
         let weak = self.ui.as_weak();
         let post: crate::sources::Post = Arc::new(move |report| {
             let _ = weak.upgrade_in_event_loop(move |_| with_window(|w| w.phone_report(report)));
         });
-        let me = Rc::downgrade(self);
-        let on_timer: crate::sources::TimerHook = Rc::new(move |what, sid| {
-            if let Some(w) = me.upgrade() {
-                w.source_timer(what, sid);
-            }
-        });
+        let on_timer = self.timer_hook();
         let me = Rc::downgrade(self);
         let plan: PlanNow = Rc::new(move || {
             let Some(w) = me.upgrade() else { return StreamPlan::default() };
@@ -1059,9 +1063,7 @@ impl Window {
         let idle = self.streams.flow.borrow().sessions.streams.is_empty();
         let next = self.streams.plugin_sources.borrow().keys().find(|s| s.as_str() != id).cloned();
         if idle && self.selected_now().as_deref() == Some(id) {
-            // Connection first, while it still knows the source it's leaving
-            self.state.borrow_mut().bus.emit(Event::SelectSource { source_id: next.clone().unwrap_or_default() });
-            self.process();
+            // select_device tells Connection first, while it still knows the source it's leaving
             self.with_flow(|_, host| host.select_device(next.as_deref()));
         }
         self.streams.plugin_sources.borrow_mut().remove(id);
@@ -1306,11 +1308,9 @@ impl Window {
                 if !source.recovering() || !source.has_session() {
                     return;
                 }
-                if let Some(p) = source.kind.as_phone() {
-                    p.note_unreachable(true);
-                }
+                source.kind.note_unreachable(true);
                 let title = fill(&tr("Can't reach {name}"), &[("name", &source.kind.name())]);
-                self.show_issue(&format!("stopped:{}", source.id_str()), &title, &tr("Open Telescope on it."), vec![]);
+                self.show_issue(&format!("stopped:{}", source.id_str()), &title, &source.kind.lost_hint(), vec![]);
             }
             "clear_unreachable" => self.clear_issue(&format!("stopped:{}", source.id_str())),
             "clear_camera_taken" => self.clear_issue(&format!("camera_taken:{}", source.id_str())),
@@ -1426,6 +1426,14 @@ impl FlowHost for Host<'_> {
         self.w.selected_now()
     }
     fn select_device(&mut self, source_id: Option<&str>) {
+        // Connection moves the pick first, as a stream starting next depends on it. Nothing streams when this is asked,
+        // and the snapshot only catches up after the flow
+        if self.w.selected_now().as_deref() != source_id {
+            let mut st = self.w.state.borrow_mut();
+            st.streams.streaming = false;
+            st.bus.emit(Event::SelectSource { source_id: source_id.unwrap_or("").to_string() });
+            st.deliver_events();
+        }
         let prev = self.w.state.borrow().selected.clone();
         if prev.as_deref() != source_id {
             self.w.state.borrow_mut().selected = source_id.map(String::from);
