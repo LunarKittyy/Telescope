@@ -1,5 +1,4 @@
 use super::*;
-use crate::pixels::gaussian_blur;
 
 const CANVASES: [(u32, u32); 7] = [(640, 360), (1280, 720), (1920, 1080), (3840, 2160), (1080, 1920), (720, 720), (320, 180)];
 
@@ -211,16 +210,6 @@ fn the_shadow_style_adds_a_soft_halo_under_the_text() {
     // some pixels are mostly the halo: dark, a little covered
     let halo = (0..tag.width * tag.height).filter(|t| tag.ink[t * 3] < 20 && tag.keep[*t] < 250 && tag.keep[*t] > 100).count();
     assert!(halo > 100, "{halo}");
-}
-
-#[test]
-fn a_gaussian_blur_spreads_a_dot_and_keeps_its_weight() {
-    let mut src = vec![0u8; 21 * 21];
-    src[10 * 21 + 10] = 255;
-    let out = gaussian_blur(&src, 21, 21, 2.0);
-    assert!(out[10 * 21 + 10] < 255 && out[10 * 21 + 10] > out[10 * 21 + 12] && out[10 * 21 + 12] > 0);
-    let total: u32 = out.iter().map(|v| *v as u32).sum();
-    assert!((total as f32 - 255.0).abs() < 30.0, "{total}");
 }
 
 #[test]

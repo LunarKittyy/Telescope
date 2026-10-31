@@ -360,7 +360,7 @@ impl ColourGradingPlugin {
     }
 
     fn master_text(name: usize, value: f64) -> String {
-        number(value, 2, name != 2 && (value * 100.0).round() / 100.0 != 0.0)
+        number(value, 2, name != 2 && (value * 100.0).round_ties_even() / 100.0 != 0.0)
     }
 
     fn wheel_props(&self) -> Value {
@@ -369,7 +369,7 @@ impl ColourGradingPlugin {
         let mut texts = Vec::new();
         for i in 0..4 {
             let v = g.masters[i];
-            masters.push(((v * MASTER_STEPS[i]).round() / MASTER_STEPS[i]).clamp(MASTER_RANGE[i].0, MASTER_RANGE[i].1));
+            masters.push(((v * MASTER_STEPS[i]).round_ties_even() / MASTER_STEPS[i]).clamp(MASTER_RANGE[i].0, MASTER_RANGE[i].1));
             texts.push(Self::master_text(i, v));
         }
         json!({
@@ -386,7 +386,7 @@ impl ColourGradingPlugin {
     }
 
     fn slider_props(&self) -> Value {
-        let values: Vec<f64> = SLIDERS.iter().map(|d| (slider_value(&self.grade, d.key) * d.steps).round() / d.steps).collect();
+        let values: Vec<f64> = SLIDERS.iter().map(|d| (slider_value(&self.grade, d.key) * d.steps).round_ties_even() / d.steps).collect();
         let texts: Vec<String> = SLIDERS.iter().map(|d| Self::slider_text(d, slider_value(&self.grade, d.key))).collect();
         json!({"slider-value": values, "slider-text": texts})
     }
@@ -418,7 +418,7 @@ impl ColourGradingPlugin {
             "lut-text": if self.lut_path.is_empty() { tr(NO_LUT) } else { name },
             "lut-path": self.lut_path,
             "lut-loaded": !self.lut_path.is_empty(),
-            "strength": (self.grade.lut_strength * 100.0).round(),
+            "strength": (self.grade.lut_strength * 100.0).round_ties_even(),
             "strength-text": percent(self.grade.lut_strength * 100.0, 0, false),
             "lut-note": self.lut_problem,
         })
@@ -593,14 +593,14 @@ impl ColourGradingPlugin {
             }
             "master-moved" => {
                 let i = n(0) as usize % 4;
-                let value = (n(1) * MASTER_STEPS[i]).round() / MASTER_STEPS[i];
+                let value = (n(1) * MASTER_STEPS[i]).round_ties_even() / MASTER_STEPS[i];
                 self.set_grade(host, |g| g.masters[i] = value);
                 self.show(host, &self.wheel_props());
             }
             "slider-moved" => {
                 let i = n(0) as usize % SLIDERS.len();
                 let def = &SLIDERS[i];
-                let value = (n(1) * def.steps).round() / def.steps;
+                let value = (n(1) * def.steps).round_ties_even() / def.steps;
                 self.set_grade(host, |g| set_slider(g, def.key, value));
                 self.show(host, &self.slider_props());
             }
@@ -779,8 +779,8 @@ impl Plugin for ColourGradingPlugin {
                     return None;
                 }
                 let scale = if key == "saturation" { 100.0 / def.steps } else { 1.0 / def.steps };
-                let current = (slider_value(&self.grade, key) * def.steps).round() as i64;
-                let default = (slider_value(&Grade::default(), key) * def.steps).round() as i64;
+                let current = (slider_value(&self.grade, key) * def.steps).round_ties_even() as i64;
+                let default = (slider_value(&Grade::default(), key) * def.steps).round_ties_even() as i64;
                 let target = actions::slider_target(params, current, scale, (def.lo * def.steps) as i64, (def.hi * def.steps) as i64, Some(default))?;
                 let value = target as f64 / def.steps;
                 self.set_grade(host, |g| set_slider(g, key, value));

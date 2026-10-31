@@ -1,44 +1,6 @@
-//! Pixel work Desk mode and the name tag share: a Gaussian blur as OpenCV makes it, and frames as plain RGB.
+//! Frames as plain RGB, for Desk mode.
 
 use telescope_core::frame::{Frame, PixelFormat};
-
-/// cv2.GaussianBlur(src, (0, 0), sigma) on one 8-bit channel: the kernel OpenCV picks for it, edges reflected.
-pub fn gaussian_blur(src: &[u8], w: usize, h: usize, sigma: f64) -> Vec<u8> {
-    let size = ((sigma * 3.0 * 2.0 + 1.0).round() as usize) | 1;
-    let half = (size / 2) as i64;
-    let mut kernel: Vec<f32> = (-half..=half).map(|i| (-(i * i) as f64 / (2.0 * sigma * sigma)).exp() as f32).collect();
-    let total: f32 = kernel.iter().sum();
-    kernel.iter_mut().for_each(|k| *k /= total);
-    let reflect = |i: i64, n: i64| {
-        let mut i = i;
-        if n == 1 {
-            return 0;
-        }
-        loop {
-            if i < 0 {
-                i = -i;
-            } else if i >= n {
-                i = 2 * (n - 1) - i;
-            } else {
-                return i as usize;
-            }
-        }
-    };
-    let mut mid = vec![0f32; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            mid[y * w + x] = kernel.iter().enumerate().map(|(k, c)| c * src[y * w + reflect(x as i64 + k as i64 - half, w as i64)] as f32).sum();
-        }
-    }
-    let mut out = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let v: f32 = kernel.iter().enumerate().map(|(k, c)| c * mid[reflect(y as i64 + k as i64 - half, h as i64) * w + x]).sum();
-            out[y * w + x] = v.round().clamp(0.0, 255.0) as u8;
-        }
-    }
-    out
-}
 
 pub use telescope_core::image::frame_rgb as to_rgb;
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::pixels::gaussian_blur;
+use crate::imgops::Gray;
 use std::sync::Mutex;
 use telescope_core::frame::PixelFormat;
 use telescope_core::testing::FakeHost;
@@ -54,7 +54,7 @@ fn code_picture(text: &str, scale: usize, (w, h): (usize, usize), (x, y): (usize
 #[test]
 fn codes_are_read_from_arms_length_to_right_up_close() {
     for scale in [4, 8, 14] {
-        let grey = gaussian_blur(&code_picture("https://example.com", scale, (1280, 720), (400, 10), 90), 1280, 720, 1.0);
+        let grey = Gray { w: 1280, h: 720, data: code_picture("https://example.com", scale, (1280, 720), (400, 10), 90) }.blur(1.0).data;
         let (text, corners) = read_code(&grey, 1280, 720).unwrap_or_else(|| panic!("no code at {scale}x"));
         assert_eq!(text, "https://example.com", "{scale}x");
         assert!(0.25 < corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min) && corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min) < 0.45, "{scale}x");

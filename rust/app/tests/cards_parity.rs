@@ -83,7 +83,7 @@ fn name_tags_are_laid_out_and_drawn_like_python() {
         let (tw, th) = (t["width"].as_u64().unwrap() as usize, t["height"].as_u64().unwrap() as usize);
         let rendered = tag::render_with(&spec, w, h, &fonts).unwrap();
         let tile = std::fs::read(fixtures().join(t["file"].as_str().unwrap())).unwrap();
-        // Align the two tiles on the edge the tag is anchored to (text widths differ a pixel or two)
+        // Align the two tiles on the edge the tag is anchored to
         let right = spec.position.ends_with("right");
         let (cw, ch) = (tw.min(rendered.width), th.min(rendered.height));
         let (mut sum_alpha, mut big_alpha, mut sum_ink) = (0u64, 0usize, 0u64);
@@ -103,17 +103,11 @@ fn name_tags_are_laid_out_and_drawn_like_python() {
         eprintln!("{:<26} box {:?} vs {:?}  tile {}x{} vs {tw}x{th}  alpha off by {:.2} on average, {:.4} of pixels by over 64; ink {:.2}",
                   case["name"].as_str().unwrap(), got.map(|v| v as i64), want.map(|v| v as i64), rendered.width, rendered.height,
                   sum_alpha as f64 / n, big_alpha as f64 / n, sum_ink as f64 / (n * 3.0));
-        // Qt shapes text with its own metrics and hinting, so widths differ by a pixel or two and the glyph edges by a little
-        assert_eq!(got[3], want[3], "{}: the box's height", case["name"]);
-        assert!((got[2] - want[2]).abs() <= want[2] * 0.015 + 2.0, "{}: the box's width", case["name"]);
-        assert!((got[1] - want[1]).abs() <= 1.0, "{}: the box's top", case["name"]);
-        assert!(sum_alpha as f64 / n < 14.0 && big_alpha as f64 / n < 0.08, "{}: the tile", case["name"]);
+        // Qt places glyphs in quarter pixels, so only the glyph edges differ
+        assert_eq!(got, want, "{}: the box", case["name"]);
+        assert!(sum_alpha as f64 / n < 4.0 && big_alpha as f64 / n < 0.02, "{}: the tile", case["name"]);
     }
 }
-
-/// How close Rust's straightened sheet has to be to OpenCV's: it looks up in whole floats, OpenCV in 1/32 pixel.
-const DESK_MEAN: f64 = 1.0;
-const DESK_OVER: f64 = 0.005;
 
 #[test]
 fn the_desk_makes_the_same_pictures_as_python() {
@@ -121,7 +115,6 @@ fn the_desk_makes_the_same_pictures_as_python() {
     let (w, h) = (all["width"].as_u64().unwrap() as usize, all["height"].as_u64().unwrap() as usize);
     let raw = std::fs::read(fixtures().join(all["frame"].as_str().unwrap())).unwrap();
     let rgb: Vec<u8> = raw.chunks(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
-    let mut worst = Vec::new();
     for case in all["cases"].as_array().unwrap() {
         let s = &case["settings"];
         let c = s["corners"].as_array().unwrap();
@@ -147,9 +140,6 @@ fn the_desk_makes_the_same_pictures_as_python() {
         }
         let (mean, over) = (sum as f64 / (w * h * 3) as f64, over as f64 / (w * h) as f64);
         eprintln!("{:<26} max {max:>3} mean {mean:.3} over {over:.4}", case["name"].as_str().unwrap());
-        worst.push((case["name"].as_str().unwrap().to_string(), mean, over));
-    }
-    for (name, mean, over) in worst {
-        assert!(mean <= DESK_MEAN && over <= DESK_OVER, "{name}: mean {mean} over {over}");
+        assert_eq!(max, 0, "{}: every pixel as OpenCV makes it", case["name"]);
     }
 }
