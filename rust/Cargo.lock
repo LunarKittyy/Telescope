@@ -5749,7 +5749,6 @@ dependencies = [
  "serde_json",
  "slint-interpreter",
  "telescope-core",
- "telescope-link",
  "telescope-ui-kit",
  "ureq",
  "windows",

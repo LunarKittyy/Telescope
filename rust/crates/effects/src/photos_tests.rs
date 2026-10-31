@@ -257,13 +257,13 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
     assert!(!rig.host.calls.iter().any(|c| c.starts_with("send_notification")));
 }
 
+// The card's half; app/tests/cards2_parity.rs runs it from the phone's error code
 #[test]
 fn a_failed_photo_shows_why() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     rig.ui("take-clicked", vec![]);
     let id = *rig.plugin.taking.last().unwrap();
-    let failed = serde_json::to_value(telescope_link::stills::StillResult::failed("camera_off", "", &[])).unwrap();
-    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: failed });
+    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "error": "The phone's camera is off."}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("camera is off"));
     assert_eq!(rig.props()["status-kind"], "status_err");
     // With no reason at all

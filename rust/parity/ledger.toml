@@ -3338,7 +3338,7 @@
 "test_phones.py::test_usb_tunnels_are_shared_and_released_last" = { status = "ported", rust = "rust/crates/link/src/phones.rs::usb_tunnels_are_shared_and_released_last" }
 "test_phones.py::test_usb_wins_whenever_this_phone_answers_over_the_cable" = { status = "ported", rust = "rust/crates/link/src/phones.rs::usb_wins_whenever_this_phone_answers_over_the_cable" }
 # ── photos
-"test_photos.py::test_a_failed_photo_shows_why" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::a_failed_photo_shows_why" }
+"test_photos.py::test_a_failed_photo_shows_why" = { status = "ported", rust = "rust/app/tests/cards2_parity.rs::a_failed_photo_shows_why" }
 "test_photos.py::test_a_flagship_offers_everything_it_has" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::a_flagship_offers_everything_it_has" }
 "test_photos.py::test_a_lens_switch_brings_that_lenss_options" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::a_lens_switch_brings_that_lenss_options" }
 "test_photos.py::test_a_mode_this_lens_lacks_falls_back_to_normal" = { status = "ported", rust = "rust/crates/effects/src/photos_tests.rs::a_mode_this_lens_lacks_falls_back_to_normal" }
