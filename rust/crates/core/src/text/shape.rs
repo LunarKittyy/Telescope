@@ -13,6 +13,8 @@ struct Loaded {
     index: u32,
     shaper: ShaperData,
     instance: ShaperInstance,
+    /// It has colour glyphs (an emoji font).
+    colour: bool,
 }
 
 /// A font ready to draw and to shape with. Clones share the same data.
@@ -43,7 +45,21 @@ impl FontArc {
         let font = FontRef::from_index(&bytes, index).ok()?;
         let shaper = ShaperData::new(&font);
         let instance = ShaperInstance::from_variations(&font, [Variation { tag: Tag::new(b"wght"), value: weight }]);
-        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes: bytes.into_boxed_slice(), index, shaper, instance })))
+        let colour = skrifa::FontRef::from_index(&bytes, index).is_ok_and(|f| super::colour::has_colour(&f));
+        Some(FontArc(Arc::new(Loaded { outlines: ab_glyph::FontArc::new(outlines), bytes: bytes.into_boxed_slice(), index, shaper, instance, colour })))
+    }
+
+    /// Whether it has colour glyphs (an emoji font).
+    pub(super) fn is_colour(&self) -> bool {
+        self.0.colour
+    }
+
+    /// A colour glyph painted at `px` to the em, or None when the font draws this one as an outline.
+    pub(super) fn colour_tile(&self, glyph: u16, px: f32, ink: [u8; 3]) -> Option<super::colour::Tile> {
+        if !self.0.colour {
+            return None;
+        }
+        super::colour::tile(&skrifa::FontRef::from_index(&self.0.bytes, self.0.index).ok()?, glyph, px, ink)
     }
 
     /// Whether both are the same loaded font.
