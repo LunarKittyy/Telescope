@@ -2493,10 +2493,10 @@
 "test_colour_grading.py::test_export_says_when_it_cant_write" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::export_says_when_it_cant_write" }
 "test_colour_grading.py::test_export_writes_the_grade_at_the_size_picked" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::export_writes_the_grade_at_the_size_picked" }
 "test_colour_grading.py::test_hue_points_stay_below_1_and_apart_round_the_hues" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::hue_points_stay_below_1_and_apart_round_the_hues" }
-"test_colour_grading.py::test_it_is_an_optional_built_in_that_rides_in_presets_per_phone" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::it_is_an_optional_built_in_that_rides_in_presets_per_phone" }
+"test_colour_grading.py::test_it_is_an_optional_built_in_that_rides_in_presets_per_phone" = { status = "ported", rust = "rust/app/tests/colour_grading_ui.rs::it_is_an_optional_built_in_that_rides_in_presets_per_phone" }
 "test_colour_grading.py::test_keys_pick_move_and_remove_points" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::keys_pick_move_and_remove_points" }
 "test_colour_grading.py::test_odd_saved_settings_load_as_something_sensible" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::odd_saved_settings_load_as_something_sensible" }
-"test_colour_grading.py::test_pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" }
+"test_colour_grading.py::test_pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" = { status = "ported", rust = "rust/app/tests/colour_grading_ui.rs::pages_show_one_at_a_time_and_the_channel_row_only_for_rgb" }
 "test_colour_grading.py::test_reset_clears_the_grade_but_keeps_the_lut" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::reset_clears_the_grade_but_keeps_the_lut" }
 "test_colour_grading.py::test_saved_hue_points_at_1_or_twice_come_back_as_one" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::saved_hue_points_at_1_or_twice_come_back_as_one" }
 "test_colour_grading.py::test_settings_survive_a_save_and_load" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::settings_survive_a_save_and_load" }
@@ -2504,7 +2504,7 @@
 "test_colour_grading.py::test_shutting_down_takes_the_stage_and_split_out" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::shutting_down_takes_the_stage_and_split_out" }
 "test_colour_grading.py::test_switching_phones_publishes_the_lut_once_and_reads_the_file_once" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::switching_phones_publishes_the_lut_once_and_reads_the_file_once" }
 "test_colour_grading.py::test_switching_the_grade_off_takes_it_out_and_back" = { status = "ported", rust = "rust/crates/effects/src/colour_grading_tests.rs::switching_the_grade_off_takes_it_out_and_back" }
-"test_colour_grading.py::test_the_curve_drawn_is_the_one_applied" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::the_curve_drawn_is_the_one_applied" }
+"test_colour_grading.py::test_the_curve_drawn_is_the_one_applied" = { status = "ported", rust = "rust/app/tests/colour_grading_ui.rs::the_curve_drawn_is_the_one_applied" }
 "test_colour_grading.py::test_the_ends_of_a_tone_curve_stay_at_the_edges" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::the_ends_of_a_tone_curve_stay_at_the_edges" }
 "test_colour_grading.py::test_tone_points_keep_their_order_while_dragged" = { status = "ported", rust = "rust/crates/effects/src/editors.rs::tone_points_keep_their_order_while_dragged" }
 # ── composite
@@ -2856,19 +2856,19 @@
 "test_framing.py::test_with_no_room_to_move_it_follows_every_shift" = { status = "ported", rust = "rust/crates/effects/src/framing_tests.rs::with_no_room_to_move_it_follows_every_shift" }
 # ── fun_pack
 "test_fun_pack.py::test_a_clone_without_the_empty_room_or_vision_says_what_to_do" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::a_clone_without_the_empty_room_or_vision_says_what_to_do" }
-"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::a_frozen_step_keeps_its_settings" }
+"test_fun_pack.py::test_a_frozen_step_keeps_its_settings" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::a_frozen_step_keeps_its_settings", note = "Game Boy is a shader, so this needs a graphics card; fun_pack_tests.rs has the CPU case" }
 "test_fun_pack.py::test_a_plate_of_another_shape_is_never_stretched_over_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::a_plate_of_another_shape_is_never_stretched_over_the_picture" }
 "test_fun_pack.py::test_another_stream_starts_without_the_last_ones_history" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::another_stream_starts_without_the_last_ones_history" }
-"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::asking_for_people_only_once" }
+"test_fun_pack.py::test_asking_for_people_once_even_when_that_loads_vision_and_the_stream_stops" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::asking_for_people_only_once", note = "Events can't arrive inside want_people here: a plugin's hooks hold &mut self and the bus queues, so they're sent right after it" }
 "test_fun_pack.py::test_background_streams_get_no_stick_figure_or_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::background_streams_get_no_stick_figure_or_empty_room" }
 "test_fun_pack.py::test_clean_up_lets_a_keyframe_through" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::clean_up_lets_a_keyframe_through" }
 "test_fun_pack.py::test_clones_stay_where_they_were_taken_and_you_stay_in_front" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::clones_stay_where_they_were_taken_and_you_stay_in_front" }
 "test_fun_pack.py::test_datamosh_on_heavy_says_why_and_changes_no_packets" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::datamosh_on_heavy_says_why_and_changes_no_packets" }
 "test_fun_pack.py::test_datamosh_puts_a_packet_step_on_and_takes_it_off" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::datamosh_puts_a_packet_step_on_and_takes_it_off" }
-"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::each_retro_look_keeps_the_size_and_changes_the_picture" }
+"test_fun_pack.py::test_each_retro_look_keeps_the_size_and_changes_the_picture" = { status = "ported", rust = "rust/app/tests/effects_parity.rs::each_retro_look_keeps_the_size_and_changes_the_picture", note = "Through the frame pipeline for Game Boy's shader, so this needs a graphics card; fun_effects_tests.rs has the CPU looks" }
 "test_fun_pack.py::test_light_painting_leaves_a_trail_that_fades_and_clear_starts_again" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::light_painting_leaves_a_trail_that_fades_and_clear_starts_again" }
 "test_fun_pack.py::test_long_light_trails_still_fade_all_the_way" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::long_light_trails_still_fade_all_the_way" }
-"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::off_by_default_with_nothing_on_the_stream" }
+"test_fun_pack.py::test_off_and_datamosh_leave_frames_alone" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::off_and_datamosh_leave_frames_alone", note = "Same bytes rather than Python's same object" }
 "test_fun_pack.py::test_off_by_default_with_nothing_on_the_stream" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::off_by_default_with_nothing_on_the_stream" }
 "test_fun_pack.py::test_settings_come_back" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::settings_come_back" }
 "test_fun_pack.py::test_shutting_down_lets_go_of_packets_and_people" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::shutting_down_lets_go_of_packets_and_people" }
@@ -2876,7 +2876,7 @@
 "test_fun_pack.py::test_stick_figure_lines_come_from_the_pose_through_the_view" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::stick_figure_lines_come_from_the_pose_through_the_view" }
 "test_fun_pack.py::test_switching_camera_calls_off_taking_the_empty_room" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::switching_camera_calls_off_taking_the_empty_room" }
 "test_fun_pack.py::test_the_1998_webcam_hands_out_a_new_frame_each_time" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_1998_webcam_repeats_every_other_frame_without_handing_out_the_same_one" }
-"test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" }
+"test_fun_pack.py::test_the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" = { status = "ported", rust = "rust/app/tests/fun_pack_vision.rs::the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded" }
 "test_fun_pack.py::test_the_cloak_shows_the_empty_room_where_you_are" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_cloak_shows_the_empty_room_where_you_are" }
 "test_fun_pack.py::test_the_cloak_uses_the_person_mask_when_the_vision_download_is_there" = { status = "ported", rust = "rust/crates/effects/src/fun_effects_tests.rs::the_cloak_uses_the_person_mask_when_the_vision_download_is_there" }
 "test_fun_pack.py::test_the_empty_room_and_a_clone_are_taken_from_the_next_frame" = { status = "ported", rust = "rust/crates/effects/src/fun_pack_tests.rs::the_empty_room_and_a_clone_are_taken_from_the_next_frame" }

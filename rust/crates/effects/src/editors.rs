@@ -365,10 +365,10 @@ mod tests {
     #[test]
     fn arrow_keys_move_the_puck_and_home_puts_it_back() {
         let mut w = wheel();
-        w.key("right", false);
-        w.key("up", true);
+        assert_eq!(w.key("right", false), Some(true));
+        assert_eq!(w.key("up", true), Some(true));
         assert_eq!(w.value(), (0.01, 0.05));
-        w.key("home", false);
+        assert_eq!(w.key("home", false), Some(true));
         assert_eq!(w.value(), (0.0, 0.0));
         assert_eq!(w.key("x", false), None);
     }
@@ -502,7 +502,7 @@ mod tests {
             if second_press {
                 e.press(SIZE, p, false, 200);
             }
-            e.double_click(SIZE, p);
+            assert_eq!(e.double_click(SIZE, p), Change::Points, "the reset is told like any edit");
             e.release();
             assert_eq!(e.points, LINEAR);
         }

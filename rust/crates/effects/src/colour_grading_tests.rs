@@ -146,6 +146,7 @@ fn settings_survive_a_save_and_load() {
     r.event(Event::StreamStopped);
     assert_eq!(r.plugin.get_config(), cfg);
     assert_eq!(r.shown("wheel-x")[0], json!(0.2));
+    assert_eq!(r.shown("wheel-y")[0], json!(-0.3));
     assert_eq!(r.shown("master-value")[2], json!(1.3));
     assert_eq!(r.shown("master-text")[2], json!("1.30"));
     assert_eq!(r.shown("slider-text")[0], json!("+25"));
@@ -252,21 +253,30 @@ fn switching_phones_publishes_the_lut_once_and_reads_the_file_once() {
     r.plugin.set_config(&saved).unwrap();
     r.event(Event::StreamStopped);
     let first = r.plugin.grade().lut.clone().unwrap();
-    let before = r.publishes();
+    let before = r.host.colour_stages.len();
     // what switching phones does: the defaults, then the phone's settings
     r.plugin.set_config(&json!({})).unwrap();
     r.event(Event::StreamStopped);
     r.plugin.set_config(&saved).unwrap();
     r.event(Event::StreamStopped);
     r.event(Event::StreamStopped);
-    assert_eq!(r.publishes() - before, 2, "no more than one publish per set of settings");
-    assert!(Arc::ptr_eq(&first, r.plugin.grade().lut.as_ref().unwrap()), "the file was parsed once");
-    assert!(r.plugin.grade().saturation == 1.3 && r.published() == Some(true));
+    assert_eq!(r.plugin.reads, 1, "the file was read once");
+    assert!(Arc::ptr_eq(&first, r.plugin.grade().lut.as_ref().unwrap()));
+    let published = &r.host.colour_stages[before..];
+    assert_eq!(published.len(), 2, "no more than one publish per set of settings");
+    assert!(published[0].1.is_none(), "the defaults take the stage off");
+    // the published stage is the file's half brightness and the saved saturation
+    let stage = published[1].1.as_ref().expect("the phone's grade");
+    let mut want = lattice(stage.size as usize);
+    Grade { lut: Some(first.clone()), saturation: 1.3, ..Grade::default() }.apply(&mut want);
+    assert!(stage.rgb.iter().zip(&want).all(|(a, b)| (a - b).abs() < 1e-6));
+    assert!(near(sample_cube(&stage.rgb, stage.size as usize, [1.0, 1.0, 1.0]), [0.5, 0.5, 0.5], 0.01));
     // changed on disk: read again
     write_lut(&path, lattice(3).iter().map(|v| v * 0.25).collect(), 3);
     let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
     std::fs::File::options().write(true).open(&path).unwrap().set_modified(later).unwrap();
     r.plugin.set_config(&saved).unwrap();
+    assert_eq!(r.plugin.reads, 2);
     assert!(!Arc::ptr_eq(&first, r.plugin.grade().lut.as_ref().unwrap()));
 }
 
@@ -286,6 +296,8 @@ fn export_writes_the_grade_at_the_size_picked() {
     for (filter_index, size) in [(0, 33usize), (1, 65)] {
         let (r, dir) = exported(filter_index);
         assert!(r.host.calls.iter().any(|c| c == "pick_file Save Export the grade"));
+        assert!(r.host.dialogs[0].start.ends_with("Telescope grade.cube"), "{}", r.host.dialogs[0].start);
+        assert_eq!(r.host.dialogs[0].filters, ["33-point LUT (*.cube)", "65-point LUT (*.cube)"]);
         let back = read_cube(&dir.join("My look.cube")).unwrap();
         assert!(back.size() == size && back.title == "Telescope grade");
         let mut want = lattice(size);
