@@ -319,7 +319,8 @@ fn test_a_loader_finishing_after_shutdown_does_not_notify_the_window() {
         entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
         v.shutdown();
         finish_tx.send(()).unwrap();
-        std::thread::sleep(Duration::from_millis(50));
+        // the loader's thread holds its own handle on the service until it's done
+        wait(|| Arc::strong_count(&v.inner) == 1);
         assert_eq!(*states.lock().unwrap(), [LOADING]);
         v.load();
         assert_eq!(*loads.lock().unwrap(), 1);
@@ -445,9 +446,8 @@ fn test_people_are_found_upright_and_put_where_they_are_shown() {
     // the small copy is 640 x 360, turned a quarter for the model
     assert_eq!(r.backend.log.lock().unwrap().posed, [(360, 640)]);
     let nose = r.people.lock().unwrap()[0].1[0].point("nose", 0.5).unwrap();
-    let want = upright.to_shown(0.5, 0.25);
-    assert!((nose.0 - want.0).abs() < 1e-12 && (nose.1 - want.1).abs() < 1e-12);
-    assert_ne!(want, (0.5, 0.25));
+    // what view_controller._upright's to_shown makes of the fake's nose at (0.5, 0.25), worked out in Python
+    assert!((nose.0 - 0.5).abs() < 1e-12 && (nose.1 - 0.375).abs() < 1e-12, "{nose:?}");
 }
 
 #[test]

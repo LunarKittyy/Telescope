@@ -2380,7 +2380,7 @@
 "test_chroma_key.py::test_without_a_stream_the_card_says_to_start_one" = { status = "ported", rust = "rust/crates/effects/src/chroma_key_tests.rs::without_a_stream_the_card_says_to_start_one" }
 # ── cinema
 "test_cinema.py::test_a_big_preview_is_judged_small_and_marked_at_its_own_size" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::a_big_preview_is_judged_small_and_marked_at_its_own_size" }
-"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "ported", rust = "rust/crates/effects/src/cinema_paint_tests.rs::a_frozen_horizon_isnt_drawn" }
+"test_cinema.py::test_a_frozen_horizon_isnt_drawn" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::a_frozen_horizon_isnt_drawn" }
 "test_cinema.py::test_diagnostics_say_what_is_on" = { status = "ported", rust = "rust/crates/effects/src/cinema_tests.rs::diagnostics_say_what_is_on" }
 "test_cinema.py::test_every_guide_in_the_list_has_lines" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::every_guide_in_the_list_has_lines" }
 "test_cinema.py::test_false_colour_marks_crushed_middle_grey_skin_and_clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools_tests.rs::false_colour_marks_crushed_middle_grey_skin_and_clipped" }
@@ -4544,7 +4544,7 @@
 "test_vision.py::test_frames_for_people_are_spaced_out_and_made_small" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_frames_for_people_are_spaced_out_and_made_small" }
 "test_vision.py::test_model_input_looks_like_one_area_shrink" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_model_input_looks_like_one_area_shrink" }
 "test_vision.py::test_more_of_the_last_mask_carries_over_while_nothing_moves" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_more_of_the_last_mask_carries_over_while_nothing_moves" }
-"test_vision.py::test_people_are_found_upright_and_put_where_they_are_shown" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_are_found_upright_and_put_where_they_are_shown" }
+"test_vision.py::test_people_are_found_upright_and_put_where_they_are_shown" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_are_found_upright_and_put_where_they_are_shown", note = "Python hands in a made-up to_shown; here it's the real Upright, with its answer worked out by Python's view_controller._upright" }
 "test_vision.py::test_people_are_looked_for_less_often_while_nothing_moves" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_are_looked_for_less_often_while_nothing_moves" }
 "test_vision.py::test_people_come_from_their_own_thread_only_while_wanted" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_come_from_their_own_thread_only_while_wanted" }
 "test_vision.py::test_people_detection_finishing_after_shutdown_does_not_notify_the_window" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_people_detection_finishing_after_shutdown_does_not_notify_the_window" }
@@ -4553,7 +4553,7 @@
 "test_vision.py::test_the_real_models_find_a_person_shaped_blob" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_models_find_a_person_shaped_blob", note = "Also checks the astronaut's mask and pose against Python's recording: identical on the a0043f33 pack" }
 "test_vision.py::test_the_real_pack_has_no_address_to_report_usage_to" = { status = "ported", rust = "rust/crates/vision/tests/parity.rs::test_the_real_pack_has_no_address_to_report_usage_to" }
 "test_vision.py::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size" }
-"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from", note = "FrameContext::source_id, which person_mask passes on to the vision service" }
+"test_vision.py::test_the_worker_says_which_stream_a_frame_is_from_while_the_plugins_run" = { status = "ported", rust = "rust/crates/shell/src/worker.rs::a_frame_step_can_tell_which_stream_its_frame_is_from", note = "FrameContext::source_id and Frame::number, which person_mask passes on to the vision service. Python's check that nothing's left set afterwards can't apply: there's no ambient frame here" }
 "test_vision.py::test_while_nothing_moves_the_mask_is_worked_out_less_often" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_while_nothing_moves_the_mask_is_worked_out_less_often" }
 "test_vision.py::test_without_a_pack_its_missing_and_tries_again_later" = { status = "ported", rust = "rust/crates/vision/src/service_tests.rs::test_without_a_pack_its_missing_and_tries_again_later" }
 # ── vision_pack
