@@ -4650,7 +4650,7 @@
 "test_webcams.py::test_directshow_opens_the_camera_by_its_path_as_plugged_in_now" = { status = "dropped", reason = "Rust opens a webcam by its Media Foundation symbolic link, so there is no DirectShow index to look up again" }
 "test_webcams.py::test_formats_opencv_cant_read_are_ignored" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::formats_we_cant_read_are_ignored" }
 "test_webcams.py::test_identical_webcams_without_a_serial_are_told_apart_by_their_port" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::identical_webcams_without_a_serial_are_told_apart_by_their_port" }
-"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own" }
+"test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders" = { status = "ported", rust = "rust/app/tests/webcam_mjpeg.rs::mjpeg_frames_are_decoded_by_the_streams_decoders" }
 "test_webcams.py::test_mjpeg_is_used_where_raw_cant_keep_up" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::mjpeg_is_used_where_raw_cant_keep_up" }
 "test_webcams.py::test_modes_are_read_from_the_driver" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::modes_are_read_from_the_driver" }
 "test_webcams.py::test_other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones" }

@@ -36,6 +36,7 @@ winresource.workspace = true
 [dev-dependencies]
 base64.workspace = true
 flate2.workspace = true
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 zip.workspace = true
 # The settings window's tests drive it through Slint's testing backend (pinned like the shell's)
 i-slint-backend-testing = "=1.18.1"
