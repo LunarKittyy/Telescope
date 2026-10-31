@@ -44,12 +44,23 @@ pub fn resolve(chosen: &str, have: &[String]) -> String {
 /// offers "zh-CN" and a bare "pt" or "zh" offers the region Qt guesses for it.
 pub fn expand(tag: &str) -> Vec<String> {
     let parts: Vec<&str> = tag.split(['-', '_']).filter(|p| !p.is_empty()).collect();
-    let Some(&language) = parts.first() else { return Vec::new() };
+    let Some(&written) = parts.first() else { return Vec::new() };
+    // Qt's old language codes: it offers the current one, and the old one last
+    let language = match written {
+        "in" => "id",
+        "iw" => "he",
+        "ji" => "yi",
+        "mo" => "ro",
+        "no" => "nb",
+        "sh" => "sr",
+        "tl" => "fil",
+        other => other,
+    };
     let script = parts.iter().skip(1).find(|p| p.len() == 4 && p.chars().all(|c| c.is_ascii_alphabetic())).copied();
     let region = parts.iter().skip(1).find(|p| (p.len() == 2 && p.chars().all(|c| c.is_ascii_alphabetic())) || (p.len() == 3 && p.chars().all(|c| c.is_ascii_digit()))).copied();
     // CLDR's likely regions for the languages whose catalog is for one region
     let likely = match (language, script) {
-        ("pt", None) => Some("BR"),
+        ("pt", None | Some("Latn")) => Some("BR"),
         ("zh", None | Some("Hans")) => Some("CN"),
         _ => None,
     };
@@ -65,6 +76,9 @@ pub fn expand(tag: &str) -> Vec<String> {
         out.push(format!("{language}-{s}"));
     }
     out.push(language.to_string());
+    if written != language {
+        out.push(written.to_string());
+    }
     out
 }
 

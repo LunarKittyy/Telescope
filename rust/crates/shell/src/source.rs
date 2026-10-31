@@ -36,6 +36,9 @@ pub fn translate(source: &str) -> String {
             // @tr("ctx" => "text"): the text after the arrow, looked up under its context, comes out without one
             let text = text.trim_start();
             let Some((english, text_len)) = string_literal(text) else { continue };
+            if text[text_len..].trim_start().starts_with('|') {
+                continue;
+            }
             out.push_str(&quote(&tr_ctx(&msgid, &english)));
             rest = &text[text_len..];
             continue;
@@ -380,6 +383,16 @@ export component CameraCard inherits Card {
         assert_eq!(iface.props, ["active", "lenses", "current-lens"]);
         assert_eq!(iface.callbacks, ["lens-picked", "control"]);
         assert_eq!(scan(CARD, "Missing"), Interface::default());
+    }
+
+    // A plural under a context is left alone like one without, so what the card says still compiles
+    #[test]
+    fn a_plural_with_a_context_compiles() {
+        let source = r#"export component Counted { in property <int> count; out property <string> says: @tr("counts" => "{n} phone" | "{n} phones" % root.count); }"#;
+        let out = translate(source);
+        assert_eq!(out, source);
+        let compiled = crate::compile::spin_on(slint_interpreter::Compiler::default().build_from_source(out, "/counted.slint".into()));
+        assert!(compiled.component("Counted").is_some(), "{:?}", compiled.diagnostics().map(|d| d.to_string()).collect::<Vec<_>>());
     }
 
     #[test]

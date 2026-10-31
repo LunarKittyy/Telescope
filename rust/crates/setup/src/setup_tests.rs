@@ -482,6 +482,16 @@ fn setup_plugin_builds_its_cards_and_syncs_config() {
 }
 
 #[test]
+fn open_log_shows_once_there_is_a_log_and_opens_it_with_any_name() {
+    let mut r = Rig::linux();
+    assert_eq!(r.plugin.about_props()["log-shown"], json!(false));
+    r.plugin.log_path = Some("/tmp/telescope-me #1/telescope.log".into());
+    assert_eq!(r.plugin.about_props()["log-shown"], json!(true));
+    r.ui("about", "log-clicked", vec![]);
+    assert!(r.host.calls.contains(&"open_url file:///tmp/telescope-me%20%231/telescope.log".to_string()), "{:?}", r.host.calls);
+}
+
+#[test]
 fn show_event_refreshes_platform_specific_status() {
     let mut r = Rig::linux();
     r.ui("devices", "shown", vec![]);
@@ -538,7 +548,7 @@ fn max_gain_loads_with_a_safe_fallback_and_is_announced() {
         r.plugin.on_plugins_ready(&mut r.host);
         assert_eq!(r.plugin.get_config()["max_gain"], json!(want));
         let seen: Vec<_> = r.events().into_iter().filter(|e| matches!(e, Event::MaxGainChanged { .. })).collect();
-        assert_eq!(seen, vec![Event::MaxGainChanged { max_gain: want as i32 }]);
+        assert_eq!(seen, vec![Event::MaxGainChanged { max_gain: want }]);
     }
 }
 

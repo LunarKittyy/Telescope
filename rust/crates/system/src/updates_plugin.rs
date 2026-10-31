@@ -3,7 +3,8 @@
 //! that can't replace itself gets the release page instead. The network and the install go through a Backend, so tests stand in for them.
 
 use std::io;
-use std::path::PathBuf;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -15,8 +16,8 @@ use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
-use crate::setup_move;
-use crate::updates::{self, Asset, InstallResult, Manifest, Updates, Web};
+use crate::setup_move::{self, SetupRun};
+use crate::updates::{self, Asset, InstallResult, Manifest, Opener, UpdateError, Updates, Web};
 use crate::version;
 
 const UI: &str = include_str!("../ui/updates.slint");
@@ -32,12 +33,15 @@ pub fn releases_url() -> String {
     format!("https://github.com/{}/releases", version::REPO)
 }
 
+/// Download progress as (done, total), then None once it's installing.
+pub type Progress<'a> = &'a mut dyn FnMut(Option<(u64, u64)>);
+
 /// The network, the install and the outside world, behind a trait so tests stand in for them.
 pub trait Backend: Send + Sync {
     fn fetch(&self, channel: &str) -> Result<Option<Manifest>, String>;
     /// Downloads (trying a replaced nightly once more) and installs; the build that went in and what starts it.
-    /// progress gets (done, total) while downloading, then None once it's installing.
-    fn install(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+    /// progress gets (done, total) while downloading, then None once it's installing. streaming: whether a stream runs right now.
+    fn install(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String>;
     /// Why this copy can't replace itself, or None.
     fn blocker(&self) -> Option<String>;
@@ -59,34 +63,85 @@ pub trait Backend: Send + Sync {
         false
     }
     /// install(), but with the release's TelescopeSetup.exe: it installs for this user and the result starts that copy.
-    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
-        self.install(manifest, asset, progress, cancelled)
+        self.install(manifest, asset, progress, cancelled, streaming)
     }
     /// The installed copy is being started from here (mark_started_elsewhere).
     fn started_elsewhere(&self, _build: i64) {}
 }
+
+/// Runs the installer and waits for it.
+pub type RunSetup = Arc<dyn Fn(&[String]) -> SetupRun + Send + Sync>;
 
 /// This copy, in the folder it runs from.
 pub struct RealBackend {
     pub directory: PathBuf,
     pub build: i64,
     pub channel: String,
-    /// Run before the installer, which can't replace a folder a running adb.exe holds (stop_adb_server).
-    pub before_setup: Option<Arc<dyn Fn() + Send + Sync>>,
+    /// Stops the adb server, whose adb.exe locks the folder a move deletes (stop_adb_server).
+    pub stop_adb: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub opener: Arc<dyn Opener>,
+    /// Runs the installer and waits for it.
+    pub run_setup: RunSetup,
+    /// Where the installer put Telescope.
+    pub locate: Arc<dyn Fn() -> Option<PathBuf> + Send + Sync>,
     unzipped: std::sync::OnceLock<bool>,
 }
 
 impl Default for RealBackend {
     fn default() -> Self {
-        RealBackend { directory: crate::app_dir(), build: version::build(), channel: version::channel().into(), before_setup: None, unzipped: Default::default() }
+        RealBackend {
+            directory: crate::app_dir(),
+            build: version::build(),
+            channel: version::channel().into(),
+            stop_adb: None,
+            opener: Arc::new(Web::default()),
+            run_setup: Arc::new(|argv| setup_move::run_setup(argv, setup_move::SETUP_TIMEOUT)),
+            locate: Arc::new(setup_move::installed_location),
+            unzipped: Default::default(),
+        }
     }
+}
+
+/// A new folder for the download (tempfile.mkdtemp): our own, not a shared /tmp path, and nobody else's to read.
+fn download_folder() -> io::Result<PathBuf> {
+    let mut made = io::Error::from(io::ErrorKind::AlreadyExists);
+    for n in 0..100 {
+        let folder = std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id()));
+        #[cfg_attr(not(unix), allow(unused_mut))]
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        match builder.create(&folder) {
+            Ok(()) => return Ok(folder),
+            Err(e) => made = e,
+        }
+    }
+    Err(made)
 }
 
 impl RealBackend {
     fn with<T>(&self, f: impl FnOnce(&Updates) -> T) -> T {
-        let web = Web::default();
-        f(&Updates { opener: &web, build: self.build, directory: self.directory.clone() })
+        f(&Updates { opener: self.opener.as_ref(), build: self.build, directory: self.directory.clone() })
+    }
+
+    /// Downloads into a folder of its own and hands the file and the build it turned out to be to put_in.
+    fn download_and(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool,
+                    put_in: impl FnOnce(&Path, i64) -> Result<InstallResult, UpdateError>) -> Result<(i64, InstallResult), String> {
+        let folder = download_folder().map_err(|_| tr("The update failed."))?;
+        let done = self.with(|u| u.download_update(manifest, asset, &folder, &mut |d, t| progress(Some((d, t))), cancelled)).and_then(|(selected, file)| {
+            progress(None);
+            // A stream started meanwhile may run over USB; platform-tools can wait
+            if !streaming() {
+                if let Some(stop) = &self.stop_adb {
+                    stop();
+                }
+            }
+            put_in(&file, selected.build).map(|r| (selected.build, r))
+        });
+        let _ = std::fs::remove_dir_all(&folder);
+        done.map_err(|e| e.0)
     }
 }
 
@@ -95,18 +150,9 @@ impl Backend for RealBackend {
         self.with(|u| u.fetch_manifest(channel)).map_err(|e| e.0)
     }
 
-    fn install(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+    fn install(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
-        // Our own folder, not a shared /tmp path
-        let folder = (0..100).map(|n| std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id())))
-            .find(|p| std::fs::create_dir(p).is_ok()).ok_or_else(|| tr("The update failed."))?;
-        let done = self.with(|u| u.download_update(manifest, asset, &folder, &mut |d, t| progress(Some((d, t))), cancelled))
-            .and_then(|(selected, archive)| {
-                progress(None);
-                updates::install(&archive, &self.directory, selected.build).map(|r| (selected.build, r))
-            });
-        let _ = std::fs::remove_dir_all(&folder);
-        done.map_err(|e| e.0)
+        self.download_and(manifest, asset, progress, cancelled, streaming, |archive, build| updates::install(archive, &self.directory, build))
     }
 
     fn blocker(&self) -> Option<String> {
@@ -121,22 +167,15 @@ impl Backend for RealBackend {
         setup_move::driver_in_app_folder(&self.directory)
     }
 
-    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: &mut dyn FnMut(Option<(u64, u64)>), cancelled: &dyn Fn() -> bool)
+    fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
-        let folder = (0..100).map(|n| std::env::temp_dir().join(format!("telescope-update-{}-{n}", std::process::id())))
-            .find(|p| std::fs::create_dir(p).is_ok()).ok_or_else(|| tr("The update failed."))?;
-        let done = self.with(|u| u.download_update(manifest, asset, &folder, &mut |d, t| progress(Some((d, t))), cancelled)).and_then(|(selected, setup)| {
-            progress(None);
-            if let Some(stop) = &self.before_setup {
-                stop();
-            }
-            let run = |argv: &[String]| setup_move::run_setup(argv, setup_move::SETUP_TIMEOUT);
+        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, _build| {
+            let run = |argv: &[String]| (self.run_setup)(argv);
+            let locate = || (self.locate)();
             let folders = setup_move::desktop_folders();
-            let env = setup_move::SetupEnv { run: &run, locate: &setup_move::installed_location, folders: &folders };
-            setup_move::install_with_setup(&setup, &self.directory, &env).map(|r| (selected.build, r))
-        });
-        let _ = std::fs::remove_dir_all(&folder);
-        done.map_err(|e| e.0)
+            let env = setup_move::SetupEnv { run: &run, locate: &locate, folders: &folders };
+            setup_move::install_with_setup(setup, &self.directory, &env)
+        })
     }
 
     fn started_elsewhere(&self, build: i64) {
@@ -207,6 +246,8 @@ pub struct UpdatesPlugin {
     poster: Option<Arc<dyn Poster>>,
     /// The build being installed, for the folder it replaces to remember if the new copy never starts.
     install_build: i64,
+    /// Whether a stream runs, for the install's thread (Python's host.is_streaming() from there); follows the bus.
+    streaming: Arc<AtomicBool>,
     /// When the camera driver was last looked for in this folder, and what was found: reading the registry once is enough for a while.
     driver_here: Mutex<Option<(std::time::Instant, bool)>>,
 }
@@ -245,6 +286,7 @@ impl UpdatesPlugin {
             done: Arc::new(Mutex::new(Vec::new())),
             poster: None,
             install_build: 0,
+            streaming: Arc::new(AtomicBool::new(false)),
             driver_here: Mutex::new(None),
         }
     }
@@ -415,7 +457,13 @@ impl UpdatesPlugin {
         self.error.clear();
         self.refresh(host);
         let (backend, id, channel) = (self.backend.clone(), self.check_id, self.channel.clone());
-        self.run(host, move |push| push(Done::Checked { id, result: backend.fetch(&channel) }));
+        self.run(host, move |push| {
+            let result = catch_unwind(AssertUnwindSafe(|| backend.fetch(&channel))).unwrap_or_else(|_| {
+                log::error!("Update check failed");
+                Err(tr("Couldn't check for updates."))
+            });
+            push(Done::Checked { id, result });
+        });
     }
 
     /// Runs work on a thread of its own (or right away for a backend that says so); what it pushes reaches drain on the host thread.
@@ -500,12 +548,23 @@ impl UpdatesPlugin {
         self.progress = (0, asset.size);
         self.error.clear();
         self.cancel.store(false, Ordering::SeqCst);
+        self.streaming.store(false, Ordering::SeqCst);
         self.refresh(host);
-        let (backend, cancel) = (self.backend.clone(), self.cancel.clone());
+        let (backend, cancel, stream) = (self.backend.clone(), self.cancel.clone(), self.streaming.clone());
         self.run(host, move |push| {
             let mut progress = |p: Option<(u64, u64)>| push(p.map_or(Done::Installing, |(d, t)| Done::Progress(d, t)));
             let cancelled = || cancel.load(Ordering::SeqCst);
-            let result = if via_setup { backend.install_via_setup(&manifest, &asset, &mut progress, &cancelled) } else { backend.install(&manifest, &asset, &mut progress, &cancelled) };
+            let streaming = || stream.load(Ordering::SeqCst);
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                if via_setup {
+                    backend.install_via_setup(&manifest, &asset, &mut progress, &cancelled, &streaming)
+                } else {
+                    backend.install(&manifest, &asset, &mut progress, &cancelled, &streaming)
+                }
+            })).unwrap_or_else(|_| {
+                log::error!("Update failed");
+                Err(tr("The update failed."))
+            });
             push(Done::Installed(result));
         });
     }
@@ -604,8 +663,14 @@ impl Plugin for UpdatesPlugin {
             }
             Event::Posted { token, .. } if token == DONE => self.drain(host),
             Event::UpdateRequested => self.open_updates(host),
-            Event::StreamStarted { .. } => self.refresh(host),
-            Event::StreamStopped => self.on_stream_stopped(host),
+            Event::StreamStarted { .. } => {
+                self.streaming.store(host.is_streaming(), Ordering::SeqCst);
+                self.refresh(host);
+            }
+            Event::StreamStopped => {
+                self.streaming.store(host.is_streaming(), Ordering::SeqCst);
+                self.on_stream_stopped(host);
+            }
             _ => {}
         }
     }
@@ -615,18 +680,23 @@ impl Plugin for UpdatesPlugin {
     }
 
     fn settings_sections(&mut self) -> Vec<SettingsSection> {
+        let mut keywords = vec![
+            tr_ctx("search", "update upgrade new version release download install latest"),
+            tr_ctx("search", "current build number"),
+            tr_ctx("search", "stable nightly beta release track builds testing"),
+            tr_ctx("search", "automatic updates auto check every day background"),
+        ];
+        // Search skips what's hidden, and the row only shows for an unzipped copy
+        if self.backend.is_unzipped_copy() {
+            keywords.push(tr_ctx("search", "portable keep this copy where it is zip folder in place windows"));
+        }
         vec![SettingsSection {
             id: SECTION.into(),
             tab: "about".into(),
             ui: UiSpec { source: SlintSource::Text(UI.into()), component: "UpdatesSettings".into(), props: self.section_props(false) },
             order: 0,
             tab_title: String::new(),
-            keywords: [
-                tr_ctx("search", "update upgrade new version release download install latest"),
-                tr_ctx("search", "current build number"),
-                tr_ctx("search", "stable nightly beta release track builds testing"),
-                tr_ctx("search", "automatic updates auto check every day background"),
-            ].join(" "),
+            keywords: keywords.join(" "),
             footer: None,
         }]
     }
@@ -705,6 +775,8 @@ mod tests {
         unzipped: AtomicBool,
         driver_here: AtomicBool,
         driver_asked: Mutex<u32>,
+        fetch_panics: AtomicBool,
+        install_panics: AtomicBool,
         /// (asset name, through the installer) for each install.
         asked_for: Mutex<Vec<(String, bool)>>,
         started_from: Mutex<Vec<i64>>,
@@ -713,10 +785,12 @@ mod tests {
     impl Backend for Fake {
         fn fetch(&self, channel: &str) -> Result<Option<Manifest>, String> {
             self.channels.lock().unwrap().push(channel.into());
+            assert!(!self.fetch_panics.load(Ordering::SeqCst), "a bug in the check");
             self.result.lock().unwrap().clone().unwrap_or_else(|| Ok(Some(newer())))
         }
-        fn install(&self, _m: &Manifest, a: &Asset, _p: &mut dyn FnMut(Option<(u64, u64)>), _c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+        fn install(&self, _m: &Manifest, a: &Asset, _p: Progress, _c: &dyn Fn() -> bool, _s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
             *self.installs.lock().unwrap() += 1;
+            assert!(!self.install_panics.load(Ordering::SeqCst), "a bug in the install");
             self.asked_for.lock().unwrap().push((a.name.clone(), false));
             self.installed.lock().unwrap().take().unwrap_or_else(|| Ok((200, InstallResult { relaunch: vec!["start.sh".into(), "--after-update".into()], skipped: vec![] })))
         }
@@ -752,8 +826,8 @@ mod tests {
             *self.driver_asked.lock().unwrap() += 1;
             self.driver_here.load(Ordering::SeqCst)
         }
-        fn install_via_setup(&self, m: &Manifest, a: &Asset, p: &mut dyn FnMut(Option<(u64, u64)>), c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
-            let result = self.install(m, a, p, c);
+        fn install_via_setup(&self, m: &Manifest, a: &Asset, p: Progress, c: &dyn Fn() -> bool, s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            let result = self.install(m, a, p, c, s);
             self.asked_for.lock().unwrap().last_mut().unwrap().1 = true;
             result
         }
@@ -1019,6 +1093,233 @@ mod tests {
         assert!(!plugin.busy());
     }
 
+    // What Python's `except Exception` catches: a check or an install that goes wrong in a way nobody planned for ends as a message
+    #[test]
+    fn a_bug_in_a_check_or_an_install_ends_as_a_message_not_a_stuck_card() {
+        let (mut plugin, mut host, fake) = env();
+        fake.fetch_panics.store(true, Ordering::SeqCst);
+        plugin.check(&mut host, true);
+        assert!(!plugin.busy());
+        assert_eq!(plugin.status_text(&host), ("Couldn't check for updates.".to_string(), "status_err"));
+        fake.fetch_panics.store(false, Ordering::SeqCst);
+        plugin.check(&mut host, true);
+        fake.install_panics.store(true, Ordering::SeqCst);
+        plugin.update_now(&mut host);
+        assert!(!plugin.busy());
+        assert_eq!(plugin.status_text(&host), ("The update failed.".to_string(), "status_err"));
+        assert_eq!(quits(&host), 0);
+    }
+
+    #[test]
+    fn the_portable_words_are_searched_only_where_the_switch_shows() {
+        let (mut plugin, _host, fake) = env();
+        assert!(!plugin.settings_sections()[0].keywords.contains("portable"));
+        fake.unzipped.store(true, Ordering::SeqCst);
+        assert!(plugin.settings_sections()[0].keywords.contains("portable"));
+    }
+
+    /// The real download and install, with only the network, the installer, adb and restarting stood in for.
+    struct RealInstall {
+        real: RealBackend,
+        unzipped: bool,
+        order: Arc<Mutex<Vec<String>>>,
+        relaunched: Mutex<Vec<Vec<String>>>,
+        marked: Mutex<Vec<i64>>,
+    }
+
+    impl Backend for RealInstall {
+        fn fetch(&self, channel: &str) -> Result<Option<Manifest>, String> {
+            self.real.fetch(channel)
+        }
+        fn install(&self, m: &Manifest, a: &Asset, p: Progress, c: &dyn Fn() -> bool, s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            self.real.install(m, a, p, c, s)
+        }
+        fn install_via_setup(&self, m: &Manifest, a: &Asset, p: Progress, c: &dyn Fn() -> bool, s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            self.real.install_via_setup(m, a, p, c, s)
+        }
+        fn blocker(&self) -> Option<String> {
+            None
+        }
+        fn is_newer(&self, _m: Option<&Manifest>) -> bool {
+            true
+        }
+        fn was_rolled_back(&self, _m: Option<&Manifest>) -> bool {
+            false
+        }
+        fn forget_rolled_back(&self) {}
+        fn relaunch(&self, argv: &[String]) -> io::Result<()> {
+            self.relaunched.lock().unwrap().push(argv.to_vec());
+            Ok(())
+        }
+        fn open_url(&self, _url: &str) {}
+        fn threaded(&self) -> bool {
+            false
+        }
+        fn is_unzipped_copy(&self) -> bool {
+            self.unzipped
+        }
+        fn started_elsewhere(&self, build: i64) {
+            self.marked.lock().unwrap().push(build);
+        }
+    }
+
+    fn hex(bytes: &[u8]) -> String {
+        ring::digest::digest(&ring::digest::SHA256, bytes).as_ref().iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn real_asset(name: &str, body: &[u8]) -> Asset {
+        Asset { name: name.into(), url: format!("https://h/{name}"), sha256: hex(body), size: body.len() as u64 }
+    }
+
+    fn release(build: i64, assets: &[&Asset]) -> Manifest {
+        Manifest { version: "0.6.0".into(), build, channel: "nightly".into(), version_name: String::new(), notes: String::new(), protocol: 2,
+                   assets: assets.iter().map(|a| (a.name.clone(), (*a).clone())).collect() }
+    }
+
+    fn release_json(m: &Manifest) -> Vec<u8> {
+        let assets: Vec<Value> = m.assets.values().map(|a| json!({"name": a.name, "url": a.url, "sha256": a.sha256, "size": a.size})).collect();
+        json!({"version": m.version, "build": m.build, "channel": m.channel, "assets": assets}).to_string().into_bytes()
+    }
+
+    /// Serves files by URL.
+    struct Served(Vec<(String, Vec<u8>)>);
+
+    impl Opener for Served {
+        fn open(&self, url: &str) -> Result<updates::Reply, updates::NetError> {
+            let body = self.0.iter().find(|(u, _)| u == url).map(|(_, b)| b.clone()).ok_or_else(|| updates::NetError::Other("down".into()))?;
+            Ok(updates::Reply { status: 200, body: Box::new(io::Cursor::new(body)) })
+        }
+    }
+
+    /// An unzipped copy offered build 200 through its setup, with an installed folder for the setup to fill.
+    fn real_env(name: &str, unzipped: bool, served: Vec<(String, Vec<u8>)>) -> (UpdatesPlugin, FakeHost, Arc<RealInstall>, PathBuf) {
+        let root = telescope_core::testing::scratch_dir(name);
+        let (old, installed) = (root.join("old"), root.join("installed"));
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(installed.join(crate::update_guard::EXE_NAME), "exe").unwrap();
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let (stopped, ran) = (order.clone(), order.clone());
+        let place = installed.clone();
+        let real = RealBackend {
+            directory: old.clone(),
+            build: 150,
+            channel: "nightly".into(),
+            stop_adb: Some(Arc::new(move || stopped.lock().unwrap().push("stop adb".to_string()))),
+            opener: Arc::new(Served(served)),
+            run_setup: Arc::new(move |_argv| {
+                ran.lock().unwrap().push("setup".to_string());
+                SetupRun::Exited(0)
+            }),
+            locate: Arc::new(move || Some(place.clone())),
+            ..Default::default()
+        };
+        let backend = Arc::new(RealInstall { real, unzipped, order, relaunched: Mutex::default(), marked: Mutex::default() });
+        let mut plugin = UpdatesPlugin::new(backend.clone(), "nightly");
+        let mut host = FakeHost::default();
+        plugin.setup(&mut host);
+        (plugin, host, backend, root)
+    }
+
+    // test_updates_plugin.py::test_the_installer_route_relaunches_the_installed_copy, test_adb_is_stopped_before_the_setup_runs
+    #[test]
+    fn the_installer_route_stops_adb_then_relaunches_the_installed_copy() {
+        let body = b"setup".to_vec();
+        let setup = real_asset(updates::WINDOWS_SETUP_ASSET, &body);
+        let zip = real_asset(updates::platform_asset(&newer()).unwrap().name.as_str(), b"zip");
+        let m = release(200, &[&setup, &zip]);
+        let served = vec![(setup.url.clone(), body), (updates::manifest_url("nightly"), release_json(&m))];
+        let (mut plugin, mut host, backend, root) = real_env("installer-route", true, served);
+        plugin.check(&mut host, false);
+        assert!(plugin.moves_on_update());
+        plugin.update_now(&mut host);
+        assert_eq!(*backend.order.lock().unwrap(), ["stop adb", "setup"]);
+        let argv = [root.join("installed").join(crate::update_guard::EXE_NAME).to_string_lossy().into_owned(), "--after-update".into(),
+                    setup_move::MOVED_FROM.into(), root.join("old").to_string_lossy().into_owned()];
+        assert_eq!(*backend.relaunched.lock().unwrap(), [argv]);
+        assert_eq!(*backend.marked.lock().unwrap(), [200], "marked in this folder once the installed copy is started, should it not start");
+        assert_eq!(quits(&host), 1);
+    }
+
+    // test_updates_plugin.py::test_a_refreshed_download_installs_and_tracks_the_selected_build, through the installer
+    #[test]
+    fn a_setup_replaced_before_its_download_marks_the_build_that_went_in() {
+        let body = b"setup".to_vec();
+        let fresh = real_asset(updates::WINDOWS_SETUP_ASSET, &body);
+        let stale = Asset { url: "https://h/stale".into(), sha256: "a".repeat(64), ..fresh.clone() };
+        let (old, latest) = (release(200, &[&stale]), release(201, &[&fresh]));
+        let served = vec![(stale.url.clone(), body.clone()), (fresh.url.clone(), body), (updates::manifest_url("nightly"), release_json(&latest))];
+        let (mut plugin, mut host, backend, _root) = real_env("setup-replaced", true, served);
+        plugin.available = Some(old);
+        plugin.update_now(&mut host);
+        assert_eq!(*backend.marked.lock().unwrap(), [201]);
+        assert_eq!(plugin.install_build, 201);
+        assert_eq!(quits(&host), 1);
+    }
+
+    // _spawn_install: a stream started meanwhile may run over USB, so adb is left alone on either route
+    #[test]
+    fn a_stream_that_started_during_the_download_keeps_adb() {
+        let body = b"setup".to_vec();
+        let setup = real_asset(updates::WINDOWS_SETUP_ASSET, &body);
+        let zip = real_asset(updates::platform_asset(&newer()).unwrap().name.as_str(), b"zip");
+        let m = release(200, &[&setup, &zip]);
+        let served = vec![(setup.url.clone(), body), (updates::manifest_url("nightly"), release_json(&m))];
+        let (mut plugin, mut host, backend, _root) = real_env("adb-kept", true, served);
+        plugin.check(&mut host, false);
+        // The host thread hears of the stream before the download ends; this backend runs in line, so the flag is what it reads
+        let stream = plugin.streaming.clone();
+        let asked = Arc::new(AtomicBool::new(false));
+        let b = asked.clone();
+        let streaming = move || {
+            b.store(true, Ordering::SeqCst);
+            stream.load(Ordering::SeqCst)
+        };
+        plugin.streaming.store(true, Ordering::SeqCst);
+        let (done, _) = backend.install_via_setup(&m, &setup, &mut |_| {}, &|| false, &streaming).unwrap();
+        assert_eq!(done, 200);
+        assert!(asked.load(Ordering::SeqCst));
+        assert_eq!(*backend.order.lock().unwrap(), ["setup"]);
+    }
+
+    // The zip route stops adb too (an old zip's platform-tools): Python does it before either install
+    #[test]
+    fn the_zip_route_stops_adb_as_well_and_installs_the_build_it_downloaded() {
+        let files: &[(&str, &[u8])] = &[("telescope-rs", b"new")];
+        let archive = telescope_core::testing::scratch_dir("zip-route-archive").join("a.tar.gz");
+        {
+            let gz = flate2::write::GzEncoder::new(std::fs::File::create(&archive).unwrap(), flate2::Compression::fast());
+            let mut t = tar::Builder::new(gz);
+            for (name, data) in files {
+                let mut header = tar::Header::new_gnu();
+                header.set_size(data.len() as u64);
+                header.set_mode(0o755);
+                header.set_cksum();
+                t.append_data(&mut header, name, *data).unwrap();
+            }
+            t.into_inner().unwrap().finish().unwrap();
+        }
+        let body = std::fs::read(&archive).unwrap();
+        let name = updates::platform_asset(&newer()).unwrap().name.clone();
+        let stale = Asset { name: name.clone(), url: "https://h/stale".into(), sha256: "a".repeat(64), size: body.len() as u64 };
+        let fresh = real_asset(&name, &body);
+        let (old, latest) = (release(200, &[&stale]), release(201, &[&fresh]));
+        // The nightly was replaced before its download: the file served at the old address is the new build's
+        let served = vec![(stale.url.clone(), body.clone()), (fresh.url.clone(), body), (updates::manifest_url("nightly"), release_json(&latest))];
+        let (mut plugin, mut host, backend, root) = real_env("zip-route", false, served);
+        if cfg!(windows) {
+            return; // the archive here is the Linux one
+        }
+        plugin.available = Some(old);
+        plugin.update_now(&mut host);
+        assert_eq!(*backend.order.lock().unwrap(), ["stop adb"]);
+        assert_eq!(std::fs::read(root.join("old/telescope-rs")).unwrap(), b"new");
+        assert_eq!(crate::update_guard::read_journal(&root.join("old")).unwrap()["to_build"], 201);
+        assert_eq!(plugin.install_build, 201);
+        assert!(backend.marked.lock().unwrap().is_empty());
+        assert_eq!(quits(&host), 1);
+    }
+
     #[test]
     fn a_copy_that_cant_replace_itself_links_to_the_release() {
         let (mut plugin, mut host, fake) = env();
@@ -1040,6 +1341,27 @@ mod tests {
         assert_eq!(plugin.get_config(), json!({"channel": "nightly", "auto_check": true, "last_check": 0.0, "keep_portable": false}));
         plugin.set_config(&json!({"keep_portable": true})).unwrap();
         assert_eq!(plugin.get_config()["keep_portable"], true);
+    }
+
+    // The four saved keys against what Python saved for every config fixture
+    #[test]
+    fn what_python_saved_in_the_config_fixtures_comes_back_the_same() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs");
+        let mut seen = 0;
+        for fixture in std::fs::read_dir(root).unwrap().flatten() {
+            let Ok(text) = std::fs::read_to_string(fixture.path().join("expected.json")) else { continue };
+            let expected: Value = serde_json::from_str(&text).unwrap();
+            let saved = &expected["saved"]["plugin_configs"]["updates"];
+            if saved.is_null() {
+                continue;
+            }
+            seen += 1;
+            let mut plugin = UpdatesPlugin::new(Arc::new(Fake::default()), "dev");
+            plugin.set_config(saved).unwrap();
+            assert_eq!(&plugin.get_config(), saved, "{:?}", fixture.path());
+        }
+        assert!(seen > 0);
+        assert_eq!(UpdatesPlugin::new(Arc::new(Fake::default()), "dev").get_config(), json!({"channel": "stable", "auto_check": true, "last_check": 0.0, "keep_portable": false}));
     }
 
     #[test]
@@ -1070,7 +1392,7 @@ mod tests {
         struct Threaded(Fake);
         impl Backend for Threaded {
             fn fetch(&self, c: &str) -> Result<Option<Manifest>, String> { self.0.fetch(c) }
-            fn install(&self, m: &Manifest, a: &Asset, p: &mut dyn FnMut(Option<(u64, u64)>), c: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> { self.0.install(m, a, p, c) }
+            fn install(&self, m: &Manifest, a: &Asset, p: Progress, c: &dyn Fn() -> bool, s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> { self.0.install(m, a, p, c, s) }
             fn blocker(&self) -> Option<String> { None }
             fn is_newer(&self, m: Option<&Manifest>) -> bool { self.0.is_newer(m) }
             fn was_rolled_back(&self, m: Option<&Manifest>) -> bool { self.0.was_rolled_back(m) }

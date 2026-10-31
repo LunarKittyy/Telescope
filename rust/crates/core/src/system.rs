@@ -71,3 +71,35 @@ pub trait Updater: Send + Sync {
     /// The window is up, so a trial update counts as good.
     fn confirm_started(&self);
 }
+
+/// A local file or folder as a link (QUrl.fromLocalFile), for the system to open.
+pub fn file_url(path: &std::path::Path) -> String {
+    file_url_for(&path.display().to_string(), cfg!(windows))
+}
+
+/// file_url with the path as text and the system given.
+pub fn file_url_for(path: &str, windows: bool) -> String {
+    let text = if windows { path.replace('\\', "/") } else { path.to_string() };
+    let mut out = String::from(if text.starts_with("//") { "file:" } else if windows { "file:///" } else { "file://" });
+    for b in text.bytes() {
+        if b.is_ascii_alphanumeric() || b"/-_.~:".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::file_url_for;
+
+    #[test]
+    fn a_path_becomes_a_link_on_either_system() {
+        assert_eq!(file_url_for("/tmp/telescope-me/telescope.log", false), "file:///tmp/telescope-me/telescope.log");
+        assert_eq!(file_url_for("/home/me/My Logs/#1.log", false), "file:///home/me/My%20Logs/%231.log");
+        assert_eq!(file_url_for(r"C:\Users\Åsa\AppData\telescope.log", true), "file:///C:/Users/%C3%85sa/AppData/telescope.log");
+        assert_eq!(file_url_for(r"\\server\share\a b.log", true), "file://server/share/a%20b.log");
+    }
+}

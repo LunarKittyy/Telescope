@@ -49,8 +49,134 @@ pub const fn n_(msgid: &str) -> &str {
     msgid
 }
 
-/// text with each {name} replaced by its value; {{ and }} stand for braces (str.format). An Err says what didn't fit, which is a
-/// {name} with no value or a lone brace.
+/// One {field} at the start of tail: (name, conversion, format spec, its length), as str.format reads it.
+fn field_at(tail: &str) -> Option<(&str, &str, &str, usize)> {
+    let end = tail.find('}')?;
+    let inner = &tail[1..end];
+    let (head, spec) = inner.split_once(':').unwrap_or((inner, ""));
+    let (name, conversion) = head.split_once('!').unwrap_or((head, ""));
+    Some((name, conversion, spec, end + 1))
+}
+
+/// The names of the fields in text that have a conversion or a format spec.
+pub(crate) fn spec_fields(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(i) = rest.find('{') {
+        rest = &rest[i..];
+        if rest.starts_with("{{") {
+            rest = &rest[2..];
+            continue;
+        }
+        let Some((name, conversion, spec, len)) = field_at(rest) else { break };
+        if !conversion.is_empty() || !spec.is_empty() {
+            out.push(name.to_string());
+        }
+        rest = &rest[len..];
+    }
+    out
+}
+
+/// The numbers format specs treat as such: a value's text is all there is to go by, so one that reads as a number counts as one.
+fn as_number(text: &str) -> Option<f64> {
+    text.parse::<f64>().ok().filter(|v| v.is_finite())
+}
+
+/// `text` through a str.format spec: [[fill]align][sign][0][width][,_][.precision][dfFs]; the others (%, e, g, x) are an Err, which shows the English.
+fn format_spec(text: &str, spec: &str) -> Result<String, String> {
+    let bad = || format!("the format spec {spec:?} on {text:?}");
+    let mut chars: Vec<char> = spec.chars().collect();
+    let (mut fill_char, mut align) = (' ', None);
+    if chars.len() >= 2 && "<>=^".contains(chars[1]) {
+        fill_char = chars[0];
+        align = Some(chars[1]);
+        chars.drain(..2);
+    } else if chars.first().is_some_and(|c| "<>=^".contains(*c)) {
+        align = Some(chars.remove(0));
+    }
+    let sign = chars.first().copied().filter(|c| "+- ".contains(*c));
+    if sign.is_some() {
+        chars.remove(0);
+    }
+    let zero = chars.first() == Some(&'0');
+    if zero {
+        chars.remove(0);
+    }
+    let digits = |chars: &mut Vec<char>| -> Option<usize> {
+        let n = chars.iter().take_while(|c| c.is_ascii_digit()).count();
+        let number: String = chars.drain(..n).collect();
+        number.parse().ok()
+    };
+    let width = digits(&mut chars).unwrap_or(0);
+    let grouping = chars.first().copied().filter(|c| ",_".contains(*c));
+    if grouping.is_some() {
+        chars.remove(0);
+    }
+    let precision = if chars.first() == Some(&'.') {
+        chars.remove(0);
+        Some(digits(&mut chars).ok_or_else(bad)?)
+    } else {
+        None
+    };
+    let kind = chars.pop();
+    if !chars.is_empty() {
+        return Err(bad());
+    }
+    let number = as_number(text);
+    let whole = !text.is_empty() && text.strip_prefix('-').unwrap_or(text).bytes().all(|b| b.is_ascii_digit());
+    let is_number = number.is_some() && kind != Some('s');
+    if zero && align.is_none() {
+        fill_char = '0';
+        align = Some(if is_number { '=' } else { '<' });
+    }
+    if !is_number && (sign.is_some() || grouping.is_some() || align == Some('=')) {
+        return Err(bad());
+    }
+    let body = match kind {
+        Some('f' | 'F') => format!("{:.*}", precision.unwrap_or(6), number.ok_or_else(bad)?),
+        Some('d') if whole && precision.is_none() => text.to_string(),
+        None if is_number && precision.is_none() => text.to_string(),
+        None | Some('s') if !is_number => precision.map_or(text.to_string(), |p| text.chars().take(p).collect()),
+        _ => return Err(bad()),
+    };
+    let (minus, digits_part) = match body.strip_prefix('-') {
+        Some(rest) if is_number => ("-", rest.to_string()),
+        _ => ("", body),
+    };
+    let lead = if !is_number { "" } else if !minus.is_empty() { minus } else { match sign { Some('+') => "+", Some(' ') => " ", _ => "" } };
+    let digits_part = match (grouping, is_number) {
+        (Some(mark), true) => {
+            let (whole, part) = digits_part.split_once('.').map_or((digits_part.as_str(), ""), |(w, p)| (w, p));
+            let grouped: Vec<String> = whole.as_bytes().rchunks(3).rev().map(|c| String::from_utf8_lossy(c).into_owned()).collect();
+            let joined = grouped.join(&mark.to_string());
+            if part.is_empty() { joined } else { format!("{joined}.{part}") }
+        }
+        _ => digits_part,
+    };
+    let length = lead.chars().count() + digits_part.chars().count();
+    let room = width.saturating_sub(length);
+    let pad = |n: usize| fill_char.to_string().repeat(n);
+    Ok(match align.unwrap_or(if is_number { '>' } else { '<' }) {
+        '<' => format!("{lead}{digits_part}{}", pad(room)),
+        '^' => format!("{}{lead}{digits_part}{}", pad(room / 2), pad(room - room / 2)),
+        '=' => format!("{lead}{}{digits_part}", pad(room)),
+        _ => format!("{}{lead}{digits_part}", pad(room)),
+    })
+}
+
+/// A value as a {field} with this conversion and spec shows it.
+fn format_field(value: &dyn Display, conversion: &str, spec: &str) -> Result<String, String> {
+    let text = value.to_string();
+    let text = match conversion {
+        "" | "s" => text,
+        "r" | "a" if as_number(&text).is_some() => text,
+        "r" | "a" => format!("'{text}'"),
+        other => return Err(format!("the conversion !{other}")),
+    };
+    if spec.is_empty() { Ok(text) } else { format_spec(&text, spec) }
+}
+
+/// text with each {name} filled in like str.format, conversion and spec too ({n:02d}), {{ and }} for braces; an Err says what didn't fit.
 pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, String> {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -65,14 +191,35 @@ pub fn fill(text: &str, fields: &[(&str, &dyn Display)]) -> Result<String, Strin
         if tail.starts_with('}') {
             return Err(format!("a lone }} in {text:?}"));
         }
-        let end = tail.find('}').ok_or_else(|| format!("an unclosed {{ in {text:?}"))?;
-        let name = &tail[1..end];
+        let (name, conversion, spec, len) = field_at(tail).ok_or_else(|| format!("an unclosed {{ in {text:?}"))?;
         let (_, value) = fields.iter().find(|(n, _)| *n == name).ok_or_else(|| format!("no value for {{{name}}} in {text:?}"))?;
-        out += &value.to_string();
-        rest = &tail[end + 1..];
+        out += &format_field(*value, conversion, spec)?;
+        rest = &tail[len..];
     }
     out += rest;
     Ok(out)
+}
+
+/// text with its {n} filled in, any spec on it too, and every other field left for the caller.
+fn fill_n(text: &str, n: i64) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find('{') {
+        out += &rest[..i];
+        rest = &rest[i..];
+        if rest.starts_with("{{") {
+            out += "{{";
+            rest = &rest[2..];
+            continue;
+        }
+        let Some((name, conversion, spec, len)) = field_at(rest) else { break };
+        match format_field(&n, conversion, spec) {
+            Ok(shown) if name == "n" => out += &shown,
+            _ => out += &rest[..len],
+        }
+        rest = &rest[len..];
+    }
+    out + rest
 }
 
 /// _fill: the text with its fields in, or the English when the translation has a field the call doesn't. No fields, no filling.
@@ -118,7 +265,7 @@ pub fn trn_with(singular: &str, plural: &str, n: i64, ctx: &str, fields: &[(&str
 /// The form that fits n with only {n} filled in, for a text with other fields the caller fills in afterwards.
 pub fn trn_open(singular: &str, plural: &str, n: i64) -> String {
     let english = if n == 1 { singular } else { plural };
-    plural_form(singular, plural, n, "").unwrap_or_else(|| english.to_string()).replace("{n}", &n.to_string())
+    fill_n(&plural_form(singular, plural, n, "").unwrap_or_else(|| english.to_string()), n)
 }
 
 /// trn(singular, plural, n): the form that fits n, with {n} filled in.

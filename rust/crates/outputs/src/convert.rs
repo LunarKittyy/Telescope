@@ -62,7 +62,7 @@ pub fn write_nv12(frame: &Frame, out: &mut [u8]) {
 }
 
 /// BT.601 limited range, as OpenCV's YUV I420 conversions use.
-fn yuv_to_rgb(y: u8, u: u8, v: u8) -> [u8; 3] {
+pub(crate) fn yuv_to_rgb(y: u8, u: u8, v: u8) -> [u8; 3] {
     let c = (y as f32 - 16.0) * 1.164;
     let (d, e) = (u as f32 - 128.0, v as f32 - 128.0);
     let clamp = |x: f32| x.round().clamp(0.0, 255.0) as u8;

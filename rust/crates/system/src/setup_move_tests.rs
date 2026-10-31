@@ -4,6 +4,7 @@ use super::*;
 use crate::update_guard::{failed_build, read_journal, write_journal};
 use serde_json::json;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use telescope_core::testing::scratch_dir;
 
 fn write(path: &Path, data: &[u8]) {
@@ -267,6 +268,12 @@ fn the_installed_location_comes_from_the_setup_s_uninstall_entry() {
             self.opened.borrow_mut().push((hive.into(), key.into(), name.into()));
             self.value.map(String::from)
         }
+        fn write_text(&self, _key: &str, _name: &str, _value: &str) -> io::Result<()> {
+            unreachable!()
+        }
+        fn write_number(&self, _key: &str, _name: &str, _value: u32) -> io::Result<()> {
+            unreachable!()
+        }
     }
     let reg = Reg { opened: RefCell::new(Vec::new()), value: Some(r"C:\Users\l\AppData\Local\Programs\Telescope\") };
     assert!(installed_location_in(&reg).is_some());
@@ -274,6 +281,61 @@ fn the_installed_location_comes_from_the_setup_s_uninstall_entry() {
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}_is1".to_string(), "InstallLocation".to_string())]);
     assert_eq!(installed_location_in(&Reg { opened: RefCell::new(Vec::new()), value: None }), None);
     assert_eq!(installed_location_in(&Reg { opened: RefCell::new(Vec::new()), value: Some("") }), None);
+}
+
+/// The uninstall entry's values, as the fake winreg in test_updates.py keeps them.
+#[derive(Default)]
+struct Entry(RefCell<BTreeMap<String, String>>, RefCell<Vec<String>>);
+
+impl Entry {
+    fn with(values: &[(&str, &str)]) -> Entry {
+        Entry(RefCell::new(values.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()), RefCell::default())
+    }
+    fn get(&self, name: &str) -> String {
+        self.0.borrow().get(name).cloned().unwrap_or_default()
+    }
+}
+
+impl Uninstall for Entry {
+    fn read(&self, _hive: &str, _key: &str, name: &str) -> Option<String> {
+        self.0.borrow().get(name).cloned()
+    }
+    fn write_text(&self, _key: &str, name: &str, value: &str) -> io::Result<()> {
+        self.1.borrow_mut().push(name.into());
+        self.0.borrow_mut().insert(name.into(), value.into());
+        Ok(())
+    }
+    fn write_number(&self, key: &str, name: &str, value: u32) -> io::Result<()> {
+        self.write_text(key, name, &value.to_string())
+    }
+}
+
+// test_updates.py::test_note_installed_version_updates_the_apps_entry
+#[test]
+fn note_installed_version_updates_the_apps_entry() {
+    let dir = scratch_dir("note-version");
+    let reg = Entry::with(&[("InstallLocation", dir.to_str().unwrap()), ("DisplayVersion", "3.3.1"), ("MajorVersion", "3"), ("MinorVersion", "3")]);
+    assert!(note_installed_version_in(&dir, "3.4.1", &reg));
+    assert_eq!(reg.get("DisplayVersion"), "3.4.1");
+    assert_eq!((reg.get("MajorVersion"), reg.get("MinorVersion")), ("3".to_string(), "4".to_string()));
+    let writes = reg.1.borrow().len();
+    assert!(!note_installed_version_in(&dir, "3.4.1", &reg), "already right");
+    assert_eq!(reg.1.borrow().len(), writes, "nothing written");
+    // A part that isn't all digits leaves its number as it was
+    assert!(note_installed_version_in(&dir, "3.5rc1.0", &reg));
+    assert_eq!((reg.get("MajorVersion"), reg.get("MinorVersion")), ("3".to_string(), "4".to_string()));
+}
+
+// test_updates.py::test_note_installed_version_leaves_another_copys_entry
+#[test]
+fn note_installed_version_leaves_another_copys_entry() {
+    let root = scratch_dir("note-other");
+    let installed = root.join("Programs/Telescope");
+    std::fs::create_dir_all(&installed).unwrap();
+    let reg = Entry::with(&[("InstallLocation", installed.to_str().unwrap()), ("DisplayVersion", "3.3.1")]);
+    assert!(!note_installed_version_in(&root, "3.4.1", &reg));
+    assert_eq!(reg.get("DisplayVersion"), "3.3.1");
+    assert!(!note_installed_version_in(&root, "3.4.1", &Entry::default()), "not installed at all");
 }
 
 #[test]

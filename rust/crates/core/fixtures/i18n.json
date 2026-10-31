@@ -13395,6 +13395,101 @@
    "result": "en"
   },
   {
+   "env": {
+    "LANGUAGE": "pt-Latn",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "pt_BR"
+  },
+  {
+   "env": {
+    "LANGUAGE": "pt-Latn-PT",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "en"
+  },
+  {
+   "env": {
+    "LANGUAGE": "in_ID",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "id"
+  },
+  {
+   "env": {
+    "LANGUAGE": "in",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "id"
+  },
+  {
+   "env": {
+    "LANGUAGE": "in-Latn",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "id"
+  },
+  {
+   "env": {
+    "LANG": "in_ID.UTF-8"
+   },
+   "chosen": "",
+   "result": "id"
+  },
+  {
+   "env": {
+    "LANGUAGE": "iw_IL",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "en"
+  },
+  {
+   "env": {
+    "LANGUAGE": "no_NO",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "en"
+  },
+  {
+   "env": {
+    "LANGUAGE": "tl",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "en"
+  },
+  {
+   "env": {
+    "LANGUAGE": "zh-Hant",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "en"
+  },
+  {
+   "env": {
+    "LANGUAGE": "zh-Hans",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "zh_CN"
+  },
+  {
+   "env": {
+    "LANGUAGE": "es-419",
+    "LANG": "de_DE.UTF-8"
+   },
+   "chosen": "",
+   "result": "es"
+  },
+  {
    "env": {},
    "chosen": "",
    "result": "en"
@@ -14505,6 +14600,193 @@
   [
    "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n\nWhoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that.",
    "[Ţéĺéšçöþé ŵîĺĺ îñšţàĺĺ ñéŵ ṽéŕšîöñš öƒ ţĥé þĺûĝîñš ýöû šŵîţçĥéđ öñ àñđ šŵîţçĥ ţĥéɱ öñ ţöö, ŵîţĥöûţ šĥöŵîñĝ ţĥéɱ ţö ýöû ƒîŕšţ. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]\n\n[Ŵĥöéṽéŕ çöñţŕöĺš à þĺûĝîñ'š ŕéþö öñ ĜîţĤûƀ (îţš àûţĥöŕ, öŕ àñýöñé ŵĥö ĝéţš îñţö ţĥéîŕ àççöûñţ) çàñ ţĥéñ ŕûñ ñéŵ çöđé öñ ţĥîš çöɱþûţéŕ éṽéŕý ţîɱé ţĥéý þûƀĺîšĥ à ŕéĺéàšé. Öñĺý šŵîţçĥ ţĥîš öñ îƒ ýöû ţŕûšţ àĺĺ öƒ ţĥéɱ ŵîţĥ ţĥàţ. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]"
+  ]
+ ],
+ "formats": [
+  [
+   "{n:02d}",
+   5,
+   "05"
+  ],
+  [
+   "{n:02d}",
+   -5,
+   "-5"
+  ],
+  [
+   "{n:>4}|",
+   5,
+   "   5|"
+  ],
+  [
+   "{n:<4}|",
+   5,
+   "5   |"
+  ],
+  [
+   "{n:^5}|",
+   5,
+   "  5  |"
+  ],
+  [
+   "{n:*^7}",
+   5,
+   "***5***"
+  ],
+  [
+   "{n:+d}",
+   5,
+   "+5"
+  ],
+  [
+   "{n: d}",
+   5,
+   " 5"
+  ],
+  [
+   "{n:,}",
+   1234567,
+   "1,234,567"
+  ],
+  [
+   "{n:_d}",
+   1234567,
+   "1_234_567"
+  ],
+  [
+   "{n:,}",
+   -1234,
+   "-1,234"
+  ],
+  [
+   "{n:.2f}",
+   3,
+   "3.00"
+  ],
+  [
+   "{n:.1f}",
+   2.25,
+   "2.2"
+  ],
+  [
+   "{n:08.3f}",
+   3.14159,
+   "0003.142"
+  ],
+  [
+   "{n:-05d}",
+   -42,
+   "-0042"
+  ],
+  [
+   "{n:=+6d}",
+   42,
+   "+   42"
+  ],
+  [
+   "{n:,.2f}",
+   1234.5,
+   "1,234.50"
+  ],
+  [
+   "{n!s}",
+   5,
+   "5"
+  ],
+  [
+   "{n!r}",
+   5,
+   "5"
+  ],
+  [
+   "{name!r}",
+   "x",
+   "'x'"
+  ],
+  [
+   "{name!s:>4}",
+   "x",
+   "   x"
+  ],
+  [
+   "{name:>5}",
+   "ab",
+   "   ab"
+  ],
+  [
+   "{name:5}|",
+   "ab",
+   "ab   |"
+  ],
+  [
+   "{name:^5}|",
+   "ab",
+   " ab  |"
+  ],
+  [
+   "{name:.1}",
+   "ab",
+   "a"
+  ],
+  [
+   "{name:05}",
+   "ab",
+   "ab000"
+  ],
+  [
+   "{name:s}",
+   "ab",
+   "ab"
+  ],
+  [
+   "{name:*<4}",
+   "ab",
+   "ab**"
+  ],
+  [
+   "{name:d}",
+   "ab",
+   null
+  ],
+  [
+   "{name:+}",
+   "ab",
+   null
+  ],
+  [
+   "{name:=5}",
+   "ab",
+   null
+  ],
+  [
+   "{n:d}",
+   1.5,
+   null
+  ],
+  [
+   "{n:.2}x",
+   "ab",
+   "abx"
+  ],
+  [
+   "{other:02d}",
+   5,
+   null
+  ],
+  [
+   "{n:02q}",
+   5,
+   null
+  ],
+  [
+   "{n!z}",
+   5,
+   null
+  ],
+  [
+   "{{n}} {n:02d}",
+   5,
+   "{n} 05"
   ]
  ]
 }

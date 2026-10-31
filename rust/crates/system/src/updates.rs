@@ -291,7 +291,7 @@ impl Updates<'_> {
         if cancelled() {
             return Err(first);
         }
-        let latest = self.fetch_manifest(&manifest.channel).ok().flatten();
+        let latest = self.fetch_manifest(&manifest.channel)?;
         let Some(latest) = latest.filter(|l| l.channel == manifest.channel && l.build > manifest.build && !self.was_rolled_back(Some(l))) else {
             return Err(first);
         };
@@ -938,6 +938,37 @@ mod tests {
         };
         install_windows(&archive, &app, 0, &mut mv).unwrap();
         assert_eq!(seen, vec![vec!["a.dll".to_string(), "b.dll".into(), "sub".into()]]);
+    }
+
+    // test_update_guard.py::test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to
+    #[test]
+    fn an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to() {
+        let root = tmp("stale-old");
+        let app = root.join("app");
+        std::fs::create_dir_all(app.join("lib-130")).unwrap();
+        std::fs::write(app.join(EXE_NAME), "exe 130").unwrap();
+        std::fs::write(app.join(OLD_EXE_NAME), "exe stale").unwrap(); // its lib folder is long gone
+        let archive = zip_of(&root.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("lib-131/python311.dll", b"py 131")]);
+        let mut lib_move_fails = |a: &Path, b: &Path| {
+            if a.file_name().is_some_and(|n| n.to_string_lossy().starts_with("lib-")) {
+                return Err(io::Error::other("in use"));
+            }
+            std::fs::rename(a, b)
+        };
+        let e = install_windows(&archive, &app, 131, &mut lib_move_fails).unwrap_err();
+        assert!(e.0.contains("in use"), "{e}");
+        assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "exe 130");
+        assert!(update_guard::read_journal(&app).is_none());
+    }
+
+    // download_update: a check that fails while looking for a replacement says so, like the UpdateError Python lets through
+    #[test]
+    fn download_update_says_so_when_the_second_look_fails() {
+        let dir = tmp("second-look");
+        let asset = asset_for(b"old", None);
+        let fake = Fake::new(&[(&asset.url, 200, b"odd"), (&manifest_url("nightly"), 500, b"")]);
+        let e = updates(&fake, &dir).download_update(&manifest(120, "nightly", &[&asset]), &asset, &dir.join("dl"), &mut |_, _| {}, &|| false).unwrap_err();
+        assert!(e.0.contains("HTTP 500"), "{e}");
     }
 
     #[test]
