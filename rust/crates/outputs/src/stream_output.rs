@@ -197,6 +197,8 @@ pub struct StreamOutputPlugin {
     wifi: (Option<String>, Option<i64>, Option<i64>),
     over_usb: bool,
     phone_picked: bool,
+    /// Phones paired, as PhonesChanged last said.
+    phones: u32,
     h264_sizes: Option<HashSet<(u32, u32)>>,
     good_size: Option<(u32, u32)>,
     wanted_fps: u32,
@@ -214,7 +216,7 @@ impl StreamOutputPlugin {
             h264_available, stream: None, current_camera_id: None, sizes: Sizes::default(), pending_resolution_text: None,
             had_saved_resolution: false, saved_resolution_text: None, format: FORMAT_H264, phone_codecs: Vec::new(),
             phone_dynamic: None, h264_profile: None, intra_refresh: false, wifi: (None, None, None), over_usb: false,
-            phone_picked: true, h264_sizes: None, good_size: None, wanted_fps: DEFAULT_FPS, camera_max_fps: 0,
+            phone_picked: true, phones: 0, h264_sizes: None, good_size: None, wanted_fps: DEFAULT_FPS, camera_max_fps: 0,
             fps_current: 3, quality: DEFAULT_QUALITY, bitrate: 0, stop_for: None,
         };
         p.show_fps();
@@ -313,6 +315,7 @@ impl StreamOutputPlugin {
             bitrate_tip = format!("{bitrate_tip} {}", tr(NO_DYNAMIC_TIP));
         }
         json!({
+            "active": self.phones > 0 || !self.phone_picked, "phone-only-hidden": !self.phone_picked,
             "res-items": res_items, "res-current": self.sizes.res_current, "res-enabled": self.sizes.enabled,
             "ar-items": ar_items, "ar-current": self.sizes.ar, "ar-enabled": self.sizes.enabled,
             "fps-items": FPS_CHOICES.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": self.fps_current,
@@ -753,7 +756,14 @@ impl Plugin for StreamOutputPlugin {
                 self.render(host);
             }
             Event::StreamBehind { source_id, behind } => self.on_stream_behind(host, source_id, *behind),
-            Event::SourceSelected { source_id } => self.phone_picked = source_id.is_empty(),
+            Event::SourceSelected { source_id } => {
+                self.phone_picked = source_id.is_empty();
+                self.render(host);
+            }
+            Event::PhonesChanged { count } => {
+                self.phones = *count;
+                self.render(host);
+            }
             Event::TimerFired { owner, token } if owner == NAME => {
                 if token == T_INITIAL {
                     self.push_initial_settings(host);

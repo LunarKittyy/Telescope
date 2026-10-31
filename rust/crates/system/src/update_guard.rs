@@ -45,12 +45,17 @@ pub fn read_journal(directory: &Path) -> Option<Value> {
 
 /// Replaces the journal in one step, so a cut-short write leaves the old one.
 pub fn write_journal(directory: &Path, data: &Value) -> io::Result<()> {
+    write_journal_with(directory, data, &mut rename)
+}
+
+/// write_journal, its last step going through mv like every other move of an install or a roll-back.
+pub fn write_journal_with(directory: &Path, data: &Value, mv: Mover) -> io::Result<()> {
     use std::io::Write;
     let tmp = directory.join(format!("{JOURNAL}.tmp"));
     let mut f = std::fs::File::create(&tmp)?;
     f.write_all(data.to_string().as_bytes())?;
     f.sync_all()?;
-    std::fs::rename(&tmp, directory.join(JOURNAL))
+    mv(&tmp, &directory.join(JOURNAL))
 }
 
 pub fn clear_journal(directory: &Path) -> io::Result<()> {
@@ -223,7 +228,7 @@ fn same(a: &Path, b: &Path) -> bool {
 
 /// remember: the new build itself is to blame (it didn't start), so the updater stops offering it.
 pub fn roll_back(directory: &Path, journal: &Value, remember: bool, mv: Mover) -> io::Result<()> {
-    write_journal(directory, &with(journal, json!({"state": "rolling_back"})))?;
+    write_journal_with(directory, &with(journal, json!({"state": "rolling_back"})), mv)?;
     if journal["platform"] == "windows" {
         let (current, old) = (directory.join(EXE_NAME), directory.join(OLD_EXE_NAME));
         if old.exists() {
@@ -310,7 +315,7 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
                     return Ok(Some(relaunch_command(directory, false)));
                 }
             };
-            write_journal(directory, &with(&journal, json!({"state": "trial", "started": false})))?;
+            write_journal_with(directory, &with(&journal, json!({"state": "trial", "started": false})), mv)?;
             // Windows: a copy that just renamed itself out of the way is the old version, so start the new one
             return Ok(swapped.then(|| relaunch_command(directory, true)));
         }
@@ -322,7 +327,7 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
             return Ok(Some(relaunch_command(directory, false)));
         }
         if state == "trial" {
-            write_journal(directory, &with(&journal, json!({"started": true, "started_at": now()})))?;
+            write_journal_with(directory, &with(&journal, json!({"started": true, "started_at": now()})), mv)?;
         }
         Ok(None)
     })();
@@ -473,7 +478,10 @@ pub fn guard_start(directory: &Path, after_update: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use crate::updates::archives::{tarball, zip_of};
+    use crate::updates::{install_linux, install_windows, parse_manifest, NetError, Opener, Reply, Updates, UpdateError, WINDOWS_ASSET};
+    use std::collections::BTreeMap;
+    use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
     fn nobody() -> bool {
         false
@@ -495,7 +503,31 @@ mod tests {
         std::fs::read_to_string(path).unwrap_or_default()
     }
 
-    /// A Windows install at build 130 with build 131 unpacked into staging (what install_windows extracts).
+    /// Dies at the k-th move, like the process being killed: nothing after it runs, not even the installer's own roll-back.
+    fn killed_at(k: usize) -> impl FnMut(&Path, &Path) -> io::Result<()> {
+        let mut seen = 0;
+        move |s, d| {
+            seen += 1;
+            if seen == k {
+                resume_unwind(Box::new("killed"));
+            }
+            rename(s, d)
+        }
+    }
+
+    /// How many moves run does, journal writes included.
+    fn count_moves(run: impl FnOnce(Mover)) -> usize {
+        let mut n = 0;
+        run(&mut |s: &Path, d: &Path| {
+            n += 1;
+            rename(s, d)
+        });
+        n
+    }
+
+    // ── Windows ───────────────────────────────────────────────────────────────
+
+    /// A Windows install at build 130. PyQt6 is what makes clean-up count a lib folder as the Python build's.
     fn windows_app(dir: &Path) -> PathBuf {
         let app = dir.join("app");
         write(&app.join("lib-130/python311.dll"), "py 130");
@@ -505,65 +537,16 @@ mod tests {
         app
     }
 
-    fn stage_windows(app: &Path) {
-        let s = app.join(STAGING_DIR);
-        write(&s.join(EXE_NAME), "exe 131");
-        write(&s.join("lib-131/python311.dll"), "py 131");
-        write(&s.join("lib-131/PyQt6/qt.dll"), "qt 131");
-        write(&s.join("Telescope.apk"), "apk 131");
+    fn windows_zip(dir: &Path) -> PathBuf {
+        zip_of(&dir.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("lib-131/python311.dll", b"py 131"),
+                                           ("lib-131/PyQt6/qt.dll", b"qt 131"), ("Telescope.apk", b"apk 131")])
     }
 
-    fn linux_app(dir: &Path) -> PathBuf {
-        let app = dir.join("app");
-        write(&app.join("main.py"), "main 130");
-        write(&app.join("start.sh"), "start 130");
-        write(&app.join("telescope/app.py"), "app 130");
-        write(&app.join("old_only.txt"), "gone in 131");
+    /// A Windows app at 130 with 131 installed by the real installer.
+    fn updated_windows_app(dir: &Path) -> PathBuf {
+        let app = windows_app(dir);
+        install_windows(&windows_zip(dir), &app, 131, &mut rename).unwrap();
         app
-    }
-
-    fn stage_linux(app: &Path) -> Value {
-        let s = app.join(STAGING_DIR);
-        write(&s.join("main.py"), "main 131");
-        write(&s.join("start.sh"), "start 131");
-        write(&s.join("telescope/app.py"), "app 131");
-        write(&s.join("new_in_131.txt"), "new");
-        let entries = vec!["main.py", "new_in_131.txt", "start.sh", "telescope"];
-        let added: Vec<&str> = entries.iter().copied().filter(|n| !app.join(n).exists()).collect();
-        json!({"platform": "linux", "to_build": 131, "entries": entries, "added": added})
-    }
-
-    /// updates._swap: journal, swap, and on failure the old version back; the mover can fail on cue.
-    fn install(app: &Path, journal: &Value, mv: Mover) -> io::Result<()> {
-        write_journal(app, &with(journal, json!({"state": "swapping", "from_build": 130})))?;
-        if let Err(e) = finish_swap(app, journal, &mut Vec::new(), mv) {
-            let _ = roll_back(app, journal, false, &mut rename);
-            return Err(e);
-        }
-        write_journal(app, &with(journal, json!({"state": "trial", "started": false})))
-    }
-
-    /// Dies (panics) at the k-th move, like a process killed mid-install.
-    fn install_killed_at(app: &Path, journal: &Value, k: usize) {
-        let mut seen = 0;
-        let mut mv = |s: &Path, d: &Path| {
-            seen += 1;
-            if seen == k {
-                panic!("killed");
-            }
-            rename(s, d)
-        };
-        let _ = catch_unwind(AssertUnwindSafe(|| install(app, journal, &mut mv)));
-    }
-
-    fn count_moves(app: &Path, journal: &Value) -> usize {
-        let mut n = 0;
-        let mut mv = |s: &Path, d: &Path| {
-            n += 1;
-            rename(s, d)
-        };
-        install(app, journal, &mut mv).unwrap();
-        n
     }
 
     fn assert_windows_new(app: &Path) {
@@ -577,41 +560,70 @@ mod tests {
     #[test]
     fn a_windows_install_cut_short_anywhere_is_finished_by_the_next_start() {
         let base = root("win-cut");
-        let counting = windows_app(&base.join("count"));
-        stage_windows(&counting);
-        let journal = json!({"platform": "windows", "to_build": 131});
-        let total = count_moves(&counting, &journal);
-        assert!(total >= 4);
+        let total = count_moves(|mv| {
+            let dir = base.join("count");
+            std::fs::create_dir_all(&dir).unwrap();
+            install_windows(&windows_zip(&dir), &windows_app(&dir), 131, mv).unwrap();
+        });
+        assert!(total >= 6, "the journal twice, the lib, the exe twice, the apk: {total}");
+        let mut before_the_journal = 0;
         for k in 1..=total {
-            let app = windows_app(&base.join(format!("k{k}")));
-            stage_windows(&app);
-            install_killed_at(&app, &journal, k);
+            let dir = base.join(format!("k{k}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let app = windows_app(&dir);
+            let archive = windows_zip(&dir);
+            let _ = catch_unwind(AssertUnwindSafe(|| install_windows(&archive, &app, 131, &mut killed_at(k))));
+            // Only the instant between the exe's two renames leaves nothing to start (the test runs the guard anyway)
             let exe_was_new = read(&app.join(EXE_NAME)) == "exe 131";
+            if read_journal(&app).is_none() {
+                // Cut short before the journal was written: the update never began, and the old version is intact
+                assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None, "k={k}");
+                assert_eq!(read(&app.join(EXE_NAME)), "exe 130", "k={k}");
+                before_the_journal += 1;
+                continue;
+            }
             let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO);
             assert_windows_new(&app);
             // A start by the old exe moves it aside for the new one, and hands over to that
             assert_eq!(relaunch.is_none(), exe_was_new, "k={k}");
             assert!(relaunch.as_ref().is_none_or(|r| r.last().unwrap() == "--after-update"));
             assert_eq!(read_journal(&app).unwrap()["state"], "trial");
+            // The old version is still there to go back to
             assert_eq!(read(&app.join("lib-130/python311.dll")), "py 130");
         }
+        assert_eq!(before_the_journal, 1, "only the first move comes before the journal");
         std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    fn manifest(build: i64) -> Vec<u8> {
+        format!(r#"{{"schema": 1, "version": "0.6.0", "build": {build}, "channel": "nightly", "versionName": "x",
+                     "commit": "abc", "protocol": 2, "notes": "", "assets": []}}"#).into_bytes()
+    }
+
+    struct Offline;
+
+    impl Opener for Offline {
+        fn open(&self, _url: &str) -> Result<Reply, NetError> {
+            Err(NetError::Other("offline".into()))
+        }
     }
 
     #[test]
     fn a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again() {
         let base = root("win-roll");
-        let app = windows_app(&base);
-        stage_windows(&app);
-        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
+        let app = updated_windows_app(&base);
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version's first start
         assert_eq!(read_journal(&app).unwrap()["started"], true);
+        // It crashed before confirming, so the next start goes back (once it's had its time to start up)
         let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO).expect("rolls back");
         assert!(!relaunch.contains(&"--after-update".to_string()));
         assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
         assert_eq!(read(&app.join(FAILED_EXE_NAME)), "exe 131");
         assert!(read_journal(&app).is_none());
         assert_eq!(failed_build(&app), Some(131));
+        let at_130 = Updates { opener: &Offline, build: 130, directory: app.clone() };
+        assert!(!at_130.is_newer(Some(&parse_manifest(&manifest(131)).unwrap())));
+        assert!(at_130.is_newer(Some(&parse_manifest(&manifest(132)).unwrap())));
         // The old version's clean-up takes the failed one's leftovers, lib folders and all
         clean_up_after_update(&app, Some(130));
         assert!(!app.join(FAILED_EXE_NAME).exists() && !app.join("lib-131").exists());
@@ -638,13 +650,17 @@ mod tests {
     fn a_confirmed_update_stays_and_its_leftovers_go() {
         let base = root("win-confirm");
         let app = windows_app(&base);
-        stage_windows(&app);
-        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
+        // Without PyQt6: this app has no lib folder of its own, so a Python build's next to it would count as a leftover
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("lib-131/python311.dll", b"py 131"), ("Telescope.apk", b"apk 131")]);
+        install_windows(&archive, &app, 131, &mut rename).unwrap();
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
         confirm(&app);
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
         clean_up_after_update(&app, Some(131));
         assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert_eq!(read(&app.join("lib-131/python311.dll")), "py 131");
+        assert_eq!(read(&app.join("Telescope.apk")), "apk 131");
+        assert!(!app.join(STAGING_DIR).exists());
         assert!(!app.join(OLD_EXE_NAME).exists() && !app.join("lib-130").exists());
         std::fs::remove_dir_all(&base).unwrap();
     }
@@ -652,11 +668,11 @@ mod tests {
     #[test]
     fn a_second_copy_starting_leaves_the_update_to_the_running_one() {
         let base = root("second");
-        let app = windows_app(&base);
-        stage_windows(&app);
-        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
+        let app = updated_windows_app(&base);
+        write_journal(&app, &with(&read_journal(&app).unwrap(), json!({"started": true}))).unwrap();
         let before = read_journal(&app);
         assert_eq!(recover(&app, Duration::ZERO, &|| true, Duration::ZERO), None);
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131"); // not rolled back under the running copy
         assert_eq!(read_journal(&app), before);
         std::fs::remove_dir_all(&base).unwrap();
     }
@@ -664,50 +680,44 @@ mod tests {
     #[test]
     fn a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone() {
         let base = root("loading");
-        let app = windows_app(&base);
-        write_journal(&app, &json!({"platform": "windows", "to_build": 131, "state": "trial", "started": true, "started_at": now()})).unwrap();
-        // Nobody holds the lock when recover starts, then the first start takes it within the grace time
-        let calls = std::cell::Cell::new(0);
-        let running = || {
-            calls.set(calls.get() + 1);
-            calls.get() > 1
-        };
-        assert_eq!(recover(&app, Duration::ZERO, &running, Duration::from_secs(5)), None);
-        assert_eq!(read_journal(&app).unwrap()["state"], "trial");
+        let app = updated_windows_app(&base);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version starts loading
+        // The double-click lands before it takes the lock
+        let bound_yet = std::cell::RefCell::new([false, false, true].into_iter());
+        let running = || bound_yet.borrow_mut().next().expect("asked again after it was found running");
+        assert_eq!(recover(&app, Duration::ZERO, &running, TRIAL_GRACE), None);
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        assert_eq!(failed_build(&app), None);
         std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]
     fn a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole() {
         let base = root("underneath");
-        let app = windows_app(&base);
-        write(&app.join("lib-131/python311.dll"), "py 131");
-        std::fs::write(app.join(FAILED), "{\"build\": 131}").unwrap();
+        let app = updated_windows_app(&base);
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None); // the new version starts, slowly
+        // A second launch gives up waiting for it to take the lock, and puts the old version back
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
+        // The slow first start carries on regardless (renamed, still 131) and gets as far as its clean-up
         clean_up_after_update(&app, Some(131));
-        assert!(app.join("lib-130").exists() && app.join("lib-131").exists());
+        assert_eq!(read(&app.join("lib-130/python311.dll")), "py 130"); // the exe in place still starts
         std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]
     fn a_roll_back_cut_short_is_finished_by_the_next_start() {
         let base = root("roll-cut");
-        let journal = json!({"platform": "windows", "to_build": 131});
-        let counting = windows_app(&base.join("count"));
-        stage_windows(&counting);
-        install(&counting, &journal, &mut rename).unwrap();
-        let mut total = 0;
-        roll_back(&counting, &read_journal(&counting).unwrap(), true, &mut |s: &Path, d: &Path| { total += 1; rename(s, d) }).unwrap();
-        for k in 1..=total {
-            let app = windows_app(&base.join(format!("k{k}")));
-            stage_windows(&app);
-            install(&app, &journal, &mut rename).unwrap();
-            let trial = read_journal(&app).unwrap();
-            let mut seen = 0;
-            let _ = catch_unwind(AssertUnwindSafe(|| roll_back(&app, &trial, true, &mut |s: &Path, d: &Path| {
-                seen += 1;
-                if seen == k { panic!("killed") }
-                rename(s, d)
-            })));
+        let counting = updated_windows_app(&base.join("count"));
+        let trial = read_journal(&counting).unwrap();
+        let total = count_moves(|mv| roll_back(&counting, &trial, true, mv).unwrap());
+        assert_eq!(total, 3, "the journal, the new exe aside, the old one back");
+        // Move 1 is the journal saying a roll-back began: dying on it, none did
+        for k in 2..=total {
+            let app = updated_windows_app(&base.join(format!("k{k}")));
+            let journal = with(&read_journal(&app).unwrap(), json!({"started": true}));
+            write_journal(&app, &journal).unwrap();
+            let _ = catch_unwind(AssertUnwindSafe(|| roll_back(&app, &journal, true, &mut killed_at(k))));
             assert_eq!(read_journal(&app).unwrap()["state"], "rolling_back");
             assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
             assert_eq!(read(&app.join(EXE_NAME)), "exe 130", "k={k}");
@@ -719,51 +729,113 @@ mod tests {
     #[test]
     fn clean_up_waits_while_an_update_is_unconfirmed() {
         let base = root("wait");
-        let app = windows_app(&base);
-        stage_windows(&app);
-        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
+        let app = updated_windows_app(&base);
         clean_up_after_update(&app, Some(131));
         assert_eq!(read(&app.join(OLD_EXE_NAME)), "exe 130");
         assert!(app.join("lib-130").exists());
         std::fs::remove_dir_all(&base).unwrap();
     }
 
-    fn assert_linux_new(app: &Path) {
-        assert_eq!(read(&app.join("main.py")), "main 131");
-        assert_eq!(read(&app.join("start.sh")), "start 131");
-        assert_eq!(read(&app.join("telescope/app.py")), "app 131");
-        assert_eq!(read(&app.join("new_in_131.txt")), "new");
-        assert!(!app.join(STAGING_DIR).exists());
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(std::fs::metadata(app.join("start.sh")).unwrap().permissions().mode() & 0o111, 0o111);
-        }
+    #[test]
+    fn after_an_update_the_new_copy_waits_for_the_old_one_to_exit() {
+        let base = root("waits");
+        let app = updated_windows_app(&base);
+        let still_running = std::cell::RefCell::new([true, true, false].into_iter());
+        let running = || still_running.borrow_mut().next().unwrap();
+        assert_eq!(recover(&app, Duration::from_secs(5), &running, Duration::ZERO), None);
+        assert_eq!(read_journal(&app).unwrap()["started"], true);
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
-    fn assert_linux_old(app: &Path) {
-        assert_eq!(read(&app.join("main.py")), "main 130");
-        assert_eq!(read(&app.join("start.sh")), "start 130");
-        assert_eq!(read(&app.join("telescope/app.py")), "app 130");
-        assert!(!app.join("new_in_131.txt").exists());
-        assert_eq!(read(&app.join("old_only.txt")), "gone in 131");
+    // ── Linux ─────────────────────────────────────────────────────────────────
+
+    fn linux_app(dir: &Path) -> PathBuf {
+        let app = dir.join("app");
+        write(&app.join("main.py"), "main 130");
+        write(&app.join("update_guard.py"), "guard 130");
+        write(&app.join("start.sh"), "start 130");
+        write(&app.join("telescope/app.py"), "app 130");
+        write(&app.join("telescope/gone.py"), "only in 130");
+        write(&app.join("notes.txt"), "the user's");
+        app
+    }
+
+    fn linux_tarball(path: &Path) -> PathBuf {
+        tarball(path, &[("main.py", b"main 131"), ("update_guard.py", b"guard 131"), ("start.sh", b"start 131"),
+                        ("telescope/app.py", b"app 131"), ("requirements.txt", b"new in 131")])
+    }
+
+    /// The whole folder but the updater's own things.
+    fn tree(app: &Path) -> BTreeMap<String, String> {
+        fn walk(dir: &Path, app: &Path, out: &mut BTreeMap<String, String>) {
+            for p in sorted_entries(dir).unwrap_or_default() {
+                let name = p.file_name().unwrap().to_string_lossy();
+                if name.starts_with(".update") || name.starts_with(".previous") {
+                    continue;
+                }
+                if p.is_dir() {
+                    walk(&p, app, out);
+                } else {
+                    out.insert(p.strip_prefix(app).unwrap().to_string_lossy().replace('\\', "/"), read(&p));
+                }
+            }
+        }
+        let mut out = BTreeMap::new();
+        walk(app, app, &mut out);
+        out
+    }
+
+    fn tree_of(files: &[(&str, &str)]) -> BTreeMap<String, String> {
+        files.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    fn new_tree() -> BTreeMap<String, String> {
+        tree_of(&[("main.py", "main 131"), ("update_guard.py", "guard 131"), ("start.sh", "start 131"), ("telescope/app.py", "app 131"),
+                  ("requirements.txt", "new in 131"), ("notes.txt", "the user's")])
+    }
+
+    fn old_tree() -> BTreeMap<String, String> {
+        tree_of(&[("main.py", "main 130"), ("update_guard.py", "guard 130"), ("start.sh", "start 130"), ("telescope/app.py", "app 130"),
+                  ("telescope/gone.py", "only in 130"), ("notes.txt", "the user's")])
     }
 
     #[test]
     fn a_linux_install_cut_short_anywhere_is_finished_by_the_next_start() {
         let base = root("lin-cut");
-        let counting = linux_app(&base.join("count"));
-        let journal = stage_linux(&counting);
-        let total = count_moves(&counting, &journal);
+        let total = count_moves(|mv| {
+            let dir = base.join("count");
+            let app = linux_app(&dir);
+            install_linux(&linux_tarball(&dir.join("u.tar.gz")), &app, 131, mv).unwrap();
+        });
+        assert!(total >= 8, "the journal twice, five entries, telescope aside: {total}");
+        let mut before_the_journal = 0;
         for k in 1..=total {
-            let app = linux_app(&base.join(format!("k{k}")));
-            let journal = stage_linux(&app);
-            install_killed_at(&app, &journal, k);
+            let dir = base.join(format!("k{k}"));
+            let app = linux_app(&dir);
+            let archive = linux_tarball(&dir.join("u.tar.gz"));
+            let _ = catch_unwind(AssertUnwindSafe(|| install_linux(&archive, &app, 131, &mut killed_at(k))));
+            // start.sh, main.py and the guard are files, replaced in one step: whatever happened, the next start runs
+            for name in ["start.sh", "main.py", "update_guard.py"] {
+                assert!(app.join(name).exists(), "k={k} {name}");
+            }
+            let began = read_journal(&app).is_some();
             assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None, "k={k}");
-            assert_linux_new(&app);
-            assert_eq!(read_journal(&app).unwrap()["state"], "trial");
-            assert_eq!(read(&app.join(PREVIOUS_DIR).join("main.py")), "main 130");
+            // Cut short before the journal was written, the update never began; after, it's always finished
+            assert_eq!(tree(&app), if began { new_tree() } else { old_tree() }, "k={k}");
+            if began {
+                assert_eq!(read_journal(&app).unwrap()["state"], "trial");
+                assert_eq!(read(&app.join(PREVIOUS_DIR).join("main.py")), "main 130");
+                assert!(!app.join(STAGING_DIR).exists());
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    assert_eq!(std::fs::metadata(app.join("start.sh")).unwrap().permissions().mode() & 0o111, 0o111);
+                }
+            } else {
+                before_the_journal += 1;
+            }
         }
+        assert_eq!(before_the_journal, 1, "only the first move comes before the journal");
         std::fs::remove_dir_all(&base).unwrap();
     }
 
@@ -771,11 +843,13 @@ mod tests {
     fn a_linux_update_that_never_confirms_rolls_back() {
         let base = root("lin-roll");
         let app = linux_app(&base);
-        let journal = stage_linux(&app);
-        install(&app, &journal, &mut rename).unwrap();
+        install_linux(&linux_tarball(&base.join("u.tar.gz")), &app, 131, &mut rename).unwrap();
         assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
-        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
-        assert_linux_old(&app);
+        assert_eq!(tree(&app), new_tree());
+        let relaunch = recover(&app, Duration::ZERO, &nobody, Duration::ZERO);
+        let start = app.join(if cfg!(windows) { EXE_NAME } else { "start.sh" });
+        assert_eq!(relaunch, Some(vec![start.to_string_lossy().into_owned()]));
+        assert_eq!(tree(&app), old_tree()); // including the module 131 dropped, and without the file 131 added
         assert_eq!(failed_build(&app), Some(131));
         std::fs::remove_dir_all(&base).unwrap();
     }
@@ -784,32 +858,22 @@ mod tests {
     fn a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_build() {
         let base = root("lin-fail");
         let app = linux_app(&base);
-        let journal = stage_linux(&app);
-        let mut mv = |s: &Path, d: &Path| {
-            if s.file_name().is_some_and(|n| n == "telescope") && s.starts_with(app.join(STAGING_DIR)) {
-                return Err(io::Error::other("in use"));
+        let staging = app.join(STAGING_DIR);
+        let mut flaky = |s: &Path, d: &Path| {
+            if d.ends_with("telescope") && s.starts_with(&staging) {
+                return Err(io::Error::from_raw_os_error(if cfg!(windows) { 5 } else { 13 }));
             }
             rename(s, d)
         };
-        assert!(install(&app, &journal, &mut mv).is_err());
-        assert_linux_old(&app);
+        let UpdateError(message) = install_linux(&linux_tarball(&base.join("u.tar.gz")), &app, 131, &mut flaky).unwrap_err();
+        assert!(message.contains("denied") && !message.contains("os error"), "{message}");
+        assert_eq!(tree(&app), old_tree());
         assert!(read_journal(&app).is_none());
         assert_eq!(failed_build(&app), None);
         std::fs::remove_dir_all(&base).unwrap();
     }
 
-    #[test]
-    fn after_an_update_the_new_copy_waits_for_the_old_one_to_exit() {
-        let base = root("waits");
-        let app = windows_app(&base);
-        stage_windows(&app);
-        install(&app, &json!({"platform": "windows", "to_build": 131}), &mut rename).unwrap();
-        let until = Instant::now() + Duration::from_millis(600);
-        let old_running = move || Instant::now() < until;
-        assert_eq!(recover(&app, Duration::from_secs(5), &old_running, Duration::ZERO), None);
-        assert_eq!(read_journal(&app).unwrap()["started"], true);
-        std::fs::remove_dir_all(&base).unwrap();
-    }
+    // ── A logout during the first start is not a failed start: tests/terminate.rs, with real signals ──
 
     #[test]
     fn confirming_with_no_update_in_progress_leaves_no_journal_behind() {
@@ -828,12 +892,23 @@ mod tests {
         // A dev profile's address is its own, so this doesn't meet a real Telescope running here
         let folder = root("guard-address");
         std::env::set_var(telescope_core::config::DEV_PROFILE_ENV, &folder);
+        assert!(!another_copy_running(false));
         let Acquired::Lock(lock) = acquire(&Address::current(), Duration::ZERO) else { panic!("no lock") };
         assert!(another_copy_running(false));
         drop(lock);
         assert!(!another_copy_running(false));
         std::env::remove_var(telescope_core::config::DEV_PROFILE_ENV);
         std::fs::remove_dir_all(&folder).unwrap();
+        // Another user's copy doesn't count
+        #[cfg(target_os = "linux")]
+        {
+            use crate::single_instance::instance_name;
+            let (mine, theirs) = (Address::Abstract(instance_name(4242425, false)), Address::Abstract(instance_name(4242426, false)));
+            let Acquired::Lock(lock) = acquire(&mine, Duration::ZERO) else { panic!("no lock") };
+            assert!(copy_running_at(&mine, None));
+            assert!(!copy_running_at(&theirs, None));
+            drop(lock);
+        }
     }
 
     // test_update_guard.py::test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts

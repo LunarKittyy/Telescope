@@ -74,7 +74,11 @@ impl Manifest {
 
 /// Nightly builds follow nightly; stable and source builds follow stable.
 pub fn default_channel() -> &'static str {
-    if version::channel() == "nightly" { "nightly" } else { "stable" }
+    channel_after(version::channel())
+}
+
+fn channel_after(build_channel: &str) -> &'static str {
+    if build_channel == "nightly" { "nightly" } else { "stable" }
 }
 
 fn text(v: &Value) -> Option<String> {
@@ -425,19 +429,19 @@ fn merged(journal: &Value, changes: Value) -> Value {
 
 /// Journals the swap, then does it; a failure puts the old version back.
 fn swap(directory: &Path, journal: Value, mv: Mover) -> Result<Vec<String>> {
-    let journaled = update_guard::write_journal(directory, &merged(&journal, json!({"state": "swapping", "from_build": version::build()})));
+    let journaled = update_guard::write_journal_with(directory, &merged(&journal, json!({"state": "swapping", "from_build": version::build()})), mv);
     if let Err(e) = journaled {
         return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").field("error", strerror(&e))));
     }
     let mut skipped = Vec::new();
     if let Err(e) = update_guard::finish_swap(directory, &journal, &mut skipped, mv) {
-        if let Err(back) = update_guard::roll_back(directory, &journal, false, &mut |a, b| std::fs::rename(a, b)) {
+        if let Err(back) = update_guard::roll_back(directory, &journal, false, mv) {
             log::error!("Putting the old version back failed; the next start tries again: {back}");
         }
         return Err(UpdateError(tr("Couldn't replace Telescope's files: {error}").field("error", strerror(&e))));
     }
     // The old version stays until the new one has started once (update_guard::confirm)
-    if let Err(e) = update_guard::write_journal(directory, &merged(&journal, json!({"state": "trial", "started": false}))) {
+    if let Err(e) = update_guard::write_journal_with(directory, &merged(&journal, json!({"state": "trial", "started": false})), mv) {
         log::warn!("Couldn't mark the update as on trial: {e}");
     }
     Ok(skipped)
@@ -509,8 +513,40 @@ pub fn install(archive: &Path, directory: &Path, build: i64) -> Result<InstallRe
     if cfg!(windows) { install_windows(archive, directory, build, mv) } else { install_linux(archive, directory, build, mv) }
 }
 
+/// Archives made for tests, like the release's.
+#[cfg(test)]
+pub(crate) mod archives {
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+
+    pub fn zip_of(path: &Path, files: &[(&str, &[u8])]) -> PathBuf {
+        let mut z = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
+        for (name, data) in files {
+            z.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
+            z.write_all(data).unwrap();
+        }
+        z.finish().unwrap();
+        path.to_path_buf()
+    }
+
+    pub fn tarball(path: &Path, files: &[(&str, &[u8])]) -> PathBuf {
+        let gz = flate2::write::GzEncoder::new(std::fs::File::create(path).unwrap(), flate2::Compression::fast());
+        let mut t = tar::Builder::new(gz);
+        for (name, data) in files {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            t.append_data(&mut header, name, *data).unwrap();
+        }
+        t.into_inner().unwrap().finish().unwrap();
+        path.to_path_buf()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::archives::{tarball, zip_of};
     use super::*;
     use std::collections::HashMap;
     use std::sync::Mutex;
@@ -639,6 +675,9 @@ mod tests {
 
     #[test]
     fn default_channel_follows_the_build() {
+        assert_eq!(channel_after("nightly"), "nightly");
+        assert_eq!(channel_after("dev"), "stable");
+        assert_eq!(channel_after("stable"), "stable");
         assert_eq!(version::channel(), "dev");
         assert_eq!(default_channel(), "stable");
     }
@@ -833,30 +872,6 @@ mod tests {
         }
     }
 
-    fn zip_of(path: &Path, files: &[(&str, &[u8])]) -> PathBuf {
-        let mut z = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
-        for (name, data) in files {
-            z.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
-            z.write_all(data).unwrap();
-        }
-        z.finish().unwrap();
-        path.to_path_buf()
-    }
-
-    fn tarball(path: &Path, files: &[(&str, &[u8])]) -> PathBuf {
-        let gz = flate2::write::GzEncoder::new(std::fs::File::create(path).unwrap(), flate2::Compression::fast());
-        let mut t = tar::Builder::new(gz);
-        for (name, data) in files {
-            let mut header = tar::Header::new_gnu();
-            header.set_size(data.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            t.append_data(&mut header, name, *data).unwrap();
-        }
-        t.into_inner().unwrap().finish().unwrap();
-        path.to_path_buf()
-    }
-
     #[test]
     fn windows_install_renames_the_running_exe_and_replaces_changed_files() {
         let root = tmp("win");
@@ -888,13 +903,18 @@ mod tests {
         install_windows(&archive, &app, 0, &mut rename()).unwrap();
         assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "folder exe");
         assert_eq!(std::fs::read_to_string(app.join("lib-130/PyQt6/Qt6/x.dll")).unwrap(), "qt");
+        update_guard::confirm(&app);
+        update_guard::clean_up_after_update(&app, None);
+        assert!(!app.join(OLD_EXE_NAME).exists());
+        // Python keeps its running lib-130 here; this app runs from no lib folder, so a Python build's goes too
+        assert!(!app.join("lib-130").exists());
     }
 
     #[test]
-    fn a_folder_build_update_adds_its_own_libs_and_the_old_ones_wait_for_the_confirm() {
+    fn a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start() {
         let root = tmp("libs");
         let app = root.join("app");
-        std::fs::create_dir_all(app.join("lib-130")).unwrap();
+        std::fs::create_dir_all(app.join("lib-130/PyQt6")).unwrap();
         std::fs::write(app.join("lib-130/python311.dll"), "old py").unwrap();
         std::fs::write(app.join(EXE_NAME), "exe 130").unwrap();
         std::fs::create_dir_all(app.join("platform-tools")).unwrap();
@@ -905,7 +925,11 @@ mod tests {
         assert_eq!(std::fs::read_to_string(app.join("lib-130/python311.dll")).unwrap(), "old py");
         assert_eq!(std::fs::read_to_string(app.join("lib-131/python311.dll")).unwrap(), "new py");
         update_guard::clean_up_after_update(&app, None);
-        assert!(app.join("lib-130").exists());
+        assert!(app.join("lib-130").exists()); // kept until the new version has started once
+        update_guard::confirm(&app);
+        update_guard::clean_up_after_update(&app, None);
+        assert!(!app.join("lib-130").exists());
+        assert!(app.join("lib-131").is_dir());
         assert!(app.join("platform-tools/adb.exe").exists());
     }
 
@@ -1082,6 +1106,19 @@ mod tests {
         std::fs::create_dir_all(root.join(".git")).unwrap();
         assert_eq!(self_update_blocker(&app, "nightly"), None);
         assert!(self_update_blocker(&root.join("missing"), "nightly").unwrap().contains("writable"));
+        // A folder that's there but won't take a file (root writes anywhere, so the check can't be made as root)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            if std::fs::metadata(&app).unwrap().uid() != 0 {
+                std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o500)).unwrap();
+                let blocked = self_update_blocker(&app, "nightly");
+                let checkout = self_update_blocker(&app, "dev");
+                std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o700)).unwrap();
+                assert!(blocked.unwrap().contains("writable"));
+                assert!(checkout.unwrap().contains("source checkout"));
+            }
+        }
         assert!(self_update_blocker(&app, "dev").unwrap().contains("source checkout"));
     }
 

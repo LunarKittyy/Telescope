@@ -196,6 +196,36 @@ fn recovery_moves_the_stream_once_per_route() {
     assert_eq!(r.link.logged(&format!("adopt pixel {:?}", wifi())), 1, "the worker keeps retrying it on its own");
 }
 
+fn retargets(r: &Rig) -> Vec<String> {
+    r.worker(0).log.lock().unwrap().iter().filter(|l| l.starts_with("retarget ")).cloned().collect()
+}
+
+#[test]
+fn the_same_cable_back_after_a_fresh_forward_died_gets_another() {
+    // Unplugged again after recovery made a forward but before video came back: adb dropped that forward
+    const FIRST: &str = "https://127.0.0.1:41000/v1/video.h264";
+    const SECOND: &str = "https://127.0.0.1:41001/v1/video.h264";
+    let r = Rig::new("drop-same-cable");
+    r.link.usb_forwards.lock().unwrap().extend([FIRST.to_string(), SECOND.to_string()]);
+    let usb = RouteSpec::Usb { serial: "SER".into() };
+    r.link.answers_recovery("pixel", ready(usb, true));
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
+    r.until("the worker moved", |r| r.worker(0).did(&format!("retarget {FIRST}")));
+    assert_eq!(retargets(&r), [format!("retarget {FIRST}")]);
+    probe_again(&r); // still connecting on it: left alone
+    assert_eq!(retargets(&r).len(), 1);
+    r.worker(0).tries.fetch_add(1, Ordering::SeqCst); // the cable went, and came back
+    probe_again(&r);
+    r.until("the worker moved again", |r| r.worker(0).did(&format!("retarget {SECOND}")));
+    assert_eq!(retargets(&r).last().unwrap(), &format!("retarget {SECOND}"));
+    assert_eq!(r.source("pixel").session().unwrap().url, SECOND);
+    probe_again(&r);
+    assert_eq!(retargets(&r).len(), 2);
+}
+
 #[test]
 fn recovery_ends_when_frames_come_back() {
     let r = unreachable("drop-ends");

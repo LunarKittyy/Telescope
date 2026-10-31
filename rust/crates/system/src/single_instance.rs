@@ -79,7 +79,7 @@ fn uid() -> u32 {
     0
 }
 
-fn instance_name(uid: u32, dev: bool) -> String {
+pub(crate) fn instance_name(uid: u32, dev: bool) -> String {
     format!("telescope-{uid}{}", if dev { "-dev" } else { "" })
 }
 
