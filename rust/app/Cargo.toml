@@ -30,6 +30,9 @@ log.workspace = true
 libc.workspace = true
 qrcode.workspace = true
 
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
+
 [dev-dependencies]
 flate2.workspace = true
 zip.workspace = true

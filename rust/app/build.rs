@@ -32,7 +32,21 @@ fn main_thread_stack() {
     }
 }
 
+/// The icon the tray and the window load as resource 1, and the name Windows shows for the program, as telescope.spec's icon.
+#[cfg(windows)]
+fn program_resources() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+        return;
+    }
+    println!("cargo:rerun-if-changed=../../desktop/resources/telescope.ico");
+    let mut resources = winresource::WindowsResource::new();
+    resources.set_icon("../../desktop/resources/telescope.ico").set("ProductName", "Telescope").set("FileDescription", "Telescope");
+    resources.compile().expect("the program's resources");
+}
+
 fn main() {
+    #[cfg(windows)]
+    program_resources();
     main_thread_stack();
     load_ffmpeg_late();
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it"));

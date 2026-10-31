@@ -73,6 +73,8 @@ roxmltree = "0.21"
 libloading = "0.8"
 zune-jpeg = "0.5"
 zune-core = "0.5"
+# The program's own icon and name on Windows, for Explorer, the tray and the firewall's question
+winresource = "0.1"
 cpal = "0.18"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
 slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
