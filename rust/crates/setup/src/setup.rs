@@ -798,7 +798,7 @@ impl SetupPlugin {
         if label == canvas::CUSTOM {
             (self.custom_w, self.custom_h) = (w.unwrap_or(self.custom_w), h.unwrap_or(self.custom_h));
         }
-        let request = host.restart_vcam_canvas(w.unwrap_or(0), h.unwrap_or(0));
+        let request = host.restart_vcam_canvas(w.unwrap_or(0), h.unwrap_or(0), true);
         self.canvas_request = Some((request, before));
     }
 
@@ -886,7 +886,7 @@ impl SetupPlugin {
     }
 
     pub fn copy_diagnostics(&mut self, host: &mut dyn Host) {
-        host.copy_text(&host.diagnostics_report());
+        host.copy_text(&host.diagnostics_report(&self.diagnostics()));
         self.panel.copied = true;
         host.schedule(2000, "copied");
     }

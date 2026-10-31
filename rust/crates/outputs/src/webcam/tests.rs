@@ -422,7 +422,17 @@ fn a_camera_whose_settings_cant_be_reached_shows_none() {
     let mut env = cams_with(vec![cam()], Box::new(|_| None));
     pick(&mut env, Some("cam"));
     assert!(env.plugin.rows().is_empty());
-    assert_eq!(env.plugin.props(false)["reset-shown"], false);
+    assert_eq!(env.plugin.props(false)["has-controls"], false);
+}
+
+#[test]
+fn the_card_declares_everything_it_is_given() {
+    let env = cams_with(vec![cam()], Box::new(|_| None));
+    let card = include_str!("../../ui/webcam.slint");
+    let props = env.plugin.props(false);
+    for name in props.as_object().unwrap().keys().filter(|k| *k != "visible") {
+        assert!(card.contains(&format!("> {name}")), "{name} isn't a property of the card");
+    }
 }
 
 // test_webcam_controls.py::test_a_replugged_webcam_gets_a_fresh_handle_on_its_settings

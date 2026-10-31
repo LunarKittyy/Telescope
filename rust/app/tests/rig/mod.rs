@@ -12,9 +12,9 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::event::Event;
-use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::frame::{Frame, FrameStep, PixelFormat};
 use telescope_core::host::Host;
-use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSession, PhoneStatus, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
+use telescope_core::link::{Link, PairingOffer, PhoneControl, PhoneSensors, PhoneSession, PhoneStatus, PhoneStills, Resolution, RoutePrefs, StreamFormat, StreamRequest, StreamTarget, Unreachable};
 use telescope_core::media::{Codec, FeedEnd, FeedStopper, FrameSlot, Packet, PacketTap, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, SetupAction, SetupResult, Slot, VideoOutput};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
@@ -44,7 +44,14 @@ pub struct Control {
     pub state: Mutex<Option<Value>>,
     /// get_state waits while this is on: a phone slow to answer.
     pub stalled: AtomicBool,
+    /// Asks by the checks a test drives; the two below count on threads of their own, so they aren't mixed up with them.
     pub asked: AtomicU32,
+    /// The ask a moment after a stream began, on a clock of its own.
+    pub fetched: AtomicU32,
+    /// The ask after the panels came back to a stream.
+    pub refreshed: AtomicU32,
+    /// What that ask alone is answered.
+    pub refresh_answer: Mutex<Option<Value>>,
     pub resent: AtomicU32,
     pub closed: AtomicBool,
     pub retargeted: Mutex<Vec<String>>,
@@ -62,9 +69,16 @@ impl PhoneControl for Control {
         self.sent.lock().unwrap().push(body.clone());
     }
     fn get_state(&self) -> Option<Value> {
-        self.asked.fetch_add(1, Ordering::SeqCst);
+        match std::thread::current().name() {
+            Some("state-fetch") => &self.fetched,
+            Some("state-refresh") => &self.refreshed,
+            _ => &self.asked,
+        }.fetch_add(1, Ordering::SeqCst);
         while self.stalled.load(Ordering::SeqCst) {
             std::thread::sleep(Duration::from_millis(1));
+        }
+        if std::thread::current().name() == Some("state-refresh") {
+            return self.refresh_answer.lock().unwrap().clone();
         }
         self.state.lock().unwrap().clone()
     }
@@ -143,6 +157,8 @@ pub struct FakeLink {
     pub wake_error: Mutex<Option<String>>,
     /// Wakes wait here until it's false.
     held: Mutex<bool>,
+    /// Wakes of these phones wait here until they're taken out.
+    held_phones: Mutex<std::collections::BTreeSet<String>>,
     release: Condvar,
     /// What a dropped stream's phone looks like, by source id.
     pub recovery: Mutex<BTreeMap<String, Resolution>>,
@@ -152,6 +168,12 @@ pub struct FakeLink {
     pub controls: Mutex<BTreeMap<String, Arc<Control>>>,
     pub released: Mutex<Vec<Arc<AtomicBool>>>,
     pub progress: Mutex<Vec<String>>,
+    /// A wake that said its progress waits here, while this is on, so a test can read what it said.
+    pub hold_after_progress: AtomicBool,
+    pub sensors: Mutex<Option<Arc<dyn PhoneSensors>>>,
+    pub stills: Mutex<Option<Arc<dyn PhoneStills>>>,
+    /// What prepare_route answers: the video URL on the route it's asked for.
+    pub prepared: Mutex<Option<String>>,
     /// Stops take this long to get there: a phone that's gone.
     pub stops_hang: AtomicBool,
 }
@@ -165,6 +187,24 @@ impl FakeLink {
     pub fn hold_wakes(&self, held: bool) {
         *self.held.lock().unwrap() = held;
         self.release.notify_all();
+    }
+
+    /// This phone's wakes wait, or go on; the others' don't.
+    pub fn hold_wakes_of(&self, id: &str, held: bool) {
+        let _guard = self.held.lock().unwrap();
+        let mut phones = self.held_phones.lock().unwrap();
+        if held {
+            phones.insert(id.into());
+        } else {
+            phones.remove(id);
+        }
+        drop(phones);
+        self.release.notify_all();
+    }
+
+    /// This phone paired again.
+    pub fn set_token(&self, id: &str, token: &str) {
+        self.phones.lock().unwrap().iter_mut().filter(|p| p.id == id).for_each(|p| p.token = token.into());
     }
 
     /// This phone's controls.
@@ -214,10 +254,12 @@ impl Link for FakeLink {
     fn open_route(&self, phone: &PairedPhone, route: &RouteSpec, video_path: &str, controls: Option<Arc<dyn PhoneControl>>)
                   -> Result<Box<dyn PhoneSession>, String> {
         let host = match route {
-            RouteSpec::Network { .. } => phone.id.clone(),
+            RouteSpec::Network { address } if address == "10.0.0.2" => phone.id.clone(),
+            RouteSpec::Network { address } => address.clone(),
             RouteSpec::Usb { serial } => format!("usb-{serial}"),
         };
         let _ = controls;
+        note(&self.log, format!("open {} with {}", phone.id, phone.token));
         let released = Arc::<AtomicBool>::default();
         self.released.lock().unwrap().push(released.clone());
         Ok(Box::new(Session { route: route.clone(), url: format!("https://{host}:8080{video_path}"), controls: self.control(&phone.id), released }))
@@ -229,12 +271,15 @@ impl Link for FakeLink {
         }
         note(&self.log, format!("wake {}", phone.id));
         let mut held = self.held.lock().unwrap();
-        while *held {
+        while *held || self.held_phones.lock().unwrap().contains(&phone.id) {
             held = self.release.wait(held).unwrap();
         }
         drop(held);
         for text in self.progress.lock().unwrap().iter() {
             progress(text);
+        }
+        while self.hold_after_progress.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
         }
         match self.wake_error.lock().unwrap().clone() {
             Some(why) => Err(why),
@@ -254,6 +299,16 @@ impl Link for FakeLink {
     }
     fn release_stream(&self, source_id: &str) {
         note(&self.log, format!("release {source_id}"));
+    }
+    fn sensors(&self) -> Option<Arc<dyn PhoneSensors>> {
+        self.sensors.lock().unwrap().clone()
+    }
+    fn stills(&self) -> Option<Arc<dyn PhoneStills>> {
+        self.stills.lock().unwrap().clone()
+    }
+    fn prepare_route(&self, source_id: &str, route: &RouteSpec) -> Option<String> {
+        note(&self.log, format!("prepare {source_id} {route:?}"));
+        self.prepared.lock().unwrap().clone()
     }
     fn commit_route(&self, source_id: &str) {
         note(&self.log, format!("commit {source_id}"));
@@ -296,6 +351,14 @@ pub struct FakeWorker {
     pub size: Mutex<Option<(u32, u32)>>,
     /// hand_over() says no.
     pub refuses_hand_over: AtomicBool,
+    /// hand_over() says no though it said it could, what changes between asking and trying.
+    pub declines_hand_over: AtomicBool,
+    /// How it opens its stream now.
+    pub opener: Mutex<Opener>,
+    /// How it was told to open what it's handed over to.
+    pub handed: Mutex<Option<Opener>>,
+    /// Every worker before it had been stopped when this one was made.
+    pub after_the_others: bool,
 }
 
 impl FakeWorker {
@@ -334,6 +397,9 @@ impl VideoWorker for FakeWorker {
     fn set_steps(&self, steps: Vec<StagedStep>) {
         self.steps.lock().unwrap().push(steps.iter().map(|s| s.owner.clone()).collect());
     }
+    fn set_colour(&self, steps: Vec<FrameStep>) {
+        note(&self.log, format!("colour {}", steps.len()));
+    }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         note(&self.log, format!("update_output {width:?} {height:?} {fps:?}"));
     }
@@ -352,14 +418,16 @@ impl VideoWorker for FakeWorker {
     fn set_parked(&self, parked: bool) {
         self.parked_now.store(parked, Ordering::SeqCst);
     }
-    fn retarget(&self, url: &str, _opener: Opener) {
+    fn retarget(&self, url: &str, opener: Opener) {
+        *self.opener.lock().unwrap() = opener;
         *self.url.lock().unwrap() = url.into();
         note(&self.log, format!("retarget {url}"));
     }
     fn can_hand_over(&self) -> bool {
         !self.refuses_hand_over.load(Ordering::SeqCst)
     }
-    fn set_opener(&self, _opener: Opener) {
+    fn set_opener(&self, opener: Opener) {
+        *self.opener.lock().unwrap() = opener;
         note(&self.log, "set_opener");
     }
     fn failed_tries(&self) -> u32 {
@@ -371,9 +439,10 @@ impl VideoWorker for FakeWorker {
     fn camera_size(&self) -> Option<(u32, u32)> {
         *self.size.lock().unwrap()
     }
-    fn hand_over(&self, url: &str, _opener: Opener) -> bool {
+    fn hand_over(&self, url: &str, opener: Opener) -> bool {
         note(&self.log, format!("hand_over {url}"));
-        self.can_hand_over()
+        *self.handed.lock().unwrap() = Some(opener);
+        self.can_hand_over() && !self.declines_hand_over.load(Ordering::SeqCst)
     }
 }
 
@@ -383,17 +452,19 @@ pub struct Listener {
     pub follows: bool,
     pub heard: Log,
     pub config: Value,
+    /// Its settings are the same for every phone.
+    pub global: bool,
 }
 
 impl Listener {
     pub fn new(name: &'static str, heard: &Log) -> Listener {
-        Listener { name, follows: name != "microphone", heard: heard.clone(), config: json!({}) }
+        Listener { name, follows: name != "microphone", heard: heard.clone(), config: json!({}), global: false }
     }
 }
 
 impl Plugin for Listener {
     fn info(&self) -> PluginInfo {
-        PluginInfo { name: self.name.into(), title: self.name.into(), follows_focus: self.follows, device_local: true, ..Default::default() }
+        PluginInfo { name: self.name.into(), title: self.name.into(), follows_focus: self.follows, device_local: !self.global, ..Default::default() }
     }
     fn get_config(&self) -> Value {
         self.config.clone()
@@ -402,14 +473,23 @@ impl Plugin for Listener {
         self.config = config.clone();
         Ok(())
     }
+    fn on_issue_action(&mut self, host: &mut dyn Host, key: &str, id: &str) {
+        note(&self.heard, format!("{} issue {key} {id} on {} zoom {}", self.name, host.focused_source_id().unwrap_or_default(), self.config["zoom"]));
+    }
     fn on_stream_start(&mut self, _host: &mut dyn Host, info: &StreamInfo) {
         note(&self.heard, format!("{} start {}", self.name, info.source_id));
+        note(&self.heard, format!("{} url {} session {}", self.name, info.url, info.session));
     }
-    fn on_stream_stop(&mut self, _host: &mut dyn Host) {
+    fn on_stream_starting(&mut self, _host: &mut dyn Host) {
+        note(&self.heard, format!("{} starting", self.name));
+    }
+    fn on_stream_stop(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} stop", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
     fn on_focus_gained(&mut self, _host: &mut dyn Host, info: &StreamInfo) {
         note(&self.heard, format!("{} focus {}", self.name, info.source_id));
+        note(&self.heard, format!("{} url {} session {}", self.name, info.url, info.session));
     }
     fn on_focus_lost(&mut self, _host: &mut dyn Host) {
         note(&self.heard, format!("{} left", self.name));
@@ -417,23 +497,33 @@ impl Plugin for Listener {
     fn on_phone_state(&mut self, _host: &mut dyn Host, state: &Value) {
         note(&self.heard, format!("{} state {state}", self.name));
     }
-    fn on_camera_off(&mut self, _host: &mut dyn Host) {
+    fn on_camera_off(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} camera off", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
-    fn on_camera_on(&mut self, _host: &mut dyn Host) {
+    fn on_camera_on(&mut self, host: &mut dyn Host) {
         note(&self.heard, format!("{} camera on", self.name));
+        note(&self.heard, format!("{} sees streaming {} camera {}", self.name, host.is_streaming(), host.is_camera_on()));
     }
-    fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
+    fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::StreamBehind { source_id, behind } => note(&self.heard, format!("{} behind {source_id} {behind}", self.name)),
-            Event::CameraOnChanged { on } => note(&self.heard, format!("{} camera_on_changed {on}", self.name)),
+            Event::CameraOnChanged { on } => {
+                note(&self.heard, format!("{} camera_on_changed {on}", self.name));
+                note(&self.heard, format!("{} sees camera {} can turn off {}", self.name, host.is_camera_on(), host.can_turn_camera_off().0));
+            }
             Event::StreamLost { source_id } => note(&self.heard, format!("{} lost {source_id}", self.name)),
             Event::StreamConnected { source_id } => note(&self.heard, format!("{} connected {source_id}", self.name)),
+            Event::PhoneStateUpdated { state } => note(&self.heard, format!("{} bus state {state}", self.name)),
+            Event::StreamStarted { url } => note(&self.heard, format!("{} stream_started {url}", self.name)),
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),
             Event::StreamStartFailed => note(&self.heard, format!("{} start_failed", self.name)),
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
             Event::RequestDone { ok, message, data, .. } => note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or(""))),
             Event::WindowShown { shown } => note(&self.heard, format!("{} shown {shown}", self.name)),
+            Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
+            Event::StillBusyChanged { source_id, busy } => note(&self.heard, format!("{} busy {source_id} {busy}", self.name)),
+            Event::StillSaved { source_id, paths } => note(&self.heard, format!("{} saved {source_id} {paths:?}", self.name)),
             _ => {}
         }
     }
@@ -565,7 +655,16 @@ impl Rig {
         Rig::built(name, true, plugins)
     }
 
+    /// A window with no phones, cameras or anything else from outside, as with no Connection.
+    pub fn bare(name: &str) -> Rig {
+        Rig::made(name, false, |_, _| Vec::new(), false)
+    }
+
     fn built(name: &str, has_tray: bool, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>) -> Rig {
+        Rig::made(name, has_tray, plugins, true)
+    }
+
+    fn made(name: &str, has_tray: bool, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>, with_services: bool) -> Rig {
         let turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
         offscreen::install();
         offscreen::drop_jobs();
@@ -585,16 +684,17 @@ impl Rig {
         });
         let heard: Log = Log::default();
         let list = plugins(&link, &heard);
-        let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| list, Some(services), Some(options())).unwrap();
+        let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| list, with_services.then_some(services), Some(options())).unwrap();
         let workers: Arc<Mutex<Vec<Arc<FakeWorker>>>> = Arc::default();
         let made = workers.clone();
         let maker: WorkerMaker = Rc::new(move |setup: WorkerSetup, slot, events| {
+            let after_the_others = made.lock().unwrap().iter().all(|w| w.is_stopped());
             let worker = Arc::new(FakeWorker {
                 url: Mutex::new(setup.url), width: setup.width, height: setup.height, fps: setup.fps, canvas: setup.canvas,
                 camera_slot: setup.slot, source: setup.source_id, events, slot, log: Log::default(), stopped: AtomicBool::new(false),
                 parked_now: AtomicBool::new(false), tries: AtomicU32::new(0), arrival: Mutex::new(0.0), settled: AtomicU32::new(0),
                 steps: Mutex::default(), first_steps: setup.steps.iter().map(|s| s.owner.clone()).collect(), size: Mutex::new(None),
-                refuses_hand_over: AtomicBool::new(false),
+                refuses_hand_over: AtomicBool::new(false), declines_hand_over: AtomicBool::new(false), opener: Mutex::new(setup.opener), handed: Mutex::new(None), after_the_others,
             });
             made.lock().unwrap().push(worker.clone());
             worker
@@ -643,6 +743,13 @@ impl Rig {
     pub fn show_issue(&self, key: &str, title: &str) {
         self.w.state.borrow_mut().banners.show(key, issue(title));
         self.w.show_banners();
+    }
+
+    /// What a plugin's settings are now changed to, as its panel would.
+    pub fn configure(&self, plugin: &str, config: Value) {
+        let mut state = self.w.state.borrow_mut();
+        let at = state.index(plugin).unwrap();
+        state.slots[at].plugin.as_mut().unwrap().set_config(&config).unwrap();
     }
 
     /// `id` stops streaming.
@@ -726,6 +833,11 @@ impl Rig {
         self.heard.lock().unwrap().clear();
     }
 
+    /// How many times something was heard.
+    pub fn times_heard(&self, what: &str) -> usize {
+        self.heard.lock().unwrap().iter().filter(|l| *l == what).count()
+    }
+
     pub fn did_hear(&self, what: &str) -> bool {
         self.heard.lock().unwrap().iter().any(|l| l == what)
     }
@@ -773,10 +885,10 @@ pub struct FakeSource {
     pub id: String,
     pub name: String,
     pub goes_to: Option<String>,
-    pub canvas: Option<(u32, u32)>,
     pub hint: String,
     /// prepare() says no, and something is on its way to it.
     pub waits: bool,
+    pub changes_only: bool,
     pub cancels: AtomicU32,
 }
 
@@ -826,9 +938,6 @@ impl StreamSource for FakeSource {
     fn redirect(&self) -> Option<String> {
         self.goes_to.clone()
     }
-    fn auto_canvas(&self) -> Option<(u32, u32)> {
-        self.canvas
-    }
     fn lost_hint(&self) -> String {
         self.hint.clone()
     }
@@ -837,6 +946,9 @@ impl StreamSource for FakeSource {
     }
     fn cancel_wait(&self) {
         self.cancels.fetch_add(1, Ordering::SeqCst);
+    }
+    fn remember_changes_only(&self) -> bool {
+        self.changes_only
     }
 }
 
@@ -848,7 +960,7 @@ impl Plugin for Picker {
         PluginInfo { name: "picker".into(), title: "picker".into(), ..Default::default() }
     }
     fn on_event(&mut self, _host: &mut dyn Host, event: &Event) {
-        if let Event::SelectSource { source_id } = event {
+        if let Event::SelectSource { source_id } | Event::SourceShown { source_id } = event {
             *self.0.picked.lock().unwrap() = Some(source_id.clone()).filter(|s| !s.is_empty());
         }
     }

@@ -6,6 +6,7 @@
 
 use crate::session::{same, Sessions, Source, SourceRef, StreamSession, Worker};
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use telescope_core::event::Event;
@@ -40,6 +41,10 @@ pub trait FlowHost {
     /// Every plugin as (name, follows_focus), in registration order.
     fn plugins(&self) -> Vec<(String, bool)>;
     fn call(&mut self, plugins: &[String], hook: &Hook);
+    /// A plugin hears a banner's action.
+    fn tell_issue(&mut self, _key: &str, _action: &str) {}
+    /// Brings what plugins read up to date with the flow, before a hook.
+    fn sync(&mut self, _flow: &StreamFlow) {}
     fn emit(&mut self, event: Event);
     /// Connection is there to start from (phones need it, and so does the virtual camera check).
     fn can_start(&self) -> bool;
@@ -98,7 +103,9 @@ pub struct StreamFlow {
     /// What the last start was for, so its banner's Try again starts it again.
     pub start_id: Option<String>,
     /// Source id: the extra virtual camera it went to last, so it goes there again.
-    pub slot_memory: BTreeMap<String, u32>,
+    pub slot_memory: Rc<RefCell<BTreeMap<String, u32>>>,
+    /// Source id: the banner action to tell once the panels show it, as it starts next to the others.
+    befores: BTreeMap<String, (String, String)>,
 }
 
 fn info(source: &Source, session: &StreamSession) -> StreamInfo {
@@ -118,10 +125,16 @@ impl StreamFlow {
         })
     }
 
+    /// A hook, with what plugins read from the host already saying what just happened (Python's hosts read the live state).
+    fn hear(&self, host: &mut dyn FlowHost, plugins: &[String], hook: &Hook) {
+        host.sync(self);
+        host.call(plugins, hook);
+    }
+
     /// Call a stream hook on the plugins that hear about source (Sessions.hearing).
     pub fn tell(&self, host: &mut dyn FlowHost, source: &SourceRef, hook: Hook) {
         let hearing = self.sessions.hearing(&host.plugins(), source);
-        host.call(&hearing, &hook);
+        self.hear(host, &hearing, &hook);
     }
 
     fn followers(host: &dyn FlowHost) -> Vec<String> {
@@ -132,14 +145,14 @@ impl StreamFlow {
         Sessions::stays(&host.plugins())
     }
 
-    fn each_plugin(host: &mut dyn FlowHost, hook: Hook) {
+    fn each_plugin(&self, host: &mut dyn FlowHost, hook: Hook) {
         let all: Vec<String> = host.plugins().into_iter().map(|(n, _)| n).collect();
-        host.call(&all, &hook);
+        self.hear(host, &all, &hook);
     }
 
-    fn each_follower(host: &mut dyn FlowHost, hook: Hook) {
+    fn each_follower(&self, host: &mut dyn FlowHost, hook: Hook) {
         let f = Self::followers(host);
-        host.call(&f, &hook);
+        self.hear(host, &f, &hook);
     }
 
     // ── Starting ──
@@ -258,7 +271,7 @@ impl StreamFlow {
 
         if first {
             host.emit(Event::StreamStarted { url: url.clone() });
-            Self::each_plugin(host, Hook::StreamStart(info(source, &session)));
+            self.each_plugin(host, Hook::StreamStart(info(source, &session)));
         } else {
             self.tell(host, source, Hook::StreamStart(info(source, &session))); // the panels if they show it, the mic if it's back
         }
@@ -286,7 +299,7 @@ impl StreamFlow {
         if used.is_empty() {
             return 0;
         }
-        if let Some(&remembered) = source.id.as_ref().and_then(|id| self.slot_memory.get(id)) {
+        if let Some(remembered) = source.id.as_ref().and_then(|id| self.slot_memory.borrow().get(id).copied()) {
             if 0 < remembered && remembered < MAX_SLOTS && !used.contains(&remembered) {
                 return remembered;
             }
@@ -294,7 +307,7 @@ impl StreamFlow {
         let slot = (0..MAX_SLOTS).find(|n| !used.contains(n)).unwrap_or(0);
         if slot != 0 {
             if let Some(id) = source.id.as_ref().filter(|id| !id.is_empty()) {
-                self.slot_memory.insert(id.clone(), slot);
+                self.slot_memory.borrow_mut().insert(id.clone(), slot);
                 host.schedule_save();
             }
         }
@@ -326,7 +339,7 @@ impl StreamFlow {
     /// Whatever holds slot's virtual camera while idle (the wait screen) lets go, for a stream about to open it.
     pub fn free_vcam_for(&self, host: &mut dyn FlowHost, slot: u32) {
         if slot == 0 {
-            Self::each_plugin(host, Hook::StreamStarting);
+            self.each_plugin(host, Hook::StreamStarting);
         }
         self.announce_idle_outputs(host, Some(slot));
     }
@@ -427,10 +440,19 @@ impl StreamFlow {
     }
 
     /// Start streaming source_id next to what streams already, to a virtual camera of its own.
+    /// add_stream with what a banner runs once the panels show it, kept while the extra cameras are set up.
+    pub fn add_stream_after(&mut self, host: &mut dyn FlowHost, source_id: &str, before: Option<(String, String)>) {
+        if let Some(before) = before {
+            self.befores.insert(source_id.to_string(), before);
+        }
+        self.add_stream(host, source_id);
+    }
+
     pub fn add_stream(&mut self, host: &mut dyn FlowHost, source_id: &str) {
         let s = &self.sessions;
         if s.is_starting() || s.streams.is_empty() || s.streams.len() as u32 >= MAX_SLOTS
             || s.is_streaming_from(Some(source_id)) {
+            self.befores.remove(source_id);
             return;
         }
         let source = host.source_by_id(Some(source_id));
@@ -443,6 +465,10 @@ impl StreamFlow {
             self.set_camera_on(host, true, false); // one camera off is for the mic alone; with two it would just be confusing
         }
         self.move_focus(host, &source); // its own settings first, so it starts with them
+        if let Some((key, action)) = self.befores.remove(source_id) {
+            host.sync(self);
+            host.tell_issue(&key, &action);
+        }
         self.start(host, true, Some(source));
     }
 
@@ -461,7 +487,7 @@ impl StreamFlow {
                         host.ask_keyframe(&old); // packet steps stay with the panels
                     }
                 }
-                Self::each_follower(host, Hook::FocusLost); // it streams on, behind
+                self.each_follower(host, Hook::FocusLost); // it streams on, behind
             }
             if old.state.borrow().behind {
                 old.state.borrow_mut().behind = false;
@@ -486,7 +512,7 @@ impl StreamFlow {
                     host.ask_keyframe(&source);
                 }
             }
-            Self::each_follower(host, Hook::FocusGained(info(&source, &session)));
+            self.each_follower(host, Hook::FocusGained(info(&source, &session)));
             source.kind.refresh_state(&source, session.id);
             let (recovering, connected) = { let st = source.state.borrow(); (st.recovering, st.connected) };
             if recovering {
@@ -637,7 +663,7 @@ impl StreamFlow {
         let stays = Self::stays(host);
         let old = self.sessions.main.take();
         if let Some(old) = old {
-            host.call(&stays, &if old.has_session() { Hook::FocusLost } else { Hook::StreamStop });
+            self.hear(host, &stays, &if old.has_session() { Hook::FocusLost } else { Hook::StreamStop });
             host.save_profile(old.id.as_deref(), &stays);
         }
         self.sessions.main = main.clone();
@@ -645,7 +671,7 @@ impl StreamFlow {
             host.apply_device_profile(main.id.as_deref(), &stays);
             // Only those staying with it: the panels' plugins already hear about it if they show it
             if let Some(session) = main.session() {
-                host.call(&stays, &Hook::FocusGained(info(&main, &session)));
+                self.hear(host, &stays, &Hook::FocusGained(info(&main, &session)));
             }
         }
     }
@@ -780,7 +806,7 @@ impl StreamFlow {
             // others carry on
             if shown {
                 host.save_profile(source.id.as_deref(), &Self::followers(host));
-                Self::each_follower(host, Hook::StreamStop);
+                self.each_follower(host, Hook::StreamStop);
                 host.show_stopped();
                 if !keep_focus {
                     let first = self.sessions.streams[0].clone();
@@ -790,7 +816,7 @@ impl StreamFlow {
             if same(&self.sessions.main, &source) {
                 if self.sessions.restarting {
                     let stays = Self::stays(host);
-                    host.call(&stays, &Hook::StreamStop); // back in a moment: the mic waits for it
+                    self.hear(host, &stays, &Hook::StreamStop); // back in a moment: the mic waits for it
                 } else {
                     self.sync_main(host);
                 }
@@ -813,7 +839,7 @@ impl StreamFlow {
         host.set_start_button(self.sessions.waking);
         host.show_stopped();
         host.emit(Event::StreamStopped);
-        Self::each_plugin(host, Hook::StreamStop);
+        self.each_plugin(host, Hook::StreamStop);
         if camera_was_off && !source.camera_off() {
             host.emit(Event::CameraOnChanged { on: true });
         }
@@ -1281,7 +1307,7 @@ mod tests {
         assert_eq!(ids(&flow.sessions.streams), ["a", "b"]);
         assert!(is(&flow.sessions.focus, "b") && is(&flow.sessions.main, "a"));
         assert_eq!(host.sources["b"].slot(), 1);
-        assert_eq!(flow.slot_memory, BTreeMap::from([("b".to_string(), 1)]));
+        assert_eq!(*flow.slot_memory.borrow(), BTreeMap::from([("b".to_string(), 1)]));
         assert!(!host.worker("a").live.get() && host.worker("b").live.get());
         assert!(logged(&host, "camera on_focus_lost") && !logged(&host, "mic on_focus_lost"));
         assert!(logged(&host, "camera on_stream_start") && !logged(&host, "mic on_stream_start")); // the mic stays on a
@@ -1389,6 +1415,17 @@ mod tests {
         flow.move_focus(&mut host, &a);
         assert!(!host.worker("a").packets.borrow().is_empty() && host.worker("b").packets.borrow().is_empty());
         assert_eq!(host.keyframes, ["b", "a"]);
+    }
+
+    #[test]
+    fn turning_the_camera_off_by_hand_takes_it_out_of_the_rules_hands() {
+        let (mut flow, mut host) = setup();
+        let source = flow.active_source(&mut host);
+        (source.state.borrow_mut().camera_off, source.state.borrow_mut().camera_off_auto) = (true, true);
+        flow.set_camera_on(&mut host, false, true);
+        assert!(source.state.borrow().camera_off_auto, "the rule again: still the rule's");
+        flow.set_camera_on(&mut host, false, false);
+        assert!(!source.state.borrow().camera_off_auto);
     }
 
     #[test]

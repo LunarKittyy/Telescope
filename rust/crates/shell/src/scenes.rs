@@ -14,9 +14,7 @@ use telescope_core::services::Services;
 /// (scene id, window width) of the main window scenes parity/qt_shell_scenes.py makes.
 pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-medium", 900.0), ("shell-narrow", 560.0)];
 
-/// app._WIDTH_THREE_COL and _WIDTH_TWO_COL.
-pub const WIDTH_THREE_COL: f32 = 1300.0;
-pub const WIDTH_TWO_COL: f32 = 900.0;
+pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
 
 /// What a scene draws: the main window, one tab of the settings window (settings_window._SIZE), or a popup on its own,
 /// cut out of the window (Qt draws dialogs as windows of their own).

@@ -216,6 +216,16 @@ pub(crate) mod tests {
         }
     }
 
+    struct Counts(Arc<std::sync::Mutex<u32>>);
+
+    impl CpuStep for Counts {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            *self.0.lock().unwrap() += 1;
+            frame.data_mut()[1] = 77;
+            panic!("broken")
+        }
+    }
+
     struct Mangles;
 
     impl CpuStep for Mangles {
@@ -286,6 +296,7 @@ pub(crate) mod tests {
         let mut p = Pipeline::new();
         p.set_steps(vec![
             step("preview", FrameStage::Final, Push(9, seen.clone())),
+            step("grade", FrameStage::Colour, Push(8, seen.clone())),
             step("name_tag", FrameStage::Overlay, Push(7, seen.clone())),
             step("fun", FrameStage::Effects, Push(4, seen.clone())),
             step("view", FrameStage::View, Push(1, seen.clone())),
@@ -293,7 +304,7 @@ pub(crate) mod tests {
             step("desk", FrameStage::Geometry, Push(2, seen.clone())),
         ]);
         let out = p.process(grey(4, 2, 0), &NoContext);
-        assert_eq!(*seen.lock().unwrap(), [1, 2, 4, 5, 7, 9]);
+        assert_eq!(*seen.lock().unwrap(), [1, 2, 4, 5, 8, 7, 9]);
         assert_eq!(out.data[0], 9);
     }
 
@@ -311,20 +322,44 @@ pub(crate) mod tests {
 
     #[test]
     fn a_failing_or_mangling_step_passes_the_frame_through_and_is_skipped_after_a_while() {
-        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let (calls, seen) = (Arc::new(std::sync::Mutex::new(0)), Arc::new(std::sync::Mutex::new(Vec::new())));
         let mut p = Pipeline::new();
-        p.set_steps(vec![
-            step("broken", FrameStage::Effects, Panics),
-            step("mangler", FrameStage::Effects, Mangles),
-            step("fine", FrameStage::Overlay, Push(5, seen.clone())),
-        ]);
+        p.set_steps(vec![step("broken", FrameStage::Effects, Counts(calls.clone())), step("mangler", FrameStage::Effects, Mangles)]);
         let source = grey(4, 2, 1);
-        let out = quietly(|| p.process(source.clone(), &NoContext));
-        assert_eq!(out.data.len(), source.data.len());
-        assert_eq!(out.data[0], 5);
+        for _ in 0..STEP_FAILS_BEFORE_SKIP + 10 {
+            let out = quietly(|| p.process(source.clone(), &NoContext));
+            assert_eq!(out.data, source.data, "passed through, what the step did to it left behind");
+            assert_eq!((out.width, out.height), (4, 2));
+        }
+        assert_eq!(*calls.lock().unwrap(), STEP_FAILS_BEFORE_SKIP, "skipped from then on");
+        assert!(p.steps[0].skipped() && p.steps[1].skipped());
         // What the decoder made is never changed under it
         assert_eq!(source.data[0], 1);
+        // The next stream's pipeline tries them again, and steps after a broken one still run
+        p.set_steps(vec![step("broken", FrameStage::Effects, Panics), step("fine", FrameStage::Overlay, Push(5, seen.clone()))]);
+        let out = quietly(|| p.process(grey(4, 2, 1), &NoContext));
+        assert_eq!(out.data[0], 5);
+        assert_eq!(*seen.lock().unwrap(), [5]);
+    }
+
+    #[test]
+    fn a_step_one_short_of_the_limit_that_recovers_starts_counting_again() {
+        struct FailsUntil(u32, Arc<std::sync::Mutex<u32>>);
+        impl CpuStep for FailsUntil {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+                let mut calls = self.1.lock().unwrap();
+                *calls += 1;
+                if *calls < self.0 {
+                    drop(calls);
+                    panic!("broken");
+                }
+            }
+        }
+        let calls = Arc::new(std::sync::Mutex::new(0));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("flaky", FrameStage::Effects, FailsUntil(STEP_FAILS_BEFORE_SKIP, calls.clone()))]);
         quietly(|| (0..STEP_FAILS_BEFORE_SKIP).for_each(|_| { p.process(grey(4, 2, 1), &NoContext); }));
-        assert!(p.steps[0].skipped() && p.steps[1].skipped() && !p.steps[2].skipped());
+        assert!(!p.steps[0].skipped());
+        assert_eq!(p.steps[0].fails, 0);
     }
 }

@@ -7,7 +7,9 @@ use crate::collapse::Collapsing;
 use crate::layout::{Panels, Region};
 use crate::{profiles, switches};
 use serde_json::{json, Map, Value};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use telescope_core::colour::ColourPipeline;
@@ -135,7 +137,7 @@ pub enum Effect {
     /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
     PluginHues(bool),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
-    RestartCanvas { plugin: String, request: RequestId },
+    RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
     RemoveExtras { plugin: String, request: RequestId },
     /// Host::open_url: a link for the browser.
@@ -291,7 +293,8 @@ pub struct State {
     pub layers: BTreeMap<String, telescope_core::host::PreviewLayer>,
     /// A pass asked for the preview to be drawn again (refresh_preview, or an analysis that finished).
     pub preview_dirty: Arc<std::sync::atomic::AtomicBool>,
-    pub output_slots: Map<String, Value>,
+    /// The stream flow's slot_memory: which virtual camera each source went to last.
+    pub slot_memory: Rc<RefCell<std::collections::BTreeMap<String, u32>>>,
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
@@ -367,7 +370,7 @@ impl State {
                 let mut colour = ColourPipeline::new();
                 // Python's frames pick a new LUT up by themselves; here the steps are made again for it
                 colour.set_on_baked(Arc::new(|| {
-                    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.refresh_frame_steps()));
+                    let _ = slint::invoke_from_event_loop(|| crate::window::with_window(|w| w.colour_baked()));
                 }));
                 colour
             },
@@ -376,7 +379,7 @@ impl State {
             passes: Vec::new(),
             layers: BTreeMap::new(),
             preview_dirty: Arc::new(std::sync::atomic::AtomicBool::new(true)),
-            output_slots: Map::new(),
+            slot_memory: Rc::default(),
             changes_only: Vec::new(),
             save_failure_notified: false,
             posts: Arc::default(),
@@ -425,8 +428,8 @@ impl State {
         };
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
-        if self.calls == 0 && std::mem::take(&mut self.save_after_call) {
-            self.save_now();
+        if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
+            self.effects.push(Effect::SaveSoon); // a file that can't be read now isn't saved over, and is tried again
         }
         match result {
             Ok(r) => Some(r),
@@ -574,7 +577,7 @@ impl State {
     fn apply_config(&mut self, cfg: &mut Value) {
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
-        self.output_slots = window.output_slots.clone();
+        *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
         if profiles::spread_shared_settings(cfg, &self.device_local()) {
             self.file.save(cfg);
@@ -845,7 +848,7 @@ impl State {
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
-        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.output_slots.clone() };
+        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {
@@ -904,7 +907,7 @@ impl State {
     }
 
     pub fn forget_device_settings(&mut self, id: &str) {
-        self.output_slots.remove(id);
+        self.slot_memory.borrow_mut().remove(id);
         if let Ok(mut cfg) = self.file.load_strict() {
             if profiles::forget_device(&mut cfg, id) {
                 self.file.save(&mut cfg);
@@ -913,9 +916,11 @@ impl State {
     }
 
     pub fn move_device_settings(&mut self, old: &str, new: &str) {
-        if let Some(v) = self.output_slots.remove(old) {
-            self.output_slots.insert(new.to_string(), v);
+        let mut memory = self.slot_memory.borrow_mut();
+        if let Some(slot) = memory.remove(old) {
+            memory.insert(new.to_string(), slot);
         }
+        drop(memory);
         if let Ok(mut cfg) = self.file.load_strict() {
             profiles::move_device(&mut cfg, old, new);
             self.file.save(&mut cfg);
@@ -1096,6 +1101,11 @@ impl State {
 
     /// Diagnostics' window lines (diagnostics_report's state before the plugins' own).
     pub fn diagnostics(&self) -> Vec<(String, String)> {
+        self.diagnostics_with(&[])
+    }
+
+    /// The same when a plugin asks: own stands in for the plugin that's busy asking.
+    pub fn diagnostics_with(&self, own: &[(String, String)]) -> Vec<(String, String)> {
         let mut lines = vec![("Streaming".to_string(),
                               if !self.streams.streaming { "no".into() } else if self.streams.camera_off { "yes, camera off".into() } else { "yes".into() })];
         if !self.off.is_empty() {
@@ -1108,11 +1118,12 @@ impl State {
         }
         lines.extend(self.colour.diagnostics());
         for i in 0..self.slots.len() {
-            if let Some(p) = self.slots[i].plugin.as_ref() {
-                match catch_unwind(AssertUnwindSafe(|| p.diagnostics())) {
+            match self.slots[i].plugin.as_ref() {
+                Some(p) => match catch_unwind(AssertUnwindSafe(|| p.diagnostics())) {
                     Ok(more) => lines.extend(more),
                     Err(_) => lines.push((self.slots[i].info.name.clone(), "couldn't read (panic)".into())),
-                }
+                },
+                None => lines.extend_from_slice(own),
             }
         }
         if let Some(vision) = &self.vision {
@@ -1131,7 +1142,6 @@ mod tests {
     use std::path::PathBuf;
     use telescope_core::plugin::ConfigRejected;
     use telescope_core::testing::scratch_dir;
-    use telescope_core::source::RouteSpec;
     use std::sync::Mutex;
 
     struct Stub {
@@ -1163,6 +1173,11 @@ mod tests {
             self.config = Value::Object(merged);
             Ok(())
         }
+    }
+
+    fn card_in(region: &str) -> CardSpec {
+        let ui = UiSpec { source: telescope_core::ui::SlintSource::Text(String::new()), component: "Card".into(), props: json!({}) };
+        CardSpec { ui, region: region.into() }
     }
 
     fn state() -> State {
@@ -1233,7 +1248,8 @@ mod tests {
         let mut s = state();
         s.file.save(&mut json!({"devices": {"PhoneB": {"plugin_configs": {"transforms": {"zoom": 3}}}}}));
         s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
-        s.selected = Some("PhoneA".into());
+        s.register(stub("connection", json!({"selected_phone": "PhoneA"}), false).0).unwrap();
+        s.apply_saved_config();
         locked(&s, 0o000);
         assert!(!s.save_now(), "the window tries again");
         locked(&s, 0o600);
@@ -1260,34 +1276,73 @@ mod tests {
 
     #[test]
     fn a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save() {
-        struct Odd(Arc<Mutex<Value>>);
+        struct Odd(&'static str, Arc<Mutex<Value>>);
         impl Plugin for Odd {
             fn info(&self) -> PluginInfo {
-                PluginInfo { name: "odd".into(), ..Default::default() }
+                PluginInfo { name: self.0.into(), ..Default::default() }
             }
             fn get_config(&self) -> Value {
-                self.0.lock().unwrap().clone()
+                self.1.lock().unwrap().clone()
             }
         }
         let mut s = state();
         s.file.save(&mut json!({}));
-        let odd = Arc::new(Mutex::new(json!({"level": 1})));
-        s.register(Box::new(Odd(odd.clone()))).unwrap();
-        s.register(stub("other", json!({"x": 1}), false).0).unwrap();
+        let (odd, other) = (Arc::new(Mutex::new(json!({"level": 1}))), Arc::new(Mutex::new(json!({"x": 1}))));
+        s.register(Box::new(Odd("odd", odd.clone()))).unwrap();
+        s.register(Box::new(Odd("other", other.clone()))).unwrap();
         assert!(s.save_now());
-        *odd.lock().unwrap() = json!(["not", "a", "dict"]);
-        assert!(s.save_now());
-        assert_eq!(s.file.load()["plugin_configs"]["odd"], json!({"level": 1}));
-        assert_eq!(s.file.load()["plugin_configs"]["other"], json!({"x": 1}));
+        for (x, bad) in [json!(["not", "a", "dict"]), json!(7), Value::Null].into_iter().enumerate() {
+            *odd.lock().unwrap() = bad;
+            *other.lock().unwrap() = json!({"x": x + 2});
+            assert!(s.save_now());
+            assert_eq!(s.file.load()["plugin_configs"]["odd"], json!({"level": 1}));
+            assert_eq!(s.file.load()["plugin_configs"]["other"], json!({"x": x + 2}));
+        }
         assert!(!s.effects.iter().any(|e| matches!(e, Effect::Notify { .. })));
     }
 
     #[test]
     fn register_plugin_initializes_panel_and_captures_device_defaults() {
+        struct Sets(Arc<Mutex<Vec<String>>>);
+        impl Plugin for Sets {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "transforms".into(), device_local: true, ..Default::default() }
+            }
+            fn setup(&mut self, host: &mut dyn telescope_core::Host) {
+                self.0.lock().unwrap().push(format!("setup, the host knows {}", host.plugin_config("other").is_some()));
+                host.emit(Event::StreamStopped);
+            }
+            fn card(&mut self) -> Option<CardSpec> {
+                Some(card_in("left"))
+            }
+            fn get_config(&self) -> Value {
+                json!({"zoom": 1})
+            }
+        }
         let mut s = state();
-        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
-        assert_eq!(s.slots.len(), 1);
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Sets(heard.clone()))).unwrap();
+        assert_eq!(*heard.lock().unwrap(), ["setup, the host knows false"]);
+        assert!(matches!(s.bus.next(), Some(Event::StreamStopped)), "setup had the window's own bus");
+        assert_eq!(s.slots.iter().map(|slot| slot.info.name.as_str()).collect::<Vec<_>>(), ["transforms"]);
         assert_eq!(s.slots[0].defaults, json!({"zoom": 1}));
+        assert_eq!(s.panels.left, [0]);
+    }
+
+    #[test]
+    fn a_panel_for_a_region_nobody_knows_goes_on_the_left_rail() {
+        struct Lost;
+        impl Plugin for Lost {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "regional".into(), ..Default::default() }
+            }
+            fn card(&mut self) -> Option<CardSpec> {
+                Some(card_in("nowhere"))
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Lost)).unwrap();
+        assert_eq!(s.panels.left, [0]);
     }
 
     #[test]
@@ -1318,14 +1373,36 @@ mod tests {
     #[test]
     fn save_config_separates_global_and_device_local_plugins() {
         let mut s = state();
+        s.file.save(&mut json!({"selected_device": "PhoneA"}));
+        s.register(stub("connection", json!({"selected_phone": "PhoneA", "mode": "wifi"}), false).0).unwrap();
         s.register(stub("setup", json!({"canvas": "auto"}), false).0).unwrap();
         s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
-        s.selected = Some("PhoneA".into());
+        s.apply_saved_config();
         assert!(s.save_now());
         let cfg = s.file.load();
         assert_eq!(cfg["selected_device"], "PhoneA");
-        assert_eq!(cfg["plugin_configs"], json!({"setup": {"canvas": "auto"}}));
+        assert_eq!(cfg["plugin_configs"], json!({"connection": {"selected_phone": "PhoneA", "mode": "wifi"}, "setup": {"canvas": "auto"}}));
         assert_eq!(cfg["devices"]["PhoneA"]["plugin_configs"], json!({"transforms": {"zoom": 2}}));
+    }
+
+    #[test]
+    fn apply_config_routes_global_and_selected_device_config() {
+        let mut s = state();
+        s.register(stub("connection", json!({"mode": "wifi"}), false).0).unwrap();
+        s.register(stub("setup", json!({"old": true}), false).0).unwrap();
+        let (local, applied) = stub("transforms", json!({"zoom": 1}), true);
+        s.register(local).unwrap();
+        let (other, other_applied) = stub("monitoring", json!({"zoom": 1}), false);
+        s.register(other).unwrap();
+        s.apply_config(&mut json!({
+            "selected_device": "PhoneB",
+            "plugin_configs": {"connection": {"mode": "usb"}, "setup": {"canvas": "4k"}},
+            "devices": {"PhoneA": {"plugin_configs": {"transforms": {"zoom": 5}}}, "PhoneB": {"plugin_configs": {"transforms": {"zoom": 3}}}},
+        }));
+        assert_eq!(s.plugin_config("connection").unwrap()["mode"], "usb");
+        assert_eq!(s.plugin_config("setup").unwrap()["canvas"], "4k");
+        assert_eq!(*applied.lock().unwrap(), [json!({"zoom": 1}), json!({"zoom": 3})], "defaults, then the picked phone's, nothing from the global section");
+        assert!(other_applied.lock().unwrap().is_empty(), "no section, nothing to load");
     }
 
     #[test]
@@ -1341,6 +1418,8 @@ mod tests {
         let mut s = state();
         let (p, applied) = stub("transforms", json!({"zoom": 1, "pan_x": 0}), true);
         s.register(p).unwrap();
+        s.with_plugin(0, |p| p.set_config(&json!({"zoom": 5, "pan_x": 1})).unwrap());
+        applied.lock().unwrap().clear();
         let cfg = json!({"devices": {"Phone": {"plugin_configs": {"transforms": {"zoom": 3}}}}});
         s.apply_device_profile(Some("Phone"), &cfg);
         assert_eq!(*applied.lock().unwrap(), vec![json!({"zoom": 1, "pan_x": 0}), json!({"zoom": 3})]);
@@ -1352,8 +1431,11 @@ mod tests {
         let mut s = state();
         let (p, applied) = stub("monitoring", json!({"battery_alert": 20}), true);
         s.register(p).unwrap();
+        s.with_plugin(0, |p| p.set_config(&json!({"battery_alert": 90})).unwrap());
+        applied.lock().unwrap().clear();
         s.apply_device_profile(None, &json!({}));
         assert_eq!(*applied.lock().unwrap(), vec![json!({"battery_alert": 20})]);
+        assert_eq!(s.plugin_config("monitoring").unwrap(), json!({"battery_alert": 20}));
     }
 
     #[test]
@@ -1404,7 +1486,7 @@ mod tests {
     }
 
     #[derive(Default)]
-    struct Pack(std::sync::Mutex<(String, String)>);
+    struct Pack(std::sync::Mutex<(String, String)>, std::sync::Mutex<Vec<(telescope_core::vision::Turn, telescope_core::vision::Turn)>>);
 
     impl telescope_core::vision::VisionService for Pack {
         fn attach(&self, _bus: telescope_core::BusSender) {}
@@ -1423,7 +1505,9 @@ mod tests {
         fn tracked_people(&self, _source_id: &str) -> (Vec<Value>, u32) {
             (Vec::new(), 0)
         }
-        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn view_turned(&self, old: telescope_core::vision::Turn, new: telescope_core::vision::Turn) {
+            self.1.lock().unwrap().push((old, new));
+        }
         fn drop_stream(&self, _source_id: &str) {}
         fn set_power_saving(&self, _on: bool) {}
         fn diagnostics(&self) -> Vec<(String, String)> {
@@ -1540,7 +1624,7 @@ mod tests {
         });
         let i = s.index("asks").unwrap();
         let mut report = String::new();
-        s.call(i, |_, host| report = host.diagnostics_report());
+        s.call(i, |_, host| report = host.diagnostics_report(&[]));
         assert!(report.starts_with("Telescope "), "{report}");
         assert!(report.contains("Reports: fine") && report.contains("Status: a line from before"), "{report}");
         assert!(report.contains("Banner: Phone hot. Let it cool"), "{report}");
@@ -1580,6 +1664,36 @@ mod tests {
         s.file.save(&mut cfg);
         s.apply_saved_config();
         assert_eq!(s.plugin_config("setup").unwrap(), json!({"zoom": 1, "canvas": "1080p"}));
+    }
+
+    #[test]
+    fn a_saved_config_that_wont_load_falls_back_to_defaults() {
+        let mut s = state();
+        s.register(stub("connection", json!({"selected_phone": "PhoneA"}), false).0).unwrap();
+        s.register(stub("setup", json!({"zoom": 1}), false).0).unwrap();
+        s.register(stub("transforms", json!({"zoom": 1}), true).0).unwrap();
+        s.apply_config(&mut json!({"selected_device": "PhoneA", "plugin_configs": {"setup": "not a dict"}}));
+        let cfg = json!({"selected_device": "PhoneA", "plugin_configs": {}, "devices": {"PhoneA": {"plugin_configs": {"transforms": {"zoom": "junk"}}}}});
+        s.apply_device_profile(Some("PhoneA"), &cfg);
+        assert_eq!(s.plugin_config("setup").unwrap(), json!({"zoom": 1}));
+        assert_eq!(s.plugin_config("transforms").unwrap(), json!({"zoom": 1}));
+    }
+
+    #[test]
+    fn settings_once_kept_for_the_whole_app_go_to_every_phone() {
+        let mut s = state();
+        s.register(stub("fun_pack", json!({}), true).0).unwrap();
+        s.file.save(&mut json!({
+            "selected_device": "Phone",
+            "plugin_configs": {"fun_pack": {"effect": "vhs"}},
+            "devices": {"Phone": {"plugin_configs": {"transforms": {"zoom": 2}}}, "B": {"plugin_configs": {"fun_pack": {"effect": "crt"}}}},
+        }));
+        s.apply_saved_config();
+        assert_eq!(s.plugin_config("fun_pack").unwrap(), json!({"effect": "vhs"}));
+        let saved = s.file.load();
+        assert!(saved["plugin_configs"].get("fun_pack").is_none());
+        assert_eq!(saved["devices"]["Phone"]["plugin_configs"], json!({"transforms": {"zoom": 2}, "fun_pack": {"effect": "vhs"}}));
+        assert_eq!(saved["devices"]["B"]["plugin_configs"], json!({"fun_pack": {"effect": "crt"}}));
     }
 
     #[test]
@@ -1702,21 +1816,46 @@ mod tests {
 
     #[test]
     fn a_plugin_that_panics_doesnt_stop_the_others() {
-        struct Boom;
+        struct Boom(Arc<std::sync::atomic::AtomicBool>);
         impl Plugin for Boom {
             fn info(&self) -> PluginInfo {
                 PluginInfo { name: "boom".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                if self.0.load(std::sync::atomic::Ordering::SeqCst) {
+                    panic!("boom");
+                }
+                json!({"kept": 1})
             }
             fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
                 panic!("boom");
             }
         }
+        struct Last(Arc<Mutex<Vec<String>>>);
+        impl Plugin for Last {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "last".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                json!({"x": self.0.lock().unwrap().len()})
+            }
+            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+                self.0.lock().unwrap().push("last".into());
+            }
+        }
         let mut s = state();
-        s.register(Box::new(Boom)).unwrap();
-        s.register(stub("after", json!({}), false).0).unwrap();
+        let (breaks, heard) = (Arc::new(std::sync::atomic::AtomicBool::new(false)), Arc::new(Mutex::new(Vec::new())));
+        s.register(Box::new(Boom(breaks.clone()))).unwrap();
+        s.register(Box::new(Last(heard.clone()))).unwrap();
+        assert!(s.save_now());
+        breaks.store(true, std::sync::atomic::Ordering::SeqCst);
         s.bus.emit(Event::StreamStopped);
         s.deliver_events();
+        assert_eq!(*heard.lock().unwrap(), ["last"]);
         assert!(s.slots.iter().all(|slot| slot.plugin.is_some()));
+        assert!(s.save_now(), "its get_config doesn't stop the save");
+        assert_eq!(s.file.load()["plugin_configs"]["boom"], json!({"kept": 1}));
+        assert_eq!(s.file.load()["plugin_configs"]["last"], json!({"x": 1}));
     }
 
     #[test]
@@ -1854,46 +1993,6 @@ mod tests {
         assert_eq!(s.call(0, |_, host| host.pick_source(Some("phone-3"))), Some(false));
     }
 
-    struct Prepares(Mutex<Vec<(String, Option<String>)>>);
-
-    impl telescope_core::link::Link for Prepares {
-        fn new_identity(&self) -> (String, String) {
-            Default::default()
-        }
-        fn resolve(&self, _phone: &telescope_core::source::PairedPhone, _prefs: telescope_core::link::RoutePrefs)
-                   -> Result<Box<dyn telescope_core::link::PhoneSession>, telescope_core::link::Unreachable> {
-            unimplemented!()
-        }
-        fn pair(&self, _id: &str, _name: &str) -> Result<Arc<dyn telescope_core::link::PairingOffer>, String> {
-            Err("no".into())
-        }
-        fn prepare_route(&self, source_id: &str, _route: &RouteSpec) -> Option<String> {
-            let mut answers = self.0.lock().unwrap();
-            let i = answers.iter().position(|(id, _)| id == source_id)?;
-            answers.remove(i).1
-        }
-    }
-
-    #[test]
-    fn a_worker_that_cant_hand_over_lets_go_of_the_route_at_once() {
-        use telescope_core::host::HostStreams;
-        let usb = RouteSpec::Usb { serial: "SER".into() };
-        let url = "https://127.0.0.1:41000/v1/video".to_string();
-        let mut s = state();
-        s.register(Box::new(Hears("connection".into(), Arc::default()))).unwrap();
-        s.link = Some(Arc::new(Prepares(Mutex::new(vec![("p1".into(), Some(url.clone())), ("p1".into(), None)]))));
-        s.streams.live = vec!["p1".into()];
-        // A stream whose worker is stopping or busy, or that's recovering, isn't asked to: link isn't even asked
-        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false));
-        s.streams.can_hand_over = vec!["p1".into()];
-        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(true));
-        assert!(s.effects.contains(&Effect::HandOver { source_id: "p1".into(), route: usb.clone(), url }));
-        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "one at a time");
-        s.streams.can_hand_over = vec!["p1".into()];
-        assert_eq!(s.call(0, |_, host| host.hand_over_stream(&usb, Some("p1"))), Some(false), "link has no route ready");
-    }
-
-
     struct NoCtx;
 
     impl telescope_core::frame::FrameContext for NoCtx {
@@ -1906,6 +2005,48 @@ mod tests {
         fn colour_preview(&self, frame: &telescope_core::Frame) -> telescope_core::Frame {
             frame.clone()
         }
+    }
+
+    #[test]
+    fn a_stream_gets_a_step_from_each_plugin_that_has_one_and_a_broken_one_is_left_out() {
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
+        struct AddsOne;
+        impl CpuStep for AddsOne {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut()[0] += 1;
+            }
+        }
+        struct Frozen;
+        impl Plugin for Frozen {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "transforms".into(), ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                Some(FrameStep::Cpu(Box::new(AddsOne)))
+            }
+        }
+        struct Broken;
+        impl Plugin for Broken {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "other".into(), ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                panic!("no");
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Frozen)).unwrap();
+        s.register(stub("preview", json!({}), false).0).unwrap();
+        s.register(Box::new(Broken)).unwrap();
+        s.view.flip_h = true;
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        let mut steps = s.pipeline_steps(None);
+        assert_eq!(steps.iter().map(|st| st.owner.as_str()).collect::<Vec<_>>(), ["view", "colour", "transforms"], "the stages sort them");
+        let FrameStep::Cpu(step) = &mut steps[2].step else { panic!("the plugin's own") };
+        let mut frame = Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]);
+        step.process(&mut frame, &NoCtx);
+        assert_eq!(frame.data[0], 1);
     }
 
     #[test]
@@ -2042,19 +2183,56 @@ mod tests {
         assert_eq!(s.overlays.picking(), "Test");
     }
 
+    struct Watches(Arc<Mutex<Vec<Event>>>);
+
+    impl Plugin for Watches {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: "watcher".into(), ..Default::default() }
+        }
+        fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
+            self.0.lock().unwrap().push(event.clone());
+        }
+    }
+
+    #[test]
+    fn a_flip_tells_vision_and_starts_motion_over() {
+        use telescope_core::frame::{Frame, PixelFormat};
+        use telescope_core::host::HostMotion;
+        use telescope_core::vision::Turn;
+        let room = |square: bool| {
+            let mut data = vec![100u8; 320 * 180 * 4];
+            data.chunks_mut(4).for_each(|p| p[3] = 255);
+            if square {
+                for y in 60..120 {
+                    data[(y * 320 + 220) * 4..(y * 320 + 280) * 4].chunks_mut(4).for_each(|p| p[..3].fill(230));
+                }
+            }
+            Frame::new(320, 180, PixelFormat::Rgba, data)
+        };
+        let mut s = state();
+        let (heard, pack) = (Arc::new(Mutex::new(Vec::new())), Arc::new(Pack::default()));
+        s.vision = Some(pack.clone());
+        s.register(Box::new(Watches(heard.clone()))).unwrap();
+        s.streams.source_id = Some("phone".into());
+        crate::host::Ctx { state: &mut s, me: "watcher".into() }.watch_motion("watcher", &[[0.0, 0.0, 1.0, 1.0]], 5);
+        for i in 1..=10 {
+            s.motion.feed(&room(false), "phone", None, i as f64 * 0.1);
+        }
+        s.follow_view_for_vision();
+        assert!(pack.1.lock().unwrap().is_empty(), "nothing turned");
+        s.view.flip_h = true;
+        s.follow_view_for_vision();
+        let flipped = Turn { flip_h: true, ..Turn::default() };
+        assert_eq!(*pack.1.lock().unwrap(), [(Turn::default(), flipped)]);
+        s.motion.feed(&room(true), "phone", None, 1.1);
+        s.deliver_events();
+        assert!(!heard.lock().unwrap().iter().any(|e| matches!(e, Event::MotionSeen { .. })), "the picture turned: that's nothing moving");
+    }
+
     #[test]
     fn a_plugin_watching_for_motion_hears_which_zone_moved() {
         use telescope_core::frame::{Frame, PixelFormat};
         use telescope_core::host::HostMotion;
-        struct Watches(Arc<Mutex<Vec<Event>>>);
-        impl Plugin for Watches {
-            fn info(&self) -> PluginInfo {
-                PluginInfo { name: "watcher".into(), ..Default::default() }
-            }
-            fn on_event(&mut self, _host: &mut dyn telescope_core::host::Host, event: &Event) {
-                self.0.lock().unwrap().push(event.clone());
-            }
-        }
         let room = |square: bool| {
             let mut data = vec![100u8; 320 * 180 * 4];
             for p in data.chunks_mut(4) {

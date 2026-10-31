@@ -2,6 +2,7 @@
 
 use telescope_core::plugin::PLUGIN_CATEGORIES;
 
+/// The window's mode changes here (the generated document reads these).
 pub const WIDTH_THREE_COL: f32 = 1300.0;
 pub const WIDTH_TWO_COL: f32 = 900.0;
 /// Both rails share one width so the preview sits on the window's centre line.
@@ -14,16 +15,6 @@ pub enum Mode {
     Three,
     Two,
     One,
-}
-
-pub fn mode_for(width: f32) -> Mode {
-    if width >= WIDTH_THREE_COL {
-        Mode::Three
-    } else if width >= WIDTH_TWO_COL {
-        Mode::Two
-    } else {
-        Mode::One
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,14 +99,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn widths_pick_the_mode() {
-        assert_eq!(mode_for(1300.0), Mode::Three);
-        assert_eq!(mode_for(1299.0), Mode::Two);
-        assert_eq!(mode_for(900.0), Mode::Two);
-        assert_eq!(mode_for(560.0), Mode::One);
-    }
-
-    #[test]
     fn pinned_first_then_groups_in_registration_order() {
         let mut p = Panels::default();
         p.place(Region::Left, 0, false, "look");
@@ -151,7 +134,10 @@ mod tests {
         p.place(Region::Center, 1, false, "preview");
         p.place(Region::Right, 2, false, "look");
         assert_eq!(p.columns(Mode::Two)[0], (vec![0, 2], Some(RAIL_WIDTH_SOLO)));
+        assert_eq!(p.columns(Mode::Two)[2], (vec![], None));
         assert_eq!(p.columns(Mode::One)[0], (vec![1, 0, 2], None));
+        assert_eq!(p.columns(Mode::One)[1], (vec![], None));
+        assert_eq!(p.columns(Mode::One)[2], (vec![], None));
         p.remove(1);
         assert!(p.center.is_empty());
     }

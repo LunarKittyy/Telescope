@@ -1,12 +1,14 @@
 // Two cameras at once: each has its own virtual camera, the panels show one, and the mic stays with the first.
 mod rig;
 
-use rig::{state_with, Listener, Output, Rig};
+use rig::{state_with, Listener, Rig};
 use serde_json::json;
 use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
-use telescope_core::host::RequestId;
+use std::sync::Arc;
+use telescope_core::host::{ColourStage, RequestId};
 use telescope_core::plugin::Plugin;
+use telescope_core::ui::{Issue, IssueAction, IssueDoes};
 use telescope_outputs::stream_output::StreamOutputPlugin;
 
 /// pixel streams and has the mic, oneplus streams and has the panels.
@@ -36,6 +38,31 @@ fn settled(name: &str) -> Rig {
     two_of(r)
 }
 
+/// As Python's two_streams: oneplus has a saved zoom of 3, pixel's zoom changes to 2 while it streams, then oneplus starts next to it.
+fn moved_on(name: &str) -> Rig {
+    let r = Rig::with(name, |link, heard| {
+        let mut panel = Listener::new("panel", heard);
+        panel.config = json!({"zoom": 1});
+        vec![Box::new(panel) as Box<dyn Plugin>, Box::new(Listener::new("microphone", heard)), Box::new(rig::Picker(link.clone()))]
+    });
+    r.w.state.borrow().file.save(&mut json!({"devices": {"oneplus": {"plugin_configs": {"panel": {"zoom": 3}}}}}));
+    r.start();
+    r.configure("panel", json!({"zoom": 2}));
+    r.add("oneplus");
+    r.worker(0).says("ok", "Streaming");
+    r.worker(1).says("ok", "Streaming");
+    r.pump();
+    r
+}
+
+/// A banner's Start for id, with a plugin to hear of it once the panels show it.
+fn press_start_again(r: &Rig, id: &str) {
+    let actions = vec![IssueAction { label: "Start".into(), does: IssueDoes::StartAgain { source_id: Some(id.into()), before: Some("go".into()) } }];
+    r.w.state.borrow_mut().banners.show("again", Issue { actions, ..rig::issue("Stopped") });
+    r.w.show_banners();
+    r.w.ui.invoke("banner-action", &[SValue::String("again".into()), SValue::Number(0.0)]).unwrap();
+}
+
 fn zoom(r: &Rig) -> serde_json::Value {
     r.w.state.borrow().plugin_config("panel").unwrap()["zoom"].clone()
 }
@@ -49,6 +76,66 @@ fn focus(r: &Rig, id: &str) {
 fn hooks(r: &Rig, plugin: &str) -> Vec<String> {
     let of_interest = |l: &&String| ["start ", "focus "].iter().any(|h| l.contains(h)) || l.ends_with(" stop") || l.ends_with(" left");
     r.heard().iter().filter(|l| l.starts_with(&format!("{plugin} "))).filter(of_interest).cloned().collect()
+}
+
+#[test]
+fn add_camera_goes_once_every_virtual_camera_has_a_stream() {
+    let r = Rig::new("add-full");
+    for id in ["third", "fourth", "fifth"] {
+        r.link.pair(id, id);
+    }
+    r.start();
+    for (id, made) in [("oneplus", 2), ("third", 3), ("fourth", 4)] {
+        r.w.process();
+        assert!(r.flag("add-visible"), "room for {id}");
+        r.add(id);
+        r.until("it streams", |r| r.workers_made() == made);
+        r.pump();
+    }
+    r.w.process();
+    assert!(!r.flag("add-visible"), "fifth has something to offer but nowhere to go");
+    r.w.stop_all_streams();
+    r.pump();
+}
+
+#[test]
+fn add_camera_offers_what_doesnt_stream_yet_while_anything_streams() {
+    let r = Rig::new("add-camera");
+    r.offer(rig::FakeSource::new("browser"));
+    r.pump();
+    r.w.process();
+    assert!(!r.flag("add-visible"), "nothing to add to");
+    r.start();
+    r.w.process();
+    assert!(r.flag("add-visible") && r.flag("add-enabled"));
+    let names = |r: &Rig| r.rows("add-choices").iter().map(|c| c["name"].clone()).collect::<Vec<_>>();
+    assert_eq!(names(&r), ["OnePlus", "Browser camera"]);
+    r.link.hold_wakes(true);
+    r.w.ui.invoke("add-picked", &[SValue::String("oneplus".into())]).unwrap();
+    r.until("its wake", |r| r.link.logged("wake oneplus") == 1);
+    r.w.process();
+    assert!(!r.flag("add-enabled"), "one start at a time");
+    r.link.hold_wakes(false);
+    r.until("both stream", |r| r.workers_made() == 2);
+    r.pump();
+    r.w.process();
+    assert_eq!(r.streaming(), ["pixel", "oneplus"]);
+    assert!(r.flag("add-enabled"));
+    assert_eq!(names(&r), ["Browser camera"]);
+}
+
+#[test]
+fn a_lut_baked_after_the_panels_moved_on_reaches_the_stream_left_behind() {
+    let r = two_of(Rig::new("bake-behind"));
+    focus(&r, "oneplus");
+    let stage = ColourStage::new(2, Arc::new(vec![0.5; 24]), None);
+    {
+        let mut state = r.w.state.borrow_mut();
+        state.colour.set_stage("grade", Some(stage), 0, Some("pixel"));
+        assert!(state.colour.lut(Some("pixel")).is_none(), "the bake isn't through yet, so that's what the freeze got");
+    }
+    r.until("the LUT reached it", |r| r.worker(0).did("colour 1"));
+    assert!(!r.worker(1).did("colour 1"));
 }
 
 fn press_tile_stop(r: &Rig, id: &str) {
@@ -66,26 +153,58 @@ fn slots(r: &Rig) -> Vec<u32> {
 
 #[test]
 fn a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own() {
-    let r = Rig::new("two-second");
-    r.start();
-    r.add("oneplus");
-    r.pump();
+    let r = moved_on("two-second");
     assert_eq!(slots(&r), [0, 1]);
+    assert_eq!(r.worker(1).canvas, (Some(1920), Some(1080)), "an extra camera keeps a fixed size");
     assert_eq!(r.streaming(), ["pixel", "oneplus"]);
     assert_eq!(r.shown().as_deref(), Some("oneplus"));
+    assert_eq!(r.link.picked_now().as_deref(), Some("oneplus"));
+    assert_eq!(r.worker(0).steps.lock().unwrap().len(), 1, "frozen at the phone's settings when the panels moved on");
     assert_eq!(tiles(&r), ["pixel", "oneplus"]);
-    assert_eq!(r.heard().iter().filter(|l| l.starts_with("microphone start")).collect::<Vec<_>>(), ["microphone start pixel"], "the mic stays with the first phone");
+    assert_eq!(zoom(&r), 3);
+    assert_eq!(r.times_heard("panel left"), 1);
+    assert!(r.heard().iter().rfind(|l| l.starts_with("panel start ") || l.starts_with("panel focus ")).is_some_and(|l| l.ends_with("oneplus")));
+    let mic: Vec<String> = r.heard().into_iter().filter(|l| l.starts_with("microphone start ") || l.starts_with("microphone focus ")).collect();
+    assert_eq!(mic, ["microphone start pixel"], "the mic stays with the first phone");
 }
 
 #[test]
 fn clicking_a_tile_brings_its_settings_back() {
-    let r = settled("two-tile-settings");
-    assert_eq!(zoom(&r), 3);
-    r.w.state.borrow_mut().selected = Some("oneplus".into());
+    let r = moved_on("two-tile-settings");
+    r.forget_heard();
     focus(&r, "pixel");
     assert_eq!(r.shown().as_deref(), Some("pixel"));
-    assert_eq!(zoom(&r), 2);
+    assert_eq!(r.link.picked_now().as_deref(), Some("pixel"));
+    assert_eq!(zoom(&r), 2, "changed while it streamed, and kept when the panels moved on");
+    assert!(r.did_hear("panel focus pixel"));
+    assert!(r.heard().iter().any(|l| l.starts_with("panel url https://pixel:8080/v1/video.h264 ")), "{:?}", r.heard());
     assert_eq!(r.w.state.borrow().file.load()["devices"]["oneplus"]["plugin_configs"]["panel"]["zoom"], 3);
+    assert_eq!(r.worker(1).steps.lock().unwrap().len(), 1, "the one left is frozen");
+    assert_eq!(r.worker(0).steps.lock().unwrap().len(), 2, "the one shown gets the panels' steps again");
+}
+
+#[test]
+fn a_stream_behind_the_panels_keeps_its_own_zoom() {
+    let r = Rig::with("two-own-zoom", |link, _| {
+        vec![Box::new(telescope_effects::transforms::TransformsPlugin::default()) as Box<dyn Plugin>, Box::new(rig::Picker(link.clone()))]
+    });
+    r.start();
+    r.w.state.borrow_mut().ui_event("transforms", telescope_core::ui::UiEvent { ui: "card".into(), callback: "zoom-moved".into(), args: vec![json!(2.0)] });
+    r.pump();
+    assert_eq!(r.w.state.borrow().view.zoom, 2.0);
+    let before = r.worker(0).steps.lock().unwrap().len();
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.pump();
+    assert!(r.worker(0).steps.lock().unwrap().len() > before, "given its own steps as it goes behind");
+    let view = |list: &[String]| list.iter().any(|owner| owner == "view");
+    assert!(view(r.worker(0).steps.lock().unwrap().last().unwrap()), "frozen with the zoom it had");
+    assert!(!view(&r.worker(1).first_steps), "the next phone has its own settings: not zoomed");
+    assert_eq!(r.w.state.borrow().view.zoom, 1.0);
+    focus(&r, "pixel");
+    assert_eq!(r.w.state.borrow().view.zoom, 2.0);
+    r.w.stop_all_streams();
+    r.pump();
 }
 
 #[test]
@@ -109,7 +228,7 @@ fn stopping_the_first_camera_hands_the_mic_to_the_next() {
     r.w.toggle_stream();
     r.pump();
     assert!(r.streaming().is_empty() && r.shown().is_none());
-    assert!(r.did_hear("panel stream_stopped"));
+    assert_eq!(r.times_heard("panel stream_stopped"), 1);
 }
 
 #[test]
@@ -170,10 +289,11 @@ fn picking_another_source_with_two_streaming_replaces_the_one_shown() {
 #[test]
 fn stop_keeps_the_mics_settings_with_its_own_phone() {
     let r = settled("two-stop-mic");
+    r.configure("microphone", json!({"gain": 7})); // while pixel has the mic and the panels show the other phone
     r.w.toggle_stream();
     r.pump();
     let devices = r.w.state.borrow().file.load()["devices"].clone();
-    assert_eq!(devices["pixel"]["plugin_configs"]["microphone"]["gain"], 2);
+    assert_eq!(devices["pixel"]["plugin_configs"]["microphone"]["gain"], 7);
     assert_eq!(devices["oneplus"]["plugin_configs"]["microphone"]["gain"], 3);
 }
 
@@ -181,10 +301,11 @@ fn stop_keeps_the_mics_settings_with_its_own_phone() {
 fn back_on_a_tile_its_state_is_asked_for_again() {
     let r = two_streams("two-state-again");
     let control = r.link.control("pixel");
-    let asked = control.asked.load(Ordering::SeqCst);
+    let state = state_with(json!({"battery": 12}));
+    *control.refresh_answer.lock().unwrap() = Some(state.clone());
     focus(&r, "pixel");
-    r.skip(2_000); // as it is now, not as it was when the stream started
-    r.until("the phone was asked", |_| control.asked.load(Ordering::SeqCst) > asked);
+    r.until("the phone answered, for this stream", |r| r.did_hear(&format!("panel bus state {state}"))); // as it is now, not as it was when the stream started
+    assert_eq!(control.refreshed.load(Ordering::SeqCst), 1);
 }
 
 #[test]
@@ -212,7 +333,7 @@ fn the_wait_screen_hears_which_extra_cameras_are_free() {
 #[test]
 fn a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one() {
     let r = Rig::new("two-remembered-camera");
-    r.w.streams.flow.borrow_mut().slot_memory.insert("pixel".into(), 2); // camera 3 in an earlier run; alone it starts on camera 1
+    r.w.streams.flow.borrow().slot_memory.borrow_mut().insert("pixel".into(), 2); // camera 3 in an earlier run; alone it starts on camera 1
     r.start();
     r.add("oneplus");
     focus(&r, "pixel");
@@ -230,6 +351,7 @@ fn re_pairing_a_phone_while_another_starts_restarts_it_after() {
     r.link.hold_wakes(true);
     r.w.with_flow(|flow, host| flow.add_stream(host, "third"));
     r.until("the wake", |r| r.link.logged("wake third") == 1);
+    r.link.set_token("pixel", "new-token");
     r.w.with_flow(|flow, host| flow.reconnect_stream(host, Some("pixel")));
     r.pump();
     assert_eq!(r.workers_made(), 2, "it waits for the start under way");
@@ -238,12 +360,13 @@ fn re_pairing_a_phone_while_another_starts_restarts_it_after() {
     r.pump();
     assert_eq!(r.streaming().len(), 3);
     assert!(r.worker(0).is_stopped());
+    assert_eq!(r.link.logged("open pixel with new-token"), 1, "on the new pairing");
 }
 
 #[test]
 fn a_canvas_change_waits_for_one_camera() {
     let r = two_streams("two-canvas");
-    r.w.restart_canvas("panel", RequestId(1));
+    r.w.restart_canvas("panel", RequestId(1), true);
     r.pump();
     assert!(r.heard().iter().any(|l| l.starts_with("panel done false Stop all but one camera first")), "{:?}", r.heard());
     assert_eq!(r.streaming().len(), 2);
@@ -308,14 +431,30 @@ fn restarting_the_only_stream_left_keeps_its_virtual_camera() {
 
 #[test]
 fn a_stopped_cameras_start_brings_it_back_next_to_the_others() {
-    let r = settled("two-start-again");
+    let r = moved_on("two-start-again");
     r.stop(Some("oneplus"));
     r.pump();
     assert_eq!(r.streaming(), ["pixel"]);
-    r.w.start_source(Some("oneplus".into()));
+    press_start_again(&r, "oneplus");
     r.until("it's back", |r| r.streaming().len() == 2);
     assert_eq!(r.shown().as_deref(), Some("oneplus"));
-    assert_eq!(zoom(&r), 3, "on its own settings, not the other phone's");
+    assert_eq!(zoom(&r), 3);
+    assert!(r.did_hear("panel issue again go on oneplus zoom 3"), "before ran on its own settings: {:?}", r.heard());
+}
+
+#[test]
+fn a_banners_start_alone_tells_its_plugin_once_the_source_is_picked() {
+    let r = moved_on("two-start-alone");
+    r.w.toggle_stream();
+    r.pump();
+    assert!(r.streaming().is_empty());
+    press_start_again(&r, "oneplus");
+    r.until("it's back", |r| r.streaming() == ["oneplus"]);
+    assert!(r.did_hear("panel issue again go on oneplus zoom 3"), "{:?}", r.heard());
+    let heard = r.heard();
+    let told = heard.iter().position(|l| l.starts_with("panel issue again")).unwrap();
+    let started = heard.iter().rposition(|l| l == "panel start oneplus").unwrap();
+    assert!(told < started, "{heard:?}");
 }
 
 #[test]
@@ -330,7 +469,7 @@ fn another_cameras_start_working_keeps_a_stopped_ones_banner() {
 #[test]
 fn restarting_a_background_stream_starts_it_with_its_own_settings() {
     let r = Rig::with("two-restart-settings", |_, heard| {
-        vec![Box::new(Output { config: json!({}) }) as Box<dyn Plugin>, Box::new(Listener::new("panel", heard))]
+        vec![Box::new(StreamOutputPlugin::new(true)) as Box<dyn Plugin>, Box::new(Listener::new("panel", heard))]
     });
     r.w.state.borrow().file.save(&mut json!({"devices": {
         "pixel": {"plugin_configs": {"stream_output": {"fps": 15}}},
@@ -395,9 +534,23 @@ fn an_extra_camera_that_isnt_set_up_asks_first() {
 #[test]
 fn two_phones_waiting_for_the_extra_cameras_both_start() {
     let r = one_camera("extra-both");
+    r.cameras.held.store(true, Ordering::SeqCst);
+    r.link.hold_wakes_of("oneplus", true);
+    r.link.hold_wakes_of("third", true);
+    answer(&r, true);
+    r.until("the cameras are being set up", |r| !r.cameras.asked.lock().unwrap().is_empty());
     r.w.with_flow(|flow, host| flow.add_stream(host, "third")); // while that's under way
     r.pump();
-    answer(&r, true);
+    r.cameras.held.store(false, Ordering::SeqCst);
+    let waking = |r: &Rig| r.w.streams.flow.borrow().sessions.wake_source.as_ref().map(|w| w.id_str().to_string());
+    r.until("the first wakes", |r| r.link.logged("wake oneplus") == 1);
+    assert_eq!(waking(&r).as_deref(), Some("oneplus"));
+    r.pump();
+    assert_eq!(r.link.logged("wake third"), 0, "one at a time");
+    r.link.hold_wakes_of("oneplus", false);
+    r.until("the next wakes once it's through", |r| r.link.logged("wake third") == 1);
+    assert_eq!(waking(&r).as_deref(), Some("third"));
+    r.link.hold_wakes_of("third", false);
     r.until("all three stream", |r| r.streaming().len() == 3);
     assert_eq!(slots(&r), [0, 1, 2]);
 }
@@ -405,14 +558,18 @@ fn two_phones_waiting_for_the_extra_cameras_both_start() {
 #[test]
 fn stop_drops_starts_waiting_for_the_extra_cameras() {
     let r = one_camera("extra-stop");
+    r.cameras.held.store(true, Ordering::SeqCst);
+    answer(&r, true);
+    r.until("the cameras are being set up", |r| !r.cameras.asked.lock().unwrap().is_empty());
     r.w.with_flow(|flow, host| flow.add_stream(host, "third"));
     r.pump();
     r.w.toggle_stream();
-    answer(&r, true);
+    r.pump();
+    r.cameras.held.store(false, Ordering::SeqCst);
     r.until("the cameras are there", |r| r.cameras.extras.load(Ordering::SeqCst) == 3);
     r.pump();
     r.pump();
-    assert!(!r.w.is_streaming());
+    assert!(!r.w.is_streaming() && !r.w.streams.flow.borrow().sessions.waking);
     assert_eq!(r.workers_made(), 1);
 }
 
@@ -466,6 +623,8 @@ fn a_background_stream_the_encoder_cant_do_gets_the_panels_and_stops() {
 fn h264_too_much_for_the_phone_stops_the_stream_with_a_note_that_stays() {
     let r = with_output("codec-too-much");
     r.start();
+    r.pump();
+    r.worker(0).says("reconnecting", "Stream dropped - reconnecting");
     r.pump();
     r.phone_says("pixel", too_big());
     r.until("it stopped", |r| r.streaming().is_empty());

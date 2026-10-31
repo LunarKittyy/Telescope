@@ -16,7 +16,9 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use telescope_core::colour::Baked;
 use telescope_core::event::Event;
+use telescope_core::frame::FrameStep;
 use telescope_core::i18n::tr;
 use telescope_core::media::FrameSlot;
 use telescope_core::source::{RouteSpec, StreamSource};
@@ -39,6 +41,8 @@ pub struct ShellWorker {
     steps_due: Cell<bool>,
     /// The plugins' packet step makers, shared with Streams: set_packets hands the tap those of the owners it's given.
     makers: Rc<RefCell<crate::shell::PacketMakers>>,
+    /// The LUT a bake last gave it behind the panels.
+    lut: RefCell<Option<Arc<Baked>>>,
 }
 
 impl Worker for ShellWorker {
@@ -77,6 +81,10 @@ pub struct Streams {
     workers: RefCell<Vec<Rc<ShellWorker>>>,
     next_worker: Cell<u64>,
     later: RefCell<Vec<Later>>,
+    /// What the Add camera menu lists now.
+    add_choices: RefCell<Vec<(String, String)>>,
+    /// Whether the idle Start button was last shown for a camera that's off.
+    idle_camera_off: Cell<bool>,
     reconnecting: RefCell<Option<(slint::Timer, String, Cell<u32>)>>,
     /// Takes the red off the frame rate again after a size that didn't land.
     fps_tone_timer: slint::Timer,
@@ -195,22 +203,62 @@ impl Window {
     /// What the camera can do now, as plugins read it, and the Start button that goes with it.
     pub(crate) fn sync_camera(self: &Rc<Self>) {
         let Ok(flow) = self.streams.flow.try_borrow() else { return };
+        let off = self.camera_snapshot(&flow);
+        let idle = flow.sessions.streams.is_empty() && !flow.sessions.waking;
+        drop(flow);
+        if self.streams.idle_camera_off.replace(off) != off && idle {
+            self.show_idle_button();
+        }
+    }
+
+    /// What plugins read about the camera, as the flow has it now; whether it's off.
+    fn camera_snapshot(self: &Rc<Self>, flow: &StreamFlow) -> bool {
         let mut host = Host { w: self };
         let source = flow.active_source(&mut host);
         let can_turn_off = flow.can_turn_camera_off(&mut host);
         let (off, auto) = { let st = source.state.borrow(); (st.camera_off, st.camera_off_auto) };
         let plugin_source = source.kind.as_phone().is_none();
-        let idle = flow.sessions.streams.is_empty() && !flow.sessions.waking;
+        let streams = &mut self.state.borrow_mut().streams;
+        (streams.camera_off, streams.camera_off_auto, streams.can_turn_off, streams.plugin_source) = (off, auto, can_turn_off, plugin_source);
+        off
+    }
+
+    /// _add_candidates: (id, name) of what Add camera offers, every phone and source that isn't streaming.
+    pub fn add_candidates(&self) -> Vec<(String, String)> {
+        let phones = self.services.as_ref().map(|s| s.link.phones()).unwrap_or_default();
+        let phones = phones.into_iter().map(|p| (p.id, p.name));
+        let sources: Vec<(String, String)> = self.streams.plugin_sources.borrow().iter().map(|(id, s)| (id.clone(), s.lock().unwrap().name())).collect();
+        let flow = self.streams.flow.borrow();
+        let s = &flow.sessions;
+        let pending = s.pending.as_ref().map(|p| p.id_str().to_string());
+        phones.chain(sources).filter(|(id, _)| !s.is_streaming_from(Some(id)) && Some(id) != pending.as_ref()).collect()
+    }
+
+    /// _show_add_button.
+    pub(crate) fn show_add_button(&self) {
+        let Ok(flow) = self.streams.flow.try_borrow() else { return };
+        let (count, waking) = (flow.sessions.streams.len() as u32, flow.sessions.waking);
         drop(flow);
-        let changed = {
-            let streams = &mut self.state.borrow_mut().streams;
-            let changed = streams.camera_off != off;
-            (streams.camera_off, streams.camera_off_auto, streams.can_turn_off, streams.plugin_source) = (off, auto, can_turn_off, plugin_source);
-            changed
-        };
-        if changed && idle {
-            self.show_idle_button();
+        let choices = self.add_candidates();
+        let _ = self.ui.set_property("add-visible", SValue::Bool(count > 0 && count < MAX_SLOTS && !choices.is_empty()));
+        let _ = self.ui.set_property("add-enabled", SValue::Bool(!waking));
+        if std::mem::replace(&mut *self.streams.add_choices.borrow_mut(), choices.clone()) != choices {
+            let rows: Vec<SValue> = choices.into_iter().map(|(id, name)| SValue::Struct(Struct::from_iter([
+                ("id".to_string(), SValue::String(id.into())),
+                ("name".to_string(), SValue::String(name.into())),
+            ]))).collect();
+            let _ = self.ui.set_property("add-choices", SValue::Model(ModelRc::new(VecModel::from(rows))));
         }
+    }
+
+    /// Sizes whose timeout is still running.
+    pub fn resolution_timers_running(&self) -> usize {
+        self.streams.resolution_timers.borrow().values().filter(|t| t.running()).count()
+    }
+
+    /// Workers the window still holds.
+    pub fn workers_running(&self) -> usize {
+        self.streams.workers.borrow().len()
     }
 
     /// Host::set_camera_on, and the bridge's Camera switch.
@@ -290,42 +338,46 @@ impl Window {
     }
 
     /// The state plugins read, the frames they see, and the steps workers run, as the flow left them.
+    /// What plugins read about the streams, as the flow has it now.
+    fn stream_snapshot(&self, flow: &StreamFlow) {
+        let s = &flow.sessions;
+        let mut st = self.state.borrow_mut();
+        st.streams.streaming = !s.streams.is_empty();
+        st.streams.starting = s.is_starting();
+        st.streams.restarting = s.restarting;
+        st.streams.source_id = s.focus.as_ref().map(|f| f.id_str().to_string());
+        st.streams.main = flow.main_stream();
+        st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
+        st.streams.stopping_all = s.stopping_all;
+        st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+        st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
+        st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
+            .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name() }).collect();
+        (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
+        let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
+        st.streams.can_hand_over = s.streams.iter().filter(|src| {
+            let Some(session) = src.session() else { return false };
+            let worker_can = session.worker.is_none() || self.worker_of(src).is_some_and(|w| w.inner.can_hand_over());
+            !src.recovering() && worker_can && src.kind.as_phone().is_some_and(|p| !p.handing_over())
+        }).map(|x| x.id_str().to_string()).collect();
+        st.streams.cameras = s.streams.iter().filter(|x| x.has_session()).map(|src| {
+            let slot = src.slot();
+            crate::shell::CameraUse {
+                source_id: src.id_str().to_string(),
+                slot,
+                label: labels.iter().find(|l| l.slot == slot).map(|l| l.name.clone()).unwrap_or_default(),
+                size: self.worker_of(src).and_then(|w| w.inner.camera_size()),
+            }
+        }).collect();
+        if s.streams.is_empty() {
+            st.streams.phone_state = None;
+        }
+    }
+
     fn sync_streams(self: &Rc<Self>) {
         let flow = self.streams.flow.borrow();
+        self.stream_snapshot(&flow);
         let s = &flow.sessions;
-        {
-            let mut st = self.state.borrow_mut();
-            st.streams.streaming = !s.streams.is_empty();
-            st.streams.starting = s.is_starting();
-            st.streams.restarting = s.restarting;
-            st.streams.source_id = s.focus.as_ref().map(|f| f.id_str().to_string());
-            st.streams.main = flow.main_stream();
-            st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
-            st.streams.stopping_all = s.stopping_all;
-            st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
-            st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
-            st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
-                .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name() }).collect();
-            (st.streams.waking, st.streams.preparing) = (s.waking, s.preparing);
-            let labels = self.services.as_ref().map(|sv| sv.outputs.slots()).unwrap_or_default();
-            st.streams.can_hand_over = s.streams.iter().filter(|src| {
-                let Some(session) = src.session() else { return false };
-                let worker_can = session.worker.is_none() || self.worker_of(src).is_some_and(|w| w.inner.can_hand_over());
-                !src.recovering() && worker_can && src.kind.as_phone().is_some_and(|p| !p.handing_over())
-            }).map(|x| x.id_str().to_string()).collect();
-            st.streams.cameras = s.streams.iter().filter(|x| x.has_session()).map(|src| {
-                let slot = src.slot();
-                crate::shell::CameraUse {
-                    source_id: src.id_str().to_string(),
-                    slot,
-                    label: labels.iter().find(|l| l.slot == slot).map(|l| l.name.clone()).unwrap_or_default(),
-                    size: self.worker_of(src).and_then(|w| w.inner.camera_size()),
-                }
-            }).collect();
-            if s.streams.is_empty() {
-                st.streams.phone_state = None;
-            }
-        }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -381,6 +433,25 @@ impl Window {
         }
     }
 
+    /// A colour bake finished. A stream behind the panels takes its own LUT and keeps the rest of the steps it had, as
+    /// Python's frames look their LUT up each time.
+    pub fn colour_baked(self: &Rc<Self>) {
+        self.refresh_frame_steps();
+        let behind: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| !w.live.get()).cloned().collect();
+        for w in behind {
+            let lut = self.state.borrow_mut().colour.lut(w.inner.source_id());
+            let same = match (&*w.lut.borrow(), &lut) {
+                (Some(old), Some(new)) => Arc::ptr_eq(old, new),
+                (None, None) => true,
+                _ => false,
+            };
+            if !same {
+                w.inner.set_colour(lut.iter().map(|l| FrameStep::Shader(l.shader())).collect());
+                *w.lut.borrow_mut() = lut;
+            }
+        }
+    }
+
     pub fn is_streaming(&self) -> bool {
         let flow = self.streams.flow.borrow();
         !flow.sessions.streams.is_empty() || flow.sessions.waking
@@ -396,16 +467,20 @@ impl Window {
     }
 
     /// _start_source: a banner's Start, by itself or next to the others.
-    pub fn start_source(self: &Rc<Self>, id: Option<String>) {
+    /// before: (banner, action) a plugin hears once the panels show it, so a setting it changes is that source's.
+    pub fn start_source(self: &Rc<Self>, id: Option<String>, before: Option<(String, String)>) {
         let id = id.or_else(|| self.streams.flow.borrow().start_id.clone());
         let streaming = !self.streams.flow.borrow().sessions.streams.is_empty();
         if !streaming {
             self.select_first(id.as_deref());
+            if let Some((key, action)) = &before {
+                self.tell_issue(key, action);
+            }
         }
         self.with_flow(move |flow, host| {
             if streaming && !flow.sessions.is_streaming_from(id.as_deref()) {
                 if let Some(id) = id.as_deref() {
-                    flow.add_stream(host, id);
+                    flow.add_stream_after(host, id, before);
                 }
             } else if !streaming {
                 let source = host.source_by_id(id.as_deref());
@@ -415,7 +490,7 @@ impl Window {
     }
 
     /// restart_vcam_canvas: stop the stream, reload the driver on Linux, and start it again at the new canvas.
-    pub fn restart_canvas(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId) {
+    pub fn restart_canvas(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, shows_command: bool) {
         let posts = self.state.borrow().posts.clone();
         if self.streams.flow.borrow().sessions.streams.len() > 1 {
             // The reload needs every virtual camera free, and would drop the extra ones
@@ -445,12 +520,12 @@ impl Window {
                     .unwrap_or_else(|_| telescope_core::output::SetupResult { ok: false, message: "the reload stopped unexpectedly".into(), command: None }),
                 None => telescope_core::output::SetupResult { ok: true, message: String::new(), command: None },
             };
-            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, result, was_streaming)));
+            let _ = slint::invoke_from_event_loop(move || crate::window::with_window(|w| w.canvas_reloaded(&plugin, request, shows_command, result, was_streaming)));
         });
     }
 
     /// _on_canvas_reload_done.
-    fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, result: telescope_core::output::SetupResult, restart_stream: bool) {
+    fn canvas_reloaded(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, shows_command: bool, result: telescope_core::output::SetupResult, restart_stream: bool) {
         let restart = {
             let mut flow = self.streams.flow.borrow_mut();
             // Not after a Stop since, or over a stream started while the reload ran
@@ -471,6 +546,12 @@ impl Window {
             self.set_status(&tr("Reload failed: {message}").field("message", &result.message), "err");
         } else {
             self.set_status(&tr("Not streaming"), "dim");
+        }
+        if !shows_command && !command.is_empty() && !result.ok {
+            let actions = vec![IssueAction { label: tr("Copy command"), does: IssueDoes::OpenUrl { url: format!("copy:{command}") } }];
+            let issue = Issue { title: tr("Resize the virtual camera"), text: result.message.clone(), actions, kind: "warn".into(), details: command.clone(), tell_dismiss: false };
+            self.state.borrow_mut().banners.show("vcam", issue);
+            self.show_banners();
         }
         let data = serde_json::json!({"command": command});
         self.state.borrow_mut().deliver_to(plugin, &Event::RequestDone { request, ok: result.ok, message: result.message, data });
@@ -917,7 +998,7 @@ impl Window {
                     _ => phone.hand_over_failed(&url, true),
                 }
             }
-            Report::Moved { source_id, session_id, route, session } => {
+            Report::Moved { source_id, session_id, generation, route, session } => {
                 let source = self.source(Some(source_id.as_str()).filter(|s| !s.is_empty()));
                 let Some(phone) = source.kind.as_phone() else { return };
                 let Some(current) = source.session().filter(|s| s.id == session_id) else {
@@ -925,11 +1006,12 @@ impl Window {
                     session.release();
                     return;
                 };
+                if !source.recovering() || generation != phone.recovery_generation() {
+                    phone.move_too_late(session); // the stream came back meanwhile, and the route this opened may be gone
+                    return;
+                }
                 let url = session.video_url();
                 let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video().map(crate::worker::Opened::from)) };
-                if let Some(controls) = session.controls() {
-                    controls.retarget(&session.stream_base()); // the same client, so its settings carry on
-                }
                 let tries = current.worker.as_ref().map_or(0, |w| w.failed_tries());
                 phone.moved(route, session, tries);
                 let worker = current.worker.as_ref().and_then(|w| self.shell_worker(w));
@@ -989,9 +1071,6 @@ impl Window {
             return;
         };
         log::info!("{} moved to {url}", source.kind.name());
-        if let Some(controls) = session.controls() {
-            controls.retarget(&session.stream_base());
-        }
         if let Some(worker) = worker {
             let s = session.clone();
             worker.inner.set_opener(Arc::new(move || s.open_video().map(crate::worker::Opened::from)));
@@ -1029,6 +1108,7 @@ impl Window {
                 self.streams.sources.borrow_mut().remove(&id);
             }
         }
+        self.note_changes_only();
         self.announce_sources();
         if self.streams.flow.borrow().sessions.streams.len() > 1 {
             self.refresh_tiles(); // a new name for one that streams
@@ -1051,7 +1131,14 @@ impl Window {
         }
         self.streams.plugin_sources.borrow_mut().remove(id);
         self.streams.sources.borrow_mut().remove(id);
+        self.note_changes_only();
         self.announce_sources();
+    }
+
+    /// Sources whose settings are only saved where they differ from the defaults (_save_config's remember_changes_only).
+    fn note_changes_only(&self) {
+        self.state.borrow_mut().changes_only = self.streams.plugin_sources.borrow().iter()
+            .filter(|(_, s)| s.lock().unwrap().remember_changes_only()).map(|(id, _)| id.clone()).collect();
     }
 
     fn announce_sources(&self) {
@@ -1233,8 +1320,11 @@ impl Window {
 
     /// At quit: every stream stopped and the phones told, waiting a moment for those stops.
     pub fn stop_streams_for_quit(self: &Rc<Self>) {
+        self.stop_streams_for_quit_by(std::time::Instant::now() + Duration::from_secs(2));
+    }
+
+    pub fn stop_streams_for_quit_by(self: &Rc<Self>, deadline: std::time::Instant) {
         self.stop_all_streams();
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
         for source in self.streams.sources.borrow().values() {
             if let Some(p) = source.kind.as_phone() {
                 p.drain_stops(deadline);
@@ -1316,6 +1406,13 @@ impl FlowHost for Host<'_> {
     }
     fn call(&mut self, plugins: &[String], hook: &Hook) {
         self.w.state.borrow_mut().call_hook(plugins, hook);
+    }
+    fn tell_issue(&mut self, key: &str, action: &str) {
+        self.w.tell_issue(key, action);
+    }
+    fn sync(&mut self, flow: &StreamFlow) {
+        self.w.stream_snapshot(flow);
+        self.w.camera_snapshot(flow);
     }
     fn emit(&mut self, event: Event) {
         self.w.state.borrow_mut().bus.emit(event);
@@ -1475,7 +1572,7 @@ impl FlowHost for Host<'_> {
             None => Arc::new(StreamWorker::start(setup, services.media.clone(), services.outputs.clone(), slot, events)
                 .expect("a thread for the stream worker")),
         };
-        let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), makers: self.w.streams.packet_makers.clone() });
+        let worker = Rc::new(ShellWorker { id, inner, live: Cell::new(live), steps_due: Cell::new(false), makers: self.w.streams.packet_makers.clone(), lut: RefCell::default() });
         self.w.streams.workers.borrow_mut().push(worker.clone());
         worker
     }

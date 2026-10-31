@@ -48,7 +48,7 @@ pub enum Report {
     State { source_id: String, session_id: u64, state: Value },
     RecoveryProbed { source_id: String, session_id: u64, generation: u64, resolution: Resolution },
     /// recovery moved the stream to a new route: its session there.
-    Moved { source_id: String, session_id: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
+    Moved { source_id: String, session_id: u64, generation: u64, route: RouteSpec, session: Arc<dyn PhoneSession> },
     /// A hand-over with the camera off opened its session on url (None: it couldn't).
     HandedOver { source_id: String, session_id: u64, url: String, session: Option<Arc<dyn PhoneSession>> },
     /// The regular heat check's answer.
@@ -276,16 +276,16 @@ pub fn camera_rates(state: Option<&Value>) -> CameraRates {
 
 /// The phone's state to the window, a moment after the stream began: a phone that's not ready yet is asked again, and one
 /// that never answers gets an empty state when `report_failure` says the plugins are waiting for one.
-pub(crate) fn fetch_state(controls: &dyn PhoneControl, first: Duration, retry: Duration, report_failure: bool, report: impl Fn(Value)) {
-    std::thread::sleep(first);
+pub(crate) fn fetch_state(controls: &dyn PhoneControl, pause: impl Fn(Duration), report_failure: bool, report: impl Fn(Value)) {
+    pause(STATE_WAIT);
     for _ in 0..3 {
         if controls.closed() {
             return;
         }
-        if let Some(state) = controls.get_state() {
+        if let Some(state) = controls.get_state().filter(|s| s.as_object().is_none_or(|o| !o.is_empty())) {
             return report(state);
         }
-        std::thread::sleep(retry);
+        pause(STATE_RETRY);
     }
     if report_failure && !controls.closed() {
         report(Value::Object(Default::default()));
@@ -437,6 +437,12 @@ impl Stops {
         });
     }
 
+    /// The quit's last wait: stops still under way are left to end by themselves, and nothing waits for them after this.
+    fn drain(&self, timeout: Duration) {
+        self.finish(timeout);
+        self.running.lock().unwrap().clear();
+    }
+
     /// Waits for the stops under way (timeout at most); whether one got there just now, so the phone may still be stopping.
     fn finish(&self, timeout: Duration) -> bool {
         let running: Vec<_> = self.running.lock().unwrap().iter().filter(|d| !d.load(Ordering::SeqCst)).cloned().collect();
@@ -535,7 +541,7 @@ impl PhoneKind {
 
     /// Quitting: give stops still on their way until deadline.
     pub fn drain_stops(&self, deadline: std::time::Instant) {
-        self.stopping.finish(deadline.saturating_duration_since(Instant::now()));
+        self.stopping.drain(deadline.saturating_duration_since(Instant::now()));
     }
 
     /// A hand-over to route begins: the opener the worker tries it with, which opens the phone's session there (passing
@@ -649,6 +655,19 @@ impl PhoneKind {
         self.inner.borrow_mut().moving = false;
     }
 
+    /// A move that landed after its recovery ended: the stream stays on the route it's on, which goes back to being the one
+    /// the link holds for it (the move took that over before it opened anything).
+    pub fn move_too_late(&self, session: Arc<dyn PhoneSession>) {
+        self.move_failed();
+        let (link, id, route) = (self.link.clone(), self.id.clone(), self.inner.borrow().route.clone());
+        std::thread::spawn(move || {
+            session.release();
+            if let Some(route) = route {
+                link.adopt_route(id.as_deref(), &route);
+            }
+        });
+    }
+
     /// The stream couldn't connect over the USB forward recovery made: the same cable back needs a fresh one. failed_tries:
     /// the worker's, None with the camera off, where the mic has no tries of its own to count.
     pub fn forward_failed(&self, failed_tries: Option<u32>) -> bool {
@@ -695,12 +714,12 @@ impl PhoneKind {
             return;
         }
         let controls = self.session().and_then(|s| s.controls());
-        let (link, post, id, sid) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid());
+        let (link, post, id, sid, generation) = (self.link.clone(), self.post.clone(), self.id.clone(), self.sid(), self.recovery_generation());
         std::thread::spawn(move || {
             let opened = link.adopt_route(id.as_deref(), &route).ok_or_else(|| "no route".to_string())
                 .and_then(|url| link.open_route(&phone, &route, video_path(&url), controls));
             match opened {
-                Ok(session) => post(Report::Moved { source_id: sid, session_id, route, session: session.into() }),
+                Ok(session) => post(Report::Moved { source_id: sid, session_id, generation, route, session: session.into() }),
                 Err(e) => {
                     log::info!("Moving the stream to {route:?} failed: {e}");
                     post(Report::MoveFailed { source_id: sid });
@@ -800,6 +819,11 @@ impl PhoneKind {
         }
     }
 
+    /// The phone's last answer about its rates, if it gave one.
+    pub fn rates_now(&self) -> Option<CameraRates> {
+        self.inner.borrow().rates
+    }
+
     /// The rates the phone last said it stepped down to for a slow link and for its heat (0: none).
     pub fn rates(&self) -> CameraRates {
         self.inner.borrow().rates.unwrap_or_default()
@@ -883,8 +907,8 @@ impl SourceKind for PhoneKind {
     fn started(&self, _source: &Source, session_id: u64) {
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
-        std::thread::spawn(move || {
-            fetch_state(&*controls, STATE_WAIT, STATE_RETRY, true, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
+        let _ = std::thread::Builder::new().name("state-fetch".into()).spawn(move || {
+            fetch_state(&*controls, std::thread::sleep, true, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
         });
         let (cb, sid) = (self.on_timer.clone(), self.sid());
         self.heat_timer.start(slint::TimerMode::Repeated, HEAT_CHECK, move || cb("heat", &sid));
@@ -898,8 +922,8 @@ impl SourceKind for PhoneKind {
         // After the panels' settings went out, so it holds them rather than the ones the stream started with
         let Some(controls) = self.session().and_then(|s| s.controls()) else { return };
         let (post, sid) = (self.post.clone(), self.sid());
-        std::thread::spawn(move || {
-            fetch_state(&*controls, STATE_WAIT, STATE_RETRY, false, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
+        let _ = std::thread::Builder::new().name("state-refresh".into()).spawn(move || {
+            fetch_state(&*controls, std::thread::sleep, false, |state| post(Report::State { source_id: sid.clone(), session_id, state }));
         });
     }
 
@@ -1102,6 +1126,7 @@ mod tests {
         left: Mutex<Vec<Option<Value>>>,
         asked: std::sync::atomic::AtomicU32,
         closes_after: Option<u32>,
+        closed: AtomicBool,
     }
 
     impl PhoneControl for Answers {
@@ -1114,21 +1139,24 @@ mod tests {
         fn resend_settings(&self) {}
         fn close(&self) {}
         fn closed(&self) -> bool {
-            self.closes_after.is_some_and(|n| self.asked.load(Ordering::SeqCst) >= n)
+            self.closed.load(Ordering::SeqCst) || self.closes_after.is_some_and(|n| self.asked.load(Ordering::SeqCst) >= n)
         }
     }
 
     fn fetched(controls: &Answers, report_failure: bool) -> Vec<Value> {
         let got = Mutex::new(Vec::new());
-        fetch_state(controls, Duration::ZERO, Duration::ZERO, report_failure, |state| got.lock().unwrap().push(state));
+        fetch_state(controls, |_| {}, report_failure, |state| got.lock().unwrap().push(state));
         got.into_inner().unwrap()
     }
 
     #[test]
     fn fetch_state_retries_then_emits_success() {
         let controls = Answers { left: Mutex::new(vec![Some(json!({"auto": true})), None]), ..Default::default() };
-        assert_eq!(fetched(&controls, true), [json!({"auto": true})]);
+        let (got, paused) = (Mutex::new(Vec::new()), Mutex::new(Vec::new()));
+        fetch_state(&controls, |wait| paused.lock().unwrap().push(wait), true, |state| got.lock().unwrap().push(state));
+        assert_eq!(*got.lock().unwrap(), [json!({"auto": true})]);
         assert_eq!(controls.asked.load(Ordering::SeqCst), 2);
+        assert_eq!(*paused.lock().unwrap(), [Duration::from_millis(1500), Duration::from_secs(2)]);
     }
 
     #[test]
@@ -1152,6 +1180,11 @@ mod tests {
         let controls = Answers { closes_after: Some(1), ..Default::default() };
         assert!(fetched(&controls, true).is_empty());
         assert_eq!(controls.asked.load(Ordering::SeqCst), 1);
+        // A good state is there to be had, and the session goes while it waits to ask
+        let controls = Answers { left: Mutex::new(vec![Some(json!({"battery": 10}))]), ..Default::default() };
+        let got = Mutex::new(Vec::new());
+        fetch_state(&controls, |_| controls.closed.store(true, Ordering::SeqCst), true, |state| got.lock().unwrap().push(state));
+        assert!(got.lock().unwrap().is_empty());
     }
 
     #[test]

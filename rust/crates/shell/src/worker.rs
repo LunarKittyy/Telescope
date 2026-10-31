@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use telescope_core::frame::{Frame, FrameContext, PixelFormat};
+use telescope_core::frame::{Frame, FrameContext, FrameStep, PixelFormat};
 use telescope_core::i18n::tr;
 use telescope_core::media::{Codec, DecodeOptions, Decoder, FeedEnd, FeedStopper, FramePipeline, FrameReader, FrameSlot,
                             Media, Newest, PacketTap, StagedStep, VideoFeed};
@@ -330,6 +330,7 @@ struct Shared {
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
     next_steps: Mutex<Option<Vec<StagedStep>>>,
+    next_colour: Mutex<Option<Vec<FrameStep>>>,
     seq: AtomicU64,
     slot: Arc<dyn FrameSlot>,
     tap: Option<Arc<dyn PacketTap>>,
@@ -352,6 +353,7 @@ pub trait VideoWorker: Send + Sync {
     fn tap(&self) -> Option<Arc<dyn PacketTap>>;
     fn slot(&self) -> Arc<dyn FrameSlot>;
     fn set_steps(&self, steps: Vec<StagedStep>);
+    fn set_colour(&self, steps: Vec<FrameStep>);
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
     fn settle(&self);
     fn hold_for_photo(&self, seconds: f32);
@@ -382,6 +384,9 @@ impl VideoWorker for StreamWorker {
     }
     fn set_steps(&self, steps: Vec<StagedStep>) {
         StreamWorker::set_steps(self, steps);
+    }
+    fn set_colour(&self, steps: Vec<FrameStep>) {
+        StreamWorker::set_colour(self, steps);
     }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         StreamWorker::update_output(self, width, height, fps);
@@ -447,7 +452,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), gate: setup.gate,
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
             last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -491,6 +496,11 @@ impl StreamWorker {
     /// Swap the plugin steps from the next frame on (the panels moved to another stream, or a plugin changed its step).
     pub fn set_steps(&self, steps: Vec<StagedStep>) {
         *self.shared.next_steps.lock().unwrap() = Some(steps);
+    }
+
+    /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
+    pub fn set_colour(&self, steps: Vec<FrameStep>) {
+        *self.shared.next_colour.lock().unwrap() = Some(steps);
     }
 
     /// Update stream parameters live (None keeps one; Some(None) passes the frame size through). A new fps restarts
@@ -688,6 +698,9 @@ impl Shared {
         let replaced = next_steps.is_some();
         if let Some(steps) = next_steps {
             publish.0.set_steps(steps);
+        }
+        if let Some(steps) = self.next_colour.lock().unwrap().take() {
+            publish.0.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
         let mut frame = match (rw, rh) {
@@ -1786,16 +1799,29 @@ mod tests {
 
     fn with_gate(steps: Vec<StagedStep>, vision: Option<VisionFeed>, frames: usize, gate: Option<Arc<crate::handover::ViewGate>>) -> Arc<Seen> {
         let seen = Arc::new(Seen::default());
+        let w = running(&seen, steps, vision, gate);
+        wait_for(|| seen.sources.lock().unwrap().len() >= frames);
+        w.stop();
+        seen
+    }
+
+    fn running(seen: &Arc<Seen>, steps: Vec<StagedStep>, vision: Option<VisionFeed>, gate: Option<Arc<crate::handover::ViewGate>>) -> StreamWorker {
         let opener: Opener = Arc::new(|| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
-        let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
-                                    telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
-        wait_for(|| seen.sources.lock().unwrap().len() >= frames);
+        StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                            telescope_media_free_slot(), Arc::new(|_| {})).unwrap()
+    }
+
+    #[test]
+    fn a_new_colour_step_takes_the_place_of_the_old_on_the_next_frame() {
+        let seen = Arc::new(Seen::default());
+        let w = running(&seen, Vec::new(), None, None);
+        w.set_colour(Vec::new());
+        wait_for(|| seen.replaced.lock().unwrap().iter().any(|o| o == "colour"));
         w.stop();
-        seen
     }
 
     #[test]

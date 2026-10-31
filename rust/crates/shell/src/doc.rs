@@ -7,7 +7,7 @@
 //! set_ui_props and UiEvents reach it by name.
 
 use telescope_core::i18n::Fields;
-use crate::layout::{Mode, Panels, Region};
+use crate::layout::{Mode, Panels, Region, WIDTH_THREE_COL, WIDTH_TWO_COL};
 use crate::source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
@@ -57,7 +57,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         }
     }
     out.push_str("export { Folds, Theme, Reveal }\n");
-    out.push_str(FRAME_TOP);
+    out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL));
 
     // Column geometry for each mode, relative to the body's left edge
     let cols = [Mode::Three, Mode::Two, Mode::One].map(|m| panels.columns(m));
@@ -224,6 +224,11 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
 }
 
 const FRAME_TOP: &str = r#"
+struct AddChoice {
+    id: string,
+    name: string,
+}
+
 export component TelescopeWindow inherits Window {
     in property <string> window-title: "Telescope";
     in property <string> start-text;
@@ -233,6 +238,7 @@ export component TelescopeWindow inherits Window {
     in property <bool> start-enabled: true;
     in property <bool> add-visible;
     in property <bool> add-enabled: true;
+    in property <[AddChoice]> add-choices;
     in property <[BannerData]> banners;
     in property <[TileData]> tiles;
     in property <string> status;
@@ -246,7 +252,7 @@ export component TelescopeWindow inherits Window {
     property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.text;
     callback start-clicked;
     callback settings-clicked;
-    callback add-clicked;
+    callback add-picked(string);
     callback banner-action(string, int);
     callback banner-dismissed(string);
     callback tile-focus(string);
@@ -265,7 +271,7 @@ export component TelescopeWindow inherits Window {
         clipboard.paste();
         return clipboard.text;
     }
-    out property <int> mode: root.width >= 1300px ? 0 : root.width >= 900px ? 1 : 2;
+    out property <int> mode: root.width >= {three}px ? 0 : root.width >= {two}px ? 1 : 2;
     in-out property <length> scroll0;
     in-out property <length> scroll1;
     in-out property <length> scroll2;
@@ -294,6 +300,18 @@ export component TelescopeWindow inherits Window {
 "#;
 
 const HEADER: &str = r#"
+    add-menu := ContextMenuArea {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        Menu {
+            for choice in root.add-choices: MenuItem {
+                title: choice.name;
+                activated => { root.add-picked(choice.id); }
+            }
+        }
+    }
     keys := FocusScope {
         x: 0;
         y: 0;
@@ -341,7 +359,7 @@ const HEADER: &str = r#"
                 label: @tr("Add camera");
                 tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
                 enabled: add-enabled;
-                clicked => { root.add-clicked(); }
+                clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
             }
             StartButton {
                 y: (parent.height - self.height) / 2;
@@ -466,6 +484,53 @@ export component Hinted inherits Card {
 
     fn piece(id: &str, file: &str, component: &str, text: &str) -> (Piece, (String, String)) {
         (Piece { id: id.into(), file: file.into(), component: component.into(), iface: scan(text, component) }, (file.into(), text.into()))
+    }
+
+    #[test]
+    fn the_window_changes_mode_at_the_widths_the_layout_names() {
+        i_slint_backend_testing::init_no_event_loop();
+        let text = window(&[], &Panels::default(), &[]);
+        let def = crate::compile::compile("window.slint", &text, vec![], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let win = def.create().unwrap();
+        win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        let mode = |width: f32| {
+            win.window().set_size(slint::LogicalSize::new(width, 800.0));
+            win.get_property("mode").unwrap()
+        };
+        let (three, two) = (WIDTH_THREE_COL, WIDTH_TWO_COL);
+        assert_eq!((three, two), (1300.0, 900.0));
+        for (width, want) in [(1400.0, 0.0), (three, 0.0), (three - 1.0, 1.0), (two, 1.0), (two - 1.0, 2.0), (600.0, 2.0)] {
+            assert_eq!(mode(width), Value::Number(want), "at {width}");
+        }
+    }
+
+    #[test]
+    fn a_narrow_window_stacks_every_card_in_one_column_the_stage_first() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (p0, f0) = piece("p0", "plugins/a/card.slint", "Stage", STAGE);
+        let (p1, f1) = piece("p1", "plugins/b/card.slint", "Stage", STAGE);
+        let (p2, f2) = piece("p2", "plugins/c/card.slint", "Stage", STAGE);
+        let place = |piece, region, name: &str| CardPlace { piece, region, fold_key: format!("{name}/Stage"), category: "preview".into() };
+        let cards = vec![place(p0, Region::Left, "a"), place(p1, Region::Center, "b"), place(p2, Region::Right, "c")];
+        let mut panels = Panels::default();
+        panels.place(Region::Left, 0, false, "preview");
+        panels.place(Region::Center, 1, false, "preview");
+        panels.place(Region::Right, 2, false, "preview");
+        let text = window(&cards, &panels, &[]);
+        let def = crate::compile::compile("window.slint", &text, vec![f0, f1, f2], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let win = def.create().unwrap();
+        win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        win.window().set_size(slint::LogicalSize::new(700.0, 800.0));
+        assert_eq!(win.get_property("mode").unwrap(), Value::Number(2.0));
+        assert_eq!(panels.columns(Mode::One).map(|c| c.0), [vec![1, 0, 2], vec![], vec![]]);
+        let at = |id: &str| {
+            let e = i_slint_backend_testing::ElementHandle::find_by_element_id(&win, &format!("TelescopeWindow::{id}")).next().unwrap();
+            let p = e.absolute_position();
+            (p.x, p.y)
+        };
+        let (b, a, c) = (at("p1"), at("p0"), at("p2"));
+        assert!(b.0 == a.0 && a.0 == c.0, "one column: {a:?} {b:?} {c:?}");
+        assert!(b.1 < a.1 && a.1 < c.1, "the stage, then left, then right: {a:?} {b:?} {c:?}");
     }
 
     #[test]

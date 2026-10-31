@@ -288,7 +288,7 @@ impl HostStreams for FakeHost {
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {
         self.canvas
     }
-    fn restart_vcam_canvas(&mut self, width: u32, height: u32) -> RequestId {
+    fn restart_vcam_canvas(&mut self, width: u32, height: u32, _shows_command: bool) -> RequestId {
         self.note(format!("restart_vcam_canvas {width}x{height}"));
         self.request()
     }
@@ -371,7 +371,7 @@ impl HostShell for FakeHost {
         self.note("restart_app");
         false
     }
-    fn diagnostics_report(&self) -> String {
+    fn diagnostics_report(&self, _own: &[(String, String)]) -> String {
         self.report.clone()
     }
     fn open_settings(&mut self, tab: &str) {

@@ -29,7 +29,7 @@ impl Address {
         if cfg!(windows) {
             Address::Port(INSTANCE_PORT + u16::from(dev))
         } else {
-            Address::Abstract(format!("telescope-{}{}", uid(), if dev { "-dev" } else { "" }))
+            Address::Abstract(instance_name(uid(), dev))
         }
     }
 
@@ -77,6 +77,10 @@ fn uid() -> u32 {
 #[cfg(not(unix))]
 fn uid() -> u32 {
     0
+}
+
+fn instance_name(uid: u32, dev: bool) -> String {
+    format!("telescope-{uid}{}", if dev { "-dev" } else { "" })
 }
 
 /// Who is running this copy, so a shared port (Windows) never raises another user's window.
@@ -413,8 +417,14 @@ pub fn answer(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Va
 /// Answers later launches on a thread of its own until the lock is dropped with the process.
 pub fn listen(lock: Lock, on_raise: impl Fn() + Send + 'static, on_action: impl Fn(Value) -> Value + Send + 'static,
               control_key: Option<String>) {
+    serve(move || lock.accept(), on_raise, on_action, control_key);
+}
+
+/// listen's thread: a connection that fails to come in doesn't stop the ones after it.
+fn serve(mut accept: impl FnMut() -> std::io::Result<Conn> + Send + 'static, on_raise: impl Fn() + Send + 'static,
+         on_action: impl Fn(Value) -> Value + Send + 'static, control_key: Option<String>) {
     std::thread::Builder::new().name("single-instance".into()).spawn(move || loop {
-        match lock.accept() {
+        match accept() {
             Ok(mut conn) => answer(&mut conn, &on_raise, Some(&on_action), control_key.as_deref()),
             Err(_) => std::thread::sleep(Duration::from_millis(100)),
         }
@@ -474,14 +484,22 @@ mod tests {
 
     impl Running {
         fn with_key(name: &str, key: impl FnOnce(&Path) -> Option<String>) -> Running {
-            let address = test_address(name);
+            Running::at(test_address(name), name, key, |accept| accept())
+        }
+
+        /// accept stands between the listener and the lock, for what it would do to a connection coming in.
+        fn at(address: Address, name: &str, key: impl FnOnce(&Path) -> Option<String>,
+              mut accept: impl FnMut(&dyn Fn() -> std::io::Result<Conn>) -> std::io::Result<Conn> + Send + 'static) -> Running {
             let Acquired::Lock(lock) = acquire(&address, Duration::ZERO) else { panic!("no lock") };
             let (raised, actions) = (Arc::new(Mutex::new(0)), Arc::new(Mutex::new(Vec::new())));
             let dir = std::env::temp_dir().join(format!("telescope-si-{name}-{}", std::process::id()));
             std::fs::create_dir_all(&dir).unwrap();
             let control_key = key(&control_key_path(&dir.join("telescope_config.json")));
             let (r, a) = (raised.clone(), actions.clone());
-            listen(lock, move || *r.lock().unwrap() += 1, move |request| {
+            serve(move || accept(&|| lock.accept()), move || {
+                std::thread::sleep(Duration::from_millis(30)); // the answer waits for the window to have been raised
+                *r.lock().unwrap() += 1;
+            }, move |request| {
                 a.lock().unwrap().push(request);
                 json!({"ok": true, "text": "Torch: on"})
             }, control_key);
@@ -505,7 +523,7 @@ mod tests {
             let mut c = connect(&self.address, Duration::from_secs(5)).unwrap();
             c.write_all(words).unwrap();
             let mut reply = Vec::new();
-            let _ = c.read_to_end(&mut reply); // read_to_end returning means it closed the connection
+            c.read_to_end(&mut reply).expect("it closes the connection, this read doesn't time out");
             reply
         }
 
@@ -530,7 +548,13 @@ mod tests {
     #[test]
     fn listen_for_raise_invokes_callback_and_closes_connection() {
         let run = Running::new("closes");
-        assert_eq!(run.raise(), b"ok"); // says() only returns once the other end closed
+        let mut c = connect(&run.address, Duration::from_secs(5)).unwrap();
+        c.write_all(&[RAISE, user_token().as_bytes()].concat()).unwrap();
+        let mut reply = [0u8; 2];
+        c.read_exact(&mut reply).unwrap();
+        assert_eq!(&reply, b"ok");
+        assert_eq!(run.raises(), 1, "raised before it answered");
+        assert_eq!(c.read(&mut reply).unwrap(), 0, "and closed after");
     }
 
     #[test]
@@ -542,6 +566,16 @@ mod tests {
     }
 
     #[test]
+    fn a_connection_that_fails_to_come_in_doesnt_stop_the_listener() {
+        let mut tries = 0;
+        let run = Running::at(test_address("accept-fails"), "accept-fails", write_control_key, move |accept| {
+            tries += 1;
+            if tries == 1 { Err(ErrorKind::TimedOut.into()) } else { accept() }
+        });
+        assert_eq!(run.raise(), b"ok");
+    }
+
+    #[test]
     fn a_silent_connection_does_not_stop_later_raises() {
         // Anything on this machine that connects and says nothing used to block the listener for good
         let run = Running::new("silent-peer");
@@ -550,11 +584,20 @@ mod tests {
         drop(silent);
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_reset_connection_does_not_stop_later_raises() {
-        let run = Running::new("reset");
-        drop(connect(&run.address, Duration::from_secs(5)).unwrap());
-        std::thread::sleep(Duration::from_millis(50));
+        use std::os::fd::AsRawFd;
+        let address = Address::Port(47850 + (std::process::id() % 50) as u16);
+        let run = Running::at(address, "reset", write_control_key, |accept| accept());
+        let Conn::Tcp(rude) = connect(&run.address, Duration::from_secs(5)).unwrap() else { panic!("a port") };
+        let linger = libc::linger { l_onoff: 1, l_linger: 0 };
+        // SAFETY: the socket is open and linger is the size given
+        let set = unsafe { libc::setsockopt(rude.as_raw_fd(), libc::SOL_SOCKET, libc::SO_LINGER, (&raw const linger).cast(), size_of::<libc::linger>() as u32) };
+        assert_eq!(set, 0);
+        std::thread::sleep(Duration::from_millis(200)); // the listener is waiting in its read
+        drop(rude); // sends a reset
+        std::thread::sleep(Duration::from_millis(200));
         assert_eq!(run.raise(), b"ok");
     }
 
@@ -582,9 +625,17 @@ mod tests {
     #[test]
     fn a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok() {
         let run = Running::new("second-copy");
-        assert!(matches!(acquire(&run.address, Duration::ZERO), Acquired::Raised));
+        let second = acquire(&run.address, Duration::ZERO);
+        assert!(matches!(second, Acquired::Raised));
+        assert!(notice(&second, &run.address).is_none(), "the second copy just goes");
         assert_eq!(run.raises(), 1);
         assert!(matches!(acquire(&test_address("second-copy-another-user"), Duration::ZERO), Acquired::Lock(_)), "a different user's name binds alongside");
+        let other_users = instance_name(4242424, false);
+        assert!(other_users.starts_with("telescope-4242424"));
+        if cfg!(target_os = "linux") {
+            assert_eq!(Address::for_profile(false), Address::Abstract(instance_name(uid(), false)));
+            assert_ne!(Address::for_profile(false), Address::Abstract(other_users));
+        }
     }
 
     #[test]
@@ -615,7 +666,7 @@ mod tests {
     #[test]
     fn a_raise_still_works_next_to_actions() {
         let run = Running::new("raise-and-action");
-        assert_eq!(send_action(&run.address, &run.key_path(), &json!({"action": "x"})).0, true);
+        assert!(send_action(&run.address, &run.key_path(), &json!({"action": "x"})).0);
         assert_eq!(run.raise(), b"ok");
     }
 

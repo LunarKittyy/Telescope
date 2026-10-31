@@ -84,7 +84,7 @@ pub struct Window {
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
-    plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
+    pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
 }
 
@@ -316,6 +316,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         popout_asks: Cell::new(0),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
+    window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
     // Events emitted from other threads get delivered on this one
     window.state.borrow().bus.set_waker(|| {
         let _ = slint::invoke_from_event_loop(|| with_window(|w| w.process()));
@@ -427,6 +428,13 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("add-picked", move |args| {
+            if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
+                w.with_flow(|flow, host| flow.add_stream(host, id));
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("tile-stop", move |args| {
             if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
                 let id = id.to_string();
@@ -522,10 +530,7 @@ impl Window {
             Pressed::Action(IssueDoes::OpenUrl { url }) => self.follow_url(&url),
             Pressed::Action(IssueDoes::StartAgain { source_id, before }) => {
                 // The plugin that showed it changes something first (Connect via back to Automatic)
-                if let Some(before) = before {
-                    self.tell_issue(key, &before);
-                }
-                self.start_source(source_id);
+                self.start_source(source_id, before.map(|action| (key.to_string(), action)));
             }
             Pressed::Action(IssueDoes::Plugin { id }) => self.tell_issue(key, &id),
             Pressed::Action(IssueDoes::CameraOnAgain { source_id }) => {
@@ -548,7 +553,7 @@ impl Window {
     }
 
     /// A banner's plugin button: every plugin hears it and the one that showed it knows its key.
-    fn tell_issue(&self, key: &str, id: &str) {
+    pub(crate) fn tell_issue(&self, key: &str, id: &str) {
         let (key, id) = (key.to_string(), id.to_string());
         self.state.borrow_mut().each(|p, host| p.on_issue_action(host, &key, &id));
     }
@@ -570,6 +575,7 @@ impl Window {
 
     /// Delivers queued events and carries out what plugins asked for, until nothing more comes.
     pub fn process(self: &Rc<Self>) {
+        self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
             self.state.borrow_mut().deliver_events();
             let effects: Vec<Effect> = std::mem::take(&mut self.state.borrow_mut().effects);
@@ -581,6 +587,7 @@ impl Window {
             }
         }
         self.sync_camera();
+        self.show_add_button();
         self.show_banners();
         self.paint_pick();
         self.paint_layers();
@@ -891,6 +898,7 @@ impl Window {
             });
             slint::CloseRequestResponse::HideWindow
         });
+        crate::keys::watch_plugin_keys(ui.window(), Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
@@ -909,7 +917,7 @@ impl Window {
         };
         let Some((_, _, ui)) = gone else { return };
         let _ = ui.hide();
-        drop(ui);
+        slint::Timer::single_shot(Duration::ZERO, move || drop(ui)); // a key the plugin answered by closing it is still on its way out of it
         self.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: "closed".into(), args: Vec::new() });
         self.process();
     }
@@ -993,11 +1001,11 @@ impl Window {
                 }
             }
             Effect::Start { interactive } => {
-                if !self.is_streaming() {
+                if !self.is_streaming() && !self.streams.flow.borrow().sessions.preparing {
                     self.with_flow(|flow, host| flow.start(host, interactive, None));
                 }
             }
-            Effect::StartAgain(id) => self.start_source(id),
+            Effect::StartAgain(id) => self.start_source(id, None),
             Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
             Effect::StopAll => self.stop_all_streams(),
             Effect::Reconnect(id) => self.with_flow(move |flow, host| flow.reconnect_stream(host, id.as_deref())),
@@ -1054,7 +1062,7 @@ impl Window {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
                 crate::settings::set_hues(on);
             }
-            Effect::RestartCanvas { plugin, request } => self.restart_canvas(&plugin, request),
+            Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
             Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
             Effect::PickFile { plugin, request, dialog } => {

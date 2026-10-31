@@ -172,10 +172,10 @@ impl HostStreams for Ctx<'_> {
     fn canvas_size(&self) -> (Option<u32>, Option<u32>) {
         self.state.plugin_config("setup").map_or((None, None), |setup| telescope_core::canvas::canvas_dims(&setup))
     }
-    fn restart_vcam_canvas(&mut self, _width: u32, _height: u32) -> RequestId {
+    fn restart_vcam_canvas(&mut self, _width: u32, _height: u32, shows_command: bool) -> RequestId {
         // The sizes aren't needed: the restart reads the canvas from Setup's settings, as app.py's does
         let request = self.state.request_id();
-        self.state.effects.push(Effect::RestartCanvas { plugin: self.me.clone(), request });
+        self.state.effects.push(Effect::RestartCanvas { plugin: self.me.clone(), request, shows_command });
         request
     }
     fn stream_output(&self, source_id: &str) -> String {
@@ -212,6 +212,9 @@ impl HostCamera for Ctx<'_> {
         self.state.streams.can_turn_off.clone()
     }
     fn set_camera_on(&mut self, on: bool, auto: bool) {
+        // Asked from inside a plugin, so it happens after this call; a plugin reading it back has the answer now
+        self.state.streams.camera_off = !on;
+        self.state.streams.camera_off_auto = !on && auto;
         self.state.effects.push(Effect::CameraOn { on, auto });
     }
 }
@@ -253,10 +256,10 @@ impl HostShell for Ctx<'_> {
         self.state.effects.push(Effect::Restart);
         true
     }
-    fn diagnostics_report(&self) -> String {
+    fn diagnostics_report(&self, own: &[(String, String)]) -> String {
         use telescope_core::diagnostics::{events, report_for};
         let hooks = crate::window::app_hooks();
-        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics(), crate::window::windowing())
+        report_for(events(), &(hooks.build)(), (hooks.commit)(), &self.state.diagnostics_with(own), crate::window::windowing())
     }
     fn open_url(&mut self, url: &str) {
         self.state.effects.push(Effect::OpenUrl(url.into()));

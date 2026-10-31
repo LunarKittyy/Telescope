@@ -257,7 +257,8 @@ pub trait HostStreams {
     /// The canvas Setup asks for, or (None, None) for Auto.
     fn canvas_size(&self) -> (Option<u32>, Option<u32>);
     /// Recreate the virtual camera at a new size; RequestDone says how it went (data: {"command": ...} to run by hand).
-    fn restart_vcam_canvas(&mut self, width: u32, height: u32) -> RequestId;
+    /// A RequestDone says how it went. shows_command: the plugin shows a command to run by hand itself; otherwise a banner does.
+    fn restart_vcam_canvas(&mut self, width: u32, height: u32, shows_command: bool) -> RequestId;
     fn stream_output(&self, source_id: &str) -> String;
     /// (source id, width, height) of the stream going to this virtual camera slot.
     fn stream_on_camera(&self, slot: u32) -> Option<(String, Option<u32>, Option<u32>)>;
@@ -297,7 +298,8 @@ pub trait HostShell {
     fn toggle_window(&mut self) -> bool;
     fn quit_app(&mut self);
     fn restart_app(&mut self) -> bool;
-    fn diagnostics_report(&self) -> String;
+    /// own: the lines of the plugin asking, which is busy with this call.
+    fn diagnostics_report(&self, own: &[(String, String)]) -> String;
     fn open_settings(&mut self, tab: &str);
     /// Every plugin's actions, in registration order, as (plugin, action).
     fn shortcut_actions(&self) -> Vec<(String, crate::ui::ActionSpec)>;
