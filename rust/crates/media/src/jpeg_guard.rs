@@ -67,9 +67,15 @@ pub fn within_limits(data: &[u8]) -> bool {
     w > 0 && w <= MAX_SIDE && h > 0 && h <= MAX_SIDE && w as u64 * h as u64 <= MAX_PIXELS
 }
 
+/// What decode makes of the JPEG, which it only gets to see if the size it declares is worth decoding.
+pub fn decode_checked<T>(data: &[u8], decode: impl FnOnce(&[u8]) -> Option<T>) -> Option<T> {
+    if within_limits(data) { decode(data) } else { None }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::mjpeg::Mjpeg;
 
     /// A minimal baseline JPEG header: SOI, an APP0, a DQT, SOF0 for w x h, a DHT, then SOS.
     pub(crate) fn header(w: u16, h: u16, sof: u8) -> Vec<u8> {
@@ -95,15 +101,23 @@ pub(crate) mod tests {
         out
     }
 
+    // Made by Python's _jpeg with cv2.imencode
+    const CV2_64X48: &[u8] = include_bytes!("../fixtures/jpeg/cv2_64x48.jpg");
+    const CV2_33X7: &[u8] = include_bytes!("../fixtures/jpeg/cv2_33x7.jpg");
+    const CV2_PROGRESSIVE: &[u8] = include_bytes!("../fixtures/jpeg/cv2_80x60_progressive.jpg");
+
     #[test]
     fn reads_the_size_of_real_encoder_output() {
-        assert_eq!(jpeg_size(&header(64, 48, 0xC0)), Some((64, 48)));
-        assert_eq!(jpeg_size(&header(33, 7, 0xC0)), Some((33, 7)));
+        assert_eq!(jpeg_size(CV2_64X48), Some((64, 48)));
+        assert_eq!(jpeg_size(CV2_33X7), Some((33, 7)));
+        let decoded = Mjpeg::new().unwrap().decode_jpeg(CV2_33X7).expect("a real JPEG decodes");
+        assert_eq!((decoded.width, decoded.height), (33, 7));
     }
 
     #[test]
     fn reads_a_progressive_jpeg() {
-        assert_eq!(jpeg_size(&header(80, 60, 0xC2)), Some((80, 60)));
+        assert!(CV2_PROGRESSIVE.windows(2).any(|p| p == [0xFF, 0xC2]));
+        assert_eq!(jpeg_size(CV2_PROGRESSIVE), Some((80, 60)));
     }
 
     #[test]
@@ -157,9 +171,11 @@ pub(crate) mod tests {
             b"", b"\xff", b"\xff\xd8", b"not a jpeg at all", b"\xff\xd8\xff\xda\x00\x02", b"\xff\xd8\xff\xc0\x00",
             b"\xff\xd8\xff\xc0\x00\x0b\x08\x00", b"\xff\xd8\x00\x00", b"\xff\xd8\xff\xe0\x00\x01", b"\xff\xd8\xff\xe0\xff\xff\x00",
         ];
+        let mut dec = Mjpeg::new().unwrap();
         for data in cases {
             assert_eq!(jpeg_size(data), None, "{data:?}");
             assert!(!within_limits(data));
+            assert!(dec.decode_jpeg(data).is_none(), "{data:?}");
         }
     }
 

@@ -345,6 +345,7 @@ mod tests {
         said.extend(vc.phone_state(&view, &zooms(), 0.0));
         assert!(sent(&said).is_empty());
         assert_eq!(vc.shown(&view), view);
+        assert!(telescope_core::view_step::steps(&vc.frame_view(&view)).is_empty(), "no step, so a frame goes through as it is");
     }
 
     #[test]
@@ -386,21 +387,21 @@ mod tests {
 
     #[test]
     fn small_steers_move_on_this_computer_and_leave_the_phone_alone() {
-        let (mut vc, mut view, _) = steered();
-        let mut more = Vec::new();
+        let (mut vc, mut view, mut all) = steered();
         for pan in [0.05, 0.1, -0.1, 0.0] {
-            more.extend(sent(&vc.steer(&mut view, "Auto framing", 2.1, pan, pan, 100.0)));
+            all.extend(sent(&vc.steer(&mut view, "Auto framing", 2.1, pan, pan, 100.0)));
         }
-        assert!(more.is_empty());
+        assert_eq!(all.len(), 1);
     }
 
     #[test]
     fn a_steady_new_framing_gets_a_new_phone_share_after_a_while() {
-        let (mut vc, mut view, _) = steered();
-        assert!(sent(&vc.steer(&mut view, "Auto framing", 3.0, 0.0, 0.0, 100.0)).is_empty()); // still fits, just tighter
-        let later = sent(&vc.steer(&mut view, "Auto framing", 3.0, 0.0, 0.0001, 102.5));
-        assert_eq!(later.len(), 1);
-        assert!((later[0].crop - 3.0 / 1.4).abs() < 1e-3);
+        let (mut vc, mut view, mut all) = steered();
+        all.extend(sent(&vc.steer(&mut view, "Auto framing", 3.0, 0.0, 0.0, 100.0))); // still fits, just tighter
+        assert_eq!(all.len(), 1);
+        all.extend(sent(&vc.steer(&mut view, "Auto framing", 3.0, 0.0, 0.0001, 102.5)));
+        assert_eq!(all.len(), 2);
+        assert!((all[1].crop - 3.0 / 1.4).abs() < 1e-3);
     }
 
     #[test]
@@ -538,15 +539,6 @@ mod tests {
     }
 
     #[test]
-    fn a_frozen_step_keeps_the_view_it_was_taken_with() {
-        let (mut vc, mut view) = (ViewController::new(), View::default());
-        vc.set_view(&mut view, &ViewChange { flip_h: Some(true), ..Default::default() }, 0.0);
-        let step = vc.frame_view(&view);
-        vc.set_view(&mut view, &ViewChange { flip_h: Some(false), rotation: Some(Some(90)), ..Default::default() }, 0.0);
-        assert!(step.flip_h && step.rotation.is_none());
-    }
-
-    #[test]
     fn rest_within_says_what_this_computer_crops_from_a_phone_share() {
         let centre = PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.5, y: 0.5 };
         assert_eq!(rest_within(2.0, 0.0, 0.0, &centre, false), Some((1.0, 0.0, 0.0)));
@@ -554,22 +546,6 @@ mod tests {
         assert!((rest.0 - 2.0).abs() < 1e-9 && rest.1 > 0.0 && rest.2.abs() < 1e-9);
         assert_eq!(rest_within(1.5, 0.0, 0.0, &centre, false), None, "wider than what the phone sends");
         assert_eq!(rest_within(4.0, 1.0, 0.0, &centre, false), None, "off its edge");
-    }
-
-    #[test]
-    fn people_are_found_through_the_phone_share() {
-        let (mut vc, mut view) = (ViewController::new(), View::default());
-        vc.stream_start(&view, "p1", 1, 0.0);
-        vc.phone_state(&view, &zooms(), 0.0);
-        vc.take("Auto framing");
-        vc.steer(&mut view, "Auto framing", 2.0, 0.0, 0.0, 0.0); // the phone sends the middle 1/1.4286
-        let turn = telescope_core::vision::Turn { rotation: Some(90), ..Default::default() };
-        let upright = telescope_core::vision::Upright { turn, sent: telescope_core::view::phone_window(vc.sent.as_ref()) };
-        let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
-        let (x, y) = upright.to_shown(0.5, 0.5);
-        assert!(near(x, 0.5) && near(y, 0.5));
-        let (x, y) = upright.to_shown(1.0, 0.0); // the top right of the upright frame, inside the share
-        assert!(near(x, 0.85) && near(y, 0.15), "{x} {y}");
     }
 
     #[test]

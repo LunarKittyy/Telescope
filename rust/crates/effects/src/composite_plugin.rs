@@ -36,10 +36,6 @@ const STALE_NS: u64 = (STALE_S * 1e9) as u64;
 const SWITCH_TIP: &str = n_("Send the streams out as one picture");
 const LAYOUT_TIP: &str = n_("A layout you saved in the editor");
 
-fn age(frame: &Frame, now: u64) -> u64 {
-    now.saturating_sub(frame.time_ns)
-}
-
 /// What the frame steps of every stream, the clock and the plugin share.
 pub(crate) struct Hub {
     pub(crate) on: bool,
@@ -101,7 +97,7 @@ impl Shared {
                     let n = sf.frame.number;
                     out.insert(sf.source_id, (sf.frame, Some(n)));
                 }
-            } else if age(&sf.frame, now) < STALE_NS {
+            } else if sf.age(now) < STALE_NS {
                 let n = sf.frame.number;
                 out.insert(sf.source_id, (sf.frame, Some(n)));
             }

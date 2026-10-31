@@ -695,7 +695,7 @@ impl Window {
     }
 
     /// _on_worker_status: the footer for the shown stream, the tile and recovery for the others.
-    fn worker_status(self: &Rc<Self>, source: &SourceRef, kind: &str, msg: &str) {
+    pub fn worker_status(self: &Rc<Self>, source: &SourceRef, kind: &str, msg: &str) {
         source.state.borrow_mut().note_status(kind, msg);
         let (active, several) = {
             let flow = self.streams.flow.borrow();

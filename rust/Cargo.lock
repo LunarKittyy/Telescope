@@ -5677,6 +5677,7 @@ dependencies = [
  "image",
  "libc",
  "log",
+ "proc-macro2",
  "qrcode",
  "serde_json",
  "slint",

@@ -1665,6 +1665,9 @@ mod tests {
         steps_at_first: Mutex<Vec<usize>>,
         /// The first byte of each frame's person mask.
         masks: Mutex<Vec<u8>>,
+        /// Each tap this media handed out, and whether a decoder got the first, which is the one the worker keeps.
+        tap: Mutex<Vec<Arc<dyn PacketTap>>>,
+        tap_was_its_own: Mutex<Vec<bool>>,
     }
 
     struct Tap;
@@ -1721,8 +1724,9 @@ mod tests {
             self.0.plain.lock().unwrap().push(codec);
             Ok(Box::new(Jpeg))
         }
-        fn decoder_with_tap(&self, codec: Codec, _options: &DecodeOptions, _tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
+        fn decoder_with_tap(&self, codec: Codec, _options: &DecodeOptions, tap: Arc<dyn PacketTap>) -> Result<Box<dyn Decoder>, String> {
             self.0.tapped.lock().unwrap().push(codec);
+            self.0.tap_was_its_own.lock().unwrap().push(Arc::ptr_eq(&tap, &self.0.tap.lock().unwrap()[0]));
             Ok(Box::new(Jpeg))
         }
         fn frame_reader(&self, feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
@@ -1730,7 +1734,9 @@ mod tests {
             Ok(Box::new(Reader(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None })))
         }
         fn packet_tap(&self) -> Option<Arc<dyn PacketTap>> {
-            Some(Arc::new(Tap))
+            let tap: Arc<dyn PacketTap> = Arc::new(Tap);
+            self.0.tap.lock().unwrap().push(tap.clone());
+            Some(tap)
         }
         fn scaler(&self) -> Box<dyn Scaler> {
             Box::new(Rgb)
@@ -1741,12 +1747,16 @@ mod tests {
     }
 
     fn watched(url: &str, codec: Codec) -> Arc<Seen> {
+        watched_as("phone-1", url, codec)
+    }
+
+    fn watched_as(source: &str, url: &str, codec: Codec) -> Arc<Seen> {
         let seen = Arc::new(Seen::default());
         let opener: Opener = Arc::new(move || {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
+                                  source_id: source.into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
@@ -1755,8 +1765,13 @@ mod tests {
         seen
     }
 
-    /// A person mask that says which frame it was worked out for, once per number as the service does.
-    struct Masks;
+    /// A person mask that says which frame it was worked out for, once per number as the service does; with a list, it
+    /// wants people and notes what it's fed.
+    #[derive(Default)]
+    struct Masks(Option<Fed>);
+
+    /// What a vision service was fed.
+    type Fed = Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>>;
 
     impl telescope_core::vision::VisionService for Masks {
         fn attach(&self, _bus: telescope_core::BusSender) {}
@@ -1769,9 +1784,13 @@ mod tests {
         }
         fn want_people(&self, _owner: &str, _on: bool) {}
         fn wants_people(&self) -> bool {
-            false
+            self.0.is_some()
         }
-        fn feed_raw(&self, _source_id: &str, _frame: &Frame, _upright: telescope_core::vision::Upright) {}
+        fn feed_raw(&self, _source_id: &str, frame: &Frame, upright: telescope_core::vision::Upright) {
+            if let Some(fed) = &self.0 {
+                fed.lock().unwrap().push((frame.clone(), upright));
+            }
+        }
         fn tracked_people(&self, _source_id: &str) -> (Vec<serde_json::Value>, u32) {
             (Vec::new(), 0)
         }
@@ -1849,16 +1868,54 @@ mod tests {
 
     #[test]
     fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
-        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
+        let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
         let seen = with_steps(Vec::new(), Some(vision), 2);
         let masks = seen.masks.lock().unwrap();
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
     }
 
+    // test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share
+    #[test]
+    fn people_are_found_in_the_picture_as_shown_through_the_phone_share() {
+        use telescope_core::host::ViewChange;
+        let path = telescope_core::testing::scratch_dir("people-share").join("telescope_config.json");
+        let mut s = crate::shell::State::new(telescope_core::config::ConfigFile::at(path));
+        let fed = Fed::default();
+        s.vision = Some(Arc::new(Masks(Some(fed.clone()))));
+        s.streams.source_id = Some("phone-1".into());
+        let zooms = serde_json::json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
+        let said = s.vc.stream_start(&s.view, "phone-1", 1, 0.0);
+        s.apply_said(said);
+        let said = s.vc.phone_state(&s.view, &zooms, 0.0);
+        s.apply_said(said);
+        let said = s.vc.take("Auto framing").1;
+        s.apply_said(said);
+        let st = &mut s;
+        let said = st.vc.steer(&mut st.view, "Auto framing", 2.0, 0.0, 0.0, 0.0); // the phone sends the middle 1/1.4286
+        st.apply_said(said);
+        let said = st.vc.set_view(&mut st.view, &ViewChange { rotation: Some(Some(90)), ..Default::default() }, 0.0);
+        st.apply_said(said);
+        with_steps(Vec::new(), s.vision_feed(), 1);
+        let fed = fed.lock().unwrap();
+        let (frame, upright) = &fed[0];
+        assert_eq!(upright.turn.rotation, Some(90), "the model gets the picture as shown (view_pixels checks the turned size)");
+        assert_eq!(s.view_aspect(), frame.height as f32 / frame.width as f32);
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
+        let (x, y) = upright.to_shown(0.5, 0.5);
+        assert!(near(x, 0.5) && near(y, 0.5));
+        let (x, y) = upright.to_shown(1.0, 0.0); // the top right of the upright frame, inside the share
+        assert!(near(x, 0.85) && near(y, 0.15), "{x} {y}");
+    }
+
+    // Which kind of feed a URL gets is link's (feeds::a_feed_goes_by_what_the_url_asks_for); here the worker gets what link hands it
     #[test]
     fn the_stream_worker_gives_its_tap_to_light_readers_only() {
-        let light = watched("https://phone/v1/video.h264", Codec::H264);
-        assert_eq!(*light.tapped.lock().unwrap(), [Codec::H264]);
+        for url in ["https://phone/v1/video.h264", "https://phone/v1/video.udp"] {
+            let light = watched(url, Codec::H264);
+            assert_eq!(*light.tapped.lock().unwrap(), [Codec::H264]);
+            assert_eq!(*light.tap_was_its_own.lock().unwrap(), [true]);
+            assert!(light.plain.lock().unwrap().is_empty());
+        }
         let heavy = watched("https://phone/v1/video", Codec::Mjpeg);
         assert!(heavy.tapped.lock().unwrap().is_empty());
         assert!(heavy.plain.lock().unwrap().iter().all(|c| *c == Codec::Mjpeg));
@@ -1868,17 +1925,21 @@ mod tests {
     fn both_readers_hand_their_tap_to_the_decoder() {
         // TCP and UDP H.264 both come from link as H.264 feeds
         for url in ["https://phone/v1/video.h264", "https://phone/v1/video.udp"] {
-            assert_eq!(*watched(url, Codec::H264).tapped.lock().unwrap(), [Codec::H264]);
+            let seen = watched(url, Codec::H264);
+            assert_eq!(*seen.tapped.lock().unwrap(), [Codec::H264]);
+            assert_eq!(*seen.tap_was_its_own.lock().unwrap(), [true]);
         }
     }
 
     #[test]
     fn a_frame_step_can_tell_which_stream_its_frame_is_from() {
-        let seen = watched("https://phone/v1/video.h264", Codec::H264);
-        let sources = seen.sources.lock().unwrap();
-        assert!(!sources.is_empty() && sources.iter().all(|s| s == "phone-1"));
-        drop(sources);
+        for source in ["a", "b"] {
+            let seen = watched_as(source, "https://phone/v1/video.h264", Codec::H264);
+            let sources = seen.sources.lock().unwrap();
+            assert!(!sources.is_empty() && sources.iter().all(|s| s == source), "{sources:?}");
+        }
         // and which frame it is: what a person mask is worked out once by
+        let seen = watched("https://phone/v1/video.h264", Codec::H264);
         let w = running(&seen, Vec::new(), None, None);
         assert!(w.shared.publish(1_000, Frame::new(6, 4, PixelFormat::Rgba, vec![0; 6 * 4 * 4])));
         assert_eq!(seen.numbers.lock().unwrap().last(), Some(&1_000));

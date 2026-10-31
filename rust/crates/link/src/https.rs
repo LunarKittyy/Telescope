@@ -569,7 +569,9 @@ pub(crate) mod testing {
         let Some(req) = read_request(stream) else { return };
         seen.lock().unwrap().push(req.clone());
         let (status, kind, body) = handler(&req);
-        let head = format!("HTTP/1.1 {status} {}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        // A redirect goes somewhere a client could really follow it to
+        let location = if status == 302 { "Location: /v1/ping\r\n" } else { "" };
+        let head = format!("HTTP/1.1 {status} {}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\n{location}Connection: close\r\n\r\n",
                            reason(status), body.len());
         let _ = stream.write_all(head.as_bytes());
         let _ = stream.write_all(&body);
