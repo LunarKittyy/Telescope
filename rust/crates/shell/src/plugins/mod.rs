@@ -7,6 +7,7 @@ pub mod presets;
 pub mod preview;
 
 use std::sync::Arc;
+use telescope_core::output::SetupAction;
 use telescope_core::plugin::Plugin;
 use telescope_core::services::Services;
 use telescope_core::BusSender;
@@ -18,9 +19,13 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
         let outputs = s.outputs.clone();
         Arc::new(move || !outputs.slots().is_empty()) as onboarding::VcamCheck
     });
+    let install = services.map(|s| {
+        let outputs = s.outputs.clone();
+        Arc::new(move || outputs.set_up(SetupAction::Install { devices: 1, reset: false }, &|_| {})) as onboarding::VcamInstall
+    });
     vec![
         Box::new(camera_control::CameraControl::default()),
-        Box::new(onboarding::Onboarding::new(vcam, Some(bus.clone()))),
+        Box::new(onboarding::Onboarding::new(vcam, install, Some(bus.clone()))),
         Box::new(preview::Preview::default()),
         Box::new(presets::PresetsPlugin::new()),
     ]
