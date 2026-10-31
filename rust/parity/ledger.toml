@@ -2273,8 +2273,8 @@
 "test_browser_camera.py::test_the_server_stays_up_while_a_browser_streams_behind_another" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::the_server_stays_up_while_a_browser_streams_behind_another" }
 "test_browser_camera.py::test_two_browsers_of_one_kind_are_told_apart_in_the_picker" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::two_browsers_of_one_kind_are_told_apart_in_the_picker" }
 "test_browser_camera.py::test_waiting_hint_points_at_the_step_that_failed" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::waiting_hint_points_at_the_step_that_failed" }
-"test_browser_camera.py::test_without_aiortc_it_says_so_and_start_fails" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::without_aiortc_it_says_so_and_start_fails", note = "WebRTC is built in; the test is a server that won't start" }
-"test_browser_camera.py::test_without_cryptography_it_says_so_and_start_fails" = { status = "ported", rust = "rust/crates/link/src/browser/plugin_tests.rs::without_cryptography_it_says_so_and_start_fails", note = "the certificate is built in; the test is a server that can't be made" }
+"test_browser_camera.py::test_without_aiortc_it_says_so_and_start_fails" = { status = "dropped", reason = "Proposed: WebRTC is str0m, built into the app, so there's no optional package to be missing. A server that won't start is covered by rust/crates/link/src/browser/plugin_tests.rs::a_server_that_wont_start_says_why_and_start_fails" }
+"test_browser_camera.py::test_without_cryptography_it_says_so_and_start_fails" = { status = "dropped", reason = "Proposed: certificates are made with ring, built into the app, so there's no optional package to be missing. A server that can't be made is covered by rust/crates/link/src/browser/plugin_tests.rs::a_server_that_cant_be_made_says_why_and_start_fails" }
 # ── browser_page
 "test_browser_page.py::test_every_scenario_is_run" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::every_scenario_is_run" }
 "test_browser_page.py::test_page_scenario" = { status = "ported", rust = "rust/crates/link/src/browser/page_tests.rs::page_scenario" }
@@ -4659,15 +4659,15 @@
 "test_webcams.py::test_scanning_lists_capture_nodes_and_skips_the_rest" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::scanning_lists_capture_nodes_and_skips_the_rest" }
 "test_webcams.py::test_sizes_and_rates_for_the_card" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::sizes_and_rates_for_the_card" }
 "test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::telescopes_own_and_loopback_cameras_are_virtual" }
-"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin" }
-"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::the_reader_hands_out_the_frame_it_checked_first" }
+"test_webcams.py::test_the_control_client_has_no_phone_and_no_mic" = { status = "ported", rust = "rust/crates/outputs/src/webcam/tests.rs::the_source_reads_through_the_plugin", note = "ctrl.auth.headers() has no twin: ControlClient has no auth" }
+"test_webcams.py::test_the_reader_hands_out_the_frame_it_checked_first" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::the_reader_hands_out_the_frame_it_checked_first", note = "Python's last_frame_bytes == 0 is for MJPEG that DirectShow hands over decoded; here a packet is always the bytes as they came, so that case can't happen" }
 "test_webcams.py::test_two_cameras_of_one_model_are_numbered" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::two_cameras_of_one_model_are_numbered" }
 "test_webcams.py::test_unplugging_mid_stream_drops_the_stream_and_says_so" = { status = "ported", rust = "rust/crates/outputs/src/webcam_capture.rs::unplugging_mid_stream_drops_the_stream_and_says_so" }
 "test_webcams.py::test_usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::usb_webcams_are_keyed_from_sysfs_without_waiting_for_udev" }
 "test_webcams.py::test_v4l2_structs_match_the_kernel" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::v4l2_structs_match_the_kernel" }
 "test_webcams.py::test_virtual_cameras_are_told_apart_by_name" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::virtual_cameras_are_told_apart_by_name" }
 "test_webcams.py::test_who_uses_finds_the_program_holding_the_device" = { status = "ported", rust = "rust/crates/outputs/src/webcams/tests.rs::who_uses_finds_the_program_holding_the_device" }
-"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "ported", rust = "rust/crates/outputs/src/webcams_win.rs::media_types_become_modes_as_qt_listed_them" }
+"test_webcams.py::test_windows_lists_qt_cameras_at_their_directshow_index" = { status = "todo", note = "only the media type to mode step is tested (webcams_win.rs::media_types_become_modes_as_qt_listed_them); enumeration, skipping virtual cameras and keys are inside the cfg(windows) scanner and haven't run in a test" }
 # ── widgets
 "test_widgets.py::test_a_picked_segment_keeps_room_for_its_bold_text" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_picked_segment_keeps_room_for_its_bold_text" }
 "test_widgets.py::test_a_rows_controls_get_its_label_as_their_screen_reader_name" = { status = "ported", rust = "rust/crates/shell/tests/widgets_ui.rs::a_rows_controls_get_its_label_as_their_screen_reader_name", note = "each control is given its row label in its .slint, not found for it afterwards" }

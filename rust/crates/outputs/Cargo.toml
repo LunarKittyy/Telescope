@@ -26,4 +26,5 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Media
 
 [dev-dependencies]
 slint-interpreter.workspace = true
+telescope-media.workspace = true
 telescope-ui-kit.workspace = true

@@ -114,11 +114,6 @@ impl telescope_core::media::VideoFeed for WebcamFeed {
     }
 }
 
-/// What crossed the cable for one packet: the JPEG, or about two bytes a pixel raw (YUYV).
-pub fn cable_bytes(choice: &Choice, packet_len: usize) -> u64 {
-    if choice.compressed() { packet_len as u64 } else { choice.width as u64 * choice.height as u64 * 2 }
-}
-
 /// Decodes a webcam's raw frames to I420 (what OpenCV did for the Python app).
 pub struct RawDecoder {
     pub fourcc: String,
@@ -503,20 +498,37 @@ mod tests {
         assert_eq!(feed.read().unwrap().data, [1]);
         assert_eq!(feed.read().unwrap().data, [2]);
         assert_eq!(*r.reports.lock().unwrap(), [("ok".to_string(), "1280×720, MJPEG, 30 fps".to_string())]);
-        assert_eq!(cable_bytes(&choice, 1234), 1234);
+        assert_eq!(choice.describe(), "1280×720, MJPEG, 30 fps");
     }
 
     // test_webcams.py::test_a_raw_frame_counts_what_crossed_the_cable_not_the_decoded_size
     #[test]
     fn a_raw_frame_counts_what_crossed_the_cable() {
-        let raw = Choice { fourcc: "YUYV".into(), width: 640, height: 480, fps: 30.0 };
-        assert_eq!(cable_bytes(&raw, 0), 640 * 480 * 2);
+        let mut r = rig(frames(vec![Ok(vec![0; 640 * 480 * 2])]), "");
+        r.deps.want = Arc::new(|_| Some(Choice { fourcc: "YUYV".into(), width: 640, height: 480, fps: 30.0 }));
+        let (_, mut feed) = open(&r.deps, &Arc::default()).unwrap();
+        // The worker's counter adds up packets, which are the bytes as they came
+        assert_eq!(feed.read().unwrap().data.len(), 640 * 480 * 2);
     }
 
     // test_webcams.py::test_mjpeg_frames_are_decoded_by_the_streams_decoders
     #[test]
     fn mjpeg_goes_to_the_streams_decoders_and_raw_to_our_own() {
-        assert!(is_jpeg(&Choice { fourcc: "MJPG".into(), width: 2, height: 2, fps: 30.0 }));
+        use telescope_core::media::{Codec, DecodeOptions, Media};
+        let mut jpeg = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 90)
+            .encode(&vec![200u8; 1280 * 720 * 3], 1280, 720, image::ExtendedColorType::Rgb8).unwrap();
+        let r = rig(frames(vec![Ok(jpeg.clone())]), "");
+        let (choice, mut feed) = open(&r.deps, &Arc::default()).unwrap();
+        assert!(is_jpeg(&choice)); // several JPEGs at once on the stream's decoder threads
+        let packet = feed.read().unwrap();
+        assert_eq!(packet.data, jpeg, "as it came");
+        let mut decoder = telescope_media::FfmpegMedia.decoder(Codec::Mjpeg, &DecodeOptions { hardware: false }).unwrap();
+        let frame = decoder.decode(&packet).newest.expect("a picture");
+        assert_eq!((frame.width, frame.height), (1280, 720));
+        // 200 of 255 on BT.601 limited's luma range
+        assert!((frame.data[0] as i32 - 188).abs() < 4, "{}", frame.data[0]);
+
         let mut d = RawDecoder { fourcc: "YUYV".into(), width: 2, height: 2 };
         let out = d.decode(&Packet { data: vec![10, 100, 20, 200, 30, 101, 40, 201], time_ns: 0 }).newest.unwrap();
         assert_eq!(&out.data[..], &[10, 20, 30, 40, 100, 200]);
@@ -567,11 +579,28 @@ mod tests {
     // test_webcams.py::test_a_webcam_another_program_holds_says_which
     #[test]
     fn a_webcam_another_program_holds_says_which() {
-        let r = rig(Arc::new(|_, _| Err((true, "busy".into()))), "zoom");
+        struct Released(FakeCap, Arc<Mutex<bool>>);
+        impl Capture for Released {
+            fn read(&mut self) -> Result<Vec<u8>, String> {
+                self.0.read()
+            }
+            fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
+                self.0.stopper()
+            }
+        }
+        impl Drop for Released {
+            fn drop(&mut self) {
+                *self.1.lock().unwrap() = true;
+            }
+        }
+        let released = Arc::new(Mutex::new(false));
+        let flag = released.clone();
+        let r = rig(Arc::new(move |_, _| Ok(Box::new(Released(FakeCap(Vec::new()), flag.clone())) as Box<dyn Capture>)), "zoom");
         let waiting = Arc::new(Mutex::new(String::new()));
         assert!(open(&r.deps, &waiting).is_err());
+        assert!(*released.lock().unwrap());
         assert_eq!(*waiting.lock().unwrap(), BUSY_TEXT);
-        assert_eq!(r.reports.lock().unwrap()[0], ("busy".to_string(), "zoom".to_string()));
+        assert_eq!(*r.reports.lock().unwrap(), [("busy".to_string(), "zoom".to_string())]);
     }
 
     // test_webcams.py::test_a_webcam_that_wont_open_counts_as_busy
