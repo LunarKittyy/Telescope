@@ -402,7 +402,7 @@ pub fn send_webhook_within(request: &WebhookRequest, timeout: Duration) -> Strin
             return read.map_or_else(|e| body_failure_text(&e), |_| String::new());
         }
         let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(str::to_string);
-        let follows = matches!(code, 301 | 302 | 303) || (!post && matches!(code, 307 | 308));
+        let follows = matches!(code, 301..=303) || (!post && matches!(code, 307 | 308));
         let Some(location) = location.filter(|_| follows) else { return format!("HTTP {code}") };
         let next = joined(&url, &location);
         let seen = visited.iter().position(|(u, _)| *u == next);

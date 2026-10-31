@@ -73,7 +73,7 @@ impl Canvas<'_> {
             let (left, right) = (bytes[0] as i64 - b'R' as i64, bytes[1] as i64 - b'R' as i64);
             view_x -= left * hscale;
             for stroke in glyph[2..].split(' ') {
-                let pts: Vec<Pt> = stroke.as_bytes().chunks_exact(2).map(|p| Pt { x: (p[0] as i64 - b'R' as i64) * hscale + view_x, y: (p[1] as i64 - b'R' as i64) * hscale + view_y }).collect();
+                let pts: Vec<Pt> = stroke.as_bytes().as_chunks::<2>().0.iter().map(|p| Pt { x: (p[0] as i64 - b'R' as i64) * hscale + view_x, y: (p[1] as i64 - b'R' as i64) * hscale + view_y }).collect();
                 if pts.len() > 1 {
                     self.poly_line(&pts, colour, 1);
                 }
@@ -143,10 +143,10 @@ impl Canvas<'_> {
         let t2 = (end | 4) * slope;
         let mut ep = [0i64; 9];
         ep[8] = slope;
-        ep[1] = ((((end - start) & 0x78) | 4) * slope >> 8) & 0x1ff;
+        ep[1] = ((((end - start) & 0x78 | 4) * slope) >> 8) & 0x1ff;
         ep[3] = ep[1];
         ep[2] = (t1 >> 8) & 0x1ff;
-        ep[4] = ((((end - start) + 0x80) | 4) * slope >> 8) & 0x1ff;
+        ep[4] = ((((end - start + 0x80) | 4) * slope) >> 8) & 0x1ff;
         ep[5] = ((t1 + t0) >> 8) & 0x1ff;
         ep[6] = (t2 >> 8) & 0x1ff;
         ep[7] = ((t2 + t0) >> 8) & 0x1ff;
@@ -155,7 +155,7 @@ impl Canvas<'_> {
         let corner = |n: i64| ((((n >= 2) as i64) + 1) & (n | 2)) as usize;
         while ecount >= 0 {
             let ep_corr = ep[corner(scount) * 3 + corner(ecount)] as i32;
-            let weight = |d: usize| (ep_corr * FILTER[d] >> 8) & 0xff;
+            let weight = |d: usize| ((ep_corr * FILTER[d]) >> 8) & 0xff;
             if along_x {
                 let x = p1.x >> XY_SHIFT;
                 if (0..width).contains(&x) {

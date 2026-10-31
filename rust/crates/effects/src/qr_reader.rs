@@ -186,14 +186,14 @@ const BYTE: u8 = 4;
 /// rqrr's mask rule: whether the mask flips the module at (y, x).
 fn masked(mask: u16, y: usize, x: usize) -> bool {
     match mask {
-        0 => (y + x) % 2 == 0,
-        1 => y % 2 == 0,
-        2 => x % 3 == 0,
-        3 => (y + x) % 3 == 0,
-        4 => (y / 2 + x / 3) % 2 == 0,
+        0 => (y + x).is_multiple_of(2),
+        1 => y.is_multiple_of(2),
+        2 => x.is_multiple_of(3),
+        3 => (y + x).is_multiple_of(3),
+        4 => (y / 2 + x / 3).is_multiple_of(2),
         5 => (y * x) % 2 + (y * x) % 3 == 0,
-        6 => ((y * x) % 2 + (y * x) % 3) % 2 == 0,
-        _ => ((y * x) % 3 + (y + x) % 2) % 2 == 0,
+        6 => ((y * x) % 2 + (y * x) % 3).is_multiple_of(2),
+        _ => ((y * x) % 3 + (y + x) % 2).is_multiple_of(2),
     }
 }
 
