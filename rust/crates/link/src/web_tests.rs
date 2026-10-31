@@ -66,6 +66,11 @@ fn the_certificate_is_kept_until_it_nears_its_end() {
     let now = unix_now();
     let cert = ensure_certificate(&folder, &hosts(&["192.168.1.5"]), now).unwrap();
     let first = std::fs::read(&cert.cert).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&cert.key).unwrap().permissions().mode() & 0o777, 0o600);
+    }
     // A browser that trusted it keeps doing so
     ensure_certificate(&folder, &[], now).unwrap();
     assert_eq!(std::fs::read(&cert.cert).unwrap(), first);

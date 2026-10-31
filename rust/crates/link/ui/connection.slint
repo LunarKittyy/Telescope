@@ -593,9 +593,18 @@ export component PhonePicker inherits HorizontalLayout {
                     title: name-title;
                     Note { text: name-label; kind: ""; }
                     name-field := TextField {
+                        // setMaxLength(MAX_NAME_CHARS): Slint can't cut a text short, so a keystroke past the cap is undone
+                        property <string> kept: name-text;
                         text: name-text;
                         label: name-label;
                         init => { self.focus-all(); }
+                        edited(text) => {
+                            if (text.character-count > 64) {
+                                self.text = self.kept;
+                            } else {
+                                self.kept = text;
+                            }
+                        }
                         accepted => { ok.clicked(); }
                     }
                     HorizontalLayout {

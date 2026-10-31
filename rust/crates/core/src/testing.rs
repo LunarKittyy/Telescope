@@ -69,6 +69,12 @@ impl SensorReader for HeldReading {
 pub struct FakeHost {
     pub calls: Vec<String>,
     pub events: Vec<Event>,
+    /// Every pick_file, in order.
+    pub dialogs: Vec<crate::host::FileDialog>,
+    /// Every set_colour_stage, in order, as (owner, stage).
+    pub colour_stages: Vec<(String, Option<ColourStage>)>,
+    /// What each owner last put on change_packets.
+    pub packets: HashMap<String, Option<Arc<dyn PacketStepFactory>>>,
     /// What plugin_config() answers, by plugin name.
     pub plugin_configs: HashMap<String, Value>,
     /// Plugins has_plugin() says are there.
@@ -166,6 +172,8 @@ pub struct FakeHost {
     pub plugin_hues: Option<bool>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
+    /// Runs inside stop_stream, for a test that looks at what the plugin holds at that moment.
+    pub on_stop: Option<Box<dyn FnMut() + Send>>,
     next_request: u64,
 }
 
@@ -254,6 +262,9 @@ impl HostStreams for FakeHost {
     fn stop_stream(&mut self, source_id: Option<&str>) {
         self.note(format!("stop_stream {source_id:?}"));
         self.starting = false;
+        if let Some(on_stop) = self.on_stop.as_mut() {
+            on_stop();
+        }
     }
     fn stop_all_streams(&mut self) {
         self.note("stop_all_streams");
@@ -350,8 +361,12 @@ impl HostShell for FakeHost {
         self.issues.retain(|(k, _)| k != key);
         self.issues.push((key.to_string(), issue));
     }
-    fn clear_issue(&mut self, key: Option<&str>, _issue: Option<&Issue>) {
+    fn clear_issue(&mut self, key: Option<&str>, issue: Option<&Issue>) {
         self.note(format!("clear_issue {key:?}"));
+        // Given an issue, only that one comes down: another that took its key stays, as the real host's does
+        if issue.is_some_and(|issue| !self.issues.iter().any(|(k, shown)| Some(k.as_str()) == key && shown == issue)) {
+            return;
+        }
         self.issues.retain(|(k, _)| key.is_some_and(|key| k != key));
     }
     fn send_notification(&mut self, title: &str, body: &str, urgent: bool) {
@@ -416,6 +431,7 @@ impl HostShell for FakeHost {
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
+        self.dialogs.push(dialog.clone());
         Some(self.request())
     }
 }
@@ -578,6 +594,7 @@ impl HostStills for FakeHost {
 impl HostColour for FakeHost {
     fn set_colour_stage(&mut self, owner: &str, stage: Option<ColourStage>, order: i32, _source_id: Option<&str>) {
         self.note(format!("set_colour_stage {owner} {} {order}", stage.is_some()));
+        self.colour_stages.push((owner.to_string(), stage));
     }
     fn colour_split(&mut self, owner: &str, position: Option<f32>) {
         self.note(format!("colour_split {owner} {position:?}"));
@@ -602,6 +619,7 @@ impl HostPackets for FakeHost {
     }
     fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {
         self.note(format!("change_packets {owner} {}", factory.is_some()));
+        self.packets.insert(owner.to_string(), factory);
     }
 }
 

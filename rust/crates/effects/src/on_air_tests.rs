@@ -176,6 +176,19 @@ fn a_webhook_arrives_as_built_and_a_failure_says_what_went_wrong_without_the_add
     let get = webhook_request(&url, "GET", "turn=on", true);
     send_webhook(&get);
     assert!(seen.lock().unwrap()[3].head.starts_with("GET /api/webhook/SECRET?turn=on HTTP/1.1"));
+
+    // Nothing listening
+    let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let refused = send_webhook(&webhook_request(&format!("http://127.0.0.1:{port}/api/webhook/SECRET"), "POST", "", true));
+    assert_eq!(refused, if cfg!(windows) { "No connection could be made because the target machine actively refused it" } else { "Connection refused" });
+
+    // A hub that takes it and never answers is given WEBHOOK_TIMEOUT_S
+    assert_eq!(WEBHOOK_TIMEOUT, Duration::from_secs(5));
+    let silent = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = silent.local_addr().unwrap().port();
+    let started = Instant::now();
+    assert_eq!(send_webhook(&webhook_request(&format!("http://127.0.0.1:{port}/x"), "POST", "", true)), "timed out");
+    assert!((4.5..7.0).contains(&started.elapsed().as_secs_f64()), "{:?}", started.elapsed());
 }
 
 #[test]
@@ -198,6 +211,35 @@ fn what_goes_wrong_is_said_without_quoting_the_address() {
     assert_eq!(failure_text(&io(std::io::ErrorKind::TimedOut, "timed out")), "timed out");
     assert_eq!(failure_text(&ureq::Error::BadUri("/api/webhook/SECRET".into())), "InvalidURL");
     assert!(!failure_text(&ureq::Error::Other("boom at /api/webhook/SECRET".into())).contains("SECRET"));
+
+    // A send that blows up: what comes back and what's logged leave the address out
+    let _ = log::set_logger(&LOGGED);
+    log::set_max_level(log::LevelFilter::Trace);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let sender = WebhookSender::with_send(move |tag, error| tx.send((tag.to_string(), error.to_string())).unwrap(),
+                                          |_| panic!("boom at /api/webhook/SECRET"));
+    sender.send(webhook_request("http://hub.local/api/webhook/SECRET", "POST", "", true), "state", None);
+    let (tag, error) = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(tag, "state");
+    assert!(!error.is_empty() && !error.contains("SECRET"));
+    assert!(sender.wait_idle(Duration::from_secs(2)), "it carries on after a failure");
+    let logged = LOGGED.0.lock().unwrap();
+    assert!(logged.iter().any(|line| line == "On Air webhook failed"), "{logged:?}");
+    assert!(!logged.iter().any(|line| line.contains("SECRET")), "{logged:?}");
+}
+
+struct Logged(Mutex<Vec<String>>);
+
+static LOGGED: Logged = Logged(Mutex::new(Vec::new()));
+
+impl log::Log for Logged {
+    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+        true
+    }
+    fn log(&self, record: &log::Record) {
+        self.0.lock().unwrap().push(record.args().to_string());
+    }
+    fn flush(&self) {}
 }
 
 /// A server that answers one request with `reply`, holds the connection for `then`, and drops it.
@@ -246,18 +288,6 @@ fn a_body_that_stalls_or_is_garbled_is_a_failed_send() {
         std::thread::sleep(Duration::from_millis(200));
     });
     assert_eq!(sent_to(short), "");
-}
-
-#[test]
-fn a_failing_send_never_leaks_the_address() {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let sender = WebhookSender::with_send(move |tag, error| tx.send((tag.to_string(), error.to_string())).unwrap(),
-                                          |_| panic!("boom at /api/webhook/SECRET"));
-    sender.send(webhook_request("http://hub.local/api/webhook/SECRET", "POST", "", true), "state", None);
-    let (tag, error) = rx.recv_timeout(Duration::from_secs(2)).unwrap();
-    assert_eq!(tag, "state");
-    assert!(!error.is_empty() && !error.contains("SECRET"));
-    assert!(sender.wait_idle(Duration::from_secs(2)), "it carries on after a failure");
 }
 
 type Bodies = Arc<Mutex<Vec<String>>>;

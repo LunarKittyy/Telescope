@@ -255,7 +255,10 @@ fn a_camera_that_lists_no_modes_gets_what_was_picked() {
 fn the_source_reads_through_the_plugin() {
     let env = cams();
     let src = env.plugin.sources["usb-c920"].clone();
-    assert!(!src.control_client().unwrap().has_audio());
+    let control = src.control_client().unwrap();
+    assert!(!control.has_audio());
+    assert!(control.state().is_err(), "no phone to ask");
+    assert_eq!(control.send(&json!({"action": "resolution", "width": 1, "height": 1})), Ok(()));
     assert_eq!(src.auto_canvas(), None);
     assert!(src.lost_hint().contains("plugged in"));
     assert!(src.open_feed().is_err(), "the stand-in opener has no camera");

@@ -168,7 +168,8 @@ impl Routes {
 impl AudioRoutes for Routes {
     fn audio(&self, source_id: &str) -> Option<(String, Opener)> {
         let url = self.0.lock().unwrap().get(source_id).cloned()?;
-        Some((url, Arc::new(|| Err("not in tests".into()))))
+        let sid = source_id.to_string();
+        Some((url, Arc::new(move || Err(format!("not in tests: {sid}")))))
     }
 }
 
@@ -190,6 +191,8 @@ struct Rig {
     routes: Arc<Routes>,
     clock: Shared<f64>,
     opened: Shared<Vec<String>>,
+    /// What each worker was given to open the audio with (how it signs in to the phone).
+    openers: Shared<Vec<Opener>>,
 }
 
 const WIFI: &str = "https://10.0.0.5:8080/v1/audio";
@@ -207,9 +210,12 @@ impl Rig {
         let routes = Arc::new(Routes::default());
         routes.set("phone", WIFI);
         let m = made.clone();
-        let make_worker: MakeWorker = Box::new(move |url, _open, _sink, _status| {
+        let openers: Shared<Vec<Opener>> = Default::default();
+        let given = openers.clone();
+        let make_worker: MakeWorker = Box::new(move |url, open, _sink, _status| {
             let state = Arc::new(Mutex::new(WorkerState { url: url.into(), gain: 1.0, limit: true, ..Default::default() }));
             m.lock().unwrap().push(state.clone());
+            given.lock().unwrap().push(open);
             Box::new(FakeWorker(state))
         });
         let j = jobs.clone();
@@ -228,7 +234,7 @@ impl Rig {
         p.nr_problem = (p.denoise_problem)();
         let mut h = TestHost { shown: Some("phone".into()), ..Default::default() };
         p.render(&mut h);
-        Rig { p, h, made, jobs, posts, routes, clock, opened }
+        Rig { p, h, made, jobs, posts, routes, clock, opened, openers }
     }
 
     /// Hands the plugin what its threads posted, as the window does.
@@ -316,12 +322,23 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
     assert!(r.h.on("active"));
 }
 
+// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Microphone card's part
+#[test]
+fn a_picked_source_counts_as_a_paired_phone() {
+    let mut r = Rig::new(backend());
+    assert!(!r.h.on("active")); // nothing paired yet
+    r.event(Event::SourceSelected { source_id: "browser".into() });
+    assert!(r.h.on("active"), "the browser has a mic too");
+    r.event(Event::SourceSelected { source_id: String::new() });
+    assert!(!r.h.on("active"));
+}
+
 #[test]
 fn once_every_plugin_is_in_the_mic_says_again_whether_its_on() {
     let mut r = Rig::new(backend());
     let mut host = telescope_core::testing::FakeHost::new();
     r.p.on_plugins_ready(&mut host);
-    assert_eq!(host.events.last(), Some(&Event::MicChanged { enabled: false, muted: false }));
+    assert_eq!(host.events, [Event::MicChanged { enabled: false, muted: false }]);
 }
 
 #[test]
@@ -332,6 +349,9 @@ fn on_follows_the_stream() {
     r.start("phone");
     let w = r.worker();
     assert!(w.lock().unwrap().started && w.lock().unwrap().url == WIFI);
+    // Signing in is the route's: the worker opens through the opener of the stream's own route, and audio.rs sends the token
+    let open = r.openers.lock().unwrap().last().unwrap().clone();
+    assert_eq!(open().err().unwrap(), "not in tests: phone");
     r.status_from_worker("ok", "");
     assert_eq!(r.h.status(), ""); // the meter shows it's working
     r.stop();
@@ -580,7 +600,10 @@ fn typing_a_gain_moves_the_slider() {
 #[test]
 fn max_gain_from_advanced_sets_the_range_and_pulls_a_higher_gain_down() {
     let mut r = Rig::new(backend());
+    r.h.card.clear();
     r.event(Event::MaxGainChanged { max_gain: 48 }); // Setup's config loads before the card is built
+    let card = Plugin::card(&mut r.p).unwrap();
+    assert_eq!(card.ui.props["gain-max"], 48);
     r.set_config(json!({"enabled": true, "gain_db": 40}));
     assert!(r.h.prop("gain-max") == 48 && r.p.get_config()["gain_db"] == 40);
     r.event(Event::MaxGainChanged { max_gain: 12 });
@@ -666,6 +689,8 @@ fn another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic() {
     r.event(Event::StreamsChanged { count: 2 });
     assert!(!r.h.on("on") && r.h.status().is_empty());
     r.toggle(true); // on again, here
+    r.stop();
+    r.start("front");
     assert!(r.h.main.as_ref().unwrap().0 == "front" && r.p.enabled);
 }
 
@@ -709,7 +734,7 @@ fn auto_level_reaches_the_worker_and_is_saved_per_phone() {
 fn noise_reduction_reaches_the_worker_and_is_saved_per_phone() {
     let mut r = Rig::new(backend());
     r.set_config(json!({"enabled": true}));
-    assert!(!r.h.on("nr") && r.h.on("nr-enabled")); // off until asked for
+    assert!(!r.h.on("nr") && r.h.on("here") && r.h.on("nr-enabled")); // off until asked for
     r.start("phone");
     let w = r.worker();
     assert!(!w.lock().unwrap().noise_reduction);

@@ -288,6 +288,8 @@ pub struct MicrophonePlugin {
     pending: Option<bool>,
     /// Its stream stopped with the mic on while others carry on: the next one gets it on.
     handing_on: bool,
+    /// take_mic asked the window to move the mic here: it comes on once the stream it left has saved it off.
+    taking: bool,
     /// (id, name) of the stream the mic is on, while the panels show another.
     elsewhere: Option<(String, String)>,
     /// The stream it hears about.
@@ -344,6 +346,7 @@ impl MicrophonePlugin {
             enabled: false,
             pending: None,
             handing_on: false,
+            taking: false,
             elsewhere: None,
             stream: None,
             worker: None,
@@ -592,8 +595,14 @@ impl MicrophonePlugin {
         h.set_card(&json!({"on": self.here(), "toggle-enabled": enabled}));
     }
 
+    /// dim_until_paired: a picked source counts as a paired phone, since it brings a mic of its own.
+    fn card_on(&self) -> bool {
+        self.phones > 0 || !self.picked.is_empty()
+    }
+
     fn on_source_selected(&mut self, h: &mut dyn MicHost, sid: &str) {
         self.picked = sid.to_string();
+        h.set_card(&json!({"active": self.card_on()}));
         self.show_source_words(h);
         self.show_toggle(h);
         self.refresh(h);
@@ -651,10 +660,10 @@ impl MicrophonePlugin {
             return;
         }
         // The window moves the stream hooks over (focus lost there, gained here); until then nothing listens
+        self.taking = true;
         self.stream = None;
         self.stop_worker(h);
         self.sync_place(h);
-        self.set_enabled(h, true);
         self.show_toggle(h);
     }
 
@@ -793,6 +802,9 @@ impl MicrophonePlugin {
         self.stream = Some(source_id.to_string());
         self.follow_route();
         self.handing_on = false;
+        if std::mem::take(&mut self.taking) {
+            self.set_enabled(h, true);
+        }
         self.start_worker(h);
         self.sync_place(h);
     }
@@ -823,7 +835,7 @@ impl MicrophonePlugin {
     fn render(&mut self, h: &mut dyn MicHost) {
         let mut props = self.source_words();
         let nr_tip = if self.nr_problem.is_empty() { tr("Takes out typing, fans and room hiss.") } else { self.nr_problem.clone() };
-        props["active"] = json!(self.phones > 0);
+        props["active"] = json!(self.card_on());
         props["auto-level"] = json!(self.auto_level);
         props["nr"] = json!(self.noise_reduction && self.nr_problem.is_empty());
         props["nr-enabled"] = json!(self.nr_problem.is_empty());
@@ -871,7 +883,7 @@ impl MicrophonePlugin {
             Event::SourceSelected { source_id } => self.on_source_selected(h, source_id),
             Event::PhonesChanged { count } => {
                 self.phones = *count;
-                h.set_card(&json!({"active": *count > 0}));
+                h.set_card(&json!({"active": self.card_on()}));
             }
             Event::StreamConnected { source_id } if Some(source_id) == self.stream.as_ref() => self.follow_route(),
             _ => {}

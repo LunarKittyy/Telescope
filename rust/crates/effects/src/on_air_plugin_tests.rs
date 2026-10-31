@@ -1,5 +1,7 @@
 use super::*;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Instant;
 use telescope_core::output::{Held, Slot};
 use telescope_core::testing::{scratch_dir, FakeHost, FakeWeb};
 use telescope_core::web::Request;
@@ -51,6 +53,8 @@ struct Rig {
     web: Arc<FakeWeb>,
     now: Arc<Mutex<f64>>,
     sent: Arc<Mutex<Vec<WebhookRequest>>>,
+    /// Sends wait while this is on: a hub that takes its time.
+    hold: Arc<AtomicBool>,
     watch: Arc<Mutex<WatchState>>,
     watches: Arc<Mutex<u32>>,
 }
@@ -66,11 +70,16 @@ impl Rig {
         let (now, sent) = (Arc::new(Mutex::new(100.0)), Arc::new(Mutex::new(Vec::new())));
         let (watch, watches) = (Arc::new(Mutex::new(WatchState::default())), Arc::new(Mutex::new(0)));
         let (clock, record) = (now.clone(), sent.clone());
+        let held = Arc::new(AtomicBool::new(false));
+        let holding = held.clone();
         let mut plugin = OnAirPlugin::for_test(
             web.clone(), Some(Arc::new(FakeOutputs(watch.clone(), watches.clone()))), scratch_dir("on-air"),
             move || *clock.lock().unwrap(),
             move |request| {
                 record.lock().unwrap().push(request.clone());
+                while holding.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
                 String::new()
             },
         );
@@ -82,7 +91,7 @@ impl Rig {
         plugin.set_config(&cfg).unwrap();
         plugin.on_plugins_ready(&mut host);
         plugin.sender.as_ref().unwrap().wait_idle(Duration::from_secs(2));
-        Rig { plugin, host, web, now, sent, watch, watches }
+        Rig { plugin, host, web, now, sent, hold: held, watch, watches }
     }
 
     fn event(&mut self, event: Event) {
@@ -109,6 +118,12 @@ impl Rig {
     fn bodies(&self) -> Vec<String> {
         self.plugin.sender.as_ref().unwrap().wait_idle(Duration::from_secs(2));
         self.sent.lock().unwrap().iter().map(|r| String::from_utf8_lossy(r.body.as_deref().unwrap_or(b"")).into_owned()).collect()
+    }
+
+    /// The tag each send went out under, oldest first (the sender gives it back with the result).
+    fn tags(&self) -> Vec<String> {
+        self.plugin.sender.as_ref().unwrap().wait_idle(Duration::from_secs(2));
+        self.host.posted.lock().unwrap().iter().filter(|(token, _)| token == "webhook").map(|(_, data)| data["tag"].as_str().unwrap().to_string()).collect()
     }
 
     fn sent_count(&self) -> usize {
@@ -251,6 +266,7 @@ fn each_change_goes_to_the_webhook() {
     rig.watched(false);
     rig.later(on_air::OFF_AFTER_S + 1.0);
     assert_eq!(rig.bodies(), ["off", "on", "off"], "startup first");
+    assert_eq!(rig.tags().iter().map(|t| t.split(':').next().unwrap()).collect::<Vec<_>>(), ["state", "state", "state"]);
 }
 
 #[test]
@@ -283,6 +299,7 @@ fn a_test_send_shows_its_result_but_never_a_banner() {
     let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
     rig.ui("test-clicked", vec![json!(true)]);
     assert_eq!(rig.props(TAB)["test-text"], "Sending…");
+    assert_eq!(rig.tags().last().map(String::as_str), Some("test"));
     rig.answer("test", "HTTP 404");
     let p = rig.props(TAB);
     assert!(p["test-text"].as_str().unwrap().contains("HTTP 404") && p["test-kind"] == "status_err" && rig.issue().is_none());
@@ -306,8 +323,10 @@ fn the_link_survives_a_restart_and_a_new_link_replaces_it() {
     let mut again = Rig::new(cfg);
     assert_eq!(again.plugin.token(), token);
     assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{token}"));
+    again.page_state(); // the restarted server takes it
     again.ui("new-link-clicked", vec![]);
     assert_ne!(again.plugin.token(), token);
+    again.page_state(); // and the new one once it's made
     assert_eq!(again.plugin.url(), format!("https://192.168.1.20:8768/#{}", again.plugin.token()));
     // A device on the old link is refused from its next request on
     let served = again.web.served.lock().unwrap();
@@ -405,6 +424,18 @@ fn quitting_while_on_air_turns_the_light_off() {
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.sent.lock().unwrap().iter().map(|r| r.body.clone().unwrap()).collect::<Vec<_>>(), [b"{\"on_air\": false}".to_vec()]);
     assert_eq!(rig.web.served.lock().unwrap()[0].stopped.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(rig.tags().last().map(String::as_str), Some("quit"));
+
+    // A hub that doesn't answer is given three seconds and no more
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.watched(true);
+    rig.later(2.0);
+    rig.bodies();
+    rig.hold.store(true, Ordering::SeqCst);
+    let started = Instant::now();
+    rig.plugin.shutdown(&mut rig.host);
+    assert!((2.9..3.5).contains(&started.elapsed().as_secs_f64()), "{:?}", started.elapsed());
+    rig.hold.store(false, Ordering::SeqCst);
 }
 
 #[test]
@@ -414,6 +445,15 @@ fn quitting_off_air_sends_nothing() {
     rig.sent.lock().unwrap().clear();
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.sent_count(), 0);
+
+    // Nor does it wait for one still on its way
+    let mut rig = Rig::new(json!({"webhook_url": "http://hub.local/hook"}));
+    rig.hold.store(true, Ordering::SeqCst);
+    rig.ui("test-clicked", vec![json!(true)]);
+    let started = Instant::now();
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
+    rig.hold.store(false, Ordering::SeqCst);
 }
 
 #[test]
@@ -439,6 +479,7 @@ fn a_failed_state_is_sent_again_with_backoff_until_it_works() {
     }
     assert_eq!(delays, [5, 15, 60, 300, 300, 300]);
     assert_eq!(rig.sent_count(), 7);
+    assert_eq!(rig.tags(), vec![tag; 7]); // always the same change, sent again
     rig.answered("");
     assert!(rig.retry_timer().is_none() && rig.issue().is_none());
 }

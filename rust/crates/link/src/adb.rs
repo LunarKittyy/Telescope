@@ -84,10 +84,19 @@ pub fn adb_exe() -> Option<PathBuf> {
 
 /// Runs a command, never failing: a program that's missing, can't run or hangs comes back as a failed outcome.
 pub fn run(cmd: &[String], timeout: Duration) -> Outcome {
-    let Some((program, args)) = cmd.split_first() else { return (-1, String::new(), "nothing to run".into()) };
-    if Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb")) {
-        ensure_adb_server();
+    server_first(cmd, &ensure_adb_server, &|cmd| execute(cmd, timeout))
+}
+
+/// Anything run through adb goes after a check that its server is up.
+fn server_first(cmd: &[String], ensure_server: &dyn Fn(), execute: &dyn Fn(&[String]) -> Outcome) -> Outcome {
+    if cmd.first().is_some_and(|program| Path::new(program).file_stem().is_some_and(|s| s.eq_ignore_ascii_case("adb"))) {
+        ensure_server();
     }
+    execute(cmd)
+}
+
+fn execute(cmd: &[String], timeout: Duration) -> Outcome {
+    let Some((program, args)) = cmd.split_first() else { return (-1, String::new(), "nothing to run".into()) };
     let mut command = Command::new(program);
     command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     hide_window(&mut command);
@@ -152,21 +161,25 @@ pub fn adb_server_running(port: u16) -> bool {
 
 /// Windows: starts adb's server as this app's child unless one is up already.
 pub fn ensure_adb_server() {
-    if OWN_ADB_SERVER {
-        ensure_server_with(&|| adb_server_running(ADB_PORT), &|exe| {
-            let mut command = Command::new(exe);
-            // "nodaemon" keeps the server in this process instead of the detached copy adb forks by default
-            command.args(["nodaemon", "server"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-            hide_window(&mut command);
-            let child = command.spawn().ok()?;
-            // A crash then takes the server along too, so its folder isn't left locked
-            crate::winjob::kill_with_us(&child);
-            Some(child)
-        }, adb_exe());
-    }
+    ensure_server_with(OWN_ADB_SERVER, &|| adb_server_running(ADB_PORT), &|exe| server_command(exe).spawn().ok(), &|child| {
+        // A crash then takes the server along too, so its folder isn't left locked
+        crate::winjob::kill_with_us(child);
+    }, &adb_exe);
 }
 
-fn ensure_server_with(running: &dyn Fn() -> bool, spawn: &dyn Fn(&Path) -> Option<std::process::Child>, exe: Option<PathBuf>) {
+fn server_command(exe: &Path) -> Command {
+    let mut command = Command::new(exe);
+    // "nodaemon" keeps the server in this process instead of the detached copy adb forks by default
+    command.args(["nodaemon", "server"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    hide_window(&mut command);
+    command
+}
+
+fn ensure_server_with(own: bool, running: &dyn Fn() -> bool, spawn: &dyn Fn(&Path) -> Option<std::process::Child>, tie: &dyn Fn(&std::process::Child),
+                      find: &dyn Fn() -> Option<PathBuf>) {
+    if !own {
+        return;
+    }
     let mut held = ADB_SERVER.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(child) = held.as_mut() {
         if matches!(child.try_wait(), Ok(None)) {
@@ -174,11 +187,12 @@ fn ensure_server_with(running: &dyn Fn() -> bool, spawn: &dyn Fn(&Path) -> Optio
         }
     }
     *held = None;
-    let Some(exe) = exe else { return };
+    let Some(exe) = find() else { return };
     if running() {
         return;
     }
     let Some(mut child) = spawn(&exe) else { return };
+    tie(&child);
     // It listens within a second or so; the adb command after this would start its own otherwise
     for _ in 0..30 {
         if running() || !matches!(child.try_wait(), Ok(None)) {
@@ -331,10 +345,37 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    #[cfg(not(windows))]
     #[test]
     fn off_windows_adb_runs_its_own_server() {
-        assert!(!std::hint::black_box(OWN_ADB_SERVER));
+        assert_eq!(std::hint::black_box(OWN_ADB_SERVER), cfg!(windows));
+        ensure_server_with(false, &|| false, &|_| panic!("started a server"), &|_| {}, &|| Some("adb".into()));
+    }
+
+    #[test]
+    fn adb_commands_make_sure_the_server_is_up_first() {
+        let calls = std::cell::RefCell::new(Vec::new());
+        let ran = (0, String::new(), String::new());
+        for cmd in [words(&["C:/pt/adb.exe", "devices"]), words(&["lsmod"])] {
+            server_first(&cmd, &|| calls.borrow_mut().push("server"), &|_| {
+                calls.borrow_mut().push("run");
+                ran.clone()
+            });
+        }
+        assert_eq!(*calls.borrow(), ["server", "run", "run"]);
+    }
+
+    #[test]
+    fn platform_tools_dir_uses_executable_when_frozen() {
+        assert_eq!(platform_tools_dir(), std::env::current_exe().unwrap().parent().unwrap().join("platform-tools"));
+    }
+
+    #[test]
+    fn bundled_apk_path_returns_existing_file() {
+        let apk = std::env::current_exe().unwrap().parent().unwrap().join("Telescope.apk");
+        std::fs::write(&apk, b"apk").unwrap();
+        assert_eq!(bundled_apk_path(), Some(apk.clone()));
+        std::fs::remove_file(&apk).unwrap();
+        assert_eq!(bundled_apk_path(), None);
     }
 
     fn fake(outcome: Outcome) -> (Adb, Arc<Mutex<Vec<Vec<String>>>>) {
@@ -360,22 +401,34 @@ mod tests {
         assert_eq!((out.trim(), err.trim()), ("out", "err"));
     }
 
+    /// A command that runs for a while.
+    fn lingers() -> Command {
+        let mut command = if cfg!(windows) { Command::new("ping") } else { Command::new("sleep") };
+        if cfg!(windows) { command.args(["-n", "30", "127.0.0.1"]) } else { command.arg("30") };
+        command
+    }
+
     #[test]
     fn run_normalizes_expected_subprocess_failures() {
         assert_eq!(run(&words(&["no-such-program-anywhere"]), Duration::from_secs(1)),
                    (-1, String::new(), "Not found: no-such-program-anywhere".into()));
-        #[cfg(unix)]
-        assert_eq!(run(&words(&["sleep", "5"]), Duration::from_millis(100)), (-2, String::new(), "Timed out".into()));
+        let waits = lingers();
+        let waits: Vec<String> = std::iter::once(waits.get_program()).chain(waits.get_args()).map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(run(&waits, Duration::from_millis(100)), (-2, String::new(), "Timed out".into()));
     }
 
-    #[cfg(unix)]
     #[test]
     fn run_reports_a_command_that_cant_run_as_a_failure() {
         let dir = telescope_core::testing::scratch_dir("adb-run");
         let file = dir.join("not-executable");
         std::fs::write(&file, "x").unwrap();
         assert_eq!(run(&[file.to_string_lossy().into_owned()], Duration::from_secs(1)).0, -1);
-        assert_eq!(run(&words(&["sh", "-c", "printf '\\377'"]), Duration::from_secs(1)).0, -1);
+        // Output that isn't text
+        let noise = dir.join("noise");
+        std::fs::write(&noise, b"\xff").unwrap();
+        let shows = if cfg!(windows) { ["cmd", "/C", "type"] } else { ["sh", "-c", "cat \"$0\""] };
+        let cmd: Vec<String> = shows.iter().map(|s| s.to_string()).chain([noise.to_string_lossy().into_owned()]).collect();
+        assert_eq!(run(&cmd, Duration::from_secs(5)).0, -1);
     }
 
     #[test]
@@ -389,7 +442,12 @@ mod tests {
     #[test]
     fn adb_exe_falls_back_to_path() {
         let dir = telescope_core::testing::scratch_dir("adb-path");
-        assert_eq!(adb_exe_in(&dir, Some(&dir), |name| Some(format!("/usr/bin/{name}").into())), Some("/usr/bin/adb".into()));
+        let exe = adb_exe_in(&dir, Some(&dir), |name| Some(format!("/usr/bin/{name}").into()));
+        assert_eq!(exe, Some("/usr/bin/adb".into()));
+        let found = Adb { exe: exe.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _| (0, String::new(), String::new())) };
+        assert!(found.available());
+        let missing = adb_exe_in(&dir, Some(&dir), |_| None);
+        assert!(!Adb { exe: missing.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _| (0, String::new(), String::new())) }.available());
     }
 
     #[test]
@@ -537,24 +595,36 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
     #[test]
     fn telescope_starts_adbs_server_as_its_own_child_once() {
-        let started = Arc::new(Mutex::new(0));
-        let up = Arc::new(Mutex::new(false));
+        let exe = PathBuf::from("C:/Telescope/platform-tools/adb.exe");
+        let (started, tied) = (Mutex::new(Vec::new()), Mutex::new(Vec::new()));
+        let (up, output) = (Mutex::new(false), Mutex::new(None));
         for _ in 0..3 {
-            let (s, u) = (started.clone(), up.clone());
-            ensure_server_with(&|| *up.lock().unwrap(), &move |_exe| {
-                *s.lock().unwrap() += 1;
-                *u.lock().unwrap() = true;
-                Command::new("sleep").arg("30").spawn().ok()
-            }, Some("adb".into()));
+            ensure_server_with(true, &|| *up.lock().unwrap(), &|exe| {
+                let cmd = server_command(exe);
+                started.lock().unwrap().push(std::iter::once(cmd.get_program()).chain(cmd.get_args()).map(|a| a.to_string_lossy().into_owned()).collect::<Vec<_>>());
+                *up.lock().unwrap() = true;
+                // Stands in for the server: its output ends when it does
+                let mut child = lingers().stdout(Stdio::piped()).spawn().unwrap();
+                *output.lock().unwrap() = child.stdout.take();
+                Some(child)
+            }, &|child| tied.lock().unwrap().push(child.id()), &|| Some(exe.clone()));
         }
-        assert_eq!(*started.lock().unwrap(), 1);
+        assert_eq!(*started.lock().unwrap(), [words(&["C:/Telescope/platform-tools/adb.exe", "nodaemon", "server"])]);
+        assert_eq!(tied.lock().unwrap().len(), 1);
+
         stop_adb_server();
         assert!(ADB_SERVER.lock().unwrap().is_none());
+        let mut output = output.lock().unwrap().take().unwrap();
+        let (done, ended) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = std::io::copy(&mut output, &mut std::io::sink());
+            let _ = done.send(());
+        });
+        assert!(ended.recv_timeout(Duration::from_secs(5)).is_ok(), "the server was terminated");
         // Someone else's server is left alone
-        ensure_server_with(&|| true, &|_| panic!("started a server"), Some("adb".into()));
+        ensure_server_with(true, &|| true, &|_| panic!("started a server"), &|_| {}, &|| Some("adb".into()));
         stop_adb_server();
     }
 

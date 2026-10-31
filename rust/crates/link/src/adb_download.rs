@@ -677,9 +677,19 @@ mod tests {
 
     #[test]
     fn downloads_go_through_the_system_certificate_check() {
+        // Both ways into a download use Web, as download_adb's default opener in Python
         let source = include_str!("adb_download.rs");
-        let web = &source[source.find("impl Fetch for Web").unwrap()..source.find("fn is_certificate").unwrap()];
-        assert!(web.contains("RootCerts::PlatformVerifier") && web.contains(".https_only(true)"));
+        let tests = source.find("mod tests").unwrap();
+        assert_eq!(source[..tests].matches("download_adb(&Web, None,").count(), 2);
+        assert_eq!(source[..tests].matches("download_adb(&").count(), 2);
+        // Which goes through the system's check: a certificate nobody vouches for fails as one, and plain http isn't asked at all
+        use crate::https::testing::serve;
+        let phone = serve(Some("phone"), std::sync::Arc::new(|_| (200, "text/plain".into(), b"ok".to_vec())));
+        let refused = Web.open(&format!("{}/x", phone.base(true)), Duration::from_secs(5));
+        assert!(matches!(refused, Err(FetchError::Certificate(_))), "{:?}", refused.err().map(|e| e.to_string()));
+        let plain = serve(None, std::sync::Arc::new(|_| (200, "text/plain".into(), b"ok".to_vec())));
+        assert!(Web.open(&format!("{}/x", plain.base(false)), Duration::from_secs(5)).is_err());
+        assert!(plain.seen.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -713,7 +723,6 @@ mod tests {
         assert_eq!(download_adb(&google, Some(&dest), &quiet), Ok(String::new()));
     }
 
-    #[cfg(unix)] // a folder can't be opened as a file to age it
     #[test]
     fn a_cut_short_download_s_work_folder_is_cleared_later() {
         let root = tmp();
@@ -723,7 +732,16 @@ mod tests {
             std::fs::write(folder.join("platform-tools.zip"), b"part").unwrap();
         }
         let two_hours_ago = SystemTime::now() - Duration::from_secs(7200);
-        std::fs::File::open(&stale).unwrap().set_modified(two_hours_ago).unwrap();
+        let mut folder = std::fs::File::options();
+        #[cfg(windows)]
+        {
+            // FILE_WRITE_ATTRIBUTES, and FILE_FLAG_BACKUP_SEMANTICS, which is what lets Windows open a folder at all
+            use std::os::windows::fs::OpenOptionsExt;
+            folder.access_mode(0x0100).custom_flags(0x0200_0000);
+        }
+        #[cfg(not(windows))]
+        folder.read(true);
+        folder.open(&stale).unwrap().set_modified(two_hours_ago).unwrap();
         assert!(download_adb(&Google::new(), Some(&root.join("platform-tools")), &quiet).is_ok());
         assert_eq!(names(&root), vec![".adb-running", "platform-tools"]);
     }
