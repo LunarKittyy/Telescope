@@ -3065,6 +3065,46 @@ mod tests {
         assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
     }
 
+    // test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another
+    #[test]
+    fn asking_while_a_download_runs_doesn_t_ask_or_start_another() {
+        let link = FakeLink::new();
+        *link.adb.lock().unwrap() = false;
+        let shared = Shared::new(Arc::new(NoTunnels));
+        let calls = Arc::new(Mutex::new(0));
+        let (release, held) = std::sync::mpsc::channel::<()>();
+        let held = Mutex::new(held);
+        let counted = calls.clone();
+        let downloader = adb_download::AdbDownloader::new(Arc::new(move |_say| {
+            *counted.lock().unwrap() += 1;
+            held.lock().unwrap().recv_timeout(Duration::from_secs(5)).ok();
+            Ok("37.0.1".into())
+        }));
+        let mut e = Env { plugin: ConnectionPlugin::new(link.clone(), shared.clone()).with_downloader(downloader), host: FakeHost::new(), link, shared };
+        e.plugin.setup(&mut e.host);
+        e.ui("card", "add-phone", vec![]);
+        e.ui("card", "usb-action-clicked", vec![]);
+        assert_eq!(e.props("card")["usb-action"], "Agree and download", "it asks first");
+        std::thread::sleep(Duration::from_millis(20));
+        assert_eq!(*calls.lock().unwrap(), 0, "nothing starts before the answer");
+        e.ui("card", "usb-action-clicked", vec![]);
+        assert!(e.plugin.downloader.running());
+        // Asking again while it runs: no question and no second download
+        e.ui("card", "usb-action-clicked", vec![]);
+        assert_eq!(e.props("card")["usb-action"], "");
+        assert_eq!(e.props("card")["usb-text"], "Getting adb from Google…");
+        *e.link.adb.lock().unwrap() = true;
+        release.send(()).unwrap();
+        for _ in 0..200 {
+            if !e.plugin.downloader.running() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(!e.plugin.downloader.running());
+        assert_eq!(*calls.lock().unwrap(), 1);
+    }
+
     #[test]
     fn reopened_mid_download_it_says_so_instead_of_offering_it_again() {
         let link = FakeLink::new();

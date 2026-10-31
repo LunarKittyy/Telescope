@@ -1,5 +1,4 @@
-//! tests/test_browser_page.py: the page's script run in Node against stand-ins for the browser. The harness runs the
-//! desktop app's app.js, which server_tests::the_page_is_the_python_apps_own keeps the same as the one served here.
+//! tests/test_browser_page.py: the page's script run in Node against stand-ins for the browser, on the app.js served here.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -25,7 +24,8 @@ fn harness() -> PathBuf {
 
 /// The harness's output for these arguments, or None without Node (the Python test skips then too).
 fn run(args: &[&str]) -> Option<std::process::Output> {
-    Command::new("node").arg(harness()).args(args).output().ok()
+    let served = concat!(env!("CARGO_MANIFEST_DIR"), "/web/app.js");
+    Command::new("node").arg(harness()).args(args).env("TELESCOPE_PAGE_SCRIPT", served).output().ok()
 }
 
 #[test]
