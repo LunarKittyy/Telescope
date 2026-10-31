@@ -316,6 +316,17 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
     assert!(r.h.on("active"));
 }
 
+// test_browser_camera.py::test_phone_only_cards_hide_while_a_source_is_picked, the Microphone card's part
+#[test]
+fn a_picked_source_counts_as_a_paired_phone() {
+    let mut r = Rig::new(backend());
+    assert!(!r.h.on("active")); // nothing paired yet
+    r.event(Event::SourceSelected { source_id: "browser".into() });
+    assert!(r.h.on("active"), "the browser has a mic too");
+    r.event(Event::SourceSelected { source_id: String::new() });
+    assert!(!r.h.on("active"));
+}
+
 #[test]
 fn once_every_plugin_is_in_the_mic_says_again_whether_its_on() {
     let mut r = Rig::new(backend());

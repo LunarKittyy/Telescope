@@ -218,6 +218,12 @@ impl Setup<'_> {
         (self.sys.exists(PERSIST_MODPROBE_CONF), self.sys.exists(PERSIST_MODULES_CONF))
     }
 
+    /// Either boot file counts: the switch shows on (_refresh_persist_status).
+    pub fn persisted(&self) -> bool {
+        let (modprobe, modules) = self.persist_status();
+        modprobe || modules
+    }
+
     /// Other modprobe.d files (not ours) that already set v4l2loopback options.
     pub fn conflicting_confs(&self) -> Vec<String> {
         let mut confs = self.sys.modprobe_confs();
@@ -311,6 +317,15 @@ impl System for Real {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    // test_setup.py::test_refresh_persist_status
+    #[test]
+    fn either_boot_file_counts_as_persisted() {
+        for (existing, persisted) in [(vec![PERSIST_MODPROBE_CONF], true), (vec![PERSIST_MODULES_CONF], true), (vec![], false)] {
+            let fake = Fake { existing: existing.iter().map(|p| p.to_string()).collect(), ..Fake::default() };
+            assert_eq!(Setup { sys: &fake }.persisted(), persisted, "{existing:?}");
+        }
+    }
 
     #[derive(Default)]
     struct Fake {

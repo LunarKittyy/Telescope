@@ -287,9 +287,8 @@ impl Outputs for VirtualCameras {
         #[cfg(target_os = "linux")]
         {
             let setup = linux_setup::Setup { sys: &linux_setup::Real };
-            let (a, b) = setup.persist_status();
             let loaded = setup.module_loaded();
-            return SetupStatus { installed: setup.module_installed(), loaded, ready: setup.devices_ready(), persisted: a || b,
+            return SetupStatus { installed: setup.module_installed(), loaded, ready: setup.devices_ready(), persisted: setup.persisted(),
                                  ..SetupStatus::default() };
         }
         #[cfg(windows)]

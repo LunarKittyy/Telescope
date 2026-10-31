@@ -666,5 +666,11 @@ mod tests {
         assert_eq!(seen.len(), 1);
         assert_eq!((seen[0].method.as_str(), seen[0].path.as_str()), ("POST", "/v1/session"));
         assert_eq!(serde_json::from_slice::<Value>(&seen[0].body).unwrap(), serde_json::json!({"action": "stop"}));
+
+        // No route: no target for the stop to go to, so the phone hears nothing
+        let shared = crate::shared::Shared::new(Arc::new(ToServer(server.port)));
+        shared.conn().on_phone_paired(phone, |_| false);
+        assert_eq!(shared.session_target(Some("p")), None);
+        assert_eq!(server.seen.lock().unwrap().len(), 1);
     }
 }

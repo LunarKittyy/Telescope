@@ -1,10 +1,12 @@
 //! Connection's dialogs on a real (offscreen) Slint window: how long lists scroll and how popups behave.
 
+use i_slint_backend_testing::ElementHandle;
 use serde_json::json;
 use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance, Value};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+use telescope_core::event::RememberedSource;
 use telescope_core::source::PairedPhone;
 use telescope_link::plugin::phone_rows;
 use telescope_shell::offscreen;
@@ -70,6 +72,28 @@ export component W inherits Window {
     offscreen::draw(w.window(), 420.0, 600.0, 1.0);
     assert_eq!(length(&w, "shown"), 320.0);
     assert!(bool_of(&w, "scrolls"));
+
+    // The dialog itself grows by less than the list's cap, however long the list
+    let w = window(r#"import { PhonePicker, PhoneRow } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 900px;
+    background: red;
+    in property <[PhoneRow]> rows;
+    in property <bool> open;
+    PhonePicker { x: 0; y: 0; width: 300px; height: 40px; rows: root.rows; computer-name: "Desk"; phones-open: open; }
+}"#);
+    let asked = |w: &ComponentInstance| {
+        offscreen::pump();
+        offscreen::draw(w.window(), 600.0, 900.0, 1.0);
+        bottom(&offscreen::draw(w.window(), 600.0, 900.0, 1.0).unwrap(), 300)
+    };
+    w.set_property("rows", phones(1)).unwrap();
+    w.set_property("open", Value::Bool(true)).unwrap();
+    let short = asked(&w);
+    w.set_property("rows", phones(100)).unwrap();
+    let long = asked(&w);
+    assert!(short < long && long < short + 320, "{short} to {long}");
 }
 
 fn bool_of(w: &ComponentInstance, name: &str) -> bool {
@@ -212,6 +236,97 @@ export component W inherits Window {
     assert_eq!(said.borrow()[2], format!("{:?}", [Value::String("computer".into()), Value::String("Desk".into())]));
 }
 
+// Python's parent() checks: the picker and the button come with the header widget and nothing else brings them
+fn header_holds_the_phone_picker_and_manage_button() {
+    let w = window(r#"import { PhonePicker } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 100px;
+    in property <[string]> names: ["Pixel"];
+    callback managed;
+    PhonePicker { x: 0; y: 0; width: 300px; height: 40px; names: root.names; current: 0; manage => { root.managed(); } }
+}"#);
+    let managed = Rc::new(RefCell::new(0));
+    let m = managed.clone();
+    w.set_callback("managed", move |_| { *m.borrow_mut() += 1; Value::Void }).unwrap();
+    offscreen::draw(w.window(), 600.0, 100.0, 1.0);
+    assert_eq!(ElementHandle::find_by_accessible_label(&w, "Phone").count(), 1);
+    ElementHandle::find_by_accessible_label(&w, "Your phones").next().expect("the manage button").invoke_accessible_default_action();
+    assert_eq!(*managed.borrow(), 1);
+}
+
+fn the_help_button_is_named_setup_guide() {
+    let w = window(r#"import { ConnectionCard } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 400px;
+    callback asked;
+    ConnectionCard { x: 0; y: 0; width: 500px; guide => { root.asked(); } }
+}"#);
+    let asked = Rc::new(RefCell::new(0));
+    let a = asked.clone();
+    w.set_callback("asked", move |_| { *a.borrow_mut() += 1; Value::Void }).unwrap();
+    offscreen::draw(w.window(), 600.0, 400.0, 1.0);
+    ElementHandle::find_by_accessible_label(&w, "Setup guide").next().expect("the help button").invoke_accessible_default_action();
+    assert_eq!(*asked.borrow(), 1);
+}
+
+fn press_key(w: &ComponentInstance, text: &str) {
+    let window = w.window();
+    window.dispatch_event(slint::platform::WindowEvent::KeyPressed { text: text.into() });
+    window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text: text.into() });
+}
+
+const YOUR_PHONES: &str = r#"import { PhonePicker, PhoneRow } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 620px;
+    in property <[PhoneRow]> rows;
+    in property <bool> open;
+    callback said(string, string);
+    PhonePicker {
+        x: 0; y: 0; width: 300px; height: 40px;
+        rows: root.rows;
+        computer-name: "Desk";
+        phones-open: open;
+        rename(id, name) => { root.said(id, name); }
+    }
+}"#;
+
+fn rename_dialog_line_edit_has_a_length_cap() {
+    let w = window(YOUR_PHONES);
+    let said = Rc::new(RefCell::new(Vec::new()));
+    let s = said.clone();
+    w.set_callback("said", move |args| {
+        if let Value::String(name) = &args[1] { s.borrow_mut().push(name.to_string()); }
+        Value::Void
+    }).unwrap();
+    w.set_property("rows", phones(2)).unwrap();
+    w.set_property("open", Value::Bool(true)).unwrap();
+    settle(&w);
+    click(&w, 357.0, 185.0); // Phone 0's pencil
+    for _ in 0..70 {
+        press_key(&w, "x");
+    }
+    settle(&w);
+    click(&w, 362.0, 287.0); // OK
+    assert_eq!(*said.borrow(), ["x".repeat(telescope_link::util::MAX_NAME_CHARS)]);
+}
+
+fn a_browser_row_has_a_bin_but_no_pencil() {
+    let w = window(YOUR_PHONES);
+    let said = Rc::new(RefCell::new(0));
+    let s = said.clone();
+    w.set_callback("said", move |_| { *s.borrow_mut() += 1; Value::Void }).unwrap();
+    let browser = RememberedSource { id: "browser:1".into(), name: "Chrome".into(), detail: "Browser".into() };
+    w.set_property("rows", from_json(&json!(phone_rows(&[], &[browser])))).unwrap();
+    w.set_property("open", Value::Bool(true)).unwrap();
+    settle(&w);
+    click(&w, 357.0, 185.0); // where a phone's pencil is
+    click(&w, 362.0, 287.0); // and the OK of the name question it would open
+    assert_eq!(*said.borrow(), 0);
+}
+
 fn the_virtual_camera_question_comes_with_the_startup_choice() {
     let w = window(r#"import { ConnectionCard } from "plugin/connection.slint";
 export component W inherits Window {
@@ -243,4 +358,8 @@ fn connection_dialogs() {
     the_choice_field_says_when_its_list_opens_and_closes();
     your_phones_asks_before_it_renames_or_removes();
     the_virtual_camera_question_comes_with_the_startup_choice();
+    header_holds_the_phone_picker_and_manage_button();
+    the_help_button_is_named_setup_guide();
+    rename_dialog_line_edit_has_a_length_cap();
+    a_browser_row_has_a_bin_but_no_pencil();
 }
