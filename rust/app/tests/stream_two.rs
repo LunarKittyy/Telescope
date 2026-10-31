@@ -238,12 +238,42 @@ fn stop_cancels_a_stream_restarting_next_to_the_shown_one() {
 }
 
 #[test]
-fn reconnecting_keeps_a_streams_camera_when_it_restarts_as_the_only_one_left() {
+fn restarting_the_only_stream_left_keeps_its_virtual_camera() {
     let r = two_streams("two-restart-only");
-    r.w.with_flow(|flow, host| flow.reconnect_stream(host, Some("oneplus")));
+    r.stop(Some("pixel"));
+    r.pump();
+    assert_eq!(r.source("oneplus").slot(), 1);
+    r.w.with_flow(|flow, host| flow.reconnect_stream(host, None));
     r.until("the restart", |r| r.workers_made() == 3);
     r.pump();
-    assert_eq!(r.worker(2).camera_slot, 1);
+    assert_eq!(r.last_worker().camera_slot, 1);
+    r.stop(None);
+    r.pump();
+    *r.link.picked.lock().unwrap() = Some("oneplus".into());
+    r.w.toggle_stream();
+    r.until("the next start", |r| r.workers_made() == 4);
+    assert_eq!(r.last_worker().camera_slot, 0, "a real stop and start alone goes back to the usual camera");
+}
+
+#[test]
+fn a_stopped_cameras_start_brings_it_back_next_to_the_others() {
+    let r = settled("two-start-again");
+    r.stop(Some("oneplus"));
+    r.pump();
+    assert_eq!(r.streaming(), ["pixel"]);
+    r.w.start_source(Some("oneplus".into()));
+    r.until("it's back", |r| r.streaming().len() == 2);
+    assert_eq!(r.shown().as_deref(), Some("oneplus"));
+    assert_eq!(zoom(&r), 3, "on its own settings, not the other phone's");
+}
+
+#[test]
+fn another_cameras_start_working_keeps_a_stopped_ones_banner() {
+    let r = two_streams("two-keeps-banner");
+    r.show_issue("stopped:pixel", "Pixel stopped streaming");
+    r.worker(1).says("ok", "Streaming");
+    r.pump();
+    assert!(r.banner("stopped:pixel").is_some());
 }
 
 #[test]
