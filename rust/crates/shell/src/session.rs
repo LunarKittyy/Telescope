@@ -114,15 +114,13 @@ pub struct Source {
     pub id: Option<String>,
     pub state: RefCell<SourceState>,
     pub kind: Box<dyn SourceKind>,
-    /// How long a resolution change may take before the footer says it didn't land.
-    pub resolution_timer: slint::Timer,
 }
 
 pub type SourceRef = Rc<Source>;
 
 impl Source {
     pub fn new(id: Option<String>, kind: Box<dyn SourceKind>) -> SourceRef {
-        Rc::new(Source { id, state: RefCell::new(SourceState::default()), kind, resolution_timer: slint::Timer::default() })
+        Rc::new(Source { id, state: RefCell::new(SourceState::default()), kind })
     }
 
     pub fn id_str(&self) -> &str {

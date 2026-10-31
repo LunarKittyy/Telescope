@@ -208,9 +208,9 @@ fn a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes() {
     r.w.state.borrow_mut().switch_device(Some("pixel"), Some("oneplus"));
     r.w.process();
     r.until("the other phone wakes", |r| r.link.logged("wake oneplus") == 1);
-    r.until("the first stop", |r| stops(&r, "pixel") == 1);
+    r.until("the first stop", |r| stops(r, "pixel") == 1);
     r.link.hold_wakes(false); // its start went through after the stop got there
-    r.until("the second stop", |r| stops(&r, "pixel") == 2);
+    r.until("the second stop", |r| stops(r, "pixel") == 2);
     r.until("the other stream", |r| r.streaming() == ["oneplus"]);
 }
 

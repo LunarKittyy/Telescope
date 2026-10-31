@@ -79,6 +79,8 @@ pub struct Streams {
     reconnecting: RefCell<Option<(slint::Timer, String, Cell<u32>)>>,
     /// Takes the red off the frame rate again after a size that didn't land.
     fps_tone_timer: slint::Timer,
+    /// By source: how long a resolution change may take before the footer says it didn't land.
+    resolution_timers: RefCell<std::collections::HashMap<String, slint::Timer>>,
     /// The packet steps plugins asked for, which go with the panels from stream to stream.
     packet_makers: Rc<RefCell<crate::shell::PacketMakers>>,
     /// Starts workers in place of StreamWorker (tests).
@@ -245,7 +247,7 @@ impl Window {
         self.streams.fps_tone_timer.stop();
         self.set("fps-tone", "warn");
         let (me, id) = (Rc::downgrade(self), source.id.clone());
-        source.resolution_timer.start(slint::TimerMode::SingleShot, RESOLUTION_WAIT, move || {
+        self.streams.resolution_timers.borrow_mut().entry(source.id_str().into()).or_default().start(slint::TimerMode::SingleShot, RESOLUTION_WAIT, move || {
             if let Some(w) = me.upgrade() {
                 w.resolution_timed_out(id.as_deref());
             }
@@ -267,7 +269,9 @@ impl Window {
     }
 
     fn clear_pending_resolution(self: &Rc<Self>, source: &SourceRef) {
-        source.resolution_timer.stop();
+        if let Some(timer) = self.streams.resolution_timers.borrow().get(source.id_str()) {
+            timer.stop();
+        }
         source.state.borrow_mut().pending_resolution = None;
         if self.is_shown(source) {
             self.set("fps-tone", "");

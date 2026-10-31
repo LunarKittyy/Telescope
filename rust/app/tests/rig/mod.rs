@@ -262,7 +262,7 @@ impl Link for FakeLink {
     }
     fn adopt_route(&self, source_id: Option<&str>, route: &RouteSpec) -> Option<String> {
         note(&self.log, format!("adopt {} {route:?}", source_id.unwrap_or("")));
-        Some(format!("https://moved:8080/v1/video.h264"))
+        Some("https://moved:8080/v1/video.h264".to_string())
     }
     fn show_problem(&self, source_id: Option<&str>, res: &Resolution) {
         note(&self.log, format!("problem {} {:?}", source_id.unwrap_or(""), res.status));
