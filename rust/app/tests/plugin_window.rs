@@ -61,6 +61,89 @@ fn a_plugins_window_takes_props_sends_its_callbacks_and_says_when_it_closed() {
     assert_eq!(*heard.lock().unwrap(), ["editor done [Number(3)]", "editor closed []"]);
 }
 
+/// One picture with its editor opened once the plugins are up.
+struct Editing(telescope_effects::composite_plugin::CompositePlugin, Arc<Mutex<Vec<String>>>);
+
+impl Plugin for Editing {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { optional: false, ..self.0.info() }
+    }
+    fn setup(&mut self, host: &mut dyn Host) {
+        self.0.setup(host);
+    }
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        self.0.open_editor(host);
+    }
+    fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        self.1.lock().unwrap().push(event.callback.clone());
+        self.0.on_ui(host, event);
+    }
+}
+
+fn editing(name: &str) -> (Rc<window::Window>, Arc<Mutex<Vec<String>>>) {
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir(name);
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let h = heard.clone();
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| {
+        vec![Box::new(Editing(telescope_effects::composite_plugin::CompositePlugin::new(), h)) as Box<dyn Plugin>]
+    }, None, None).unwrap();
+    w.process();
+    (w, heard)
+}
+
+// test_composite.py::test_a_closed_editor_is_freed
+#[test]
+fn a_closed_editor_is_freed() {
+    use slint::ComponentHandle as _;
+    let (w, heard) = editing("composite-editor-closed");
+    let editor = w.plugin_window("composite", "editor").expect("the editor is open");
+    let weak = editor.as_weak();
+    editor.window().dispatch_event(slint::platform::WindowEvent::CloseRequested);
+    drop(editor);
+    for _ in 0..3 {
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(10));
+        slint::platform::update_timers_and_animations();
+    }
+    assert!(w.plugin_window("composite", "editor").is_none());
+    assert!(weak.upgrade().is_none(), "the window itself is gone");
+    assert!(heard.lock().unwrap().contains(&"closed".to_string()));
+}
+
+// test_composite.py::test_starting_from_a_layout_and_saving_it: Rename and Delete work once the picture is a saved layout
+#[test]
+fn rename_and_delete_come_on_with_a_saved_layout() {
+    use i_slint_backend_testing::ElementHandle;
+    let (w, _heard) = editing("composite-editor-buttons");
+    let editor = w.plugin_window("composite", "editor").expect("the editor is open");
+    let asking = || editor.get_property("asking-name").unwrap();
+    let click = |label: &str| {
+        use slint::ComponentHandle as _;
+        let button = ElementHandle::find_by_accessible_label(&editor, label).next().unwrap_or_else(|| panic!("no {label}"));
+        let (p, s) = (button.absolute_position(), button.size());
+        let (position, left) = (slint::LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0), slint::platform::PointerEventButton::Left);
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button: left });
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button: left });
+        w.process();
+    };
+    click("Rename\u{2026}");
+    assert_eq!(asking(), SValue::Bool(false), "nothing saved to rename");
+    editor.invoke("save-clicked", &[]).unwrap();
+    w.process();
+    assert_eq!(asking(), SValue::Bool(true));
+    editor.invoke("name-entered", &[SValue::String("Talk".into())]).unwrap();
+    w.process();
+    assert_eq!((asking(), editor.get_property("saved").unwrap()), (SValue::Bool(false), SValue::Bool(true)));
+    click("Rename\u{2026}");
+    assert_eq!(asking(), SValue::Bool(true), "Rename asks for a name now");
+    editor.invoke("name-cancelled", &[]).unwrap();
+    w.process();
+    click("Delete");
+    assert_eq!(editor.get_property("saved").unwrap(), SValue::Bool(false), "and Delete takes it away");
+}
+
 struct Offers(Arc<Mutex<Vec<Vec<SourceName>>>>);
 
 struct Browser(&'static str);

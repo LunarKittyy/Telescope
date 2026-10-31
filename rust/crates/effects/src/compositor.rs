@@ -5,6 +5,7 @@
 //! packed picture comes out as Python's does; in I420 the colour planes are half size, and a box edge on an odd pixel shares
 //! its colour sample with what's beside it.
 
+use std::borrow::Cow;
 use crate::composite::{bgr, box_px, crop_px, scaled_size, Layout, Tile};
 use crate::cpu::Rgb;
 use crate::imgops::resize_area;
@@ -176,6 +177,10 @@ fn scale_region(src: Region, w: usize, h: usize) -> Vec<u8> {
     if (src.w, src.h) == (w, h) {
         return src.copy();
     }
+    halves_then_linear(src, w, h)
+}
+
+fn halves_then_linear(src: Region, w: usize, h: usize) -> Vec<u8> {
     if src.w < 2 * w || src.h < 2 * h {
         return linear(src, w, h);
     }
@@ -193,8 +198,11 @@ fn scale_region(src: Region, w: usize, h: usize) -> Vec<u8> {
 }
 
 /// composite.scale_to on a whole w x h picture of ch bytes a pixel.
-pub fn scale_to(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Vec<u8> {
-    scale_region(Region { data: src, stride: w, ch, x0: 0, y0: 0, w, h }, w2, h2)
+pub fn scale_to(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Cow<'_, [u8]> {
+    if (w, h) == (w2, h2) {
+        return Cow::Borrowed(src);
+    }
+    Cow::Owned(halves_then_linear(Region { data: src, stride: w, ch, x0: 0, y0: 0, w, h }, w2, h2))
 }
 
 /// pictures.cover: the picture scaled to fill w x h (INTER_AREA smaller, INTER_LINEAR bigger), cut evenly where it doesn't fit.
@@ -399,7 +407,7 @@ pub struct Compositor {
     /// The background in the planes last drawn in.
     planes: Option<(usize, Kind, Arc<Vec<u8>>)>,
     /// The sizes a background picture was scaled to, for the tests.
-    pub(crate) covered: Vec<(usize, usize)>,
+    pub covered: Vec<(usize, usize)>,
 }
 
 impl Default for Compositor {
