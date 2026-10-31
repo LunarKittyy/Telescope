@@ -96,15 +96,19 @@ pub fn font_named(names: &[&str]) -> Option<FontArc> {
 /// QFontMetrics.averageCharWidth for the app's font at the body size (13px).
 pub const BODY_AVERAGE_CHAR: f32 = 8.0;
 
-/// The app's own font (Inter, as the stylesheet asks for first) in this weight, else a sans the system has.
+/// The font files the app looks for in this weight, best first: Inter, as the stylesheet asks for first, then a sans the system has.
+pub fn app_font_files(weight: Weight) -> &'static [&'static str] {
+    match weight {
+        Weight::Regular => &["Inter-Regular.ttf", "Inter.ttf", "DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"],
+        Weight::SemiBold => &["Inter-SemiBold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "seguisb.ttf", "segoeuib.ttf", "arialbd.ttf"],
+    }
+}
+
+/// The app's own font in this weight (app_font_files).
 pub fn app_font(weight: Weight) -> Option<FontArc> {
     static CACHE: [OnceLock<Option<FontArc>>; 2] = [OnceLock::new(), OnceLock::new()];
-    let (slot, names): (usize, &[&str]) = match weight {
-        Weight::Regular => (0, &["Inter-Regular.ttf", "Inter.ttf", "DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"]),
-        Weight::SemiBold => (1, &["Inter-SemiBold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "seguisb.ttf", "segoeuib.ttf", "arialbd.ttf"]),
-    };
-    let wght = if weight == Weight::SemiBold { 600.0 } else { 400.0 };
-    CACHE[slot].get_or_init(|| load(find_font_file(names)?, wght)).clone()
+    let (slot, wght) = if weight == Weight::SemiBold { (1, 600.0) } else { (0, 400.0) };
+    CACHE[slot].get_or_init(|| load(find_font_file(app_font_files(weight))?, wght)).clone()
 }
 
 /// The font that covers a character the main one doesn't, if the system has one: what it offers for the character's script (fontconfig
