@@ -1752,8 +1752,10 @@ mod tests {
         seen
     }
 
-    /// A person mask that says which frame it was worked out for, once per number as the service does.
-    struct Masks;
+    /// A person mask that says which frame it was worked out for, once per number as the service does; with a list, it
+    /// wants people and notes what it's fed.
+    #[derive(Default)]
+    struct Masks(Option<Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>>>);
 
     impl telescope_core::vision::VisionService for Masks {
         fn attach(&self, _bus: telescope_core::BusSender) {}
@@ -1766,9 +1768,13 @@ mod tests {
         }
         fn want_people(&self, _owner: &str, _on: bool) {}
         fn wants_people(&self) -> bool {
-            false
+            self.0.is_some()
         }
-        fn feed_raw(&self, _source_id: &str, _frame: &Frame, _upright: telescope_core::vision::Upright) {}
+        fn feed_raw(&self, _source_id: &str, frame: &Frame, upright: telescope_core::vision::Upright) {
+            if let Some(fed) = &self.0 {
+                fed.lock().unwrap().push((frame.clone(), upright));
+            }
+        }
         fn tracked_people(&self, _source_id: &str) -> (Vec<serde_json::Value>, u32) {
             (Vec::new(), 0)
         }
@@ -1846,10 +1852,43 @@ mod tests {
 
     #[test]
     fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
-        let vision = VisionFeed { service: Arc::new(Masks), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
+        let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
         let seen = with_steps(Vec::new(), Some(vision), 2);
         let masks = seen.masks.lock().unwrap();
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
+    }
+
+    // test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share
+    #[test]
+    fn people_are_found_in_the_picture_as_shown_through_the_phone_share() {
+        use telescope_core::host::ViewChange;
+        let path = telescope_core::testing::scratch_dir("people-share").join("telescope_config.json");
+        let mut s = crate::shell::State::new(telescope_core::config::ConfigFile::at(path));
+        let fed: Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>> = Arc::default();
+        s.vision = Some(Arc::new(Masks(Some(fed.clone()))));
+        s.streams.source_id = Some("phone-1".into());
+        let zooms = serde_json::json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
+        let said = s.vc.stream_start(&s.view, "phone-1", 1, 0.0);
+        s.apply_said(said);
+        let said = s.vc.phone_state(&s.view, &zooms, 0.0);
+        s.apply_said(said);
+        let said = s.vc.take("Auto framing").1;
+        s.apply_said(said);
+        let st = &mut s;
+        let said = st.vc.steer(&mut st.view, "Auto framing", 2.0, 0.0, 0.0, 0.0); // the phone sends the middle 1/1.4286
+        st.apply_said(said);
+        let said = st.vc.set_view(&mut st.view, &ViewChange { rotation: Some(Some(90)), ..Default::default() }, 0.0);
+        st.apply_said(said);
+        with_steps(Vec::new(), s.vision_feed(), 1);
+        let fed = fed.lock().unwrap();
+        let (frame, upright) = &fed[0];
+        assert_eq!(upright.turn.rotation, Some(90), "the model gets the picture as shown (view_pixels checks the turned size)");
+        assert_eq!(s.view_aspect(), frame.height as f32 / frame.width as f32);
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
+        let (x, y) = upright.to_shown(0.5, 0.5);
+        assert!(near(x, 0.5) && near(y, 0.5));
+        let (x, y) = upright.to_shown(1.0, 0.0); // the top right of the upright frame, inside the share
+        assert!(near(x, 0.85) && near(y, 0.15), "{x} {y}");
     }
 
     #[test]

@@ -1625,11 +1625,17 @@ mod tests {
         s.frame_sizes.lock().unwrap().insert("phone".into(), (1920, 1080));
         s.view.flip_h = true;
         s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.5 });
+        s.deliver_events();
+        let points = |heard: &Mutex<Vec<Event>>| {
+            let heard = heard.lock().unwrap();
+            let focus: Vec<Event> = heard.iter().filter(|e| matches!(e, Event::FocusPoint { .. })).cloned().collect();
+            let meter: Vec<Event> = heard.iter().filter(|e| matches!(e, Event::MeterPoint { .. })).cloned().collect();
+            (focus, meter)
+        };
+        assert_eq!(points(&heard), (vec![Event::FocusPoint { x: 0.75, y: 0.5 }], vec![]));
         s.bus.emit(Event::MeterPointPicked { x: 0.75, y: 0.25 });
         s.deliver_events();
-        let heard = heard.lock().unwrap();
-        assert!(heard.contains(&Event::FocusPoint { x: 0.75, y: 0.5 }), "{heard:?}");
-        assert!(heard.contains(&Event::MeterPoint { x: 0.25, y: 0.25 }), "{heard:?}");
+        assert_eq!(points(&heard), (vec![Event::FocusPoint { x: 0.75, y: 0.5 }], vec![Event::MeterPoint { x: 0.25, y: 0.25 }]), "metering moves no focus");
     }
 
     #[test]
