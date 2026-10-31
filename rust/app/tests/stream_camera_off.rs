@@ -7,7 +7,7 @@ use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use telescope_core::event::Event;
-use telescope_core::host::Host;
+use telescope_core::host::{Host, HostStreams};
 use telescope_core::link::{PhoneStatus, Resolution};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::source::RouteSpec;
@@ -291,6 +291,31 @@ fn a_mic_stream_that_moves_route_says_so_and_the_mic_goes_with_it() {
     r.until("the mic moved", |r| r.did_hear("microphone start pixel"));
     assert_eq!(r.link.logged(&format!("adopt pixel {wifi:?}")), 1);
     assert_eq!(r.source("pixel").session().unwrap().url, "https://192.168.1.20:8080/v1/video.h264");
+    assert_eq!(r.text("status"), "Streaming the mic, camera off");
+}
+
+#[test]
+fn mic_only_session_can_hand_over_to_usb() {
+    const USB: &str = "https://usb-SER:8080/v1/video";
+    let r = with_mic("camera-off-hand-over", true);
+    r.pump();
+    r.w.set_camera_on(false, false);
+    r.pump();
+    r.w.toggle_stream();
+    r.until("the stream", |r| r.streaming() == ["pixel"]);
+    *r.link.prepared.lock().unwrap() = Some(USB.into());
+    r.forget_heard();
+    let at = r.w.state.borrow().index("panel").unwrap();
+    let usb = RouteSpec::Usb { serial: "SER".into() };
+    assert!(r.w.state.borrow_mut().call(at, |_, host| host.hand_over_stream(&usb, Some("pixel"))).unwrap());
+    r.w.process();
+    r.until("the mic moved", |r| r.did_hear("microphone start pixel"));
+    let session = r.source("pixel").session().unwrap();
+    assert_eq!(session.url, USB);
+    assert!(session.worker.is_none());
+    assert_eq!(r.workers_made(), 0);
+    assert_eq!(r.link.logged("commit pixel"), 1);
+    assert_eq!(*r.link.control("pixel").retargeted.lock().unwrap(), [USB]);
     assert_eq!(r.text("status"), "Streaming the mic, camera off");
 }
 

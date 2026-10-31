@@ -639,7 +639,10 @@ fn setup_plugin_canvas_config() {
         (json!({}), (None, None)),
         (json!({"canvas_preset": "1280 × 720"}), (None, None)),
         (json!({"canvas_preset": "720p 16:9 - 1280 x 720"}), (Some(1280), Some(720))),
+        (json!({"canvas_preset": "Custom...", "custom_canvas_w": 1112, "custom_canvas_h": 778}), (Some(1112), Some(778))),
         (json!({"canvas_preset": "Custom...", "custom_canvas_w": 1111, "custom_canvas_h": 777}), (Some(1112), Some(778))),
+        (json!({"canvas_preset": "Custom...", "custom_canvas_w": 7680, "custom_canvas_h": 4319}), (Some(7680), Some(4320))),
+        (json!({"canvas_preset": "Custom...", "custom_canvas_w": "1920", "custom_canvas_h": 1080}), (Some(1920), Some(1080))),
         (json!({"canvas_preset": "Custom...", "custom_canvas_w": 0, "custom_canvas_h": 720}), (Some(1920), Some(1080))),
     ] {
         let mut r = Rig::linux();
@@ -734,7 +737,8 @@ fn setup_plugin_uses_the_new_canvas_for_the_restart_it_asks_for() {
     let mut r = Rig::linux();
     r.plugin.panel.canvas_current = 3;
     r.ui("video", "apply-clicked", vec![]);
-    // The window reads the canvas from these settings for the restart, so it's in already
+    // The window reads the canvas from these settings for the restart, once this handler is done
+    assert_eq!(r.host.calls.iter().filter(|c| c.starts_with("restart_vcam_canvas")).collect::<Vec<_>>(), ["restart_vcam_canvas 1280x720"]);
     assert_eq!(r.plugin.canvas_dims(), (Some(1280), Some(720)));
     let (request, _) = r.plugin.canvas_request.clone().unwrap();
     r.done(request, true, "", "");
