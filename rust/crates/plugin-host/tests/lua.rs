@@ -185,12 +185,18 @@ fn stream_alerts_needs_its_permission() {
 
 // ── check-plugin (test_check_plugin.py) ─────────────────────────────────────
 
+/// check-plugin run as an author runs it: its exit code and everything it printed.
+fn checker(folder: &Path) -> (Option<i32>, String) {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_check-plugin")).arg(folder).output().unwrap();
+    (out.status.code(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+}
+
 #[test]
 fn the_example_plugins_pass() {
     for name in ["black_and_white", "stream_alerts"] {
-        let report = check(&example(name));
-        assert_eq!(report.problems(), 0, "{}", report.text());
-        assert!(report.text().ends_with("All good.\n"));
+        let (code, out) = checker(&example(name));
+        assert_eq!(code, Some(0), "{out}");
+        assert!(!out.contains("[FAIL]") && out.ends_with("All good.\n"), "{out}");
     }
 }
 
@@ -199,33 +205,36 @@ fn a_broken_plugin_gets_each_problem_with_where_it_is() {
     let folder = plugin("bad_one", "local plugin = {}\n\
         function plugin.frame_step() return { shader = 'fx.wgsl' } end\n\
         function plugin.card() return { file = 'card.slint', component = 'Card' } end\n\
-        function plugin.set_config(cfg) end\n\
+        function plugin.get_config() return { when = function() end } end\n\
         function plugin.on_stream_start(stream)\n  error('no lens')\nend\n\
         return plugin\n", json!({}));
     std::fs::write(folder.join("fx.wgsl"), "fn effect(uv: vec2<f32>) -> vec4<f32> {\n    return sample(uv) * nope;\n}\n").unwrap();
-    let report = check(&folder);
-    let text = report.text();
-    assert_eq!(report.problems(), 3, "{text}");
-    assert!(text.contains("3 problems to fix"), "{text}");
+    let (code, text) = checker(&folder);
+    assert_eq!(code, Some(1), "{text}");
+    assert!(text.contains("4 problems to fix"), "{text}");
     assert!(text.contains("fx.wgsl:2"), "the shader's error points into its file: {text}");
     assert!(text.contains("main.lua:6: no lens"), "{text}");
     assert!(text.contains("the plugin has no card.slint"), "{text}");
+    assert!(text.contains("JSON"), "settings that can't be saved say why: {text}");
+    // Only the plugin's own places, none of the checker's
+    assert!(![".rs:", "check-plugin", "stack traceback"].iter().any(|ours| text.contains(ours)), "{text}");
 }
 
 #[test]
 fn a_plugin_that_wont_load_says_why() {
     let folder = plugin("broken", "require('not_a_module_anywhere')\nreturn {}\n", json!({}));
-    let report = check(&folder);
-    assert!(report.problems() == 1 && report.text().contains("not_a_module_anywhere"), "{}", report.text());
+    let (code, out) = checker(&folder);
+    assert_eq!(code, Some(1), "{out}");
+    assert!(out.contains("1 problem to fix") && out.contains("not_a_module_anywhere"), "{out}");
 }
 
 #[test]
 fn repo_is_checked() {
     let cases = [
-        (json!({"repo": "github.com/me/extra"}), "[FAIL] plugin.json"),
+        (json!({"repo": "github.com/me/extra"}), "[FAIL] plugin.json\n       \"repo\" has to be an https:// address"),
         (json!({"repo": "https://github.com/me/extra", "version": "1.0"}), "Telescope can tell people when a new release"),
         (json!({"repo": "https://github.com/me/extra"}), "Give it a \"version\""),
-        (json!({"repo": "https://codeberg.org/me/extra"}), "only follow https://github.com/owner/repo"),
+        (json!({"repo": "https://codeberg.org/me/extra"}), "only follows https://github.com/owner/repo"),
         (json!({}), ""),
     ];
     for (extra, expect) in cases {

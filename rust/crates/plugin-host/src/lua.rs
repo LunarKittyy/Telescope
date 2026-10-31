@@ -10,6 +10,7 @@ use mlua::serde::{DeserializeOptions, SerializeOptions};
 use mlua::chunk::ChunkMode;
 use mlua::{Function, HookTriggers, Lua, LuaOptions, LuaSerdeExt, MultiValue, RegistryKey, StdLib, Table, VmState};
 use serde_json::Value;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -209,6 +210,8 @@ pub struct LuaGuest {
     lua: Lua,
     plugin: RegistryKey,
     deadline: Arc<Mutex<Option<Instant>>>,
+    /// check-plugin's run: get_config() fails on what can't be saved, where Telescope leaves it out.
+    strict_config: AtomicBool,
 }
 
 impl LuaGuest {
@@ -219,7 +222,7 @@ impl LuaGuest {
         let deadline = Arc::new(Mutex::new(None));
         Self::sandbox(&lua, &deadline).map_err(|e| message(&e))?;
         let source = calls.context().read_text(main)?;
-        let mut guest = LuaGuest { plugin: lua.create_registry_value(mlua::Value::Nil).map_err(|e| message(&e))?, lua, deadline };
+        let mut guest = LuaGuest { plugin: lua.create_registry_value(mlua::Value::Nil).map_err(|e| message(&e))?, lua, deadline, strict_config: AtomicBool::new(false) };
         let returned = guest.run(calls, LOAD_LIMIT, |lua| {
             lua.load(source.as_str()).set_name(format!("@{main}")).set_mode(ChunkMode::Text).call::<mlua::Value>(())
         })?;
@@ -296,6 +299,11 @@ impl LuaGuest {
         events.get::<Option<Function>>(event).ok().flatten()
     }
 
+    /// Whether get_config() fails on a value that can't be saved, for check-plugin.
+    pub fn set_strict_config(&self, strict: bool) {
+        self.strict_config.store(strict, Ordering::SeqCst);
+    }
+
     /// The Lua state, for the test harness.
     pub fn lua(&self) -> &Lua {
         &self.lua
@@ -318,6 +326,10 @@ impl Guest for LuaGuest {
         self.run(calls, HOOK_LIMIT, |lua| {
             let lua_args = args.iter().map(|a| to_lua(lua, a)).collect::<mlua::Result<Vec<_>>>()?;
             let returned: mlua::Value = func.call(MultiValue::from_vec(lua_args))?;
+            if hook == "get_config" && self.strict_config.load(Ordering::SeqCst) {
+                return lua.from_value_with(returned, de().deny_unsupported_types(true))
+                    .map_err(|e| lua_err(format!("get_config() has to return what JSON can hold (tables, text, numbers, true/false): {e}")));
+            }
             from_lua(lua, returned)
         })
     }

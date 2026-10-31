@@ -2994,7 +2994,7 @@
 "test_jpeg_guard.py::test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" = { status = "ported", rust = "rust/crates/media/src/mjpeg.rs::the_reader_drops_an_oversized_frame_and_decodes_a_normal_one" }
 # ── level_meter
 "test_level_meter.py::test_a_louder_peak_moves_the_hold_up_at_once" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::a_louder_peak_moves_the_hold_up_at_once" }
-"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it" }
+"test_level_meter.py::test_clip_light_latches_for_a_while_and_a_click_clears_it" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::clip_light_latches_for_a_while_and_a_click_clears_it", note = "The real click on the card's meter is app/tests/mic_window.rs::a_click_on_the_meter_clears_the_clip_light" }
 "test_level_meter.py::test_limiting_lights_the_dot_without_counting_as_a_clip" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::limiting_lights_the_dot_without_counting_as_a_clip" }
 "test_level_meter.py::test_peak_holds_then_sinks" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::peak_holds_then_sinks" }
 "test_level_meter.py::test_to_db_floors_silence" = { status = "ported", rust = "rust/crates/audio/src/meter.rs::to_db_floors_silence" }

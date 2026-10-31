@@ -63,10 +63,6 @@ component LevelMeter inherits Rectangle {
     function at(p: float) -> length {
         p * track-w
     }
-    TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
-    }
     bar := Rectangle {
         x: inset + 0.5px;
         y: top;
@@ -116,8 +112,12 @@ component LevelMeter inherits Rectangle {
         border-width: state.lit == "" ? 1px : 0px;
         border-color: Theme.border-strong;
     }
-    tip := TouchArea { }
-    if tip.has-hover: Tooltip {
+    // One area for the click and the tooltip: a second one on top would take the click
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    if touch.has-hover: Tooltip {
         TipBody { says: @tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."); }
     }
 }
