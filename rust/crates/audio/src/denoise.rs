@@ -87,7 +87,11 @@ pub fn load() -> Option<Arc<Library>> {
 /// Why noise reduction isn't available, in the current language, or "" when it is.
 pub fn problem() -> String {
     load();
-    match LOADED.get() {
+    problem_of(LOADED.get())
+}
+
+fn problem_of<T>(loaded: Option<&Result<T, Problem>>) -> String {
+    match loaded {
         Some(Err(p)) => problem_text(p),
         _ => String::new(),
     }
@@ -233,8 +237,8 @@ mod tests {
     #[test]
     fn the_stream_is_already_what_rnnoise_takes_so_nothing_is_resampled_or_held_back() {
         // Phones and the Browser camera both send 48 kHz mono, and the writer's 10 ms chunk is exactly one frame
-        assert_eq!(crate::jitter::RATE, RATE);
-        assert_eq!(crate::jitter::CHUNK, FRAME);
+        assert_eq!((crate::jitter::RATE, RATE), (48_000, 48_000));
+        assert_eq!((crate::jitter::CHUNK, FRAME), (480, 480));
     }
 
     #[test]
@@ -299,6 +303,33 @@ mod tests {
         assert_eq!(*lib.dropped.lock().unwrap(), 1);
     }
 
+    static DESTROYED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+    #[test]
+    fn close_frees_the_librarys_state_once() {
+        use std::sync::atomic::Ordering;
+        unsafe extern "C" fn create(_model: *mut c_void) -> *mut c_void {
+            std::ptr::dangling_mut::<u8>().cast()
+        }
+        unsafe extern "C" fn destroy(_state: *mut c_void) {
+            DESTROYED.fetch_add(1, Ordering::SeqCst);
+        }
+        unsafe extern "C" fn process(_state: *mut c_void, _out: *mut f32, _input: *const f32) -> f32 {
+            0.0
+        }
+        // SAFETY: the program's own symbols, opened only so a Library has something to hold on to
+        #[cfg(unix)]
+        let own: libloading::Library = libloading::os::unix::Library::this().into();
+        #[cfg(windows)]
+        let own: libloading::Library = libloading::os::windows::Library::this().unwrap().into();
+        let lib = Arc::new(Library { create, destroy, process, _lib: own });
+        let mut d = Denoiser::new(Rnnoise::new(lib).unwrap());
+        d.close();
+        d.close();
+        drop(d);
+        assert_eq!(DESTROYED.load(Ordering::SeqCst), 1);
+    }
+
     #[test]
     fn a_missing_library_says_the_package_isnt_installed() {
         let dir = std::env::temp_dir().join(format!("telescope-rnnoise-missing-{}", std::process::id()));
@@ -320,6 +351,10 @@ mod tests {
     fn problem_explains_each_case() {
         assert!(problem_text(&("missing", String::new())).contains("pyrnnoise"));
         assert!(problem_text(&("failed", "bad ELF".into())).contains("bad ELF"));
-        let _ = problem(); // whatever this machine has, it doesn't panic
+        assert!(problem_of::<()>(Some(&Err(("missing", String::new())))).contains("pyrnnoise"));
+        assert!(problem_of::<()>(Some(&Err(("failed", "bad ELF".into())))).contains("bad ELF"));
+        assert_eq!(problem_of(Some(&Ok(()))), "");
+        // whatever this machine has, what it says is what load found
+        assert_eq!(problem().is_empty(), load().is_some());
     }
 }

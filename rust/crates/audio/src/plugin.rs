@@ -299,6 +299,8 @@ pub struct MicrophonePlugin {
     gen: u64,
     preparing: bool,
     installing: bool,
+    /// How many times the install was asked about: the card opens its question when this moves.
+    confirm_asked: u32,
     muted: bool,
     gain_db: i32,
     auto_level: bool,
@@ -349,6 +351,7 @@ impl MicrophonePlugin {
             gen: 0,
             preparing: false,
             installing: false,
+            confirm_asked: 0,
             muted: false,
             gain_db: 0,
             auto_level: false,
@@ -750,7 +753,8 @@ impl MicrophonePlugin {
     fn open_action(&mut self, h: &mut dyn MicHost) {
         if self.action_url == INSTALL {
             if !self.installing {
-                h.set_card(&json!({"confirm-open": true}));
+                self.confirm_asked += 1;
+                h.set_card(&json!({"confirm-asked": self.confirm_asked}));
             }
         } else if !self.action_url.is_empty() {
             (self.open_link)(&self.action_url);
@@ -898,7 +902,6 @@ impl MicrophonePlugin {
                 self.show_readout(h);
             }
             "confirm-answered" => {
-                h.set_card(&json!({"confirm-open": false}));
                 if b(0) {
                     self.install(h);
                 }

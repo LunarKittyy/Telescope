@@ -754,9 +754,12 @@ fn the_mute_key_toggles_holds_and_says_what_it_did() {
     assert_eq!(r.p.run_action(&mut host, "microphone.mute", &json!({"mode": "off"})).as_deref(), Some("Mute: unmuted"));
     // push to talk while muted: held, it unmutes; let go, it mutes again
     r.p.run_action(&mut host, "microphone.mute", &json!({"mode": "on"}));
-    r.p.run_action(&mut host, "microphone.mute", &json!({"mode": "hold"}));
+    assert_eq!(r.p.run_action(&mut host, "microphone.mute", &json!({"mode": "hold"})).as_deref(), Some("Mute: unmuted"));
     r.p.run_action(&mut host, "microphone.mute", &json!({"mode": "hold"})); // the key repeats
     assert!(!r.p.muted);
+    r.p.release_action(&mut host, "microphone.mute", &json!({"mode": "hold"}));
+    assert!(r.p.muted);
+    // a release without a press does nothing
     r.p.release_action(&mut host, "microphone.mute", &json!({"mode": "hold"}));
     assert!(r.p.muted);
 }
@@ -802,17 +805,18 @@ fn the_card_offers_the_install_and_asks_first() {
     assert_eq!(r.h.text("fix-text"), "Install VB-Cable");
     assert!(r.h.status().contains("VB-Audio"));
     r.ui("fix-clicked", vec![]);
-    assert!(r.h.on("confirm-open")); // it asks first
+    assert_eq!(r.h.prop("confirm-asked"), 1); // it asks first
     r.ui("confirm-answered", vec![json!(false)]);
     assert!(calls.lock().unwrap().is_empty()); // nothing downloads without a yes
     r.ui("fix-clicked", vec![]);
+    assert_eq!(r.h.prop("confirm-asked"), 2, "asks again each time");
     r.ui("confirm-answered", vec![json!(true)]);
     assert_eq!(*calls.lock().unwrap(), vec!["download".to_string(), "run setup.exe".into()]);
     assert!(r.h.status().contains("restart the computer"));
     assert_eq!(r.h.text("fix-text"), "Open setup again"); // in case it was closed without installing
     r.ui("fix-clicked", vec![]);
     r.ui("confirm-answered", vec![json!(true)]);
-    assert_eq!(calls.lock().unwrap().len(), 4);
+    assert_eq!(calls.lock().unwrap().join(" / "), "download / run setup.exe / download / run setup.exe");
 }
 
 #[test]
