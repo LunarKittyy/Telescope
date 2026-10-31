@@ -82,7 +82,7 @@ impl Onboarding {
         self.vcam_failed.clear();
         self.render(host);
         std::thread::spawn(move || {
-            let (ready, detail) = (installers.camera)();
+            let (ready, detail) = reporting(installers.camera.as_ref()).unwrap_or_else(|stopped| (false, stopped));
             bus.emit(Event::RequestDone { request: VCAM_INSTALLED, ok: ready, message: detail, data: Value::Null });
         });
     }
@@ -94,7 +94,7 @@ impl Onboarding {
         self.app_note = None;
         self.render(host);
         std::thread::spawn(move || {
-            let result = (installers.phone_app)();
+            let result = reporting(installers.phone_app.as_ref()).and_then(|done| done);
             let (ok, message) = (result.is_ok(), result.err().unwrap_or_default());
             bus.emit(Event::RequestDone { request: APP_INSTALLED, ok, message, data: Value::Null });
         });
@@ -182,6 +182,14 @@ impl Onboarding {
     }
 }
 
+/// Runs an install so it always reports back, or its step stays on Installing….
+fn reporting<T>(install: &(dyn Fn() -> T + Send + Sync)) -> Result<T, String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(install)).map_err(|panic| {
+        let text = panic.downcast_ref::<String>().map(String::as_str).or(panic.downcast_ref::<&str>().copied());
+        text.unwrap_or("the install stopped").to_string()
+    })
+}
+
 /// The QR code's dark cells and size, shared with the other cards that show one.
 pub use telescope_core::qr::encode as qr;
 
@@ -220,7 +228,8 @@ impl Plugin for Onboarding {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
-        let note = self.app_note.take();
+        // What an install came to shows until the next redraw, as Python's _render goes back to the plain step
+        let (note, failed) = (self.app_note.take(), std::mem::take(&mut self.vcam_failed));
         match event {
             Event::RequestDone { request, ok, .. } if *request == VCAM_CHECKED => (self.vcam_checked, self.vcam_ready) = (true, *ok),
             Event::RequestDone { request, ok, message, .. } if *request == VCAM_INSTALLED => {
@@ -244,7 +253,7 @@ impl Plugin for Onboarding {
                 host.schedule_save();
             }
             _ => {
-                self.app_note = note;
+                (self.app_note, self.vcam_failed) = (note, failed);
                 return;
             }
         }
@@ -255,6 +264,7 @@ impl Plugin for Onboarding {
         match (event.callback.as_str(), event.args.first().and_then(Value::as_i64)) {
             ("close", _) => {
                 self.asked = false;
+                self.vcam_failed.clear();
                 self.render(host);
             }
             ("step-clicked", Some(0)) if self.linux => {
@@ -284,93 +294,213 @@ mod tests {
     use super::*;
     use telescope_core::testing::FakeHost;
 
-    fn texts(o: &Onboarding) -> Vec<(String, bool)> {
-        o.steps().iter().map(|s| (s["text"].as_str().unwrap().to_string(), s["done"].as_bool().unwrap())).collect()
+    /// The plugin on its own, its card drawn once, as test_onboarding.py's env.
+    struct Env {
+        o: Onboarding,
+        host: FakeHost,
     }
 
+    impl Env {
+        fn new() -> Env {
+            let mut env = Env { o: Onboarding::new(None, None), host: FakeHost::new() };
+            env.o.linux = true;
+            env.o.on_plugins_ready(&mut env.host);
+            env
+        }
+
+        fn windows() -> Env {
+            let mut env = Env::new();
+            env.o.linux = false;
+            env
+        }
+
+        fn event(&mut self, event: Event) {
+            self.o.on_event(&mut self.host, &event);
+        }
+
+        fn vcam(&mut self, ready: bool, detail: &str) {
+            let request = if detail.is_empty() { VCAM_CHECKED } else { VCAM_INSTALLED };
+            self.event(Event::RequestDone { request, ok: ready, message: detail.into(), data: Value::Null });
+        }
+
+        fn ready_and_streamed(&mut self) {
+            self.o.set_config(&json!({"streamed": true})).unwrap();
+            self.vcam(true, "");
+        }
+
+        fn close(&mut self) {
+            self.o.on_ui(&mut self.host, &UiEvent { ui: "card".into(), callback: "close".into(), args: vec![] });
+        }
+
+        /// The properties the card last got.
+        fn card(&self) -> Value {
+            let last = self.host.calls.iter().rev().find_map(|c| c.strip_prefix("set_ui_props card ")).expect("a redraw");
+            serde_json::from_str(last).unwrap()
+        }
+
+        fn shown(&self) -> bool {
+            self.card()["visible"] == true
+        }
+
+        fn qr(&self) -> bool {
+            self.card()["qr-shown"] == true
+        }
+
+        /// The close button shows when the card has an action, which it does while asked.
+        fn close_button(&self) -> bool {
+            self.card()["asked"] == true
+        }
+
+        fn step(&self, i: usize) -> Value {
+            self.card()["steps"][i].clone()
+        }
+
+        fn needed(&self) -> Vec<bool> {
+            self.host.events.iter().filter_map(|e| match e { Event::SetupNeeded { showing } => Some(*showing), _ => None }).collect()
+        }
+    }
+
+    // test_onboarding.py::test_starts_as_a_checklist_with_nothing_done
     #[test]
     fn starts_as_a_checklist_with_nothing_done() {
-        let o = Onboarding::new(None, None);
-        assert!(texts(&o).iter().all(|(_, done)| !done));
-        assert_eq!(texts(&o)[0].0, "Checking…");
-        assert!(o.needed());
+        let env = Env::new();
+        assert!(env.shown());
+        assert_eq!(env.needed().last(), Some(&true));
+        assert_eq!(env.step(0)["text"], "Checking…");
+        assert_eq!(env.step(2)["button"], "Add phone");
+        assert!(env.qr());
+        assert!((0..4).all(|i| env.step(i)["done"] == false));
     }
 
+    // test_onboarding.py::test_missing_v4l2loopback_says_which_package
     #[test]
     fn missing_v4l2loopback_says_which_package() {
-        let mut o = Onboarding::new(None, None);
-        (o.vcam_checked, o.vcam_ready, o.linux) = (true, false, true);
-        let steps = o.steps();
-        assert!(steps[0]["text"].as_str().unwrap().contains("v4l2loopback-dkms"));
-        assert_eq!(steps[0]["button"], "Check again");
+        let mut env = Env::new();
+        env.vcam(false, "");
+        assert!(env.step(0)["text"].as_str().unwrap().contains("RPM Fusion"));
+        assert!(env.step(0)["text"].as_str().unwrap().contains("v4l2loopback-dkms"));
+        assert_eq!(env.step(0)["button"], "Check again");
     }
 
+    // test_onboarding.py::test_windows_offers_to_install_the_driver
     #[test]
     fn windows_offers_to_install_the_driver() {
-        let mut o = Onboarding::new(None, None);
-        (o.vcam_checked, o.vcam_ready, o.linux) = (true, false, false);
-        assert_eq!(o.steps()[0]["button"], "Install driver");
+        let mut env = Env::windows();
+        env.vcam(false, "");
+        assert_eq!(env.step(0)["button"], "Install driver");
+        env.vcam(false, "access denied");
+        assert!(env.step(0)["text"].as_str().unwrap().contains("access denied"));
+        assert_eq!(env.step(0)["kind"], "status_err");
+        assert_eq!(env.step(0)["button"], "Try again");
+        // A redraw for anything else goes back to the plain step, as Python's _render does
+        env.event(Event::PhonesChanged { count: 1 });
+        assert_eq!(env.step(0)["button"], "Install driver");
     }
 
+    // test_onboarding.py::test_add_phone_goes_through_the_bus
     #[test]
     fn add_phone_goes_through_the_bus() {
-        let mut o = Onboarding::new(None, None);
-        let mut host = FakeHost::new();
-        o.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "step-clicked".into(), args: vec![json!(2)] });
-        assert!(matches!(host.events.last(), Some(Event::AddPhoneRequested)));
+        let mut env = Env::new();
+        env.o.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "step-clicked".into(), args: vec![json!(2)] });
+        assert_eq!(env.host.events.iter().filter(|e| matches!(e, Event::AddPhoneRequested)).count(), 1);
     }
 
+    // test_onboarding.py::test_checklist_steps_aside_after_the_first_stream
     #[test]
     fn checklist_steps_aside_after_the_first_stream() {
-        let mut o = Onboarding::new(None, None);
-        let mut host = FakeHost::new();
-        (o.vcam_checked, o.vcam_ready) = (true, true);
-        o.on_event(&mut host, &Event::PhonesChanged { count: 1 });
-        assert!(o.needed());
-        o.on_event(&mut host, &Event::StreamStarted { url: String::new() });
-        assert!(!o.needed());
-        o.on_event(&mut host, &Event::StreamConnected { source_id: "p".into() });
-        o.on_event(&mut host, &Event::StreamStopped);
-        assert!(!o.needed());
-        assert_eq!(o.get_config(), json!({"streamed": true}));
+        let mut env = Env::new();
+        env.vcam(true, "");
+        env.event(Event::PhonesChanged { count: 1 });
+        assert!(env.shown(), "paired and ready, but step 4 still points at Start streaming");
+        assert_eq!(env.step(2)["done"], true);
+        assert!(env.step(3)["text"].as_str().unwrap().contains("top right"));
+        env.event(Event::StreamStarted { url: "url".into() });
+        env.event(Event::StreamConnected { source_id: String::new() });
+        env.event(Event::StreamStopped);
+        assert!(!env.shown());
+        assert_eq!(env.needed().last(), Some(&false));
+        assert_eq!(env.o.get_config(), json!({"streamed": true}));
     }
 
+    // test_onboarding.py::test_a_saved_first_stream_keeps_the_checklist_away
+    #[test]
+    fn a_saved_first_stream_keeps_the_checklist_away() {
+        let mut env = Env::new();
+        env.ready_and_streamed();
+        env.event(Event::PhonesChanged { count: 1 });
+        assert!(!env.shown());
+        env.event(Event::PhonesChanged { count: 0 });
+        assert!(env.shown(), "every phone removed: back to the checklist");
+    }
+
+    // test_onboarding.py::test_a_paired_phone_alone_is_not_enough_without_the_camera
     #[test]
     fn a_paired_phone_alone_is_not_enough_without_the_camera() {
-        let mut o = Onboarding::new(None, None);
-        o.set_config(&json!({"streamed": true})).unwrap();
-        o.phones = 1;
-        assert!(o.needed());
-        (o.vcam_checked, o.vcam_ready) = (true, true);
-        assert!(!o.needed());
+        let mut env = Env::new();
+        env.event(Event::PhonesChanged { count: 1 });
+        env.vcam(false, "");
+        assert!(env.shown());
+        assert_eq!(env.step(1)["done"], true);
+        assert!(!env.qr());
     }
 
+    // test_onboarding.py::test_a_stream_source_stands_in_for_the_phone_steps
     #[test]
     fn a_stream_source_stands_in_for_the_phone_steps() {
-        let mut o = Onboarding::new(None, None);
-        o.source = "browser".into();
-        let t = texts(&o);
-        assert!(t[1].1 && t[2].1 && t[1].0.starts_with("Not needed"));
+        let mut env = Env::new();
+        env.ready_and_streamed();
+        env.event(Event::SourceSelected { source_id: "browser".into() });
+        assert!(!env.shown(), "no phone, but nothing left to set up");
+        assert!(env.step(2)["text"].as_str().unwrap().starts_with("Not needed"));
+        assert!(!env.qr());
+        env.event(Event::SourceSelected { source_id: String::new() });
+        assert!(env.shown());
     }
 
+    // test_onboarding.py::test_the_help_button_brings_the_phone_steps_back_until_closed
     #[test]
     fn the_help_button_brings_the_phone_steps_back_until_closed() {
-        let mut o = Onboarding::new(None, None);
-        let mut host = FakeHost::new();
-        o.source = "browser".into();
-        o.on_event(&mut host, &Event::SetupGuideRequested);
-        assert!(o.asked && !texts(&o)[1].1);
-        o.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "close".into(), args: vec![] });
-        assert!(!o.asked);
+        let mut env = Env::new();
+        env.ready_and_streamed();
+        env.event(Event::SourceSelected { source_id: "browser".into() });
+        assert!(!env.shown() && !env.close_button());
+        env.event(Event::SetupGuideRequested);
+        assert!(env.shown());
+        assert_eq!(env.needed().last(), Some(&true));
+        assert_eq!(env.step(2)["button"], "Add phone", "not Not needed: a phone is why they asked");
+        assert!(env.qr() && env.close_button());
+        env.close();
+        assert!(!env.shown());
+        assert_eq!(env.needed().last(), Some(&false));
+        assert!(env.step(2)["text"].as_str().unwrap().starts_with("Not needed"));
+        env.event(Event::SetupGuideRequested);
+        env.event(Event::SetupGuideRequested);
+        assert!(!env.shown(), "the same button closes it");
     }
 
+    // test_onboarding.py::test_a_stream_starting_closes_the_guide
     #[test]
     fn a_stream_starting_closes_the_guide() {
-        let mut o = Onboarding::new(None, None);
-        let mut host = FakeHost::new();
-        o.on_event(&mut host, &Event::SetupGuideRequested);
-        o.on_event(&mut host, &Event::StreamStarted { url: String::new() });
-        assert!(!o.asked && !o.needed());
+        let mut env = Env::new();
+        env.ready_and_streamed();
+        env.event(Event::PhonesChanged { count: 1 });
+        env.event(Event::SetupGuideRequested);
+        assert!(env.shown());
+        env.event(Event::StreamStarted { url: "url".into() });
+        assert!(!env.shown());
+        env.event(Event::StreamStopped);
+        assert!(!env.shown());
+    }
+
+    // test_onboarding.py::test_streaming_hides_the_checklist
+    #[test]
+    fn streaming_hides_the_checklist() {
+        let mut env = Env::new();
+        env.event(Event::StreamStarted { url: "url".into() });
+        assert!(!env.shown());
+        assert_eq!(env.needed().last(), Some(&false));
+        env.event(Event::StreamStopped);
+        assert!(env.shown());
     }
 
     #[test]
@@ -396,26 +526,6 @@ mod tests {
         let (mut o, mut host) = (Onboarding::new(None, None), FakeHost::new());
         event(&mut o, &mut host, Event::RequestDone { request: VCAM_CHECKED, ok: ready, message: String::new(), data: Value::Null });
         (o, host)
-    }
-
-    #[test]
-    fn a_saved_first_stream_keeps_the_checklist_away() {
-        let (mut o, mut host) = checked(true);
-        o.set_config(&json!({"streamed": true})).unwrap();
-        event(&mut o, &mut host, Event::PhonesChanged { count: 1 });
-        assert!(!o.needed());
-        event(&mut o, &mut host, Event::PhonesChanged { count: 0 });
-        assert!(o.needed(), "every phone removed: back to the checklist");
-    }
-
-    #[test]
-    fn streaming_hides_the_checklist() {
-        let (mut o, mut host) = checked(false);
-        event(&mut o, &mut host, Event::StreamStarted { url: "url".into() });
-        assert!(!o.needed());
-        assert!(matches!(host.events.last(), Some(Event::SetupNeeded { showing: false })));
-        event(&mut o, &mut host, Event::StreamStopped);
-        assert!(o.needed());
     }
 
     fn installers(usb: bool, camera: (bool, &'static str), app: Result<(), &'static str>) -> Option<Installers> {
@@ -502,5 +612,17 @@ mod tests {
         click(&mut o, &mut host, 0);
         answer(&mut o, &mut host, &bus);
         assert_eq!(step_of(&o, 0)["done"], true);
+    }
+
+    #[test]
+    fn an_install_that_stops_still_reports_back() {
+        let (mut o, mut host, bus) = installing((true, ""), Ok(()));
+        o.installers = Some(Installers { camera: Arc::new(|| panic!("boom")), usb_ready: Arc::new(|| true), phone_app: Arc::new(|| panic!("no adb")) });
+        click(&mut o, &mut host, 0);
+        answer(&mut o, &mut host, &bus);
+        assert_eq!((step_of(&o, 0)["text"].as_str(), step_of(&o, 0)["busy"].as_bool()), (Some("Didn't install: boom"), Some(false)));
+        click(&mut o, &mut host, 1);
+        answer(&mut o, &mut host, &bus);
+        assert_eq!((step_of(&o, 1)["text"].as_str(), step_of(&o, 1)["busy"].as_bool()), (Some("no adb"), Some(false)));
     }
 }

@@ -76,6 +76,13 @@ pub struct StreamFrame {
     pub frame: Frame,
 }
 
+impl StreamFrame {
+    /// How long ago (in ns) the frame was published, at now; a dropped stream's last frame only gets older.
+    pub fn age(&self, now_ns: u64) -> u64 {
+        now_ns.saturating_sub(self.frame.time_ns)
+    }
+}
+
 /// Where a plugin's frame step runs (FRAME_STAGES); frames go through the stages in this order.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

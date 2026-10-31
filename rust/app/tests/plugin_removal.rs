@@ -1,5 +1,7 @@
 // Plugins really are plugins (tests/test_plugin_removal.py): the window starts, streams and quits with any one of them left
 // out, Connection aside. Every built-in plugin as main.rs lists them, with what reaches this computer stood in for.
+mod rig;
+
 use i_slint_backend_testing::ElementHandle;
 use serde_json::Value;
 use slint::ComponentHandle;
@@ -277,14 +279,22 @@ fn starts_streams_and_quits(left_out: Option<&str>) {
     assert!(has("plugins"));
     telescope_shell::settings::forget();
 
+    let workers: Arc<Mutex<Vec<Arc<rig::FakeWorker>>>> = Arc::default();
+    *w.streams.maker.borrow_mut() = Some(rig::worker_maker(workers.clone()));
     w.stream_plugin_source("test:cam");
     w.process();
     assert!(w.is_streaming(), "without {left_out:?}");
+    // A worker runs from the moment it's made
+    let worker = workers.lock().unwrap().last().expect("a worker").clone();
+    assert!(!worker.is_stopped());
+    let source = w.streams.flow.borrow().sessions.find(Some("test:cam")).expect("the stream");
+    w.worker_status(&source, "ok", "Streaming");
     assert!(w.state.borrow_mut().save_now());
     assert!(!w.state.borrow().diagnostics().is_empty());
     w.stop_all_streams();
     w.process();
     assert!(!w.is_streaming());
+    assert!(worker.is_stopped());
     w.shut_down();
 }
 
@@ -324,8 +334,12 @@ fn every_card_and_section_in_the_window_folds() {
         }).collect()
     };
     assert!(titles.len() > 20, "{titles:?}");
-    // These two show only while their source is picked
-    let unfolding: Vec<&String> = titles.iter().filter(|t| !["Browser camera", "Webcam"].contains(&t.as_str()) && !ElementHandle::find_by_accessible_label(&w.ui, t).any(|e| e.accessible_checkable() == Some(true))).collect();
+    // Two show only while their source is picked, which Python's findChildren doesn't mind
+    for name in ["browser_camera", "webcam"] {
+        w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
+    }
+    w.process();
+    let unfolding: Vec<&String> = titles.iter().filter(|t| !ElementHandle::find_by_accessible_label(&w.ui, t).any(|e| e.accessible_checkable() == Some(true))).collect();
     assert!(unfolding.is_empty(), "these don't fold: {unfolding:?}");
     let toggle = |label: &str, key: &str| {
         let e = ElementHandle::find_by_accessible_label(&w.ui, label).find(|e| e.accessible_checkable() == Some(true)).unwrap_or_else(|| panic!("{label}"));
@@ -358,6 +372,17 @@ fn a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them() {
     let again = build(&dir, None);
     assert!(again.state.borrow().collapse.is_folded("transforms/Transforms"));
     assert!(!again.state.borrow().collapse.is_folded("camera_control/Camera/Light"));
+    again.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
+    again.ui.show().unwrap();
+    // Open on screen: a title's toggle is checked while what's under it shows
+    let open = |label: &str| ElementHandle::find_by_accessible_label(&again.ui, label).find(|e| e.accessible_checkable() == Some(true)).unwrap_or_else(|| panic!("{label}")).accessible_checked();
+    assert_eq!((open("Transforms"), open("Image"), open("Light")), (Some(false), Some(false), Some(true)));
+    let height = |label: &str| ElementHandle::find_by_accessible_label(&again.ui, label).map(|e| e.size().height).fold(0.0, f32::max);
+    assert_eq!((height("Rotation"), height("Sharpening")), (0.0, 0.0), "what's under a folded title takes up no room");
+    assert!(height("Exposure") > 0.0, "Light stays open");
+    let title = ElementHandle::find_by_accessible_label(&again.ui, "Transforms").find(|e| e.accessible_checkable() == Some(true)).expect("its title");
+    title.invoke_accessible_default_action();
+    assert!(height("Rotation") > 0.0, "and unfolded, it's back");
     again.shut_down();
 }
 

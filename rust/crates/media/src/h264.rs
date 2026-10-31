@@ -370,6 +370,7 @@ pub(crate) mod tests {
         let (frame, count) = dec.feed(&packets.concat());
         assert!(frame.is_some() && count == 8);
         assert!(!dec.steps.as_ref().unwrap().on());
+        assert_eq!(dec.steps.as_ref().unwrap().asked(), 0, "no unit was copied out for a step");
     }
 
     #[test]

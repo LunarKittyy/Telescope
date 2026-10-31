@@ -194,7 +194,9 @@ mod tests {
         let frames = Frames::default();
         frames.set_streams(streams(&[("a", "A", &slot)]));
         let seen = frames.stream_frame(Some("a")).unwrap();
+        assert_eq!(seen.age(seen.frame.time_ns + 5_000_000_000), 5_000_000_000);
         assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.number, seen.frame.number);
+        assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.time_ns, seen.frame.time_ns, "reading it again doesn't freshen it");
     }
 
     #[test]
@@ -252,6 +254,7 @@ mod tests {
             threads.push(std::thread::spawn(move || {
                 let mut problems = Vec::new();
                 let mut numbers = std::collections::HashMap::new();
+                let mut seen = std::collections::BTreeSet::new();
                 while !stop.load(Ordering::SeqCst) {
                     for sf in frames.stream_frames() {
                         if !sf.frame.data.iter().all(|&v| v == sf.frame.data[0]) {
@@ -262,9 +265,14 @@ mod tests {
                             problems.push("a stream's frame number went backwards");
                         }
                         *last = sf.frame.number;
+                        seen.insert(sf.source_id.clone());
                     }
                 }
-                problems
+                if seen.into_iter().eq(["0", "1", "2"]) {
+                    problems
+                } else {
+                    vec!["a reader missed a stream"]
+                }
             }));
         }
         let deadline = Instant::now() + Duration::from_millis(300);

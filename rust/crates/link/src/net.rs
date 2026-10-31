@@ -77,9 +77,12 @@ pub fn pick_addresses(adapters: &[(String, IpAddr)]) -> Vec<PairingAddress> {
 /// Every address a phone could plausibly reach this desktop on, from the real adapters rather than a route probe
 /// (which reports the VPN's address instead of the LAN one the phone needs).
 pub fn pairing_addresses() -> Vec<PairingAddress> {
-    let Ok(interfaces) = if_addrs::get_if_addrs() else { return Vec::new() };
-    let adapters: Vec<(String, IpAddr)> = interfaces.into_iter().map(|i| (i.name.clone(), i.ip())).collect();
-    pick_addresses(&adapters)
+    addresses_from(|| Ok(if_addrs::get_if_addrs()?.into_iter().map(|i| (i.name.clone(), i.ip())).collect()))
+}
+
+/// The candidates among what list finds, none when it can't look.
+fn addresses_from(list: impl FnOnce() -> std::io::Result<Vec<(String, IpAddr)>>) -> Vec<PairingAddress> {
+    list().map_or_else(|_| Vec::new(), |adapters| pick_addresses(&adapters))
 }
 
 /// Preference among a phone's addresses: Tailscale 0, LAN 1, other 2.
@@ -191,7 +194,15 @@ mod tests {
         let raw: Vec<(String, IpAddr)> = list.iter().map(|(n, ip)| (n.clone(), ip.parse().unwrap())).collect();
         let got = pick_addresses(&raw);
         assert_eq!(got.len(), MAX_PAIRING_CANDIDATES);
+        assert_eq!(MAX_PAIRING_CANDIDATES, 8);
         assert_eq!(got[0].ip, "192.168.1.42");
+    }
+
+    #[test]
+    fn pairing_addresses_tolerate_enumeration_failure() {
+        assert_eq!(addresses_from(|| Err(std::io::Error::other("no adapters for you"))), []);
+        let found = addresses_from(|| Ok(vec![("wlan0".to_string(), "192.168.1.42".parse().unwrap())]));
+        assert_eq!(found.len(), 1, "the same road works when the list comes");
     }
 
     #[test]
@@ -214,17 +225,22 @@ mod tests {
     #[test]
     fn no_route_probe_towards_a_public_address_remains() {
         let probe = ["8", "8", "8", "8"].join(".");
-        let mut dirs = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
+        // The whole app, as Python's looks through the whole package
+        let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut dirs = vec![here.join("../../crates"), here.join("../../app")];
+        let mut read = 0;
         while let Some(dir) = dirs.pop() {
             for entry in std::fs::read_dir(dir).unwrap().flatten() {
                 let path = entry.path();
                 if path.is_dir() {
                     dirs.push(path);
-                    continue;
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    let text = std::fs::read_to_string(&path).unwrap();
+                    read += 1;
+                    assert!(!text.contains(&probe), "{path:?}");
                 }
-                let text = std::fs::read_to_string(&path).unwrap();
-                assert!(!text.contains(&probe), "{path:?}");
             }
         }
+        assert!(read > 300, "only {read} files");
     }
 }
