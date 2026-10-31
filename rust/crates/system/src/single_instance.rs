@@ -547,8 +547,13 @@ mod tests {
     #[test]
     fn listen_for_raise_invokes_callback_and_closes_connection() {
         let run = Running::new("closes");
-        assert_eq!(run.raise(), b"ok");
+        let mut c = connect(&run.address, Duration::from_secs(5)).unwrap();
+        c.write_all(&[RAISE, user_token().as_bytes()].concat()).unwrap();
+        let mut reply = [0u8; 2];
+        c.read_exact(&mut reply).unwrap();
+        assert_eq!(&reply, b"ok");
         assert_eq!(run.raises(), 1, "raised before it answered");
+        assert_eq!(c.read(&mut reply).unwrap(), 0, "and closed after");
     }
 
     #[test]

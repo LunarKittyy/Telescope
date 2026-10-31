@@ -172,9 +172,11 @@ fn a_stream_behind_the_panels_keeps_its_own_zoom() {
     r.w.state.borrow_mut().ui_event("transforms", telescope_core::ui::UiEvent { ui: "card".into(), callback: "zoom-moved".into(), args: vec![json!(2.0)] });
     r.pump();
     assert_eq!(r.w.state.borrow().view.zoom, 2.0);
+    let before = r.worker(0).steps.lock().unwrap().len();
     r.add("oneplus");
     r.until("the second stream", |r| r.workers_made() == 2);
     r.pump();
+    assert!(r.worker(0).steps.lock().unwrap().len() > before, "given its own steps as it goes behind");
     let view = |list: &[String]| list.iter().any(|owner| owner == "view");
     assert!(view(r.worker(0).steps.lock().unwrap().last().unwrap()), "frozen with the zoom it had");
     assert!(!view(&r.worker(1).first_steps), "the next phone has its own settings: not zoomed");

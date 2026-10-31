@@ -2199,9 +2199,14 @@ mod tests {
         use telescope_core::frame::{Frame, PixelFormat};
         use telescope_core::host::HostMotion;
         use telescope_core::vision::Turn;
-        let room = |level: u8| {
-            let mut data = vec![level; 320 * 180 * 4];
+        let room = |square: bool| {
+            let mut data = vec![100u8; 320 * 180 * 4];
             data.chunks_mut(4).for_each(|p| p[3] = 255);
+            if square {
+                for y in 60..120 {
+                    data[(y * 320 + 220) * 4..(y * 320 + 280) * 4].chunks_mut(4).for_each(|p| p[..3].fill(230));
+                }
+            }
             Frame::new(320, 180, PixelFormat::Rgba, data)
         };
         let mut s = state();
@@ -2211,7 +2216,7 @@ mod tests {
         s.streams.source_id = Some("phone".into());
         crate::host::Ctx { state: &mut s, me: "watcher".into() }.watch_motion("watcher", &[[0.0, 0.0, 1.0, 1.0]], 5);
         for i in 1..=10 {
-            s.motion.feed(&room(100), "phone", None, i as f64 * 0.1);
+            s.motion.feed(&room(false), "phone", None, i as f64 * 0.1);
         }
         s.follow_view_for_vision();
         assert!(pack.1.lock().unwrap().is_empty(), "nothing turned");
@@ -2219,7 +2224,7 @@ mod tests {
         s.follow_view_for_vision();
         let flipped = Turn { flip_h: true, ..Turn::default() };
         assert_eq!(*pack.1.lock().unwrap(), [(Turn::default(), flipped)]);
-        s.motion.feed(&room(230), "phone", None, 1.1);
+        s.motion.feed(&room(true), "phone", None, 1.1);
         s.deliver_events();
         assert!(!heard.lock().unwrap().iter().any(|e| matches!(e, Event::MotionSeen { .. })), "the picture turned: that's nothing moving");
     }
