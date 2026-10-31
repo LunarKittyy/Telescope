@@ -37,6 +37,11 @@ pub type Run<'a> = &'a dyn Fn(&[String]) -> (bool, String);
 
 /// subprocess.run with a 5 s limit.
 pub fn run(cmd: &[String]) -> (bool, String) {
+    run_within(cmd, Duration::from_secs(5))
+}
+
+/// subprocess.run with a limit.
+pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
     let Some((exe, args)) = cmd.split_first() else { return (false, String::new()) };
     let mut command = std::process::Command::new(exe);
     command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
@@ -44,7 +49,7 @@ pub fn run(cmd: &[String]) -> (bool, String) {
         Ok(c) => c,
         Err(e) => return (false, e.to_string()),
     };
-    let until = Instant::now() + Duration::from_secs(5);
+    let until = Instant::now() + limit;
     loop {
         match child.try_wait() {
             Ok(Some(_)) => break,
@@ -52,7 +57,7 @@ pub fn run(cmd: &[String]) -> (bool, String) {
             Ok(None) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return (false, format!("Command '{}' timed out after 5 seconds", cmd.join(" ")));
+                return (false, format!("Command '{}' timed out after {} seconds", cmd.join(" "), limit.as_secs()));
             }
             Err(e) => return (false, e.to_string()),
         }

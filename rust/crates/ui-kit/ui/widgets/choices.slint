@@ -136,7 +136,7 @@ export component ChoiceField inherits Rectangle {
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
-    // A tooltip on the closed field
+    // A tooltip, when there's something to say beyond the label
     in property <string> tip;
     callback picked(int);
     // The row the arrows move to from current, or current when there's none that way
@@ -184,7 +184,7 @@ export component ChoiceField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    if root.tip != "": Tooltip { TipBody { says: root.tip; } }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;

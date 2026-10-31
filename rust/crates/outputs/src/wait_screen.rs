@@ -179,6 +179,11 @@ fn draw_text(pm: &mut tiny_skia::Pixmap, font: &telescope_core::text::FontArc, t
 
 /// The lens from the project banner, centred (calls crop tiles to squares and circles), with the name under it.
 pub fn default_screen(width: u32, height: u32) -> Rgb {
+    screen_with(width, height, &tr("Waiting for camera"))
+}
+
+/// The default screen with `waiting` under the name ("" for no such line).
+fn screen_with(width: u32, height: u32, waiting: &str) -> Rgb {
     let Some(mut pm) = tiny_skia::Pixmap::new(width.max(1), height.max(1)) else {
         return Rgb { width, height, data: BG.repeat((width * height) as usize) };
     };
@@ -190,12 +195,86 @@ pub fn default_screen(width: u32, height: u32) -> Rgb {
         if let Some(font) = find_font(true) {
             draw_text(&mut pm, &font, "Telescope", top, (SCREEN_NAME_PX * k).round(), -1.5 * k, TEXT);
         }
-        if let Some(font) = find_font(false) {
-            draw_text(&mut pm, &font, &tr("Waiting for camera"), top + 74.0 * k, (22.0 * k).round().max(9.0), 0.0, TEXT_DIM);
+        if let Some(font) = find_font(false).filter(|_| !waiting.is_empty()) {
+            draw_text(&mut pm, &font, waiting, top + 74.0 * k, (22.0 * k).round().max(9.0), 0.0, TEXT_DIM);
         }
     }
-    let data = pm.data().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
-    Rgb { width, height, data }
+    Rgb { width, height, data: rgb_of(&pm) }
+}
+
+fn rgb_of(pm: &tiny_skia::Pixmap) -> Vec<u8> {
+    pm.data().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect()
+}
+
+// ── The Windows 11 camera's built-in screen ─────────────────────────────────
+
+const CAMERA_MAGIC: u32 = 0x5357_5354; // "TSWS"
+const CAMERA_VERSION: u32 = 1;
+/// Nothing is drawn further than this from the lens's centre: the outer ring and the glow.
+const SCREEN_REACH: f32 = 460.0;
+const SCREEN_NAME_HEIGHT: f32 = 70.0;
+/// Pixels per banner unit: the lens is sharp up to 1080p and resized up beyond.
+const LENS_SCALE: f32 = 1.4;
+/// The name's edges show more, so it's kept sharper.
+const NAME_SCALE: f32 = 3.0;
+/// Banner units across the canvas the name is drawn on, before its mask is cut to it.
+const NAME_ROOM: f32 = 1000.0;
+
+/// (Y, interleaved UV) as the camera's frames are converted.
+fn nv12(rgb: &[u8], width: u32, height: u32) -> (Vec<u8>, Vec<u8>) {
+    let frame = rgb_to_i420(rgb, width, height, 3, false);
+    let mut out = vec![0; (width * height * 3 / 2) as usize];
+    crate::convert::write_nv12(&frame, &mut out);
+    let uv = out.split_off((width * height) as usize);
+    (out, uv)
+}
+
+fn solid(rgb: [u8; 3]) -> [u32; 3] {
+    let (y, uv) = nv12(&rgb.repeat(4), 2, 2);
+    [y[0] as u32, uv[0] as u32, uv[1] as u32]
+}
+
+/// What the camera's DLL shows while Telescope sends nothing (write_camera_wait_screen.py): the lens as NV12 and the name as a mask, read by wait_screen.cpp.
+pub fn camera_wait_screen() -> Result<Vec<u8>, String> {
+    let blank = |w, h, fill: [u8; 3]| {
+        let mut pm = tiny_skia::Pixmap::new(w, h).ok_or("a picture that size won't fit")?;
+        pm.fill(tiny_skia::Color::from_rgba8(fill[0], fill[1], fill[2], 255));
+        Ok::<_, String>(pm)
+    };
+    let size = 2 * (SCREEN_REACH * LENS_SCALE).round() as u32;
+    let mut pm = blank(size, size, BG)?;
+    paint_lens(&mut pm, (size as f32 / 2.0, size as f32 / 2.0), LENS_SCALE);
+    let (lens_y, lens_uv) = nv12(&rgb_of(&pm), size, size);
+
+    let font = find_font(true).ok_or("No font here can draw the name: it would show as boxes")?;
+    let (room, name_h) = ((NAME_ROOM * NAME_SCALE).round() as u32, (SCREEN_NAME_HEIGHT * NAME_SCALE).round() as u32);
+    let mut pm = blank(room, name_h, [0, 0, 0])?;
+    draw_text(&mut pm, &font, "Telescope", 0.0, (SCREEN_NAME_PX * NAME_SCALE).round(), -1.5 * NAME_SCALE, [255, 255, 255]);
+    let reds: Vec<u8> = pm.data().as_chunks::<4>().0.iter().map(|p| p[0]).collect();
+    let rows: Vec<&[u8]> = reds.chunks(room as usize).collect();
+    let used = |x: &usize| rows.iter().any(|row| row[*x] != 0);
+    let room_px = room as usize;
+    let inside = |x: &usize| *x != 0 && *x != room_px - 1;
+    let (Some(first), Some(last)) = ((0..room_px).find(used).filter(inside), (0..room_px).rev().find(used).filter(inside)) else {
+        return Err("The name doesn't fit its canvas: raise NAME_ROOM".into());
+    };
+    // Cut evenly, so the mask stays centred on the name
+    let reach = (room_px / 2 - first).max(last + 1 - room_px / 2) + 2;
+    let mask: Vec<u8> = rows.iter().flat_map(|row| row[room_px / 2 - reach..room_px / 2 + reach].iter().copied()).collect();
+
+    let [bg_y, bg_u, bg_v] = solid(BG);
+    let [text_y, text_u, text_v] = solid(TEXT);
+    let header = [
+        CAMERA_MAGIC, CAMERA_VERSION, bg_y, bg_u, bg_v, text_y, text_u, text_v,
+        (SCREEN_WIDTH_SHARE * 1000.0).round() as u32, (SCREEN_HEIGHT_SHARE * 1000.0).round() as u32, SCREEN_WIDTH as u32,
+        SCREEN_LENS as u32, SCREEN_WITH_NAME as u32, SCREEN_CENTRE as u32, SCREEN_NAME_TOP as u32, SCREEN_NAME_PX as u32,
+        SCREEN_NAME_MIN_PX as u32, size, (LENS_SCALE * 1000.0).round() as u32, 2 * reach as u32, name_h, (NAME_SCALE * 1000.0).round() as u32,
+    ];
+    let mut out: Vec<u8> = header.iter().flat_map(|v| v.to_le_bytes()).collect();
+    out.extend(lens_y);
+    out.extend(lens_uv);
+    out.extend(mask);
+    Ok(out)
 }
 
 // ── Pictures people pick ────────────────────────────────────────────────────
@@ -496,6 +575,137 @@ impl telescope_core::output::WaitScreen for WaitScreen {
         let job = self.held.job();
         job.watched.store(watched, Ordering::SeqCst);
         job.nudge.set();
+    }
+}
+
+#[cfg(test)]
+mod camera_tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    const HARNESS: &str = r#"
+#include "wait_screen.h"
+#include <cstdio>
+#include <cstdlib>
+int main(int, char** argv) {
+    std::vector<uint8_t> data, out;
+    FILE* f = fopen(argv[1], "rb");
+    for (int c; (c = fgetc(f)) != EOF;) data.push_back(static_cast<uint8_t>(c));
+    fclose(f);
+    if (!telescope::ComposeWaitScreen(data.data(), data.size(), atoi(argv[3]), atoi(argv[4]), out)) return 3;
+    f = fopen(argv[2], "wb");
+    fwrite(out.data(), 1, out.size(), f);
+    fclose(f);
+}
+"#;
+
+    fn camera() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/virtualcamera")
+    }
+
+    fn read(name: &str) -> String {
+        std::fs::read_to_string(camera().join(name)).unwrap()
+    }
+
+    fn compiler() -> Option<&'static str> {
+        ["c++", "clang++", "g++"].into_iter().find(|c| Command::new(c).arg("--version").output().is_ok())
+    }
+
+    /// The header's fields as wait_screen.h names them, in order.
+    fn header_fields() -> Vec<String> {
+        let header = read("wait_screen.h");
+        let body = &header[header.find("struct WaitScreenHeader {").unwrap()..];
+        let body = &body[..body.find("};").unwrap()];
+        body.lines().filter_map(|l| l.trim().strip_prefix("uint32_t ")).flat_map(|l| l[..l.find(';').unwrap()].split(','))
+            .map(|n| n.trim().to_string()).collect()
+    }
+
+    fn harness(dir: &Path, flags: &[&str]) -> Option<PathBuf> {
+        let exe = dir.join("harness");
+        std::fs::write(dir.join("harness.cpp"), HARNESS).unwrap();
+        let built = Command::new(compiler()?).args(flags).arg(format!("-I{}", camera().display())).arg(dir.join("harness.cpp"))
+            .arg(camera().join("wait_screen.cpp")).arg("-o").arg(&exe).status().unwrap();
+        assert!(built.success());
+        Some(exe)
+    }
+
+    fn resource() -> Option<Vec<u8>> {
+        find_font(true).map(|_| camera_wait_screen().unwrap())
+    }
+
+    // test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads
+    #[test]
+    fn the_header_is_the_one_the_dll_reads() {
+        let Some(resource) = resource() else { return };
+        let fields = header_fields();
+        let value = |name: &str| {
+            let at = fields.iter().position(|f| f == name).unwrap_or_else(|| panic!("{name}"));
+            u32::from_le_bytes(resource[at * 4..at * 4 + 4].try_into().unwrap())
+        };
+        assert_eq!((value("magic"), value("version")), (CAMERA_MAGIC, CAMERA_VERSION));
+        assert!(read("wait_screen.h").contains(&format!("kWaitScreenVersion = {CAMERA_VERSION};")));
+        assert_eq!((value("screen_width"), value("screen_with_name"), value("name_top")), (500, 654, 290));
+        let (lens, mask) = (value("lens_size").pow(2) as usize, (value("name_width") * value("name_height")) as usize);
+        assert_eq!(resource.len(), 4 * fields.len() + lens + lens / 2 + mask);
+    }
+
+    // test_camera_wait_screen.py::test_the_cmake_resource_id_is_the_one_the_dll_loads
+    #[test]
+    fn the_cmake_resource_id_is_the_one_the_dll_loads() {
+        assert!(read("wait_screen.h").contains("kWaitScreenResource = 101;"));
+        assert!(read("CMakeLists.txt").contains("\"101 RCDATA"));
+    }
+
+    fn rgb_of_nv12(data: &[u8], w: usize, h: usize) -> Vec<[u8; 3]> {
+        let (y, uv) = data.split_at(w * h);
+        (0..h).flat_map(|r| (0..w).map(move |c| (r, c))).map(|(r, c)| {
+            let at = (r / 2) * w + (c / 2) * 2;
+            crate::convert::yuv_to_rgb(y[r * w + c], uv[at], uv[at + 1])
+        }).collect()
+    }
+
+    // test_camera_wait_screen.py::test_the_dll_lays_it_out_like_the_app, with this app's screen as the one to match
+    #[test]
+    fn the_dll_lays_it_out_like_the_app() {
+        let (Some(resource), Some(_)) = (resource(), compiler()) else { return };
+        let dir = telescope_core::testing::scratch_dir("camera-layout");
+        let exe = harness(&dir, &["-std=c++17", "-O2"]).unwrap();
+        std::fs::write(dir.join("screen.bin"), resource).unwrap();
+        for (w, h) in [(1280u32, 720u32), (640, 480), (1080, 1920)] {
+            let ran = Command::new(&exe).arg(dir.join("screen.bin")).arg(dir.join("out.nv12")).arg(w.to_string()).arg(h.to_string()).status().unwrap();
+            assert!(ran.success());
+            let (ws, hs) = (w as usize, h as usize);
+            let dll = rgb_of_nv12(&std::fs::read(dir.join("out.nv12")).unwrap(), ws, hs);
+            let screen = screen_with(w, h, ""); // the camera has no "Waiting for camera" line
+            let (y, uv) = nv12(&screen.data, w, h);
+            let app = rgb_of_nv12(&[y, uv].concat(), ws, hs);
+            let (k, (_x, cy), _with_name) = screen_layout(w, h);
+            let name_top = (cy + SCREEN_NAME_TOP * k) as usize;
+            let mut above: Vec<i32> = Vec::new();
+            let mut below: Vec<i32> = Vec::new();
+            for (i, (a, b)) in dll.iter().zip(&app).enumerate() {
+                let side = if i / ws < name_top { &mut above } else { &mut below };
+                side.extend((0..3).map(|c| (a[c] as i32 - b[c] as i32).abs()));
+            }
+            let mean = |v: &[i32]| v.iter().map(|d| *d as f64).sum::<f64>() / v.len().max(1) as f64;
+            above.sort_unstable();
+            let p99 = above[above.len() * 99 / 100];
+            assert!(mean(&above) < 1.0 && p99 < 8, "{w}x{h}: mean {}, 99% {p99}", mean(&above));
+            assert!(mean(&below) < 5.0, "{w}x{h}: the name: {}", mean(&below));
+        }
+    }
+
+    // test_camera_wait_screen.py::test_the_dll_turns_down_a_cut_short_resource
+    #[test]
+    fn the_dll_turns_down_a_cut_short_resource() {
+        let (Some(mut resource), Some(_)) = (resource(), compiler()) else { return };
+        let dir = telescope_core::testing::scratch_dir("camera-short");
+        let exe = harness(&dir, &["-std=c++17"]).unwrap();
+        resource.pop();
+        std::fs::write(dir.join("screen.bin"), resource).unwrap();
+        let ran = Command::new(&exe).arg(dir.join("screen.bin")).arg(dir.join("out.nv12")).args(["640", "480"]).status().unwrap();
+        assert_eq!(ran.code(), Some(3));
     }
 }
 

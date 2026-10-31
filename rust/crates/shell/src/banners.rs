@@ -110,6 +110,19 @@ mod tests {
         assert!(b.issue("k").is_none());
     }
 
+    // test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one: the banner goes first, then the action runs
+    #[test]
+    fn an_action_that_replaces_the_issue_keeps_the_new_one() {
+        let mut b = Banners::default();
+        let mut old = issue("Old");
+        old.actions.push(IssueAction { label: "Try again".into(), does: IssueDoes::OpenUrl { url: "https://retry".into() } });
+        b.show("start", old);
+        assert!(matches!(b.press("start", 0), Pressed::Action(_)));
+        b.show("start", issue("New")); // what the action does
+        assert_eq!(b.issue("start").unwrap().title, "New");
+        assert_eq!(b.keys(), ["start"]);
+    }
+
     #[test]
     fn copy_keeps_the_banner() {
         let mut b = Banners::default();

@@ -38,6 +38,18 @@ RESOLVE_CASES = [
     ({"LANG": "de_DE.UTF-8", "LC_MESSAGES": "sv_SE.UTF-8"}, ""),
     ({"LANGUAGE": "sv", "LANG": "C"}, ""),
     ({"LANGUAGE": "en:sv"}, ""),
+    ({"LANGUAGE": "pt-Latn", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "pt-Latn-PT", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "in_ID", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "in", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "in-Latn", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANG": "in_ID.UTF-8"}, ""),
+    ({"LANGUAGE": "iw_IL", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "no_NO", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "tl", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "zh-Hant", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "zh-Hans", "LANG": "de_DE.UTF-8"}, ""),
+    ({"LANGUAGE": "es-419", "LANG": "de_DE.UTF-8"}, ""),
     ({}, ""),
     ({"LANG": "de_DE.UTF-8"}, "sv"),
     ({"LANG": "de_DE.UTF-8"}, "en"),
@@ -65,6 +77,23 @@ PSEUDO_TEXTS = [
     "", "Start streaming", "x", "Made by <a href=\"{url}\">LunarKittyy</a>\nsecond line", "a\n\nb", "{n} phones &amp; more &#39;", "12345 6",
     "Tab\there", "ÅÄÖ and åäö", "Hello, world.", "abcde", "abcdefghij", "abcdefghijklmnopqrstuvwxy",
 ]
+
+
+# What str.format makes of a field's conversion and spec; None where it refuses, and tr() then shows the English
+FORMAT_CASES = [
+    ("{n:02d}", 5), ("{n:02d}", -5), ("{n:>4}|", 5), ("{n:<4}|", 5), ("{n:^5}|", 5), ("{n:*^7}", 5), ("{n:+d}", 5), ("{n: d}", 5), ("{n:,}", 1234567),
+    ("{n:_d}", 1234567), ("{n:,}", -1234), ("{n:.2f}", 3), ("{n:.1f}", 2.25), ("{n:08.3f}", 3.14159), ("{n:-05d}", -42), ("{n:=+6d}", 42), ("{n:,.2f}", 1234.5),
+    ("{n!s}", 5), ("{n!r}", 5), ("{name!r}", "x"), ("{name!s:>4}", "x"), ("{name:>5}", "ab"), ("{name:5}|", "ab"), ("{name:^5}|", "ab"), ("{name:.1}", "ab"),
+    ("{name:05}", "ab"), ("{name:s}", "ab"), ("{name:*<4}", "ab"), ("{name:d}", "ab"), ("{name:+}", "ab"), ("{name:=5}", "ab"), ("{n:d}", 1.5), ("{n:.2}x", "ab"),
+    ("{other:02d}", 5), ("{n:02q}", 5), ("{n!z}", 5), ("{{n}} {n:02d}", 5),
+]
+
+
+def formatted(text: str, value):
+    try:
+        return text.format(n=value, name=value)
+    except (KeyError, IndexError, ValueError):
+        return None
 
 
 def fnv(text: str) -> str:
@@ -127,6 +156,7 @@ def main():
         "resolve": [{"env": env, "chosen": chosen, "result": resolved(env, chosen)} for env, chosen in RESOLVE_CASES],
         "pick": [{"wanted": w, "have": h, "result": i18n.pick(w, h)} for w, h in PICK_CASES],
         "pseudo": [[t, i18n.pseudo(t)] for t in PSEUDO_TEXTS + sample],
+        "formats": [[t, v, formatted(t, v)] for t, v in FORMAT_CASES],
     }
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size} bytes)")

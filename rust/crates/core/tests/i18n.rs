@@ -209,6 +209,49 @@ fn a_translation_is_used_with_its_fields_and_plural_forms() {
     assert_eq!(i18n::tr("Not translated yet"), "Not translated yet");
 }
 
+// What str.format makes of a field's conversion and format spec, recorded from Python
+#[test]
+fn a_field_takes_the_format_specs_python_does() {
+    let data = fixture();
+    for case in data["formats"].as_array().unwrap() {
+        let text = case[0].as_str().unwrap();
+        let value = match &case[1] {
+            serde_json::Value::String(s) => s.clone(),
+            other => other.to_string(),
+        };
+        let fields: [(&str, &dyn std::fmt::Display); 2] = [("n", &value), ("name", &value)];
+        assert_eq!(i18n::fill(text, &fields).ok().as_deref(), case[2].as_str(), "{case}");
+    }
+}
+
+// A broken plural form falls back on its own, the others stay (i18n.py's trn), and a spec on {n} is kept for the counts
+#[test]
+fn a_broken_plural_form_shows_the_english_for_that_form_alone() {
+    let po = r#"msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "{n} phone"
+msgid_plural "{n} phones"
+msgstr[0] "{n} telefon"
+msgstr[1] "{gone} telefoner"
+
+msgid "{n} cam"
+msgid_plural "{n} cams"
+msgstr[0] "{n:02d} kamera"
+msgstr[1] "{n:02d} kameror"
+
+msgid "Took {seconds} s"
+msgstr "{seconds:.1f} s"
+"#;
+    let catalog = i18n::Catalog::from_po(po.as_bytes()).unwrap();
+    assert_eq!(catalog.get("{n} phone").unwrap(), ["{n} telefon", ""]);
+    assert_eq!(catalog.get("{n} cam").unwrap(), ["{n:02d} kamera", "{n:02d} kameror"]);
+    // Everything but a plural's {n} is filled in with replace, which wouldn't find a field with a spec
+    assert!(catalog.get("Took {seconds} s").is_none());
+}
+
 // test_i18n.py::test_a_broken_or_unfinished_translation_shows_the_english
 #[test]
 fn a_broken_or_unfinished_translation_shows_the_english() {

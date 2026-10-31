@@ -17,13 +17,16 @@ pub struct Catalog {
     english: HashMap<String, String>,
 }
 
-/// Whether a translation can be filled with the fields its English has (Python finds out when it formats the text, and shows
-/// the English then; a catalog drops it as it loads, so a text that's filled in afterwards can't come out wrong).
-fn fits(english: &str, plural: &str, forms: &[String]) -> bool {
-    let mut allowed: Vec<(String, String)> = fields(english).into_iter().chain(fields(plural)).map(|f| (f, String::new())).collect();
-    allowed.push(("n".into(), String::new()));
+/// Whether a form can be filled with its English's fields, found out as the catalog loads; a spec only counts on a plural's {n}, as other fields go through str::replace.
+fn fits(english: &str, plural: &str, form: &str) -> bool {
+    let is_plural = !plural.is_empty();
+    if super::spec_fields(form).iter().any(|name| !is_plural || name != "n") {
+        return false;
+    }
+    let mut allowed: Vec<(String, u8)> = fields(english).into_iter().chain(fields(plural)).map(|f| (f, 0)).collect();
+    allowed.push(("n".into(), 0));
     let values: Vec<(&str, &dyn std::fmt::Display)> = allowed.iter().map(|(k, v)| (k.as_str(), v as &dyn std::fmt::Display)).collect();
-    forms.iter().all(|f| super::fill(f, &values).is_ok())
+    super::fill(form, &values).is_ok()
 }
 
 impl Catalog {
@@ -55,13 +58,15 @@ impl Catalog {
         let text = std::str::from_utf8(bytes).map_err(|_| "it isn't UTF-8 text".to_string())?;
         let (entries, header) = read_po(text)?;
         let plural = plural_rule(&header);
-        let list = entries.into_iter().filter(|e| !e.fuzzy() && e.msgstr.iter().any(|s| !s.is_empty())).filter_map(|e| {
-            if fits(&e.msgid, &e.plural, &e.msgstr) {
-                Some((e.key(), e.msgstr))
-            } else {
+        let list = entries.into_iter().filter(|e| !e.fuzzy()).filter_map(|e| {
+            let forms: Vec<String> = e.msgstr.iter().map(|form| {
+                if form.is_empty() || fits(&e.msgid, &e.plural, form) {
+                    return form.clone();
+                }
                 log::warn!("Translation of {:?} has bad fields, using English", e.msgid);
-                None
-            }
+                String::new()
+            }).collect();
+            forms.iter().any(|f| !f.is_empty()).then(|| (e.key(), forms))
         }).collect();
         Ok(Catalog::build(list, plural))
     }

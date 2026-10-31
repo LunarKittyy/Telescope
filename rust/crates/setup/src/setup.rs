@@ -1190,7 +1190,7 @@ impl Plugin for SetupPlugin {
             }
             ("about", "log-clicked") => {
                 if let Some(path) = self.log_path.clone() {
-                    host.open_url(&format!("file://{path}"));
+                    host.open_url(&telescope_core::system::file_url(std::path::Path::new(&path)));
                 }
             }
             ("about", "help-clicked") => host.open_url(HELP_URL),

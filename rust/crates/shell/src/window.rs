@@ -1124,7 +1124,7 @@ impl Window {
 
     /// restart_app: the launcher starts a supervised copy again from its exit code; any other starts a new copy of itself,
     /// which waits for this one to let go.
-    fn restart_app(&self) {
+    pub(crate) fn restart_app(&self) {
         if telescope_core::dev_profile::supervised() {
             EXIT_CODE.store(restart_exit_code(self.is_streaming()), Ordering::SeqCst);
             return self.quit("Restarting");
@@ -1157,7 +1157,7 @@ fn open_url(url: &str) {
     let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
 }
 
-pub use crate::tray::raise;
+pub use crate::tray::{raise, restart};
 
 /// Lets go of the window build() registered, once it's shut down (the scene renders build one after another).
 pub fn forget() {

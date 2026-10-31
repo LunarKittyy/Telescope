@@ -287,20 +287,6 @@ pub fn exposure_text(seconds: f64) -> String {
     if seconds == 0.0 { tr("Like the video") } else { tr("{seconds} s").replace("{seconds}", &format!("{seconds}")) }
 }
 
-/// A file or folder as a link the browser opens.
-fn file_url(path: &Path) -> String {
-    let mut out = String::from(if cfg!(windows) { "file:///" } else { "file://" });
-    let text = path.display().to_string().replace('\\', "/");
-    for b in text.bytes() {
-        if b.is_ascii_alphanumeric() || b"/-_.~:".contains(&b) {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
 fn index_of(list: &[&str], value: &str) -> usize {
     list.iter().position(|v| *v == value).unwrap_or(0)
 }
@@ -652,7 +638,7 @@ impl PhotosPlugin {
 
     fn open_folder(&self, host: &mut dyn Host) {
         let folder = self.last_saved.first().and_then(|f| Path::new(f).parent().map(Path::to_path_buf)).unwrap_or_else(|| PathBuf::from(&self.folder));
-        host.open_url(&file_url(&folder));
+        host.open_url(&telescope_core::system::file_url(&folder));
     }
 
     fn choose_folder(&mut self, host: &mut dyn Host) {
