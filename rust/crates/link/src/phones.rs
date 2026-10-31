@@ -564,6 +564,7 @@ pub(crate) mod tests {
     #[test]
     fn the_pin_round_trips_through_the_saved_phone_list() {
         let mut raw = phone_to_value(&phone());
+        assert_eq!(phone_from_value(&raw).unwrap(), phone());
         raw["cert_sha256"] = "garbage".into();
         assert_eq!(phone_from_value(&raw).unwrap().cert_sha256, "");
     }

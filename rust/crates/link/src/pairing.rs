@@ -128,7 +128,14 @@ impl PairingServer {
     /// The same on a given port (0: any), falling back to any free one.
     pub fn start_on(port: u16, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>, limits: Limits,
                     on_paired: impl Fn(PairingResult) + Send + Sync + 'static) -> std::io::Result<PairingServer> {
-        let candidates = advertise.unwrap_or_else(net::pairing_addresses);
+        PairingServer::start_scanning(port, computer_id, computer_name, advertise, net::pairing_addresses, limits, on_paired)
+    }
+
+    /// The same with scan standing for the adapter scan.
+    fn start_scanning(port: u16, computer_id: &str, computer_name: &str, advertise: Option<Vec<PairingAddress>>,
+                      scan: impl FnOnce() -> Vec<PairingAddress>, limits: Limits,
+                      on_paired: impl Fn(PairingResult) + Send + Sync + 'static) -> std::io::Result<PairingServer> {
+        let candidates = advertise.unwrap_or_else(scan);
         // A fresh nonce per offer, so a LAN peer that hasn't scanned the current code can't add itself
         let nonce = util::token_urlsafe(16);
         // The token the phone requires on every /v1 request once paired; it only travels in the QR code and over pinned TLS
@@ -366,7 +373,7 @@ mod tests {
 
     #[test]
     fn start_without_network_still_offers_usb_pairing() {
-        let (server, _) = server_with(Limits::default(), vec![]);
+        let server = PairingServer::start_scanning(0, "", "", None, Vec::new, Limits::default(), |_| {}).unwrap();
         assert!(server.offer.candidates.is_empty());
         let usb: Value = serde_json::from_str(&server.offer.usb_payload).unwrap();
         assert_eq!(usb["candidates"], json!([{"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"}]));
@@ -395,7 +402,8 @@ mod tests {
     #[test]
     fn start_with_advertised_addresses_skips_discovery() {
         let usb = vec![PairingAddress { ip: "127.0.0.1".into(), interface: "USB (adb)".into(), kind: "other" }];
-        let (server, _) = server_with(Limits::default(), usb);
+        let scan = || panic!("should not enumerate interfaces");
+        let server = PairingServer::start_scanning(0, "", "", Some(usb), scan, Limits::default(), |_| {}).unwrap();
         let payload: Value = serde_json::from_str(&server.offer.payload).unwrap();
         assert_eq!(payload["candidates"], json!([{"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"}]));
     }
@@ -581,8 +589,11 @@ mod tests {
     #[test]
     fn stop_is_idempotent() {
         let (server, _) = server();
+        let port = server.offer.port;
+        assert!(TcpStream::connect(("127.0.0.1", port)).is_ok());
         server.stop();
-        server.stop();
+        wait_until(|| TcpStream::connect(("127.0.0.1", port)).is_err());
+        server.stop(); // must not panic
     }
 
     #[test]

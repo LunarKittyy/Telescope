@@ -252,7 +252,7 @@ fn takes_the_camera_back_while_the_stream_has_its_camera_off() {
     assert_eq!(r.stops(0), 2);
 }
 
-// test_wait_screen.py::test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen
+// The plugin's half; the window's flow is in app/tests/stream_camera_off.rs under the same name
 #[test]
 fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
     // The flow says which cameras nothing streams to (a stream that's only its mic included); the extra one shows it then
@@ -397,7 +397,9 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     r.plugin.set_image(&mut r.host, bad.to_str()).unwrap();
     r.ui("shown", vec![]);
     assert!(r.card("picture-note").as_str().unwrap().contains("Couldn't read that image"));
-    assert!(r.host.images.contains_key(&("wait-screen".to_string(), "preview".to_string())), "the default screen stands in");
+    // The default screen stands in
+    let preview = &r.host.images[&("wait-screen".to_string(), "preview".to_string())];
+    assert!(preview.width > 0 && preview.height > 0 && preview.data.iter().any(|&b| b != 0));
     assert_eq!(r.card("default-enabled"), json!(true));
 
     r.ui("default-clicked", vec![]);
@@ -670,10 +672,12 @@ fn a_wait_screen_that_wont_load_is_not_retried_on_every_frame() {
         Err("unreadable".into())
     }));
     r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
-    let frame = blank(64, 36, PixelFormat::I420);
+    let frame = Frame::new(64, 36, PixelFormat::I420, vec![200; PixelFormat::I420.size(64, 36)]);
     for _ in 0..5 {
+        // Black, never the camera's picture
         let out = covered(&mut r.plugin, &frame);
-        assert_eq!(out.data.len(), frame.data.len());
+        let (luma, chroma) = out.data.split_at(64 * 36);
+        assert!(luma.iter().all(|&y| y == 16) && chroma.iter().all(|&c| c == 128));
     }
     let count = |tries: &Arc<Mutex<Vec<(u32, u32)>>>| tries.lock().unwrap().iter().filter(|t| **t == (64, 36)).count();
     // The warm-up at the canvas size was one try, and the frames at 64 x 36 made one of their own

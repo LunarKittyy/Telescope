@@ -129,6 +129,11 @@ impl SessionClient {
 
     /// Who answers on the session port (no token sent).
     pub fn hello(&self, timeout: Duration) -> Hello {
+        self.hello_with(timeout, &|timeout| self.answers_plain_http(timeout))
+    }
+
+    /// hello, with plain_look being the plain-HTTP look for an old app.
+    fn hello_with(&self, timeout: Duration, plain_look: &dyn Fn(Duration) -> bool) -> Hello {
         let url = format!("{}/v1/hello", self.base);
         let body = match self.auth.json(Request::get(&url, timeout).without_token()) {
             Ok(body) => body,
@@ -136,7 +141,7 @@ impl SessionClient {
             Err(Error::Http(404)) => return Hello::status(HelloStatus::Missing),
             Err(Error::Http(403)) => return Hello::status(HelloStatus::UsbOnly),
             // LEGACY MIGRATION PATH: only a listener that took the connection but not TLS gets a plain look
-            Err(e) if https::handshake_failed(&e) && self.answers_plain_http(timeout) => return Hello::status(HelloStatus::Missing),
+            Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::Missing),
             Err(_) => return Hello::status(HelloStatus::None),
         };
         let Some(phone_id) = body.get("phoneId").and_then(Value::as_str).filter(|id| !id.is_empty()) else {
@@ -308,6 +313,7 @@ mod tests {
         assert_eq!(client.start(None), SessionResult::ok());
         let seen = sent(&server);
         assert_eq!((seen[0].method.as_str(), seen[0].path.as_str()), ("POST", "/v1/session"));
+        assert_eq!(seen[0].content_type.as_deref(), Some("application/json"));
         assert_eq!(serde_json::from_slice::<Value>(&seen[0].body).unwrap(), json!({"action": "start"}));
     }
 
@@ -423,15 +429,45 @@ mod tests {
 
     #[test]
     fn an_address_nobody_answers_on_costs_one_timeout_not_two() {
-        // Nothing listening: no plain-HTTP look follows, so it's just None
-        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let client = SessionClient::new(&format!("https://127.0.0.1:{port}"), PhoneAuth::new("tok", &"ab".repeat(32)));
-        assert_eq!(client.hello(Duration::from_millis(500)).status, HelloStatus::None);
+        // The plain-HTTP look for an old app only follows a failed TLS handshake, never a dead address
+        let refused = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        // Takes the connection and never says anything, so the handshake times out
+        let silent = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        // Answers the handshake with something that isn't TLS
+        let not_tls = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let not_tls_port = not_tls.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            use std::io::Write;
+            let (mut conn, _) = not_tls.accept().unwrap();
+            let _ = conn.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+            std::thread::sleep(Duration::from_millis(200));
+        });
+        for (port, expect_probe) in [(refused, false), (silent.local_addr().unwrap().port(), false), (not_tls_port, true)] {
+            let client = SessionClient::new(&format!("https://127.0.0.1:{port}"), PhoneAuth::new("tok", &"ab".repeat(32)));
+            let probes = Mutex::new(Vec::new());
+            let timeout = Duration::from_millis(300);
+            let status = client.hello_with(timeout, &|t| { probes.lock().unwrap().push(t); true }).status;
+            assert_eq!(!probes.lock().unwrap().is_empty(), expect_probe, "port {port}");
+            assert_eq!(status, if expect_probe { HelloStatus::Missing } else { HelloStatus::None }, "port {port}");
+        }
     }
 
     #[test]
     fn the_look_for_an_old_app_skips_a_configured_proxy() {
-        // This client never reads proxy settings; a closed port reads as no old app
+        // A proxy answering 502 for a closed phone app would read as "an old app is here". Run as a child with the
+        // proxy set, since a test can't safely change its own process's variables
+        let proxy = serve(None, Arc::new(|_req| (502, "text/plain".into(), Vec::new())));
+        const CHILD: &str = "TELESCOPE_TEST_PROXIED";
+        if std::env::var_os(CHILD).is_none() {
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "session_client::tests::the_look_for_an_old_app_skips_a_configured_proxy"])
+                .env(CHILD, proxy.base(false)).env("http_proxy", proxy.base(false)).env("HTTP_PROXY", proxy.base(false))
+                .env_remove("no_proxy").env_remove("NO_PROXY").status().unwrap();
+            assert!(status.success());
+            assert!(proxy.seen.lock().unwrap().is_empty(), "nothing went to the proxy");
+            return;
+        }
+        assert!(std::env::var("http_proxy").is_ok());
         let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         let client = SessionClient::new(&format!("https://127.0.0.1:{port}"), PhoneAuth::new("tok", &"ab".repeat(32)));
         assert!(!client.answers_plain_http(Duration::from_secs(1)));

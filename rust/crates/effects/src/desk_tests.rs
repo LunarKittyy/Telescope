@@ -101,6 +101,7 @@ fn switching_on_without_corners_asks_for_them_and_a_pick_turns_it_on() {
     let mut r = Rig::new(true);
     r.ui("switch-toggled-by-hand", vec![json!(true)]);
     assert_eq!(r.host.picks, vec![None]);
+    assert!(r.host.calls.contains(&"pick_on_preview desk Quad".to_string()));
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
     assert_eq!(r.shown("picking"), json!(true));
     // the real picture to place corners on
@@ -115,7 +116,9 @@ fn switching_on_without_corners_asks_for_them_and_a_pick_turns_it_on() {
     r.ui("mark-clicked", vec![]);
     // marking again starts from where they were
     let start = r.host.picks.last().unwrap().unwrap();
-    assert!((start[0][0] - CORNERS[0][0] as f32 / W as f32).abs() < 1e-6);
+    for (at, [x, y]) in start.iter().zip(CORNERS) {
+        assert!((at[0] as f64 - x / W as f64).abs() < 1e-6 && (at[1] as f64 - y / H as f64).abs() < 1e-6, "{start:?}");
+    }
 }
 
 #[test]
@@ -135,8 +138,7 @@ fn corners_that_make_no_sheet_are_refused_and_the_card_says_why() {
     r.event(Event::PreviewPickChanged { owner: String::new() });
     r.pick(&[[32.0, 90.0], [128.0, 90.0], [192.0, 90.0], [288.0, 90.0]]);
     // kept what it had
-    assert_eq!(r.plugin.get_config()["corners"], json!(r.plugin.corners.unwrap().to_vec()));
-    assert!(r.plugin.corners.unwrap()[0][0] > 0.2 && r.plugin.corners.unwrap()[0][0] < 0.4);
+    assert_eq!(r.plugin.get_config()["corners"], corners_json());
     assert!(r.status().contains("in a line"));
     r.ui("mark-clicked", vec![]);
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
@@ -162,6 +164,7 @@ fn settings_round_trip_and_bad_corners_are_dropped() {
     assert_eq!(r.plugin.get_config(), cfg);
     assert_eq!(r.shown("clean-current"), json!(2));
     assert_eq!(r.shown("shape-current"), json!(1));
+    assert_eq!(r.shown("stretch"), json!([80, 130]));
     assert_eq!(r.shown("stretch-text"), json!(["80%", "130%"]));
     r.config(json!({"on": true, "corners": [[0, 0], [1, "x"]], "cleanup": "sepia", "shape": "oval", "stretch": [500, true]}));
     assert_eq!(r.plugin.get_config(), json!({"on": false, "corners": null, "cleanup": "off", "shape": "auto", "stretch": [100, 100]}));
@@ -281,9 +284,19 @@ fn the_warp_is_worked_out_once_until_something_changes() {
     let small = Frame::new(160, 90, PixelFormat::Rgba, [40, 40, 40, 255].repeat(160 * 90));
     step.process(&mut small.clone(), &Ctx);
     assert_eq!(posts(&r), 2);
-    // a different shape is a different step; off and unmarked have none
+    // a different shape is a different step with a warp worked out afresh; off and unmarked have none
+    let matrix = |r: &Rig| r.host.posted.lock().unwrap().first().unwrap().1["matrix"].clone();
+    let first = matrix(&r);
     r.ui("shape-picked", vec![json!(4)]);
-    assert!(r.plugin.frame_step().is_some());
+    r.host.posted.lock().unwrap().clear();
+    let Some(FrameStep::Cpu(mut filled)) = r.plugin.frame_step() else { panic!("a step") };
+    let mut out = frame();
+    filled.process(&mut out, &Ctx);
+    assert_eq!(posts(&r), 1);
+    assert_ne!(matrix(&r), first);
+    let mut same = frame();
+    step.process(&mut same, &Ctx);
+    assert_ne!(out.data, same.data, "the step from before the change still has the old shape");
     r.config(json!({"on": false, "corners": corners_json()}));
     assert!(r.plugin.frame_step().is_none());
     r.config(json!({"on": true}));
