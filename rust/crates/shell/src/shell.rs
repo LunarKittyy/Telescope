@@ -1379,7 +1379,8 @@ mod tests {
         s.bus.emit(Event::CameraSwitched { camera: json!({"id": "2"}) });
         s.deliver_events();
         let quiet = s.motion.quiet_until() - before;
-        assert!(quiet >= telescope_core::motion::LENS_SETTLE_S && quiet < telescope_core::motion::LENS_SETTLE_S + 1.0, "{quiet}");
+        let settle = telescope_core::motion::LENS_SETTLE_S;
+        assert!((settle..settle + 1.0).contains(&quiet), "{quiet}");
     }
 
     #[test]
