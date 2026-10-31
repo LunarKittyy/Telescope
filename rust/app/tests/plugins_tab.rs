@@ -1,7 +1,11 @@
 //! The Python tests of widgets/plugins_panel.py's model (tests/test_plugins_panel.py), named after them. They run here, in the binary's
 //! crate, because the real plugins folder comes from the plugin host, which the shell never names.
 
+use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value};
+use slint::platform::WindowEvent;
+use slint::{ComponentHandle, Model};
+use slint_interpreter::{ComponentInstance, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::fs;
@@ -9,16 +13,18 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use telescope_core::config::ConfigFile;
-use telescope_core::plugin::PluginInfo;
+use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, NewerRelease, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 use telescope_core::testing::scratch_dir;
+use telescope_core::vision::{VisionPack, VisionService};
 use telescope_plugin_host::admin::Admin;
 use telescope_plugin_host::package::PluginFolder;
 use telescope_plugin_host::switches::Switches;
 use telescope_plugin_host::updater::PluginUpdater;
 use telescope_plugin_host::updates::Https;
+use telescope_shell::{settings, window};
 use telescope_shell::plugins_tab::{
     columns, split_link, Download, Filter, Link, NoticeKind, Outcome, Panel, Question, Request, Tile,
 };
@@ -264,6 +270,173 @@ fn restart_now_restarts() {
     assert!(r.panel.run(Request::Restart { streaming: true }, &mut |q| { asked.push(q.clone()); true }).restart);
     assert_eq!(asked[0].title, "Restart Telescope now?");
     assert_eq!(asked[0].text, "Streaming stops while Telescope restarts. It takes a few seconds.");
+}
+
+struct Named(PluginInfo);
+
+impl Plugin for Named {
+    fn info(&self) -> PluginInfo {
+        self.0.clone()
+    }
+}
+
+/// The vision download as the Plugins tab sees it: start() finishes at once, as the real one does once its thread is done.
+struct Pack {
+    ready: Mutex<bool>,
+    admin: Arc<dyn PluginAdmin>,
+}
+
+impl VisionService for Pack {
+    fn attach(&self, _bus: telescope_core::BusSender) {}
+    fn state(&self) -> String { String::new() }
+    fn load(&self) {}
+    fn person_mask(&self, _source_id: &str, _frame: &telescope_core::Frame) -> Option<Arc<Vec<u8>>> { None }
+    fn want_people(&self, _owner: &str, _on: bool) {}
+    fn wants_people(&self) -> bool { false }
+    fn feed_raw(&self, _source_id: &str, _frame: &telescope_core::Frame, _upright: telescope_core::vision::Upright) {}
+    fn tracked_people(&self, _source_id: &str) -> (Vec<Value>, u32) { (Vec::new(), 0) }
+    fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+    fn drop_stream(&self, _source_id: &str) {}
+    fn set_power_saving(&self, _on: bool) {}
+    fn diagnostics(&self) -> Vec<(String, String)> { Vec::new() }
+    fn shutdown(&self) {}
+    fn pack(&self) -> VisionPack {
+        VisionPack { ready: *self.ready.lock().unwrap(), available: true, size_mb: 47, ..VisionPack::default() }
+    }
+    fn download(&self, switch_on: &str) {
+        *self.ready.lock().unwrap() = true;
+        self.admin.set_optional_on(switch_on, true).unwrap();
+    }
+    fn cancel_download(&self) {}
+    fn remove_pack(&self) {}
+}
+
+/// What Telescope started again with.
+static RELAUNCHED: Mutex<Vec<Vec<String>>> = Mutex::new(Vec::new());
+
+/// The real window and its Settings, on the Plugins tab, with these plugins and a plugins folder `setup` fills.
+fn settings_with(label: &str, list: Vec<PluginInfo>, setup: impl FnOnce(&Path, &dyn PluginAdmin)) -> (Rc<window::Window>, Rc<settings::Settings>, Arc<Tested>) {
+    i_slint_backend_testing::init_no_event_loop();
+    window::use_app_hooks(window::AppHooks {
+        build: String::new,
+        commit: || "",
+        release_memory: || {},
+        relaunch: |argv| {
+            RELAUNCHED.lock().unwrap().push(argv.to_vec());
+            Ok(())
+        },
+    });
+    let root = scratch_dir(label);
+    let (plugins, admin) = admin_in(&root, Vec::new(), None, Arc::default());
+    setup(&plugins, admin.as_ref());
+    let w = window::build(ConfigFile::at(root.join("telescope_config.json")), move |_| {
+        list.into_iter().map(|i| Box::new(Named(i)) as Box<dyn Plugin>).collect()
+    }, None, None).unwrap();
+    w.state.borrow_mut().admin = admin.clone();
+    w.state.borrow_mut().vision = Some(Arc::new(Pack { ready: Mutex::new(false), admin: admin.clone() }));
+    settings::open(&w, "plugins");
+    let s = settings::current().expect("the settings window");
+    // Only what's inside the page's clip can be found
+    s.ui.window().set_size(slint::LogicalSize::new(700.0, 6000.0));
+    (w, s, admin)
+}
+
+fn labelled(ui: &ComponentInstance, label: &str) -> Vec<ElementHandle> {
+    ElementHandle::find_by_accessible_label(ui, label).collect()
+}
+
+fn switch_named(ui: &ComponentInstance, name: &str) -> ElementHandle {
+    labelled(ui, name).into_iter().find(|e| e.accessible_checkable() == Some(true)).unwrap_or_else(|| panic!("no switch {name}"))
+}
+
+fn click(ui: &ComponentInstance, e: &ElementHandle) {
+    let (p, s) = (e.absolute_position(), e.size());
+    let position = slint::LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0);
+    let button = slint::platform::PointerEventButton::Left;
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+    ui.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    ui.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+fn scroll_of(s: &settings::Settings) -> String {
+    format!("page{}-offset", s.tabs().iter().position(|t| t == "plugins").expect("the Plugins tab"))
+}
+
+// The press has to reach the window's own restart, not only the tab
+#[test]
+fn the_restart_button_restarts_telescope() {
+    let (_w, s, _) = settings_with("plugins-restart", builtins(), |_, _| {});
+    switch_named(&s.ui, "Presets").invoke_accessible_default_action();
+    s.ui.invoke("answered", &[SValue::Bool(true)]).unwrap();
+    let buttons: Vec<ElementHandle> = labelled(&s.ui, "Restart now").into_iter().filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).collect();
+    assert_eq!(buttons.len(), 1, "one button, in the footer");
+    assert_eq!(s.ui.get_property("footer-note").unwrap(), SValue::String("Restart to apply 1 change".into()));
+    buttons[0].invoke_accessible_default_action();
+    assert_eq!(RELAUNCHED.lock().unwrap().last().map(|argv| argv[1].as_str()), Some("--restarted"));
+    settings::forget();
+}
+
+#[test]
+fn switching_one_keeps_the_list_where_it_was() {
+    let (_w, s, admin) = settings_with("plugins-scroll-keep", builtins(), |plugins, _| {
+        for n in 0..40 {
+            added(plugins, &format!("extra{n}"), json!({}));
+        }
+    });
+    s.show_panel();
+    // Near the end of the list: where the page starts it, then with the window small enough to scroll
+    let top = || switch_named(&s.ui, "Extra9").absolute_position().y;
+    let unscrolled = top();
+    s.ui.window().set_size(slint::LogicalSize::new(700.0, 1000.0));
+    let offset = scroll_of(&s);
+    s.ui.set_property(&offset, SValue::Number(1_000_000.0)).unwrap();
+    let range = unscrolled - top();
+    assert!(range > 0.0, "forty plugins overflow the page");
+    s.ui.set_property(&offset, SValue::Number(range as f64)).unwrap();
+    let at = top();
+    switch_named(&s.ui, "Extra9").invoke_accessible_default_action();
+    s.ui.invoke("answered", &[SValue::Bool(true)]).unwrap();
+    assert!(admin.find_installed().iter().any(|i| i.name == "extra9" && i.enabled));
+    assert_eq!(s.ui.get_property(&offset).unwrap(), SValue::Number(range as f64));
+    assert_eq!(top(), at);
+    settings::forget();
+}
+
+#[test]
+fn clicking_a_switch_at_the_top_that_downloads_first_doesnt_scroll_the_list_away() {
+    let mut list = builtins();
+    list.push(optional("framing", "Auto framing"));
+    let (w, s, admin) = settings_with("plugins-scroll-top", list, |plugins, _| {
+        for n in 0..40 {
+            added(plugins, &format!("extra{n}"), json!({}));
+        }
+    });
+    s.show_panel();
+    s.ui.window().set_size(slint::LogicalSize::new(700.0, 500.0));
+    let offset = scroll_of(&s);
+    assert_eq!(s.ui.get_property(&offset).unwrap(), SValue::Number(0.0));
+    click(&s.ui, &switch_named(&s.ui, "Auto framing"));
+    assert_eq!(s.ui.get_property("ask-title").unwrap(), SValue::String("Download about 47 MB?".into()));
+    s.ui.invoke("answered", &[SValue::Bool(true)]).unwrap();
+    w.process();
+    assert_eq!(admin.optional_on().into_iter().collect::<Vec<_>>(), ["framing"]);
+    assert_eq!(s.ui.get_property(&offset).unwrap(), SValue::Number(0.0));
+    settings::forget();
+}
+
+#[test]
+fn the_auto_update_switch_looks_red_and_warns_on_the_tab() {
+    let (_w, s, _) = settings_with("plugins-auto-red", builtins(), |plugins, _| { added(plugins, "extra", json!({})); });
+    s.show_panel();
+    let danger = switch_named(&s.ui, "Install updates without asking");
+    assert_eq!(danger.accessible_checked(), Some(false));
+    let SValue::Model(rows) = s.ui.get_property("update-rows").unwrap() else { panic!("no rows") };
+    let auto = rows.iter().find(|r| matches!(r, SValue::Struct(r) if r.get_field("title") == Some(&SValue::String("Install updates without asking".into())))).expect("its row");
+    let SValue::Struct(auto) = auto else { panic!("{auto:?}") };
+    assert_eq!(auto.get_field("danger"), Some(&SValue::Bool(true)));
+    let warning = "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release.";
+    assert!(!labelled(&s.ui, warning).is_empty(), "the warning stands on the tab");
+    settings::forget();
 }
 
 #[test]

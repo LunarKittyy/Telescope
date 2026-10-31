@@ -88,6 +88,10 @@ pub struct FakeHost {
     pub posted: Arc<Mutex<Vec<(String, Value)>>>,
     /// What shortcut_actions() lists; run_action answers "{id} ran" for these.
     pub actions: Vec<(String, ActionSpec)>,
+    /// What run_action answers for an action id instead of "ran": a text, or None for a control that's off.
+    pub action_answers: HashMap<String, Option<String>>,
+    /// How often toggle_window ran: it shows, then hides.
+    pub window_toggles: u32,
     pub window_active: bool,
     /// The phone's camera is off (set_camera_on(false) turns it off too).
     pub camera_off: bool,
@@ -357,7 +361,8 @@ impl HostShell for FakeHost {
     }
     fn toggle_window(&mut self) -> bool {
         self.note("toggle_window");
-        true
+        self.window_toggles += 1;
+        self.window_toggles % 2 == 1
     }
     fn quit_app(&mut self) {
         self.note("quit_app");
@@ -377,6 +382,9 @@ impl HostShell for FakeHost {
     }
     fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
         self.note(format!("run_action {plugin} {id} {params}"));
+        if let Some(answer) = self.action_answers.get(id) {
+            return answer.clone();
+        }
         self.actions.iter().any(|(p, a)| p == plugin && a.id == id).then(|| format!("{id} ran"))
     }
     fn release_action(&mut self, plugin: &str, id: &str, params: &Value) {
