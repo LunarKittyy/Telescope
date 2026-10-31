@@ -7,10 +7,13 @@ use slint_interpreter::Value as SValue;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use telescope_core::event::Event;
+use telescope_core::frame::PixelFormat;
 use telescope_core::host::{Host, HostStreams};
 use telescope_core::link::{PhoneStatus, Resolution};
+use telescope_core::output::{Held, Outputs, Slot, VideoOutput, WaitScreen};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::source::RouteSpec;
+use telescope_outputs::wait_screen_plugin::WaitScreenPlugin;
 use telescope_shell::plugins::preview::Preview;
 use telescope_shell::sources::Report;
 
@@ -376,4 +379,80 @@ fn reconnecting_the_mics_stream_keeps_the_mic_on_it() {
     assert_eq!(r.w.streams.flow.borrow().sessions.main.as_ref().map(|m| m.id_str().to_string()).as_deref(), Some("pixel"));
     assert_eq!(r.times_heard("microphone start pixel"), 1, "{:?}", r.heard());
     assert!(r.heard().iter().any(|l| l.starts_with("microphone url https://pixel:8080/v1/video.h264 ")), "{:?}", r.heard());
+}
+
+/// The extra cameras' wait screens: which slots were shown and stopped.
+#[derive(Default)]
+struct Screens {
+    shown: Arc<Mutex<Vec<u32>>>,
+    stopped: Arc<Mutex<Vec<u32>>>,
+}
+
+struct Screen {
+    slot: u32,
+    shown: Arc<Mutex<Vec<u32>>>,
+    stopped: Arc<Mutex<Vec<u32>>>,
+}
+
+impl Held for Screen {
+    fn start(&self) {}
+    fn stop(&self) {
+        self.stopped.lock().unwrap().push(self.slot);
+    }
+    fn running(&self) -> bool {
+        true
+    }
+}
+
+impl WaitScreen for Screen {
+    fn show(&self, _width: u32, _height: u32, _path: Option<&str>, _mirror: bool) {
+        self.shown.lock().unwrap().push(self.slot);
+    }
+    fn set_watched(&self, _watched: bool) {}
+}
+
+impl Outputs for Screens {
+    fn slots(&self) -> Vec<Slot> {
+        Vec::new()
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        vec![PixelFormat::I420]
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no camera".into())
+    }
+    fn wait_screen(&self, slot: u32) -> Option<Box<dyn WaitScreen>> {
+        Some(Box::new(Screen { slot, shown: self.shown.clone(), stopped: self.stopped.clone() }))
+    }
+}
+
+// test_wait_screen.py::test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen
+#[test]
+fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
+    let screens = Arc::new(Screens::default());
+    let outputs: Arc<dyn Outputs> = screens.clone();
+    let r = Rig::with("camera-off-extra", move |_, heard| {
+        let mut mic = Listener::new("microphone", heard);
+        mic.config = json!({"enabled": true});
+        vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(mic), Box::new(WaitScreenPlugin::new(outputs))]
+    });
+    r.start();
+    r.add("oneplus");
+    r.pump();
+    r.stop(Some("pixel"));
+    r.pump();
+    assert_eq!(r.streaming(), ["oneplus"]);
+    assert_eq!(r.source("oneplus").slot(), 1);
+    let idle = |r: &Rig| serde_json::from_str::<Vec<u32>>(&r.idle_outputs()).unwrap();
+    let count = |list: &Mutex<Vec<u32>>| list.lock().unwrap().iter().filter(|s| **s == 1).count();
+    let shown = count(&screens.shown);
+    r.w.set_camera_on(false, false);
+    r.pump();
+    assert!(idle(&r).contains(&1), "{}", r.idle_outputs());
+    assert!(count(&screens.shown) > shown);
+    let stops = count(&screens.stopped);
+    r.w.set_camera_on(true, false);
+    r.pump();
+    assert!(!idle(&r).contains(&1), "the camera has it back: {}", r.idle_outputs());
+    assert!(count(&screens.stopped) > stops);
 }

@@ -426,7 +426,7 @@ mod tests {
         let r = setup(&f).unload();
         assert_eq!((r.ok, r.message.as_str()), (false, NO_PROMPT));
         assert_eq!(r.command.as_deref(), Some("sudo modprobe -r v4l2loopback"));
-        assert_eq!(f.calls()[1].0[..2], ["sudo".to_string(), "-n".to_string()]);
+        assert_eq!(f.calls()[1].0, ["sudo", "-n", "sh", "-c", "modprobe -r v4l2loopback"]);
         let f = Fake::with(&["pkexec", "sudo"], &[(127, "", ""), (0, "", "")]);
         assert!(setup(&f).unload().ok);
     }
@@ -606,6 +606,7 @@ mod tests {
         let f = Fake::with(&["pkexec", "v4l2loopback-ctl"], &[(0, "", "")]);
         let devs = vec!["/dev/video11".to_string(), "/dev/video12".to_string()];
         assert_eq!(setup(&f).remove_devices(&devs), ok("/dev/video11, /dev/video12"));
+        assert_eq!(f.calls().len(), 1);
         assert!(f.calls()[0].0.last().unwrap().contains("v4l2loopback-ctl delete /dev/video11 && v4l2loopback-ctl delete /dev/video12"));
     }
 }

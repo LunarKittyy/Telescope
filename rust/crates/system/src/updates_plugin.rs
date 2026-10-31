@@ -51,6 +51,10 @@ pub trait Backend: Send + Sync {
     fn forget_rolled_back(&self);
     fn relaunch(&self, argv: &[String]) -> io::Result<()>;
     fn open_url(&self, url: &str);
+    /// Which system's archive this copy updates from.
+    fn windows(&self) -> bool {
+        cfg!(windows)
+    }
     /// Whether checks and installs run on a thread of their own (tests run them straight away).
     fn threaded(&self) -> bool {
         true
@@ -515,7 +519,7 @@ impl UpdatesPlugin {
                 self.checked = true;
                 self.last_check = now();
                 host.schedule_save();
-                let newer = self.backend.is_newer(manifest.as_ref()) && manifest.as_ref().is_some_and(|m| updates::platform_asset(m).is_some());
+                let newer = self.backend.is_newer(manifest.as_ref()) && manifest.as_ref().is_some_and(|m| updates::platform_asset_on(m, self.backend.windows()).is_some());
                 self.available = if newer { manifest.clone() } else { None };
                 self.rolled_back = if self.backend.was_rolled_back(manifest.as_ref()) { manifest.clone() } else { None };
                 self.latest = manifest;
@@ -543,7 +547,7 @@ impl UpdatesPlugin {
             return;
         }
         let via_setup = self.moves_on_update();
-        let chosen = if via_setup { updates::setup_asset(&manifest) } else { updates::platform_asset(&manifest) };
+        let chosen = if via_setup { updates::setup_asset(&manifest) } else { updates::platform_asset_on(&manifest, self.backend.windows()) };
         let Some(asset) = chosen.cloned() else { return };
         self.phase = Phase::Downloading;
         self.progress = (0, asset.size);
@@ -772,7 +776,9 @@ mod tests {
         relaunch_fails: AtomicBool,
         blocker: Mutex<Option<String>>,
         opened: Mutex<Vec<String>>,
-        failed: Mutex<Option<i64>>,
+        /// This copy's folder, where a rolled-back build leaves its marker.
+        directory: PathBuf,
+        windows: AtomicBool,
         unzipped: AtomicBool,
         driver_here: AtomicBool,
         driver_asked: Mutex<u32>,
@@ -781,6 +787,15 @@ mod tests {
         /// (asset name, through the installer) for each install.
         asked_for: Mutex<Vec<(String, bool)>>,
         started_from: Mutex<Vec<i64>>,
+    }
+
+    static NO_NETWORK: Served = Served(Vec::new());
+
+    impl Fake {
+        /// The running build is 150, version::BUILD in Python's env fixture.
+        fn updates(&self) -> Updates<'_> {
+            Updates { opener: &NO_NETWORK, build: 150, directory: self.directory.clone() }
+        }
     }
 
     impl Backend for Fake {
@@ -799,13 +814,16 @@ mod tests {
             self.blocker.lock().unwrap().clone()
         }
         fn is_newer(&self, m: Option<&Manifest>) -> bool {
-            m.is_some_and(|m| m.build > 150 && *self.failed.lock().unwrap() != Some(m.build))
+            self.updates().is_newer(m)
         }
         fn was_rolled_back(&self, m: Option<&Manifest>) -> bool {
-            m.is_some_and(|m| m.build > 150 && *self.failed.lock().unwrap() == Some(m.build))
+            self.updates().was_rolled_back(m)
         }
         fn forget_rolled_back(&self) {
-            *self.failed.lock().unwrap() = None;
+            self.updates().forget_rolled_back()
+        }
+        fn windows(&self) -> bool {
+            self.windows.load(Ordering::SeqCst)
         }
         fn relaunch(&self, argv: &[String]) -> io::Result<()> {
             if self.relaunch_fails.load(Ordering::SeqCst) {
@@ -838,7 +856,7 @@ mod tests {
     }
 
     fn env() -> (UpdatesPlugin, FakeHost, Arc<Fake>) {
-        let fake = Arc::new(Fake::default());
+        let fake = Arc::new(Fake { directory: telescope_core::testing::scratch_dir("updates-plugin"), ..Fake::default() });
         let mut plugin = UpdatesPlugin::new(fake.clone(), "nightly");
         let mut host = FakeHost::default();
         plugin.setup(&mut host);
@@ -861,6 +879,8 @@ mod tests {
     #[test]
     fn a_newer_build_shows_the_update_button() {
         let (mut plugin, mut host, fake) = env();
+        assert_eq!(plugin.header_widget().unwrap().props["shown"], false);
+        assert!(!button_shown(&host));
         assert!(host.is_scheduled("first") && host.is_scheduled("tick"));
         plugin.on_event(&mut host, &Event::TimerFired { owner: "updates".into(), token: "first".into() });
         assert_eq!(*fake.channels.lock().unwrap(), vec!["nightly"]);
@@ -948,6 +968,7 @@ mod tests {
     fn unzipped_env() -> (UpdatesPlugin, FakeHost, Arc<Fake>) {
         let (plugin, host, fake) = env();
         fake.unzipped.store(true, Ordering::SeqCst);
+        fake.windows.store(true, Ordering::SeqCst); // so the in-place route picks the Windows zip
         *fake.result.lock().unwrap() = Some(Ok(Some(with_setup())));
         (plugin, host, fake)
     }
@@ -969,11 +990,12 @@ mod tests {
     fn keeping_it_portable_updates_in_place_with_the_zip() {
         let (mut plugin, mut host, fake) = unzipped_env();
         plugin.check(&mut host, false);
+        assert_eq!(last_props(&host, SECTION)["portable-shown"], true);
         plugin.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "portable-toggled".into(), args: vec![json!(true)] });
         assert!(plugin.keep_portable && !plugin.moves_on_update());
         assert!(!plugin.status_text(&host).0.contains("installs it for your user"));
         plugin.update_now(&mut host);
-        assert_eq!(*fake.asked_for.lock().unwrap(), vec![(updates::platform_asset(&newer()).unwrap().name.clone(), false)]);
+        assert_eq!(*fake.asked_for.lock().unwrap(), vec![("Telescope-windows-portable.zip".to_string(), false)]);
     }
 
     #[test]
@@ -1141,11 +1163,11 @@ mod tests {
         fn blocker(&self) -> Option<String> {
             None
         }
-        fn is_newer(&self, _m: Option<&Manifest>) -> bool {
-            true
+        fn is_newer(&self, m: Option<&Manifest>) -> bool {
+            self.real.is_newer(m)
         }
-        fn was_rolled_back(&self, _m: Option<&Manifest>) -> bool {
-            false
+        fn was_rolled_back(&self, m: Option<&Manifest>) -> bool {
+            self.real.was_rolled_back(m)
         }
         fn forget_rolled_back(&self) {}
         fn relaunch(&self, argv: &[String]) -> io::Result<()> {
@@ -1375,7 +1397,8 @@ mod tests {
     #[test]
     fn the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again() {
         let (mut plugin, mut host, fake) = env();
-        *fake.failed.lock().unwrap() = Some(200);
+        let marker = fake.directory.join(".update-failed");
+        std::fs::write(&marker, r#"{"build": 200}"#).unwrap();
         plugin.check(&mut host, true);
         let (text, kind) = plugin.status_text(&host);
         assert!(text.contains("0.6.0 nightly 200 didn't start after updating, so it's held back"), "{text}");
@@ -1385,6 +1408,7 @@ mod tests {
         plugin.on_ui(&mut host, &UiEvent { ui: SECTION.into(), callback: "retry".into(), args: vec![] });
         assert!(plugin.rolled_back.is_none());
         assert_eq!(plugin.available, Some(newer()));
+        assert!(!marker.exists());
         assert!(button_shown(&host));
     }
 

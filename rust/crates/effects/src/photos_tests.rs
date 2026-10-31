@@ -193,6 +193,7 @@ fn diagnostics_give_each_modes_own_size() {
 fn a_lens_switch_brings_that_lenss_options() {
     let mut rig = Rig::new(Some(full_json()), true);
     assert!(rig.props()["mode-shown"] == true);
+    assert!(rig.props()["mode-items"].as_array().unwrap().contains(&json!("Full resolution")));
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.event(Event::CameraSwitched { camera: json!({"id": "4"}) });
     let p = rig.props();
@@ -256,6 +257,7 @@ fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
     assert!(!rig.host.calls.iter().any(|c| c.starts_with("send_notification")));
 }
 
+// The card's half; app/tests/cards2_parity.rs runs it from the phone's error code
 #[test]
 fn a_failed_photo_shows_why() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
