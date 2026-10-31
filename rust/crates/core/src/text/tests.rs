@@ -361,6 +361,8 @@ fn a_line_with_no_room_for_the_ellipsis_is_dropped() {
     assert_eq!(f.elide("\u{1F600}", 10.0), "");
 }
 
+// Qt's numbers for Linux's app font
+#[cfg(not(windows))]
 #[test]
 fn a_wrapped_labels_hint_guesses_at_80_then_40_then_20_characters() {
     let Some(font) = app_font(Weight::Regular) else { return };

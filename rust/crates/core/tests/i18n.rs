@@ -124,6 +124,7 @@ fn native_name_of(code: &str) -> String {
     i18n::native_name(code)
 }
 
+#[cfg(not(windows))] // the system language comes from the environment
 #[test]
 fn the_language_is_chosen_as_python_chooses_it() {
     let _q = quiet();
@@ -354,6 +355,7 @@ fn the_language_follows_the_system_unless_set() {
 }
 
 // test_i18n.py::test_the_language_picked_in_settings_wins_over_the_system
+#[cfg(not(windows))] // the system language comes from the environment
 #[test]
 fn the_language_picked_in_settings_wins_over_the_system() {
     let _q = quiet();

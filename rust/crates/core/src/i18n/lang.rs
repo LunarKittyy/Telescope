@@ -160,3 +160,13 @@ pub fn marks(language: &str) -> (&'static str, &'static str) {
         _ => (".", "-"),
     }
 }
+
+#[cfg(all(test, windows))]
+mod system_language {
+    #[test]
+    fn windows_says_which_languages_this_user_wants() {
+        let names = super::system_locale_names();
+        assert!(!names.is_empty() && names[0].contains('-'), "{names:?}");
+        assert!(!super::system_languages().is_empty());
+    }
+}
