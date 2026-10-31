@@ -97,15 +97,24 @@ export component AutomaticSettings inherits Card {
                 step(d) => { root.delay-step(d); }
                 changed has-focus => { if (!self.has-focus) { root.delay-committed(self.text); } }
             }
-            ChoiceField {
-                y: (parent.height - self.height) / 2;
-                width: 90px;
-                compact: true;
-                enabled: stops;
-                caption: delay-title;
-                items: unit-items;
-                current <=> root.unit-current;
-                picked(i) => { root.unit-picked(i); }
+            // At least 90px and as wide as its longest unit with the field's 41px of padding, as Qt's combo box is
+            Rectangle {
+                width: max(90px, longest-unit.preferred-width + 41px);
+                ChoiceField {
+                    y: (parent.height - self.height) / 2;
+                    compact: true;
+                    enabled: stops;
+                    caption: delay-title;
+                    items: unit-items;
+                    current <=> root.unit-current;
+                    picked(i) => { root.unit-picked(i); }
+                }
+                Rectangle {
+                    visible: false;
+                    longest-unit := VerticalLayout {
+                        for unit in unit-items: Text { text: unit; font-family: Theme.font; font-size: Theme.body; }
+                    }
+                }
             }
         }
     }
