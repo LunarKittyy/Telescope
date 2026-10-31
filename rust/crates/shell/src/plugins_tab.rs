@@ -142,6 +142,11 @@ fn warning(title: &str, text: String) -> Notice {
     Notice { kind: NoticeKind::Warning, title: tr(title), text }
 }
 
+/// A new copy wouldn't start, so this one carries on.
+pub fn restart_failed() -> Notice {
+    warning("Couldn't restart", tr("Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."))
+}
+
 fn info(title: &str, text: String) -> Notice {
     Notice { kind: NoticeKind::Info, title: tr(title), text }
 }
@@ -202,7 +207,7 @@ pub trait Download {
     /// Bytes so far and in all (0: not known).
     fn progress(&self) -> (u64, u64);
     fn start(&self, switch_on: &str);
-    fn remove(&self);
+    fn remove(&self) -> Result<(), String>;
 }
 
 /// The app's one download, from the vision service.
@@ -249,8 +254,8 @@ impl Download for VisionDownload {
         }
         self.service.download(switch_on);
     }
-    fn remove(&self) {
-        self.service.remove_pack();
+    fn remove(&self) -> Result<(), String> {
+        self.service.remove_pack()
     }
 }
 
@@ -267,7 +272,9 @@ impl Download for NoVision {
     fn failed_for(&self) -> String { String::new() }
     fn progress(&self) -> (u64, u64) { (0, 0) }
     fn start(&self, _: &str) {}
-    fn remove(&self) {}
+    fn remove(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// The Check for updates and Install updates without asking switches under the Added plugins.
@@ -725,9 +732,12 @@ impl Panel {
                 outcome
             }
             Commit::RemovePack => {
-                self.download.remove();
+                let mut outcome = Outcome::default();
+                if let Err(e) = self.download.remove() {
+                    outcome.notices.push(warning("Couldn't remove it", fill(&tr("Telescope couldn't delete it: {error}"), &[("error", &e)])));
+                }
                 self.refresh();
-                Outcome::default()
+                outcome
             }
             Commit::Install { path, replace } => match self.install(path, replace) {
                 Step::Done(outcome) => outcome,

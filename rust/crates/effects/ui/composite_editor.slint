@@ -421,8 +421,8 @@ export component CompositeEditor inherits Window {
                                 enabled: layout-enabled;
                                 picked(i) => { root.layout-picked(i); }
                             }
-                            IconButton { icon: Icons.pencil; label: @tr("Rename…"); clicked => { if (saved) { root.rename-clicked(); } } }
-                            IconButton { icon: Icons.trash; label: @tr("Delete"); clicked => { if (saved) { root.delete-clicked(); } } }
+                            IconButton { icon: Icons.pencil; label: @tr("Rename…"); tip: @tr("Rename this layout"); clicked => { if (saved) { root.rename-clicked(); } } }
+                            IconButton { icon: Icons.trash; label: @tr("Delete"); tip: @tr("Delete this layout"); clicked => { if (saved) { root.delete-clicked(); } } }
                         }
                     }
                     SideCard {

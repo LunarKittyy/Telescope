@@ -61,13 +61,13 @@
 "Telescope didn't answer in time." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Telescope is still running" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
 "Telescope started with its defaults, so paired phones need pairing again." = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
-"Telescope works without it. The Plugins tab in Settings says what went wrong." = { status = "todo" }
+"Telescope works without it. The Plugins tab in Settings says what went wrong." = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "Telescope: streaming the camera" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
 "Telescope: streaming the camera and mic" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
 "Telescope: streaming the camera, mic muted" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
 "Telescope: streaming the mic, camera off" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
 "Telescope: streaming the mic, camera off (muted)" = { status = "ported", rust = "rust/crates/shell/src/tray.rs" }
-"That failed; Copy diagnostics has the details." = { status = "todo" }
+"That failed; Copy diagnostics has the details." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "The phone got hot and lowered the frame rate to {fps} fps for now." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
 "The phone sent data this version can't read. Update both apps to the same version." = { status = "ported", rust = "rust/crates/shell/src/streams.rs::apply_state", note = "The check is core::models (12 tests); the status line in apply_state has no window-level test of its own" }
 "The phone's camera is making fewer frames than asked for. Dim light slows it down." = { status = "ported", rust = "rust/crates/shell/src/streams.rs" }
@@ -88,7 +88,7 @@
 "Your settings couldn't be read" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "{first} to {last}" = { status = "ported", rust = "rust/crates/shell/src/extra_cameras.rs" }
 "{n} plugin didn't start" = { status = "ported", rust = "rust/crates/shell/src/texts.rs" }
-"{plugins} didn't start" = { status = "todo" }
+"{plugins} didn't start" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 "{plugins} is turned off" = { status = "ported", rust = "rust/crates/shell/src/shell.rs" }
 # ── audio
 "Allow the microphone in Telescope on the phone" = { status = "ported", rust = "rust/crates/link/src/audio.rs" }
@@ -843,11 +843,11 @@
 "search|smart home light home assistant url http request automation" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin.rs" }
 "search|tablet phone screen page link qr code" = { status = "ported", rust = "rust/crates/effects/src/on_air_plugin.rs" }
 # ── onboarding
-"Add your phone" = { status = "todo" }
+"Add your phone" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Check again" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Click Start streaming in the top right corner of this window." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Close the setup guide" = { status = "ported", rust = "rust/crates/shell/ui/cards/onboarding.slint" }
-"Didn't install: {detail}" = { status = "todo" }
+"Didn't install: {detail}" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Done." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Get set up" = { status = "ported", rust = "rust/crates/shell/ui/cards/onboarding.slint" }
 "Install driver" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
@@ -855,10 +855,10 @@
 "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Installed." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Installed. If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"Installed. Open Telescope on the phone for the next step." = { status = "todo" }
+"Installed. Open Telescope on the phone for the next step." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Installed. Starting a stream may ask for your password to switch it on." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
-"Installing over USB…" = { status = "todo" }
-"Installing… Windows asks for admin access." = { status = "todo" }
+"Installing over USB…" = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
+"Installing… Windows asks for admin access." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "No phone found over USB. Plug it in and allow USB debugging when the phone asks." = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Not needed: you picked a camera that isn't a phone." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
 "Other apps see Telescope as a webcam through this driver. Installing it needs admin access." = { status = "ported", rust = "rust/crates/shell/src/plugins/onboarding.rs" }
@@ -1478,7 +1478,7 @@
 "Can't reach the phone's stream. Trying again in {seconds} s…" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Connecting to {url}..." = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Connecting..." = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
-"Getting ready… The first start after installing can take a minute." = { status = "todo" }
+"Getting ready… The first start after installing can take a minute." = { status = "dropped", reason = "PyAV loads slowly on a thread in Python; FFmpeg is linked into the Rust build, so no stream waits for it" }
 "Stream dropped - reconnecting" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Stream error: {error}" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Stream reconnected" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
@@ -1486,9 +1486,9 @@
 "The video is paused while the phone takes a photo" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 "Virtual camera error: {error}" = { status = "ported", rust = "rust/crates/shell/src/worker.rs" }
 # ── stream_flow
-"Couldn't start streaming" = { status = "todo" }
+"Couldn't start streaming" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "Couldn't start the phone's camera" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
-"Something went wrong. Copy diagnostics has the details." = { status = "todo" }
+"Something went wrong. Copy diagnostics has the details." = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "Starting the phone's camera…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 "Starting the phone's mic…" = { status = "ported", rust = "rust/crates/shell/src/stream_flow.rs" }
 # ── stream_output
@@ -1697,7 +1697,7 @@
 "Border" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Border colour" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Bring forward" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
-"Build" = { status = "todo" }
+"Build" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Build one here" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Builds PyAV {version} against your system's FFmpeg, in a minute or two" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "By {author}." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
@@ -1713,12 +1713,12 @@
 "Couldn't install it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Couldn't open it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Couldn't remove it" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Couldn't restart" = { status = "todo" }
+"Couldn't restart" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Couldn't save that" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Crop" = { status = "ported", rust = "rust/crates/effects/src/composite_editor.rs" }
 "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release." = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Delete the download the plugins here use. Switching one on gets it again." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"Delete this layout" = { status = "todo" }
+"Delete this layout" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Dismiss" = { status = "ported", rust = "rust/crates/shell/ui/frame.slint" }
 "Doesn't load in Telescope's Python {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Double-click to reset" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -1737,7 +1737,7 @@
 "Getting ready…" = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Grid" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "How plugins work" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
-"In use" = { status = "todo" }
+"In use" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Install" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Install a plugin" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Install plugin updates without asking?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
@@ -1792,7 +1792,7 @@
 "Remove {plugin}" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Remove {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Rename layout" = { status = "ported", rust = "rust/crates/effects/src/composite_editor.rs" }
-"Rename this layout" = { status = "todo" }
+"Rename this layout" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Rename…" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Replace layout" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Replace {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
@@ -1834,13 +1834,13 @@
 "Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Tab" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
-"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "todo" }
+"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs", note = "The card's label takes no link or line breaks, so the licence address shows as text in a msgid of its own and Wi-Fi works without it goes." }
 "Telescope can't work without this one, so it can't be switched off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Telescope couldn't delete it: {error}" = { status = "todo" }
+"Telescope couldn't delete it: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete its folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't make its plugins folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't save the change: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes." = { status = "todo" }
+"Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope is using the built PyAV {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Telescope is using the distro's PyAV {version}" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n\nWhoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }

@@ -708,6 +708,15 @@ mod tests {
     }
 
     #[test]
+    fn the_video_stage_makes_room_for_the_checklist() {
+        let (mut p, mut host) = ready();
+        p.on_event(&mut host, &Event::SetupNeeded { showing: true });
+        assert_eq!(card(&host)["visible-card"], false);
+        p.on_event(&mut host, &Event::SetupNeeded { showing: false });
+        assert_eq!(card(&host)["visible-card"], true);
+    }
+
+    #[test]
     fn a_pick_shows_a_hidden_preview() {
         let (mut p, mut host) = ready();
         click(&mut p, &mut host, "toggle");

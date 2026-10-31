@@ -680,8 +680,10 @@ impl Settings {
         self.next_notice();
         if outcome.restart {
             if let Some(w) = self.window.upgrade() {
-                w.state.borrow_mut().effects.push(crate::shell::Effect::Restart);
-                w.process();
+                if !w.restart_app() {
+                    self.notices.borrow_mut().push_back(crate::plugins_tab::restart_failed());
+                    self.next_notice();
+                }
             }
         }
     }

@@ -313,18 +313,21 @@ fn unpack(archive: &Path, staging: &Path) -> Result<(), Failed> {
 }
 
 /// Delete the packs (and leftovers of unfinished downloads), all but keep.
-pub fn remove(vision_dir: &Path, keep: Option<&str>) {
-    let Ok(entries) = std::fs::read_dir(vision_dir) else { return };
+pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
+    let mut failed = Ok(());
     for entry in entries.flatten() {
         if keep.is_some_and(|k| entry.file_name().to_string_lossy() == k) {
             continue;
         }
         let path = entry.path();
         let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
-        if gone.is_err() {
+        if let Err(e) = gone {
             log::warn!("Couldn't remove {}", path.display());
+            failed = Err(e.to_string());
         }
     }
+    failed
 }
 
 #[cfg(test)]

@@ -411,7 +411,7 @@ impl ShortcutsPlugin {
 
     /// A `telescope --action` request, which also notifies from the background like a global key.
     fn run_remote(&mut self, host: &mut dyn Host, request: &Value) -> Value {
-        let answer = handle_remote(host, request);
+        let answer = answered(|| handle_remote(host, request));
         if request["list"] != true && answer["ok"] == true && self.notify && !host.window_active() {
             host.send_notification("Telescope", answer["text"].as_str().unwrap_or(""), false);
         }
@@ -755,6 +755,14 @@ fn list_text(actions: &[(Option<String>, ActionSpec)]) -> String {
         }
     }
     lines.join("\n")
+}
+
+/// A request's answer; a crash in it is still answered, or the asking copy waits out its time.
+fn answered(run: impl FnOnce() -> Value) -> Value {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).unwrap_or_else(|_| {
+        log::error!("A --action request failed");
+        json!({"ok": false, "text": tr("That failed; Copy diagnostics has the details.")})
+    })
 }
 
 /// A `telescope --action` request: {"list": true}, or {"action": id, "params": {name: value}} (handle_remote).
@@ -2037,6 +2045,12 @@ mod tests {
             assert!(reply["ok"] == false && reply["text"].as_str().unwrap().contains(says), "{reply}");
             assert!(ran(&host).is_empty(), "nothing moved: {:?}", ran(&host));
         }
+    }
+
+    #[test]
+    fn a_crash_in_a_remote_action_still_answers() {
+        assert_eq!(answered(|| panic!("boom")), json!({"ok": false, "text": "That failed; Copy diagnostics has the details."}));
+        assert_eq!(answered(|| json!({"ok": true})), json!({"ok": true}));
     }
 
     #[test]

@@ -245,8 +245,8 @@ impl VisionService for VisionHost {
         self.shared.cancel.store(true, Ordering::SeqCst);
     }
 
-    fn remove_pack(&self) {
-        pack::remove(&self.shared.dir, None);
+    fn remove_pack(&self) -> Result<(), String> {
+        pack::remove(&self.shared.dir, None)
     }
 }
 

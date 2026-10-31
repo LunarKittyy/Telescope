@@ -79,6 +79,7 @@ struct FakeDownload {
     error: String,
     started: Rc<RefCell<Vec<String>>>,
     removed: Rc<Cell<u32>>,
+    remove_error: String,
     admin: Arc<dyn PluginAdmin>,
 }
 
@@ -98,9 +99,13 @@ impl Download for FakeDownload {
             self.admin.set_optional_on(switch_on, true).unwrap();
         }
     }
-    fn remove(&self) {
+    fn remove(&self) -> Result<(), String> {
         self.removed.set(self.removed.get() + 1);
+        if !self.remove_error.is_empty() {
+            return Err(self.remove_error.clone());
+        }
         self.ready.set(false);
+        Ok(())
     }
 }
 
@@ -117,7 +122,9 @@ impl Download for NoDownload {
     fn failed_for(&self) -> String { String::new() }
     fn progress(&self) -> (u64, u64) { (0, 0) }
     fn start(&self, _: &str) {}
-    fn remove(&self) {}
+    fn remove(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 struct Rig {
@@ -165,7 +172,7 @@ fn rig_with(list: Vec<PluginInfo>, running: &[&str], problems: &[(&str, &str)], 
     let checks = Arc::new(AtomicU32::new(0));
     let (plugins, admin) = admin_in(&root, Vec::new(), release, checks.clone());
     setup(&plugins, admin.as_ref());
-    let mut dl = FakeDownload { ready: Rc::new(Cell::new(false)), available: true, error: String::new(), started: Rc::default(), removed: Rc::default(), admin: admin.clone() };
+    let mut dl = FakeDownload { ready: Rc::new(Cell::new(false)), available: true, error: String::new(), started: Rc::default(), removed: Rc::default(), remove_error: String::new(), admin: admin.clone() };
     download(&mut dl);
     let running = running.iter().map(|s| s.to_string()).collect();
     let problems = problems.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
@@ -308,7 +315,9 @@ impl VisionService for Pack {
         self.admin.set_optional_on(switch_on, true).unwrap();
     }
     fn cancel_download(&self) {}
-    fn remove_pack(&self) {}
+    fn remove_pack(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// What Telescope started again with.
@@ -529,8 +538,25 @@ fn with_the_download_there_switching_on_is_just_a_switch() {
     flip(&mut r, "background", false, &mut yes);
     assert!(r.admin.optional_on().is_empty());
     assert!(r.panel.groups.iter().find(|g| g.id == "vision").unwrap().remove_pack);
-    r.panel.run(Request::RemovePack, &mut yes);
+    assert!(r.panel.run(Request::RemovePack, &mut yes).notices.is_empty());
     assert_eq!(r.download.removed.get(), 1);
+}
+
+#[test]
+fn a_download_that_wont_delete_says_why() {
+    let mut list = builtins();
+    list.push(optional("framing", "Auto framing"));
+    let mut r = rig_with(list, &["connection"], &[], |d| d.remove_error = "in use".into(), None, |_, _| {});
+    let mut yes = |_: &Question| true;
+    let notices = r.panel.run(Request::RemovePack, &mut yes).notices;
+    assert_eq!((notices[0].title.as_str(), notices[0].text.as_str()), ("Couldn't remove it", "Telescope couldn't delete it: in use"));
+}
+
+#[test]
+fn a_restart_that_cant_start_a_new_copy_says_what_to_do() {
+    let notice = telescope_shell::plugins_tab::restart_failed();
+    assert_eq!(notice.title, "Couldn't restart");
+    assert!(notice.text.contains("Close it and open it again"));
 }
 
 #[test]

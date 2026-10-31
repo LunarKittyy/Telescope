@@ -18,9 +18,26 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
         let outputs = s.outputs.clone();
         Arc::new(move || !outputs.slots().is_empty()) as onboarding::VcamCheck
     });
+    let installers = services.map(|s| {
+        let (outputs, link, usb, apk) = (s.outputs.clone(), s.link.clone(), s.link.clone(), s.link.clone());
+        onboarding::Installers {
+            camera: Arc::new(move || {
+                let done = outputs.set_up(telescope_core::output::SetupAction::Install { devices: 1, reset: false }, &|_| {});
+                (done.ok, done.message)
+            }),
+            usb_ready: Arc::new(move || usb.bundled_apk().is_some() && usb.adb_available()),
+            phone_app: Arc::new(move || {
+                let phones = link.usb_devices();
+                let Some(phone) = phones.iter().find(|d| d.state == "device") else {
+                    return Err(telescope_core::i18n::tr("No phone found over USB. Plug it in and allow USB debugging when the phone asks."));
+                };
+                link.install_app(&phone.serial, &apk.bundled_apk().ok_or("The phone app isn't here")?)
+            }),
+        }
+    });
     vec![
         Box::new(camera_control::CameraControl::default()),
-        Box::new(onboarding::Onboarding::new(vcam, Some(bus.clone()))),
+        Box::new(onboarding::Onboarding::new(vcam, Some(bus.clone())).with_installers(installers)),
         Box::new(preview::Preview::default()),
         Box::new(presets::PresetsPlugin::new()),
     ]

@@ -5,7 +5,7 @@
 use serde_json::{json, Value};
 use std::sync::Arc;
 use telescope_core::event::Event;
-use telescope_core::i18n::{n_, tr};
+use telescope_core::i18n::{n_, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::host::RequestId;
@@ -20,8 +20,21 @@ const LINUX_INSTALL_HINT: &str = n_("Install the v4l2loopback package. Fedora an
 /// Whether this computer has its virtual camera set up; run off the UI thread. None: nobody can tell (scenes).
 pub type VcamCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 
+/// What the checklist's buttons do, each off the UI thread but usb_ready.
+#[derive(Clone)]
+pub struct Installers {
+    /// Installs the virtual camera: (whether it's there now, what went wrong).
+    pub camera: Arc<dyn Fn() -> (bool, String) + Send + Sync>,
+    /// The phone app is bundled and adb can put it on a phone.
+    pub usb_ready: Arc<dyn Fn() -> bool + Send + Sync>,
+    /// Installs the phone app over USB; the error is what to tell the user.
+    pub phone_app: Arc<dyn Fn() -> Result<(), String> + Send + Sync>,
+}
+
 /// The answer to a virtual camera check comes back on the bus as a RequestDone with this id.
 const VCAM_CHECKED: RequestId = RequestId(u64::MAX - 1);
+const VCAM_INSTALLED: RequestId = RequestId(u64::MAX - 2);
+const APP_INSTALLED: RequestId = RequestId(u64::MAX - 3);
 
 /// The lines a label's sizeHint gives this text at the body size, which the card's height follows on the stage.
 fn hint_lines(text: &str, weight: Weight) -> u32 {
@@ -39,14 +52,52 @@ pub struct Onboarding {
     check: Option<VcamCheck>,
     bus: Option<BusSender>,
     linux: bool,
+    installers: Option<Installers>,
+    /// The driver is installing, and why it last didn't.
+    vcam_busy: bool,
+    vcam_failed: String,
+    /// The phone app is installing over USB, and what the last try came to: (text, kind), until something else changes.
+    app_busy: bool,
+    app_note: Option<(String, &'static str)>,
 }
 
 impl Onboarding {
     pub fn new(check: Option<VcamCheck>, bus: Option<BusSender>) -> Onboarding {
         Onboarding {
             phones: 0, vcam_ready: false, vcam_checked: false, streaming: false, streamed: false, source: String::new(),
-            asked: false, check, bus, linux: cfg!(target_os = "linux"),
+            asked: false, check, bus, linux: cfg!(target_os = "linux"), installers: None, vcam_busy: false, vcam_failed: String::new(),
+            app_busy: false, app_note: None,
         }
+    }
+
+    pub fn with_installers(mut self, installers: Option<Installers>) -> Onboarding {
+        self.installers = installers;
+        self
+    }
+
+    /// _vcam_action on Windows.
+    fn install_camera(&mut self, host: &mut dyn Host) {
+        let (Some(installers), Some(bus)) = (self.installers.clone(), self.bus.clone()) else { return };
+        self.vcam_busy = true;
+        self.vcam_failed.clear();
+        self.render(host);
+        std::thread::spawn(move || {
+            let (ready, detail) = (installers.camera)();
+            bus.emit(Event::RequestDone { request: VCAM_INSTALLED, ok: ready, message: detail, data: Value::Null });
+        });
+    }
+
+    /// _install_apk.
+    fn install_app(&mut self, host: &mut dyn Host) {
+        let (Some(installers), Some(bus)) = (self.installers.clone(), self.bus.clone()) else { return };
+        self.app_busy = true;
+        self.app_note = None;
+        self.render(host);
+        std::thread::spawn(move || {
+            let result = (installers.phone_app)();
+            let (ok, message) = (result.is_ok(), result.err().unwrap_or_default());
+            bus.emit(Event::RequestDone { request: APP_INSTALLED, ok, message, data: Value::Null });
+        });
     }
 
     fn check_virtual_camera(&mut self) {
@@ -80,6 +131,12 @@ impl Onboarding {
             step("Virtual camera", text, "status_dim", true, String::new(), false)
         } else if self.linux {
             step("Virtual camera", tr(LINUX_INSTALL_HINT), "status_warn", false, tr("Check again"), false)
+        } else if self.vcam_busy {
+            let mut installing = step("Virtual camera", tr("Installing… Windows asks for admin access."), "status_dim", false, tr("Install driver"), true);
+            installing["busy"] = json!(true);
+            installing
+        } else if !self.vcam_failed.is_empty() {
+            step("Virtual camera", tr("Didn't install: {detail}").field("detail", &self.vcam_failed), "status_err", false, tr("Try again"), true)
         } else {
             step("Virtual camera", tr("Other apps see Telescope as a webcam through this driver. Installing it needs admin access."),
                  "status_dim", false, tr("Install driver"), true)
@@ -91,9 +148,16 @@ impl Onboarding {
             step("Phone app", not_needed(), "status_dim", true, String::new(), false)
         } else if paired {
             step("Phone app", tr("Installed."), "status_dim", true, String::new(), false)
+        } else if self.app_busy {
+            let mut installing = step("Phone app", tr("Installing over USB…"), "status_dim", false, tr("Install over USB"), false);
+            installing["busy"] = json!(true);
+            installing
+        } else if let Some((text, kind)) = &self.app_note {
+            step("Phone app", text.clone(), kind, false, tr("Install over USB"), false)
         } else {
+            let usb = self.installers.as_ref().is_some_and(|i| (i.usb_ready)());
             step("Phone app", tr("Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."),
-                 "status_dim", false, String::new(), false)
+                 "status_dim", false, if usb { tr("Install over USB") } else { String::new() }, false)
         };
         let pair = if no_phone {
             step("Add your phone", not_needed(), "status_dim", true, String::new(), false)
@@ -156,8 +220,17 @@ impl Plugin for Onboarding {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        let note = self.app_note.take();
         match event {
             Event::RequestDone { request, ok, .. } if *request == VCAM_CHECKED => (self.vcam_checked, self.vcam_ready) = (true, *ok),
+            Event::RequestDone { request, ok, message, .. } if *request == VCAM_INSTALLED => {
+                (self.vcam_checked, self.vcam_ready, self.vcam_busy) = (true, *ok, false);
+                self.vcam_failed = if *ok { String::new() } else { message.clone() };
+            }
+            Event::RequestDone { request, ok, message, .. } if *request == APP_INSTALLED => {
+                self.app_busy = false;
+                self.app_note = Some(if *ok { (tr("Installed. Open Telescope on the phone for the next step."), "status_ok") } else { (message.clone(), "status_err") });
+            }
             Event::PhonesChanged { count } => self.phones = *count,
             Event::SourceSelected { source_id } => self.source = source_id.clone(),
             Event::SetupGuideRequested => self.asked = !self.asked,
@@ -170,7 +243,10 @@ impl Plugin for Onboarding {
                 self.streamed = true;
                 host.schedule_save();
             }
-            _ => return,
+            _ => {
+                self.app_note = note;
+                return;
+            }
         }
         self.render(host);
     }
@@ -186,6 +262,8 @@ impl Plugin for Onboarding {
                 self.render(host);
                 self.check_virtual_camera();
             }
+            ("step-clicked", Some(0)) => self.install_camera(host),
+            ("step-clicked", Some(1)) => self.install_app(host),
             ("step-clicked", Some(2)) => host.emit(Event::AddPhoneRequested),
             _ => {}
         }
@@ -308,5 +386,121 @@ mod tests {
             let (cells, size) = qr(data);
             assert_eq!((size, cells.len(), cells.iter().sum::<usize>()), want, "{data}");
         }
+    }
+
+    fn event(o: &mut Onboarding, host: &mut FakeHost, e: Event) {
+        o.on_event(host, &e);
+    }
+
+    fn checked(ready: bool) -> (Onboarding, FakeHost) {
+        let (mut o, mut host) = (Onboarding::new(None, None), FakeHost::new());
+        event(&mut o, &mut host, Event::RequestDone { request: VCAM_CHECKED, ok: ready, message: String::new(), data: Value::Null });
+        (o, host)
+    }
+
+    #[test]
+    fn a_saved_first_stream_keeps_the_checklist_away() {
+        let (mut o, mut host) = checked(true);
+        o.set_config(&json!({"streamed": true})).unwrap();
+        event(&mut o, &mut host, Event::PhonesChanged { count: 1 });
+        assert!(!o.needed());
+        event(&mut o, &mut host, Event::PhonesChanged { count: 0 });
+        assert!(o.needed(), "every phone removed: back to the checklist");
+    }
+
+    #[test]
+    fn streaming_hides_the_checklist() {
+        let (mut o, mut host) = checked(false);
+        event(&mut o, &mut host, Event::StreamStarted { url: "url".into() });
+        assert!(!o.needed());
+        assert!(matches!(host.events.last(), Some(Event::SetupNeeded { showing: false })));
+        event(&mut o, &mut host, Event::StreamStopped);
+        assert!(o.needed());
+    }
+
+    fn installers(usb: bool, camera: (bool, &'static str), app: Result<(), &'static str>) -> Option<Installers> {
+        Some(Installers {
+            camera: Arc::new(move || (camera.0, camera.1.to_string())),
+            usb_ready: Arc::new(move || usb),
+            phone_app: Arc::new(move || app.map_err(String::from)),
+        })
+    }
+
+    fn step_of(o: &Onboarding, i: usize) -> Value {
+        o.steps()[i].clone()
+    }
+
+    #[test]
+    fn usb_install_is_offered_only_with_a_bundled_apk_and_adb() {
+        let (o, _) = checked(false);
+        assert_eq!(step_of(&o, 1)["button"], "");
+        let (o, _) = checked(false);
+        let o = o.with_installers(installers(false, (true, ""), Ok(())));
+        assert_eq!(step_of(&o, 1)["button"], "");
+        let (o, _) = checked(false);
+        let o = o.with_installers(installers(true, (true, ""), Ok(())));
+        assert_eq!(step_of(&o, 1)["button"], "Install over USB");
+    }
+
+    fn click(o: &mut Onboarding, host: &mut FakeHost, step: i64) {
+        o.on_ui(host, &UiEvent { ui: "card".into(), callback: "step-clicked".into(), args: vec![json!(step)] });
+    }
+
+    /// A checklist whose installs report back on a bus of its own.
+    fn installing(camera: (bool, &'static str), app: Result<(), &'static str>) -> (Onboarding, FakeHost, telescope_core::EventBus) {
+        let bus = telescope_core::EventBus::new();
+        let (mut o, mut host) = (Onboarding::new(None, Some(bus.sender())).with_installers(installers(true, camera, app)), FakeHost::new());
+        o.linux = false;
+        event(&mut o, &mut host, Event::RequestDone { request: VCAM_CHECKED, ok: false, message: String::new(), data: Value::Null });
+        (o, host, bus)
+    }
+
+    fn answer(o: &mut Onboarding, host: &mut FakeHost, bus: &telescope_core::EventBus) {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while std::time::Instant::now() < until {
+            if let Some(e) = bus.next() {
+                return event(o, host, e);
+            }
+            std::thread::yield_now();
+        }
+        panic!("no answer");
+    }
+
+    #[test]
+    fn usb_install_reports_a_missing_phone() {
+        let (mut o, mut host, bus) = installing((true, ""), Err("No phone found over USB."));
+        click(&mut o, &mut host, 1);
+        let busy = step_of(&o, 1);
+        assert_eq!((busy["text"].as_str(), busy["busy"].as_bool()), (Some("Installing over USB…"), Some(true)));
+        answer(&mut o, &mut host, &bus);
+        let failed = step_of(&o, 1);
+        assert_eq!((failed["text"].as_str(), failed["kind"].as_str(), failed["busy"].as_bool()), (Some("No phone found over USB."), Some("status_err"), Some(false)));
+    }
+
+    #[test]
+    fn a_phone_app_installed_over_usb_says_what_comes_next_until_something_changes() {
+        let (mut o, mut host, bus) = installing((true, ""), Ok(()));
+        click(&mut o, &mut host, 1);
+        answer(&mut o, &mut host, &bus);
+        assert_eq!(step_of(&o, 1)["text"], "Installed. Open Telescope on the phone for the next step.");
+        assert_eq!(step_of(&o, 1)["kind"], "status_ok");
+        event(&mut o, &mut host, Event::StreamStopped);
+        assert!(step_of(&o, 1)["text"].as_str().unwrap().starts_with("Scan this"));
+    }
+
+    #[test]
+    fn the_driver_installs_from_the_checklist_and_says_why_it_didnt() {
+        let (mut o, mut host, bus) = installing((false, "Refused"), Ok(()));
+        click(&mut o, &mut host, 0);
+        let busy = step_of(&o, 0);
+        assert_eq!((busy["text"].as_str(), busy["busy"].as_bool()), (Some("Installing… Windows asks for admin access."), Some(true)));
+        answer(&mut o, &mut host, &bus);
+        let failed = step_of(&o, 0);
+        assert_eq!((failed["text"].as_str(), failed["kind"].as_str(), failed["button"].as_str()), (Some("Didn't install: Refused"), Some("status_err"), Some("Try again")));
+
+        let (mut o, mut host, bus) = installing((true, ""), Ok(()));
+        click(&mut o, &mut host, 0);
+        answer(&mut o, &mut host, &bus);
+        assert_eq!(step_of(&o, 0)["done"], true);
     }
 }

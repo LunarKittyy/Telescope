@@ -1573,7 +1573,9 @@ mod tests {
         }
         fn download(&self, _switch_on: &str) {}
         fn cancel_download(&self) {}
-        fn remove_pack(&self) {}
+        fn remove_pack(&self) -> Result<(), String> {
+            Ok(())
+        }
         fn download_failed(&self, error: &str, plugin: &str) {
             *self.0.lock().unwrap() = (error.to_string(), plugin.to_string());
         }

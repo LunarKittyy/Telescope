@@ -2313,7 +2313,9 @@ mod tests {
         }
         fn download(&self, _switch_on: &str) {}
         fn cancel_download(&self) {}
-        fn remove_pack(&self) {}
+        fn remove_pack(&self) -> Result<(), String> {
+            Ok(())
+        }
     }
 
     struct NoStep;

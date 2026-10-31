@@ -8,6 +8,7 @@ use crate::session::{same, Sessions, Source, SourceRef, StreamSession, Worker};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::rc::Rc;
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
@@ -180,7 +181,12 @@ impl StreamFlow {
         self.start_id = source.id.clone();
         host.clear_issue(&format!("stopped:{}", source.id_str()));
         self.sessions.preparing = true;
-        let ok = host.camera_ready(interactive, source.id.as_deref()) && source.kind.prepare(interactive);
+        let ok = catch_unwind(AssertUnwindSafe(|| host.camera_ready(interactive, source.id.as_deref()) && source.kind.prepare(interactive)));
+        let ok = ok.unwrap_or_else(|_| {
+            log::error!("Getting {} ready to stream failed", source.kind.name());
+            host.start_problem(&tr("Couldn't start streaming"), &tr("Something went wrong. Copy diagnostics has the details."));
+            false
+        });
         self.sessions.preparing = false;
         host.later(Later::AfterStart);
         if !ok {
@@ -1125,6 +1131,7 @@ mod tests {
     struct Offered {
         ready: bool,
         prepared: AtomicU32,
+        crashes: std::sync::atomic::AtomicBool,
     }
 
     impl telescope_core::source::StreamSource for Offered {
@@ -1139,6 +1146,7 @@ mod tests {
         }
         fn prepare(&self, _interactive: bool) -> bool {
             self.prepared.fetch_add(1, Ordering::SeqCst);
+            assert!(!self.crashes.load(Ordering::SeqCst), "broken");
             self.ready
         }
         fn open_feed(&self) -> Result<(telescope_core::media::Codec, Box<dyn telescope_core::media::VideoFeed>), String> {
@@ -1153,7 +1161,7 @@ mod tests {
     }
 
     fn offer(host: &mut Host, ready: bool) -> std::sync::Arc<Offered> {
-        let offered = std::sync::Arc::new(Offered { ready, prepared: AtomicU32::new(0) });
+        let offered = std::sync::Arc::new(Offered { ready, prepared: AtomicU32::new(0), crashes: Default::default() });
         let source: std::sync::Arc<dyn telescope_core::source::StreamSource> = offered.clone();
         let kind = crate::sources::PluginKind::new(std::sync::Arc::new(std::sync::Mutex::new(source)), None);
         host.sources.insert("browser:".into(), Source::new(Some("browser:".into()), Box::new(kind)));
@@ -1207,6 +1215,12 @@ mod tests {
     #[test]
     fn a_source_that_isnt_ready_builds_nothing() {
         let (mut flow, mut host) = setup();
+        let offered = offer(&mut host, true);
+        offered.crashes.store(true, Ordering::SeqCst);
+        flow.start(&mut host, true, None);
+        assert_eq!(host.problems, ["Couldn't start streaming"]);
+        assert!(!flow.sessions.preparing && flow.sessions.streams.is_empty(), "the start ended like one that said no");
+        host.problems.clear();
         let offered = offer(&mut host, false);
         flow.start(&mut host, true, None);
         assert_eq!(offered.prepared.load(Ordering::SeqCst), 1);

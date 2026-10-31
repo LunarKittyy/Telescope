@@ -21,7 +21,9 @@ pub fn raise() {
 
 /// Starts this copy again, from any thread (win.restart_app()).
 pub fn restart() {
-    let _ = slint::invoke_from_event_loop(|| with_window(|w| w.restart_app()));
+    let _ = slint::invoke_from_event_loop(|| with_window(|w| {
+        w.restart_app();
+    }));
 }
 
 /// The tray's tooltip for what's streaming (_show_tray_state).

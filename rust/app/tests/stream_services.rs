@@ -357,7 +357,9 @@ fn stopping_a_stream_forgets_who_it_was_tracking() {
         }
         fn download(&self, _switch_on: &str) {}
         fn cancel_download(&self) {}
-        fn remove_pack(&self) {}
+        fn remove_pack(&self) -> Result<(), String> {
+            Ok(())
+        }
         fn download_failed(&self, _error: &str, _plugin: &str) {}
     }
     let r = Rig::new("tracking-forgot");

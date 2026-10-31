@@ -1151,7 +1151,9 @@ impl Window {
             Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
             Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),
-            Effect::Restart => self.restart_app(),
+            Effect::Restart => {
+                self.restart_app();
+            }
             Effect::Tray(_) => self.refresh_tray_menu(),
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
@@ -1241,15 +1243,22 @@ impl Window {
 
     /// restart_app: the launcher starts a supervised copy again from its exit code; any other starts a new copy of itself,
     /// which waits for this one to let go.
-    pub(crate) fn restart_app(&self) {
+    pub(crate) fn restart_app(&self) -> bool {
         if telescope_core::dev_profile::supervised() {
             EXIT_CODE.store(restart_exit_code(self.is_streaming()), Ordering::SeqCst);
-            return self.quit("Restarting");
+            self.quit("Restarting");
+            return true;
         }
         let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned());
         match exe.and_then(|exe| (app_hooks().relaunch)(&[exe, "--restarted".to_string()])) {
-            Ok(()) => self.quit("Restarting"),
-            Err(e) => log::error!("Couldn't start Telescope again: {e}"),
+            Ok(()) => {
+                self.quit("Restarting");
+                true
+            }
+            Err(e) => {
+                log::error!("Couldn't start Telescope again: {e}");
+                false
+            }
         }
     }
 
