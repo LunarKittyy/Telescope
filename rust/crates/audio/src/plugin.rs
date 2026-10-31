@@ -288,6 +288,8 @@ pub struct MicrophonePlugin {
     pending: Option<bool>,
     /// Its stream stopped with the mic on while others carry on: the next one gets it on.
     handing_on: bool,
+    /// take_mic asked the window to move the mic here: it comes on once the stream it left has saved it off.
+    taking: bool,
     /// (id, name) of the stream the mic is on, while the panels show another.
     elsewhere: Option<(String, String)>,
     /// The stream it hears about.
@@ -342,6 +344,7 @@ impl MicrophonePlugin {
             enabled: false,
             pending: None,
             handing_on: false,
+            taking: false,
             elsewhere: None,
             stream: None,
             worker: None,
@@ -648,10 +651,10 @@ impl MicrophonePlugin {
             return;
         }
         // The window moves the stream hooks over (focus lost there, gained here); until then nothing listens
+        self.taking = true;
         self.stream = None;
         self.stop_worker(h);
         self.sync_place(h);
-        self.set_enabled(h, true);
         self.show_toggle(h);
     }
 
@@ -789,6 +792,9 @@ impl MicrophonePlugin {
         self.stream = Some(source_id.to_string());
         self.follow_route();
         self.handing_on = false;
+        if std::mem::take(&mut self.taking) {
+            self.set_enabled(h, true);
+        }
         self.start_worker(h);
         self.sync_place(h);
     }

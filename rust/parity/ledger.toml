@@ -3004,11 +3004,11 @@
 "test_main.py::test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app" = { status = "dropped", reason = "no --warm-up helper: nothing to preload" }
 "test_main.py::test_the_window_comes_up_without_loading_what_only_a_stream_needs" = { status = "ported", rust = "rust/app/tests/window_start.rs::the_window_comes_up_without_loading_the_vision_pack", note = "Decoding, crypto, audio and WebRTC are linked into the program, so only the vision pack is loaded from outside" }
 # ── microphone
-"test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
+"test_microphone.py::test_a_card_whose_camera_is_still_starting_cant_take_the_mic" = { status = "ported", rust = "rust/app/tests/mic_window.rs::a_card_whose_camera_is_still_starting_cant_take_the_mic", note = "plugin level, with a stand-in window" }
 "test_microphone.py::test_a_missing_piece_is_shown_with_its_fix_and_nothing_starts" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_missing_piece_is_shown_with_its_fix_and_nothing_starts" }
 "test_microphone.py::test_a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it" }
 "test_microphone.py::test_a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is" }
-"test_microphone.py::test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic", note = "plugin level, with a stand-in window; the window side is the shell's" }
+"test_microphone.py::test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic" = { status = "ported", rust = "rust/app/tests/mic_window.rs::another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic", note = "plugin level, with a stand-in window; the window side is the shell's" }
 "test_microphone.py::test_audio_follows_a_route_change_on_the_same_control_client" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::audio_follows_a_route_change_on_the_same_control_client" }
 "test_microphone.py::test_audio_follows_the_stream_onto_another_route" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::audio_follows_the_stream_onto_another_route" }
 "test_microphone.py::test_auto_level_reaches_the_worker_and_is_saved_per_phone" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::auto_level_reaches_the_worker_and_is_saved_per_phone" }
@@ -3018,7 +3018,7 @@
 "test_microphone.py::test_meter_follows_the_worker_and_clears_when_the_stream_stops" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::meter_follows_the_worker_and_clears_when_the_stream_stops" }
 "test_microphone.py::test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::mute_writes_silence_without_dropping_the_mic_and_isnt_saved" }
 "test_microphone.py::test_noise_reduction_reaches_the_worker_and_is_saved_per_phone" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::noise_reduction_reaches_the_worker_and_is_saved_per_phone" }
-"test_microphone.py::test_on_follows_the_stream" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::on_follows_the_stream" }
+"test_microphone.py::test_on_follows_the_stream" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::on_follows_the_stream", note = "The worker holds an opener rather than a token: this checks it's the stream's route's, and link/src/audio.rs's tests check the token goes out" }
 "test_microphone.py::test_once_every_plugin_is_in_the_mic_says_again_whether_its_on" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::once_every_plugin_is_in_the_mic_says_again_whether_its_on" }
 "test_microphone.py::test_phone_refusal_is_shown" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::phone_refusal_is_shown" }
 "test_microphone.py::test_setup_failure_is_shown" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::setup_failure_is_shown" }
@@ -3028,7 +3028,7 @@
 "test_microphone.py::test_switching_off_queues_teardown_after_the_stop" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::switching_off_queues_teardown_after_the_stop" }
 "test_microphone.py::test_the_card_calls_the_mic_by_the_source_picked" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_card_calls_the_mic_by_the_source_picked" }
 "test_microphone.py::test_the_card_is_greyed_out_until_a_phone_is_paired" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_card_is_greyed_out_until_a_phone_is_paired" }
-"test_microphone.py::test_the_mic_stays_on_when_the_stream_with_it_stops" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::the_mic_stays_on_when_the_stream_with_it_stops", note = "plugin level, with a stand-in window" }
+"test_microphone.py::test_the_mic_stays_on_when_the_stream_with_it_stops" = { status = "ported", rust = "rust/app/tests/mic_window.rs::the_mic_stays_on_when_the_stream_with_it_stops", note = "plugin level, with a stand-in window" }
 "test_microphone.py::test_tray_mute_follows_the_card_both_ways" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::tray_mute_follows_the_card_both_ways" }
 "test_microphone.py::test_typing_a_gain_moves_the_slider" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::typing_a_gain_moves_the_slider" }
 "test_microphone.py::test_without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" = { status = "ported", rust = "rust/crates/audio/src/plugin_tests.rs::without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before" }
