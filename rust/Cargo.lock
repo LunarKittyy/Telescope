@@ -5681,6 +5681,7 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-interpreter",
+ "str0m",
  "telescope-audio",
  "telescope-core",
  "telescope-effects",

@@ -86,6 +86,56 @@ pub fn h264(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>>> {
     Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
 }
 
+/// Opus packets of 20 ms each, mono at 48 kHz, of a tone peaking at `peak`: what a browser's mic sends. None without libopus.
+pub fn opus_tone(packets: usize, peak: f64) -> Option<Vec<Vec<u8>>> {
+    const SAMPLES: usize = 960;
+    // SAFETY: plain libavcodec encoding; everything allocated here is freed before returning
+    unsafe {
+        let name = CString::new("libopus").unwrap();
+        let codec = ff::avcodec_find_encoder_by_name(name.as_ptr());
+        if codec.is_null() {
+            eprintln!("this FFmpeg has no libopus encoder; skipped");
+            return None;
+        }
+        let mut ctx = ff::avcodec_alloc_context3(codec);
+        (*ctx).sample_rate = 48000;
+        (*ctx).sample_fmt = ff::AVSampleFormat::AV_SAMPLE_FMT_S16;
+        (*ctx).bit_rate = 64000;
+        (*ctx).time_base = ff::AVRational { num: 1, den: 48000 };
+        ff::av_channel_layout_default(&mut (*ctx).ch_layout, 1);
+        if ff::avcodec_open2(ctx, codec, ptr::null_mut()) < 0 {
+            ff::avcodec_free_context(&mut ctx);
+            eprintln!("the libopus encoder didn't open; skipped");
+            return None;
+        }
+        let mut frame = ff::av_frame_alloc();
+        (*frame).nb_samples = SAMPLES as i32;
+        (*frame).format = ff::AVSampleFormat::AV_SAMPLE_FMT_S16 as i32;
+        (*frame).sample_rate = 48000;
+        ff::av_channel_layout_default(&mut (*frame).ch_layout, 1);
+        ff::av_frame_get_buffer(frame, 0);
+        let mut pkt = ff::av_packet_alloc();
+        let mut out = Vec::new();
+        for i in 0..packets {
+            ff::av_frame_make_writable(frame);
+            let samples = std::slice::from_raw_parts_mut((*frame).data[0] as *mut i16, SAMPLES);
+            for (n, sample) in samples.iter_mut().enumerate() {
+                *sample = (((i * SAMPLES + n) as f64 / 5.0).sin() * peak) as i16;
+            }
+            (*frame).pts = (i * SAMPLES) as i64;
+            ff::avcodec_send_frame(ctx, frame);
+            while ff::avcodec_receive_packet(ctx, pkt) == 0 {
+                out.push(std::slice::from_raw_parts((*pkt).data, (*pkt).size as usize).to_vec());
+                ff::av_packet_unref(pkt);
+            }
+        }
+        ff::av_packet_free(&mut pkt);
+        ff::av_frame_free(&mut frame);
+        ff::avcodec_free_context(&mut ctx);
+        Some(out)
+    }
+}
+
 /// A JPEG of a flat grey.
 pub fn jpeg(value: u8, w: u32, h: u32) -> Vec<u8> {
     encode("mjpeg", &[value], (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
