@@ -51,6 +51,8 @@ struct Entry {
     stage: FrameStage,
     kind: Kind,
     fails: u32,
+    /// Its shader won't build here, so a step with a CPU way stays on that.
+    no_shader: bool,
 }
 
 impl Entry {
@@ -106,6 +108,8 @@ pub struct Pipeline {
     /// What the last frame cost: (up, down).
     last_transfers: (u32, u32),
     balance: Arc<Balance>,
+    /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
+    card_lost: bool,
 }
 
 impl Default for Pipeline {
@@ -121,7 +125,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false }
     }
 
     /// The stages in the order their steps run, for tests and diagnostics.
@@ -149,8 +153,11 @@ impl Pipeline {
                 Err(why) => {
                     // The frame in hand is the last good one, and what the card did after it is lost with it
                     for i in chain.ahead.drain(..) {
-                        self.steps[i].failed(&why);
+                        if matches!(self.steps[i].kind, Kind::Shader(_)) {
+                            self.steps[i].failed(&why);
+                        }
                     }
+                    self.lost_card(&why);
                     gpu.put_down(chain.held.take().unwrap());
                 }
             }
@@ -159,6 +166,13 @@ impl Pipeline {
             if let Some(held) = chain.held.take() {
                 gpu.put_down(held);
             }
+        }
+    }
+
+    fn lost_card(&mut self, why: &str) {
+        if !self.card_lost {
+            log::error!("The graphics card failed a frame ({why}); steps that can run on the CPU stay there until the stream restarts");
+            self.card_lost = true;
         }
     }
 
@@ -196,8 +210,12 @@ impl Pipeline {
         let entry = &mut self.steps[i];
         let slot = entry.kind.slot();
         if let Err(why) = slot.prepare(&gpu) {
-            // A shader that doesn't build never will: say so once and leave it out
+            // A shader that doesn't build never will: say so once and leave it out, or run the CPU way
             log::error!("Plugin {}'s shader can't run ({why}); leaving it out", entry.owner);
+            if matches!(entry.kind, Kind::Either(..)) {
+                entry.no_shader = true;
+                return self.run_cpu(i, frame, chain, ctx);
+            }
             entry.fails = STEP_FAILS_BEFORE_SKIP;
             return;
         }
@@ -220,6 +238,10 @@ impl Pipeline {
                     chain.held = Some(held);
                     chain.ups += 1;
                 }
+                Err(why) if matches!(entry.kind, Kind::Either(..)) => {
+                    self.lost_card(&why);
+                    return self.run_cpu(i, frame, chain, ctx);
+                }
                 Err(why) => return entry.failed(&why),
             }
         }
@@ -230,7 +252,10 @@ impl Pipeline {
     /// Keeps a step that's off the card ready for coming back, so that doesn't cost a frame later.
     fn ready_on_card(&mut self, i: usize) {
         if let Some(gpu) = self.gpu() {
-            let _ = self.steps[i].kind.slot().prepare(&gpu);
+            if let Err(why) = self.steps[i].kind.slot().prepare(&gpu) {
+                log::error!("Plugin {}'s shader can't run ({why}); it stays on the CPU", self.steps[i].owner);
+                self.steps[i].no_shader = true;
+            }
         }
     }
 
@@ -275,7 +300,7 @@ fn sound(frame: &Frame) -> bool {
 
 impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
-        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0 }).collect();
+        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false }).collect();
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
@@ -283,7 +308,7 @@ impl FramePipeline for Pipeline {
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
         self.steps.retain(|e| e.owner != owner);
-        let fresh = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0 });
+        let fresh = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0, no_shader: false });
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
@@ -303,7 +328,7 @@ impl FramePipeline for Pipeline {
             if self.steps[i].skipped() {
                 continue;
             }
-            let either = matches!(self.steps[i].kind, Kind::Either(..));
+            let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
@@ -763,6 +788,46 @@ pub(crate) mod tests {
         assert_eq!(balance.place(), Place::Cpu);
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (0, 0));
+    }
+
+    #[test]
+    fn a_shader_that_wont_build_leaves_a_step_with_two_ways_on_the_cpu() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let (mut p, _) = either(Place::Card);
+        let broken = ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return nope; }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let Kind::Either(slot, _) = &mut p.steps[0].kind else { panic!("two ways") };
+        *slot = gpu::ShaderSlot::new(broken);
+        for _ in 0..3 {
+            assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
+            assert_eq!(p.last_transfers, (0, 0));
+        }
+        assert!(!p.steps[0].skipped() && p.steps[0].no_shader);
+    }
+
+    #[test]
+    fn a_lost_card_leaves_a_step_with_two_ways_on_the_cpu_for_the_stream() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let gpu = Arc::new(gpu);
+        let (mut p, _) = either(Place::Card);
+        p.gpu = Some(Some(gpu.clone()));
+        p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (1, 1));
+        gpu.lose();
+        // The frame on the card when it went is the last that isn't changed
+        p.process(grey(8, 8, 100), &NoContext);
+        for _ in 0..STEP_FAILS_BEFORE_SKIP + 5 {
+            assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
+            assert_eq!(p.last_transfers, (0, 0));
+        }
+        assert!(!p.steps[0].skipped());
+        // Changing the grade hands over a new step, which doesn't go back
+        let step = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let cpu = p.steps.remove(0);
+        let Kind::Either(_, cpu) = cpu.kind else { panic!("two ways") };
+        p.replace_steps("either", FrameStage::Effects, vec![FrameStep::Either(step, cpu)]);
+        assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
     }
 
     #[test]
