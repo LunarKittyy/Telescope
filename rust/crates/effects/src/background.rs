@@ -3,7 +3,7 @@
 use crate::compositor::cover;
 use crate::cpu::Rgb;
 use crate::shared::mask_of;
-use crate::imgops::{blur_f32, compose, Gray};
+use crate::imgops::{blur_quick, compose, Gray};
 use crate::shared::{no_pictures, Paired, PictureReader};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
@@ -38,17 +38,23 @@ pub fn blurred(frame: &Rgb, strength: i64, mask: Option<&Gray>) -> Rgb {
     let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
     let plain = small.blur(sigma);
     let Some(mask) = mask else { return plain.linear_exact(w, h) };
-    let rest: Vec<f32> = mask.shrink(sw, sh).data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
-    let spread = blur_f32(&rest, sw, sh, 1, sigma);
-    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(&rest).flat_map(|(p, r)| p.iter().map(move |v| *v as f32 * r)).collect();
-    let total = blur_f32(&kept, sw, sh, 3, sigma);
-    let mut out = Rgb::new(sw, sh);
-    for ((i, o), v) in out.data.iter_mut().enumerate().zip(&total) {
-        let s = spread[i / 3];
+    let rest = mask.shrink(sw, sh);
+    if rest.data.iter().all(|m| *m == 0) {
+        // nobody to leave out
+        return plain.linear_exact(w, h);
+    }
+    let rest: Vec<f32> = rest.data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
+    let spread = blur_quick(&rest, sw, sh, 1, sigma);
+    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(&rest).flat_map(|(p, r)| p.map(|v| v as f32 * r)).collect();
+    let total = blur_quick(&kept, sw, sh, 3, sigma);
+    let mut out = Rgb::scratch(sw, sh);
+    let colours = out.data.as_chunks_mut::<3>().0.iter_mut().zip(total.as_chunks::<3>().0).zip(plain.data.as_chunks::<3>().0);
+    for ((o, (v, p)), s) in colours.map(|((o, v), p)| (o, (v, p))).zip(&spread) {
         // where there's next to no background, the plain blur
         let weight = (s * 4.0).clamp(0.0, 1.0);
-        let mixed = v / s.max(1e-3) * weight + plain.data[i] as f32 * (1.0 - weight);
-        *o = mixed.clamp(0.0, 255.0) as u8;
+        for c in 0..3 {
+            o[c] = (v[c] / s.max(1e-3) * weight + p[c] as f32 * (1.0 - weight)).clamp(0.0, 255.0) as u8;
+        }
     }
     out.linear_exact(w, h)
 }

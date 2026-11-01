@@ -2,8 +2,9 @@
 //! in the geometry stage. The warp for a frame size is worked out on the stream's thread and posted back, so the plugin can tell
 //! the preview where each click on the straightened picture really lands (host.set_preview_warp).
 
+use crate::imgops::Remap;
 use crate::pixels::{put_rgb, to_rgb};
-use crate::sheet::{self, usable_corners, warp_for, Sheet, Warp, P, STRETCH_MAX, STRETCH_MIN};
+use crate::sheet::{self, usable_corners, warp_for, warp_map, Sheet, Warp, P, STRETCH_MAX, STRETCH_MIN};
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -41,7 +42,7 @@ const RESET_HINT: &str = n_("Double-click to reset");
 struct DeskStep {
     spares: Vec<Vec<u8>>,
     sheet: Sheet,
-    made: Option<((usize, usize), Warp)>,
+    made: Option<((usize, usize), Warp, Remap)>,
     poster: Option<Arc<dyn Poster>>,
 }
 
@@ -59,17 +60,18 @@ impl DeskStep {
         if size.0 < 2 || size.1 < 2 {
             return;
         }
-        if self.made.as_ref().is_none_or(|(s, _)| *s != size) {
+        if self.made.as_ref().is_none_or(|(s, _, _)| *s != size) {
             let warp = warp_for(&self.sheet, size.0, size.1);
             if let Some(poster) = &self.poster {
                 let m = &warp.on_preview;
                 poster.post(T_WARP, json!({"matrix": [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]]}));
             }
-            self.made = Some((size, warp));
+            let map = warp_map(size.0, size.1, &warp.matrix, warp.rect.2, warp.rect.3);
+            self.made = Some((size, warp, map));
         }
         let Some(rgb) = to_rgb(frame) else { return };
-        let warp = &self.made.as_ref().expect("made above").1;
-        let out = sheet::straighten(&rgb, size.0, size.1, &self.sheet, warp);
+        let (_, warp, map) = self.made.as_ref().expect("made above");
+        let out = sheet::straighten_with(&rgb, size.0, size.1, &self.sheet, warp, map);
         put_rgb(frame, &out);
         keep_bytes(rgb);
         keep_bytes(out);

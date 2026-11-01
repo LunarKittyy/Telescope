@@ -1,6 +1,7 @@
 //! test_background.py, by name, and the pictures Python recorded (tests/fixtures/make_vision_cards_fixtures.py).
 
 use super::*;
+use crate::imgops::blur_f32;
 use ring::digest::{digest, SHA256};
 use telescope_core::frame::PixelFormat;
 use telescope_core::testing::FakeHost;
@@ -353,6 +354,29 @@ fn the_helpers_match_opencv_to_the_byte() {
     }
 }
 
+/// blurred the way Python's floats do it, for what the quicker one is held against.
+fn blurred_as_python(frame: &Rgb, strength: i64, mask: &Gray) -> Rgb {
+    let (w, h) = (frame.w, frame.h);
+    let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+    let small = frame.shrink(sw, sh);
+    let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
+    let plain = small.blur(sigma);
+    let rest: Vec<f32> = mask.shrink(sw, sh).data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
+    let spread = blur_f32(&rest, sw, sh, 1, sigma);
+    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(&rest).flat_map(|(p, r)| p.iter().map(move |v| *v as f32 * r)).collect();
+    let total = blur_f32(&kept, sw, sh, 3, sigma);
+    let mut out = Rgb::new(sw, sh);
+    for ((i, o), v) in out.data.iter_mut().enumerate().zip(&total) {
+        let s = spread[i / 3];
+        let weight = (s * 4.0).clamp(0.0, 1.0);
+        *o = (v / s.max(1e-3) * weight + plain.data[i] as f32 * (1.0 - weight)).clamp(0.0, 255.0) as u8;
+    }
+    out.linear_exact(w, h)
+}
+
+/// The quicker blur's sums aren't OpenCV's to the last bit, and that much it may be off by.
+const BLUR_LEVELS: u8 = 1;
+
 #[test]
 fn each_setting_makes_the_picture_python_makes() {
     let v = recorded();
@@ -367,6 +391,16 @@ fn each_setting_makes_the_picture_python_makes() {
         let (w, h) = (case["w"].as_u64().unwrap() as usize, case["h"].as_u64().unwrap() as usize);
         let mut rig = Rig::with(BackgroundPlugin::with_reader(reader.clone()), Some(soft_mask(w, h)), vision::READY);
         rig.plugin.set_config(&case["config"]).unwrap();
-        assert_eq!(sha(&rig.process(&pattern(w, h)).data), case["sha"], "{case}");
+        let got = rig.process(&pattern(w, h));
+        if case["config"]["mode"] == "blur" {
+            let (frame, mask) = (pattern(w, h), soft_mask(w, h));
+            let (blur, edges) = (case["config"]["blur"].as_i64().unwrap(), case["config"]["edges"].as_i64().unwrap());
+            let want = compose(&frame, &mask.soften(edges), &blurred_as_python(&frame, blur, &mask));
+            assert_eq!(sha(&want.data), case["sha"], "{case}");
+            let worst = got.data.iter().zip(&want.data).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+            assert!(worst <= BLUR_LEVELS, "{worst} levels off: {case}");
+        } else {
+            assert_eq!(sha(&got.data), case["sha"], "{case}");
+        }
     }
 }

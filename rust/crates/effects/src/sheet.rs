@@ -1,9 +1,10 @@
 //! Desk mode's maths (plugins/desk.py): four corners marked on the preview, the sheet's real shape worked out from them, the
 //! perspective warp that straightens it and the clean-up that makes the writing stand out. Pixels are RGB, 3 bytes each.
 
-use crate::imgops::{grey_of, resize_area, Gray};
+use crate::imgops::{gauss_exact, grey_of, resize_area, resize_linear_fixed, Remap};
 use telescope_core::actions::round_half_even;
-use telescope_core::image::{over_rows, rint, spare_bytes};
+use telescope_core::avx2_too;
+use telescope_core::image::{keep_bytes, over_rows, rint, spare_bytes};
 use telescope_core::view::{view_to_shown, Geometry};
 
 /// Width over height of a paper size, standing up.
@@ -221,23 +222,21 @@ fn invert_like_opencv(m: &M3) -> M3 {
     ]
 }
 
-/// Positions are looked up in 1/32 pixels (INTER_BITS 5) and blended with 15-bit weights (INTER_REMAP_COEF_BITS).
+/// Positions are looked up in 1/32 pixels (INTER_BITS 5).
 const TAB_BITS: u32 = 5;
 const TAB_SIZE: i32 = 1 << TAB_BITS;
-const COEF_BITS: u32 = 15;
 
-/// cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE) on an 8-bit, 3-channel picture, the way OpenCV does it:
-/// the inverse matrix is applied in blocks of at most 32 x 32 pixels (so the sums round as they do there), each position is taken to
-/// the nearest 1/32 pixel, and the four pixels around it are blended with whole-number weights.
-pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, rh: usize) -> Vec<u8> {
+/// Where cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE) looks for each pixel, the way OpenCV works it out:
+/// the inverse matrix is applied in blocks of at most 32 x 32 pixels (so the sums round as they do there) and each position is taken
+/// to the nearest 1/32 pixel. It only changes with the corners, so frames share it.
+pub fn warp_map(w: usize, h: usize, matrix: &M3, rw: usize, rh: usize) -> Remap {
     let inv = invert_like_opencv(matrix);
     let m = [inv[0][0], inv[0][1], inv[0][2], inv[1][0], inv[1][1], inv[1][2], inv[2][0], inv[2][1], inv[2][2]];
-    let mut out = vec![0u8; rw * rh * 3];
+    let mut places = vec![(0, 0); rw * rh];
     // OpenCV's block: 32 x 32 = 1024 pixels, 16 rows tall when the picture allows. Its width sets where the rounding starts over
     let bh0 = 16.min(rh);
     let bw0 = (1024 / bh0).min(rw);
-    let (last_x, last_y) = (w as i64 - 1, h as i64 - 1);
-    over_rows(&mut out, rw * 3, |y, line| {
+    over_rows(&mut places, rw, |y, line| {
         let row = y as f64;
         let mut x = 0;
         while x < rw {
@@ -252,60 +251,86 @@ pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, 
                 let fx = rint(((x0 + m[0] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64));
                 let fy = rint(((y0 + m[3] * step) * wd).clamp(i32::MIN as f64, i32::MAX as f64));
                 // The position as a short, and what is left of it in 1/32 pixels
-                let sx = (fx >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
-                let sy = (fy >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) as i64;
-                let (ax, ay) = (fx & (TAB_SIZE - 1), fy & (TAB_SIZE - 1));
-                // The weights are exact: products of two 1/32 steps, in units of 1/32768
-                let weights = [(TAB_SIZE - ay) * (TAB_SIZE - ax), (TAB_SIZE - ay) * ax, ay * (TAB_SIZE - ax), ay * ax].map(|v| v << (COEF_BITS - 2 * TAB_BITS));
-                // BORDER_REPLICATE: a pixel outside the picture is the nearest one in it
-                let (x_a, x_b) = (sx.clamp(0, last_x) as usize, (sx + 1).clamp(0, last_x) as usize);
-                let (y_a, y_b) = (sy.clamp(0, last_y) as usize, (sy + 1).clamp(0, last_y) as usize);
-                for c in 0..3 {
-                    let at = |xx: usize, yy: usize| src[(yy * w + xx) * 3 + c] as i32;
-                    let sum = at(x_a, y_a) * weights[0] + at(x_b, y_a) * weights[1] + at(x_a, y_b) * weights[2] + at(x_b, y_b) * weights[3];
-                    line[(x + x1) * 3 + c] = ((sum + (1 << (COEF_BITS - 1))) >> COEF_BITS).clamp(0, 255) as u8;
-                }
+                let limit = |v: i32| (v >> TAB_BITS).clamp(i16::MIN as i32, i16::MAX as i32) << TAB_BITS | (v & (TAB_SIZE - 1));
+                line[x + x1] = (limit(fx), limit(fy));
             }
             x += bw0;
         }
     });
+    Remap::new(rw, rh, w, h, &places)
+}
+
+/// cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE) on an 8-bit, 3-channel picture.
+pub fn warp_perspective(src: &[u8], w: usize, h: usize, matrix: &M3, rw: usize, rh: usize) -> Vec<u8> {
+    let mut out = spare_bytes(rw * rh * 3);
+    warp_map(w, h, matrix, rw, rh).run(src, &mut out);
     out
 }
 
-/// The 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE: three full middle rows and one pixel above and below.
-const ELLIPSE: [(i32, i32); 17] = [
-    (0, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
-    (0, 2),
-];
+avx2_too! {
+    fn most_of_five(a: &[u8], b: &[u8], c: &[u8], d: &[u8], e: &[u8], out: &mut [u8]) {
+        for (o, (((a, b), (c, d)), e)) in out.iter_mut().zip(a.iter().zip(b).zip(c.iter().zip(d)).zip(e)) {
+            *o = (*a).max(*b).max(*c).max(*d).max(*e);
+        }
+    }
+}
+
+/// Each value's largest neighbour within two pixels along a row of `ch` to a pixel, as if the row went on in zeros.
+fn most_nearby(row: &[u8], ch: usize, out: &mut [u8]) {
+    let zero = vec![0u8; 2 * ch];
+    let mut padded = zero.clone();
+    padded.extend_from_slice(row);
+    padded.extend_from_slice(&zero);
+    let at = |n: usize| &padded[n * ch..][..row.len()];
+    most_of_five(at(0), at(1), at(2), at(3), at(4), out);
+}
+
+/// cv2.dilate with the 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE (three full middle rows and one pixel above and below), on
+/// pictures of `ch` to a pixel.
+fn dilate_ellipse(src: &[u8], w: usize, h: usize, ch: usize) -> Vec<u8> {
+    let rl = w * ch;
+    let mut wide = vec![0u8; rl * h];
+    wide.chunks_exact_mut(rl).zip(src.chunks_exact(rl)).for_each(|(o, row)| most_nearby(row, ch, o));
+    let none = vec![0u8; rl];
+    let row = |of: usize, at: isize| -> &[u8] {
+        match (at >= 0 && (at as usize) < h, of) {
+            (false, _) => &none,
+            (true, 0) => &src[at as usize * rl..][..rl],
+            (true, _) => &wide[at as usize * rl..][..rl],
+        }
+    };
+    let mut out = vec![0u8; rl * h];
+    for (y, line) in out.chunks_exact_mut(rl).enumerate() {
+        let y = y as isize;
+        most_of_five(row(0, y - 2), row(1, y - 1), row(1, y), row(1, y + 1), row(0, y + 2), line);
+    }
+    out
+}
+
+avx2_too! {
+    /// cv2.divide in floats, a zero below giving zero.
+    fn over_paper(sheet: &[u8], paper: &[u8], scale: f32, out: &mut [u8]) {
+        for (o, (s, p)) in out.iter_mut().zip(sheet.iter().zip(paper)) {
+            let d = *p as f32;
+            let v = (*s as f32 * scale / d).round_ties_even().clamp(0.0, 255.0);
+            *o = if *p == 0 { 0 } else { v as i32 as u8 };
+        }
+    }
+}
 
 /// The paper's uneven light divided out, so it goes white and the ink stays dark.
 pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let (sw, sh) = ((w / SHADE_SMALL).max(1), (h / SHADE_SMALL).max(1));
-    let mut paper_map: Vec<Vec<u8>> = Vec::new();
-    for c in 0..3 {
-        let plane: Vec<u8> = sheet.as_chunks::<3>().0.iter().map(|p| p[c]).collect();
-        let small = resize_area(&plane, w, h, 1, sw, sh);
-        // Ink is thin: the max is paper
-        let mut dilated = vec![0u8; sw * sh];
-        for y in 0..sh as i32 {
-            for x in 0..sw as i32 {
-                dilated[y as usize * sw + x as usize] = ELLIPSE.iter().filter_map(|(dx, dy)| {
-                    let (xx, yy) = (x + dx, y + dy);
-                    (xx >= 0 && yy >= 0 && xx < sw as i32 && yy < sh as i32).then(|| small[yy as usize * sw + xx as usize])
-                }).max().unwrap_or(0);
-            }
-        }
-        paper_map.push(Gray { w: sw, h: sh, data: dilated }.blur(2.0).linear_exact(w, h).into_data());
-    }
-    // cv2.divide in floats, a zero below giving zero
+    let small = resize_area(sheet, w, h, 3, sw, sh);
+    // Ink is thin: the max is paper
+    let dilated = dilate_ellipse(&small, sw, sh, 3);
+    let paper = resize_linear_fixed(&gauss_exact(&dilated, sw, sh, 3, 2.0), sw, sh, 3, w, h);
     let scale = (255.0 * INK) as f32;
-    let mut out = vec![0u8; sheet.len()];
-    for i in 0..w * h {
-        for c in 0..3 {
-            let p = paper_map[c][i] as f32;
-            out[i * 3 + c] = if p == 0.0 { 0 } else { (sheet[i * 3 + c] as f32 * scale / p).round_ties_even().clamp(0.0, 255.0) as u8 };
-        }
-    }
+    let mut out = spare_bytes(sheet.len());
+    let rl = w * 3;
+    over_rows(&mut out, rl, |y, line| over_paper(&sheet[y * rl..][..rl], &paper[y * rl..][..rl], scale, line));
+    keep_bytes(small);
+    keep_bytes(paper);
     out
 }
 
@@ -314,63 +339,47 @@ fn grey_plane(sheet: &[u8]) -> Vec<u8> {
     sheet.as_chunks::<3>().0.iter().map(|p| grey_of(p[0], p[1], p[2])).collect()
 }
 
+avx2_too! {
+    fn slide_columns(leaving: &[u8], coming: &[u8], sums: &mut [u32]) {
+        for (s, (l, c)) in sums.iter_mut().zip(leaving.iter().zip(coming)) {
+            *s = *s + *c as u32 - *l as u32;
+        }
+    }
+}
+
 /// Ink black, paper white: an adaptive threshold that follows the light across the sheet.
 pub fn black_and_white(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let grey = grey_plane(sheet);
     let block = 15usize.max((w.min(h) / 24) | 1);
-    let half = (block / 2) as i64;
-    // A summed-area table, so the mean of each block costs the same wherever it is; the edge repeats the pixel it ends on
-    let mut sums = vec![0u64; (w + 1) * (h + 1)];
-    for y in 0..h {
-        let mut row = 0u64;
-        for x in 0..w {
-            row += grey[y * w + x] as u64;
-            sums[(y + 1) * (w + 1) + x + 1] = sums[y * (w + 1) + x + 1] + row;
+    let half = block / 2;
+    let area = (block * block) as u32;
+    let row_at = |y: isize| &grey[y.clamp(0, h as isize - 1) as usize * w..][..w];
+    let grey = &grey;
+    let mut out = spare_bytes(w * h * 3);
+    // Sums down each column slide along the rows, the edges repeating the pixel they end on, and so does the window across them
+    telescope_core::image::over_bands(&mut out, w * 3, |first, part| {
+        let mut columns = vec![0u32; w];
+        for j in 0..block as isize {
+            let row = row_at(first as isize + j - half as isize);
+            columns.iter_mut().zip(row).for_each(|(s, v)| *s += *v as u32);
         }
-    }
-    let area = (block * block) as u64;
-    let mut out = vec![0u8; w * h * 3];
-    for y in 0..h as i64 {
-        for x in 0..w as i64 {
-            let mut total = 0u64;
-            // Along each axis: the part of the window inside the picture, and how many times the edge repeats on each side
-            let axis = |i: i64, n: i64| -> (i64, i64, i64, i64) {
-                let (lo, hi) = (i - half, i + half);
-                (lo.max(0), hi.min(n - 1), (-lo).max(0), (hi - (n - 1)).max(0))
-            };
-            let (x0, x1, lx, rx) = axis(x, w as i64);
-            let (y0, y1, ty, by) = axis(y, h as i64);
-            let rect = |xa: i64, xb: i64, ya: i64, yb: i64| -> u64 {
-                let at = |xx: i64, yy: i64| sums[yy as usize * (w + 1) + xx as usize];
-                at(xb + 1, yb + 1) + at(xa, ya) - at(xb + 1, ya) - at(xa, yb + 1)
-            };
-            // Columns and rows repeated at the edges count once for every time they repeat
-            let (mut cols, mut rows) = (Vec::new(), Vec::new());
-            cols.push((x0, x1, 1u64));
-            if lx > 0 {
-                cols.push((0, 0, lx as u64));
+        let rows = part.len() / (w * 3);
+        for (i, line) in part.chunks_exact_mut(w * 3).enumerate() {
+            let y = first + i;
+            let column = |x: isize| columns[x.clamp(0, w as isize - 1) as usize];
+            let mut total: u32 = (0..block as isize).map(|j| column(j - half as isize)).sum();
+            for (x, o) in line.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                // v > the rounded mean - 12, with no division
+                let on = (grey[y * w + x] as u32 + 12) * area > total + area / 2;
+                *o = [if on { 255 } else { 0 }; 3];
+                total = total + column((x + half + 1) as isize) - column(x as isize - half as isize);
             }
-            if rx > 0 {
-                cols.push((w as i64 - 1, w as i64 - 1, rx as u64));
+            if i + 1 < rows {
+                let top = y as isize - half as isize;
+                slide_columns(row_at(top), row_at(top + block as isize), &mut columns);
             }
-            rows.push((y0, y1, 1u64));
-            if ty > 0 {
-                rows.push((0, 0, ty as u64));
-            }
-            if by > 0 {
-                rows.push((h as i64 - 1, h as i64 - 1, by as u64));
-            }
-            for (ya, yb, ry) in &rows {
-                for (xa, xb, cx) in &cols {
-                    total += rect(*xa, *xb, *ya, *yb) * ry * cx;
-                }
-            }
-            let mean = (total + area / 2) / area;
-            let v = grey[y as usize * w + x as usize] as i64;
-            let on = if v > mean as i64 - 12 { 255 } else { 0 };
-            out[(y as usize * w + x as usize) * 3..][..3].fill(on);
         }
-    }
+    });
     out
 }
 
@@ -417,8 +426,15 @@ pub fn warp_for(sheet: &Sheet, w: usize, h: usize) -> Warp {
 
 /// The picture with the sheet straightened (and cleaned up), laid on the frame's own size.
 pub fn straighten(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp) -> Vec<u8> {
+    let (_, _, rw, rh) = warp.rect;
+    straighten_with(rgb, w, h, sheet, warp, &warp_map(w, h, &warp.matrix, rw, rh))
+}
+
+/// straighten with its warp_map already made.
+pub fn straighten_with(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp, map: &Remap) -> Vec<u8> {
     let (x, y, rw, rh) = warp.rect;
-    let mut flat = warp_perspective(rgb, w, h, &warp.matrix, rw, rh);
+    let mut flat = spare_bytes(rw * rh * 3);
+    map.run(rgb, &mut flat);
     let cleaned = match sheet.cleanup.as_str() {
         "contrast" => {
             flat = whiten(&flat, rw, rh);
@@ -438,6 +454,7 @@ pub fn straighten(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp) ->
     for row in 0..rh {
         out[((y + row) * w + x) * 3..][..rw * 3].copy_from_slice(&flat[row * rw * 3..][..rw * 3]);
     }
+    keep_bytes(flat);
     out
 }
 

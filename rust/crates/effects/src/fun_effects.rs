@@ -4,8 +4,9 @@
 
 use crate::cpu::Rgb;
 use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
-use crate::imgops::{compose, times_table, Gray};
+use crate::imgops::{compose, times, Gray, Remap};
 use std::collections::VecDeque;
+use telescope_core::avx2_too;
 use telescope_core::image::{over_rows, rint};
 use std::sync::Arc;
 
@@ -472,44 +473,55 @@ impl Vhs {
         let (sw, sh) = ((w / 3).max(1), (h / 2).max(1));
         let small = frame.area(sw, sh);
         let (mut y, mut cr, mut cb) = (Gray::scratch(sw, sh), Gray::scratch(sw, sh), Gray::scratch(sw, sh));
-        for (i, p) in small.data.as_chunks::<3>().0.iter().enumerate() {
-            let (r, g, b) = (p[0] as i32, p[1] as i32, p[2] as i32);
-            let l = (b * 1868 + g * 9617 + r * 4899 + 8192) >> 14;
-            y.data[i] = l as u8;
-            cr.data[i] = (((r - l) * 11682 + 2105344) >> 14).clamp(0, 255) as u8;
-            cb.data[i] = (((b - l) * 9241 + 2105344) >> 14).clamp(0, 255) as u8;
-        }
+        to_ycc(&small.data, &mut y.data, &mut cr.data, &mut cb.data);
         let shift = (sw / 120).max(1);
         let smear = |g: &Gray| roll(g, shift).box_blur(9, 1);
         let (cr, cb) = (smear(&cr), smear(&cb));
         let mut y = y.box_blur(3, 1);
         // each line a little off
-        for row in 0..sh {
+        for line in y.data.chunks_exact_mut(sw) {
             let n = self.noise.between(-12, 12);
-            for x in 0..sw {
-                let i = row * sw + x;
-                y.data[i] = (y.data[i] as i32 + n).clamp(0, 255) as u8;
+            let by = n.unsigned_abs() as u8;
+            if n < 0 {
+                line.iter_mut().for_each(|v| *v = v.saturating_sub(by));
+            } else {
+                line.iter_mut().for_each(|v| *v = v.saturating_add(by));
             }
         }
         let band = ((sh as i64 - ((self.t * 3) % (sh + 40)) as i64).rem_euclid(sh as i64)) as usize;
         let (lo, hi) = (band.saturating_sub(6), (band + 6).min(sh));
         let slide = self.noise.between(-8, 8);
-        for row in lo..hi {
-            let line = Gray { w: sw, h: 1, data: y.data[row * sw..(row + 1) * sw].to_vec() };
-            let rolled = roll(&line, slide.rem_euclid(sw as i32) as usize);
-            for x in 0..sw {
-                y.data[row * sw + x] = rolled.data[x].saturating_add(40);
-            }
+        for line in y.data.chunks_exact_mut(sw).take(hi).skip(lo) {
+            line.rotate_right(slide.rem_euclid(sw as i32) as usize);
+            line.iter_mut().for_each(|v| *v = v.saturating_add(40));
         }
         let mut out = Rgb::scratch(sw, sh);
-        for i in 0..sw * sh {
-            let (l, r, b) = (y.data[i] as i32, cr.data[i] as i32 - 128, cb.data[i] as i32 - 128);
-            let d = |v: i32| (v + (1 << 13)) >> 14;
-            out.data[i * 3] = (l + d(r * 22987)).clamp(0, 255) as u8;
-            out.data[i * 3 + 1] = (l + d(b * -5636 + r * -11698)).clamp(0, 255) as u8;
-            out.data[i * 3 + 2] = (l + d(b * 29049)).clamp(0, 255) as u8;
-        }
+        from_ycc(&y.data, &cr.data, &cb.data, &mut out.data);
         out.linear_exact(w, h)
+    }
+}
+
+avx2_too! {
+    /// cv2's BGR2YCrCb, fixed point, written out as planes.
+    fn to_ycc(rgb: &[u8], y: &mut [u8], cr: &mut [u8], cb: &mut [u8]) {
+        for (((p, y), cr), cb) in rgb.as_chunks::<3>().0.iter().zip(y).zip(cr).zip(cb) {
+            let (r, g, b) = (p[0] as i32, p[1] as i32, p[2] as i32);
+            let l = (b * 1868 + g * 9617 + r * 4899 + 8192) >> 14;
+            *y = l as u8;
+            *cr = (((r - l) * 11682 + 2105344) >> 14).clamp(0, 255) as u8;
+            *cb = (((b - l) * 9241 + 2105344) >> 14).clamp(0, 255) as u8;
+        }
+    }
+}
+
+avx2_too! {
+    /// cv2's YCrCb2BGR, fixed point.
+    fn from_ycc(y: &[u8], cr: &[u8], cb: &[u8], rgb: &mut [u8]) {
+        for (o, ((y, cr), cb)) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(y.iter().zip(cr).zip(cb)) {
+            let (l, r, b) = (*y as i32, *cr as i32 - 128, *cb as i32 - 128);
+            let d = |v: i32| (v + (1 << 13)) >> 14;
+            *o = [(l + d(r * 22987)).clamp(0, 255) as u8, (l + d(b * -5636 + r * -11698)).clamp(0, 255) as u8, (l + d(b * 29049)).clamp(0, 255) as u8];
+        }
     }
 }
 
@@ -522,10 +534,11 @@ impl Default for Vhs {
 /// np.roll along the rows: each one slides right by n, the end wrapping round to the start.
 fn roll(g: &Gray, n: usize) -> Gray {
     let mut out = Gray::scratch(g.w, g.h);
-    for y in 0..g.h {
-        for x in 0..g.w {
-            out.data[y * g.w + (x + n) % g.w] = g.data[y * g.w + x];
-        }
+    let n = n % g.w.max(1);
+    for (o, line) in out.data.chunks_exact_mut(g.w).zip(g.data.chunks_exact(g.w)) {
+        let (start, end) = line.split_at(g.w - n);
+        o[..n].copy_from_slice(end);
+        o[n..].copy_from_slice(start);
     }
     out
 }
@@ -536,9 +549,21 @@ fn roll(g: &Gray, n: usize) -> Gray {
 pub struct Crt {
     w: usize,
     h: usize,
-    /// For each output pixel, where in the picture it looks (x, y), in 32nds of a pixel as cv2.convertMaps to CV_16SC2 keeps it
-    maps: Vec<(i32, i32)>,
-    shade: Vec<[u8; 3]>,
+    /// For each output pixel, where in the picture it looks, as cv2.convertMaps to CV_16SC2 keeps it
+    bend: Remap,
+    /// What each colour of each pixel is multiplied by
+    shade: Vec<u8>,
+}
+
+avx2_too! {
+    /// The picture, a quarter of the glow rounded to even, and the shade over it all.
+    fn crt_row(bent: &[u8], glow: &[u8], shade: &[u8], out: &mut [u8]) {
+        for (o, ((b, g), s)) in out.iter_mut().zip(bent.iter().zip(glow).zip(shade)) {
+            let g = *g as u16;
+            let quarter = (g + ((g >> 2) & 1) + 1) >> 2;
+            *o = times((*b as u16 + quarter).min(255) as u8, *s) as u8;
+        }
+    }
 }
 
 impl Crt {
@@ -547,77 +572,36 @@ impl Crt {
         let (xs, ys) = (axis(w), axis(h));
         let pitch = 2.max(h / 270);
         let triad = [[1.0f32, 0.82, 0.82], [0.82, 1.0, 0.82], [0.82, 0.82, 1.0]];
-        let (mut maps, mut shade) = (Vec::with_capacity(w * h), Vec::with_capacity(w * h));
+        let (mut places, mut shade) = (Vec::with_capacity(w * h), Vec::with_capacity(w * h * 3));
         for (y, &py) in ys.iter().enumerate() {
             for x in 0..w {
                 let px = xs[x];
                 let r2 = px * px + py * py;
                 let bulge = 1.0 + 0.06 * r2;
                 let (mx, my) = ((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0);
-                maps.push((rint((mx * 32.0) as f64), rint((my * 32.0) as f64)));
+                let edge = (px * bulge).abs() > 1.0 || (py * bulge).abs() > 1.0;
+                places.push(if edge { Remap::OUTSIDE } else { (rint((mx * 32.0) as f64), rint((my * 32.0) as f64)) });
                 let mut s = (1.15 - 0.45 * r2).clamp(0.0, 1.0);
                 if y % pitch == pitch - 1 {
                     s *= 0.55;
                 }
                 // B, G, R columns in Python, so red leads here
                 let t = triad[x % 3];
-                let edge = (px * bulge).abs() > 1.0 || (py * bulge).abs() > 1.0;
-                let v = |c: usize| if edge { 0 } else { ((s * t[[2, 1, 0][c]]) * 255.0) as u8 };
-                shade.push([v(0), v(1), v(2)]);
+                shade.extend([2, 1, 0].map(|c| if edge { 0 } else { ((s * t[c]) * 255.0) as u8 }));
             }
         }
-        Crt { w, h, maps, shade }
+        Crt { w, h, bend: Remap::new(w, h, w, h, &places), shade }
     }
 
     pub fn run(&self, frame: &Rgb) -> Rgb {
         let (w, h) = (self.w, self.h);
-        let src = &frame.data[..w * h * 3];
-        let at = |x: i32, y: i32, c: usize| -> u32 {
-            if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
-                0
-            } else {
-                src[(y as usize * w + x as usize) * 3 + c] as u32
-            }
-        };
         let mut bent = Rgb::scratch(w, h);
-        over_rows(&mut bent.data, w * 3, |y, line| {
-            for (o, &(qx, qy)) in line.as_chunks_mut::<3>().0.iter_mut().zip(&self.maps[y * w..]) {
-                // remap's fixed point: a 32nd of a pixel, weights out of 32768
-                let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, (qx & 31) as u32, (qy & 31) as u32);
-                let weights = [(32 - fy) * (32 - fx) * 32, (32 - fy) * fx * 32, fy * (32 - fx) * 32, fy * fx * 32];
-                if x0 >= 0 && y0 >= 0 && x0 + 1 < w as i32 && y0 + 1 < h as i32 {
-                    let top = (y0 as usize * w + x0 as usize) * 3;
-                    let below = top + w * 3;
-                    for (c, v) in o.iter_mut().enumerate() {
-                        // SAFETY: all four taps are inside the picture, checked just above
-                        let sum = unsafe {
-                            *src.get_unchecked(top + c) as u32 * weights[0] + *src.get_unchecked(top + c + 3) as u32 * weights[1]
-                                + *src.get_unchecked(below + c) as u32 * weights[2] + *src.get_unchecked(below + c + 3) as u32 * weights[3]
-                        };
-                        *v = ((sum + (1 << 14)) >> 15) as u8;
-                    }
-                } else {
-                    for (c, v) in o.iter_mut().enumerate() {
-                        let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
-                        *v = ((sum + (1 << 14)) >> 15) as u8;
-                    }
-                }
-            }
-        });
+        self.bend.run(&frame.data[..w * h * 3], &mut bent.data);
         // a little glow
         let glow = bent.box_blur(9, 9);
-        let quarter: [u32; 256] = std::array::from_fn(|v| (v as f32 * 0.25).round_ties_even() as u32);
-        let times = times_table();
         let mut out = Rgb::scratch(w, h);
-        over_rows(&mut out.data, w * 3, |y, line| {
-            for (x, o) in line.as_chunks_mut::<3>().0.iter_mut().enumerate() {
-                let i = y * w + x;
-                for (c, v) in o.iter_mut().enumerate() {
-                    let lit = (bent.data[i * 3 + c] as u32 + quarter[glow.data[i * 3 + c] as usize]).min(255);
-                    *v = times[lit as usize * 256 + self.shade[i][c] as usize];
-                }
-            }
-        });
+        let rl = w * 3;
+        over_rows(&mut out.data, rl, |y, line| crt_row(&bent.data[y * rl..][..rl], &glow.data[y * rl..][..rl], &self.shade[y * rl..][..rl], line));
         out
     }
 }

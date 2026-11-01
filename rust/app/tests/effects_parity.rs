@@ -261,9 +261,11 @@ fn frame_rgb(rgb: &Rgb) -> Frame {
     f
 }
 
-/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): nothing at all, each is exact.
+/// How far apart the CPU effects' pictures may be from OpenCV's, as (max, mean, share over 8 levels): nothing at all, each is exact
+/// but the CRT, whose bend leaves the ring of pixels half off the picture black and glows a little less there.
 fn fun_limits(effect: &str) -> (u32, f64, f64) {
     match effect {
+        "crt" => (4, 0.03, 0.0),
         _ => (0, 0.0, 0.0),
     }
 }

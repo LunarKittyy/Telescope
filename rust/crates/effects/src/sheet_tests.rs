@@ -308,3 +308,47 @@ fn warp_perspective_matches_cv2_on_recorded_cases() {
         assert_eq!(wrong, 0, "case {n}: {wrong} of {} values differ (first at {:?})", want.len(), got.iter().zip(&want).position(|(a, b)| a != b));
     }
 }
+
+/// The window's mean as black_and_white takes it, the slow way.
+fn thresholded_slowly(grey: &[u8], w: usize, h: usize, block: usize) -> Vec<u8> {
+    let half = (block / 2) as i64;
+    let at = |x: i64, y: i64| grey[y.clamp(0, h as i64 - 1) as usize * w + x.clamp(0, w as i64 - 1) as usize] as u64;
+    (0..w * h).map(|i| {
+        let (x, y) = ((i % w) as i64, (i / w) as i64);
+        let total: u64 = (-half..=half).flat_map(|b| (-half..=half).map(move |a| (a, b))).map(|(a, b)| at(x + a, y + b)).sum();
+        let area = (block * block) as u64;
+        let mean = (total + area / 2) / area;
+        if grey[i] as i64 > mean as i64 - 12 { 255 } else { 0 }
+    }).collect()
+}
+
+#[test]
+fn black_and_white_takes_each_blocks_mean_with_the_edges_repeated() {
+    for (w, h) in [(60usize, 40usize), (331, 187), (17, 300)] {
+        let sheet: Vec<u8> = (0..w * h * 3).map(|i| ((i / 3 % 71) * 3 + (i / 3 / w) % 40) as u8).collect();
+        let grey: Vec<u8> = sheet.as_chunks::<3>().0.iter().map(|p| grey_of(p[0], p[1], p[2])).collect();
+        let want = thresholded_slowly(&grey, w, h, 15usize.max((w.min(h) / 24) | 1));
+        let got = black_and_white(&sheet, w, h);
+        assert_eq!(got.as_chunks::<3>().0.iter().map(|p| p[0]).collect::<Vec<_>>(), want, "{w}x{h}");
+    }
+}
+
+#[test]
+fn the_ellipse_is_the_one_opencv_makes() {
+    let (w, h) = (9, 7);
+    let mut dot = vec![0u8; w * h];
+    dot[3 * w + 4] = 200;
+    let grown = dilate_ellipse(&dot, w, h, 1);
+    let want = [
+        "         ",
+        "    #    ",
+        "  #####  ",
+        "  #####  ",
+        "  #####  ",
+        "    #    ",
+        "         ",
+    ];
+    for (row, line) in grown.chunks_exact(w).zip(want) {
+        assert_eq!(row.iter().map(|v| if *v == 200 { '#' } else { ' ' }).collect::<String>(), line);
+    }
+}

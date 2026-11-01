@@ -3,8 +3,8 @@
 //! sampling (pixel centres, repeated or reflected edges) so a picture made here lines up with the one Python makes.
 
 use crate::cpu::Rgb;
-use std::sync::OnceLock;
-use telescope_core::image::{keep_bytes, over_bands, rint, spare_bytes};
+use telescope_core::avx2_too;
+use telescope_core::image::{add_row, keep_bytes, over_bands, over_rows, rint, spare_bytes, sum_runs};
 pub use telescope_core::image::{grey_of, resize_area, resize_linear_fixed};
 
 /// A single-channel 8-bit picture: a mask, or brightness.
@@ -104,21 +104,15 @@ impl Rgb {
 
     /// pictures.shrink: INTER_AREA, in exact halves first, which averages the same pixels and is quicker.
     pub fn shrink(&self, w: usize, h: usize) -> Rgb {
-        let mut image = self.clone();
-        while image.w >= 2 * w && image.h >= 2 * h {
-            let (iw, ih) = (image.w - image.w % 2, image.h - image.h % 2);
-            let mut half = Rgb::new(iw / 2, ih / 2);
-            for y in 0..ih / 2 {
-                for x in 0..iw / 2 {
-                    for c in 0..3 {
-                        let at = |dy: usize, dx: usize| image.data[((2 * y + dy) * image.w + 2 * x + dx) * 3 + c] as u32;
-                        half.data[(y * (iw / 2) + x) * 3 + c] = ((at(0, 0) + at(0, 1) + at(1, 0) + at(1, 1) + 2) / 4) as u8;
-                    }
-                }
+        let (data, iw, ih) = halved_down(&self.data, self.w, self.h, 3, w, h);
+        match data {
+            None if (iw, ih) == (w, h) => self.clone(),
+            None => self.area(w, h),
+            Some(data) => {
+                let image = Rgb { w: iw, h: ih, data };
+                if (iw, ih) == (w, h) { image } else { image.area(w, h) }
             }
-            image = half;
         }
-        if (image.w, image.h) == (w, h) { image } else { image.area(w, h) }
     }
 
     /// cv2.GaussianBlur(image, (0, 0), sigma) to the byte.
@@ -158,19 +152,15 @@ impl Gray {
 
     /// pictures.shrink of a mask.
     pub fn shrink(&self, w: usize, h: usize) -> Gray {
-        let mut image = self.clone();
-        while image.w >= 2 * w && image.h >= 2 * h {
-            let (iw, ih) = (image.w / 2, image.h / 2);
-            let mut half = Gray::new(iw, ih);
-            for y in 0..ih {
-                for x in 0..iw {
-                    let at = |dy: usize, dx: usize| image.data[(2 * y + dy) * image.w + 2 * x + dx] as u32;
-                    half.data[y * iw + x] = ((at(0, 0) + at(0, 1) + at(1, 0) + at(1, 1) + 2) / 4) as u8;
-                }
+        let (data, iw, ih) = halved_down(&self.data, self.w, self.h, 1, w, h);
+        match data {
+            None if (iw, ih) == (w, h) => self.clone(),
+            None => self.area(w, h),
+            Some(data) => {
+                let image = Gray { w: iw, h: ih, data };
+                if (iw, ih) == (w, h) { image } else { image.area(w, h) }
             }
-            image = half;
         }
-        if (image.w, image.h) == (w, h) { image } else { image.area(w, h) }
     }
 
     /// cv2.GaussianBlur(mask, (0, 0), sigma) to the byte.
@@ -218,6 +208,38 @@ impl Gray {
     pub fn max(&self, other: &Gray) -> Gray {
         Gray { w: self.w, h: self.h, data: self.data.iter().zip(&other.data).map(|(&a, &b)| a.max(b)).collect() }
     }
+}
+
+/// The picture halved until the next halving would pass w x h: the pixels and their size, or None when it's small enough already.
+/// Each 2 x 2 goes to its rounded average; an odd row or column at the far edge is left out.
+fn halved_down(src: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: usize) -> (Option<Vec<u8>>, usize, usize) {
+    let (mut held, mut iw, mut ih): (Option<Vec<u8>>, _, _) = (None, w, h);
+    while iw >= 2 * tw && ih >= 2 * th && tw > 0 && th > 0 {
+        let half = halved(held.as_deref().unwrap_or(src), iw, ch, iw / 2, ih / 2);
+        if let Some(old) = held.replace(half) {
+            keep_bytes(old);
+        }
+        (iw, ih) = (iw / 2, ih / 2);
+    }
+    (held, iw, ih)
+}
+
+fn halved(src: &[u8], w: usize, ch: usize, bw: usize, bh: usize) -> Vec<u8> {
+    let (rowlen, used) = (bw * ch, bw * 2 * ch);
+    let mut out = spare_bytes(rowlen * bh);
+    over_bands(&mut out, rowlen, |first, part| {
+        let (mut line, mut spare) = (vec![0u16; used], vec![0u16; used]);
+        for (i, row) in part.chunks_exact_mut(rowlen).enumerate() {
+            line.fill(0);
+            add_row(&src[(first + i) * 2 * w * ch..][..used], &mut line);
+            add_row(&src[((first + i) * 2 + 1) * w * ch..][..used], &mut line);
+            sum_runs(&mut line, &mut spare, 2, ch);
+            for (o, s) in row.chunks_exact_mut(ch).zip(line.chunks_exact(2 * ch)) {
+                o.iter_mut().zip(s).for_each(|(o, s)| *o = ((*s + 2) >> 2) as u8);
+            }
+        }
+    });
+    out
 }
 
 /// A position mirrored back into 0..n the way BORDER_REFLECT_101 does (the edge pixel isn't repeated).
@@ -268,42 +290,65 @@ fn fixed_kernel(n: usize, sigma: f64) -> Vec<u32> {
     out
 }
 
+avx2_too! {
+    fn add_scaled(line: &[u16], k: u16, out: &mut [u16]) {
+        for (o, v) in out.iter_mut().zip(line) {
+            *o += k * *v;
+        }
+    }
+}
+
+avx2_too! {
+    fn add_scaled_wide(row: &[u16], k: u32, sums: &mut [u32]) {
+        for (s, v) in sums.iter_mut().zip(row) {
+            *s += k * *v as u32;
+        }
+    }
+}
+
+avx2_too! {
+    fn round_16(sums: &[u32], out: &mut [u8]) {
+        for (o, s) in out.iter_mut().zip(sums) {
+            *o = ((*s + 0x8000) >> 16).min(255) as u8;
+        }
+    }
+}
+
 /// cv2.GaussianBlur(src, (0, 0), sigma) on an 8-bit picture: OpenCV's fixed-point path, the same on every computer.
-fn gauss_exact(src: &[u8], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<u8> {
+pub(crate) fn gauss_exact(src: &[u8], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<u8> {
     // 3 sigma either way, rounded to an odd width
     let n = ((sigma * 3.0 * 2.0 + 1.0).round_ties_even() as usize) | 1;
     let kernel = fixed_kernel(n, sigma);
     let half = (n / 2) as isize;
     let across_at: Vec<usize> = (-half..w as isize + half).map(|i| reflect(i, w)).collect();
     let width = w * ch;
-    let mut across = vec![0u32; width * h];
-    let mut line = vec![0u32; across_at.len() * ch];
-    for (row, out) in src.chunks_exact(width).zip(across.chunks_exact_mut(width)) {
-        for (i, &x) in across_at.iter().enumerate() {
-            for c in 0..ch {
-                line[i * ch + c] = row[x * ch + c] as u32;
+    let mut across = vec![0u16; width * h];
+    let (kernel, across_at) = (&kernel, &across_at);
+    over_bands(&mut across, width, |first, part| {
+        let mut line = vec![0u16; across_at.len() * ch];
+        for (row, out) in src[first * width..].chunks_exact(width).zip(part.chunks_exact_mut(width)) {
+            for (l, &x) in line.chunks_exact_mut(ch).zip(across_at) {
+                l.iter_mut().zip(&row[x * ch..]).for_each(|(l, v)| *l = *v as u16);
+            }
+            out.fill(0);
+            for (j, &k) in kernel.iter().enumerate() {
+                add_scaled(&line[j * ch..], k as u16, out);
             }
         }
-        for (j, &k) in kernel.iter().enumerate() {
-            for (o, v) in out.iter_mut().zip(&line[j * ch..]) {
-                *o += k * v;
-            }
-        }
-    }
+    });
     let mut out = spare_bytes(width * h);
-    let mut sum = vec![0u32; width];
-    for (y, row) in out.chunks_exact_mut(width).enumerate() {
-        sum.fill(0);
-        for (j, &k) in kernel.iter().enumerate() {
-            let at = reflect(y as isize + j as isize - half, h);
-            for (s, v) in sum.iter_mut().zip(&across[at * width..(at + 1) * width]) {
-                *s += k * v;
+    let across = &across[..];
+    over_bands(&mut out, width, |first, part| {
+        let mut sum = vec![0u32; width];
+        for (y, row) in part.chunks_exact_mut(width).enumerate() {
+            sum.fill(0);
+            for (j, &k) in kernel.iter().enumerate() {
+                let at = reflect((first + y) as isize + j as isize - half, h);
+                add_scaled_wide(&across[at * width..(at + 1) * width], k, &mut sum);
             }
+            round_16(&sum, row);
         }
-        for (o, s) in row.iter_mut().zip(&sum) {
-            *o = ((s + 0x8000) >> 16).min(255) as u8;
-        }
-    }
+    });
     out
 }
 
@@ -361,6 +406,51 @@ pub fn blur_f32(src: &[f32], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<f
     out
 }
 
+avx2_too! {
+    fn add_scaled_f32(line: &[f32], k: f32, out: &mut [f32]) {
+        for (o, v) in out.iter_mut().zip(line) {
+            *o += k * *v;
+        }
+    }
+}
+
+avx2_too! {
+    fn add_pair_scaled(a: &[f32], b: &[f32], k: f32, out: &mut [f32]) {
+        for (o, (a, b)) in out.iter_mut().zip(a.iter().zip(b)) {
+            *o += k * (*a + *b);
+        }
+    }
+}
+
+/// A Gaussian blur of float32 values (`ch` to a pixel) for work that adds pictures up, with 3 sigma either way like the 8-bit blur
+/// and no attempt at OpenCV's last bits, as blur_f32 has.
+pub fn blur_quick(src: &[f32], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<f32> {
+    let n = ((sigma * 3.0 * 2.0 + 1.0).round_ties_even() as usize) | 1;
+    let kernel: Vec<f32> = gaussian_kernel(n, sigma).iter().map(|k| *k as f32).collect();
+    let half = n / 2;
+    let across_at: Vec<usize> = (-(half as isize)..(w + half) as isize).map(|i| reflect(i, w)).collect();
+    let width = w * ch;
+    let mut across = vec![0f32; width * h];
+    let mut line = vec![0f32; across_at.len() * ch];
+    for (row, out) in src.chunks_exact(width).zip(across.chunks_exact_mut(width)) {
+        for (l, &x) in line.chunks_exact_mut(ch).zip(&across_at) {
+            l.copy_from_slice(&row[x * ch..][..ch]);
+        }
+        for (j, &k) in kernel.iter().enumerate() {
+            add_scaled_f32(&line[j * ch..], k, out);
+        }
+    }
+    let mut out = vec![0f32; width * h];
+    for (y, row) in out.chunks_exact_mut(width).enumerate() {
+        add_scaled_f32(&across[y * width..(y + 1) * width], kernel[half], row);
+        for j in 1..=half {
+            let (a, b) = (reflect((y + j) as isize, h) * width, reflect(y as isize - j as isize, h) * width);
+            add_pair_scaled(&across[a..a + width], &across[b..b + width], kernel[half + j], row);
+        }
+    }
+    out
+}
+
 /// A separable kernel over every channel.
 fn gauss(src: &[u8], w: usize, h: usize, ch: usize, k: &[f32]) -> Vec<u8> {
     let half = (k.len() / 2) as isize;
@@ -383,51 +473,66 @@ fn gauss(src: &[u8], w: usize, h: usize, ch: usize, k: &[f32]) -> Vec<u8> {
     out
 }
 
-/// cv2.blur with running sums, so a big kernel costs the same as a small one. The rounding is OpenCV's for kernels of an odd area,
-/// the only ones used.
+avx2_too! {
+    /// Moves a column sum down a row.
+    fn slide_down(leaving: &[u8], coming: &[u8], sums: &mut [u16]) {
+        for (s, (l, c)) in sums.iter_mut().zip(leaving.iter().zip(coming)) {
+            *s = *s + *c as u16 - *l as u16;
+        }
+    }
+}
+
+/// A sum of n values divided by n and rounded as cv2.blur does for an odd n, by a multiply where the shift keeps it exact.
+#[derive(Clone, Copy)]
+struct Divide {
+    add: u16,
+    times: u32,
+    shift: u32,
+}
+
+impl Divide {
+    fn by(n: u32) -> Divide {
+        let shift = n.ilog2();
+        Divide { add: (n / 2) as u16, times: (1u64 << (16 + shift)).div_ceil(n as u64) as u32, shift }
+    }
+}
+
+avx2_too! {
+    fn divided(sums: &[u16], by: Divide, out: &mut [u8]) {
+        for (o, s) in out.iter_mut().zip(sums) {
+            *o = ((((*s + by.add) as u32 * by.times) >> 16) as u16 >> by.shift) as u8;
+        }
+    }
+}
+
+/// cv2.blur: column sums slide down the picture and each row sums them across in vectors, so a frame costs little whatever the
+/// picture. The rounding is OpenCV's for kernels of an odd area, the only ones used; kw is made of 2s and 3s and kw x kh is at most 196.
 fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec<u8> {
-    let n = (kw * kh) as u32;
-    let table: Vec<u8> = (0..=255 * n).map(|s| ((2 * s + n) / (2 * n)) as u8).collect();
     let rl = w * ch;
     let (half_w, half_h) = ((kw / 2) as isize, (kh / 2) as isize);
+    let by = Divide::by((kw * kh) as u32);
     // Where the pixels each side of a row come from, once: reflect is the slow part
     let edges: Vec<usize> = (-half_w..0).chain(w as isize..(w + kw) as isize - half_w - 1).map(|x| reflect(x, w) * ch).collect();
-    let across = |y: usize, padded: &mut [u8], line: &mut [u32]| {
-        let row = &src[y * rl..][..rl];
-        let (before, rest) = padded.split_at_mut(half_w as usize * ch);
-        let (middle, after) = rest.split_at_mut(rl);
-        middle.copy_from_slice(row);
-        for (p, &at) in before.chunks_exact_mut(ch).chain(after.chunks_exact_mut(ch)).zip(&edges) {
-            p.copy_from_slice(&row[at..at + ch]);
-        }
-        for c in 0..ch {
-            let mut sum: u32 = (0..kw).map(|i| padded[i * ch + c] as u32).sum();
-            line[c] = sum;
-            for x in 1..w {
-                sum = sum + padded[(x + kw - 1) * ch + c] as u32 - padded[(x - 1) * ch + c] as u32;
-                line[x * ch + c] = sum;
-            }
-        }
-    };
+    let row_at = |y: isize| &src[reflect(y, h) * rl..][..rl];
     let mut out = spare_bytes(h * rl);
-    let table = &table;
     over_bands(&mut out, rl, |first, part| {
-        let mut padded = vec![0u8; (w + kw - 1) * ch];
-        // The kernel's rows, the one a step down replaces at index (row's place) % kh
-        let mut window = vec![0u32; kh * rl];
-        let mut sums = vec![0u32; rl];
-        for (j, line) in window.chunks_exact_mut(rl).enumerate() {
-            across(reflect(first as isize + j as isize - half_h, h), &mut padded, line);
-            sums.iter_mut().zip(&*line).for_each(|(s, v)| *s += v);
+        let (mut sums, mut padded, mut spare) = (vec![0u16; rl], vec![0u16; (w + kw - 1) * ch], vec![0u16; (w + kw - 1) * ch]);
+        for j in 0..kh as isize {
+            add_row(row_at(first as isize + j - half_h), &mut sums);
         }
         let rows = part.len() / rl;
         for (i, line) in part.chunks_exact_mut(rl).enumerate() {
-            line.iter_mut().zip(&sums).for_each(|(o, s)| *o = table[*s as usize]);
+            let (before, rest) = padded.split_at_mut(half_w as usize * ch);
+            let (middle, after) = rest.split_at_mut(rl);
+            middle.copy_from_slice(&sums);
+            for (p, &at) in before.chunks_exact_mut(ch).chain(after.chunks_exact_mut(ch)).zip(&edges) {
+                p.copy_from_slice(&sums[at..at + ch]);
+            }
+            sum_runs(&mut padded, &mut spare, kw, ch);
+            divided(&padded[..rl], by, line);
             if i + 1 < rows {
-                let oldest = &mut window[(i % kh) * rl..][..rl];
-                sums.iter_mut().zip(&*oldest).for_each(|(s, v)| *s -= v);
-                across(reflect((first + i + kh) as isize - half_h, h), &mut padded, oldest);
-                sums.iter_mut().zip(&*oldest).for_each(|(s, v)| *s += v);
+                let top = (first + i) as isize - half_h;
+                slide_down(row_at(top), row_at(top + kh as isize), &mut sums);
             }
         }
     });
@@ -468,25 +573,187 @@ fn morph(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
     out
 }
 
-/// cv2.multiply(a, b, scale=1/255) for every a and b, looked up since a frame needs it twice a value.
-pub(crate) fn times_table() -> &'static [u8] {
-    static TABLE: OnceLock<Vec<u8>> = OnceLock::new();
-    TABLE.get_or_init(|| (0..256u32).flat_map(|a| (0..256u32).map(move |b| round8(a as f32 * b as f32 / 255.0))).collect())
+/// a * b / 255, rounded, as cv2.multiply(a, b, scale=1/255) in 16-bit lanes.
+#[inline(always)]
+pub(crate) fn times(a: u8, b: u8) -> u16 {
+    let x = a as u16 * b as u16 + 128;
+    (x + (x >> 8)) >> 8
+}
+
+avx2_too! {
+    fn compose_run(top: &[u8], under: &[u8], mask: &[u8], out: &mut [u8]) {
+        for (o, ((t, u), m)) in out.iter_mut().zip(top.iter().zip(under).zip(mask)) {
+            *o = (times(*t, *m) + times(*u, 255 - *m)).min(255) as u8;
+        }
+    }
+}
+
+avx2_too! {
+    /// Each mask value three times, for the colours of its pixel.
+    fn three_times(mask: &[u8], out: &mut [u8]) {
+        for (o, m) in out.as_chunks_mut::<3>().0.iter_mut().zip(mask) {
+            *o = [*m, *m, *m];
+        }
+    }
+}
+
+avx2_too! {
+    fn any_set(mask: &[u8]) -> bool {
+        mask.iter().fold(0, |a, b| a | *b) != 0
+    }
 }
 
 /// pictures.compose: top where mask is 255 over under, each term rounded as cv2.multiply(scale=1/255) does.
 pub fn compose(top: &Rgb, mask: &Gray, under: &Rgb) -> Rgb {
-    let times = times_table();
-    let mut out = Rgb::new(top.w, top.h);
-    for ((o, m), (t, u)) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(&mask.data).zip(top.data.as_chunks::<3>().0.iter().zip(under.data.as_chunks::<3>().0)) {
-        let m = *m as usize;
-        for c in 0..3 {
-            let a = times[t[c] as usize * 256 + m] as u16;
-            let b = times[u[c] as usize * 256 + (255 - m)] as u16;
-            o[c] = (a + b).min(255) as u8;
+    let (w, rl) = (top.w, top.w * 3);
+    let mut out = Rgb::scratch(top.w, top.h);
+    if rl == 0 {
+        return out;
+    }
+    over_bands(&mut out.data, rl, |first, part| {
+        let mut spread = vec![0u8; rl];
+        for (i, line) in part.chunks_exact_mut(rl).enumerate() {
+            let y = first + i;
+            let (t, u, m) = (&top.data[y * rl..][..rl], &under.data[y * rl..][..rl], &mask.data[y * w..][..w]);
+            if !any_set(m) {
+                // the same as the sum for mask 0, with no work
+                line.copy_from_slice(u);
+            } else {
+                three_times(m, &mut spread);
+                compose_run(t, u, &spread, line);
+            }
+        }
+    });
+    out
+}
+
+/// Where each output pixel of a warp looks in the source, worked out once for all the frames that use it.
+#[derive(Clone, Copy, Default)]
+#[repr(C)]
+struct Spot {
+    /// The byte of the pixel up and to the left of the spot.
+    at: u32,
+    fx: u8,
+    fy: u8,
+}
+
+/// A warp of 3-byte pixels with OpenCV's fixed point: a spot in 32nds of a pixel, the four pixels around it blended with whole-number
+/// weights and rounded once. Past the source's edges it repeats them; a place given as OUTSIDE stays black.
+pub struct Remap {
+    w: usize,
+    h: usize,
+    src_len: usize,
+    stride: usize,
+    spots: Vec<Spot>,
+    /// Each row's stretch that isn't black, and whether 8 bytes can be read at every spot on it and the row below.
+    rows: Vec<(u32, u32, bool)>,
+}
+
+impl Remap {
+    /// A place outside the picture, for a black pixel.
+    pub const OUTSIDE: (i32, i32) = (i32::MIN, i32::MIN);
+
+    /// places holds w * h positions (x, y) in the source, in 32nds of a pixel.
+    pub fn new(w: usize, h: usize, src_w: usize, src_h: usize, places: &[(i32, i32)]) -> Remap {
+        let stride = src_w * 3;
+        let src_len = stride * src_h;
+        // Two taps along an axis, as the first one and how far towards the second. The last pixel is reached from the one before it
+        let axis = |q: i32, n: usize| -> (usize, u8) {
+            let (at, part) = (q >> 5, (q & 31) as u8);
+            match at {
+                _ if n < 2 => (0, 0),
+                at if at < 0 => (0, 0),
+                at if at as usize >= n - 1 => (n - 2, 32),
+                at => (at as usize, part),
+            }
+        };
+        let mut spots = Vec::with_capacity(w * h);
+        let mut rows = Vec::with_capacity(h);
+        for line in places.chunks_exact(w.max(1)).take(h) {
+            let (mut first, mut end, mut roomy) = (line.len(), 0, true);
+            for (x, &place) in line.iter().enumerate() {
+                if place == Remap::OUTSIDE {
+                    spots.push(Spot::default());
+                    continue;
+                }
+                let ((sx, fx), (sy, fy)) = (axis(place.0, src_w), axis(place.1, src_h));
+                let at = (sy * src_w + sx) * 3;
+                spots.push(Spot { at: at as u32, fx, fy });
+                roomy &= at + stride + 8 <= src_len;
+                first = first.min(x);
+                end = x + 1;
+            }
+            rows.push((first.min(end) as u32, end as u32, roomy));
+        }
+        Remap { w, h, src_len, stride, spots, rows }
+    }
+
+    /// The warped picture of src into dst, w x h pixels.
+    pub fn run(&self, src: &[u8], dst: &mut [u8]) {
+        assert_eq!(src.len(), self.src_len, "a remap is made for one size of picture");
+        let (w, stride) = (self.w, self.stride);
+        over_rows(dst, w * 3, |y, line| {
+            let (first, end, roomy) = self.rows[y];
+            let (first, end) = (first as usize, end as usize);
+            let (before, rest) = line.split_at_mut(first * 3);
+            let (middle, after) = rest.split_at_mut((end - first) * 3);
+            before.fill(0);
+            after.fill(0);
+            remap_row(src, stride, &self.spots[y * w + first..y * w + end], middle, roomy);
+        });
+    }
+
+    pub fn size(&self) -> (usize, usize) {
+        (self.w, self.h)
+    }
+}
+
+fn remap_row(src: &[u8], stride: usize, spots: &[Spot], out: &mut [u8], roomy: bool) {
+    let mut done = 0;
+    #[cfg(target_arch = "x86_64")]
+    if roomy && std::arch::is_x86_feature_detected!("ssse3") {
+        // SAFETY: the processor was just asked, and roomy says every spot of this row can be read 8 bytes at a time on both rows
+        done = unsafe { remap_row_ssse3(src, stride, spots, out) };
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    let _ = roomy;
+    let tap = |i: usize| src.get(i).map_or(0, |v| *v as u32);
+    for (spot, o) in spots[done..].iter().zip(out[done * 3..].as_chunks_mut::<3>().0) {
+        let (at, fx, fy) = (spot.at as usize, spot.fx as u32, spot.fy as u32);
+        for (c, v) in o.iter_mut().enumerate() {
+            let top = tap(at + c) * (32 - fx) + tap(at + c + 3) * fx;
+            let below = tap(at + stride + c) * (32 - fx) + tap(at + stride + c + 3) * fx;
+            *v = ((top * (32 - fy) + below * fy + 512) >> 10) as u8;
         }
     }
-    out
+}
+
+/// All but the last spot of a row, one at a time, as the last would write past the row. Answers how many it did.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "ssse3")]
+unsafe fn remap_row_ssse3(src: &[u8], stride: usize, spots: &[Spot], out: &mut [u8]) -> usize {
+    use std::arch::x86_64::*;
+    let done = spots.len().saturating_sub(1);
+    let from = src.as_ptr();
+    let to = out.as_mut_ptr();
+    // Each colour of the two pixels side by side, then the three sums in the low bytes of their lanes
+    let side_by_side = _mm_setr_epi8(0, 3, 1, 4, 2, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+    let bytes = _mm_setr_epi8(0, 4, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+    let round = _mm_set1_epi32(512);
+    for (i, spot) in spots[..done].iter().enumerate() {
+        let (fx, fy) = (spot.fx as i16, spot.fy as i32);
+        let across = _mm_set1_epi16((fx << 8) | (32 - fx));
+        let down = _mm_set1_epi32((fy << 16) | (32 - fy));
+        let top = from.add(spot.at as usize).cast();
+        let top = _mm_maddubs_epi16(_mm_shuffle_epi8(_mm_loadl_epi64(top), side_by_side), across);
+        let below = from.add(spot.at as usize + stride).cast();
+        let below = _mm_maddubs_epi16(_mm_shuffle_epi8(_mm_loadl_epi64(below), side_by_side), across);
+        let sums = _mm_madd_epi16(_mm_unpacklo_epi16(top, below), down);
+        let px = _mm_shuffle_epi8(_mm_srli_epi32::<10>(_mm_add_epi32(sums, round)), bytes);
+        // 4 bytes down, the last one lands on the next pixel, which comes after it
+        to.add(i * 3).cast::<i32>().write_unaligned(_mm_cvtsi128_si32(px));
+    }
+    done
 }
 
 #[cfg(test)]
@@ -578,6 +845,85 @@ mod tests {
             ((2 * sum + 81) / 162) as u8
         }).collect();
         assert_eq!(Gray { w, h, data }.box_blur(k, k).data, want);
+    }
+
+    #[test]
+    fn a_divide_is_exact_for_every_sum_of_the_kernels_used() {
+        for n in [3u32, 9, 81] {
+            let by = Divide::by(n);
+            let sums: Vec<u16> = (0..=255 * n as u16).collect();
+            let mut out = vec![0; sums.len()];
+            divided(&sums, by, &mut out);
+            for (s, o) in sums.iter().zip(&out) {
+                assert_eq!(*o as u32, (2 * *s as u32 + n) / (2 * n), "{s} / {n}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_big_picture_blurs_the_same_across_its_bands() {
+        let (w, h) = (1200usize, 300usize);
+        let data: Vec<u8> = (0..w * h).map(|i| (i * i % 253) as u8).collect();
+        let k = 9isize;
+        let want: Vec<u8> = (0..w * h).filter(|i| i % 97 == 0).map(|i| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let sum: u32 = (-k / 2..=k / 2).flat_map(|a| (-k / 2..=k / 2).map(move |b| (a, b))).map(|(a, b)| data[reflect(y + a, h) * w + reflect(x + b, w)] as u32).sum();
+            ((2 * sum + 81) / 162) as u8
+        }).collect();
+        let got = Gray { w, h, data }.box_blur(9, 9);
+        assert_eq!(got.data.iter().step_by(97).copied().collect::<Vec<_>>(), want);
+    }
+
+    /// The four-tap sum OpenCV does for a spot, the edges repeating.
+    fn tapped(src: &[u8], w: usize, h: usize, (qx, qy): (i32, i32), c: usize) -> u8 {
+        let (sx, sy, ax, ay) = ((qx >> 5) as i64, (qy >> 5) as i64, qx & 31, qy & 31);
+        let at = |x: i64, y: i64| src[(y.clamp(0, h as i64 - 1) as usize * w + x.clamp(0, w as i64 - 1) as usize) * 3 + c] as i32;
+        let sum = at(sx, sy) * (32 - ay) * (32 - ax) + at(sx + 1, sy) * (32 - ay) * ax + at(sx, sy + 1) * ay * (32 - ax) + at(sx + 1, sy + 1) * ay * ax;
+        ((sum * 32 + (1 << 14)) >> 15) as u8
+    }
+
+    #[test]
+    fn a_remap_blends_as_opencv_does_on_every_kind_of_spot() {
+        for (sw, sh) in [(40usize, 30usize), (2, 2), (7, 1), (1, 7)] {
+            let src: Vec<u8> = (0..sw * sh * 3).map(|i| (i * i % 251) as u8).collect();
+            let (w, h) = (53, 41);
+            let places: Vec<(i32, i32)> = (0..w * h).map(|i| ((i * 37 % 3100) as i32 - 900, (i * 91 % 2400) as i32 - 700)).collect();
+            let mut out = vec![9; w * h * 3];
+            Remap::new(w, h, sw, sh, &places).run(&src, &mut out);
+            for (i, p) in places.iter().enumerate() {
+                for c in 0..3 {
+                    assert_eq!(out[i * 3 + c], tapped(&src, sw, sh, *p, c), "{sw}x{sh} spot {i}: {p:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_remap_is_black_where_it_was_told_and_reaches_the_far_corner() {
+        let (w, h) = (6usize, 5usize);
+        let src = vec![200u8; w * h * 3];
+        let last = (((w - 1) * 32) as i32, ((h - 1) * 32) as i32);
+        let places = [vec![Remap::OUTSIDE; w], vec![last; w * 3], vec![Remap::OUTSIDE; w], vec![Remap::OUTSIDE, last, last, last, last, Remap::OUTSIDE]].concat();
+        let mut out = vec![9; w * h * 3];
+        let map = Remap::new(w, h, w, h, &places);
+        map.run(&src, &mut out);
+        for (i, p) in out.as_chunks::<3>().0.iter().enumerate() {
+            assert_eq!(*p, [if places[i] == Remap::OUTSIDE { 0 } else { 200 }; 3], "{i}");
+        }
+    }
+
+    #[test]
+    fn compose_matches_the_rounded_terms_however_the_rows_look() {
+        let (w, h) = (9usize, 300usize);
+        let top = Rgb { w, h, data: (0..w * h * 3).map(|i| (i * 7 % 256) as u8).collect() };
+        let under = Rgb { w, h, data: (0..w * h * 3).map(|i| (i * 13 % 256) as u8).collect() };
+        let mask = Gray { w, h, data: (0..w * h).map(|i| if i / w < 100 { 0 } else { (i * 3 % 256) as u8 }).collect() };
+        let got = compose(&top, &mask, &under);
+        for i in 0..w * h * 3 {
+            let m = mask.data[i / 3] as f32;
+            let term = |a: u8, b: f32| ((a as f32 * b / 255.0).round() as i32).min(255);
+            assert_eq!(got.data[i] as i32, (term(top.data[i], m) + term(under.data[i], 255.0 - m)).min(255), "{i}");
+        }
     }
 
     #[test]
