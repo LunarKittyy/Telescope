@@ -87,6 +87,7 @@ The Python updater doesn't need to know about Rust. On Windows it swaps `Telesco
 ## Later ideas
 - **FFmpeg on Windows (owner's call, 2026-10-31):** ship the small decoder-only build. The GPL build with libx264 stays for tests only.
 - **H.265 (owner, 2026-10-31):** add it some day for phones that support it, after the rewrite. Keep the HEVC decoder in the small build if it costs little.
+- **Load balancing (owner, 2026-11-01):** the goal for running beside a heavy game, in this order: cheaper CPU effects; each effect picks CPU or GPU by itself from what a frame just cost, with no visible swap; a small even-timing buffer that only exists under load; the decoder in a child process so hardware decoding can come back; the integrated GPU when there is one; the front of the chain on the phone, when it's plugged in and measured fast enough. Nothing may need elevated permissions. Each step is measured against the stress test's `gpu` and `split` loads.
 
 ## What's done already
 
