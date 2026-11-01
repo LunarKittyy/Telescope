@@ -1,6 +1,7 @@
 //! Pixel work the cameras need: fitting a frame to the size an app picked, and the formats each camera takes.
 
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::resize_linear_into;
 
 /// frame scaled to fit width x height, keeping its shape, with black bars as needed (the same frame if it fits).
 pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
@@ -18,37 +19,15 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     ou.fill(128);
     ov.fill(128);
     let (fw, fh) = (frame.width as usize, frame.height as usize);
-    scale_plane(sy, fw, fh, oy, width as usize, (x as usize, y as usize, nw as usize, nh as usize));
+    resize_linear_into(sy, fw, fh, 1, oy, width as usize, (x as usize, y as usize, nw as usize, nh as usize));
     let (fcw, fch) = (fw.div_ceil(2), fh.div_ceil(2));
     let chroma = ((x / 2) as usize, (y / 2) as usize, nw.div_ceil(2) as usize, nh.div_ceil(2) as usize);
-    scale_plane(su, fcw, fch, ou, cw, chroma);
-    scale_plane(sv, fcw, fch, ov, cw, chroma);
+    resize_linear_into(su, fcw, fch, 1, ou, cw, chroma);
+    resize_linear_into(sv, fcw, fch, 1, ov, cw, chroma);
     let mut fitted = Frame::new(width, height, PixelFormat::I420, out);
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
     fitted
-}
-
-/// Bilinear scaling of one plane into the (x, y, w, h) box of dst.
-pub fn scale_plane(src: &[u8], sw: usize, sh: usize, dst: &mut [u8], dst_stride: usize, (x, y, w, h): (usize, usize, usize, usize)) {
-    if w == 0 || h == 0 || sw == 0 || sh == 0 {
-        return;
-    }
-    let dst_rows = dst.len() / dst_stride.max(1);
-    for row in 0..h.min(dst_rows.saturating_sub(y)) {
-        let fy = ((row as f32 + 0.5) * sh as f32 / h as f32 - 0.5).clamp(0.0, (sh - 1) as f32);
-        let (y0, wy) = (fy as usize, fy.fract());
-        let y1 = (y0 + 1).min(sh - 1);
-        for col in 0..w.min(dst_stride.saturating_sub(x)) {
-            let fx = ((col as f32 + 0.5) * sw as f32 / w as f32 - 0.5).clamp(0.0, (sw - 1) as f32);
-            let (x0, wx) = (fx as usize, fx.fract());
-            let x1 = (x0 + 1).min(sw - 1);
-            let p = |yy: usize, xx: usize| src[yy * sw + xx] as f32;
-            let top = p(y0, x0) * (1.0 - wx) + p(y0, x1) * wx;
-            let bottom = p(y1, x0) * (1.0 - wx) + p(y1, x1) * wx;
-            dst[(y + row) * dst_stride + x + col] = (top * (1.0 - wy) + bottom * wy + 0.5) as u8;
-        }
-    }
 }
 
 /// Writes an I420 frame as NV12 into out (Y plane, then U and V interleaved), which must hold w * h * 3 / 2 bytes.
